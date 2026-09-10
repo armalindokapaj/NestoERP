@@ -587,19 +587,27 @@ model ProjectMember {
 }
 
 model Client {
-  id        String       @id @default(cuid())
-  companyId String
-  code      String?
-  name      String
-  legalName String?
-  type      ClientType   @default(COMPANY)
-  email     String?
-  phone     String?
-  website   String?
-  address   String?
-  city      String?
-  country   String?
-  status    ClientStatus @default(ACTIVE)
+  id               String        @id @default(cuid())
+  companyId        String
+  code             String?
+  name             String
+  legalName        String?
+  type             ClientType    @default(COMPANY)
+  email            String?
+  phone            String?
+  website          String?
+  address          String?
+  city             String?
+  country          String?
+  status           ClientStatus  @default(ACTIVE)
+  /// The status to return to on restore, so an archived client comes back
+  /// INACTIVE if that is what it was (PRD #12 §70, §75).
+  preArchiveStatus ClientStatus?
+
+  /// Lower-cased, punctuation-stripped `name`, maintained by the service and
+  /// never edited directly. It exists so duplicate detection is an indexed
+  /// lookup rather than a scan (PRD #12 §55, §162).
+  normalizedName String?
 
   createdBy  String
   updatedBy  String?
@@ -621,22 +629,29 @@ model Client {
   @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, status])
+  @@index([companyId, updatedAt])
+  @@index([companyId, normalizedName])
   @@index([name])
+  @@index([email])
+  @@index([country])
   @@index([updatedAt])
   @@map("clients")
 }
 
 model Contact {
-  id        String        @id @default(cuid())
-  companyId String
-  clientId  String
-  firstName String
-  lastName  String
-  jobTitle  String?
-  email     String?
-  phone     String?
-  isPrimary Boolean       @default(false)
-  status    ContactStatus @default(ACTIVE)
+  id               String         @id @default(cuid())
+  companyId        String
+  clientId         String
+  firstName        String
+  lastName         String
+  jobTitle         String?
+  email            String?
+  phone            String?
+  isPrimary        Boolean        @default(false)
+  status           ContactStatus  @default(ACTIVE)
+  /// As on Client: restore returns the contact to the status it held
+  /// (PRD #12 §77, §88).
+  preArchiveStatus ContactStatus?
 
   createdBy  String
   updatedBy  String?
@@ -651,7 +666,9 @@ model Contact {
 
   @@index([companyId])
   @@index([clientId])
+  @@index([companyId, clientId, status])
   @@index([lastName, firstName])
+  @@index([email])
   @@index([status])
   @@map("contacts")
 }

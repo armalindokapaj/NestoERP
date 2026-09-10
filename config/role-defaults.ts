@@ -71,9 +71,15 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     MANAGE: ["task.assign", "task.reopen", "task.archive", "task.restore"],
   },
   clients: {
-    VIEW: ["client.view", "contact.view"],
+    VIEW: [
+      "client.view",
+      "contact.view",
+      "client.project.view",
+      "client.document.view",
+      "client.activity.view",
+    ],
     CONTRIBUTE: ["client.create", "client.update", "contact.create", "contact.update"],
-    MANAGE: ["client.archive", "client.restore", "contact.archive"],
+    MANAGE: ["client.archive", "client.restore", "contact.archive", "contact.restore"],
   },
   documents: {
     VIEW: ["document.view"],

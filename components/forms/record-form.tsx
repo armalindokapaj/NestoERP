@@ -30,6 +30,21 @@ export function useFieldErrors() {
   return React.useContext(FieldErrorContext);
 }
 
+/**
+ * Exported so a form that owns its own submit path — Clients needs one for
+ * "Create anyway" past a duplicate warning — still feeds the same `Field`
+ * components the same errors.
+ */
+export function FieldErrorProvider({
+  value,
+  children,
+}: {
+  value: Record<string, string[]>;
+  children: React.ReactNode;
+}) {
+  return <FieldErrorContext.Provider value={value}>{children}</FieldErrorContext.Provider>;
+}
+
 export const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
 

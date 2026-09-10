@@ -1,0 +1,48 @@
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import Link from "next/link";
+
+import { ModulePage } from "@/components/modules/module-page";
+import { Button } from "@/components/ui/button";
+import { SkeletonTable } from "@/components/ui/loading-state";
+import { can } from "@/lib/access/can";
+import { resolveModuleExperience } from "@/lib/access/module-access";
+import { requireModule } from "@/lib/context/current-user";
+import { ClientsList } from "../clients-list";
+
+export const metadata: Metadata = { title: "Archived Clients" };
+
+export default async function ClientsSectionPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const context = await requireModule("clients");
+  const experience = resolveModuleExperience(context, "clients");
+  const params = await searchParams;
+
+  return (
+    <ModulePage
+      experience={experience}
+      activeSection="archived"
+      actions={
+        can(context, "client.create") ? (
+          <Button asChild size="sm">
+            <Link href="/clients/new">New client</Link>
+          </Button>
+        ) : null
+      }
+    >
+      {/* Below the guard, so an unauthorised request is still refused by the
+          response itself rather than streamed a 200 (PRD #12 §189). */}
+      <Suspense fallback={<SkeletonTable rows={8} />}>
+        <ClientsList
+          context={context}
+          searchParams={params}
+          variant="archived"
+          basePath="/clients/archived"
+        />
+      </Suspense>
+    </ModulePage>
+  );
+}

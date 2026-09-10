@@ -8,6 +8,7 @@
  */
 import type { PrismaClient } from "@prisma/client";
 
+import { normalizeName } from "../../lib/modules/clients/client.duplicate";
 import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
 
 type Members = Map<string, string>;
@@ -119,12 +120,20 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
         type: client.type,
         status: client.status,
         email: `${client.code.toLowerCase()}@client.test`,
-        phone: "+355 69 000 0000",
+        // Distinct per client: a shared demo number would make every client
+        // look like a duplicate of every other one (PRD #12 §54).
+        phone: `+355 69 ${client.code.slice(-3)} 0000`,
         city: client.city,
         country: "Albania",
+        // The comparison key the duplicate check reads. Maintained by the
+        // service in the running product; set here so seeded data behaves the
+        // same way (PRD #12 §55).
+        normalizedName: normalizeName(client.name),
         createdBy: actor,
         archivedAt: client.status === "ARCHIVED" ? daysFromNow(-40) : null,
         archivedBy: client.status === "ARCHIVED" ? actor : null,
+        // Restoring the archived fixture returns it to ACTIVE (PRD #12 §74).
+        preArchiveStatus: client.status === "ARCHIVED" ? "ACTIVE" : null,
       },
     });
   }
@@ -440,6 +449,7 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
         type: "COMPANY",
         status: "ACTIVE",
         country: "Germany",
+        normalizedName: normalizeName(client.name),
         createdBy: "user_owner_b",
       },
     });
