@@ -7,11 +7,11 @@ import { widgets } from "@/config/widgets";
 import { can } from "@/lib/access/can";
 import {
   buildClientScopeWhere,
-  buildDocumentScopeWhere,
   buildProjectLinkedScopeWhere,
   buildProjectScopeWhere,
   buildTaskScopeWhere,
 } from "@/lib/access/scope";
+import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
@@ -150,7 +150,7 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
     case "documentCount":
       return String(
         await prisma.document.count({
-          where: { AND: [buildDocumentScopeWhere(context), { status: "ACTIVE" }] },
+          where: { AND: [buildDocumentAccessWhere(context), { status: "ACTIVE" }] },
         }),
       );
 
@@ -988,7 +988,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
 
     case "recentDocuments": {
       const rows = await prisma.document.findMany({
-        where: { AND: [buildDocumentScopeWhere(context), { status: "ACTIVE" }] },
+        where: { AND: [buildDocumentAccessWhere(context), { status: "ACTIVE" }] },
         orderBy: { createdAt: "desc" },
         take: 6,
         select: {

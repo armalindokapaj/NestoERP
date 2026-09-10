@@ -1,6 +1,6 @@
 # NESTO V0.1
 
-**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks & Clients**
+**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients & Documents**
 
 V0.1 is not the finished ERP. It is the permanent foundation: one application,
 one design system, one app shell, one navigation engine, one access system, one
@@ -9,7 +9,7 @@ meet NESTO from their own perspective, every module has a real route with real
 scoped data, and Projects is fully functional as the reference implementation
 every later module follows.
 
-Implements PRDs #1–#12.
+Implements PRDs #1–#13.
 
 | PRD | Delivered by |
 | --- | --- |
@@ -25,6 +25,7 @@ Implements PRDs #1–#12.
 | #10 Projects Module | `lib/modules/projects`, `app/(nesto)/projects`, `app/api/projects` |
 | #11 Tasks Module | `lib/modules/tasks`, `app/(nesto)/tasks`, `app/api/tasks` |
 | #12 Clients Module | `lib/modules/clients`, `app/(nesto)/clients`, `app/api/clients` |
+| #13 Documents Module | `lib/modules/documents`, `lib/storage`, `app/(nesto)/documents`, `app/api/documents` |
 
 ---
 
@@ -380,6 +381,55 @@ decision (PRD #12 §83–§88).
 Counts follow the reader, not the record: a client with four projects shows
 "2 active projects" to somebody who can open two of them, because the number
 itself would otherwise leak (PRD #12 §93).
+
+### Documents: one file system, one access rule
+
+Documents (PRD #13) is the canonical file layer. There is no `ProjectDocument`,
+no `FinanceAttachment` and no `HRFile` — one `Document` record and one stored
+object, with visibility decided entirely by who is asking.
+
+```
+lib/storage/
+  storage.interface.ts      the contract: put, get, exists, delete
+  local.storage.ts          filesystem adapter — private, path-traversal safe
+  index.ts                  selection and the test seam
+lib/modules/documents/
+  document.files.ts         allowlist, size ceiling, name sanitisation
+  document.parent-access.ts the resolver registry — the security core
+  document.repository.ts    queries, always through the access clause
+  document.service.ts       permission → parent → validate → store → row
+```
+
+**The invariant this module exists to hold** is one line, and it is enforced in
+one place:
+
+```
+document permission + parent module permission + parent record access
++ company isolation = document access
+```
+
+A generic `document.view` never reaches a Finance or HR file. A company-level
+document has no project or client to narrow it, so it requires *company-level*
+access to the module it was filed under — which is what keeps
+`Company Financial Summary.pdf` away from an Architect whose Finance access is
+scoped to their own projects, and away from Admin, who has no Finance access at
+all. Both are E2E release blockers.
+
+**Unregistered parents fail closed.** A document filed under an `entityType`
+whose module has not registered a resolver is excluded from every list and
+refused on detail, rather than quietly assumed safe.
+
+**Files are private.** Nothing is served statically and there is no signed URL
+to copy: `/api/documents/[id]/download` re-runs session, company, permission,
+parent access and document state on every request before a byte is sent, forces
+`attachment` for anything that could execute in a browser, and sets `nosniff`.
+Archiving keeps the object; only a failed upload deletes one.
+
+V0.1 ships the filesystem adapter, rooted at `DOCUMENT_STORAGE_ROOT`. An
+S3-compatible adapter belongs beside it and is deliberately not pretended into
+existence — the interface, the tenant-safe key layout (`companies/{companyId}/…`)
+and the `storageProvider` column are in place so adding one is a new file, not a
+redesign.
 
 ### Database
 
@@ -750,11 +800,13 @@ tables replaced by record cards, and filters in a sheet.
 
 ## Next
 
-Documents (PRD #13) gets the treatment Projects, Tasks and Clients have here:
-its own service layer, its own validation and its own upload flow, replacing
-the shared record registry entry with a full module.
+Every core entity now has its own module. `lib/modules/records` — the generic
+shell registry — holds no core sections at all any more, which is exactly what
+it was for.
 
 The department modules follow, one PRD at a time, each replacing its small test
-record with a real domain model. None of that requires a new shell, a new
+record with a real domain model: Team (#14), Finance (#15), HR (#16), Sales
+(#17), Legal (#18), Procurement (#19), Inventory (#20), QA/QC (#21) and HSE
+(#22). None of that requires a new shell, a new
 navigation engine, a new access system or a new design system — which is the
 whole point of V0.1.

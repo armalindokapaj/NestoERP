@@ -152,8 +152,9 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     group: "work",
     permission: "document.view",
     writePermission: "document.create",
-    defaultSection: "all",
+    defaultSection: "overview",
     sections: [
+      { key: "overview", label: "Overview" },
       { key: "all", label: "All Documents" },
       { key: "recent", label: "Recent" },
       { key: "archived", label: "Archived" },

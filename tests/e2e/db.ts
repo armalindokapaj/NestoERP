@@ -96,3 +96,17 @@ export async function removeTestClients(namePrefix: string): Promise<void> {
   await db.contact.deleteMany({ where: { clientId: { in: ids } } });
   await db.client.deleteMany({ where: { id: { in: ids } } });
 }
+
+/** Removes the documents a spec uploaded, so a rerun starts from the seed. */
+export async function removeTestDocuments(namePrefix: string): Promise<void> {
+  const documents = await db.document.findMany({
+    where: { name: { startsWith: namePrefix } },
+    select: { id: true },
+  });
+
+  if (documents.length === 0) return;
+  const ids = documents.map((document) => document.id);
+
+  await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+  await db.document.deleteMany({ where: { id: { in: ids } } });
+}

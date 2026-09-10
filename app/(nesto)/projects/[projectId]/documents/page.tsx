@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Files } from "lucide-react";
 
-import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { DocumentTable } from "@/components/documents/document-table";
 import { RecordContextHeader } from "@/components/modules/record-header";
-import { StatusBadge } from "@/components/modules/status-badge";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { buildDocumentScopeWhere } from "@/lib/access/scope";
-import { prisma } from "@/lib/database/prisma";
+import { can } from "@/lib/access/can";
+import { documentListQuerySchema } from "@/lib/modules/documents/document.schema";
+import * as documents from "@/lib/modules/documents/document.service";
 import * as projects from "@/lib/modules/projects/project.service";
-import { formatDate } from "@/lib/utils/format";
 import { loadProject, projectBreadcrumbs } from "../project-context";
 import { ProjectTabs } from "../project-tabs";
 
@@ -17,20 +18,12 @@ type Params = { params: Promise<{ projectId: string }> };
 
 export const metadata: Metadata = { title: "Documents" };
 
-type Row = {
-  id: string;
-  name: string;
-  mimeType: string | null;
-  sizeBytes: bigint | null;
-  status: string;
-  createdAt: Date;
-};
-
 /**
- * Project documents (PRD #10 §83, §86).
+ * Project documents (PRD #10 §83, PRD #13 §197).
  *
- * A document on this project is reachable only because the person can reach the
- * project: a bare `document.view` is never enough (PRD #8 §43).
+ * The same canonical Document records as /documents, filtered to this project.
+ * A document here is reachable only because the reader can reach the project —
+ * a bare `document.view` is never enough (PRD #13 §4, §37).
  */
 export default async function ProjectDocumentsPage({ params }: Params) {
   const { projectId } = await params;
@@ -39,36 +32,12 @@ export default async function ProjectDocumentsPage({ params }: Params) {
 
   if (!actions.canViewDocuments) redirect("/access-denied");
 
-  const documents: Row[] = await prisma.document.findMany({
-    where: { AND: [buildDocumentScopeWhere(context), { projectId }] },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: { id: true, name: true, mimeType: true, sizeBytes: true, status: true, createdAt: true },
-  });
+  const query = documentListQuerySchema.parse({ projectId, limit: 100 });
+  const result = await documents.listDocuments(context, query);
 
-  const columns: TableColumn<Row>[] = [
-    { key: "name", label: "Document", primary: true, render: (row) => row.name },
-    {
-      key: "type",
-      label: "Type",
-      hideBelow: "lg",
-      render: (row) => row.mimeType?.split("/").pop()?.toUpperCase() ?? "—",
-    },
-    {
-      key: "size",
-      label: "Size",
-      hideBelow: "xl",
-      align: "right",
-      render: (row) => (row.sizeBytes ? `${Math.round(Number(row.sizeBytes) / 1024)} KB` : "—"),
-    },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
-    {
-      key: "created",
-      label: "Added",
-      hideBelow: "lg",
-      render: (row) => formatDate(row.createdAt),
-    },
-  ];
+  const archived = project.archivedAt !== null || project.status === "ARCHIVED";
+  const canUpload = !archived && can(context, "document.create");
+  const uploadHref = `/documents/new?projectId=${project.id}`;
 
   return (
     <div className="space-y-5">
@@ -77,6 +46,13 @@ export default async function ProjectDocumentsPage({ params }: Params) {
         title={project.name}
         subtitle={project.code}
         status={project.status}
+        actions={
+          canUpload ? (
+            <Button asChild size="sm">
+              <Link href={uploadHref}>Add document</Link>
+            </Button>
+          ) : null
+        }
       />
 
       <ProjectTabs
@@ -90,19 +66,15 @@ export default async function ProjectDocumentsPage({ params }: Params) {
         }}
       />
 
-      {documents.length === 0 ? (
+      {result.data.length === 0 ? (
         <EmptyState
           icon={<Files />}
-          title="No documents on this project."
-          description="Documents filed against this project will appear here."
+          title="No documents have been added to this project."
+          description="Files filed against this project will appear here."
+          action={canUpload ? { label: "Add document", href: uploadHref } : undefined}
         />
       ) : (
-        <DataTable
-          caption={`${project.name} documents`}
-          columns={columns}
-          records={documents}
-          rowKey={(row) => row.id}
-        />
+        <DocumentTable documents={result.data} />
       )}
     </div>
   );
