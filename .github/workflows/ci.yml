@@ -19,7 +19,7 @@ env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nesto_test?schema=public
   AUTH_SECRET: ci-only-secret-not-used-in-any-deployment
   AUTH_TRUST_HOST: "true"
-  NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3210
+  NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
   NESTO_DEMO_PASSWORD: ci-demo-password
   NODE_ENV: test
 

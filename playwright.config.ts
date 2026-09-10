@@ -7,7 +7,13 @@ import { defineConfig, devices } from "@playwright/test";
  * an E2E suite against mocks proves nothing about authorisation (PRD #9 §223).
  * Artefacts are produced on failure only (PRD #9 §246).
  */
-const PORT = Number(process.env.E2E_PORT ?? 3210);
+/*
+ * NESTO runs on port 3000 and only port 3000 — dev, start, E2E and the role
+ * walk all point here, so a link copied from one is valid in the others.
+ * `reuseExistingServer` means a dev server already on 3000 is used as-is; for
+ * a strict production-build run, stop it first or set E2E_PORT.
+ */
+const PORT = Number(process.env.E2E_PORT ?? 3000);
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({

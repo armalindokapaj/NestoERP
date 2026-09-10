@@ -641,9 +641,15 @@ sidebar links to exactly its own modules; `/projects/new` matches whether the
 role holds `project.create`; and sign-out re-protects `/dashboard`.
 
 ```bash
-pnpm build && pnpm start
-BASE_URL=http://localhost:3000 pnpm verify:roles
+pnpm build && pnpm start   # port 3000
+pnpm verify:roles
 ```
+
+Everything in NESTO listens on **port 3000** and nothing else: `pnpm dev`,
+`pnpm start`, `pnpm test:e2e` and `pnpm verify:roles` all agree, so a URL
+copied out of one is valid in the others. `-p 3000` is explicit in the scripts
+so a busy port fails loudly instead of Next quietly moving to 3001. Override
+with `BASE_URL` or `E2E_PORT` if you must; the default never moves.
 
 The public-route pass reads `PUBLIC_ROUTES` rather than a list kept in the
 script, so a route added to what middleware admits is a route this walk loads.
