@@ -1,0 +1,321 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/*
+ * NESTO global stylesheet (design spec §93).
+ *
+ * tokens.css declares the raw values; this file maps them onto Tailwind's
+ * theme so components can only ever spend tokens, and defines the handful of
+ * structural rules the app shell needs.
+ */
+
+@theme inline {
+  /* ---- Colour (§5, §6) ----------------------------------------------- */
+  --color-canvas: var(--nesto-canvas);
+  --color-surface: var(--nesto-surface);
+  --color-surface-muted: var(--nesto-surface-muted);
+  --color-sidebar: var(--nesto-sidebar);
+  --color-row-hover: var(--nesto-row-hover);
+
+  --color-fg: var(--nesto-fg);
+  --color-fg-muted: var(--nesto-fg-muted);
+  --color-fg-subtle: var(--nesto-fg-subtle);
+
+  --color-line: var(--nesto-border);
+  --color-line-strong: var(--nesto-border-strong);
+
+  --color-primary: var(--nesto-primary);
+  --color-primary-fg: var(--nesto-primary-fg);
+  --color-primary-hover: var(--nesto-primary-hover);
+  --color-accent: var(--nesto-accent);
+  --color-accent-fg: var(--nesto-accent-fg);
+  --color-accent-strong: var(--nesto-accent-strong);
+  --color-accent-soft: var(--nesto-accent-soft);
+  --color-hover: var(--nesto-hover);
+  --color-ring: var(--nesto-ring);
+  --color-graphite: var(--nesto-graphite);
+  --color-graphite-fg: var(--nesto-graphite-fg);
+
+  --color-success: var(--nesto-success);
+  --color-success-strong: var(--nesto-success-strong);
+  --color-success-soft: var(--nesto-success-soft);
+  --color-warning: var(--nesto-warning);
+  --color-warning-strong: var(--nesto-warning-strong);
+  --color-warning-soft: var(--nesto-warning-soft);
+  --color-danger: var(--nesto-danger);
+  --color-danger-strong: var(--nesto-danger-strong);
+  --color-danger-soft: var(--nesto-danger-soft);
+  --color-info: var(--nesto-info);
+  --color-info-strong: var(--nesto-info-strong);
+  --color-info-soft: var(--nesto-info-soft);
+
+  /* ---- Typography (§7) ----------------------------------------------- */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-serif: var(--font-nesto-serif), "Iowan Old Style", "Palatino Linotype",
+    Palatino, Georgia, ui-serif, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* The scale from §7. Nothing in the product may go below 11px. */
+  --text-hero: 3.5rem; /* 56px — public hero only */
+  --text-hero--line-height: 1.05;
+  --text-hero--letter-spacing: -0.03em;
+  --text-display: 2.25rem; /* 36px */
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.03em;
+  --text-page: 1.75rem; /* 28px */
+  --text-page--line-height: 1.2;
+  --text-page--letter-spacing: -0.02em;
+  --text-section: 1.25rem; /* 20px */
+  --text-section--line-height: 1.35;
+  --text-section--letter-spacing: -0.015em;
+  --text-card: 1rem; /* 16px */
+  --text-card--line-height: 1.45;
+  --text-body: 0.875rem; /* 14px */
+  --text-body--line-height: 1.55;
+  --text-table: 0.8125rem; /* 13px */
+  --text-table--line-height: 1.4;
+  --text-meta: 0.75rem; /* 12px */
+  --text-meta--line-height: 1.45;
+  /* §7 sets the floor at 11px — nothing in the product may go below this. */
+  --text-micro: 0.6875rem; /* 11px */
+  --text-micro--line-height: 1.45;
+
+  /* ---- Radius (§9) --------------------------------------------------- */
+  --radius-sm: 6px;
+  --radius-md: 8px; /* buttons, inputs */
+  --radius-lg: 10px; /* small cards */
+  --radius-xl: 12px; /* dashboard cards */
+  --radius-2xl: 14px; /* dialogs */
+  --radius-3xl: 16px; /* large feature cards */
+
+  /* ---- Shadows (§10) ------------------------------------------------- */
+  --shadow-card: var(--nesto-shadow-card);
+  --shadow-menu: var(--nesto-shadow-menu);
+  --shadow-dialog: var(--nesto-shadow-dialog);
+
+  /* ---- Motion (§52, §53) --------------------------------------------- */
+  /* Applied to every bare `transition-*` utility, so motion is consistent
+     without each component restating a duration. */
+  --default-transition-duration: var(--nesto-motion);
+  --default-transition-timing-function: var(--nesto-ease);
+  --ease-nesto: var(--nesto-ease);
+
+  /* ---- Breakpoints (§35) --------------------------------------------- */
+  /*
+   * Mobile < 768 · Tablet 768–1199 · Desktop >= 1200 · Large desktop >= 1440.
+   *
+   * The whole scale is restated here on purpose: declaring any --breakpoint-*
+   * replaces the namespace rather than merging with Tailwind's defaults, so a
+   * partial list would silently drop `sm:` from the build.
+   */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1200px;
+  --breakpoint-2xl: 1440px;
+}
+
+@layer base {
+  * {
+    border-color: var(--nesto-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--nesto-canvas);
+    color: var(--nesto-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* §55: a visible 2px accent focus ring on every interactive control. */
+  :focus-visible {
+    outline: 2px solid var(--nesto-ring);
+    outline-offset: 2px;
+  }
+
+  /* §52: respect users who have asked for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Calm, unobtrusive scrollbars — enterprise density without the noise. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--nesto-border-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/*
+ * App shell geometry (§11, §14, §43, §44).
+ *
+ * The navigation width is a single custom property so the sidebar and the
+ * content offset can never disagree. It is resolved in CSS rather than React
+ * so the correct layout is server-rendered — there is no collapse flash.
+ *
+ *   < 1024px            no rail, navigation lives in the drawer
+ *   1024px – 1199px     icon rail (tablet landscape keeps navigation visible)
+ *   >= 1200px           full sidebar, collapsible by the user
+ */
+[data-sidebar] {
+  --nesto-nav-width: 0px;
+}
+
+@media (min-width: 1024px) {
+  [data-sidebar] {
+    --nesto-nav-width: var(--nesto-sidebar-width-collapsed);
+  }
+}
+
+@media (min-width: 1200px) {
+  [data-sidebar="expanded"] {
+    --nesto-nav-width: var(--nesto-sidebar-width);
+  }
+}
+
+@layer utilities {
+  /* §20: white surface, 12px radius, 1px border, minimal shadow. */
+  .nesto-card {
+    background-color: var(--nesto-surface);
+    border: 1px solid var(--nesto-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--nesto-shadow-card);
+  }
+
+  .nesto-skeleton {
+    background-color: var(--nesto-hover);
+    border-radius: var(--radius-sm);
+    animation: nesto-pulse 1.6s var(--nesto-ease) infinite;
+  }
+
+  /* Navigation labels collapse away with the rail; icons never do (§14). */
+  .nesto-rail .nesto-nav-label,
+  .nesto-rail .nesto-nav-group-label {
+    display: none;
+  }
+
+  .nesto-rail .nesto-nav-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .nesto-nav-divider {
+    display: none;
+  }
+
+  .nesto-rail .nesto-nav-divider {
+    display: block;
+  }
+
+  @media (min-width: 1200px) {
+    [data-sidebar="expanded"] .nesto-rail .nesto-nav-label,
+    [data-sidebar="expanded"] .nesto-rail .nesto-nav-group-label {
+      display: block;
+    }
+
+    [data-sidebar="expanded"] .nesto-rail .nesto-nav-item {
+      justify-content: flex-start;
+      padding-left: 0.625rem;
+      padding-right: 0.625rem;
+    }
+
+    [data-sidebar="expanded"] .nesto-rail .nesto-nav-divider {
+      display: none;
+    }
+  }
+}
+
+@keyframes nesto-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Drawer, dialog, dropdown and toast motion — §39, §52, §53. */
+@keyframes nesto-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes nesto-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes nesto-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes nesto-slide-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes nesto-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nesto-slide-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nesto-zoom-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+}
+
+@keyframes nesto-zoom-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+}
+
+@keyframes nesto-slide-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes nesto-slide-out-bottom {
+  to {
+    transform: translateY(100%);
+  }
+}

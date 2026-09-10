@@ -1,0 +1,136 @@
+// NESTO V0.1 — minimum database architecture.
+// Deliberately small: identity, company context and role membership only.
+// ERP domain tables arrive with V0.2+ (see spec §53).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// The 16 NESTO company roles (spec §12).
+enum Role {
+  OWNER
+  ADMIN
+  IT
+  HR
+  CEO
+  PROJECT_MANAGER
+  ARCHITECT
+  ENGINEER
+  FINANCE
+  LEGAL
+  SALES
+  PROCUREMENT
+  INVENTORY
+  QAQC
+  HSE
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum CompanyStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ModuleStatus {
+  AVAILABLE
+  COMING_SOON
+}
+
+model Company {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  logo      String?
+  industry  String?
+  country   String?
+  address   String?
+  email     String?
+  phone     String?
+  website   String?
+  status    CompanyStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  members CompanyMember[]
+  modules CompanyModule[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String     @unique
+  passwordHash String
+  phone        String?
+  avatar       String?
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  memberships CompanyMember[]
+
+  @@map("users")
+}
+
+/// Join between a user and a company. Carries the role, so a future user
+/// can belong to more than one company with a different role in each (spec §54).
+model CompanyMember {
+  id         String       @id @default(cuid())
+  companyId  String
+  userId     String
+  role       Role
+  department String?
+  jobTitle   String?
+  status     MemberStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([userId])
+  @@map("company_members")
+}
+
+/// Catalogue of NESTO modules. Company activation lives in CompanyModule (spec §48).
+model Module {
+  id     String       @id @default(cuid())
+  key    String       @unique
+  name   String
+  status ModuleStatus @default(AVAILABLE)
+
+  companies CompanyModule[]
+
+  @@map("modules")
+}
+
+model CompanyModule {
+  companyId String
+  moduleId  String
+  enabled   Boolean @default(true)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  module  Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([companyId, moduleId])
+  @@map("company_modules")
+}

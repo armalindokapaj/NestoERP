@@ -1,0 +1,63 @@
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils/cn";
+
+/**
+ * Structured loading placeholders (spec §60) — skeletons that mirror the shape
+ * of the content, never a bare spinner.
+ */
+export function SkeletonCards({ count = 4, className }: { count?: number; className?: string }) {
+  return (
+    <div className={cn("grid gap-4 sm:grid-cols-2 xl:grid-cols-4", className)}>
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="nesto-card p-5">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="mt-4 h-7 w-16" />
+          <Skeleton className="mt-3 h-3 w-32" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonTable({ rows = 6, className }: { rows?: number; className?: string }) {
+  return (
+    <div className={cn("nesto-card overflow-hidden", className)}>
+      <div className="border-b border-line px-4 py-3">
+        <Skeleton className="h-3 w-40" />
+      </div>
+      <div className="divide-y divide-line">
+        {Array.from({ length: rows }).map((_, index) => (
+          <div key={index} className="flex items-center gap-4 px-4 py-3.5">
+            <Skeleton className="size-8 rounded-full" />
+            <Skeleton className="h-3 flex-1 max-w-56" />
+            <Skeleton className="hidden h-3 w-32 sm:block" />
+            <Skeleton className="hidden h-3 w-20 md:block" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SkeletonNavigation({ items = 6 }: { items?: number }) {
+  return (
+    <div className="space-y-1.5 p-3">
+      {Array.from({ length: items }).map((_, index) => (
+        <Skeleton key={index} className="h-8 w-full" />
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonPage() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-6 w-56" />
+        <Skeleton className="mt-2 h-3 w-80" />
+      </div>
+      <SkeletonCards />
+      <SkeletonTable />
+    </div>
+  );
+}
