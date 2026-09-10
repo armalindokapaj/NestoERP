@@ -8,14 +8,16 @@ import { MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { requestPasswordResetAction } from "@/lib/actions/auth";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/lib/auth/schema";
 
 /**
- * Password recovery UI (spec §8).
+ * Password recovery (PRD #6 §55, §95).
  *
- * The screen architecture exists now; delivery is wired up when email is
- * configured. The confirmation is deliberately identical whether or not the
- * address exists, so this page cannot be used to enumerate accounts.
+ * The confirmation is identical whether or not the address exists, so this page
+ * cannot be used to enumerate accounts. V0.1 has no configured mail provider:
+ * the reset link is written to the server log by the default transport, which
+ * is also what the tests read.
  */
 export function ForgotPasswordForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -40,14 +42,18 @@ export function ForgotPasswordForm() {
           If an account exists for that address, a reset link is on its way.
         </p>
         <p className="mt-3 text-meta text-fg-subtle">
-          Email delivery is not configured in V0.1 — no message is sent yet.
+          No mail provider is configured in V0.1 — the link is written to the
+          server log instead of being sent.
         </p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit(() => setSubmitted(true))} className="space-y-4" noValidate>
+    <form onSubmit={handleSubmit(async (values) => {
+        await requestPasswordResetAction(values.email);
+        setSubmitted(true);
+      })} className="space-y-4" noValidate>
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
         <Input

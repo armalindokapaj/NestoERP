@@ -1,11 +1,10 @@
 import { Donut } from "@/components/charts/donut";
+import { MiniBars } from "@/components/charts/mini-bars";
 import { ProgressBar } from "@/components/charts/progress-bar";
-import { KpiCard } from "@/components/dashboard/kpi-card";
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { getIcon } from "@/components/layout/nav-icon";
 import { Badge } from "@/components/ui/badge";
-import type { KpiDefinition } from "@/config/dashboards";
-import { demoProjects, statusLabels, statusTones } from "@/lib/mock/demo-data";
+import { demoProjects, statusLabels, statusTones } from "@/lib/marketing/preview-data";
 
 /**
  * The product, on the public page (design spec §81).
@@ -17,23 +16,35 @@ import { demoProjects, statusLabels, statusTones } from "@/lib/mock/demo-data";
  * nothing inside it is reachable or actionable.
  */
 
-const previewKpis: KpiDefinition[] = [
+/**
+ * The preview carries its own figures rather than the live KPI registry: this
+ * is a marketing illustration, and it must not change shape when a real
+ * dashboard KPI is added or renamed.
+ */
+type PreviewKpi = {
+  key: string;
+  label: string;
+  value: string;
+  icon: string;
+  hint?: string;
+  series?: number[];
+};
+
+const previewKpis: PreviewKpi[] = [
   {
     key: "active-projects",
     label: "Active projects",
     value: "12",
     icon: "FolderKanban",
-    trend: { direction: "up", value: "+2", label: "this quarter" },
+    hint: "+2 this quarter",
     series: [6, 7, 7, 9, 10, 12],
-    chart: "bars",
   },
   {
     key: "contract-value",
     label: "Contracted value",
     value: "€24.6M",
     icon: "Wallet",
-    tone: "info",
-    trend: { direction: "up", value: "+8.4%", label: "against plan" },
+    hint: "+8.4% against plan",
     series: [14, 16, 18, 19, 22, 24.6],
   },
   {
@@ -41,8 +52,7 @@ const previewKpis: KpiDefinition[] = [
     label: "Open NCRs",
     value: "3",
     icon: "ClipboardCheck",
-    tone: "warning",
-    trend: { direction: "down", value: "−4", label: "since last month", tone: "success" },
+    hint: "−4 since last month",
     series: [9, 8, 7, 6, 4, 3],
   },
   {
@@ -50,10 +60,36 @@ const previewKpis: KpiDefinition[] = [
     label: "Days without incident",
     value: "184",
     icon: "ShieldCheck",
-    tone: "success",
     hint: "Across every active site",
   },
 ];
+
+function PreviewKpiCard({ kpi }: { kpi: PreviewKpi }) {
+  const Icon = getIcon(kpi.icon);
+
+  return (
+    <div className="nesto-card p-3.5">
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="grid size-7 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong"
+        >
+          <Icon className="size-3.5" />
+        </span>
+        <p className="min-w-0 truncate text-micro font-medium text-fg-muted">{kpi.label}</p>
+      </div>
+      <div className="mt-2.5 flex items-end justify-between gap-2">
+        <p className="text-section font-semibold tabular-nums text-fg">{kpi.value}</p>
+        {kpi.series ? (
+          <span className="hidden w-14 shrink-0 xl:block">
+            <MiniBars points={kpi.series} caption={`${kpi.label} trend`} />
+          </span>
+        ) : null}
+      </div>
+      {kpi.hint ? <p className="mt-1 text-micro text-fg-subtle">{kpi.hint}</p> : null}
+    </div>
+  );
+}
 
 const previewNav = [
   { label: "Dashboard", icon: "LayoutDashboard", active: true },
@@ -142,7 +178,7 @@ export function WorkspacePreview() {
 
           <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
             {previewKpis.map((kpi) => (
-              <KpiCard key={kpi.key} kpi={kpi} />
+              <PreviewKpiCard key={kpi.key} kpi={kpi} />
             ))}
           </div>
 

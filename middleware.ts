@@ -1,30 +1,24 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
-import { permissionsForRole } from "@/config/permissions";
-import type { RoleKey } from "@/config/roles";
 import { authConfig } from "@/lib/auth/auth.config";
-import { DEV_ROLE_COOKIE, isDevMode, resolveRole } from "@/lib/auth/dev-role";
-import {
-  isPublicRoute,
-  isRouteDisabledForCompany,
-  redirectsWhenAuthenticated,
-  requiredPermissions,
-} from "@/lib/permissions/route-access";
+import { isPublicRoute, redirectsWhenAuthenticated } from "@/lib/permissions/route-access";
 
 /**
- * Route protection (spec §55).
+ * Session gate (PRD #6 §43, §44).
  *
- * Instantiated from the edge-safe half of the auth config: middleware reads the
- * session token and the role configuration, and never touches the database.
+ * Instantiated from the edge-safe half of the auth config: it reads the session
+ * cookie and never touches the database. It answers only "is this person signed
+ * in?" — module permissions are resolved server-side by requireModule() inside
+ * the route, from the live database, so a revoked membership takes effect
+ * immediately and no restricted markup is ever produced (PRD #5 §128).
  */
 const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
-  const sessionUser = req.auth?.user;
-  const isAuthenticated = Boolean(sessionUser?.id);
+  const isAuthenticated = Boolean(req.auth?.user?.id);
 
   if (isPublicRoute(pathname)) {
     // An authenticated user has no business on /login or /forgot-password.
@@ -36,26 +30,12 @@ export default auth((req) => {
 
   if (!isAuthenticated) {
     const loginUrl = new URL("/login", nextUrl);
-    // Remember where they were headed so login can return them there.
+    // Remember where they were headed so login can return them there
+    // (PRD #6 §10).
     if (pathname !== "/") {
       loginUrl.searchParams.set("callbackUrl", pathname + nextUrl.search);
     }
     return NextResponse.redirect(loginUrl);
-  }
-
-  const actualRole = sessionUser!.role as RoleKey;
-  const role = isDevMode
-    ? resolveRole(actualRole, req.cookies.get(DEV_ROLE_COOKIE)?.value)
-    : actualRole;
-
-  const permissions = permissionsForRole(role);
-  const required = requiredPermissions(pathname);
-  const allowed =
-    !isRouteDisabledForCompany(pathname) &&
-    required.every((permission) => permissions.includes(permission));
-
-  if (!allowed) {
-    return NextResponse.rewrite(new URL("/access-denied", nextUrl));
   }
 
   return NextResponse.next();

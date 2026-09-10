@@ -1,10 +1,15 @@
 /**
- * The NESTO module registry (spec §30, §31, §48).
+ * The NESTO module registry (PRD #7 §9, PRD #3 §44–§45, PRD #5 §51).
  *
- * Every module page, sidebar entry and route permission is derived from this
- * file. Icons are stored as lucide icon *names* rather than components so that
- * this module stays edge-safe for middleware.
+ * Every sidebar entry, route guard, module header and set of module tabs is
+ * derived from this file. There is one registry, consumed identically by the
+ * desktop sidebar, the mobile drawer, middleware and the module shell
+ * (PRD #3 §99).
+ *
+ * Icons are stored as lucide icon *names* rather than components so the file
+ * stays edge-safe and serialisable across the server/client boundary.
  */
+import type { AccessLevel } from "./access";
 import type { Permission } from "./permissions";
 
 export const MODULE_KEYS = [
@@ -29,349 +34,343 @@ export const MODULE_KEYS = [
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
-/** Sidebar zones, in render order (spec §10). */
-export const MODULE_ZONES = ["MAIN", "WORK", "DEPARTMENT", "COMPANY"] as const;
-export type ModuleZone = (typeof MODULE_ZONES)[number];
+/** Sidebar groups, in render order (PRD #3 §8). */
+export const MODULE_GROUPS = ["primary", "work", "department", "company"] as const;
+export type ModuleGroup = (typeof MODULE_GROUPS)[number];
 
-export const zoneLabels: Record<ModuleZone, string | null> = {
-  MAIN: null,
-  WORK: "Work",
-  DEPARTMENT: "Department",
-  COMPANY: "Company",
+/** `null` means the group renders without a label (PRD #3 §84). */
+export const groupLabels: Record<ModuleGroup, string | null> = {
+  primary: null,
+  work: "Work",
+  department: "Department",
+  company: "Company",
 };
 
-export type ModuleTab = {
-  slug: string;
+/**
+ * A module section — the second level of NESTO navigation (PRD #3 §31).
+ *
+ * Sections are routes, not client state (PRD #7 §14): `/projects/all` rather
+ * than `/projects?tab=all`, so refresh, deep links and back/forward all work.
+ * The section whose `key` matches `defaultSection` renders at the module root.
+ */
+export type ModuleSectionConfig = {
+  key: string;
   label: string;
+  /** Extra permission beyond the module's own view permission. */
+  permission?: Permission;
+  /** Minimum module access level required for the section to render. */
+  accessLevel?: AccessLevel;
 };
 
 export type ModuleDefinition = {
   key: ModuleKey;
   label: string;
-  href: string;
+  description: string;
+  route: string;
   /** lucide-react icon name, resolved by components/layout/nav-icon.tsx */
   icon: string;
-  zone: ModuleZone;
-  /** Shown under the module title on the module landing page. */
-  description: string;
-  tabs: ModuleTab[];
+  group: ModuleGroup;
   /** Permission required to open any route under this module. */
-  viewPermission: Permission;
-  /** Permission required for /new and /edit routes under this module. */
+  permission: Permission;
+  /** Permission required by /new and /edit routes under this module. */
   writePermission?: Permission;
+  sections: ModuleSectionConfig[];
+  /** Section rendered at the module root. */
+  defaultSection?: string;
 };
 
 export const modules: Record<ModuleKey, ModuleDefinition> = {
   dashboard: {
     key: "dashboard",
     label: "Dashboard",
-    href: "/dashboard",
-    icon: "LayoutDashboard",
-    zone: "MAIN",
     description: "Your role overview across the company.",
-    tabs: [],
-    viewPermission: "dashboard.view",
+    route: "/dashboard",
+    icon: "LayoutDashboard",
+    group: "primary",
+    permission: "dashboard.view",
+    sections: [],
   },
   projects: {
     key: "projects",
     label: "Projects",
-    href: "/projects",
+    description: "Manage company projects and project activity.",
+    route: "/projects",
     icon: "FolderKanban",
-    zone: "WORK",
-    description: "Plan, track and deliver company projects.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "all", label: "All Projects" },
-      { slug: "mine", label: "My Projects" },
-      { slug: "archived", label: "Archived" },
-    ],
-    viewPermission: "project.view",
+    group: "work",
+    permission: "project.view",
     writePermission: "project.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "all", label: "All Projects" },
+      { key: "my-projects", label: "My Projects" },
+      { key: "archived", label: "Archived" },
+    ],
   },
   tasks: {
     key: "tasks",
     label: "Tasks",
-    href: "/tasks",
-    icon: "CircleCheckBig",
-    zone: "WORK",
     description: "Work assigned across projects and departments.",
-    tabs: [
-      { slug: "mine", label: "My Tasks" },
-      { slug: "all", label: "All Tasks" },
-      { slug: "completed", label: "Completed" },
-    ],
-    viewPermission: "task.view",
+    route: "/tasks",
+    icon: "SquareCheckBig",
+    group: "work",
+    permission: "task.view",
     writePermission: "task.create",
+    defaultSection: "my-tasks",
+    sections: [
+      { key: "my-tasks", label: "My Tasks" },
+      { key: "all", label: "All Tasks" },
+      { key: "completed", label: "Completed" },
+      { key: "archived", label: "Archived" },
+    ],
   },
   clients: {
     key: "clients",
     label: "Clients",
-    href: "/clients",
-    icon: "Building2",
-    zone: "WORK",
-    description: "Companies and contacts NESTO works with.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "clients", label: "Clients" },
-      { slug: "contacts", label: "Contacts" },
-    ],
-    viewPermission: "client.view",
+    description: "Companies and people your company works with.",
+    route: "/clients",
+    icon: "Users",
+    group: "work",
+    permission: "client.view",
     writePermission: "client.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "all", label: "Clients" },
+      { key: "contacts", label: "Contacts", permission: "contact.view" },
+      { key: "archived", label: "Archived" },
+    ],
   },
   documents: {
     key: "documents",
     label: "Documents",
-    href: "/documents",
-    icon: "FileText",
-    zone: "WORK",
-    description: "Company and project documentation.",
-    tabs: [
-      { slug: "all", label: "All Documents" },
-      { slug: "recent", label: "Recent" },
-      { slug: "shared", label: "Shared" },
-    ],
-    viewPermission: "document.view",
+    description: "Company, project and client documentation.",
+    route: "/documents",
+    icon: "Files",
+    group: "work",
+    permission: "document.view",
     writePermission: "document.create",
+    defaultSection: "all",
+    sections: [
+      { key: "all", label: "All Documents" },
+      { key: "recent", label: "Recent" },
+      { key: "archived", label: "Archived" },
+    ],
   },
   finance: {
     key: "finance",
     label: "Finance",
-    href: "/finance",
-    icon: "Wallet",
-    zone: "DEPARTMENT",
     description: "Company revenue, costs and financial control.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "invoices", label: "Invoices" },
-      { slug: "payments", label: "Payments" },
-      { slug: "expenses", label: "Expenses" },
-      { slug: "budgets", label: "Budgets" },
-      { slug: "reports", label: "Reports" },
+    route: "/finance",
+    icon: "ChartNoAxesCombined",
+    group: "department",
+    permission: "finance.view",
+    writePermission: "finance.invoice.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "invoices", label: "Invoices", permission: "finance.invoice.view" },
+      { key: "payments", label: "Payments", permission: "finance.payment.view" },
+      { key: "budgets", label: "Budgets", permission: "finance.budget.view" },
+      {
+        key: "project-budgets",
+        label: "Project Budgets",
+        permission: "finance.project_budget.view",
+      },
+      { key: "reports", label: "Reports", permission: "finance.company_summary.view" },
     ],
-    viewPermission: "finance.view",
-    writePermission: "finance.manage",
   },
   hr: {
     key: "hr",
     label: "HR",
-    href: "/hr",
-    icon: "Users",
-    zone: "DEPARTMENT",
     description: "People operations, records and recruitment.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "employees", label: "Employees" },
-      { slug: "attendance", label: "Attendance" },
-      { slug: "leave", label: "Leave" },
-      { slug: "recruitment", label: "Recruitment" },
-      { slug: "performance", label: "Performance" },
+    route: "/hr",
+    icon: "UserRoundCog",
+    group: "department",
+    permission: "hr.view",
+    writePermission: "hr.leave.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "employees", label: "Employees", permission: "hr.employee.view" },
+      { key: "leave", label: "Leave", permission: "hr.leave.view" },
+      { key: "my-profile", label: "My Profile", permission: "hr.profile.view" },
     ],
-    viewPermission: "hr.view",
-    writePermission: "hr.manage",
   },
   sales: {
     key: "sales",
     label: "Sales",
-    href: "/sales",
-    icon: "TrendingUp",
-    zone: "DEPARTMENT",
     description: "Pipeline, opportunities and commercial activity.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "pipeline", label: "Pipeline" },
-      { slug: "opportunities", label: "Opportunities" },
-      { slug: "proposals", label: "Proposals" },
-      { slug: "activities", label: "Activities" },
+    route: "/sales",
+    icon: "Handshake",
+    group: "department",
+    permission: "sales.view",
+    writePermission: "sales.opportunity.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "pipeline", label: "Pipeline", permission: "sales.opportunity.view" },
+      { key: "opportunities", label: "Opportunities", permission: "sales.opportunity.view" },
     ],
-    viewPermission: "sales.view",
-    writePermission: "sales.manage",
   },
   contracts: {
     key: "contracts",
-    label: "Contracts",
-    href: "/contracts",
-    icon: "Scale",
-    zone: "DEPARTMENT",
+    label: "Legal",
     description: "Contracts, approvals and legal records.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "contracts", label: "Contracts" },
-      { slug: "approvals", label: "Approvals" },
-      { slug: "notices", label: "Notices" },
-      { slug: "archive", label: "Archive" },
+    route: "/contracts",
+    icon: "Scale",
+    group: "department",
+    permission: "legal.view",
+    writePermission: "legal.contract.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "contracts", label: "Contracts", permission: "legal.contract.view" },
+      { key: "approvals", label: "Approvals", permission: "legal.contract.approve" },
+      { key: "archived", label: "Archive", permission: "legal.contract.view" },
     ],
-    viewPermission: "contract.view",
-    writePermission: "contract.manage",
   },
   procurement: {
     key: "procurement",
     label: "Procurement",
-    href: "/procurement",
+    description: "Purchasing, suppliers and order management.",
+    route: "/procurement",
     icon: "ShoppingCart",
-    zone: "DEPARTMENT",
-    description: "Manage company purchasing and supplier operations.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "requests", label: "Requests" },
-      { slug: "rfqs", label: "RFQs" },
-      { slug: "tenders", label: "Tenders" },
-      { slug: "suppliers", label: "Suppliers" },
-      { slug: "orders", label: "Purchase Orders" },
-      { slug: "deliveries", label: "Deliveries" },
+    group: "department",
+    permission: "procurement.view",
+    writePermission: "procurement.request.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "requests", label: "Requests", permission: "procurement.request.view" },
+      { key: "orders", label: "Purchase Orders", permission: "procurement.order.view" },
+      {
+        key: "approvals",
+        label: "Approvals",
+        permission: "procurement.request.approve",
+      },
     ],
-    viewPermission: "procurement.view",
-    writePermission: "procurement.manage",
   },
   inventory: {
     key: "inventory",
     label: "Inventory",
-    href: "/inventory",
-    icon: "Package",
-    zone: "DEPARTMENT",
     description: "Materials, stock levels and movements.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "items", label: "Items" },
-      { slug: "stock", label: "Stock" },
-      { slug: "movements", label: "Movements" },
-      { slug: "requests", label: "Requests" },
-      { slug: "locations", label: "Locations" },
+    route: "/inventory",
+    icon: "Package",
+    group: "department",
+    permission: "inventory.view",
+    writePermission: "inventory.item.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "items", label: "Items", permission: "inventory.item.view" },
+      { key: "movements", label: "Movements", permission: "inventory.movement.view" },
+      { key: "low-stock", label: "Low Stock", permission: "inventory.item.view" },
     ],
-    viewPermission: "inventory.view",
-    writePermission: "inventory.manage",
   },
   qaqc: {
     key: "qaqc",
     label: "QA/QC",
-    href: "/qaqc",
-    icon: "ClipboardCheck",
-    zone: "DEPARTMENT",
     description: "Inspections, non-conformances and quality control.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "inspections", label: "Inspections" },
-      { slug: "ncrs", label: "NCRs" },
-      { slug: "tests", label: "Tests" },
-      { slug: "punch-lists", label: "Punch Lists" },
-      { slug: "documents", label: "Documents" },
+    route: "/qaqc",
+    icon: "ShieldCheck",
+    group: "department",
+    permission: "qaqc.view",
+    writePermission: "qaqc.record.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "inspections", label: "Inspections", permission: "qaqc.record.view" },
+      { key: "ncrs", label: "NCRs", permission: "qaqc.record.view" },
+      { key: "punch-lists", label: "Punch Lists", permission: "qaqc.record.view" },
+      { key: "tests", label: "Tests", permission: "qaqc.record.view" },
     ],
-    viewPermission: "qaqc.view",
-    writePermission: "qaqc.manage",
   },
   hse: {
     key: "hse",
     label: "HSE",
-    href: "/hse",
-    icon: "ShieldCheck",
-    zone: "DEPARTMENT",
     description: "Health, safety and environment performance.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "incidents", label: "Incidents" },
-      { slug: "inspections", label: "Inspections" },
-      { slug: "permits", label: "Permits" },
-      { slug: "actions", label: "Actions" },
-      { slug: "documents", label: "Documents" },
+    route: "/hse",
+    icon: "HardHat",
+    group: "department",
+    permission: "hse.view",
+    writePermission: "hse.record.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "incidents", label: "Incidents", permission: "hse.record.view" },
+      { key: "inspections", label: "Inspections", permission: "hse.record.view" },
+      { key: "permits", label: "Permits", permission: "hse.record.view" },
+      { key: "actions", label: "Actions", permission: "hse.record.view" },
     ],
-    viewPermission: "hse.view",
-    writePermission: "hse.manage",
   },
   team: {
     key: "team",
     label: "Team",
-    href: "/team",
-    icon: "UsersRound",
-    zone: "COMPANY",
     description: "Everyone working inside your company workspace.",
-    tabs: [
-      { slug: "members", label: "Members" },
-      { slug: "departments", label: "Departments" },
-    ],
-    viewPermission: "team.view",
+    route: "/team",
+    icon: "UsersRound",
+    group: "company",
+    permission: "team.view",
     writePermission: "team.manage",
+    defaultSection: "people",
+    sections: [
+      { key: "people", label: "People" },
+      { key: "departments", label: "Departments" },
+    ],
   },
   company: {
     key: "company",
     label: "Company",
-    href: "/company",
-    icon: "Landmark",
-    zone: "COMPANY",
     description: "Company identity and organisation details.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "details", label: "Details" },
-    ],
-    viewPermission: "company.view",
+    route: "/company",
+    icon: "Building2",
+    group: "company",
+    permission: "company.view",
     writePermission: "company.manage",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "details", label: "Company Details" },
+      { key: "modules", label: "Modules", permission: "company.manage" },
+    ],
   },
   settings: {
     key: "settings",
     label: "Settings",
-    href: "/settings",
-    icon: "Settings",
-    zone: "COMPANY",
     description: "Your profile and company configuration.",
-    tabs: [],
-    viewPermission: "settings.view",
+    route: "/settings",
+    icon: "Settings",
+    group: "company",
+    permission: "settings.view",
     writePermission: "settings.manage",
+    sections: [],
   },
   support: {
     key: "support",
     label: "Support",
-    href: "/support",
-    icon: "LifeBuoy",
-    zone: "COMPANY",
     description: "Internal support requests and platform help.",
-    tabs: [
-      { slug: "overview", label: "Overview" },
-      { slug: "requests", label: "Requests" },
-      { slug: "knowledge", label: "Knowledge Base" },
+    route: "/support",
+    icon: "CircleHelp",
+    group: "company",
+    permission: "support.view",
+    writePermission: "support.request.create",
+    defaultSection: "overview",
+    sections: [
+      { key: "overview", label: "Overview" },
+      { key: "requests", label: "Requests", permission: "support.request.view" },
+      { key: "help", label: "Help" },
     ],
-    viewPermission: "support.view",
-    writePermission: "support.manage",
   },
 };
 
 export const moduleList: ModuleDefinition[] = MODULE_KEYS.map((key) => modules[key]);
 
+/** Modules that appear in the sidebar. Settings/Dashboard included; all listed. */
+export const navigableModules: ModuleDefinition[] = moduleList;
+
 export function isModuleKey(value: string): value is ModuleKey {
   return (MODULE_KEYS as readonly string[]).includes(value);
-}
-
-/**
- * Company-level module activation (spec §48).
- * V0.1 keeps every module enabled; this becomes company-specific in a later
- * version, at which point it is read from the CompanyModule table instead.
- */
-export const defaultCompanyModules: Record<ModuleKey, boolean> = {
-  dashboard: true,
-  projects: true,
-  tasks: true,
-  clients: true,
-  documents: true,
-  finance: true,
-  hr: true,
-  sales: true,
-  contracts: true,
-  procurement: true,
-  inventory: true,
-  qaqc: true,
-  hse: true,
-  team: true,
-  company: true,
-  settings: true,
-  support: true,
-};
-
-/**
- * Whether a module is switched on for the current company.
- *
- * V0.1 answers from the static defaults above. When activation becomes
- * company-specific this reads the CompanyModule rows instead; every caller —
- * sidebar and route guard — already goes through here.
- */
-export function isModuleEnabled(key: ModuleKey): boolean {
-  return defaultCompanyModules[key] ?? false;
 }
 
 /** Resolves a pathname such as /projects/abc/edit to its owning module. */
@@ -379,4 +378,18 @@ export function moduleForPath(pathname: string): ModuleDefinition | null {
   const segment = pathname.split("/").filter(Boolean)[0];
   if (!segment) return null;
   return isModuleKey(segment) ? modules[segment] : null;
+}
+
+/** The route for a module section: `/projects/all`. */
+export function sectionRoute(moduleKey: ModuleKey, sectionKey: string): string {
+  const definition = modules[moduleKey];
+  if (sectionKey === definition.defaultSection) return definition.route;
+  return `${definition.route}/${sectionKey}`;
+}
+
+export function findSection(
+  moduleKey: ModuleKey,
+  sectionKey: string,
+): ModuleSectionConfig | undefined {
+  return modules[moduleKey].sections.find((section) => section.key === sectionKey);
 }

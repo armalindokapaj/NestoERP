@@ -1,0 +1,1381 @@
+import { Prisma } from "@prisma/client";
+
+import { dashboardForRole } from "@/config/dashboards";
+import { kpis } from "@/config/kpis";
+import { quickActions } from "@/config/quick-actions";
+import { widgets } from "@/config/widgets";
+import { can } from "@/lib/access/can";
+import {
+  buildClientScopeWhere,
+  buildDocumentScopeWhere,
+  buildProjectLinkedScopeWhere,
+  buildProjectScopeWhere,
+  buildTaskScopeWhere,
+} from "@/lib/access/scope";
+import type { UserContext } from "@/lib/context/types";
+import { prisma } from "@/lib/database/prisma";
+import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
+import type {
+  ResolvedDashboard,
+  ResolvedKpi,
+  ResolvedWidget,
+  WidgetAlert,
+  WidgetPayload,
+} from "./dashboard.types";
+
+/**
+ * The dashboard resolver (PRD #4 §6, §83).
+ *
+ * user → role → permissions → module access → data scope → widgets.
+ *
+ * Nothing is rendered and then hidden: a widget whose permission the user does
+ * not hold is never loaded at all, and every query it runs is already scoped
+ * (PRD #4 §10, §19, §20). One widget failing leaves the rest of the dashboard
+ * working (PRD #4 §77).
+ */
+export async function resolveDashboard(context: UserContext): Promise<ResolvedDashboard> {
+  const config = dashboardForRole(context.role);
+
+  const visibleKpis = config.kpis
+    .map((key) => kpis[key])
+    .filter((definition) => definition && can(context, definition.permission));
+
+  const visibleWidgets = config.widgets
+    .map((key) => widgets[key])
+    .filter((definition) => definition && can(context, definition.permission))
+    .sort((a, b) => a.priority - b.priority);
+
+  const visibleActions = config.quickActions
+    .map((key) => quickActions[key])
+    .filter((definition) => definition && can(context, definition.permission));
+
+  const [resolvedKpis, resolvedWidgets] = await Promise.all([
+    Promise.all(
+      visibleKpis.map(async (definition): Promise<ResolvedKpi> => {
+        const value = await loadKpi(context, definition.key).catch(() => null);
+        return {
+          definition,
+          value: value ?? "—",
+        };
+      }),
+    ),
+    Promise.all(
+      visibleWidgets.map(async (definition): Promise<ResolvedWidget> => {
+        const payload = await loadWidget(context, definition.key).catch(
+          (): WidgetPayload => ({ kind: "error" }),
+        );
+        return { definition, payload };
+      }),
+    ),
+  ]);
+
+  return {
+    focus: config.focus,
+    kpis: resolvedKpis,
+    widgets: resolvedWidgets,
+    quickActions: visibleActions,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* KPIs                                                                        */
+/* -------------------------------------------------------------------------- */
+
+async function loadKpi(context: UserContext, key: string): Promise<string> {
+  switch (key) {
+    case "activeProjects":
+      return String(
+        await prisma.project.count({
+          where: { AND: [buildProjectScopeWhere(context), { status: "ACTIVE", archivedAt: null }] },
+        }),
+      );
+
+    case "myProjectCount":
+      return String(
+        await prisma.project.count({
+          where: {
+            companyId: context.companyId,
+            archivedAt: null,
+            OR: [
+              { projectManagerMemberId: context.membershipId },
+              {
+                members: { some: { companyMemberId: context.membershipId, status: "ACTIVE" } },
+              },
+            ],
+          },
+        }),
+      );
+
+    case "projectsAtRisk":
+      return String(await countProjectsAtRisk(context));
+
+    case "openTaskCount":
+      return String(
+        await prisma.task.count({
+          where: {
+            AND: [
+              buildTaskScopeWhere(context),
+              { archivedAt: null, status: { in: ["TODO", "IN_PROGRESS", "BLOCKED"] } },
+            ],
+          },
+        }),
+      );
+
+    case "overdueTaskCount":
+      return String(
+        await prisma.task.count({
+          where: {
+            AND: [
+              buildTaskScopeWhere(context),
+              {
+                archivedAt: null,
+                status: { in: ["TODO", "IN_PROGRESS", "BLOCKED"] },
+                dueDate: { lt: new Date() },
+              },
+            ],
+          },
+        }),
+      );
+
+    case "approvalCount":
+      return String((await loadApprovals(context)).length);
+
+    case "clientCount":
+      return String(
+        await prisma.client.count({
+          where: { AND: [buildClientScopeWhere(context), { status: "ACTIVE" }] },
+        }),
+      );
+
+    case "documentCount":
+      return String(
+        await prisma.document.count({
+          where: { AND: [buildDocumentScopeWhere(context), { status: "ACTIVE" }] },
+        }),
+      );
+
+    case "receivables":
+      return formatCurrency(
+        await sumInvoices(context, { status: { in: ["PENDING", "APPROVED", "OVERDUE"] } }),
+      );
+
+    case "overdueValue":
+      return formatCurrency(await sumInvoices(context, { status: "OVERDUE" }));
+
+    case "invoicedValue":
+      return formatCurrency(
+        await sumInvoices(context, { status: { in: ["APPROVED", "PAID", "OVERDUE", "PENDING"] } }),
+      );
+
+    case "projectInvoiced":
+      return formatCurrency(await sumInvoices(context, { projectId: { not: null } }));
+
+    case "headcount":
+      return String(
+        await prisma.companyMember.count({
+          where: { companyId: context.companyId, status: "ACTIVE" },
+        }),
+      );
+
+    case "pendingLeave":
+      return String(
+        await prisma.leaveRequest.count({
+          where: { ...leaveScope(context), status: "PENDING" },
+        }),
+      );
+
+    case "pipelineValue": {
+      const total = await prisma.opportunity.aggregate({
+        where: {
+          companyId: context.companyId,
+          archivedAt: null,
+          stage: { notIn: ["WON", "LOST"] },
+        },
+        _sum: { value: true },
+      });
+      return formatCurrency(decimalToNumber(total._sum.value));
+    }
+
+    case "openOpportunityCount":
+      return String(
+        await prisma.opportunity.count({
+          where: {
+            companyId: context.companyId,
+            archivedAt: null,
+            stage: { notIn: ["WON", "LOST"] },
+          },
+        }),
+      );
+
+    case "activeContracts":
+      return String(
+        await prisma.contract.count({
+          where: { companyId: context.companyId, status: "ACTIVE" },
+        }),
+      );
+
+    case "expiringContractCount":
+      return String(
+        await prisma.contract.count({
+          where: { companyId: context.companyId, status: "EXPIRING" },
+        }),
+      );
+
+    case "openRequests":
+      return String(
+        await prisma.purchaseRequest.count({
+          where: {
+            ...buildProjectLinkedScopeWhere(context, "procurement"),
+            status: { in: ["DRAFT", "SUBMITTED", "PENDING_APPROVAL", "APPROVED"] },
+          },
+        }),
+      );
+
+    case "openOrders":
+      return String(
+        await prisma.purchaseOrder.count({
+          where: {
+            ...buildProjectLinkedScopeWhere(context, "procurement"),
+            status: { in: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "ORDERED"] },
+          },
+        }),
+      );
+
+    case "stockValue": {
+      const items = await prisma.inventoryItem.findMany({
+        where: { companyId: context.companyId, archivedAt: null },
+        select: { quantity: true, unitCost: true },
+      });
+      const total = items.reduce(
+        (sum, item) => sum + item.quantity * decimalToNumber(item.unitCost),
+        0,
+      );
+      return formatCurrency(total);
+    }
+
+    case "lowStockCount":
+      return String(await countLowStock(context));
+
+    case "openQualityCount":
+      return String(
+        await prisma.qualityRecord.count({
+          where: {
+            ...buildProjectLinkedScopeWhere(context, "qaqc"),
+            status: { in: ["OPEN", "IN_PROGRESS"] },
+          },
+        }),
+      );
+
+    case "openNcrCount":
+      return String(
+        await prisma.qualityRecord.count({
+          where: {
+            ...buildProjectLinkedScopeWhere(context, "qaqc"),
+            type: "NCR",
+            status: { in: ["OPEN", "IN_PROGRESS"] },
+          },
+        }),
+      );
+
+    case "openIncidentCount":
+      return String(
+        await prisma.hseRecord.count({
+          where: {
+            ...buildProjectLinkedScopeWhere(context, "hse"),
+            type: "INCIDENT",
+            status: { in: ["OPEN", "IN_PROGRESS"] },
+          },
+        }),
+      );
+
+    case "openPermitCount":
+      return String(
+        await prisma.hseRecord.count({
+          where: {
+            ...buildProjectLinkedScopeWhere(context, "hse"),
+            type: "PERMIT",
+            status: { in: ["OPEN", "IN_PROGRESS"] },
+          },
+        }),
+      );
+
+    case "teamSize":
+      return String(
+        await prisma.companyMember.count({
+          where: { companyId: context.companyId, status: "ACTIVE" },
+        }),
+      );
+
+    case "enabledModuleCount":
+      return String(context.enabledModules.length);
+
+    case "openSupportCount":
+      return String(
+        await prisma.supportRequest.count({
+          where: { companyId: context.companyId, status: { in: ["OPEN", "IN_PROGRESS"] } },
+        }),
+      );
+
+    default:
+      return "—";
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Widgets                                                                     */
+/* -------------------------------------------------------------------------- */
+
+async function loadWidget(context: UserContext, key: string): Promise<WidgetPayload> {
+  switch (key) {
+    case "attention":
+      return { kind: "alerts", items: await loadAlerts(context) };
+
+    case "pendingApprovals":
+      return { kind: "approvals", items: await loadApprovals(context) };
+
+    case "recentActivity": {
+      const visibleModules = Object.values(context.moduleAccess)
+        .filter((access) => access.enabled && access.accessLevel !== "NONE")
+        .map((access) => access.module);
+
+      const rows = await prisma.activity.findMany({
+        where: { companyId: context.companyId, module: { in: visibleModules } },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: {
+          id: true,
+          message: true,
+          action: true,
+          createdAt: true,
+          actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
+        },
+      });
+
+      return {
+        kind: "activity",
+        items: rows.map((row) => ({
+          id: row.id,
+          actor: row.actorMember
+            ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}`
+            : "NESTO",
+          message: row.message ?? row.action,
+          createdAt: formatRelativeTime(row.createdAt),
+        })),
+      };
+    }
+
+    case "myProjects": {
+      const rows = await prisma.project.findMany({
+        where: {
+          companyId: context.companyId,
+          archivedAt: null,
+          OR: [
+            { projectManagerMemberId: context.membershipId },
+            { members: { some: { companyMemberId: context.membershipId, status: "ACTIVE" } } },
+          ],
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 6,
+        select: { id: true, name: true, code: true, status: true, client: { select: { name: true } } },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.name,
+          subtitle: row.client?.name ?? row.code,
+          status: row.status,
+          href: `/projects/${row.id}`,
+        })),
+      };
+    }
+
+    case "activeProjects": {
+      const scope = buildProjectScopeWhere(context);
+      const statuses = ["ACTIVE", "ON_HOLD", "DRAFT", "COMPLETED"] as const;
+      const counts = await Promise.all(
+        statuses.map((status) =>
+          prisma.project.count({ where: { AND: [scope, { status, archivedAt: null }] } }),
+        ),
+      );
+
+      return {
+        kind: "breakdown",
+        items: statuses.map((status, index) => ({
+          label: status,
+          status,
+          value: counts[index],
+          href: `/projects/all?status=${status}`,
+        })),
+      };
+    }
+
+    case "upcomingDeadlines": {
+      const rows = await prisma.project.findMany({
+        where: {
+          AND: [
+            buildProjectScopeWhere(context),
+            {
+              archivedAt: null,
+              endDate: { gte: new Date() },
+              status: { notIn: ["COMPLETED", "ARCHIVED"] },
+            },
+          ],
+        },
+        orderBy: { endDate: "asc" },
+        take: 5,
+        select: { id: true, name: true, code: true, endDate: true, status: true },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.name,
+          subtitle: row.code,
+          meta: row.endDate ? formatRelativeTime(row.endDate) : undefined,
+          status: row.status,
+          href: `/projects/${row.id}`,
+        })),
+      };
+    }
+
+    case "openTasks": {
+      const rows = await prisma.task.findMany({
+        where: {
+          AND: [
+            buildTaskScopeWhere(context),
+            { archivedAt: null, status: { in: ["TODO", "IN_PROGRESS", "BLOCKED"] } },
+          ],
+        },
+        orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { priority: "desc" }],
+        take: 6,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          dueDate: true,
+          project: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          subtitle: row.project?.name ?? "Personal task",
+          meta: row.dueDate ? formatRelativeTime(row.dueDate) : undefined,
+          status: row.status,
+          href: `/tasks/${row.id}`,
+        })),
+      };
+    }
+
+    case "taskBreakdown": {
+      const scope = buildTaskScopeWhere(context);
+      const statuses = ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"] as const;
+      const counts = await Promise.all(
+        statuses.map((status) =>
+          prisma.task.count({ where: { AND: [scope, { status, archivedAt: null }] } }),
+        ),
+      );
+
+      return {
+        kind: "breakdown",
+        items: statuses.map((status, index) => ({
+          label: status,
+          status,
+          value: counts[index],
+          href: `/tasks/all?status=${status}`,
+        })),
+      };
+    }
+
+    case "financeSummary": {
+      const statuses = ["DRAFT", "PENDING", "APPROVED", "PAID", "OVERDUE"] as const;
+      const counts = await Promise.all(
+        statuses.map((status) =>
+          prisma.invoice.count({ where: { ...invoiceScope(context), status } }),
+        ),
+      );
+
+      return {
+        kind: "breakdown",
+        items: statuses.map((status, index) => ({
+          label: status,
+          status,
+          value: counts[index],
+          href: `/finance/invoices?status=${status}`,
+        })),
+      };
+    }
+
+    case "overdueInvoices": {
+      const rows = await prisma.invoice.findMany({
+        where: { ...invoiceScope(context), status: "OVERDUE" },
+        orderBy: { dueDate: "asc" },
+        take: 5,
+        select: {
+          id: true,
+          invoiceNumber: true,
+          title: true,
+          amount: true,
+          dueDate: true,
+          client: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: `${row.invoiceNumber} · ${row.client?.name ?? row.title}`,
+          subtitle: formatCurrency(decimalToNumber(row.amount)),
+          meta: row.dueDate ? formatRelativeTime(row.dueDate) : undefined,
+          status: "OVERDUE",
+          href: `/finance/invoices/${row.id}`,
+        })),
+      };
+    }
+
+    case "projectBudgets": {
+      const grouped = await prisma.invoice.groupBy({
+        by: ["projectId"],
+        where: { ...invoiceScope(context), projectId: { not: null } },
+        _sum: { amount: true },
+      });
+
+      const projectIds = grouped
+        .map((row) => row.projectId)
+        .filter((id): id is string => id !== null);
+
+      const projects = await prisma.project.findMany({
+        where: { AND: [buildProjectScopeWhere(context), { id: { in: projectIds } }] },
+        select: { id: true, name: true, code: true, status: true },
+      });
+
+      const byId = new Map(projects.map((project) => [project.id, project]));
+
+      return {
+        kind: "list",
+        items: grouped
+          .filter((row) => row.projectId && byId.has(row.projectId))
+          .slice(0, 6)
+          .map((row) => {
+            const project = byId.get(row.projectId!)!;
+            return {
+              id: project.id,
+              title: project.name,
+              subtitle: project.code,
+              meta: formatCurrency(decimalToNumber(row._sum.amount)),
+              status: project.status,
+              href: `/projects/${project.id}`,
+            };
+          }),
+      };
+    }
+
+    case "leaveRequests": {
+      const rows = await prisma.leaveRequest.findMany({
+        where: leaveScope(context),
+        orderBy: [{ status: "asc" }, { startDate: "asc" }],
+        take: 6,
+        select: {
+          id: true,
+          type: true,
+          days: true,
+          status: true,
+          startDate: true,
+          employee: { select: { user: { select: { firstName: true, lastName: true } } } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: `${row.employee.user.firstName} ${row.employee.user.lastName}`,
+          subtitle: `${row.type} · ${row.days} days`,
+          meta: formatRelativeTime(row.startDate),
+          status: row.status,
+          href: `/hr/leave/${row.id}`,
+        })),
+      };
+    }
+
+    case "workforce": {
+      const grouped = await prisma.companyMember.groupBy({
+        by: ["departmentId"],
+        where: { companyId: context.companyId, status: "ACTIVE" },
+        _count: { _all: true },
+      });
+
+      const departments = await prisma.department.findMany({
+        where: { companyId: context.companyId },
+        select: { id: true, name: true },
+      });
+      const byId = new Map(departments.map((department) => [department.id, department.name]));
+
+      return {
+        kind: "breakdown",
+        items: grouped
+          .map((row) => ({
+            label: row.departmentId ? (byId.get(row.departmentId) ?? "Unassigned") : "Unassigned",
+            value: row._count._all,
+          }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 8),
+      };
+    }
+
+    case "salesPipeline": {
+      const grouped = await prisma.opportunity.groupBy({
+        by: ["stage"],
+        where: { companyId: context.companyId, archivedAt: null },
+        _sum: { value: true },
+        _count: { _all: true },
+      });
+
+      const order = ["LEAD", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
+
+      return {
+        kind: "breakdown",
+        items: grouped
+          .sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage))
+          .map((row) => ({
+            label: row.stage,
+            status: row.stage,
+            value: row._count._all,
+            display: formatCurrency(decimalToNumber(row._sum.value)),
+            href: `/sales/opportunities?stage=${row.stage}`,
+          })),
+      };
+    }
+
+    case "openOpportunities": {
+      const rows = await prisma.opportunity.findMany({
+        where: {
+          companyId: context.companyId,
+          archivedAt: null,
+          stage: { notIn: ["WON", "LOST"] },
+        },
+        orderBy: { value: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          name: true,
+          stage: true,
+          value: true,
+          expectedClose: true,
+          client: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.name,
+          subtitle: row.client?.name ?? undefined,
+          meta: formatCurrency(decimalToNumber(row.value)),
+          status: row.stage,
+          href: `/sales/opportunities/${row.id}`,
+        })),
+      };
+    }
+
+    case "contracts": {
+      const grouped = await prisma.contract.groupBy({
+        by: ["status"],
+        where: { companyId: context.companyId },
+        _count: { _all: true },
+      });
+
+      return {
+        kind: "breakdown",
+        items: grouped.map((row) => ({
+          label: row.status,
+          status: row.status,
+          value: row._count._all,
+          href: `/contracts/contracts?status=${row.status}`,
+        })),
+      };
+    }
+
+    case "expiringContracts": {
+      const rows = await prisma.contract.findMany({
+        where: { companyId: context.companyId, status: { in: ["EXPIRING", "PENDING_APPROVAL"] } },
+        orderBy: { endDate: "asc" },
+        take: 5,
+        select: {
+          id: true,
+          reference: true,
+          title: true,
+          status: true,
+          endDate: true,
+          client: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          subtitle: `${row.reference} · ${row.client?.name ?? "No client"}`,
+          meta: row.endDate ? formatRelativeTime(row.endDate) : undefined,
+          status: row.status,
+          href: `/contracts/contracts/${row.id}`,
+        })),
+      };
+    }
+
+    case "purchaseRequests": {
+      const grouped = await prisma.purchaseRequest.groupBy({
+        by: ["status"],
+        where: buildProjectLinkedScopeWhere(context, "procurement"),
+        _count: { _all: true },
+      });
+
+      return {
+        kind: "breakdown",
+        items: grouped.map((row) => ({
+          label: row.status,
+          status: row.status,
+          value: row._count._all,
+          href: `/procurement/requests?status=${row.status}`,
+        })),
+      };
+    }
+
+    case "purchaseOrders": {
+      const rows = await prisma.purchaseOrder.findMany({
+        where: buildProjectLinkedScopeWhere(context, "procurement"),
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          reference: true,
+          supplier: true,
+          amount: true,
+          status: true,
+          project: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: `${row.reference} · ${row.supplier}`,
+          subtitle: row.project?.name ?? "No project",
+          meta: formatCurrency(decimalToNumber(row.amount)),
+          status: row.status,
+          href: `/procurement/orders/${row.id}`,
+        })),
+      };
+    }
+
+    case "lowStock": {
+      const rows = await lowStockItems(context, 6);
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.name,
+          subtitle: row.sku,
+          meta: `${row.quantity} ${row.unit} · reorder at ${row.reorderLevel}`,
+          status: row.quantity === 0 ? "BLOCKED" : "PENDING",
+          href: `/inventory/items/${row.id}`,
+        })),
+      };
+    }
+
+    case "recentMovements": {
+      const rows = await prisma.inventoryMovement.findMany({
+        where: { companyId: context.companyId },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          type: true,
+          quantity: true,
+          createdAt: true,
+          item: { select: { name: true, unit: true } },
+          project: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.item.name,
+          subtitle: `${row.type} · ${row.quantity} ${row.item.unit}`,
+          meta: formatRelativeTime(row.createdAt),
+          href: "/inventory/movements",
+        })),
+      };
+    }
+
+    case "qualityRecords": {
+      const grouped = await prisma.qualityRecord.groupBy({
+        by: ["type"],
+        where: {
+          ...buildProjectLinkedScopeWhere(context, "qaqc"),
+          status: { in: ["OPEN", "IN_PROGRESS"] },
+        },
+        _count: { _all: true },
+      });
+
+      return {
+        kind: "breakdown",
+        items: grouped.map((row) => ({
+          label: row.type,
+          status: row.type,
+          value: row._count._all,
+        })),
+      };
+    }
+
+    case "openNcrs": {
+      const rows = await prisma.qualityRecord.findMany({
+        where: {
+          ...buildProjectLinkedScopeWhere(context, "qaqc"),
+          type: "NCR",
+          status: { in: ["OPEN", "IN_PROGRESS"] },
+        },
+        orderBy: [{ severity: "desc" }, { dueDate: "asc" }],
+        take: 5,
+        select: {
+          id: true,
+          reference: true,
+          title: true,
+          status: true,
+          severity: true,
+          project: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          subtitle: `${row.reference} · ${row.project?.name ?? "No project"}`,
+          meta: row.severity ?? undefined,
+          status: row.status,
+          href: `/qaqc/ncrs/${row.id}`,
+        })),
+      };
+    }
+
+    case "hseRecords": {
+      const grouped = await prisma.hseRecord.groupBy({
+        by: ["type"],
+        where: {
+          ...buildProjectLinkedScopeWhere(context, "hse"),
+          status: { in: ["OPEN", "IN_PROGRESS"] },
+        },
+        _count: { _all: true },
+      });
+
+      return {
+        kind: "breakdown",
+        items: grouped.map((row) => ({
+          label: row.type,
+          status: row.type,
+          value: row._count._all,
+        })),
+      };
+    }
+
+    case "openIncidents": {
+      const rows = await prisma.hseRecord.findMany({
+        where: {
+          ...buildProjectLinkedScopeWhere(context, "hse"),
+          type: "INCIDENT",
+          status: { in: ["OPEN", "IN_PROGRESS"] },
+        },
+        orderBy: [{ severity: "desc" }, { occurredAt: "desc" }],
+        take: 5,
+        select: {
+          id: true,
+          reference: true,
+          title: true,
+          status: true,
+          severity: true,
+          project: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          subtitle: `${row.reference} · ${row.project?.name ?? "No project"}`,
+          meta: row.severity ?? undefined,
+          status: row.status,
+          href: `/hse/incidents/${row.id}`,
+        })),
+      };
+    }
+
+    case "teamDirectory": {
+      const rows = await prisma.companyMember.findMany({
+        where: { companyId: context.companyId, status: "ACTIVE" },
+        orderBy: { user: { firstName: "asc" } },
+        take: 6,
+        select: {
+          id: true,
+          jobTitle: true,
+          user: { select: { id: true, firstName: true, lastName: true } },
+          department: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: `${row.user.firstName} ${row.user.lastName}`,
+          subtitle: row.jobTitle ?? undefined,
+          meta: row.department?.name ?? undefined,
+          href: `/team/${row.user.id}`,
+        })),
+      };
+    }
+
+    case "userDirectory": {
+      const grouped = await prisma.companyMember.groupBy({
+        by: ["roleId"],
+        where: { companyId: context.companyId, status: "ACTIVE" },
+        _count: { _all: true },
+      });
+
+      const roleRows = await prisma.role.findMany({ select: { id: true, name: true } });
+      const byId = new Map(roleRows.map((role) => [role.id, role.name]));
+
+      return {
+        kind: "breakdown",
+        items: grouped
+          .map((row) => ({ label: byId.get(row.roleId) ?? "Unknown", value: row._count._all }))
+          .sort((a, b) => b.value - a.value),
+      };
+    }
+
+    case "companyModules": {
+      const rows = await prisma.companyModule.findMany({
+        where: { companyId: context.companyId },
+        select: { enabled: true, module: { select: { name: true, key: true } } },
+        orderBy: { module: { name: "asc" } },
+      });
+
+      return {
+        kind: "breakdown",
+        items: rows.map((row) => ({
+          label: row.module.name,
+          value: row.enabled ? 1 : 0,
+          display: row.enabled ? "Enabled" : "Off",
+          status: row.enabled ? "ACTIVE" : "INACTIVE",
+        })),
+      };
+    }
+
+    case "recentDocuments": {
+      const rows = await prisma.document.findMany({
+        where: { AND: [buildDocumentScopeWhere(context), { status: "ACTIVE" }] },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          project: { select: { name: true } },
+          client: { select: { name: true } },
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.name,
+          subtitle: row.project?.name ?? row.client?.name ?? "Company document",
+          meta: formatRelativeTime(row.createdAt),
+          href: `/documents/${row.id}`,
+        })),
+      };
+    }
+
+    case "supportRequests": {
+      const rows = await prisma.supportRequest.findMany({
+        where: { companyId: context.companyId },
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+        take: 6,
+        select: {
+          id: true,
+          reference: true,
+          subject: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.subject,
+          subtitle: row.reference,
+          meta: formatRelativeTime(row.createdAt),
+          status: row.status,
+          href: `/support/requests/${row.id}`,
+        })),
+      };
+    }
+
+    default:
+      return { kind: "list", items: [] };
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Attention and approvals                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The attention area (PRD #4 §15, §63).
+ *
+ * Only what is relevant to this user, and only through permissions they hold.
+ * Low-value noise is deliberately excluded.
+ */
+async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
+  const alerts: WidgetAlert[] = [];
+
+  if (can(context, "task.view")) {
+    const overdue = await prisma.task.count({
+      where: {
+        AND: [
+          buildTaskScopeWhere(context),
+          {
+            archivedAt: null,
+            status: { in: ["TODO", "IN_PROGRESS", "BLOCKED"] },
+            dueDate: { lt: new Date() },
+          },
+        ],
+      },
+    });
+
+    if (overdue > 0) {
+      alerts.push({
+        id: "tasks-overdue",
+        priority: "WARNING",
+        title: `${overdue} overdue task${overdue === 1 ? "" : "s"}`,
+        detail: "Past their due date and not yet complete.",
+        href: "/tasks",
+      });
+    }
+
+    const blocked = await prisma.task.count({
+      where: { AND: [buildTaskScopeWhere(context), { archivedAt: null, status: "BLOCKED" }] },
+    });
+
+    if (blocked > 0) {
+      alerts.push({
+        id: "tasks-blocked",
+        priority: "WARNING",
+        title: `${blocked} blocked task${blocked === 1 ? "" : "s"}`,
+        detail: "Waiting on something before work can continue.",
+        href: "/tasks/all?status=BLOCKED",
+      });
+    }
+  }
+
+  if (can(context, "project.view")) {
+    const atRisk = await countProjectsAtRisk(context);
+    if (atRisk > 0) {
+      alerts.push({
+        id: "projects-at-risk",
+        priority: "CRITICAL",
+        title: `${atRisk} project${atRisk === 1 ? "" : "s"} at risk`,
+        detail: "Past the planned end date, or carrying a critical blocked task.",
+        href: "/projects/all",
+      });
+    }
+  }
+
+  if (can(context, "finance.invoice.view")) {
+    const overdueValue = await sumInvoices(context, { status: "OVERDUE" });
+    if (overdueValue > 0) {
+      alerts.push({
+        id: "invoices-overdue",
+        priority: "CRITICAL",
+        title: `${formatCurrency(overdueValue)} overdue`,
+        detail: "Invoices past their due date and unpaid.",
+        href: "/finance/invoices?status=OVERDUE",
+      });
+    }
+  }
+
+  if (can(context, "hse.record.view")) {
+    const critical = await prisma.hseRecord.count({
+      where: {
+        ...buildProjectLinkedScopeWhere(context, "hse"),
+        severity: { in: ["HIGH", "CRITICAL"] },
+        status: { in: ["OPEN", "IN_PROGRESS"] },
+      },
+    });
+
+    if (critical > 0) {
+      alerts.push({
+        id: "hse-critical",
+        priority: "CRITICAL",
+        title: `${critical} serious HSE item${critical === 1 ? "" : "s"} open`,
+        detail: "High or critical severity, not yet closed.",
+        href: "/hse/incidents",
+      });
+    }
+  }
+
+  if (can(context, "qaqc.record.view")) {
+    const ncrs = await prisma.qualityRecord.count({
+      where: {
+        ...buildProjectLinkedScopeWhere(context, "qaqc"),
+        type: "NCR",
+        status: { in: ["OPEN", "IN_PROGRESS"] },
+      },
+    });
+
+    if (ncrs > 0) {
+      alerts.push({
+        id: "qaqc-ncrs",
+        priority: "WARNING",
+        title: `${ncrs} open NCR${ncrs === 1 ? "" : "s"}`,
+        detail: "Non-conformances still to be closed out.",
+        href: "/qaqc/ncrs",
+      });
+    }
+  }
+
+  if (can(context, "legal.contract.view")) {
+    const expiring = await prisma.contract.count({
+      where: { companyId: context.companyId, status: "EXPIRING" },
+    });
+
+    if (expiring > 0) {
+      alerts.push({
+        id: "contracts-expiring",
+        priority: "WARNING",
+        title: `${expiring} contract${expiring === 1 ? "" : "s"} expiring`,
+        detail: "Ending soon and not yet renewed.",
+        href: "/contracts/contracts?status=EXPIRING",
+      });
+    }
+  }
+
+  if (can(context, "inventory.item.view")) {
+    const low = await countLowStock(context);
+    if (low > 0) {
+      alerts.push({
+        id: "inventory-low",
+        priority: "INFO",
+        title: `${low} item${low === 1 ? "" : "s"} at or below reorder level`,
+        detail: "Replenishment needed before site runs short.",
+        href: "/inventory/low-stock",
+      });
+    }
+  }
+
+  const order = { CRITICAL: 0, WARNING: 1, INFO: 2 } as const;
+  return alerts.sort((a, b) => order[a.priority] - order[b.priority]);
+}
+
+/**
+ * Pending approvals, gathered only from the modules where this user actually
+ * holds the approve permission (PRD #4 §64).
+ */
+async function loadApprovals(context: UserContext) {
+  const items: { id: string; title: string; subtitle: string; href: string }[] = [];
+
+  if (can(context, "finance.invoice.approve")) {
+    const rows = await prisma.invoice.findMany({
+      where: { ...invoiceScope(context), status: "PENDING" },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+      select: { id: true, invoiceNumber: true, title: true, amount: true },
+    });
+
+    items.push(
+      ...rows.map((row) => ({
+        id: `invoice-${row.id}`,
+        title: `${row.invoiceNumber} — ${row.title}`,
+        subtitle: `Invoice · ${formatCurrency(decimalToNumber(row.amount))}`,
+        href: `/finance/invoices/${row.id}`,
+      })),
+    );
+  }
+
+  if (can(context, "hr.leave.approve")) {
+    const rows = await prisma.leaveRequest.findMany({
+      where: { companyId: context.companyId, status: "PENDING" },
+      orderBy: { startDate: "asc" },
+      take: 5,
+      select: {
+        id: true,
+        type: true,
+        days: true,
+        employee: { select: { user: { select: { firstName: true, lastName: true } } } },
+      },
+    });
+
+    items.push(
+      ...rows.map((row) => ({
+        id: `leave-${row.id}`,
+        title: `${row.employee.user.firstName} ${row.employee.user.lastName}`,
+        subtitle: `Leave · ${row.type}, ${row.days} days`,
+        href: `/hr/leave/${row.id}`,
+      })),
+    );
+  }
+
+  if (can(context, "procurement.request.approve")) {
+    const rows = await prisma.purchaseRequest.findMany({
+      where: {
+        ...buildProjectLinkedScopeWhere(context, "procurement"),
+        status: "PENDING_APPROVAL",
+      },
+      orderBy: { neededBy: "asc" },
+      take: 5,
+      select: { id: true, reference: true, title: true, amount: true },
+    });
+
+    items.push(
+      ...rows.map((row) => ({
+        id: `request-${row.id}`,
+        title: `${row.reference} — ${row.title}`,
+        subtitle: `Purchase request · ${formatCurrency(decimalToNumber(row.amount))}`,
+        href: `/procurement/requests/${row.id}`,
+      })),
+    );
+  }
+
+  if (can(context, "legal.contract.approve")) {
+    const rows = await prisma.contract.findMany({
+      where: { companyId: context.companyId, status: "PENDING_APPROVAL" },
+      orderBy: { endDate: "asc" },
+      take: 5,
+      select: { id: true, reference: true, title: true },
+    });
+
+    items.push(
+      ...rows.map((row) => ({
+        id: `contract-${row.id}`,
+        title: `${row.reference} — ${row.title}`,
+        subtitle: "Contract",
+        href: `/contracts/contracts/${row.id}`,
+      })),
+    );
+  }
+
+  return items;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared query fragments                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Invoices follow Finance's own scope: a project-scoped user sees only invoices
+ * on projects they belong to (PRD #4 §29).
+ */
+function invoiceScope(context: UserContext) {
+  return buildProjectLinkedScopeWhere(context, "finance");
+}
+
+/** Leave follows HR scope: SELF means only the person's own requests. */
+function leaveScope(context: UserContext) {
+  const scope = context.moduleAccess.hr.scope;
+  if (scope === "COMPANY" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+    return { companyId: context.companyId };
+  }
+  return { companyId: context.companyId, employeeMemberId: context.membershipId };
+}
+
+async function sumInvoices(
+  context: UserContext,
+  where: Prisma.InvoiceWhereInput,
+): Promise<number> {
+  const result = await prisma.invoice.aggregate({
+    where: { ...invoiceScope(context), ...where },
+    _sum: { amount: true },
+  });
+  return decimalToNumber(result._sum.amount);
+}
+
+/**
+ * At risk (PRD #10 §15): past the planned end date while not complete, or
+ * carrying a critical task that is overdue or blocked. No predictive engine.
+ */
+async function countProjectsAtRisk(context: UserContext): Promise<number> {
+  const scope = buildProjectScopeWhere(context);
+
+  return prisma.project.count({
+    where: {
+      AND: [
+        scope,
+        { archivedAt: null, status: { notIn: ["COMPLETED", "ARCHIVED"] } },
+        {
+          OR: [
+            { endDate: { lt: new Date() } },
+            {
+              tasks: {
+                some: {
+                  archivedAt: null,
+                  priority: "CRITICAL",
+                  OR: [
+                    { status: "BLOCKED" },
+                    {
+                      status: { in: ["TODO", "IN_PROGRESS"] },
+                      dueDate: { lt: new Date() },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+}
+
+async function lowStockItems(context: UserContext, take: number) {
+  // Prisma cannot compare two columns in a filter, so the comparison happens
+  // after a narrow select rather than by loading the whole table.
+  const items = await prisma.inventoryItem.findMany({
+    where: { companyId: context.companyId, archivedAt: null },
+    select: { id: true, sku: true, name: true, unit: true, quantity: true, reorderLevel: true },
+    orderBy: { quantity: "asc" },
+    take: 200,
+  });
+
+  return items.filter((item) => item.quantity <= item.reorderLevel).slice(0, take);
+}
+
+async function countLowStock(context: UserContext): Promise<number> {
+  const items = await prisma.inventoryItem.findMany({
+    where: { companyId: context.companyId, archivedAt: null },
+    select: { quantity: true, reorderLevel: true },
+  });
+  return items.filter((item) => item.quantity <= item.reorderLevel).length;
+}
+
+function decimalToNumber(value: Prisma.Decimal | null | undefined): number {
+  if (!value) return 0;
+  return Number(value);
+}

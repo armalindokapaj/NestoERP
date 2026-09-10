@@ -1,18 +1,19 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 
-import type { RoleKey } from "@/config/roles";
 import { prisma } from "@/lib/database/prisma";
 import { authConfig } from "./auth.config";
+import { recordAuthEvent } from "./events";
+import { verifyPassword } from "./password";
 import { credentialsSchema } from "./schema";
+import { createSession } from "./session-store";
 
 /**
  * Full Auth.js instance (Node runtime).
  *
- * Sign-in resolves the whole user context in one query — user, company and
- * role — matching the flow in spec §7: validate → authenticate → load user →
- * load company → load role → load permissions.
+ * Sign-in answers only "who is this person, and inside which company are they
+ * operating?". Everything about what they may *do* is resolved separately by
+ * resolveUserContext (PRD #6 §132).
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -26,42 +27,73 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = credentialsSchema.safeParse(rawCredentials);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+        const email = parsed.data.email.toLowerCase();
 
         const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
+          where: { email },
           include: {
             memberships: {
               where: { status: "ACTIVE" },
               include: { company: true },
               orderBy: { createdAt: "asc" },
-              take: 1,
             },
           },
         });
 
-        if (!user || user.status !== "ACTIVE") return null;
+        // One generic failure for every cause, so the form never reveals
+        // whether an account exists (PRD #6 §8).
+        if (!user) {
+          await recordAuthEvent({ type: "LOGIN_FAILED", metadata: { email } });
+          return null;
+        }
 
-        const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-        if (!passwordMatches) return null;
+        const passwordMatches = await verifyPassword(
+          parsed.data.password,
+          user.passwordHash,
+        );
+        if (!passwordMatches) {
+          await recordAuthEvent({ type: "LOGIN_FAILED", userId: user.id });
+          return null;
+        }
 
-        // A user without an active company membership has no NESTO context.
-        const membership = user.memberships[0];
-        if (!membership || membership.company.status !== "ACTIVE") return null;
+        if (user.status !== "ACTIVE") {
+          await recordAuthEvent({ type: "ACCOUNT_BLOCKED", userId: user.id });
+          return null;
+        }
+
+        // No active membership means no company workspace to enter
+        // (PRD #6 §48).
+        const membership = user.memberships.find(
+          (candidate) => candidate.company.status === "ACTIVE",
+        );
+
+        if (!membership) {
+          await recordAuthEvent({ type: "MEMBERSHIP_DENIED", userId: user.id });
+          return null;
+        }
+
+        const session = await createSession({
+          userId: user.id,
+          membershipId: membership.id,
+          companyId: membership.companyId,
+        });
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
+
+        await recordAuthEvent({
+          type: "LOGIN_SUCCESS",
+          userId: user.id,
+          companyId: membership.companyId,
+          sessionId: session.id,
+        });
 
         return {
           id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
           email: user.email,
-          avatar: user.avatar,
-          role: membership.role as RoleKey,
-          companyId: membership.company.id,
-          companyName: membership.company.name,
-          companySlug: membership.company.slug,
-          companyLogo: membership.company.logo,
-          department: membership.department,
-          jobTitle: membership.jobTitle,
+          sessionId: session.id,
         };
       },
     }),

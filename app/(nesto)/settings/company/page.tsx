@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { requirePermission } from "@/lib/auth/session";
+import { requireSettingsSection } from "../settings-access";
 import { getCompany } from "@/lib/database/queries";
 
 export const metadata: Metadata = {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CompanySettingsPage() {
-  const user = await requirePermission("settings.manage");
+  const user = await requireSettingsSection("company");
   const company = await getCompany(user.companyId);
 
   if (!company) notFound();

@@ -1,167 +1,190 @@
 /**
- * Permission architecture (spec §52).
+ * The NESTO permission registry (PRD #5 §8, PRD #9 §16–§19).
  *
- * Permissions are strings in the form MODULE.ACTION. Application code must ask
- * `can(user, "team.manage")` rather than testing a role directly, so that role
- * definitions can change without touching feature code.
+ * Permissions are strings in the form `resource.action`, optionally with a
+ * qualifier: `finance.invoice.approve`. Application code asks
+ * `can(context, "project.create")` — never `if (role === "OWNER")`
+ * (PRD #5 §8, PRD #10 §11).
+ *
+ * The registry is a flat list rather than a per-module structure so that a
+ * permission key is unambiguous everywhere: database, seed, UI and tests all
+ * refer to the same string.
+ *
+ * Edge-safe: no database imports.
  */
-import { modules, type ModuleKey } from "./modules";
-import { navigationForRole } from "./navigation";
-import { ROLE_KEYS, roles, type RoleKey } from "./roles";
+import type { ModuleKey } from "./modules";
 
 export const PERMISSIONS = [
+  /* Dashboard ------------------------------------------------------------ */
   "dashboard.view",
 
+  /* Projects ------------------------------------------------------------- */
   "project.view",
   "project.create",
   "project.update",
-  "project.delete",
+  "project.archive",
+  "project.restore",
+  "project.manage",
+  "project.manager.assign",
+  "project.member.view",
+  "project.member.add",
+  "project.member.update",
+  "project.member.remove",
+  "project.task.view",
+  "project.document.view",
+  "project.activity.view",
 
+  /* Tasks ---------------------------------------------------------------- */
   "task.view",
   "task.create",
   "task.update",
-  "task.delete",
+  "task.complete",
+  "task.archive",
+  "task.restore",
 
+  /* Clients -------------------------------------------------------------- */
   "client.view",
   "client.create",
   "client.update",
+  "client.archive",
+  "client.restore",
+  "contact.view",
+  "contact.create",
+  "contact.update",
+  "contact.archive",
 
+  /* Documents ------------------------------------------------------------ */
   "document.view",
   "document.create",
-  "document.delete",
+  "document.update",
+  "document.archive",
+  "document.restore",
 
+  /* Finance -------------------------------------------------------------- */
   "finance.view",
   "finance.manage",
+  "finance.company_summary.view",
+  "finance.project_budget.view",
+  "finance.invoice.view",
+  "finance.invoice.create",
+  "finance.invoice.update",
+  "finance.invoice.approve",
+  "finance.invoice.archive",
+  "finance.payment.view",
+  "finance.budget.view",
 
+  /* HR ------------------------------------------------------------------- */
   "hr.view",
   "hr.manage",
+  "hr.profile.view",
+  "hr.employee.view",
+  "hr.employee.update",
+  "hr.leave.view",
+  "hr.leave.create",
+  "hr.leave.update",
+  "hr.leave.approve",
 
+  /* Sales ---------------------------------------------------------------- */
   "sales.view",
   "sales.manage",
+  "sales.opportunity.view",
+  "sales.opportunity.create",
+  "sales.opportunity.update",
+  "sales.opportunity.archive",
 
-  "contract.view",
-  "contract.manage",
+  /* Legal / Contracts ---------------------------------------------------- */
+  "legal.view",
+  "legal.manage",
+  "legal.contract.view",
+  "legal.contract.create",
+  "legal.contract.update",
+  "legal.contract.approve",
+  "legal.contract.archive",
 
+  /* Procurement ---------------------------------------------------------- */
   "procurement.view",
   "procurement.manage",
+  "procurement.request.view",
+  "procurement.request.create",
+  "procurement.request.update",
+  "procurement.request.approve",
+  "procurement.order.view",
+  "procurement.order.create",
+  "procurement.order.update",
+  "procurement.order.approve",
 
+  /* Inventory ------------------------------------------------------------ */
   "inventory.view",
   "inventory.manage",
+  "inventory.item.view",
+  "inventory.item.create",
+  "inventory.item.update",
+  "inventory.item.archive",
+  "inventory.movement.view",
+  "inventory.movement.create",
 
+  /* QA / QC -------------------------------------------------------------- */
   "qaqc.view",
   "qaqc.manage",
+  "qaqc.record.view",
+  "qaqc.record.create",
+  "qaqc.record.update",
+  "qaqc.record.close",
 
+  /* HSE ------------------------------------------------------------------ */
   "hse.view",
   "hse.manage",
+  "hse.record.view",
+  "hse.record.create",
+  "hse.record.update",
+  "hse.record.close",
 
+  /* Team ----------------------------------------------------------------- */
   "team.view",
   "team.manage",
 
+  /* Company -------------------------------------------------------------- */
   "company.view",
   "company.manage",
 
+  /* Settings ------------------------------------------------------------- */
   "settings.view",
   "settings.manage",
 
+  /* Support -------------------------------------------------------------- */
   "support.view",
   "support.manage",
+  "support.request.view",
+  "support.request.create",
+  "support.request.update",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-/**
- * Held by every authenticated user regardless of role.
- * `settings.view` is universal because the top-bar user menu offers Profile and
- * Settings to everyone (spec §11) — it is reachable from there even when a
- * role's sidebar does not list the Settings module.
- */
-const UNIVERSAL_PERMISSIONS: Permission[] = ["dashboard.view", "settings.view"];
+const PERMISSION_SET = new Set<string>(PERMISSIONS);
+
+export function isPermission(value: string): value is Permission {
+  return PERMISSION_SET.has(value);
+}
 
 /**
- * Permissions granted on top of the view access implied by a role's navigation.
- * Keeping only the *extra* grants here means the sidebar and the access rules
- * can never drift apart.
- */
-const ADDITIONAL_PERMISSIONS: Record<RoleKey, Permission[]> = {
-  OWNER: [
-    "project.create",
-    "project.update",
-    "project.delete",
-    "task.view",
-    "task.create",
-    "task.update",
-    "task.delete",
-    "client.create",
-    "client.update",
-    "document.create",
-    "document.delete",
-    "finance.manage",
-    "hr.manage",
-    "sales.manage",
-    "contract.view",
-    "contract.manage",
-    "procurement.manage",
-    "inventory.manage",
-    "qaqc.manage",
-    "hse.manage",
-    "team.manage",
-    "company.manage",
-    "settings.manage",
-    "support.view",
-    "support.manage",
-  ],
-  ADMIN: [
-    "project.create",
-    "project.update",
-    "task.view",
-    "client.create",
-    "client.update",
-    "document.create",
-    "document.delete",
-    "team.manage",
-    "company.manage",
-    "settings.manage",
-    "support.manage",
-  ],
-  IT: ["team.manage", "support.manage", "settings.manage"],
-  HR: ["hr.manage", "team.manage", "document.create"],
-  CEO: ["task.view", "project.update", "document.create", "contract.view"],
-  PROJECT_MANAGER: [
-    "project.create",
-    "project.update",
-    "task.create",
-    "task.update",
-    "task.delete",
-    "client.update",
-    "document.create",
-  ],
-  ARCHITECT: ["project.update", "task.create", "task.update", "document.create"],
-  ENGINEER: ["task.create", "task.update", "document.create", "qaqc.view"],
-  FINANCE: ["finance.manage", "document.create"],
-  LEGAL: ["contract.manage", "document.create"],
-  SALES: ["sales.manage", "client.create", "client.update", "document.create"],
-  PROCUREMENT: ["procurement.manage", "document.create", "inventory.view"],
-  INVENTORY: ["inventory.manage", "document.create"],
-  QAQC: ["qaqc.manage", "task.create", "task.update", "document.create"],
-  HSE: ["hse.manage", "task.create", "task.update", "document.create"],
-  VIEWER: [],
-};
-
-/**
- * Which module each permission belongs to. Permission prefixes are singular
- * ("project.view") while module keys are plural ("projects"), so the mapping is
- * explicit rather than inferred.
+ * Which module owns a permission.
+ *
+ * Permission prefixes are singular (`project.view`) while module keys are
+ * plural (`projects`), and Legal lives at the `contracts` route — so the map is
+ * explicit rather than inferred from the string.
  */
 const PERMISSION_MODULE: Record<string, ModuleKey> = {
   dashboard: "dashboard",
   project: "projects",
   task: "tasks",
   client: "clients",
+  contact: "clients",
   document: "documents",
   finance: "finance",
   hr: "hr",
   sales: "sales",
-  contract: "contracts",
+  legal: "contracts",
   procurement: "procurement",
   inventory: "inventory",
   qaqc: "qaqc",
@@ -172,66 +195,41 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   support: "support",
 };
 
-export function moduleForPermission(permission: Permission): ModuleKey | null {
+export function moduleForPermission(permission: string): ModuleKey | null {
   return PERMISSION_MODULE[permission.split(".")[0]] ?? null;
 }
 
-function buildRolePermissions(): Record<RoleKey, Permission[]> {
-  const result = {} as Record<RoleKey, Permission[]>;
-
-  for (const roleKey of ROLE_KEYS) {
-    const granted = new Set<Permission>(UNIVERSAL_PERMISSIONS);
-
-    // Anything in the role's sidebar must be viewable.
-    for (const moduleKey of navigationForRole(roleKey)) {
-      granted.add(modules[moduleKey].viewPermission);
-    }
-
-    const inNavigation = new Set<ModuleKey>(navigationForRole(roleKey));
-
-    for (const permission of ADDITIONAL_PERMISSIONS[roleKey]) {
-      // A grant for a module the role cannot see would be an invisible route:
-      // reachable by URL but absent from the sidebar. Navigation is the single
-      // source of truth, so such a grant is dropped rather than honoured.
-      const owningModule = moduleForPermission(permission);
-      if (owningModule && !inNavigation.has(owningModule)) continue;
-      granted.add(permission);
-    }
-
-    // Read-only roles never keep a write grant, whatever the table above says.
-    const list = [...granted].filter((permission) =>
-      roles[roleKey].readOnly ? permission.endsWith(".view") : true,
-    );
-
-    result[roleKey] = list.sort();
-  }
-
-  return result;
+/** Every permission belonging to one module, used by the seed and by tests. */
+export function permissionsForModule(moduleKey: ModuleKey): Permission[] {
+  return PERMISSIONS.filter((permission) => moduleForPermission(permission) === moduleKey);
 }
-
-export const rolePermissions: Record<RoleKey, Permission[]> = buildRolePermissions();
-
-export function permissionsForRole(role: RoleKey): Permission[] {
-  return rolePermissions[role] ?? [...UNIVERSAL_PERMISSIONS];
-}
-
-type PermissionHolder = { role: RoleKey } | { permissions: Permission[] } | null | undefined;
 
 /**
- * The single entry point for access checks.
- * `can(user, "team.manage")` — never `if (role === "ADMIN")`.
+ * The `action` half stored on the Permission row: the final segment of the key.
+ * `finance.invoice.approve` → `approve`.
  */
-export function can(holder: PermissionHolder, permission: Permission): boolean {
-  if (!holder) return false;
-  const list = "permissions" in holder ? holder.permissions : permissionsForRole(holder.role);
-  return list.includes(permission);
+export function permissionAction(permission: string): string {
+  const parts = permission.split(".");
+  return parts[parts.length - 1];
 }
 
-export function canAny(holder: PermissionHolder, permissions: Permission[]): boolean {
-  return permissions.some((permission) => can(holder, permission));
-}
+/** Actions that mutate data. Used to keep read-only roles honest. */
+const MUTATING_ACTIONS = new Set([
+  "create",
+  "update",
+  "delete",
+  "archive",
+  "restore",
+  "approve",
+  "reject",
+  "manage",
+  "assign",
+  "add",
+  "remove",
+  "complete",
+  "close",
+]);
 
-/** Modules a role may open, used to filter the sidebar and to guard routes. */
-export function accessibleModules(role: RoleKey): ModuleKey[] {
-  return navigationForRole(role);
+export function isMutatingPermission(permission: string): boolean {
+  return MUTATING_ACTIONS.has(permissionAction(permission));
 }

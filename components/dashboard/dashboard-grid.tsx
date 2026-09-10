@@ -16,7 +16,7 @@ export function KpiGrid({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:gap-4 lg:grid-cols-4",
+        "grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:gap-4 lg:grid-cols-4 [&>*]:min-w-0",
         className,
       )}
       {...props}
@@ -32,8 +32,12 @@ export function DashboardGrid({ className, ...props }: React.ComponentProps<"div
          * Dense flow so a full-width widget followed by a half-width one does
          * not leave a hole at the 2-column stage; the grid backfills instead.
          * Cards are self-labelled, so reading order surviving reflow is enough.
+         *
+         * [&>*]:min-w-0 — a grid item's default min-width:auto stops it
+         * shrinking below its content, so one long line inside a widget would
+         * otherwise push the whole page sideways on a phone.
          */
-        "grid grid-flow-row-dense gap-4 md:grid-cols-2 xl:grid-cols-3",
+        "grid grid-flow-row-dense gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0",
         className,
       )}
       {...props}

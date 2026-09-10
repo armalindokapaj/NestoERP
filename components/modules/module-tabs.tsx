@@ -1,34 +1,40 @@
 import Link from "next/link";
 
-import type { ModuleDefinition } from "@/config/modules";
+import { sectionRoute } from "@/config/modules";
+import type { ResolvedModuleExperience } from "@/lib/access/module-access";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * Module sub-navigation (spec §31).
- * Tabs are links carrying ?tab=, so every tab is a real, shareable URL rather
- * than hidden client state.
+ * Module sub-navigation (PRD #7 §14).
+ *
+ * Tabs are routes, not local state: `/projects/all`, not `/projects?tab=all`.
+ * Deep links, refresh and back/forward therefore work without any extra code,
+ * and only permitted tabs are rendered at all (PRD #5 §30).
+ *
+ * When tabs exceed the width they scroll horizontally rather than wrapping into
+ * unreadable rows (PRD #7 §89).
  */
 export function ModuleTabs({
-  module,
-  activeTab,
+  experience,
+  activeSection,
 }: {
-  module: ModuleDefinition;
-  activeTab: string;
+  experience: ResolvedModuleExperience;
+  activeSection: string;
 }) {
-  if (module.tabs.length === 0) return null;
+  if (experience.sections.length <= 1) return null;
 
   return (
     <div className="-mx-1 overflow-x-auto">
       <nav
-        aria-label={`${module.label} sections`}
+        aria-label={`${experience.label} sections`}
         className="flex min-w-max items-center gap-1 border-b border-line px-1"
       >
-        {module.tabs.map((tab) => {
-          const active = tab.slug === activeTab;
+        {experience.sections.map((section) => {
+          const active = section.key === activeSection;
           return (
             <Link
-              key={tab.slug}
-              href={`${module.href}?tab=${tab.slug}`}
+              key={section.key}
+              href={sectionRoute(experience.module, section.key)}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors",
@@ -37,7 +43,7 @@ export function ModuleTabs({
                   : "border-transparent text-fg-muted hover:text-fg",
               )}
             >
-              {tab.label}
+              {section.label}
             </Link>
           );
         })}

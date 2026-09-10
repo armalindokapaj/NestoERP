@@ -12,13 +12,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { roleLabel } from "@/config/roles";
 import { signOutAction } from "@/lib/actions/auth";
-import type { CurrentUser } from "@/lib/auth/types";
 import { fullName } from "@/lib/utils/format";
 
-/** Top-bar user menu (spec §11): name, role, company, then profile actions. */
-export function UserMenu({ user }: { user: CurrentUser }) {
+/**
+ * The serialisable slice of the user context the menu needs. The full context
+ * never crosses to the client — permissions stay on the server.
+ */
+export type UserMenuUser = {
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+  roleLabel: string;
+  companyName: string;
+  /** Roles without Settings access still reach their own profile (PRD #5 §39). */
+  canOpenSettings: boolean;
+};
+
+/**
+ * Top-bar user menu (PRD #3 §20): name, role and company are always visible,
+ * then the profile actions.
+ */
+export function UserMenu({ user }: { user: UserMenuUser }) {
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -27,13 +42,13 @@ export function UserMenu({ user }: { user: CurrentUser }) {
         className="flex items-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover"
         aria-label="Open user menu"
       >
-        <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatar} size="md" />
+        <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatarUrl} size="md" />
         <span className="hidden min-w-0 text-left lg:block">
           <span className="block truncate text-table font-medium leading-tight text-fg">
             {fullName(user.firstName, user.lastName)}
           </span>
           <span className="block truncate text-micro leading-tight text-fg-muted">
-            {roleLabel(user.role)}
+            {user.roleLabel}
           </span>
         </span>
         <ChevronDown className="size-3.5 shrink-0 text-fg-subtle" />
@@ -44,7 +59,7 @@ export function UserMenu({ user }: { user: CurrentUser }) {
           <p className="truncate text-body font-semibold text-fg">
             {fullName(user.firstName, user.lastName)}
           </p>
-          <p className="truncate text-table text-fg-muted">{roleLabel(user.role)}</p>
+          <p className="truncate text-table text-fg-muted">{user.roleLabel}</p>
           <p className="truncate text-table text-fg-subtle">{user.companyName}</p>
         </div>
 
@@ -56,12 +71,14 @@ export function UserMenu({ user }: { user: CurrentUser }) {
             Profile
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/settings">
-            <Settings />
-            Settings
-          </Link>
-        </DropdownMenuItem>
+        {user.canOpenSettings ? (
+          <DropdownMenuItem asChild>
+            <Link href="/settings">
+              <Settings />
+              Settings
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
 
         <DropdownMenuSeparator />
 

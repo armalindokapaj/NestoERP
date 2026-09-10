@@ -1,0 +1,70 @@
+import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * End-to-end configuration (PRD #9 §143, §144, §246).
+ *
+ * Runs against a production build of NESTO with the seeded demo data, because
+ * an E2E suite against mocks proves nothing about authorisation (PRD #9 §223).
+ * Artefacts are produced on failure only (PRD #9 §246).
+ */
+const PORT = Number(process.env.E2E_PORT ?? 3210);
+const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  fullyParallel: false,
+  workers: 1,
+  forbidOnly: Boolean(process.env.CI),
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [["github"], ["list"]] : "list",
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
+
+  use: {
+    baseURL,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    video: "off",
+  },
+
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      // The responsive specs assert mobile behaviour and belong to the mobile
+      // project; running them at desktop width would assert the opposite.
+      testIgnore: /responsive\/.*\.spec\.ts/,
+    },
+    {
+      // A real mobile browser, not an imitation of a native app (PRD #9 §182).
+      name: "mobile",
+      use: { ...devices["Pixel 7"] },
+      testMatch: /responsive\/.*\.spec\.ts/,
+    },
+    /*
+     * Chromium is the required baseline; Firefox and WebKit cover the critical
+     * flows in CI where the browsers are available (PRD #9 §144). They are
+     * opt-in so a first `pnpm test:e2e` does not need three browser downloads.
+     */
+    ...(process.env.E2E_ALL_BROWSERS
+      ? [
+          { name: "firefox", use: { ...devices["Desktop Firefox"] }, testMatch: /auth\/.*\.spec\.ts/ },
+          { name: "webkit", use: { ...devices["Desktop Safari"] }, testMatch: /auth\/.*\.spec\.ts/ },
+          {
+            name: "mobile-safari",
+            use: { ...devices["iPhone 14 Pro"] },
+            testMatch: /responsive\/.*\.spec\.ts/,
+          },
+        ]
+      : []),
+  ],
+
+  webServer: process.env.E2E_BASE_URL
+    ? undefined
+    : {
+        command: `npx next start -p ${PORT}`,
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
+});

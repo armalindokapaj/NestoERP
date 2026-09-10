@@ -3,51 +3,39 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import {
-  isModuleEnabled,
-  MODULE_ZONES,
-  modules,
-  zoneLabels,
-  type ModuleDefinition,
-} from "@/config/modules";
-import { navigationForRole } from "@/config/navigation";
-import type { RoleKey } from "@/config/roles";
 import { getIcon } from "@/components/layout/nav-icon";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { Divider } from "@/components/ui/divider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { isNavigationItemActive, type NavigationGroup, type NavigationItem } from "@/config/navigation";
 import { cn } from "@/lib/utils/cn";
 
-function isActive(pathname: string, href: string): boolean {
-  if (href === "/dashboard") return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function SidebarItem({
-  module,
+function NavItem({
+  item,
   active,
   showTooltip,
   dense,
   onNavigate,
 }: {
-  module: ModuleDefinition;
+  item: NavigationItem;
   active: boolean;
   showTooltip: boolean;
   /** The drawer has a fixed height to fill; the desktop rail does not. */
   dense: boolean;
   onNavigate?: () => void;
 }) {
-  const Icon = getIcon(module.icon);
+  const Icon = getIcon(item.icon);
 
-  /* §13: light indigo ground, indigo icon and text, plus a 2px left marker. */
+  /* Light accent ground, accent icon and text, plus a 2px left marker
+     (PRD #3 §12). */
   const link = (
     <Link
-      href={module.href}
+      href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
         "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
-        dense ? "py-2" : "py-2.5",
+        dense ? "py-2.5" : "py-2.5",
         active ? "bg-accent-soft text-accent-strong" : "text-fg-muted hover:bg-hover hover:text-fg",
       )}
     >
@@ -61,75 +49,64 @@ function SidebarItem({
           active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted",
         )}
       />
-      <span className="nesto-nav-label truncate">{module.label}</span>
+      <span className="nesto-nav-label truncate">{item.label}</span>
     </Link>
   );
 
-  /* A 72px rail is only usable if the icons can name themselves (§14). */
+  /* A 72px rail is only usable if the icons can name themselves (PRD #3 §83).
+     Tooltips never appear on the expanded sidebar. */
   if (!showTooltip) return link;
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{module.label}</TooltipContent>
+      <TooltipContent side="right">{item.label}</TooltipContent>
     </Tooltip>
   );
 }
 
 /**
- * Renders the sidebar straight from configuration (spec §10, §50, §12).
+ * Renders whatever the navigation resolver produced (PRD #3 §98, §99).
  *
- * There is no role branching in here: whichever modules the role's navigation
- * lists are the modules that appear. Anything the role cannot open is absent
- * rather than disabled (§48).
+ * There is no role branching in here, and no second navigation definition for
+ * the drawer: the desktop sidebar and the mobile drawer render the same
+ * resolved groups, and only the presentation differs.
  */
 export function SidebarNav({
-  role,
+  navigation,
   onNavigate,
   inDrawer = false,
 }: {
-  role: RoleKey;
+  navigation: NavigationGroup[];
   onNavigate?: () => void;
   inDrawer?: boolean;
 }) {
   const pathname = usePathname();
   const { isRail } = useSidebar();
-  const moduleKeys = navigationForRole(role);
-
-  const zones = MODULE_ZONES.map((zone) => ({
-    zone,
-    label: zoneLabels[zone],
-    items: moduleKeys
-      .filter(isModuleEnabled)
-      .map((key) => modules[key])
-      .filter((module) => module.zone === zone),
-  })).filter((group) => group.items.length > 0);
 
   return (
     <nav
       aria-label="Main navigation"
       className={cn("flex flex-col px-3 py-2", inDrawer ? "gap-4" : "gap-6")}
     >
-      {zones.map((group, index) => (
-        <div key={group.zone}>
+      {navigation.map((group, index) => (
+        <div key={group.group}>
           {group.label ? (
             <>
-              <p className="nesto-nav-group-label mb-2 px-3 nesto-eyebrow text-fg-subtle">
+              <p className="nesto-nav-group-label nesto-eyebrow mb-2 px-3 text-fg-subtle">
                 {group.label}
               </p>
               {/* The rail has no room for group headings, so a hairline keeps
-                  the zones legible instead (§14). */}
-              {index > 0 ? (
-                <Divider className="nesto-nav-divider mx-2.5 mb-3" />
-              ) : null}
+                  the groups legible instead (PRD #3 §84). */}
+              {index > 0 ? <Divider className="nesto-nav-divider mx-2.5 mb-3" /> : null}
             </>
           ) : null}
           <div className="space-y-0.5">
-            {group.items.map((module) => (
-              <SidebarItem
-                key={module.key}
-                module={module}
-                active={isActive(pathname, module.href)}
+            {group.items.map((item) => (
+              <NavItem
+                key={item.key}
+                item={item}
+                active={isNavigationItemActive(item, pathname)}
                 showTooltip={isRail && !inDrawer}
                 dense={inDrawer}
                 onNavigate={onNavigate}

@@ -4,7 +4,7 @@ import { NestoLogo } from "@/components/layout/nesto-logo";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { brand } from "@/config/brand";
-import type { CurrentUser } from "@/lib/auth/types";
+import type { NavigationGroup } from "@/config/navigation";
 
 /**
  * Persistent navigation (design spec §11, §12, §14, §44).
@@ -16,7 +16,7 @@ import type { CurrentUser } from "@/lib/auth/types";
  * Header and foot swap assemblies with the width: full wordmark and brand
  * signoff when expanded, the mark alone once the rail takes over.
  */
-export function Sidebar({ user }: { user: CurrentUser }) {
+export function Sidebar({ navigation }: { navigation: NavigationGroup[] }) {
   return (
     <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-line bg-sidebar transition-[width] lg:flex">
       <div className="flex h-16 shrink-0 items-center justify-center px-3 xl:justify-start xl:px-5">
@@ -31,7 +31,7 @@ export function Sidebar({ user }: { user: CurrentUser }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <SidebarNav role={user.role} />
+        <SidebarNav navigation={navigation} />
       </div>
 
       <div className="nesto-sidebar-footer shrink-0 items-end justify-center gap-2 px-5 pb-5 pt-4">

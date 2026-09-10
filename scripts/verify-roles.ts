@@ -11,18 +11,26 @@
  *
  * Run against a running server:  pnpm verify:roles
  */
-import { DEMO_PASSWORD, demoAccountForRole } from "../config/demo-company";
+import { DEMO_PASSWORD, demoAccountForRole } from "../config/demo-accounts";
 import { dashboards } from "../config/dashboards";
-import { kpis } from "../config/dashboards";
+import { kpis } from "../config/kpis";
 import { MODULE_KEYS, modules, type ModuleKey } from "../config/modules";
-import { navigationForRole } from "../config/navigation";
-import { permissionsForRole } from "../config/permissions";
+import { accessibleModules, permissionsForRole } from "../config/role-defaults";
 import { roleList, roleLabel, type RoleKey } from "../config/roles";
 import { PUBLIC_ROUTES } from "../lib/permissions/route-access";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 
 const DENIED_MARKER = "You don&#x27;t have access to this area.";
+
+/** A guard refuses with a real HTTP redirect, checked before the body. */
+function isRefusal(response: Response, body: string): boolean {
+  const location = response.headers.get("location") ?? "";
+  if (response.status === 307 || response.status === 302) {
+    return location.includes("/access-denied") || location.includes("/module-unavailable");
+  }
+  return body.includes(DENIED_MARKER);
+}
 
 let failures = 0;
 let checks = 0;
@@ -121,7 +129,10 @@ async function verifyRole(role: RoleKey) {
   check(html.includes(roleLabel(role)), `${role}: dashboard shows the role name`);
   check(!html.includes(DENIED_MARKER), `${role}: dashboard is not access-denied`);
 
-  const expectedKpis = dashboards[role].kpis.map((key) => kpis[key].label);
+  const expectedKpis = dashboards[role].kpis
+    .map((key) => kpis[key])
+    .filter((kpi) => kpi && permissionsForRole(role).includes(kpi.permission))
+    .map((kpi) => kpi.label);
   for (const label of expectedKpis) {
     check(html.includes(label), `${role}: dashboard shows KPI "${label}"`);
   }
@@ -134,14 +145,22 @@ async function verifyRole(role: RoleKey) {
     String(loginRedirect.status),
   );
 
-  const allowed = new Set<ModuleKey>(navigationForRole(role));
-  // Settings and its profile page are reachable from the user menu for everyone.
+  const allowed = new Set<ModuleKey>(accessibleModules(role));
+  /*
+   * Two routes open for every authenticated role.
+   *
+   * /dashboard, because every role has one (PRD #4 §4); and /settings, because
+   * Profile and Appearance belong to the person rather than the company —
+   * "Everyone: Profile" (PRD #5 §39). A role without Settings module access
+   * lands there and sees only those two personal sections; the company
+   * sections are absent, and each is separately guarded.
+   */
   const alwaysReachable = new Set<ModuleKey>(["dashboard", "settings"]);
 
   for (const key of MODULE_KEYS) {
-    const response = await session.request(modules[key].href);
+    const response = await session.request(modules[key].route);
     const body = await response.text();
-    const denied = body.includes(DENIED_MARKER);
+    const denied = isRefusal(response, body);
 
     if (allowed.has(key) || alwaysReachable.has(key)) {
       check(response.status === 200 && !denied, `${role}: can open /${key}`, String(response.status));
@@ -157,7 +176,7 @@ async function verifyRole(role: RoleKey) {
   // Sidebar shows exactly the configured modules and nothing else.
   const sidebarHtml = html;
   for (const key of MODULE_KEYS) {
-    const href = `href="${modules[key].href}"`;
+    const href = `href="${modules[key].route}"`;
     const present = sidebarHtml.includes(href);
     if (allowed.has(key)) {
       check(present, `${role}: sidebar links to /${key}`);
@@ -167,7 +186,7 @@ async function verifyRole(role: RoleKey) {
   // Write route: only roles holding project.create may open it.
   const newProject = await session.request("/projects/new");
   const newProjectBody = await newProject.text();
-  const mayCreate = !newProjectBody.includes(DENIED_MARKER);
+  const mayCreate = !isRefusal(newProject, newProjectBody);
   const expectedCreate = permissionsForRole(role).includes("project.create");
   check(
     mayCreate === expectedCreate,

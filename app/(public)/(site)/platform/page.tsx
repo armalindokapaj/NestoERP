@@ -65,7 +65,7 @@ export default function PlatformPage() {
           title="Seventeen modules, and the sections inside them."
           lead="Every module ships with its own route, header, navigation and dashboard. The tabs below are the ones your team will actually land on."
         />
-        <ModuleGrid zones={["MAIN", "WORK", "DEPARTMENT", "COMPANY"]} showTabs className="mt-14" />
+        <ModuleGrid zones={["primary", "work", "department", "company"]} showTabs className="mt-14" />
       </Section>
 
       <Section id="roles" tone="canvas">

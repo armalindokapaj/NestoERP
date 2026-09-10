@@ -4,7 +4,7 @@ import { getIcon } from "@/components/layout/nav-icon";
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Badge } from "@/components/ui/badge";
 import { modules as moduleRegistry, isModuleKey } from "@/config/modules";
-import { requirePermission } from "@/lib/auth/session";
+import { requireSettingsSection } from "../settings-access";
 import { getCompanyModules } from "@/lib/database/queries";
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 /** Company module activation (spec §48). All modules are on in V0.1. */
 export default async function ModulesSettingsPage() {
-  const user = await requirePermission("settings.manage");
+  const user = await requireSettingsSection("modules");
   const companyModules = await getCompanyModules(user.companyId);
 
   return (

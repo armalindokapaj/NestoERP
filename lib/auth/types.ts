@@ -1,27 +1,12 @@
-import type { Permission } from "@/config/permissions";
-import type { RoleKey } from "@/config/roles";
-
-/** The user context carried in the session token (spec §54, §67). */
+/**
+ * What the signed session cookie carries (PRD #6 §26).
+ *
+ * Deliberately minimal: identity plus the session id. Permissions, role and
+ * company are resolved server-side on every request from the database, so a
+ * stale or tampered cookie can never widen access (PRD #6 §27).
+ */
 export type NestoSessionUser = {
   id: string;
-  firstName: string;
-  lastName: string;
   email: string;
-  avatar: string | null;
-  role: RoleKey;
-  companyId: string;
-  companyName: string;
-  companySlug: string;
-  companyLogo: string | null;
-  department: string | null;
-  jobTitle: string | null;
-};
-
-/** Session user plus the permissions resolved from their role. */
-export type CurrentUser = NestoSessionUser & {
-  permissions: Permission[];
-  /** True when the role shown is a development override, not the stored role. */
-  roleIsOverridden: boolean;
-  /** The role stored against the CompanyMember record. */
-  actualRole: RoleKey;
+  sessionId: string;
 };

@@ -1,0 +1,101 @@
+/**
+ * Seed validation (PRD #9 §117, §118).
+ *
+ * A partially valid test environment must never pass silently — every missing
+ * record fails the run with a non-zero exit, so CI stops before the test suite
+ * produces meaningless results.
+ */
+import type { PrismaClient } from "@prisma/client";
+
+import { MODULE_KEYS } from "../../config/modules";
+import { ROLE_KEYS } from "../../config/roles";
+import { COMPANY_A, COMPANY_A_USERS, COMPANY_B, DEPARTMENTS, PROJECT_IDS } from "./constants";
+
+type Check = { label: string; actual: number; expected: number; comparison: "eq" | "gte" };
+
+export async function validateSeed(prisma: PrismaClient): Promise<void> {
+  const problems: string[] = [];
+
+  const checks: Check[] = [
+    { label: "roles", actual: await prisma.role.count(), expected: ROLE_KEYS.length, comparison: "eq" },
+    { label: "modules", actual: await prisma.module.count(), expected: MODULE_KEYS.length, comparison: "eq" },
+    { label: "active demo companies", actual: await prisma.company.count({ where: { status: "ACTIVE" } }), expected: 2, comparison: "gte" },
+    { label: "Company A role users", actual: await prisma.companyMember.count({ where: { companyId: COMPANY_A, status: "ACTIVE", user: { email: { endsWith: "@nesto.test" } } } }), expected: COMPANY_A_USERS.length, comparison: "gte" },
+    { label: "Company A departments", actual: await prisma.department.count({ where: { companyId: COMPANY_A } }), expected: DEPARTMENTS.length, comparison: "eq" },
+    { label: "Company A clients", actual: await prisma.client.count({ where: { companyId: COMPANY_A } }), expected: 12, comparison: "gte" },
+    { label: "Company A contacts", actual: await prisma.contact.count({ where: { companyId: COMPANY_A } }), expected: 18, comparison: "gte" },
+    { label: "Company A projects", actual: await prisma.project.count({ where: { companyId: COMPANY_A } }), expected: 7, comparison: "gte" },
+    { label: "Company A tasks", actual: await prisma.task.count({ where: { companyId: COMPANY_A } }), expected: 36, comparison: "gte" },
+    { label: "Company A documents", actual: await prisma.document.count({ where: { companyId: COMPANY_A } }), expected: 24, comparison: "gte" },
+    { label: "Company A activities", actual: await prisma.activity.count({ where: { companyId: COMPANY_A } }), expected: 40, comparison: "gte" },
+    { label: "invoices", actual: await prisma.invoice.count({ where: { companyId: COMPANY_A } }), expected: 12, comparison: "gte" },
+    { label: "leave requests", actual: await prisma.leaveRequest.count({ where: { companyId: COMPANY_A } }), expected: 8, comparison: "gte" },
+    { label: "opportunities", actual: await prisma.opportunity.count({ where: { companyId: COMPANY_A } }), expected: 12, comparison: "gte" },
+    { label: "contracts", actual: await prisma.contract.count({ where: { companyId: COMPANY_A } }), expected: 10, comparison: "gte" },
+    { label: "purchase requests", actual: await prisma.purchaseRequest.count({ where: { companyId: COMPANY_A } }), expected: 12, comparison: "gte" },
+    { label: "purchase orders", actual: await prisma.purchaseOrder.count({ where: { companyId: COMPANY_A } }), expected: 8, comparison: "gte" },
+    { label: "inventory items", actual: await prisma.inventoryItem.count({ where: { companyId: COMPANY_A } }), expected: 20, comparison: "gte" },
+    { label: "inventory movements", actual: await prisma.inventoryMovement.count({ where: { companyId: COMPANY_A } }), expected: 20, comparison: "gte" },
+    { label: "quality records", actual: await prisma.qualityRecord.count({ where: { companyId: COMPANY_A } }), expected: 12, comparison: "gte" },
+    { label: "HSE records", actual: await prisma.hseRecord.count({ where: { companyId: COMPANY_A } }), expected: 12, comparison: "gte" },
+    { label: "support requests", actual: await prisma.supportRequest.count({ where: { companyId: COMPANY_A } }), expected: 3, comparison: "gte" },
+    { label: "Company B projects", actual: await prisma.project.count({ where: { companyId: COMPANY_B } }), expected: 2, comparison: "gte" },
+    { label: "Company B clients", actual: await prisma.client.count({ where: { companyId: COMPANY_B } }), expected: 3, comparison: "gte" },
+    { label: "Company B tasks", actual: await prisma.task.count({ where: { companyId: COMPANY_B } }), expected: 6, comparison: "gte" },
+    { label: "Company B documents", actual: await prisma.document.count({ where: { companyId: COMPANY_B } }), expected: 4, comparison: "gte" },
+    { label: "Company B disabled modules", actual: await prisma.companyModule.count({ where: { companyId: COMPANY_B, enabled: false } }), expected: 1, comparison: "gte" },
+  ];
+
+  for (const check of checks) {
+    const ok = check.comparison === "eq" ? check.actual === check.expected : check.actual >= check.expected;
+    if (!ok) {
+      problems.push(
+        `${check.label}: expected ${check.comparison === "eq" ? "" : "at least "}${check.expected}, found ${check.actual}`,
+      );
+    }
+  }
+
+  // The project membership matrix is what makes scope testable, so it is
+  // asserted cell by cell rather than merely counted (PRD #9 §45).
+  const expectedMembership: Record<string, string[]> = {
+    "pm@nesto.test": [PROJECT_IDS.a, PROJECT_IDS.b],
+    "architect@nesto.test": [PROJECT_IDS.a, PROJECT_IDS.c],
+    "engineer@nesto.test": [PROJECT_IDS.a, PROJECT_IDS.d],
+    "qaqc@nesto.test": [PROJECT_IDS.a, PROJECT_IDS.b, PROJECT_IDS.d],
+    "hse@nesto.test": [PROJECT_IDS.a, PROJECT_IDS.b, PROJECT_IDS.d],
+    "viewer@nesto.test": [PROJECT_IDS.a],
+  };
+
+  for (const [email, projects] of Object.entries(expectedMembership)) {
+    const rows = await prisma.projectMember.findMany({
+      where: {
+        companyId: COMPANY_A,
+        status: "ACTIVE",
+        member: { user: { email } },
+      },
+      select: { projectId: true },
+    });
+
+    const actual = rows.map((row) => row.projectId).sort();
+    const expected = [...projects].sort();
+
+    if (actual.join(",") !== expected.join(",")) {
+      problems.push(
+        `project membership for ${email}: expected [${expected.join(", ")}], found [${actual.join(", ")}]`,
+      );
+    }
+  }
+
+  // Cross-company relations must never exist in normal demo data
+  // (PRD #9 §115).
+  const crossCompanyProjects = await prisma.project.count({
+    where: { client: { isNot: null }, NOT: { client: { is: { companyId: { equals: COMPANY_A } } } }, companyId: COMPANY_A },
+  });
+  if (crossCompanyProjects > 0) {
+    problems.push(`${crossCompanyProjects} Company A project(s) reference a client from another company`);
+  }
+
+  if (problems.length > 0) {
+    throw new Error(`Seed validation failed:\n  - ${problems.join("\n  - ")}`);
+  }
+}
