@@ -19,7 +19,7 @@ import { accessibleModules, permissionsForRole } from "../config/role-defaults";
 import { roleList, roleLabel, type RoleKey } from "../config/roles";
 import { PUBLIC_ROUTES } from "../lib/permissions/route-access";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:3100";
+const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 
 const DENIED_MARKER = "You don&#x27;t have access to this area.";
 
