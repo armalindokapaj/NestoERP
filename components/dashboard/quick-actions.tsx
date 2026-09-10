@@ -1,35 +1,32 @@
 import Link from "next/link";
 
+import { getIcon } from "@/components/layout/nav-icon";
 import { Button } from "@/components/ui/button";
-import type { QuickAction } from "@/config/dashboards";
-import { can } from "@/config/permissions";
-import type { CurrentUser } from "@/lib/auth/types";
+import type { QuickActionDefinition } from "@/config/quick-actions";
 
 /**
- * Quick actions (spec §13).
- * Filtered by permission so a dashboard never offers a link the role's own
- * route rules would refuse — no dead navigation (spec §69).
+ * Quick actions (PRD #4 §22).
+ *
+ * The list arrives already filtered by permission, so the dashboard never
+ * offers a link the route guard would refuse — there is no dead navigation
+ * anywhere in NESTO (PRD #3 §125). A Viewer gets nothing here at all.
  */
-export function QuickActions({
-  actions,
-  user,
-}: {
-  actions: QuickAction[];
-  user: CurrentUser;
-}) {
-  const allowed = actions.filter(
-    (action) => !action.permission || can(user, action.permission),
-  );
-
-  if (allowed.length === 0) return null;
+export function QuickActions({ actions }: { actions: QuickActionDefinition[] }) {
+  if (actions.length === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {allowed.map((action) => (
-        <Button key={action.href + action.label} asChild variant="secondary" size="sm">
-          <Link href={action.href}>{action.label}</Link>
-        </Button>
-      ))}
+      {actions.map((action) => {
+        const Icon = getIcon(action.icon);
+        return (
+          <Button key={action.key} asChild variant="secondary" size="sm">
+            <Link href={action.href}>
+              <Icon aria-hidden="true" />
+              {action.label}
+            </Link>
+          </Button>
+        );
+      })}
     </div>
   );
 }

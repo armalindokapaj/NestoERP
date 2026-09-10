@@ -1,9 +1,14 @@
 import { cache } from "react";
 
-import type { RoleKey } from "@/config/roles";
 import { prisma } from "@/lib/database/prisma";
 
-/** Company profile for the Company module (spec §45). */
+/**
+ * Shared reads for Team and Company (PRD #8 §120).
+ *
+ * Every query is bounded by the company from the resolved context — never by an
+ * id supplied by the browser (PRD #8 §128).
+ */
+
 export const getCompany = cache(async (companyId: string) => {
   return prisma.company.findUnique({ where: { id: companyId } });
 });
@@ -13,54 +18,78 @@ export type TeamMember = {
   userId: string;
   firstName: string;
   lastName: string;
+  fullName: string;
   email: string;
   phone: string | null;
-  avatar: string | null;
-  role: RoleKey;
+  avatarUrl: string | null;
+  roleKey: string;
+  roleName: string;
   department: string | null;
   jobTitle: string | null;
-  status: "ACTIVE" | "INACTIVE";
-  userStatus: "ACTIVE" | "INVITED" | "SUSPENDED";
+  status: "ACTIVE" | "INVITED" | "INACTIVE" | "SUSPENDED";
+  userStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED";
 };
 
-function toTeamMember(record: {
+const MEMBER_SELECT = {
+  id: true,
+  jobTitle: true,
+  status: true,
+  role: { select: { key: true, name: true } },
+  department: { select: { name: true } },
+  user: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      avatarUrl: true,
+      status: true,
+    },
+  },
+} as const;
+
+type MemberRow = {
   id: string;
-  role: string;
-  department: string | null;
   jobTitle: string | null;
   status: string;
+  role: { key: string; name: string };
+  department: { name: string } | null;
   user: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
     phone: string | null;
-    avatar: string | null;
+    avatarUrl: string | null;
     status: string;
   };
-}): TeamMember {
+};
+
+function toTeamMember(record: MemberRow): TeamMember {
   return {
     id: record.id,
     userId: record.user.id,
     firstName: record.user.firstName,
     lastName: record.user.lastName,
+    fullName: `${record.user.firstName} ${record.user.lastName}`,
     email: record.user.email,
     phone: record.user.phone,
-    avatar: record.user.avatar,
-    role: record.role as RoleKey,
-    department: record.department,
+    avatarUrl: record.user.avatarUrl,
+    roleKey: record.role.key,
+    roleName: record.role.name,
+    department: record.department?.name ?? null,
     jobTitle: record.jobTitle,
     status: record.status as TeamMember["status"],
     userStatus: record.user.status as TeamMember["userStatus"],
   };
 }
 
-/** Everyone in the company workspace (spec §44). */
 export const getTeamMembers = cache(async (companyId: string): Promise<TeamMember[]> => {
   const records = await prisma.companyMember.findMany({
     where: { companyId },
-    include: { user: true },
-    orderBy: [{ department: "asc" }, { user: { firstName: "asc" } }],
+    select: MEMBER_SELECT,
+    orderBy: [{ department: { name: "asc" } }, { user: { firstName: "asc" } }],
   });
 
   return records.map(toTeamMember);
@@ -70,14 +99,14 @@ export const getTeamMember = cache(
   async (companyId: string, userId: string): Promise<TeamMember | null> => {
     const record = await prisma.companyMember.findUnique({
       where: { companyId_userId: { companyId, userId } },
-      include: { user: true },
+      select: MEMBER_SELECT,
     });
 
     return record ? toTeamMember(record) : null;
   },
 );
 
-/** Company module activation (spec §48). */
+/** Company-level module activation, for the Company and Settings pages. */
 export const getCompanyModules = cache(async (companyId: string) => {
   const records = await prisma.companyModule.findMany({
     where: { companyId },
@@ -88,7 +117,22 @@ export const getCompanyModules = cache(async (companyId: string) => {
   return records.map((record) => ({
     key: record.module.key,
     name: record.module.name,
-    status: record.module.status,
+    description: record.module.description,
+    route: record.module.route,
     enabled: record.enabled,
   }));
+});
+
+export const getDepartments = cache(async (companyId: string) => {
+  return prisma.department.findMany({
+    where: { companyId },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      key: true,
+      status: true,
+      _count: { select: { members: true } },
+    },
+  });
 });

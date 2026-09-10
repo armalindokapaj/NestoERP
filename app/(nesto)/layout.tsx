@@ -1,13 +1,16 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { requireUser } from "@/lib/auth/session";
+import { requireUserContext } from "@/lib/context/current-user";
 
 /**
  * Every authenticated NESTO route renders inside the one application shell
- * (spec §3, §9). Middleware has already checked the session; requireUser is the
- * second line of defence and provides the user context.
+ * (PRD #3 §2, §73).
+ *
+ * Middleware has already checked that a session cookie exists; this is where
+ * the real context is resolved from the database. Nothing below renders until
+ * it succeeds, which is what prevents permission flashing (PRD #5 §128).
  */
 export default async function NestoLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
+  const context = await requireUserContext();
 
-  return <AppShell user={user}>{children}</AppShell>;
+  return <AppShell context={context}>{children}</AppShell>;
 }

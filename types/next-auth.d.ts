@@ -2,8 +2,8 @@ import type { NestoSessionUser } from "@/lib/auth/types";
 
 declare module "next-auth" {
   /**
-   * `id` and `email` are omitted because Auth.js declares them as optional on
-   * DefaultUser; NESTO always has them and reads them from NestoSessionUser.
+   * `id` and `email` are omitted because Auth.js already declares them on
+   * DefaultUser; NESTO adds only the session id.
    */
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface User extends Omit<NestoSessionUser, "id" | "email"> {}

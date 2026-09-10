@@ -1,5 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 
+import { SESSION_TTL_MS } from "./constants";
+
 /**
  * Edge-safe half of the Auth.js configuration.
  *
@@ -14,26 +16,17 @@ export const authConfig = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60 * 8, // an eight-hour working day
+    maxAge: SESSION_TTL_MS / 1000,
   },
   providers: [],
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        // `user` is the object returned by authorize() on sign-in.
+        // `user` is what authorize() returned on sign-in.
         token.nesto = {
           id: user.id as string,
-          firstName: user.firstName,
-          lastName: user.lastName,
           email: user.email as string,
-          avatar: user.avatar ?? null,
-          role: user.role,
-          companyId: user.companyId,
-          companyName: user.companyName,
-          companySlug: user.companySlug,
-          companyLogo: user.companyLogo ?? null,
-          department: user.department ?? null,
-          jobTitle: user.jobTitle ?? null,
+          sessionId: user.sessionId,
         };
       }
       return token;

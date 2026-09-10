@@ -1,6 +1,13 @@
 import type { Permission } from "./permissions";
 
-/** Settings sections (spec §46). */
+/**
+ * Settings sections (PRD #5 §39).
+ *
+ * Profile and Appearance are *personal*: every authenticated user reaches them
+ * from the top-bar user menu, whatever their role's Settings access. The
+ * company sections are gated on `settings.manage`, and Roles additionally on
+ * team administration.
+ */
 export type SettingsSection = {
   slug: string;
   label: string;
@@ -8,6 +15,8 @@ export type SettingsSection = {
   icon: string;
   /** Section is hidden and blocked without this permission. */
   permission: Permission;
+  /** Personal sections need no Settings module access at all. */
+  personal?: boolean;
 };
 
 export const settingsSections: SettingsSection[] = [
@@ -17,6 +26,7 @@ export const settingsSections: SettingsSection[] = [
     description: "Your personal details and contact information.",
     icon: "IdCard",
     permission: "settings.view",
+    personal: true,
   },
   {
     slug: "company",
@@ -52,5 +62,10 @@ export const settingsSections: SettingsSection[] = [
     description: "Theme and display preferences.",
     icon: "Settings",
     permission: "settings.view",
+    personal: true,
   },
 ];
+
+export function findSettingsSection(slug: string): SettingsSection | undefined {
+  return settingsSections.find((section) => section.slug === slug);
+}

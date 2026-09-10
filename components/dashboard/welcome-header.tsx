@@ -1,7 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { brand } from "@/config/brand";
-import { roleLabel } from "@/config/roles";
-import type { CurrentUser } from "@/lib/auth/types";
+import type { UserContext } from "@/lib/context/types";
 import { greeting } from "@/lib/utils/format";
 
 /**
@@ -14,7 +13,7 @@ import { greeting } from "@/lib/utils/format";
  * The role sits beside the title rather than in a corner, because switching
  * roles is the main thing anyone does with this screen in V0.1 (§96).
  */
-export function WelcomeHeader({ user }: { user: CurrentUser }) {
+export function WelcomeHeader({ context, focus }: { context: UserContext; focus: string }) {
   const today = new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
     day: "2-digit",
@@ -26,19 +25,18 @@ export function WelcomeHeader({ user }: { user: CurrentUser }) {
     <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
       <div className="min-w-0">
         <p className="nesto-eyebrow text-fg-subtle">
-          {greeting()}, {user.firstName}
+          {greeting()}, {context.firstName}
         </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="font-serif text-display text-fg">Dashboard</h1>
-          <Badge tone={user.roleIsOverridden ? "warning" : "neutral"}>
-            {user.roleIsOverridden ? `Viewing as ${roleLabel(user.role)}` : roleLabel(user.role)}
+          <Badge tone={context.roleIsOverridden ? "warning" : "neutral"}>
+            {context.roleIsOverridden ? `Viewing as ${context.roleLabel}` : context.roleLabel}
           </Badge>
         </div>
 
-        <p className="mt-2 text-body text-fg-muted">
-          Here&apos;s what&apos;s happening across {user.companyName} today.
-        </p>
+        <p className="mt-2 text-body text-fg-muted">{focus}</p>
+        <p className="mt-1 text-table text-fg-subtle">{context.company.name}</p>
       </div>
 
       <div className="hidden shrink-0 text-right md:block">

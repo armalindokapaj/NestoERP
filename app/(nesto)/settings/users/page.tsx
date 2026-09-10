@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/modules/status-badge";
 import {
   Table,
   TableBody,
@@ -12,8 +12,7 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@/components/ui/table";
-import { roleLabel } from "@/config/roles";
-import { requirePermission } from "@/lib/auth/session";
+import { requireSettingsSection } from "../settings-access";
 import { getTeamMembers } from "@/lib/database/queries";
 import { fullName } from "@/lib/utils/format";
 
@@ -21,21 +20,9 @@ export const metadata: Metadata = {
   title: "Users",
 };
 
-const userStatusTone = {
-  ACTIVE: "success",
-  INVITED: "warning",
-  SUSPENDED: "danger",
-} as const;
-
-const userStatusLabel = {
-  ACTIVE: "Active",
-  INVITED: "Invited",
-  SUSPENDED: "Suspended",
-} as const;
-
 export default async function UsersSettingsPage() {
-  const user = await requirePermission("settings.manage");
-  const members = await getTeamMembers(user.companyId);
+  const context = await requireSettingsSection("users");
+  const members = await getTeamMembers(context.companyId);
 
   return (
     <div className="space-y-5">
@@ -65,7 +52,7 @@ export default async function UsersSettingsPage() {
                     <Avatar
                       firstName={member.firstName}
                       lastName={member.lastName}
-                      src={member.avatar}
+                      src={member.avatarUrl}
                       size="sm"
                     />
                     <span className="truncate font-medium">
@@ -74,11 +61,9 @@ export default async function UsersSettingsPage() {
                   </Link>
                 </TableCell>
                 <TableCell className="hidden text-fg-muted md:table-cell">{member.email}</TableCell>
-                <TableCell className="text-fg-muted">{roleLabel(member.role)}</TableCell>
+                <TableCell className="text-fg-muted">{member.roleName}</TableCell>
                 <TableCell>
-                  <Badge tone={userStatusTone[member.userStatus]}>
-                    {userStatusLabel[member.userStatus]}
-                  </Badge>
+                  <StatusBadge status={member.userStatus} />
                 </TableCell>
               </TableRow>
             ))}

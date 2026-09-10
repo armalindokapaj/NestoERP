@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { roleLabel } from "@/config/roles";
-import { requirePermission } from "@/lib/auth/session";
+import { requireSettingsSection } from "../settings-access";
 import { fullName } from "@/lib/utils/format";
 
 export const metadata: Metadata = {
@@ -18,15 +18,15 @@ export const metadata: Metadata = {
  * Fields are read-only in V0.1; editing arrives with the settings module.
  */
 export default async function ProfileSettingsPage() {
-  const user = await requirePermission("settings.view");
+  const user = await requireSettingsSection("profile");
 
   const fields = [
     { id: "firstName", label: "First name", value: user.firstName },
     { id: "lastName", label: "Last name", value: user.lastName },
     { id: "email", label: "Email", value: user.email },
     { id: "position", label: "Position", value: user.jobTitle ?? "—" },
-    { id: "department", label: "Department", value: user.department ?? "—" },
-    { id: "company", label: "Company", value: user.companyName },
+    { id: "department", label: "Department", value: user.department?.name ?? "—" },
+    { id: "company", label: "Company", value: user.company.name },
   ];
 
   return (
@@ -41,7 +41,7 @@ export default async function ProfileSettingsPage() {
           <Avatar
             firstName={user.firstName}
             lastName={user.lastName}
-            src={user.avatar}
+            src={user.avatarUrl}
             size="xl"
           />
           <div className="min-w-0">
@@ -50,7 +50,7 @@ export default async function ProfileSettingsPage() {
             </p>
             <p className="mt-0.5 text-body text-fg-muted">{user.email}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge tone="info">{roleLabel(user.role)}</Badge>
+              <Badge tone="info">{user.roleLabel}</Badge>
               {user.roleIsOverridden ? (
                 <Badge tone="warning">Dev override — actual role {roleLabel(user.actualRole)}</Badge>
               ) : null}

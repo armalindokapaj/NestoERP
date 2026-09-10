@@ -139,10 +139,10 @@ export const moduleCopy: Record<ModuleKey, string> = {
 
 /** Zone headings for the public module grid (product zones stay internal). */
 export const moduleZoneCopy = {
-  MAIN: { title: "Overview", lead: "Where every role begins." },
-  WORK: { title: "Work", lead: "The day-to-day of delivering a project." },
-  DEPARTMENT: { title: "Departments", lead: "The eight functions a construction company runs on." },
-  COMPANY: { title: "Company", lead: "The organisation behind the projects." },
+  primary: { title: "Overview", lead: "Where every role begins." },
+  work: { title: "Work", lead: "The day-to-day of delivering a project." },
+  department: { title: "Departments", lead: "The eight functions a construction company runs on." },
+  company: { title: "Company", lead: "The organisation behind the projects." },
 } as const;
 
 /** The build, end to end — the spine of the platform story. */

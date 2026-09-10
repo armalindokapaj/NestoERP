@@ -13,13 +13,19 @@ import { siteUrl } from "@/lib/marketing/site-url";
  * notices.
  */
 export default function robots(): MetadataRoute.Robots {
-  const moduleRoutes = MODULE_KEYS.map((key) => modules[key].href);
+  const moduleRoutes = MODULE_KEYS.map((key) => modules[key].route);
 
   return {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: [...moduleRoutes, "/access-denied", "/api/"],
+      disallow: [
+        ...moduleRoutes,
+        "/access-denied",
+        "/module-unavailable",
+        "/workspace-unavailable",
+        "/api/",
+      ],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
   };

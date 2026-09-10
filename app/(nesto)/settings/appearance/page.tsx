@@ -6,7 +6,7 @@ import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { NavigationPreference } from "@/components/settings/navigation-preference";
 import { ThemePreference } from "@/components/settings/theme-preference";
 import { Divider } from "@/components/ui/divider";
-import { requirePermission } from "@/lib/auth/session";
+import { requireSettingsSection } from "../settings-access";
 import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AppearanceSettingsPage() {
-  await requirePermission("settings.view");
+  await requireSettingsSection("appearance");
 
   const cookieStore = await cookies();
   const theme = readThemeChoice(cookieStore.get(THEME_COOKIE)?.value);

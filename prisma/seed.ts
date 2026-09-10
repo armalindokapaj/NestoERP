@@ -1,111 +1,89 @@
 /**
- * NESTO V0.1 development seed (spec §65).
+ * NESTO V0.1 demo seed (PRD #9).
  *
- * Creates one demo company and one account per role, from the shared roster in
- * config/demo-company.ts. Idempotent — safe to run repeatedly.
+ * Fresh database → migrations → seed → sign in as any of the 16 demo users and
+ * navigate a fully populated workspace, without creating a single record by
+ * hand (PRD #9 §2).
+ *
+ * Order matters: configuration first, then companies and people, then the core
+ * business graph, then module test records, then activity, then validation
+ * (PRD #9 §239).
  */
-import { PrismaClient, type Role } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
 
-import {
-  DEMO_COMPANY,
-  DEMO_PASSWORD,
-  demoAccounts,
-  rolesMissingDemoAccount,
-} from "../config/demo-company";
-import { MODULE_KEYS, modules } from "../config/modules";
-import { ROLE_KEYS, roles } from "../config/roles";
+import { seedAccessConfiguration } from "./seed/access";
+import { seedActivities } from "./seed/activities";
+import { seedBusinessRecords } from "./seed/business";
+import { seedCompanies } from "./seed/companies";
+import { COMPANY_A_USERS, DEMO_PASSWORD } from "./seed/constants";
+import { seedModuleRecords } from "./seed/module-records";
+import { validateSeed } from "./seed/validate";
 
 const prisma = new PrismaClient();
 
-async function main() {
-  // "One account per role" is a guarantee the seed refuses to break.
-  const missing = rolesMissingDemoAccount();
-  if (missing.length > 0) {
+/**
+ * Demo records must never reach production (PRD #9 §6, §248). Both guards are
+ * required: the environment must not be production, and the operator must have
+ * opted in explicitly.
+ */
+function assertSafeEnvironment() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "true") {
     throw new Error(
-      `No demo account defined for: ${missing.join(", ")}. Add them to config/demo-company.ts.`,
+      "Refusing to seed demo data: NODE_ENV is production and ALLOW_DEMO_SEED is not set.",
     );
   }
 
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
-
-  const company = await prisma.company.upsert({
-    where: { slug: DEMO_COMPANY.slug },
-    update: { ...DEMO_COMPANY },
-    create: { ...DEMO_COMPANY },
-  });
-
-  console.log(`Company: ${company.name}`);
-
-  for (const account of demoAccounts) {
-    const user = await prisma.user.upsert({
-      where: { email: account.email },
-      update: {
-        firstName: account.firstName,
-        lastName: account.lastName,
-        phone: account.phone,
-        passwordHash,
-        status: "ACTIVE",
-      },
-      create: {
-        email: account.email,
-        firstName: account.firstName,
-        lastName: account.lastName,
-        phone: account.phone,
-        passwordHash,
-        status: "ACTIVE",
-      },
-    });
-
-    await prisma.companyMember.upsert({
-      where: { companyId_userId: { companyId: company.id, userId: user.id } },
-      update: {
-        role: account.role as Role,
-        department: account.department,
-        jobTitle: account.jobTitle,
-        status: "ACTIVE",
-      },
-      create: {
-        companyId: company.id,
-        userId: user.id,
-        role: account.role as Role,
-        department: account.department,
-        jobTitle: account.jobTitle,
-        status: "ACTIVE",
-      },
-    });
+  if (!process.env.NESTO_DEMO_PASSWORD && process.env.NODE_ENV === "production") {
+    throw new Error("Refusing to seed: NESTO_DEMO_PASSWORD must be set outside development.");
   }
+}
 
-  console.log(`Users: ${demoAccounts.length} accounts, one per role`);
+async function main() {
+  assertSafeEnvironment();
 
-  // Module catalogue + company activation (spec §48).
-  for (const key of MODULE_KEYS) {
-    const definition = modules[key];
-    const record = await prisma.module.upsert({
-      where: { key },
-      update: { name: definition.label },
-      create: { key, name: definition.label, status: "AVAILABLE" },
-    });
+  const access = await seedAccessConfiguration(prisma);
+  const { companyA, companyB, members } = await seedCompanies(prisma);
+  await seedBusinessRecords(prisma, members);
+  await seedModuleRecords(prisma, members);
+  const activities = await seedActivities(prisma, members);
 
-    await prisma.companyModule.upsert({
-      where: { companyId_moduleId: { companyId: company.id, moduleId: record.id } },
-      update: { enabled: true },
-      create: { companyId: company.id, moduleId: record.id, enabled: true },
-    });
-  }
+  await validateSeed(prisma);
 
-  console.log(`Modules: ${MODULE_KEYS.length} enabled for ${company.name}`);
-  console.log(`\nSign in with any of the accounts below, password: ${DEMO_PASSWORD}`);
-  for (const key of ROLE_KEYS) {
-    const account = demoAccounts.find((item) => item.role === key)!;
-    console.log(`  ${account.email.padEnd(26)} ${roles[key].label}`);
+  const counts = {
+    companies: await prisma.company.count(),
+    users: await prisma.user.count(),
+    projects: await prisma.project.count(),
+    clients: await prisma.client.count(),
+    tasks: await prisma.task.count(),
+    documents: await prisma.document.count(),
+  };
+
+  // Concise output only — never a hash, a token or a secret (PRD #9 §240).
+  console.log(`✓ Roles: ${access.roles}`);
+  console.log(`✓ Permissions: ${access.permissions}`);
+  console.log(`✓ Modules: ${access.modules}`);
+  console.log(`✓ Role permissions: ${access.rolePermissions}`);
+  console.log(`✓ Role module access: ${access.roleModuleAccess}`);
+  console.log(`✓ Companies: ${counts.companies} (${companyA.name}, ${companyB.name})`);
+  console.log(`✓ Users: ${counts.users}`);
+  console.log(`✓ Projects: ${counts.projects}`);
+  console.log(`✓ Clients: ${counts.clients}`);
+  console.log(`✓ Tasks: ${counts.tasks}`);
+  console.log(`✓ Documents: ${counts.documents}`);
+  console.log(`✓ Activities: ${activities}`);
+  console.log("✓ Seed validation passed");
+  console.log(
+    `\nSign in with any of the ${COMPANY_A_USERS.length} demo accounts, password: ${DEMO_PASSWORD}`,
+  );
+  for (const user of COMPANY_A_USERS) {
+    console.log(`  ${user.email.padEnd(28)} ${user.role}`);
   }
 }
 
 main()
   .catch((error) => {
-    console.error(error);
-    process.exit(1);
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();

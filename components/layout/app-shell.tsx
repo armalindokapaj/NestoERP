@@ -1,45 +1,88 @@
 import * as React from "react";
 import { cookies } from "next/headers";
 
+import { DevAccessPanel } from "@/components/layout/dev-access-panel";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { Topbar } from "@/components/layout/topbar";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { MODULE_KEYS, modules } from "@/config/modules";
+import { resolveNavigation } from "@/config/navigation";
+import { isDevMode } from "@/lib/auth/dev-role";
+import type { UserContext } from "@/lib/context/types";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
-import type { CurrentUser } from "@/lib/auth/types";
 
 /**
- * The one NESTO application shell (design spec §11, §105).
+ * The one NESTO application shell (PRD #3 §2, §97).
  *
  * Every authenticated route renders inside this. The structure never changes
- * between roles — only the configuration passed to the sidebar and dashboard.
+ * between roles — only the resolved navigation passed into it does. There is no
+ * separate shell for Owner, Finance or Architect (PRD #3 §2).
  *
- * Content is capped at 1600px (§50) and padded 16 / 24 / 32px across mobile,
- * tablet and desktop (§8).
+ * Navigation is resolved once, here, and handed to both the desktop sidebar and
+ * the mobile drawer, so the two can never disagree (PRD #3 §99).
+ *
+ * Content is capped at 1600px (PRD #3 §87) and padded across mobile, tablet and
+ * desktop (PRD #7 §83).
  */
 export async function AppShell({
-  user,
+  context,
   children,
 }: {
-  user: CurrentUser;
+  context: UserContext;
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
   const sidebarState = readSidebarState(cookieStore.get(SIDEBAR_COOKIE)?.value);
 
+  const navigation = resolveNavigation({
+    permissions: context.permissions,
+    enabledModules: context.enabledModules,
+  });
+
   return (
     <TooltipProvider delayDuration={200}>
       <ToastProvider>
         <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
-          <Sidebar user={user} />
+          <Sidebar navigation={navigation} />
 
           <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-            <Topbar user={user} />
-            <main className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-6 md:py-8 xl:px-8">
+            <Topbar context={context} navigation={navigation} />
+            <main
+              id="nesto-main"
+              className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-6 md:py-8 xl:px-8"
+            >
               {children}
             </main>
           </div>
+
+          {/* Development only: never mounted in a production build
+              (PRD #9 §211). */}
+          {isDevMode ? (
+            <DevAccessPanel
+              snapshot={{
+                company: context.company.name,
+                user: `${context.fullName} · ${context.email}`,
+                role: context.roleLabel,
+                actualRole: context.actualRole,
+                roleIsOverridden: context.roleIsOverridden,
+                modules: Object.fromEntries(
+                  MODULE_KEYS.map((key) => [
+                    key,
+                    {
+                      label: modules[key].label,
+                      accessLevel: context.moduleAccess[key].enabled
+                        ? context.moduleAccess[key].accessLevel
+                        : "DISABLED",
+                      scope: context.moduleAccess[key].scope,
+                      permissions: context.moduleAccess[key].permissions,
+                    },
+                  ]),
+                ),
+              }}
+            />
+          ) : null}
         </SidebarProvider>
       </ToastProvider>
     </TooltipProvider>

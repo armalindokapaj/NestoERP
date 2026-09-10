@@ -2,80 +2,75 @@ import type { Metadata } from "next";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Badge } from "@/components/ui/badge";
-import { modules } from "@/config/modules";
-import { navigationForRole } from "@/config/navigation";
-import { permissionsForRole } from "@/config/permissions";
+import { accessLevelLabels, dataScopeLabels } from "@/config/access";
+import { MODULE_KEYS, modules } from "@/config/modules";
+import { roleModuleAccess } from "@/config/role-defaults";
 import { roleList } from "@/config/roles";
-import { requirePermission } from "@/lib/auth/session";
+import { requireSettingsSection } from "../settings-access";
 
-export const metadata: Metadata = {
-  title: "Roles",
-};
+export const metadata: Metadata = { title: "Roles" };
 
 /**
- * Roles and permissions, read straight from configuration.
- * This is the definitive answer to "what can this role actually do?" — the same
- * data the sidebar and the route guards use.
+ * The role × module access matrix, read straight from configuration
+ * (PRD #5 §10).
+ *
+ * This page cannot drift from the running system: it renders the same
+ * `roleModuleAccess` that resolves navigation, dashboards and route guards.
  */
 export default async function RolesSettingsPage() {
-  await requirePermission("settings.manage");
+  await requireSettingsSection("roles");
 
   return (
     <div className="space-y-5">
       <SettingsPageHeader
         title="Roles"
-        description="The 16 NESTO roles and the permissions each one holds."
+        description="The 16 NESTO roles, the access level each holds in every module, and the data scope that applies."
       />
 
       <div className="space-y-4">
         {roleList.map((role) => {
-          const permissions = permissionsForRole(role.key);
-          const navigation = navigationForRole(role.key);
+          const access = roleModuleAccess[role.key];
+          const granted = MODULE_KEYS.filter(
+            (key) => key !== "dashboard" && access[key].accessLevel !== "NONE",
+          );
+          const permissionCount = new Set(
+            MODULE_KEYS.flatMap((key) => access[key].permissions),
+          ).size;
 
           return (
             <section key={role.key} className="nesto-card p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-micro tabular-nums text-fg-subtle">{role.code}</span>
-                    <h2 className="text-card font-semibold text-fg">{role.label}</h2>
-                    {role.readOnly ? <Badge tone="warning">Read only</Badge> : null}
-                  </div>
-                  <p className="mt-1 text-table text-fg-muted">{role.description}</p>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <h2 className="text-card font-semibold text-fg">{role.label}</h2>
+                  <p className="mt-0.5 text-table text-fg-muted">{role.description}</p>
                 </div>
-                <Badge>{role.department}</Badge>
+                <p className="text-meta tabular-nums text-fg-subtle">
+                  {granted.length} modules · {permissionCount} permissions
+                </p>
               </div>
 
-              <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div>
-                  <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-fg-subtle">
-                    Navigation ({navigation.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {navigation.map((key) => (
-                      <Badge key={key} tone="neutral">
-                        {modules[key].label}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-fg-subtle">
-                    Permissions ({permissions.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {permissions.map((permission) => (
-                      <span
-                        key={permission}
-                        className="rounded border border-line bg-surface-muted px-1.5 py-0.5 font-mono text-micro text-fg-muted"
-                      >
-                        {permission}
+              {granted.length === 0 ? (
+                <p className="mt-4 text-table text-fg-subtle">No module access.</p>
+              ) : (
+                <ul className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {granted.map((key) => (
+                    <li
+                      key={key}
+                      className="flex items-center justify-between gap-2 rounded-md border border-line px-3 py-2"
+                    >
+                      <span className="truncate text-table text-fg">{modules[key].label}</span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <Badge tone="neutral">
+                          {accessLevelLabels[access[key].accessLevel]}
+                        </Badge>
+                        <span className="text-micro text-fg-subtle">
+                          {dataScopeLabels[access[key].scope]}
+                        </span>
                       </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           );
         })}

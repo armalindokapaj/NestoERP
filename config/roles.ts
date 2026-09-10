@@ -9,7 +9,7 @@
 export const ROLE_KEYS = [
   "OWNER",
   "ADMIN",
-  "IT",
+  "COMPANY_IT",
   "HR",
   "CEO",
   "PROJECT_MANAGER",
@@ -53,8 +53,8 @@ export const roles: Record<RoleKey, RoleDefinition> = {
     department: "Administration",
     description: "Manages users, company configuration and platform setup.",
   },
-  IT: {
-    key: "IT",
+  COMPANY_IT: {
+    key: "COMPANY_IT",
     code: "03",
     label: "Company IT",
     department: "IT",

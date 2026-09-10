@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
-import { DEMO_PASSWORD, demoAccountsInRoleOrder } from "@/config/demo-company";
+import { DEMO_PASSWORD, demoAccountsInRoleOrder } from "@/config/demo-accounts";
 import { roles } from "@/config/roles";
 import { isDevMode } from "@/lib/auth/dev-role";
 import { DemoAccounts } from "./demo-accounts";
@@ -11,6 +11,18 @@ import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
   title: "Sign in",
+};
+
+/**
+ * Why the person was sent back here (PRD #6 §51, §50).
+ *
+ * "Your session expired" and "sign in to continue" are different messages, and
+ * being told the wrong one is how people conclude software is broken.
+ */
+const SIGN_IN_NOTICES: Record<string, string> = {
+  "session-expired": "Your session expired. Please sign in again.",
+  "account-unavailable":
+    "Your account is currently unavailable. Contact your administrator.",
 };
 
 /**
@@ -26,9 +38,10 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; reason?: string }>;
 }) {
-  const { callbackUrl } = await searchParams;
+  const { callbackUrl, reason } = await searchParams;
+  const notice = SIGN_IN_NOTICES[reason ?? ""];
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,42%)_minmax(0,1fr)]">
@@ -47,6 +60,15 @@ export default async function LoginPage({
             <p className="mb-6 mt-1.5 text-body text-fg-muted">
               Sign in to continue to your workspace.
             </p>
+
+            {notice ? (
+              <p
+                role="status"
+                className="mb-4 rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"
+              >
+                {notice}
+              </p>
+            ) : null}
 
             <LoginForm callbackUrl={callbackUrl} />
 

@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
 
-import { PlaceholderModulePage } from "@/components/modules/placeholder-module-page";
+import { ModuleSectionPage } from "@/components/modules/module-section-page";
 import { modules } from "@/config/modules";
 
-const MODULE_KEY = "hse" as const;
+export const metadata: Metadata = { title: modules.hse.label };
 
-export const metadata: Metadata = {
-  title: modules[MODULE_KEY].label,
-};
-
-export default async function HsePage({
+export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  return <PlaceholderModulePage moduleKey={MODULE_KEY} searchParams={searchParams} />;
+  return <ModuleSectionPage moduleKey="hse" searchParams={await searchParams} />;
 }

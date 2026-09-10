@@ -1,0 +1,98 @@
+name: CI
+
+# Pipeline order per PRD #9 §200: install → lint → typecheck → build →
+# database → migrations → seed → unit → integration → API → critical E2E.
+#
+# Any failure in migration, seed validation, authorisation, cross-company
+# isolation or a critical E2E flow fails the build (PRD #9 §201, §202).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nesto_test?schema=public
+  AUTH_SECRET: ci-only-secret-not-used-in-any-deployment
+  AUTH_TRUST_HOST: "true"
+  NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3210
+  NESTO_DEMO_PASSWORD: ci-demo-password
+  NODE_ENV: test
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # A dedicated database per run: integration tests never touch a
+        # development, staging or production database (PRD #9 §125, §244).
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nesto_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - name: Seed demo data
+        run: pnpm db:seed
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      - name: API authorisation tests
+        run: pnpm test:api
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: pnpm test:e2e
+
+      - name: Upload failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

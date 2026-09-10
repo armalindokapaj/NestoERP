@@ -9,7 +9,7 @@ import { NestoLogo } from "@/components/layout/nesto-logo";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { brand } from "@/config/brand";
-import type { RoleKey } from "@/config/roles";
+import type { NavigationGroup } from "@/config/navigation";
 
 /**
  * Mobile and tablet-portrait navigation (design spec §38, §39).
@@ -17,7 +17,13 @@ import type { RoleKey } from "@/config/roles";
  * Same configuration as the desktop sidebar — one navigation model, two
  * presentations. Selecting a page navigates and closes the drawer.
  */
-export function MobileNav({ role, companyName }: { role: RoleKey; companyName: string }) {
+export function MobileNav({
+  navigation,
+  companyName,
+}: {
+  navigation: NavigationGroup[];
+  companyName: string;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -54,7 +60,7 @@ export function MobileNav({ role, companyName }: { role: RoleKey; companyName: s
         {/* min-h-0: without it this flex child refuses to shrink below its
             content and pushes the footer past the bottom of the drawer. */}
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <SidebarNav role={role} onNavigate={() => setOpen(false)} inDrawer />
+          <SidebarNav navigation={navigation} onNavigate={() => setOpen(false)} inDrawer />
         </div>
 
         <div className="shrink-0 border-t border-line px-4 py-3.5">

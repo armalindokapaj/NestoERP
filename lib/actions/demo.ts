@@ -2,7 +2,7 @@
 
 import { AuthError } from "next-auth";
 
-import { DEMO_PASSWORD, demoAccountForRole } from "@/config/demo-company";
+import { DEMO_PASSWORD, demoAccountForRole } from "@/config/demo-accounts";
 import { isRoleKey } from "@/config/roles";
 import { signIn } from "@/lib/auth";
 import { isDevMode } from "@/lib/auth/dev-role";

@@ -2,10 +2,10 @@ import { getIcon } from "@/components/layout/nav-icon";
 import { gridColumns, hairlineCell, hairlineGrid } from "@/components/marketing/section";
 import { moduleCopy, moduleZoneCopy } from "@/config/marketing";
 import {
-  MODULE_ZONES,
+  MODULE_GROUPS,
   moduleList,
   type ModuleDefinition,
-  type ModuleZone,
+  type ModuleGroup,
 } from "@/config/modules";
 import { cn } from "@/lib/utils/cn";
 
@@ -33,14 +33,14 @@ function ModuleCard({
       <h3 className="mt-4 text-card font-semibold text-fg">{definition.label}</h3>
       <p className="mt-2 text-table leading-relaxed text-fg-muted">{moduleCopy[definition.key]}</p>
 
-      {showTabs && definition.tabs.length > 0 ? (
+      {showTabs && definition.sections.length > 0 ? (
         <ul className="mt-4 flex flex-wrap gap-1.5">
-          {definition.tabs.map((tab) => (
+          {definition.sections.map((section) => (
             <li
-              key={tab.slug}
+              key={section.key}
               className="rounded-full border border-line bg-canvas px-2 py-0.5 text-micro text-fg-subtle"
             >
-              {tab.label}
+              {section.label}
             </li>
           ))}
         </ul>
@@ -50,20 +50,20 @@ function ModuleCard({
 }
 
 export function ModuleGrid({
-  zones = ["WORK", "DEPARTMENT", "COMPANY"],
+  zones = ["work", "department", "company"],
   showTabs = false,
   className,
 }: {
-  zones?: ModuleZone[];
+  zones?: ModuleGroup[];
   showTabs?: boolean;
   className?: string;
 }) {
-  const ordered = MODULE_ZONES.filter((zone) => zones.includes(zone));
+  const ordered = MODULE_GROUPS.filter((group) => zones.includes(group));
 
   return (
     <div className={cn("space-y-12", className)}>
       {ordered.map((zone) => {
-        const inZone = moduleList.filter((definition) => definition.zone === zone);
+        const inZone = moduleList.filter((definition) => definition.group === zone);
         if (inZone.length === 0) return null;
         const copy = moduleZoneCopy[zone];
 
