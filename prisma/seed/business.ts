@@ -9,6 +9,8 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { normalizeName } from "../../lib/modules/clients/client.duplicate";
+import { sanitizeFileName } from "../../lib/modules/documents/document.files";
+import { buildStorageKey, documentStorage } from "../../lib/storage";
 import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
 
 type Members = Map<string, string>;
@@ -236,7 +238,7 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
   await seedTasks(prisma, members);
 
   /* Documents --------------------------------------------------------------- */
-  await seedDocuments(prisma);
+  await seedDocuments(prisma, members);
 
   /* Company B --------------------------------------------------------------- */
   await seedCompanyB(prisma, members);
@@ -397,27 +399,96 @@ const DOCUMENTS: {
   { name: "Old Supplier List.pdf", module: "procurement", archived: true },
 ];
 
-async function seedDocuments(prisma: PrismaClient) {
+/**
+ * A small, genuinely valid PDF so a seeded document can actually be downloaded
+ * and previewed. A demo whose files 404 would not exercise the storage path
+ * the product depends on (PRD #13 §268).
+ */
+function placeholderPdf(title: string): Uint8Array {
+  const text = title.replace(/[()\\]/g, "");
+  const body = [
+    "%PDF-1.4",
+    "1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj",
+    "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj",
+    "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 320 120]/Contents 4 0 R" +
+      "/Resources<</Font<</F1 5 0 R>>>>>>endobj",
+    `4 0 obj<</Length 90>>stream`,
+    "BT /F1 12 Tf 24 70 Td (" + text + ") Tj ET",
+    "endstream endobj",
+    "5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj",
+    "trailer<</Root 1 0 R/Size 6>>",
+    "%%EOF",
+    "",
+  ].join("\n");
+
+  return new TextEncoder().encode(body);
+}
+
+async function seedDocuments(prisma: PrismaClient, members: Members) {
+  const storage = documentStorage();
+  const uploader = members.get("user_pm") ?? null;
   let index = 0;
 
   for (const document of DOCUMENTS) {
     index += 1;
     const id = `document_${index.toString().padStart(3, "0")}`;
 
-    await prisma.document.upsert({
+    const existing = await prisma.document.findUnique({
       where: { id },
-      update: {},
-      create: {
+      select: { id: true, storageKey: true },
+    });
+
+    // Store the object first, exactly as the service does: a Document row must
+    // never exist without its file (PRD #13 §21, §96).
+    const safeName = sanitizeFileName(document.name);
+    const storageKey = buildStorageKey(COMPANY_A, id, safeName);
+
+    if (existing) {
+      // A row seeded before Documents had a storage layer has no object behind
+      // it. Backfilling is idempotent and touches only the file columns, so a
+      // developer's own edits to the record survive.
+      if (!existing.storageKey || !(await storage.objectExists(existing.storageKey))) {
+        const repaired = await storage.put(storageKey, placeholderPdf(document.name));
+        await prisma.document.update({
+          where: { id },
+          data: {
+            originalFileName: document.name,
+            fileName: safeName,
+            extension: "pdf",
+            storageProvider: storage.provider,
+            storageKey: repaired.storageKey,
+            checksum: repaired.checksum,
+            sizeBytes: BigInt(repaired.sizeBytes),
+            uploadedByMemberId: uploader,
+          },
+        });
+      }
+      continue;
+    }
+
+    const stored = await storage.put(storageKey, placeholderPdf(document.name));
+
+    await prisma.document.create({
+      data: {
         id,
         companyId: COMPANY_A,
         name: document.name,
-        fileName: document.name,
+        originalFileName: document.name,
+        fileName: safeName,
+        extension: "pdf",
+        storageProvider: storage.provider,
+        storageKey: stored.storageKey,
+        checksum: stored.checksum,
         mimeType: "application/pdf",
-        sizeBytes: BigInt(120_000 + index * 4_500),
+        sizeBytes: BigInt(stored.sizeBytes),
         projectId: document.project ?? null,
         clientId: document.client ?? null,
         module: document.module ?? null,
+        entityType: document.project ? "project" : document.client ? "client" : null,
+        entityId: document.project ?? document.client ?? null,
         status: document.archived ? "ARCHIVED" : "ACTIVE",
+        preArchiveStatus: document.archived ? "ACTIVE" : null,
+        uploadedByMemberId: uploader,
         createdBy: "user_pm",
         archivedAt: document.archived ? daysFromNow(-35) : null,
         archivedBy: document.archived ? "user_pm" : null,

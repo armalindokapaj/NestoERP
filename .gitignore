@@ -45,3 +45,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Locally stored document objects (PRD #13 §14). Never committed.
+.storage/

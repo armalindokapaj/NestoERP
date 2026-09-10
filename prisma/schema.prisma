@@ -469,6 +469,8 @@ model CompanyMember {
   managedProjects    Project[]       @relation("ProjectManager")
   projectMemberships ProjectMember[]
 
+  uploadedDocuments Document[] @relation("DocumentUploadedBy")
+
   assignedTasks Task[] @relation("TaskAssignee")
   createdTasks  Task[] @relation("TaskCreatorMember")
 
@@ -731,21 +733,35 @@ model Task {
 /// File metadata plus the business context that governs who may see it.
 /// A document is reachable only through its parent's permissions (PRD #8 §43).
 model Document {
-  id          String         @id @default(cuid())
-  companyId   String
-  name        String
-  description String?
-  fileName    String?
-  fileUrl     String?
-  storageKey  String?
-  mimeType    String?
-  sizeBytes   BigInt?
-  projectId   String?
-  clientId    String?
-  module      String?
-  entityType  String?
-  entityId    String?
-  status      DocumentStatus @default(ACTIVE)
+  id               String          @id @default(cuid())
+  companyId        String
+  name             String
+  description      String?
+  /// The name the file was uploaded under, kept for display. The storage key
+  /// is sanitised separately and never derived from it (PRD #13 §23, §154).
+  originalFileName String?
+  fileName         String?
+  extension        String?
+  storageProvider  String?
+  storageKey       String?
+  mimeType         String?
+  sizeBytes        BigInt?
+  /// SHA-256 of the stored object. Integrity and duplicate diagnostics only —
+  /// never authorisation (PRD #13 §32).
+  checksum         String?
+  projectId        String?
+  clientId         String?
+  module           String?
+  entityType       String?
+  entityId         String?
+  status           DocumentStatus  @default(ACTIVE)
+  /// Archived documents return to ACTIVE, but the field keeps the shape every
+  /// other module uses (PRD #13 §114).
+  preArchiveStatus DocumentStatus?
+
+  /// Who uploaded it. Records authorship, not ownership: access is decided by
+  /// company, parent and permissions (PRD #13 §281).
+  uploadedByMemberId String?
 
   createdBy  String
   updatedBy  String?
@@ -756,15 +772,24 @@ model Document {
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
+  uploadedBy CompanyMember? @relation("DocumentUploadedBy", fields: [uploadedByMemberId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
   @@index([companyId, status])
+  @@index([companyId, updatedAt])
+  @@index([companyId, projectId, status])
+  @@index([companyId, clientId, status])
+  @@index([companyId, module, status])
   @@index([projectId])
   @@index([clientId])
+  @@index([uploadedByMemberId])
   @@index([module])
   @@index([entityType, entityId])
+  @@index([mimeType])
+  @@index([extension])
   @@index([updatedAt])
   @@map("documents")
 }

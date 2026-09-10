@@ -82,7 +82,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     MANAGE: ["client.archive", "client.restore", "contact.archive", "contact.restore"],
   },
   documents: {
-    VIEW: ["document.view"],
+    VIEW: ["document.view", "document.download", "document.activity.view"],
     CONTRIBUTE: ["document.create", "document.update"],
     MANAGE: ["document.archive", "document.restore"],
   },
@@ -367,6 +367,29 @@ function parseCell(cell: MatrixCell): { accessLevel: AccessLevel; scope: DataSco
   return { accessLevel, scope };
 }
 
+/**
+ * Grants that depend on the *scope* of a cell, not only its access level.
+ *
+ * A company-level document has no project or client to narrow it, so reaching
+ * one requires company-level Documents access rather than any Documents access
+ * at all. Deriving that from the matrix keeps it true for every role at once,
+ * instead of nine override blocks that can drift apart (PRD #13 §39, §46,
+ * §283).
+ */
+function scopedGrants(
+  moduleKey: ModuleKey,
+  accessLevel: AccessLevel,
+  scope: DataScope,
+): Permission[] {
+  if (moduleKey !== "documents") return [];
+  if (accessLevel === "NONE") return [];
+  if (scope !== "COMPANY" && scope !== "SYSTEM") return [];
+
+  const grants: Permission[] = ["document.company.view"];
+  if (accessLevel !== "VIEW") grants.push("document.company.create");
+  return grants;
+}
+
 function buildRoleAccess(role: RoleKey): Record<ModuleKey, ModuleAccessDefault> {
   const row = MATRIX[role];
   const overrides = OVERRIDES[role] ?? {};
@@ -392,6 +415,7 @@ function buildRoleAccess(role: RoleKey): Record<ModuleKey, ModuleAccessDefault> 
     const override = overrides[moduleKey] ?? {};
 
     const granted = new Set<Permission>(ladderPermissions(moduleKey, accessLevel));
+    for (const permission of scopedGrants(moduleKey, accessLevel, scope)) granted.add(permission);
     for (const permission of override.extra ?? []) granted.add(permission);
     for (const permission of override.deny ?? []) granted.delete(permission);
 

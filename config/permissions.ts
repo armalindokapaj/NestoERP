@@ -65,8 +65,14 @@ export const PERMISSIONS = [
   "document.view",
   "document.create",
   "document.update",
+  "document.download",
   "document.archive",
   "document.restore",
+  "document.activity.view",
+  // A company-level document has no project or client to narrow it, so it is
+  // governed by its own grant (PRD #13 §39, §47).
+  "document.company.view",
+  "document.company.create",
 
   /* Finance -------------------------------------------------------------- */
   "finance.view",
