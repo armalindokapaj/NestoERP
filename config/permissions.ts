@@ -52,10 +52,14 @@ export const PERMISSIONS = [
   "client.update",
   "client.archive",
   "client.restore",
+  "client.project.view",
+  "client.document.view",
+  "client.activity.view",
   "contact.view",
   "contact.create",
   "contact.update",
   "contact.archive",
+  "contact.restore",
 
   /* Documents ------------------------------------------------------------ */
   "document.view",

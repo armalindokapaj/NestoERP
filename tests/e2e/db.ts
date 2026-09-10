@@ -56,3 +56,43 @@ export async function removeTestTasks(titlePrefix: string): Promise<void> {
   await db.activity.deleteMany({ where: { entityId: { in: ids } } });
   await db.task.deleteMany({ where: { id: { in: ids } } });
 }
+
+/**
+ * Returns the ACME primary-contact fixture to the state the seed documents.
+ *
+ * The primary-contact spec necessarily changes seeded data, so it puts it back
+ * here rather than by clicking through the UI a second time — a restore step
+ * that can itself fail is not a restore step.
+ */
+export async function resetPrimaryContactFixture(): Promise<void> {
+  await db.contact.updateMany({
+    where: { clientId: "client_acme", isPrimary: true },
+    data: { isPrimary: false },
+  });
+  await db.contact.updateMany({
+    where: { clientId: "client_acme", firstName: "Ana", lastName: "Beqiri" },
+    data: { isPrimary: true },
+  });
+}
+
+/** Removes the clients a spec created, so a rerun starts from the seed. */
+export async function removeTestClients(namePrefix: string): Promise<void> {
+  const clients = await db.client.findMany({
+    where: { name: { startsWith: namePrefix } },
+    select: { id: true },
+  });
+
+  if (clients.length === 0) return;
+  const ids = clients.map((client) => client.id);
+
+  const contacts = await db.contact.findMany({
+    where: { clientId: { in: ids } },
+    select: { id: true },
+  });
+
+  await db.activity.deleteMany({
+    where: { entityId: { in: [...ids, ...contacts.map((contact) => contact.id)] } },
+  });
+  await db.contact.deleteMany({ where: { clientId: { in: ids } } });
+  await db.client.deleteMany({ where: { id: { in: ids } } });
+}

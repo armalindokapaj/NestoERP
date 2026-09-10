@@ -195,7 +195,6 @@ describe("company isolation across every record type (PRD #9 §12, §157)", () =
     { module: "inventory", section: "items", role: "INVENTORY" },
     { module: "qaqc", section: "inspections", role: "QAQC" },
     { module: "hse", section: "incidents", role: "HSE" },
-    { module: "clients", section: "all", role: "SALES" },
     { module: "documents", section: "all", role: "OWNER" },
   ];
 

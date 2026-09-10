@@ -1,6 +1,6 @@
 # NESTO V0.1
 
-**ERP Foundation: Access, Shell, Dashboards, Module System, Projects & Tasks**
+**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks & Clients**
 
 V0.1 is not the finished ERP. It is the permanent foundation: one application,
 one design system, one app shell, one navigation engine, one access system, one
@@ -9,7 +9,7 @@ meet NESTO from their own perspective, every module has a real route with real
 scoped data, and Projects is fully functional as the reference implementation
 every later module follows.
 
-Implements PRDs #1–#11.
+Implements PRDs #1–#12.
 
 | PRD | Delivered by |
 | --- | --- |
@@ -24,6 +24,7 @@ Implements PRDs #1–#11.
 | #9 Demo Data & Testing | `prisma/seed`, `tests/`, `scripts/verify-roles.ts` |
 | #10 Projects Module | `lib/modules/projects`, `app/(nesto)/projects`, `app/api/projects` |
 | #11 Tasks Module | `lib/modules/tasks`, `app/(nesto)/tasks`, `app/api/tasks` |
+| #12 Clients Module | `lib/modules/clients`, `app/(nesto)/clients`, `app/api/clients` |
 
 ---
 
@@ -343,6 +344,42 @@ Assignment follows the same instinct: with `task.create` but not `task.assign` a
 person may take work themselves or leave it unassigned, but not hand it to a
 colleague — and the assignee picker offers exactly the people the service will
 accept, which for project work is the project team.
+
+### Clients: one customer identity
+
+Clients (PRD #12) is the canonical customer record. Sales will not create a
+`SalesAccount`, Finance will not create a `FinanceCustomer` and Legal will not
+create a contract counterparty — they all reference this `Client`.
+
+```
+lib/modules/clients/
+  client.schema.ts      Zod — client, contact, duplicate check, list query
+  client.status.ts      transition tables for clients and contacts
+  client.duplicate.ts   normalisation and soft-match detection
+  client.repository.ts  queries and counters, always scoped
+  client.service.ts     permission → scope → validate → transaction → activity
+  client.query.ts       URL parameters → a validated list query
+  client.types.ts       explicit DTOs, never a raw Prisma model
+```
+
+**Duplicates get two different answers.** A clashing client code is a database
+constraint and is refused outright. An identical name, legal name, email or
+phone is a *soft* match: the save is interrupted once, the matches are shown
+with a link to each, and "Create anyway" proceeds — because "ACME Development"
+and "ACME Developments" might be two real companies and only a person can say
+(PRD #12 §52, §53). Comparison runs on a stored `normalizedName`, so it is an
+indexed lookup rather than a scan.
+
+**A client may hold exactly one primary contact.** Promoting somebody stands
+the previous one down in the same transaction, and a partial unique index
+(`WHERE isPrimary = true AND archivedAt IS NULL`) makes two simultaneous
+promotions impossible rather than merely unlikely. Archiving the primary leaves
+the client without one instead of picking a replacement — that is a person's
+decision (PRD #12 §83–§88).
+
+Counts follow the reader, not the record: a client with four projects shows
+"2 active projects" to somebody who can open two of them, because the number
+itself would otherwise leak (PRD #12 §93).
 
 ### Database
 
@@ -713,10 +750,9 @@ tables replaced by record cards, and filters in a sheet.
 
 ## Next
 
-Clients (PRD #12) and Documents (PRD #13) get the treatment Projects and Tasks
-have here: their own service layer, their own validation and their own
-create/edit flows, replacing the shared record registry entry with a full
-module.
+Documents (PRD #13) gets the treatment Projects, Tasks and Clients have here:
+its own service layer, its own validation and its own upload flow, replacing
+the shared record registry entry with a full module.
 
 The department modules follow, one PRD at a time, each replacing its small test
 record with a real domain model. None of that requires a new shell, a new

@@ -138,8 +138,8 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     defaultSection: "overview",
     sections: [
       { key: "overview", label: "Overview" },
-      { key: "all", label: "Clients" },
-      { key: "contacts", label: "Contacts", permission: "contact.view" },
+      { key: "all", label: "All Clients" },
+      { key: "active", label: "Active" },
       { key: "archived", label: "Archived" },
     ],
   },
