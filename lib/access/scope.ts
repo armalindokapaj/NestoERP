@@ -74,13 +74,23 @@ export async function canAccessProject(
  *
  * SELF and ASSIGNED mean "assigned to me, or created by me"; PROJECT widens
  * that to every task on a project the user belongs to.
+ *
+ * On top of the task scope sits a project gate: a task that belongs to a
+ * project is only ever reachable when that project is. Being the assignee — or
+ * the person who created it — does not hand somebody the project context they
+ * have otherwise lost (PRD #11 §176, §177). The gate can only narrow the
+ * result, never widen it.
  */
 export function buildTaskScopeWhere(context: UserContext): Prisma.TaskWhereInput {
   const scope = getModuleScope(context, "tasks");
   const base: Prisma.TaskWhereInput = { companyId: context.companyId };
 
+  const projectGate: Prisma.TaskWhereInput = {
+    OR: [{ projectId: null }, { project: buildProjectScopeWhere(context) }],
+  };
+
   if (scope === "COMPANY" || scope === "SYSTEM" || scope === "DEPARTMENT") {
-    return base;
+    return { AND: [base, projectGate] };
   }
 
   const mine: Prisma.TaskWhereInput[] = [
@@ -89,14 +99,13 @@ export function buildTaskScopeWhere(context: UserContext): Prisma.TaskWhereInput
   ];
 
   if (scope === "SELF") {
-    return { ...base, OR: mine };
+    return { AND: [base, projectGate, { OR: mine }] };
   }
 
   // ASSIGNED and PROJECT both reach project work; ASSIGNED additionally keeps
   // personal tasks that have no project at all.
   return {
-    ...base,
-    OR: [...mine, { project: memberProjectClause(context) }],
+    AND: [base, projectGate, { OR: [...mine, { project: memberProjectClause(context) }] }],
   };
 }
 

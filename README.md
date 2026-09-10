@@ -1,6 +1,6 @@
 # NESTO V0.1
 
-**ERP Foundation: Access, Shell, Dashboards, Module System & Projects**
+**ERP Foundation: Access, Shell, Dashboards, Module System, Projects & Tasks**
 
 V0.1 is not the finished ERP. It is the permanent foundation: one application,
 one design system, one app shell, one navigation engine, one access system, one
@@ -9,7 +9,7 @@ meet NESTO from their own perspective, every module has a real route with real
 scoped data, and Projects is fully functional as the reference implementation
 every later module follows.
 
-Implements PRDs #1–#10.
+Implements PRDs #1–#11.
 
 | PRD | Delivered by |
 | --- | --- |
@@ -23,6 +23,7 @@ Implements PRDs #1–#10.
 | #8 Core Data Model | `prisma/schema.prisma` |
 | #9 Demo Data & Testing | `prisma/seed`, `tests/`, `scripts/verify-roles.ts` |
 | #10 Projects Module | `lib/modules/projects`, `app/(nesto)/projects`, `app/api/projects` |
+| #11 Tasks Module | `lib/modules/tasks`, `app/(nesto)/tasks`, `app/api/tasks` |
 
 ---
 
@@ -305,6 +306,43 @@ lib/modules/projects/
 Create, edit, archive, restore, project membership, tasks, documents and
 activity — all transactional, all audited, all scope-checked, all reachable
 through both server actions and `app/api/projects`.
+
+### Tasks: the canonical work item
+
+Tasks (PRD #11) is the second full module and the first one built on top of
+another: it is the single work-item system the whole product shares. A task
+shown on the dashboard, in `/tasks` and inside a project is one record with one
+id and one URL — there is no `ProjectTask`, and there will be no `FinanceTask`.
+
+```
+lib/modules/tasks/
+  task.schema.ts        Zod — create, update, list query, reopen
+  task.status.ts        transition table, derived overdue, week/day bounds
+  task.repository.ts    queries and counters, always scoped
+  task.service.ts       permission → scope → validate → transaction → activity
+  task.query.ts         URL parameters → a validated list query
+  task.options.ts       form options, narrowed to what the service will accept
+  task.types.ts         explicit DTOs, never a raw Prisma model
+```
+
+Two rules are worth calling out, because both are places a task system usually
+leaks:
+
+**Status changes are verbs, not a dropdown.** Start, Mark Blocked, Complete,
+Reopen, Archive and Restore are separate endpoints, each checking the permission
+that owns it. `completedAt` is set and cleared by the server, `ARCHIVED` is not
+a status a `PATCH` may set, and an archived task remembers where it was so
+restoring puts it back rather than resetting it to To Do.
+
+**A project task needs project access.** Being the assignee — or the person who
+created it — does not hand somebody the project context they never had or have
+since lost (PRD #11 §176, §177). `buildTaskScopeWhere` therefore applies a
+project gate on top of the task scope, and it can only narrow the result.
+
+Assignment follows the same instinct: with `task.create` but not `task.assign` a
+person may take work themselves or leave it unassigned, but not hand it to a
+colleague — and the assignee picker offers exactly the people the service will
+accept, which for project work is the project team.
 
 ### Database
 
@@ -675,9 +713,10 @@ tables replaced by record cards, and filters in a sheet.
 
 ## Next
 
-V0.2 gives Tasks, Clients and Documents the same treatment Projects has here:
-their own service layer, their own validation and their own create/edit flows,
-replacing the shared record registry entry with a full module.
+Clients (PRD #12) and Documents (PRD #13) get the treatment Projects and Tasks
+have here: their own service layer, their own validation and their own
+create/edit flows, replacing the shared record registry entry with a full
+module.
 
 The department modules follow, one PRD at a time, each replacing its small test
 record with a real domain model. None of that requires a new shell, a new

@@ -116,10 +116,12 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     group: "work",
     permission: "task.view",
     writePermission: "task.create",
-    defaultSection: "my-tasks",
+    defaultSection: "overview",
     sections: [
+      { key: "overview", label: "Overview" },
       { key: "my-tasks", label: "My Tasks" },
       { key: "all", label: "All Tasks" },
+      { key: "overdue", label: "Overdue" },
       { key: "completed", label: "Completed" },
       { key: "archived", label: "Archived" },
     ],

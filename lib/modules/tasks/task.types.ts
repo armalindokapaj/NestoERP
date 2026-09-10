@@ -1,0 +1,83 @@
+import type { TaskPriority, TaskStatus } from "@prisma/client";
+
+/**
+ * Task DTOs (PRD #11 §111, §112).
+ *
+ * Responses are shaped explicitly rather than handing back a Prisma model, so a
+ * field added to the table cannot leak through an API by accident.
+ */
+export type TaskPersonDTO = {
+  memberId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  /** Surfaced so an inactive assignee is never silently hidden (PRD #11 §174). */
+  membershipActive: boolean;
+};
+
+export type TaskSummaryDTO = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  project: { id: string; code: string; name: string } | null;
+  assignee: TaskPersonDTO | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  /** Derived, never stored (PRD #11 §142). */
+  isOverdue: boolean;
+  updatedAt: string;
+};
+
+export type TaskDetailDTO = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  preArchiveStatus: TaskStatus | null;
+  priority: TaskPriority;
+  project: { id: string; code: string; name: string } | null;
+  assignee: (TaskPersonDTO & { userId: string }) | null;
+  creator: { memberId: string; fullName: string } | null;
+  schedule: {
+    startDate: string | null;
+    dueDate: string | null;
+    completedAt: string | null;
+    isOverdue: boolean;
+  };
+  /** Generic parent context for module-linked work (PRD #11 §171). */
+  context: { module: string | null; entityType: string | null; entityId: string | null };
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+  /**
+   * Server-derived UX hints. The frontend must not treat these as security —
+   * every mutation re-checks authorisation (PRD #11 §148 pattern).
+   */
+  capabilities: {
+    canEdit: boolean;
+    canAssign: boolean;
+    canChangeStatus: boolean;
+    canComplete: boolean;
+    canReopen: boolean;
+    canArchive: boolean;
+    canRestore: boolean;
+  };
+};
+
+export type TaskActivityDTO = {
+  id: string;
+  action: string;
+  message: string | null;
+  actor: string | null;
+  createdAt: string;
+};
+
+/** The Tasks overview counters (PRD #11 §7, §8). */
+export type TaskOverviewStats = {
+  open: number;
+  dueToday: number;
+  overdue: number;
+  blocked: number;
+  completedThisWeek: number;
+  mine: number;
+};

@@ -59,7 +59,8 @@ export const kpis: Record<string, KpiDefinition> = {
     permission: "task.view",
     label: "Overdue Tasks",
     icon: "CalendarClock",
-    href: "/tasks/all",
+    // Drills into the section that shows exactly this number (PRD #11 §92).
+    href: "/tasks/overdue",
   },
   approvalCount: {
     key: "approvalCount",

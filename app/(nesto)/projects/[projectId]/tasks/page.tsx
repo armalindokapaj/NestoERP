@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ListChecks } from "lucide-react";
 
-import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { RecordContextHeader } from "@/components/modules/record-header";
-import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
+import { TaskTable } from "@/components/tasks/task-table";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { buildTaskScopeWhere } from "@/lib/access/scope";
-import { prisma } from "@/lib/database/prisma";
+import { can } from "@/lib/access/can";
 import * as projects from "@/lib/modules/projects/project.service";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { taskListQuerySchema } from "@/lib/modules/tasks/task.schema";
+import * as tasks from "@/lib/modules/tasks/task.service";
 import { loadProject, projectBreadcrumbs } from "../project-context";
 import { ProjectTabs } from "../project-tabs";
 
@@ -17,20 +18,13 @@ type Params = { params: Promise<{ projectId: string }> };
 
 export const metadata: Metadata = { title: "Tasks" };
 
-type Row = {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  dueDate: Date | null;
-  assignee: { user: { firstName: string; lastName: string } } | null;
-};
-
 /**
- * Project tasks (PRD #10 §79, §80).
+ * Project tasks (PRD #10 §79, PRD #11 §88).
  *
- * Filtered to this project *and* to the tasks the user may see: the project tab
- * narrows, it never widens (PRD #10 §224).
+ * The same canonical Task records as /tasks, filtered to this project and to
+ * the tasks the user may see: the project tab narrows, it never widens
+ * (PRD #10 §224). Rows open the canonical task URL rather than a project-local
+ * copy of the detail page (PRD #11 §12, §172).
  */
 export default async function ProjectTasksPage({ params }: Params) {
   const { projectId } = await params;
@@ -39,45 +33,13 @@ export default async function ProjectTasksPage({ params }: Params) {
 
   if (!actions.canViewTasks) redirect("/access-denied");
 
-  const tasks: Row[] = await prisma.task.findMany({
-    where: { AND: [buildTaskScopeWhere(context), { projectId, archivedAt: null }] },
-    orderBy: [{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-    take: 100,
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      priority: true,
-      dueDate: true,
-      assignee: { select: { user: { select: { firstName: true, lastName: true } } } },
-    },
-  });
+  const query = taskListQuerySchema.parse({ projectId, limit: 100, sort: "due-asc" });
+  const result = await tasks.listTasks(context, query);
 
-  const columns: TableColumn<Row>[] = [
-    { key: "title", label: "Task", primary: true, render: (task) => task.title },
-    {
-      key: "assignee",
-      label: "Assignee",
-      hideBelow: "lg",
-      render: (task) =>
-        orDash(
-          task.assignee ? `${task.assignee.user.firstName} ${task.assignee.user.lastName}` : null,
-        ),
-    },
-    { key: "status", label: "Status", render: (task) => <StatusBadge status={task.status} /> },
-    {
-      key: "priority",
-      label: "Priority",
-      hideBelow: "lg",
-      render: (task) => <PriorityBadge priority={task.priority} />,
-    },
-    {
-      key: "due",
-      label: "Due",
-      hideBelow: "xl",
-      render: (task) => (task.dueDate ? formatDate(task.dueDate) : "—"),
-    },
-  ];
+  // New work on an archived project is refused by the service, so the control
+  // is not offered either (PRD #11 §173).
+  const archived = project.archivedAt !== null || project.status === "ARCHIVED";
+  const canCreate = !archived && can(context, "task.create");
 
   return (
     <div className="space-y-5">
@@ -86,6 +48,13 @@ export default async function ProjectTasksPage({ params }: Params) {
         title={project.name}
         subtitle={project.code}
         status={project.status}
+        actions={
+          canCreate ? (
+            <Button asChild size="sm">
+              <Link href={`/tasks/new?projectId=${project.id}`}>New task</Link>
+            </Button>
+          ) : null
+        }
       />
 
       <ProjectTabs
@@ -99,19 +68,19 @@ export default async function ProjectTasksPage({ params }: Params) {
         }}
       />
 
-      {tasks.length === 0 ? (
+      {result.data.length === 0 ? (
         <EmptyState
           icon={<ListChecks />}
           title="No tasks on this project."
           description="Tasks created against this project will appear here."
+          action={
+            canCreate
+              ? { label: "New task", href: `/tasks/new?projectId=${project.id}` }
+              : undefined
+          }
         />
       ) : (
-        <DataTable
-          caption={`${project.name} tasks`}
-          columns={columns}
-          records={tasks}
-          rowKey={(task) => task.id}
-        />
+        <TaskTable tasks={result.data} />
       )}
     </div>
   );

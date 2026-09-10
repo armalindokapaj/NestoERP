@@ -44,6 +44,18 @@ export async function signOut(page: Page) {
   await page.waitForURL(/\/login/);
 }
 
+/**
+ * The main content region.
+ *
+ * List sections stream their body through a Suspense boundary, and React
+ * delivers streamed content by parking it in the document before moving it into
+ * place — so for one frame a locator can match both copies. Scoping to the main
+ * region keeps an assertion pointed at the content the reader actually sees.
+ */
+export function mainRegion(page: Page) {
+  return page.locator("#nesto-main");
+}
+
 /** The one sidebar; navigation is resolved once and rendered twice. */
 export function sidebar(page: Page) {
   return page.getByRole("navigation", { name: "Main navigation" }).first();
