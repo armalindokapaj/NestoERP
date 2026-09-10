@@ -27,7 +27,7 @@ export function UserMenu({ user }: { user: CurrentUser }) {
         className="flex items-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover"
         aria-label="Open user menu"
       >
-        <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatar} size="sm" />
+        <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatar} size="md" />
         <span className="hidden min-w-0 text-left lg:block">
           <span className="block truncate text-table font-medium leading-tight text-fg">
             {fullName(user.firstName, user.lastName)}

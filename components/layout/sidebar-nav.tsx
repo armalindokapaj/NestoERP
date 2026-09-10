@@ -27,11 +27,14 @@ function SidebarItem({
   module,
   active,
   showTooltip,
+  dense,
   onNavigate,
 }: {
   module: ModuleDefinition;
   active: boolean;
   showTooltip: boolean;
+  /** The drawer has a fixed height to fill; the desktop rail does not. */
+  dense: boolean;
   onNavigate?: () => void;
 }) {
   const Icon = getIcon(module.icon);
@@ -43,7 +46,8 @@ function SidebarItem({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "nesto-nav-item group relative flex items-center gap-2.5 overflow-hidden rounded-md px-2.5 py-2 text-table font-medium transition-colors",
+        "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
+        dense ? "py-2" : "py-2.5",
         active ? "bg-accent-soft text-accent-strong" : "text-fg-muted hover:bg-hover hover:text-fg",
       )}
     >
@@ -102,12 +106,15 @@ export function SidebarNav({
   })).filter((group) => group.items.length > 0);
 
   return (
-    <nav aria-label="Main navigation" className="flex flex-col gap-5 px-3 py-4">
+    <nav
+      aria-label="Main navigation"
+      className={cn("flex flex-col px-3 py-2", inDrawer ? "gap-4" : "gap-6")}
+    >
       {zones.map((group, index) => (
         <div key={group.zone}>
           {group.label ? (
             <>
-              <p className="nesto-nav-group-label mb-1.5 px-2.5 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
+              <p className="nesto-nav-group-label mb-2 px-3 nesto-eyebrow text-fg-subtle">
                 {group.label}
               </p>
               {/* The rail has no room for group headings, so a hairline keeps
@@ -124,6 +131,7 @@ export function SidebarNav({
                 module={module}
                 active={isActive(pathname, module.href)}
                 showTooltip={isRail && !inDrawer}
+                dense={inDrawer}
                 onNavigate={onNavigate}
               />
             ))}

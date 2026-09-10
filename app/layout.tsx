@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { cookies } from "next/headers";
 
+import { brand } from "@/config/brand";
+import { site } from "@/config/marketing";
+import {
+  readThemeChoice,
+  themeAttribute,
+  THEME_COOKIE,
+} from "@/lib/layout/theme-state";
+import { siteUrl } from "@/lib/marketing/site-url";
 import "../styles/globals.css";
 
 const geistSans = Geist({
@@ -24,20 +33,48 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "NESTO",
     template: "%s · NESTO",
   },
-  description: "One platform to run your company.",
+  description: site.summary,
+  applicationName: brand.name,
+  keywords: [
+    "construction ERP",
+    "construction management software",
+    "project management",
+    "procurement",
+    "QA/QC",
+    "HSE",
+    "construction operating system",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: brand.name,
+    title: `NESTO — ${site.category}`,
+    description: site.summary,
+    url: siteUrl,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `NESTO — ${site.category}`,
+    description: site.summary,
+  },
+  robots: { index: true, follow: true },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /* Rendered server-side so the first paint is already in the right scheme. */
+  const cookieStore = await cookies();
+  const theme = themeAttribute(readThemeChoice(cookieStore.get(THEME_COOKIE)?.value));
+
   return (
-    <html lang="en">
+    <html lang="en" data-theme={theme}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
       >

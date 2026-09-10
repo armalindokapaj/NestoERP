@@ -4,8 +4,9 @@ import { seriesColor } from "@/components/charts/palette";
  * Donut chart (design spec §71).
  *
  * Drawn with stroke-dasharray on a single circle — no chart library, no
- * runtime layout maths. The legend carries the labels because §56 forbids
- * communicating a value by colour alone.
+ * runtime layout maths. The legend carries the label and the count because §56
+ * forbids communicating a value by colour alone; the share is in the accessible
+ * name so the figure the eye reads and the figure a screen reader reads agree.
  */
 export type DonutSlice = { label: string; value: number };
 
@@ -38,63 +39,72 @@ export function Donut({
     return segment;
   });
 
+  const description = segments
+    .map((segment) => `${segment.label} ${segment.value} (${segment.percent}%)`)
+    .join(", ");
+
   return (
     <div className="flex flex-wrap items-center gap-5">
-      <svg
-        viewBox="0 0 100 100"
-        role="img"
-        aria-label={caption}
-        className="size-28 shrink-0 -rotate-90"
-      >
-        <circle
-          cx="50"
-          cy="50"
-          r={radius}
-          fill="none"
-          stroke="var(--nesto-hover)"
-          strokeWidth="12"
-        />
-        {segments.map((segment) => (
+      <div className="relative shrink-0">
+        <svg
+          viewBox="0 0 100 100"
+          role="img"
+          aria-label={`${caption}: ${description}`}
+          className="size-28 -rotate-90"
+        >
           <circle
-            key={segment.label}
             cx="50"
             cy="50"
             r={radius}
             fill="none"
-            stroke={segment.color}
+            stroke="var(--nesto-hover)"
             strokeWidth="12"
-            strokeDasharray={`${segment.dash} ${circumference - segment.dash}`}
-            strokeDashoffset={-segment.offset}
           />
-        ))}
-        {centerValue ? (
-          <text
-            x="50"
-            y="50"
-            textAnchor="middle"
-            dominantBaseline="central"
-            transform="rotate(90 50 50)"
-            className="fill-[var(--nesto-fg)] text-section font-semibold"
-          >
-            {centerValue}
-          </text>
-        ) : null}
-      </svg>
+          {segments.map((segment) => (
+            <circle
+              key={segment.label}
+              cx="50"
+              cy="50"
+              r={radius}
+              fill="none"
+              stroke={segment.color}
+              strokeWidth="12"
+              strokeDasharray={`${segment.dash} ${circumference - segment.dash}`}
+              strokeDashoffset={-segment.offset}
+            />
+          ))}
+        </svg>
 
-      <ul className="min-w-0 flex-1 space-y-1.5">
+        {/* Set in HTML rather than <text> so the centre uses the same type
+            scale as everything else on the card. */}
+        {centerValue ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+          >
+            <span className="text-section font-semibold leading-none tabular-nums text-fg">
+              {centerValue}
+            </span>
+            {centerLabel ? (
+              <span className="mt-1 text-micro text-fg-subtle">{centerLabel}</span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <ul className="min-w-0 flex-1 space-y-2">
         {segments.map((segment) => (
-          <li key={segment.label} className="flex items-center gap-2 text-table">
+          <li key={segment.label} className="flex items-center gap-2.5 text-table">
             <span
               aria-hidden="true"
               className="size-2 shrink-0 rounded-full"
               style={{ backgroundColor: segment.color }}
             />
             <span className="min-w-0 flex-1 truncate text-fg-muted">{segment.label}</span>
-            <span className="shrink-0 font-medium tabular-nums text-fg">{segment.percent}%</span>
+            <span className="shrink-0 font-semibold tabular-nums text-fg">{segment.value}</span>
           </li>
         ))}
       </ul>
-      {centerLabel ? <span className="sr-only">{centerLabel}</span> : null}
     </div>
   );
 }

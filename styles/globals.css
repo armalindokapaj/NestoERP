@@ -203,6 +203,19 @@
     box-shadow: var(--nesto-shadow-card);
   }
 
+  /*
+   * The small capitalised brand line (§7). It recurs under the wordmark, at the
+   * foot of the navigation and beside the dashboard date, so it is a utility
+   * rather than four hand-tuned tracking values.
+   */
+  .nesto-eyebrow {
+    font-size: var(--text-micro);
+    line-height: 1.4;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+
   .nesto-skeleton {
     background-color: var(--nesto-hover);
     border-radius: var(--radius-sm);
@@ -221,12 +234,23 @@
     padding-right: 0;
   }
 
-  .nesto-nav-divider {
+  .nesto-nav-divider,
+  .nesto-rail-only {
     display: none;
   }
 
-  .nesto-rail .nesto-nav-divider {
+  .nesto-rail .nesto-nav-divider,
+  .nesto-rail .nesto-rail-only {
     display: block;
+  }
+
+  /*
+   * The sidebar foot carries the brand signoff and the collapse control. The
+   * rail below 1200px has neither, so without this it renders as an empty
+   * bordered strip.
+   */
+  .nesto-sidebar-footer {
+    display: none;
   }
 
   @media (min-width: 1200px) {
@@ -237,12 +261,17 @@
 
     [data-sidebar="expanded"] .nesto-rail .nesto-nav-item {
       justify-content: flex-start;
-      padding-left: 0.625rem;
-      padding-right: 0.625rem;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
     }
 
-    [data-sidebar="expanded"] .nesto-rail .nesto-nav-divider {
+    [data-sidebar="expanded"] .nesto-rail .nesto-nav-divider,
+    [data-sidebar="expanded"] .nesto-rail .nesto-rail-only {
       display: none;
+    }
+
+    .nesto-sidebar-footer {
+      display: flex;
     }
   }
 }
@@ -317,5 +346,59 @@
 @keyframes nesto-slide-out-bottom {
   to {
     transform: translateY(100%);
+  }
+}
+
+/*
+ * Public site surfaces (design spec §81, §82).
+ *
+ * The marketing pages ship no images, so their texture has to be drawn. Both
+ * utilities below are built from existing tokens — a set-out grid from the
+ * border colour, and one entrance movement on the standard easing — which
+ * keeps the public site inside the same system as the product.
+ */
+@layer utilities {
+  .nesto-drafting-grid {
+    background-image:
+      linear-gradient(to right, var(--nesto-border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--nesto-border) 1px, transparent 1px);
+    background-size: 88px 88px;
+    background-position: center;
+    opacity: 0.75;
+    /* Faded at the edges so it reads as paper, not as a table. */
+    -webkit-mask-image: radial-gradient(ellipse 78% 72% at 50% 38%, black 15%, transparent 76%);
+    mask-image: radial-gradient(ellipse 78% 72% at 50% 38%, black 15%, transparent 76%);
+  }
+
+  /*
+   * One entrance, used only above the fold. It animates *from* a displaced
+   * state, so the content is present and readable if the animation never runs
+   * — and the reduced-motion rule in the base layer switches it off entirely.
+   */
+  .nesto-rise {
+    animation: nesto-rise var(--nesto-motion-rise) var(--nesto-ease) both;
+  }
+
+  .nesto-rise-2 {
+    animation-delay: 70ms;
+  }
+
+  .nesto-rise-3 {
+    animation-delay: 140ms;
+  }
+
+  .nesto-rise-4 {
+    animation-delay: 210ms;
+  }
+
+  .nesto-rise-5 {
+    animation-delay: 280ms;
+  }
+}
+
+@keyframes nesto-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
 }

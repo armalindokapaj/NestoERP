@@ -6,13 +6,16 @@
  * literal colour, and the responsive verification script.
  *
  * Colours resolve through CSS custom properties on purpose, so a single token
- * edit repaints the product in both colour schemes rather than only one.
+ * edit repaints the product in both colour schemes rather than only one — the
+ * light and dark values are declared together with light-dark() in tokens.css,
+ * and nothing in TypeScript needs to know which one is showing.
  */
 
 const color = (token: string) => `var(--nesto-${token})`;
 
 export const theme = {
   colors: {
+    white: color("white"),
     canvas: color("canvas"),
     surface: color("surface"),
     surfaceMuted: color("surface-muted"),
@@ -50,15 +53,19 @@ export const theme = {
     featureCard: 16,
   },
 
-  /** §7 — the full type scale in px. */
+  /** §7 — the full type scale in px, mirroring the --text-* steps. */
   typography: {
+    /** Public hero only. */
+    hero: 56,
     display: 36,
     pageTitle: 28,
     sectionTitle: 20,
     cardTitle: 16,
     body: 14,
     table: 13,
-    metadata: 11,
+    metadata: 12,
+    /** The floor: §7 puts nothing below 11px. */
+    micro: 11,
   },
 
   /** §10 — three elevation steps, nothing heavier. */

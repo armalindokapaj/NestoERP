@@ -9,11 +9,22 @@ import { cn } from "@/lib/utils/cn";
  * body scrolls, and wide tables scroll horizontally inside their own container
  * rather than pushing the page sideways (§79).
  */
-export function Table({ className, ...props }: React.ComponentProps<"table">) {
+export function Table({
+  className,
+  flush = false,
+  ...props
+}: React.ComponentProps<"table"> & { flush?: boolean }) {
   return (
     <div className="w-full overflow-x-auto">
       <table
-        className={cn("w-full border-collapse text-table", className)}
+        className={cn(
+          "w-full border-collapse text-table",
+          /* Inside a card the outer columns align to the card's own padding
+             instead of adding a second inset (§20). */
+          flush &&
+            "[&_td]:px-3 [&_th]:px-3 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th:last-child]:pr-0",
+          className,
+        )}
         {...props}
       />
     </div>

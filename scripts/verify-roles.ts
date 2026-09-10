@@ -18,6 +18,7 @@ import { MODULE_KEYS, modules, type ModuleKey } from "../config/modules";
 import { navigationForRole } from "../config/navigation";
 import { permissionsForRole } from "../config/permissions";
 import { roleList, roleLabel, type RoleKey } from "../config/roles";
+import { PUBLIC_ROUTES } from "../lib/permissions/route-access";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 
@@ -190,7 +191,13 @@ async function verifyRole(role: RoleKey) {
 async function verifyPublicRoutes() {
   const session = new Session();
 
-  for (const path of ["/", "/login", "/forgot-password"]) {
+  /*
+   * Read from PUBLIC_ROUTES rather than a list kept here. That constant is what
+   * middleware actually lets through, so adding a route to it now also adds it
+   * to this walk — a public page that middleware admits but nobody ever loads
+   * is exactly how a broken or unintended one survives.
+   */
+  for (const path of PUBLIC_ROUTES) {
     const response = await session.request(path);
     check(response.status === 200, `public: ${path} returns 200`, String(response.status));
   }

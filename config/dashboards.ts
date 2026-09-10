@@ -8,12 +8,14 @@
  * All values here are demo data for V0.1. When a module becomes functional its
  * widgets are switched from this catalogue to a real query; nothing else moves.
  */
+import { formatDate } from "@/lib/utils/format";
 import {
   demoClients,
   demoDocuments,
   demoProjects,
   demoTasks,
   statusLabels,
+  statusTones,
 } from "@/lib/mock/demo-data";
 import { MODULE_KEYS } from "./modules";
 import type { Permission } from "./permissions";
@@ -22,15 +24,28 @@ import type { RoleKey } from "./roles";
 export type Tone = "default" | "success" | "warning" | "danger" | "info";
 
 export type KpiDefinition = {
-  /** Optional micro line chart (§19 — at most one visual per card). */
+  /** Optional micro visual (§19 — at most one per card). */
   series?: number[];
+  /** How `series` is drawn. Continuous values read as a line, periods as bars. */
+  chart?: "line" | "bars";
   key: string;
   label: string;
   value: string;
   hint?: string;
   icon: string;
   tone?: Tone;
-  trend?: { direction: "up" | "down" | "flat"; value: string };
+  trend?: {
+    direction: "up" | "down" | "flat";
+    value: string;
+    /** The period the change is measured against, e.g. "from last month". */
+    label?: string;
+    /**
+     * Colour of the change. Defaults to up = success, down = danger. Set it
+     * wherever the arithmetic and the meaning disagree: more open tasks is a
+     * rise and a problem.
+     */
+    tone?: "success" | "danger" | "neutral";
+  };
 };
 
 export type ListRow = { label: string; meta?: string; badge?: string; tone?: Tone };
@@ -39,6 +54,26 @@ export type BreakdownRow = { label: string; value: string; tone?: Tone };
 export type BarRow = { label: string; value: number; display: string };
 export type ShareRow = { label: string; value: number };
 export type ActivityRow = { actor: string; action: string; target?: string; time: string };
+/** A project as it appears in a dashboard overview table. */
+export type ProjectRow = {
+  code: string;
+  name: string;
+  client: string;
+  status: string;
+  tone?: Tone;
+  progress: number;
+  due: string;
+};
+/** A department's headcount, workload and utilisation. */
+export type DepartmentRow = {
+  label: string;
+  icon: string;
+  teamSize: number;
+  activeItems: number;
+  status: string;
+  tone?: Tone;
+  utilisation: number;
+};
 
 export type WidgetDefinition = {
   key: string;
@@ -54,7 +89,14 @@ export type WidgetDefinition = {
   | { type: "bars"; rows: BarRow[] }
   | { type: "activity"; rows: ActivityRow[] }
   /** Donut — composition of a whole, at most five slices (§71). */
-  | { type: "share"; rows: ShareRow[]; total?: string }
+  | { type: "share"; rows: ShareRow[]; total?: string; totalLabel?: string }
+  | { type: "projects"; rows: ProjectRow[] }
+  | { type: "departments"; rows: DepartmentRow[] }
+  /**
+   * The graphite brand card that closes an executive dashboard (§74). It
+   * carries no data, so it takes its content from config/brand.ts.
+   */
+  | { type: "feature" }
 );
 
 export type QuickAction = { label: string; href: string; permission?: Permission };
@@ -93,22 +135,34 @@ const SEEDED_EMPLOYEES = 16;
 /* One source for the quarterly figures: the KPI total, its sparkline and the
    Revenue Overview widget all read from here, so they cannot drift apart. */
 const revenueByQuarterValues = [880, 1120, 1240, 1040];
+/* Six trailing periods per headline KPI, purely so the micro visuals have a
+   shape. Replaced by a real series when the module behind the card is live. */
+const trailing = {
+  activeProjects: [8, 9, 9, 11, 10, 12],
+  openTasks: [41, 38, 44, 39, 36, 34],
+  employees: [12, 13, 13, 14, 15, 16],
+  costs: [520, 610, 580, 640, 700, 720],
+  margin: [24.1, 25.6, 26.2, 25.9, 27.0, 27.3],
+  pipeline: [2.1, 2.4, 2.2, 2.9, 3.1, 3.4],
+  users: [11, 12, 13, 14, 15, 16],
+  performance: [71, 68, 74, 79, 77, 82],
+};
 
 
 export const kpis: Record<string, KpiDefinition> = {
-  activeProjects: { key: "activeProjects", label: "Active Projects", value: String(activeProjects.length), icon: "FolderKanban", trend: { direction: "up", value: "+2" }, hint: "2 started this month" },
+  activeProjects: { key: "activeProjects", label: "Active Projects", value: String(activeProjects.length), icon: "FolderKanban", trend: { direction: "up", value: "+2", label: "from last month" }, series: trailing.activeProjects, chart: "line" },
   assignedProjects: { key: "assignedProjects", label: "Assigned Projects", value: "3", icon: "FolderKanban", hint: "Across 3 clients" },
   myProjects: { key: "myProjects", label: "My Projects", value: String(activeProjects.length), icon: "FolderKanban", hint: `${onScheduleProjects.length} on schedule` },
-  openTasks: { key: "openTasks", label: "Open Tasks", value: String(openTasks.length), icon: "CircleCheckBig", trend: { direction: "down", value: "-6" } },
+  openTasks: { key: "openTasks", label: "Open Tasks", value: String(openTasks.length), icon: "CircleCheckBig", trend: { direction: "down", value: "-6", label: "from last week", tone: "success" }, series: trailing.openTasks, chart: "bars" },
   dueThisWeek: { key: "dueThisWeek", label: "Due This Week", value: String(dueThisWeekTasks.length), icon: "CalendarClock", tone: "warning" },
   issues: { key: "issues", label: "Issues", value: "3", icon: "TriangleAlert", tone: "danger" },
-  revenue: { key: "revenue", label: "Revenue (YTD)", value: "€4.28M", icon: "TrendingUp", trend: { direction: "up", value: "+12.4%" }, series: revenueByQuarterValues },
-  costs: { key: "costs", label: "Company Costs", value: "€3.11M", icon: "Wallet", trend: { direction: "up", value: "+4.1%" } },
-  margin: { key: "margin", label: "Gross Margin", value: "27.3%", icon: "ChartPie", trend: { direction: "flat", value: "0.2%" } },
-  employees: { key: "employees", label: "Employees", value: String(SEEDED_EMPLOYEES), icon: "Users", hint: "Across 9 departments" },
+  revenue: { key: "revenue", label: "Revenue (YTD)", value: "€4.28M", icon: "TrendingUp", trend: { direction: "up", value: "+12.4%", label: "from last year" }, series: revenueByQuarterValues, chart: "bars" },
+  costs: { key: "costs", label: "Company Costs", value: "€3.11M", icon: "Wallet", trend: { direction: "up", value: "+4.1%", label: "from last year", tone: "danger" }, series: trailing.costs, chart: "bars" },
+  margin: { key: "margin", label: "Gross Margin", value: "27.3%", icon: "ChartPie", trend: { direction: "flat", value: "0.2%", label: "vs last quarter" }, series: trailing.margin, chart: "line" },
+  employees: { key: "employees", label: "Employees", value: String(SEEDED_EMPLOYEES), icon: "Users", trend: { direction: "up", value: "+3", label: "new this quarter" }, series: trailing.employees, chart: "bars" },
   opportunities: { key: "opportunities", label: "Open Opportunities", value: "11", icon: "Target", hint: "€1.9M weighted" },
   outstandingIssues: { key: "outstandingIssues", label: "Outstanding Issues", value: "4", icon: "TriangleAlert", tone: "warning" },
-  users: { key: "users", label: "Users", value: String(SEEDED_EMPLOYEES), icon: "Users", hint: `${SEEDED_EMPLOYEES} active accounts` },
+  users: { key: "users", label: "Users", value: String(SEEDED_EMPLOYEES), icon: "Users", hint: `${SEEDED_EMPLOYEES} active accounts`, series: trailing.users, chart: "bars" },
   activeUsers: { key: "activeUsers", label: "Active Today", value: "12", icon: "UserCheck", tone: "success" },
   companyModules: { key: "companyModules", label: "Modules Enabled", value: String(MODULE_KEYS.length), icon: "Boxes", hint: "All V0.1 modules" },
   userRoles: { key: "userRoles", label: "Roles Configured", value: "16", icon: "IdCard" },
@@ -119,7 +173,7 @@ export const kpis: Record<string, KpiDefinition> = {
   attendance: { key: "attendance", label: "Attendance Today", value: "94%", icon: "CalendarCheck", tone: "success" },
   leaveRequests: { key: "leaveRequests", label: "Leave Requests", value: "3", icon: "Plane", tone: "warning" },
   recruitment: { key: "recruitment", label: "Open Positions", value: "2", icon: "UserPlus" },
-  projectPerformance: { key: "projectPerformance", label: "On Schedule", value: `${Math.round((onScheduleProjects.length / activeProjects.length) * 100)}%`, icon: "Gauge", hint: `${onScheduleProjects.length} of ${activeProjects.length} projects` },
+  projectPerformance: { key: "projectPerformance", label: "On Schedule", value: `${Math.round((onScheduleProjects.length / activeProjects.length) * 100)}%`, icon: "Gauge", hint: `${onScheduleProjects.length} of ${activeProjects.length} projects`, series: trailing.performance, chart: "line" },
   approvals: { key: "approvals", label: "Awaiting Approval", value: "5", icon: "Stamp", tone: "warning" },
   risks: { key: "risks", label: "Company Risks", value: "4", icon: "TriangleAlert", tone: "danger" },
   milestones: { key: "milestones", label: "Upcoming Milestones", value: "6", icon: "Flag" },
@@ -137,7 +191,7 @@ export const kpis: Record<string, KpiDefinition> = {
   contractsExpiring: { key: "contractsExpiring", label: "Expiring (90d)", value: "3", icon: "CalendarClock", tone: "warning" },
   legalCases: { key: "legalCases", label: "Legal Cases", value: "1", icon: "Gavel" },
   notices: { key: "notices", label: "Notices Issued", value: "2", icon: "BellRing" },
-  pipeline: { key: "pipeline", label: "Pipeline Value", value: "€3.4M", icon: "TrendingUp", trend: { direction: "up", value: "+8.2%" } },
+  pipeline: { key: "pipeline", label: "Pipeline Value", value: "€3.4M", icon: "TrendingUp", trend: { direction: "up", value: "+8.2%", label: "from last quarter" }, series: trailing.pipeline, chart: "line" },
   clients: { key: "clients", label: "Active Clients", value: String(activeClients.length), icon: "Building2" },
   proposals: { key: "proposals", label: "Proposals Out", value: "6", icon: "FileSignal" },
   expectedRevenue: { key: "expectedRevenue", label: "Expected Revenue", value: "€1.9M", icon: "Target", hint: "Weighted, next 2 quarters" },
@@ -168,20 +222,86 @@ export const kpis: Record<string, KpiDefinition> = {
 /* Widget catalogue                                                    */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Activity rows take their icon from the verb rather than carrying one each.
+ * Twelve feeds share this table, so every department's activity list is
+ * iconographed the same way and a new row cannot invent its own treatment
+ * (design spec §46, §70).
+ */
+const activityVerbs: Record<string, { icon: string; tone: Tone }> = {
+  added: { icon: "Plus", tone: "default" },
+  approved: { icon: "Stamp", tone: "success" },
+  closed: { icon: "CircleCheckBig", tone: "success" },
+  completed: { icon: "CircleCheckBig", tone: "success" },
+  confirmed: { icon: "CircleCheckBig", tone: "success" },
+  enabled: { icon: "ToggleRight", tone: "success" },
+  flagged: { icon: "Flag", tone: "warning" },
+  issued: { icon: "ReceiptText", tone: "info" },
+  logged: { icon: "PenLine", tone: "default" },
+  moved: { icon: "ArrowLeftRight", tone: "info" },
+  opened: { icon: "FilePlus", tone: "info" },
+  passed: { icon: "ShieldCheck", tone: "success" },
+  provisioned: { icon: "Laptop", tone: "default" },
+  raised: { icon: "TriangleAlert", tone: "warning" },
+  received: { icon: "PackageCheck", tone: "success" },
+  recorded: { icon: "PenLine", tone: "default" },
+  requested: { icon: "MessageCircleQuestionMark", tone: "info" },
+  reset: { icon: "RotateCcw", tone: "warning" },
+  reviewed: { icon: "Eye", tone: "info" },
+  seeded: { icon: "Database", tone: "default" },
+  sent: { icon: "Send", tone: "info" },
+  transferred: { icon: "ArrowLeftRight", tone: "info" },
+  updated: { icon: "RefreshCw", tone: "info" },
+  uploaded: { icon: "Upload", tone: "info" },
+};
+
+export function activityMark(action: string): { icon: string; tone: Tone } {
+  return activityVerbs[action.split(" ")[0]] ?? { icon: "Circle", tone: "default" };
+}
+
 export const widgets: Record<string, WidgetDefinition> = {
-  projectProgress: {
-    key: "projectProgress",
-    title: "Project Progress",
-    description: "Completion against the current baseline.",
+  /*
+   * The executive overview table. Rows come from the same demo records the
+   * Projects module lists, so the dashboard and the table one click away can
+   * never disagree.
+   */
+  projectOverview: {
+    key: "projectOverview",
+    title: "Project Overview",
+    description: "Key projects and their current status.",
     span: 2,
-    type: "progress",
+    type: "projects",
     href: "/projects",
+    rows: activeProjects.slice(0, 5).map((project) => ({
+      code: project.code,
+      name: project.name,
+      client: project.client,
+      status: statusLabels[project.status],
+      tone: statusTones[project.status],
+      progress: project.progress,
+      due: formatDate(project.dueDate),
+    })),
+  },
+  departmentStatus: {
+    key: "departmentStatus",
+    title: "Department Status",
+    description: "Headcount, workload and utilisation by department.",
+    span: 2,
+    type: "departments",
     rows: [
-      { label: "Riverside Residences — Phase 2", meta: "Due 14 Nov", percent: 72 },
-      { label: "Northgate Logistics Hub", meta: "Due 03 Dec", percent: 48 },
-      { label: "Civic Library Refurbishment", meta: "Due 21 Oct", percent: 91 },
-      { label: "Harbour View Offices", meta: "Due 28 Jan", percent: 26 },
+      { label: "Projects", icon: "FolderKanban", teamSize: 12, activeItems: 8, status: "Healthy", tone: "success", utilisation: 72 },
+      { label: "Finance", icon: "Wallet", teamSize: 6, activeItems: 14, status: "Steady", tone: "info", utilisation: 64 },
+      { label: "HR", icon: "Users", teamSize: 5, activeItems: 7, status: "Healthy", tone: "success", utilisation: 58 },
+      { label: "Procurement", icon: "ShoppingCart", teamSize: 6, activeItems: 9, status: "At risk", tone: "warning", utilisation: 81 },
+      { label: "QA / QC", icon: "ClipboardCheck", teamSize: 4, activeItems: 6, status: "Healthy", tone: "success", utilisation: 56 },
+      { label: "HSE", icon: "ShieldCheck", teamSize: 4, activeItems: 5, status: "Steady", tone: "info", utilisation: 62 },
     ],
+  },
+  brandFeature: {
+    key: "brandFeature",
+    title: "NESTO",
+    span: 1,
+    type: "feature",
   },
   revenueByQuarter: {
     key: "revenueByQuarter",
@@ -204,6 +324,7 @@ export const widgets: Record<string, WidgetDefinition> = {
     type: "share",
     href: "/projects",
     total: String(activeProjects.length),
+    totalLabel: "Projects",
     rows: portfolioMix,
   },
   costBreakdown: {
@@ -665,7 +786,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityCompany: {
     key: "activityCompany",
     title: "Recent Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Sofia Almeida", action: "approved variation", target: "VO-014 · Riverside Ph.2", time: "18 minutes ago" },
@@ -678,7 +799,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activitySystem: {
     key: "activitySystem",
     title: "Recent System Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "System", action: "seeded demo company", target: "NESTO Demo Construction", time: "Today" },
@@ -690,7 +811,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityIt: {
     key: "activityIt",
     title: "Recent IT Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Company IT", action: "provisioned device", target: "MacBook Pro · Engineering", time: "1 hour ago" },
@@ -702,7 +823,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityHr: {
     key: "activityHr",
     title: "Recent HR Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Aisha Karim", action: "approved leave for", target: "Marta Lehmann", time: "35 minutes ago" },
@@ -714,7 +835,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityProject: {
     key: "activityProject",
     title: "Project Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Marta Lehmann", action: "uploaded drawing", target: "RIV-A-201 Rev C", time: "2 hours ago" },
@@ -726,7 +847,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityFinance: {
     key: "activityFinance",
     title: "Recent Financial Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Daniel Okonkwo", action: "issued invoice", target: "INV-2045 · €54,800", time: "1 hour ago" },
@@ -738,7 +859,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityLegal: {
     key: "activityLegal",
     title: "Recent Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Elena Costa", action: "uploaded contract", target: "Steelcore Ltd — Supply", time: "2 hours ago" },
@@ -750,7 +871,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activitySales: {
     key: "activitySales",
     title: "Recent Sales Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Priya Raman", action: "moved opportunity to", target: "Negotiation · Ashford Retail Park", time: "40 minutes ago" },
@@ -762,7 +883,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityProcurement: {
     key: "activityProcurement",
     title: "Recent Procurement Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Jonas Weber", action: "raised RFQ", target: "Rebar 12mm — 4 suppliers", time: "1 hour ago" },
@@ -774,7 +895,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityInventory: {
     key: "activityInventory",
     title: "Recent Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Nina Petrova", action: "recorded stock out", target: "Rebar 12mm · 4t", time: "2 hours ago" },
@@ -786,7 +907,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityQuality: {
     key: "activityQuality",
     title: "Recent Quality Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Tomás Rivera", action: "closed NCR", target: "NCR-018 · Riverside Ph.2", time: "1 hour ago" },
@@ -798,7 +919,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   activityHse: {
     key: "activityHse",
     title: "Recent HSE Activity",
-    span: 3,
+    span: 1,
     type: "activity",
     rows: [
       { actor: "Hannah Berg", action: "logged near miss", target: "Scaffold gap · Harbour View", time: "2 days ago" },
@@ -815,16 +936,17 @@ export const widgets: Record<string, WidgetDefinition> = {
 
 export const dashboards: Record<RoleKey, DashboardConfig> = {
   OWNER: {
-    kpis: ["activeProjects", "revenue", "costs", "employees"],
+    kpis: ["activeProjects", "employees", "revenue", "costs"],
     widgets: [
+      "projectOverview",
+      "activityCompany",
+      "departmentStatus",
+      "brandFeature",
       "revenueByQuarter",
       "portfolioMix",
-      "projectProgress",
       "costBreakdown",
-      "outstandingIssuesList",
       "openOpportunities",
-      "employeeOverview",
-      "activityCompany",
+      "outstandingIssuesList",
     ],
     quickActions: [
       { label: "View projects", href: "/projects" },
@@ -864,14 +986,17 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
   CEO: {
     kpis: ["revenue", "projectPerformance", "approvals", "risks"],
     widgets: [
-      "financeBreakdown",
-      "portfolioMix",
-      "riskRegister",
-      "projectProgress",
-      "approvalQueue",
-      "salesPipeline",
-      "openOpportunities",
+      "projectOverview",
       "activityCompany",
+      "departmentStatus",
+      "brandFeature",
+      "salesPipeline",
+      "portfolioMix",
+      "financeBreakdown",
+      "riskRegister",
+      "approvalQueue",
+      "openOpportunities",
+      "outstandingIssuesList",
     ],
     quickActions: [
       { label: "Projects", href: "/projects" },
@@ -883,7 +1008,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
   PROJECT_MANAGER: {
     kpis: ["myProjects", "openTasks", "dueThisWeek", "issues"],
     widgets: [
-      "projectProgress",
+      "projectOverview",
       "upcomingMilestones",
       "myTasks",
       "projectIssues",
@@ -1019,7 +1144,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
   },
   VIEWER: {
     kpis: ["companyProjects", "companyTasks", "documentsTotal", "clients"],
-    widgets: ["companyOverview", "projectList", "recentDocumentsList", "activityCompany"],
+    widgets: ["projectOverview", "activityCompany", "companyOverview", "recentDocumentsList"],
     quickActions: [
       { label: "Projects", href: "/projects" },
       { label: "Documents", href: "/documents", permission: "document.view" },

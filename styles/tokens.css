@@ -6,77 +6,106 @@
  * px shadows or one-off durations (§86: "Avoid random CSS values inside
  * individual pages").
  *
- * The palette is deliberately warm and narrow: warm white, stone, graphite,
- * muted gray and a single indigo accent (§2.2, §5).
+ * The palette is narrow and near-neutral: white surfaces, a barely-warm
+ * canvas, graphite text and a single indigo accent (§2.2, §5).
+ *
+ * Both colour schemes are declared together with light-dark(), one line per
+ * token, so a value cannot drift between them and there is no second palette
+ * to keep in step. Which half is used follows `color-scheme`, set at the
+ * bottom of this file: the operating system by default, or the reader's
+ * explicit choice when they have made one.
  */
 
 :root {
-  /* ---- Surfaces (§5) ------------------------------------------------- */
-  --nesto-canvas: #f7f6f2; /* Warm White — main background */
-  --nesto-surface: #ffffff; /* Card background */
-  --nesto-surface-muted: #f1f0ec; /* Soft Stone — alternative surface */
-  --nesto-sidebar: #ffffff;
-  --nesto-row-hover: #fafaf8; /* Table row hover (§23) */
+  color-scheme: light dark;
+
+  /* ---- White and surfaces (§5) --------------------------------------- */
+  /*
+   * Cards, the sidebar and menus are plain white. The canvas carries a single
+   * point of warmth so white reads as white against it rather than as glare.
+   */
+  --nesto-white: #ffffff;
+  --nesto-canvas: light-dark(#f7f7f6, #101215);
+  --nesto-surface: light-dark(var(--nesto-white), #181a1e);
+  --nesto-surface-muted: light-dark(#f2f2f1, #1f2228);
+  --nesto-sidebar: light-dark(var(--nesto-white), #141619);
+  --nesto-row-hover: light-dark(#fafafa, #1d2025);
 
   /* ---- Text (§5) ----------------------------------------------------- */
   /*
    * §5 names two text colours; a third is needed for metadata. All three are
-   * tuned to clear WCAG AA on canvas, surface and stone, because §56 makes AA
-   * a requirement and 11px metadata is normal-size text, not large text.
+   * tuned to clear WCAG AA on every ground above in both schemes, because §56
+   * makes AA a requirement and 11px metadata is normal-size text.
    */
-  --nesto-fg: #171a21; /* Graphite — primary text */
-  --nesto-fg-muted: #4f5563; /* Secondary text */
-  --nesto-fg-subtle: #686d78; /* Tertiary / metadata */
+  --nesto-fg: light-dark(#15171c, #f2f2f0);
+  --nesto-fg-muted: light-dark(#5b6068, #a8adb6);
+  --nesto-fg-subtle: light-dark(#6a6f78, #868b94);
 
   /* ---- Lines (§5) ---------------------------------------------------- */
-  --nesto-border: #e6e4df;
-  --nesto-border-strong: #d7d4cc;
+  --nesto-border: light-dark(#e8e8e6, #282b31);
+  --nesto-border-strong: light-dark(#d8d8d5, #3a3e45);
 
   /* ---- Accent (§5) --------------------------------------------------- */
   /* Exactly one primary accent is in use at a time. */
-  --nesto-primary: #465cff;
-  --nesto-primary-fg: #ffffff;
-  --nesto-primary-hover: #3a4ce6;
-  --nesto-accent: #465cff;
-  --nesto-accent-fg: #ffffff;
-  --nesto-accent-strong: #3f53e8; /* accent as text on a light ground (§56) */
-  --nesto-accent-soft: #eef0ff;
-  --nesto-hover: #f1f0ec;
-  --nesto-ring: #465cff;
+  --nesto-primary: light-dark(#465cff, #7c8cff);
+  --nesto-primary-fg: light-dark(var(--nesto-white), #0d0f14);
+  --nesto-primary-hover: light-dark(#3a4ce6, #94a1ff);
+  --nesto-accent: light-dark(#465cff, #7c8cff);
+  --nesto-accent-fg: light-dark(var(--nesto-white), #0d0f14);
+  /* The accent as text on its own ground (§56). */
+  --nesto-accent-strong: light-dark(#3f53e8, #94a1ff);
+  --nesto-accent-soft: light-dark(#eef0ff, #1c2140);
+  --nesto-hover: light-dark(#f2f2f1, #23262d);
+  --nesto-ring: light-dark(#465cff, #7c8cff);
 
-  /* Graphite, reserved for the wordmark and executive display type (§4). */
-  --nesto-graphite: #171a21;
-  --nesto-graphite-fg: #ffffff;
+  /*
+   * Graphite is the inverse of whatever the current ground is, reserved for
+   * the wordmark, the sign-in panel and the dashboard brand card (§4, §74).
+   * In dark mode that makes those surfaces the one sheet of paper in the
+   * product, which is the same role they play in reverse in light mode.
+   */
+  --nesto-graphite: light-dark(#15171c, #e9e9e5);
+  --nesto-graphite-fg: light-dark(var(--nesto-white), #15171c);
 
   /* ---- Status (§6) --------------------------------------------------- */
   /*
    * Two variants per status. The base is the §6 brand value and is used where
    * the colour is a *fill* — dots, bars, chart series, solid buttons. The
-   * `-strong` variant is the same hue darkened until it clears AA as text on a
-   * light ground, and is what badges and figures use (§56).
+   * `-strong` variant is the same hue pushed until it clears AA as text on the
+   * grounds above, and is what badges and figures use (§56).
    */
-  --nesto-success: #1f9d68;
-  --nesto-success-strong: #187b51;
-  --nesto-success-soft: #e9f5ef;
-  --nesto-warning: #c58a25;
-  --nesto-warning-strong: #8f641b;
-  --nesto-warning-soft: #f9f1e3;
-  --nesto-danger: #d9534f;
-  --nesto-danger-strong: #c4302b;
-  --nesto-danger-soft: #fbedec;
-  --nesto-info: #465cff;
-  --nesto-info-strong: #3f53e8;
-  --nesto-info-soft: #eef0ff;
+  --nesto-success: light-dark(#1f9d68, #46b98a);
+  --nesto-success-strong: light-dark(#187b51, #5ecb9c);
+  --nesto-success-soft: light-dark(#e9f5ef, #14241d);
+  --nesto-warning: light-dark(#c58a25, #d9a552);
+  --nesto-warning-strong: light-dark(#8f641b, #e5b96f);
+  --nesto-warning-soft: light-dark(#f9f1e3, #2a2114);
+  --nesto-danger: light-dark(#d9534f, #e8756f);
+  --nesto-danger-strong: light-dark(#c4302b, #f28f89);
+  --nesto-danger-soft: light-dark(#fbedec, #2c1817);
+  --nesto-info: light-dark(#465cff, #7c8cff);
+  --nesto-info-strong: light-dark(#3f53e8, #94a1ff);
+  --nesto-info-soft: light-dark(#eef0ff, #1c2140);
 
   /* ---- Shadows (§10) ------------------------------------------------- */
-  --nesto-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --nesto-shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.1);
-  --nesto-shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.14);
+  /*
+   * light-dark() takes colours, not whole shadow values, so the geometry is
+   * fixed and only the colour switches. Dark grounds need a deeper shadow to
+   * register at all.
+   */
+  --nesto-shadow-card-color: light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0.32));
+  --nesto-shadow-menu-color: light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.48));
+  --nesto-shadow-dialog-color: light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.58));
+  --nesto-shadow-card: 0 2px 8px var(--nesto-shadow-card-color);
+  --nesto-shadow-menu: 0 8px 24px var(--nesto-shadow-menu-color);
+  --nesto-shadow-dialog: 0 12px 40px var(--nesto-shadow-dialog-color);
 
   /* ---- Motion (§52, §53) --------------------------------------------- */
   --nesto-motion-fast: 150ms;
   --nesto-motion: 180ms;
   --nesto-motion-slow: 220ms;
+  /* The public site's one entrance movement (§81). */
+  --nesto-motion-rise: 600ms;
   --nesto-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* ---- Shell dimensions (§11, §15, §37, §50) ------------------------- */
@@ -95,52 +124,15 @@
 }
 
 /*
- * Dark mode keeps the same warm neutrality: graphite grounds rather than
- * blue-black, so the product reads as one system in either scheme.
+ * An explicit choice wins over the operating system in both directions, so a
+ * reader on a dark OS can still pin NESTO to light. The attribute is rendered
+ * on the server from a cookie, so the first paint is already correct and the
+ * page never flashes the wrong scheme.
  */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --nesto-canvas: #131519;
-    --nesto-surface: #1a1d22;
-    --nesto-surface-muted: #1f2229;
-    --nesto-sidebar: #16181d;
-    --nesto-row-hover: #1e2127;
+:root[data-theme="light"] {
+  color-scheme: light;
+}
 
-    --nesto-fg: #ecebe6;
-    --nesto-fg-muted: #a7abb5;
-    --nesto-fg-subtle: #878c96;
-
-    --nesto-border: #2a2d34;
-    --nesto-border-strong: #3a3e46;
-
-    --nesto-primary: #6e80ff;
-    --nesto-primary-fg: #10121a;
-    --nesto-primary-hover: #8492ff;
-    --nesto-accent: #6e80ff;
-    --nesto-accent-fg: #10121a;
-    --nesto-accent-strong: #8a99ff;
-    --nesto-accent-soft: #1e2340;
-    --nesto-hover: #23262d;
-    --nesto-ring: #6e80ff;
-
-    --nesto-graphite: #ecebe6;
-    --nesto-graphite-fg: #131519;
-
-    --nesto-success: #46b98a;
-    --nesto-success-strong: #5ecb9c;
-    --nesto-success-soft: #14241d;
-    --nesto-warning: #d9a552;
-    --nesto-warning-strong: #e5b96f;
-    --nesto-warning-soft: #2a2114;
-    --nesto-danger: #e8756f;
-    --nesto-danger-strong: #f28f89;
-    --nesto-danger-soft: #2c1817;
-    --nesto-info: #6e80ff;
-    --nesto-info-strong: #8a99ff;
-    --nesto-info-soft: #1e2340;
-
-    --nesto-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --nesto-shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --nesto-shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.55);
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }

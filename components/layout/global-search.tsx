@@ -41,7 +41,7 @@ export function GlobalSearch() {
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "flex h-9 w-full items-center gap-2 rounded-md border border-line bg-surface-muted pl-3 pr-2 text-left transition-colors",
+          "flex h-10 w-full items-center gap-2.5 rounded-lg border border-line bg-surface-muted pl-3.5 pr-2 text-left transition-colors",
           "hover:border-line-strong hover:bg-surface",
         )}
       >
@@ -51,7 +51,7 @@ export function GlobalSearch() {
         </span>
         <kbd
           aria-hidden="true"
-          className="hidden shrink-0 rounded border border-line bg-surface px-1.5 py-0.5 font-sans text-micro font-medium text-fg-subtle xl:block"
+          className="hidden shrink-0 rounded border border-line bg-surface px-1.5 py-0.5 font-sans text-micro font-medium text-fg-subtle lg:block"
         >
           {shortcut}
         </kbd>

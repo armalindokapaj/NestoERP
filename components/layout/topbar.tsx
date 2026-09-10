@@ -37,6 +37,7 @@ export function Topbar({ user }: { user: CurrentUser }) {
           />
         ) : null}
         <NotificationsMenu />
+        <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-line lg:block" />
         <UserMenu user={user} />
       </div>
     </header>
