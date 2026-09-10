@@ -38,9 +38,13 @@ export const PERMISSIONS = [
   "task.view",
   "task.create",
   "task.update",
+  "task.assign",
+  "task.status.update",
   "task.complete",
+  "task.reopen",
   "task.archive",
   "task.restore",
+  "task.activity.view",
 
   /* Clients -------------------------------------------------------------- */
   "client.view",
@@ -213,7 +217,13 @@ export function permissionAction(permission: string): string {
   return parts[parts.length - 1];
 }
 
-/** Actions that mutate data. Used to keep read-only roles honest. */
+/**
+ * Actions that mutate data. Used to keep read-only roles honest.
+ *
+ * Every verb a module lifecycle can end in belongs here: if an action changes a
+ * business record it must not survive the read-only filter simply because its
+ * name is new (PRD #5 §27).
+ */
 const MUTATING_ACTIONS = new Set([
   "create",
   "update",
@@ -228,6 +238,38 @@ const MUTATING_ACTIONS = new Set([
   "remove",
   "complete",
   "close",
+  "reopen",
+  "submit",
+  "cancel",
+  "decide",
+  "void",
+  "post",
+  "reverse",
+  "release",
+  "revoke",
+  "verify",
+  "activate",
+  "suspend",
+  "unsuspend",
+  "issue",
+  "select",
+  "terminate",
+  "convert",
+  "qualify",
+  "disqualify",
+  "execute",
+  "resend",
+  "invite",
+  "deactivate",
+  "reactivate",
+  "start",
+  "escalate",
+  "sync",
+  "expire",
+  "fulfill",
+  "control",
+  "assess",
+  "investigate",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

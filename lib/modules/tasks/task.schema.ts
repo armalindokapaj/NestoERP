@@ -1,0 +1,110 @@
+import { z } from "zod";
+
+import {
+  optionalDate,
+  optionalEnum,
+  optionalId,
+  optionalText,
+} from "@/lib/modules/shared/fields";
+import { EDITABLE_STATUSES, REOPEN_STATUSES } from "./task.status";
+
+/**
+ * Task validation (PRD #11 §188–§190).
+ *
+ * `completedAt`, `archivedAt`, `companyId` and `createdByMemberId` are absent
+ * from every input schema on purpose: they are server-controlled and must never
+ * be accepted from the browser (PRD #11 §98, §116, §117).
+ */
+
+const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+
+const taskFields = {
+  title: z
+    .string()
+    .trim()
+    .min(2, "Task title must be at least 2 characters")
+    .max(200, "Task title must be 200 characters or fewer"),
+  description: optionalText(10_000),
+  projectId: optionalId,
+  assigneeMemberId: optionalId,
+  status: z.enum(EDITABLE_STATUSES as [string, ...string[]]).default("TODO"),
+  priority: z.enum(PRIORITIES).default("MEDIUM"),
+  startDate: optionalDate,
+  dueDate: optionalDate,
+};
+
+/** A task may not be scheduled to finish before it starts (PRD #11 §50). */
+const scheduleRefinement = <T extends { startDate?: Date; dueDate?: Date }>(
+  schema: z.ZodType<T>,
+) =>
+  schema.refine(
+    (value) =>
+      !value.startDate || !value.dueDate || value.startDate.getTime() <= value.dueDate.getTime(),
+    { message: "Due date must be on or after the start date.", path: ["dueDate"] },
+  );
+
+export const createTaskSchema = scheduleRefinement(z.object(taskFields));
+
+export const updateTaskSchema = scheduleRefinement(
+  z.object({
+    ...taskFields,
+    /**
+     * Optimistic concurrency: the value the form was loaded with. If the record
+     * has moved on since, the update is refused rather than silently
+     * overwriting somebody else's edit.
+     */
+    versionUpdatedAt: optionalDate,
+  }),
+);
+
+export type CreateTaskInput = z.infer<typeof createTaskSchema>;
+export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+
+/** The dedicated status endpoints (PRD #11 §66–§70, §113). */
+export const reopenTaskSchema = z.object({
+  status: optionalEnum(REOPEN_STATUSES as unknown as [string, ...string[]]),
+});
+
+export type ReopenTaskInput = z.infer<typeof reopenTaskSchema>;
+
+export const TASK_SORT_KEYS = [
+  "due-asc",
+  "due-desc",
+  "priority-desc",
+  "priority-asc",
+  "updated-desc",
+  "created-desc",
+  "title-asc",
+  "title-desc",
+] as const;
+
+export type TaskSortKey = (typeof TASK_SORT_KEYS)[number];
+
+/** Due-date presets offered by the list toolbar (PRD #11 §38). */
+export const TASK_DUE_FILTERS = ["overdue", "today", "week", "next7", "none"] as const;
+export type TaskDueFilter = (typeof TASK_DUE_FILTERS)[number];
+
+export const taskListQuerySchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  status: z.array(z.enum(["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"])).optional(),
+  priority: z.array(z.enum(PRIORITIES)).optional(),
+  projectId: z.string().optional(),
+  assigneeMemberId: z.string().optional(),
+  createdByMemberId: z.string().optional(),
+  due: z.enum(TASK_DUE_FILTERS).optional(),
+  dueFrom: optionalDate,
+  dueTo: optionalDate,
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(100).default(25),
+  sort: z.enum(TASK_SORT_KEYS).default("due-asc"),
+  /** Archived tasks live in their own section (PRD #11 §30). */
+  archived: z.boolean().default(false),
+  /** Tasks assigned to the current member (PRD #11 §26). */
+  mine: z.boolean().default(false),
+  /** Only tasks that are still open — used by the Overdue section. */
+  openOnly: z.boolean().default(false),
+  /** Only completed tasks (PRD #11 §29). */
+  completedOnly: z.boolean().default(false),
+});
+
+export type TaskListQuery = z.infer<typeof taskListQuerySchema>;

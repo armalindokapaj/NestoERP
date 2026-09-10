@@ -1077,7 +1077,7 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
         priority: "WARNING",
         title: `${overdue} overdue task${overdue === 1 ? "" : "s"}`,
         detail: "Past their due date and not yet complete.",
-        href: "/tasks",
+        href: "/tasks/overdue",
       });
     }
 

@@ -42,3 +42,17 @@ export async function removeTestProjects(codePrefix: string): Promise<void> {
   await db.projectMember.deleteMany({ where: { projectId: { in: ids } } });
   await db.project.deleteMany({ where: { id: { in: ids } } });
 }
+
+/** Removes the tasks a spec created, so a rerun starts from the seed. */
+export async function removeTestTasks(titlePrefix: string): Promise<void> {
+  const tasks = await db.task.findMany({
+    where: { title: { startsWith: titlePrefix } },
+    select: { id: true },
+  });
+
+  if (tasks.length === 0) return;
+  const ids = tasks.map((task) => task.id);
+
+  await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+  await db.task.deleteMany({ where: { id: { in: ids } } });
+}

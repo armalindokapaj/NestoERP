@@ -665,9 +665,19 @@ model Task {
   assigneeMemberId  String?
   createdByMemberId String
   status            TaskStatus   @default(TODO)
+  /// The status to return to on restore, so an archived task remembers where it
+  /// was rather than always coming back as TODO (PRD #11 §73).
+  preArchiveStatus  TaskStatus?
   priority          TaskPriority @default(MEDIUM)
+  startDate         DateTime?
   dueDate           DateTime?
   completedAt       DateTime?
+
+  /// Generic parent context, so a later module can hang work off its own record
+  /// without inventing a second task table (PRD #11 §171, §252).
+  module     String?
+  entityType String?
+  entityId   String?
 
   createdBy  String
   updatedBy  String?
@@ -685,12 +695,19 @@ model Task {
 
   @@index([companyId])
   @@index([companyId, status])
+  @@index([companyId, updatedAt])
+  @@index([companyId, dueDate])
+  @@index([companyId, assigneeMemberId, status])
+  @@index([companyId, projectId, status])
   @@index([projectId])
   @@index([assigneeMemberId])
+  @@index([createdByMemberId])
   @@index([status])
   @@index([priority])
   @@index([dueDate])
   @@index([updatedAt])
+  @@index([module])
+  @@index([entityType, entityId])
   @@map("tasks")
 }
 

@@ -63,9 +63,12 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     ],
   },
   tasks: {
-    VIEW: ["task.view"],
-    CONTRIBUTE: ["task.create", "task.update", "task.complete"],
-    MANAGE: ["task.archive", "task.restore"],
+    VIEW: ["task.view", "task.activity.view"],
+    CONTRIBUTE: ["task.create", "task.update", "task.status.update", "task.complete"],
+    // Assigning someone else's work, reopening a closed task and archiving are
+    // management actions: a contributor may run their own task but not
+    // redirect another person's (PRD #11 §51, §122).
+    MANAGE: ["task.assign", "task.reopen", "task.archive", "task.restore"],
   },
   clients: {
     VIEW: ["client.view", "contact.view"],

@@ -196,7 +196,6 @@ describe("company isolation across every record type (PRD #9 §12, §157)", () =
     { module: "qaqc", section: "inspections", role: "QAQC" },
     { module: "hse", section: "incidents", role: "HSE" },
     { module: "clients", section: "all", role: "SALES" },
-    { module: "tasks", section: "all", role: "OWNER" },
     { module: "documents", section: "all", role: "OWNER" },
   ];
 
@@ -215,13 +214,16 @@ describe("company isolation across every record type (PRD #9 §12, §157)", () =
   }
 
   it("answers null for a record belonging to another company", async () => {
-    const section = findRecordSection("tasks", "all")!;
+    // Documents rather than Tasks: Tasks left the generic registry when it got
+    // its own service and pages (PRD #11). Its isolation is covered by
+    // tests/api/tasks.
+    const section = findRecordSection("documents", "all")!;
     const context = await loginAs("OWNER");
 
-    const companyBTask = await prisma.task.findFirstOrThrow({
+    const companyBDocument = await prisma.document.findFirstOrThrow({
       where: { companyId: "company_demo_b" },
     });
 
-    expect(await section.get(context, companyBTask.id)).toBeNull();
+    expect(await section.get(context, companyBDocument.id)).toBeNull();
   });
 });

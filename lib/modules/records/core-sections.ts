@@ -1,216 +1,28 @@
 import type { Prisma } from "@prisma/client";
 
 import { statusLabel } from "@/lib/utils/status";
-import {
-  buildClientScopeWhere,
-  buildDocumentScopeWhere,
-  buildTaskScopeWhere,
-} from "@/lib/access/scope";
+import { buildClientScopeWhere, buildDocumentScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import { formatDate, orDash } from "@/lib/utils/format";
 import type { RecordSection } from "./types";
 
 /**
- * Tasks, Clients and Documents through the same module shell (PRD #7 §4).
+ * Clients and Documents through the same module shell (PRD #7 §4).
  *
  * They are core entities rather than department test records, but they render
  * through the identical list/detail machinery — which is the point of the
  * shell: the business content changes, the interaction architecture does not
  * (PRD #7 §162).
+ *
+ * Tasks used to live here too. It now has its own service, API and pages
+ * (PRD #11), so it is no longer a generic record section.
  */
-
-const TASK_STATUSES = ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED", "ARCHIVED"] as const;
-const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 
 function enumValue<T extends string>(value: string | undefined, allowed: readonly T[]): T | undefined {
   if (!value) return undefined;
   const upper = value.toUpperCase();
   return (allowed as readonly string[]).includes(upper) ? (upper as T) : undefined;
-}
-
-type TaskVariant = "mine" | "all" | "completed" | "archived";
-
-function taskSection(section: string, variant: TaskVariant): RecordSection {
-  return {
-    module: "tasks",
-    section,
-    singular: "Task",
-    plural: "Tasks",
-    emptyTitle:
-      variant === "mine"
-        ? "No tasks assigned to you."
-        : variant === "completed"
-          ? "No completed tasks."
-          : variant === "archived"
-            ? "No archived tasks."
-            : "No tasks yet.",
-    emptyDescription:
-      variant === "mine"
-        ? "Work assigned to you will appear here."
-        : "Tasks you can see will appear here.",
-    permission: "task.view",
-    approvePermission: "task.complete",
-    columns: [
-      { key: "title", label: "Task" },
-      { key: "project", label: "Project", hideBelow: "lg" },
-      { key: "assignee", label: "Assignee", hideBelow: "xl" },
-      { key: "status", label: "Status" },
-      { key: "priority", label: "Priority", hideBelow: "lg" },
-      { key: "due", label: "Due", hideBelow: "xl" },
-    ],
-    filters: [
-      {
-        param: "status",
-        label: "Status",
-        options: TASK_STATUSES.filter((status) => status !== "ARCHIVED").map((status) => ({
-          value: status,
-          label: statusLabel(status),
-        })),
-      },
-      {
-        param: "priority",
-        label: "Priority",
-        options: PRIORITIES.map((value) => ({ value, label: statusLabel(value) })),
-      },
-    ],
-    async list(context, args) {
-      const variantClause: Prisma.TaskWhereInput =
-        variant === "mine"
-          ? { assigneeMemberId: context.membershipId, archivedAt: null }
-          : variant === "completed"
-            ? { status: "COMPLETED", archivedAt: null }
-            : variant === "archived"
-              ? { archivedAt: { not: null } }
-              : { archivedAt: null };
-
-      const where: Prisma.TaskWhereInput = {
-        AND: [
-          buildTaskScopeWhere(context),
-          variantClause,
-          ...(enumValue(args.filters.status, TASK_STATUSES)
-            ? [{ status: enumValue(args.filters.status, TASK_STATUSES)! }]
-            : []),
-          ...(enumValue(args.filters.priority, PRIORITIES)
-            ? [{ priority: enumValue(args.filters.priority, PRIORITIES)! }]
-            : []),
-          ...(searchClause(args.search, ["title", "description"])
-            ? [searchClause(args.search, ["title", "description"]) as Prisma.TaskWhereInput]
-            : []),
-        ],
-      };
-
-      const [rows, total] = await Promise.all([
-        prisma.task.findMany({
-          where,
-          orderBy: [{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-          skip: skipFor(args.page, args.limit),
-          take: args.limit,
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            priority: true,
-            dueDate: true,
-            project: { select: { name: true } },
-            assignee: { select: { user: { select: { firstName: true, lastName: true } } } },
-          },
-        }),
-        prisma.task.count({ where }),
-      ]);
-
-      return {
-        total,
-        rows: rows.map((row) => ({
-          id: row.id,
-          primary: row.title,
-          secondary: row.project?.name ?? "Personal task",
-          status: row.status,
-          fields: [
-            { key: "title", label: "Task", value: row.title },
-            {
-              key: "project",
-              label: "Project",
-              value: row.project?.name ?? "Personal task",
-              hideBelow: "lg" as const,
-            },
-            {
-              key: "assignee",
-              label: "Assignee",
-              value: row.assignee
-                ? `${row.assignee.user.firstName} ${row.assignee.user.lastName}`
-                : "Unassigned",
-              hideBelow: "xl" as const,
-            },
-            { key: "status", label: "Status", value: row.status, status: true },
-            {
-              key: "priority",
-              label: "Priority",
-              value: statusLabel(row.priority),
-              hideBelow: "lg" as const,
-            },
-            {
-              key: "due",
-              label: "Due",
-              value: row.dueDate ? formatDate(row.dueDate) : "—",
-              hideBelow: "xl" as const,
-            },
-          ],
-        })),
-      };
-    },
-    async get(context, id) {
-      const row = await prisma.task.findFirst({
-        where: { AND: [buildTaskScopeWhere(context), { id }] },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          status: true,
-          priority: true,
-          dueDate: true,
-          completedAt: true,
-          createdAt: true,
-          updatedAt: true,
-          project: { select: { id: true, name: true } },
-          assignee: { select: { user: { select: { firstName: true, lastName: true } } } },
-          creator: { select: { user: { select: { firstName: true, lastName: true } } } },
-        },
-      });
-
-      if (!row) return null;
-
-      return {
-        id: row.id,
-        title: row.title,
-        subtitle: row.project?.name ?? "Personal task",
-        status: row.status,
-        description: row.description,
-        fields: [
-          { label: "Project", value: row.project?.name ?? "Personal task" },
-          {
-            label: "Assignee",
-            value: row.assignee
-              ? `${row.assignee.user.firstName} ${row.assignee.user.lastName}`
-              : "Unassigned",
-          },
-          { label: "Priority", value: statusLabel(row.priority) },
-          { label: "Due", value: row.dueDate ? formatDate(row.dueDate) : "—" },
-          {
-            label: "Created by",
-            value: `${row.creator.user.firstName} ${row.creator.user.lastName}`,
-          },
-        ],
-        meta: [
-          { label: "Created", value: formatDate(row.createdAt) },
-          { label: "Updated", value: formatDate(row.updatedAt) },
-          ...(row.completedAt
-            ? [{ label: "Completed", value: formatDate(row.completedAt) }]
-            : []),
-        ],
-      };
-    },
-  };
 }
 
 const CLIENT_STATUSES = ["ACTIVE", "INACTIVE", "ARCHIVED"] as const;
@@ -596,10 +408,6 @@ function documentSection(section: string, variant: DocumentVariant): RecordSecti
 }
 
 export const CORE_SECTIONS: RecordSection[] = [
-  taskSection("my-tasks", "mine"),
-  taskSection("all", "all"),
-  taskSection("completed", "completed"),
-  taskSection("archived", "archived"),
   clientSection("all", false),
   clientSection("archived", true),
   contacts,

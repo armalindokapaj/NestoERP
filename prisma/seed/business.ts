@@ -254,7 +254,7 @@ function projectRoleFor(userId: string): string {
 
 /**
  * 36 tasks with the status, priority and due-date spread the dashboards and
- * filters need (PRD #9 §49–§57).
+ * filters need (PRD #9 §49–§57, PRD #11 §238–§242).
  */
 const TASKS: {
   title: string;
@@ -263,13 +263,18 @@ const TASKS: {
   status: "TODO" | "IN_PROGRESS" | "BLOCKED" | "COMPLETED" | "ARCHIVED";
   priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   due: number | null;
+  /** Days from now the work was scheduled to begin (PRD #11 §10). */
+  start?: number;
+  description?: string;
+  /** A task raised by another module against its own record (PRD #11 §171). */
+  source?: { module: string; entityType: string; entityId: string };
 }[] = [
-  { title: "Confirm block C foundation sequence", project: PROJECT_IDS.a, assignee: "user_pm", status: "IN_PROGRESS", priority: "HIGH", due: -3 },
+  { title: "Confirm block C foundation sequence", project: PROJECT_IDS.a, assignee: "user_pm", status: "IN_PROGRESS", priority: "HIGH", due: -3, start: -14, description: "Agree the pour sequence with the structural engineer before the next concrete delivery." },
   { title: "Issue revised programme to client", project: PROJECT_IDS.a, assignee: "user_pm", status: "TODO", priority: "HIGH", due: 0 },
   { title: "Review apartment layouts", project: PROJECT_IDS.a, assignee: "user_architect", status: "IN_PROGRESS", priority: "HIGH", due: 4 },
   { title: "Issue drawing revision D", project: PROJECT_IDS.a, assignee: "user_architect", status: "TODO", priority: "MEDIUM", due: 9 },
-  { title: "Respond to design RFI 014", project: PROJECT_IDS.a, assignee: "user_architect", status: "BLOCKED", priority: "CRITICAL", due: -6 },
-  { title: "Review structural detail S-204", project: PROJECT_IDS.a, assignee: "user_engineer", status: "IN_PROGRESS", priority: "HIGH", due: 2 },
+  { title: "Respond to design RFI 014", project: PROJECT_IDS.a, assignee: "user_architect", status: "BLOCKED", priority: "CRITICAL", due: -6, start: -20, description: "Waiting on the client to confirm the revised balcony balustrade specification." },
+  { title: "Review structural detail S-204", project: PROJECT_IDS.a, assignee: "user_engineer", status: "IN_PROGRESS", priority: "HIGH", due: 2, start: -5 },
   { title: "Site inspection follow-up", project: PROJECT_IDS.a, assignee: "user_engineer", status: "TODO", priority: "MEDIUM", due: 6 },
   { title: "Close out concrete pour checklist", project: PROJECT_IDS.a, assignee: "user_qaqc", status: "COMPLETED", priority: "MEDIUM", due: -12 },
   { title: "Update scaffolding permit register", project: PROJECT_IDS.a, assignee: "user_hse", status: "IN_PROGRESS", priority: "HIGH", due: 1 },
@@ -280,17 +285,17 @@ const TASKS: {
   { title: "Agree curtain wall procurement route", project: PROJECT_IDS.b, assignee: "user_pm", status: "IN_PROGRESS", priority: "HIGH", due: 5 },
   { title: "Chase basement waterproofing warranty", project: PROJECT_IDS.b, assignee: "user_pm", status: "TODO", priority: "MEDIUM", due: -2 },
   { title: "Coordinate MEP riser layout", project: PROJECT_IDS.b, assignee: "user_engineer", status: "TODO", priority: "HIGH", due: 11 },
-  { title: "Close NCR-0031", project: PROJECT_IDS.b, assignee: "user_qaqc", status: "BLOCKED", priority: "HIGH", due: -8 },
+  { title: "Close NCR-0031", project: PROJECT_IDS.b, assignee: "user_qaqc", status: "BLOCKED", priority: "HIGH", due: -8, start: -18, source: { module: "qaqc", entityType: "quality_record", entityId: "quality_003" }, description: "Corrective action raised from the reinforcement cover inspection." },
   { title: "Complete monthly safety walk", project: PROJECT_IDS.b, assignee: "user_hse", status: "COMPLETED", priority: "MEDIUM", due: -5 },
   { title: "Verify fire strategy sign-off", project: PROJECT_IDS.b, assignee: "user_pm", status: "COMPLETED", priority: "HIGH", due: -18 },
 
-  { title: "Finalise facade package", project: PROJECT_IDS.c, assignee: "user_architect", status: "IN_PROGRESS", priority: "HIGH", due: 3 },
+  { title: "Finalise facade package", project: PROJECT_IDS.c, assignee: "user_architect", status: "IN_PROGRESS", priority: "HIGH", due: 3, start: -10 },
   { title: "Prepare promenade planning submission", project: PROJECT_IDS.c, assignee: "user_architect", status: "TODO", priority: "CRITICAL", due: -1 },
   { title: "Review marina access study", project: PROJECT_IDS.c, assignee: "user_architect", status: "COMPLETED", priority: "MEDIUM", due: -25 },
   { title: "Confirm client fit-out allowance", project: PROJECT_IDS.c, assignee: "user_owner", status: "TODO", priority: "MEDIUM", due: 18 },
   { title: "Issue concept report", project: PROJECT_IDS.c, assignee: "user_owner", status: "COMPLETED", priority: "LOW", due: -40 },
 
-  { title: "Technical issue response — yard drainage", project: PROJECT_IDS.d, assignee: "user_engineer", status: "BLOCKED", priority: "CRITICAL", due: -15 },
+  { title: "Technical issue response — yard drainage", project: PROJECT_IDS.d, assignee: "user_engineer", status: "BLOCKED", priority: "CRITICAL", due: -15, start: -30, description: "Standing water in the north yard after heavy rain. Awaiting a survey level check." },
   { title: "Reassess structural loading", project: PROJECT_IDS.d, assignee: "user_engineer", status: "IN_PROGRESS", priority: "HIGH", due: 7 },
   { title: "Update permit expiry register", project: PROJECT_IDS.d, assignee: "user_hse", status: "TODO", priority: "HIGH", due: 2 },
   { title: "Inspect stored materials", project: PROJECT_IDS.d, assignee: "user_qaqc", status: "TODO", priority: "MEDIUM", due: 12 },
@@ -327,13 +332,21 @@ async function seedTasks(prisma: PrismaClient, members: Members) {
         title: task.title,
         assigneeMemberId,
         createdByMemberId: members.get("user_pm")!,
+        description: task.description ?? null,
         status: task.status,
         priority: task.priority,
+        startDate: task.start === undefined ? null : daysFromNow(task.start),
         dueDate: task.due === null ? null : daysFromNow(task.due),
         completedAt: task.status === "COMPLETED" ? daysFromNow((task.due ?? 0) - 1) : null,
+        module: task.source?.module ?? null,
+        entityType: task.source?.entityType ?? null,
+        entityId: task.source?.entityId ?? null,
         createdBy: "user_pm",
         archivedAt: task.status === "ARCHIVED" ? daysFromNow(-45) : null,
         archivedBy: task.status === "ARCHIVED" ? "user_pm" : null,
+        // An archived task remembers where it was, so Restore in the demo puts
+        // it back rather than resetting it to To Do (PRD #11 §73).
+        preArchiveStatus: task.status === "ARCHIVED" ? "COMPLETED" : null,
       },
     });
   }

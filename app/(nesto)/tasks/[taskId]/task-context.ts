@@ -1,0 +1,37 @@
+import { notFound } from "next/navigation";
+import type { Crumb } from "@/components/ui/breadcrumbs";
+
+import { AccessError } from "@/lib/access/guards";
+import { requireModule } from "@/lib/context/current-user";
+import type { UserContext } from "@/lib/context/types";
+import * as tasks from "@/lib/modules/tasks/task.service";
+import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
+
+/**
+ * Loads a task for every page under /tasks/[taskId] (PRD #11 §54).
+ *
+ * A task outside the caller's scope is a 404, not a 403, so the page itself
+ * cannot be used to discover that it exists (PRD #11 §120).
+ */
+export async function loadTask(
+  taskId: string,
+): Promise<{ context: UserContext; task: TaskDetailDTO }> {
+  const context = await requireModule("tasks");
+
+  try {
+    return { context, task: await tasks.getTask(context, taskId) };
+  } catch (error) {
+    if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
+    throw error;
+  }
+}
+
+/** Canonical breadcrumb trail: the task always lives under /tasks (PRD #11 §56, §172). */
+export function taskBreadcrumbs(task: TaskDetailDTO, trailing?: string): Crumb[] {
+  const crumbs: Crumb[] = [
+    { label: "Tasks", href: "/tasks" },
+    trailing ? { label: task.title, href: `/tasks/${task.id}` } : { label: task.title },
+  ];
+  if (trailing) crumbs.push({ label: trailing });
+  return crumbs;
+}
