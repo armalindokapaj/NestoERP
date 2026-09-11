@@ -65,3 +65,16 @@ export async function expectAccessDenied(page: Page, path: string) {
   await page.goto(path);
   await expect(page).toHaveURL(/\/access-denied/);
 }
+
+/**
+ * The desktop row table inside a list page.
+ *
+ * DataTable renders the same records twice — a semantic table for desktop and a
+ * card list for phones — and CSS decides which one is shown. Both are in the
+ * DOM, so an unscoped text locator matches twice and Playwright's strict mode
+ * refuses it. Module specs run at desktop width (the mobile project runs only
+ * the responsive specs), so they assert against the table.
+ */
+export function recordTable(page: Page) {
+  return mainRegion(page).getByRole("table");
+}

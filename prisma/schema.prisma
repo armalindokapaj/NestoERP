@@ -279,6 +279,7 @@ model Company {
   status    CompanyStatus @default(ACTIVE)
 
   memberships CompanyMember[]
+  invites     CompanyInvite[]
   departments Department[]
   modules     CompanyModule[]
 
@@ -320,7 +321,13 @@ model Department {
   description     String?
   managerMemberId String?
   status          DepartmentStatus @default(ACTIVE)
-  archivedAt      DateTime?
+  /// Restore returns the department to the status it held (PRD #14 §125).
+  preArchiveStatus DepartmentStatus?
+
+  createdBy  String?
+  updatedBy  String?
+  archivedBy String?
+  archivedAt DateTime?
 
   company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   members CompanyMember[] @relation("DepartmentMembers")
@@ -333,6 +340,7 @@ model Department {
   @@unique([companyId, name])
   @@unique([companyId, key])
   @@index([companyId])
+  @@index([companyId, status])
   @@index([managerMemberId])
   @@index([status])
   @@map("departments")
@@ -458,6 +466,15 @@ model CompanyMember {
   departmentId String?
   jobTitle     String?
   status       MembershipStatus @default(ACTIVE)
+
+  /// Membership lifecycle. Who invited them, when they accepted, and who
+  /// removed their access — the questions asked after the fact (PRD #14 §12).
+  invitedAt             DateTime?
+  invitedByMemberId     String?
+  joinedAt              DateTime?
+  deactivatedAt         DateTime?
+  deactivatedByMemberId String?
+
   archivedAt   DateTime?
 
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -492,6 +509,9 @@ model CompanyMember {
 
   @@unique([companyId, userId])
   @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, departmentId])
+  @@index([companyId, roleId])
   @@index([userId])
   @@index([roleId])
   @@index([departmentId])
@@ -821,6 +841,52 @@ model Activity {
   @@index([actorMemberId])
   @@index([createdAt])
   @@map("activities")
+}
+
+enum CompanyInviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+/// An invitation to join a company (PRD #14 §64, §135).
+///
+/// Its lifecycle is tracked separately from `CompanyMember.status`, because
+/// "this invitation was cancelled" and "this person's access was removed" are
+/// different facts about different things.
+///
+/// Only the hash of the token is stored. The raw token exists solely inside the
+/// emailed link, so a database leak cannot be replayed into a membership
+/// (PRD #14 §67, §237).
+model CompanyInvite {
+  id                String              @id @default(cuid())
+  companyId         String
+  email             String
+  userId            String?
+  companyMemberId   String?
+  roleId            String
+  departmentId      String?
+  jobTitle          String?
+  tokenHash         String              @unique
+  status            CompanyInviteStatus @default(PENDING)
+  expiresAt         DateTime
+  acceptedAt        DateTime?
+  cancelledAt       DateTime?
+  createdByMemberId String
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, email])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([companyMemberId])
+  @@map("company_invites")
 }
 
 // ---------------------------------------------------------------------------

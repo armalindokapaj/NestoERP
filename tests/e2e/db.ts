@@ -110,3 +110,66 @@ export async function removeTestDocuments(namePrefix: string): Promise<void> {
   await db.activity.deleteMany({ where: { entityId: { in: ids } } });
   await db.document.deleteMany({ where: { id: { in: ids } } });
 }
+
+/**
+ * Returns the Team fixtures to the state the seed documents.
+ *
+ * The membership specs necessarily change access, so they put it back here
+ * rather than by clicking through the UI a second time — a restore step that
+ * can itself fail is not a restore step.
+ */
+export async function resetTeamFixtures(): Promise<void> {
+  await db.companyMember.updateMany({
+    where: { user: { email: "viewer@nesto.test" } },
+    data: { status: "ACTIVE", deactivatedAt: null, deactivatedByMemberId: null },
+  });
+
+  await db.companyMember.updateMany({
+    where: { user: { email: "invited-consultant@nesto.test" } },
+    data: { status: "INVITED", joinedAt: null },
+  });
+
+  await db.companyInvite.updateMany({
+    where: { id: "invite_pending" },
+    data: { status: "PENDING", acceptedAt: null, cancelledAt: null },
+  });
+}
+
+/** Removes the invitations a spec created, so a rerun starts from the seed. */
+export async function removeTestInvitations(emailPrefix: string): Promise<void> {
+  const invites = await db.companyInvite.findMany({
+    where: { email: { startsWith: emailPrefix } },
+    select: { id: true, companyMemberId: true },
+  });
+
+  if (invites.length === 0) return;
+  const ids = invites.map((invite) => invite.id);
+  const memberIds = invites
+    .map((invite) => invite.companyMemberId)
+    .filter((id): id is string => id !== null);
+
+  await db.activity.deleteMany({ where: { entityId: { in: [...ids, ...memberIds] } } });
+  await db.companyInvite.deleteMany({ where: { id: { in: ids } } });
+  if (memberIds.length > 0) {
+    await db.session.deleteMany({ where: { membershipId: { in: memberIds } } });
+    await db.companyMember.deleteMany({ where: { id: { in: memberIds } } });
+  }
+}
+
+/** Removes the departments a spec created, so a rerun starts from the seed. */
+export async function removeTestDepartments(namePrefix: string): Promise<void> {
+  const rows = await db.department.findMany({
+    where: { name: { startsWith: namePrefix } },
+    select: { id: true },
+  });
+
+  if (rows.length === 0) return;
+  const ids = rows.map((row) => row.id);
+
+  await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+  await db.companyMember.updateMany({
+    where: { departmentId: { in: ids } },
+    data: { departmentId: null },
+  });
+  await db.department.deleteMany({ where: { id: { in: ids } } });
+}

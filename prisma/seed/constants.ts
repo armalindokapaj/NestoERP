@@ -79,6 +79,33 @@ export const SUSPENDED_COMPANY_USER = {
 };
 
 /**
+ * Invitation fixtures (PRD #14 §304–§306).
+ *
+ * The pending invitation's raw token is fixed so the acceptance flow can be
+ * walked end to end without reading a mailbox. It is demo data: the seed
+ * refuses to run in production without an explicit opt-in, and a real
+ * invitation's token is 32 random bytes that exist only in the email.
+ */
+export const DEMO_INVITE_TOKEN = "nesto-demo-pending-invite-token";
+export const DEMO_EXISTING_ACCOUNT_INVITE_TOKEN = "nesto-demo-existing-account-invite-token";
+
+/** Has a NESTO account already, and a pending invitation to Company A. */
+export const INVITED_USER = {
+  id: "user_invited",
+  email: "invited-consultant@nesto.test",
+  firstName: "Elira",
+  lastName: "Hoxha",
+};
+
+export const INVITE_IDS = {
+  pending: "invite_pending",
+  existingAccount: "invite_existing_account",
+  expired: "invite_expired",
+  cancelled: "invite_cancelled",
+  accepted: "invite_accepted",
+} as const;
+
+/**
  * Seed dates are generated relative to this anchor so "overdue", "due today"
  * and "upcoming" stay meaningful however long after the seed runs
  * (PRD #9 §228).

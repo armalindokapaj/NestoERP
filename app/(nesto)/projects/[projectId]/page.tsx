@@ -105,7 +105,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
               <span className="flex items-center gap-2">
                 {can(context, "team.view") ? (
                   <Link
-                    href={`/team/${project.projectManager.userId}`}
+                    href={`/team/${project.projectManager.memberId}`}
                     className="text-fg transition-colors hover:text-accent"
                   >
                     {project.projectManager.fullName}

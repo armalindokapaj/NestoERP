@@ -1,6 +1,6 @@
 # NESTO V0.1
 
-**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients & Documents**
+**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients, Documents & Team**
 
 V0.1 is not the finished ERP. It is the permanent foundation: one application,
 one design system, one app shell, one navigation engine, one access system, one
@@ -9,7 +9,7 @@ meet NESTO from their own perspective, every module has a real route with real
 scoped data, and Projects is fully functional as the reference implementation
 every later module follows.
 
-Implements PRDs #1–#13.
+Implements PRDs #1–#14.
 
 | PRD | Delivered by |
 | --- | --- |
@@ -26,6 +26,7 @@ Implements PRDs #1–#13.
 | #11 Tasks Module | `lib/modules/tasks`, `app/(nesto)/tasks`, `app/api/tasks` |
 | #12 Clients Module | `lib/modules/clients`, `app/(nesto)/clients`, `app/api/clients` |
 | #13 Documents Module | `lib/modules/documents`, `lib/storage`, `app/(nesto)/documents`, `app/api/documents` |
+| #14 Team Module | `lib/modules/team`, `app/(nesto)/team`, `app/(public)/invite`, `app/api/{team,departments}` |
 
 ---
 
@@ -431,12 +432,66 @@ existence — the interface, the tenant-safe key layout (`companies/{companyId}/
 and the `storageProvider` column are in place so adding one is a new file, not a
 redesign.
 
+### Team: membership is the access surface
+
+Team (PRD #14) is the company's people directory, and it is the only module
+whose records *are* the access control system. Changing a role here changes what
+somebody can see everywhere else, so three rules are enforced in
+`lib/modules/team/team.service.ts` and nowhere else:
+
+```
+lib/modules/team/
+  membership.status.ts          the lifecycle table (no ACTIVE → INVITED)
+  team.scope.ts                 who a reader may see: company / department / project / self
+  team.service.ts               the three rules below
+  invitations/invite.token.ts   32 random bytes; only the SHA-256 is stored
+  invitations/invite.service.ts invite, resend, cancel, preview, accept
+  departments/department.service.ts
+```
+
+1. **The company never loses its last active Owner.** Demoting, deactivating or
+   suspending the only active Owner is refused, and the reason is stated in the
+   confirmation before the press rather than as an error after it (§93).
+2. **Only an Owner may create another Owner.** `team.owner.assign` is an
+   override on the Owner role alone, so an Admin who manages the whole team
+   still cannot mint a peer (§95, §96). The role picker hides what the service
+   would refuse, and the service refuses regardless.
+3. **Removing access takes effect now.** Deactivate and suspend delete the
+   member's `Session` rows inside the same transaction. Access ends when the
+   decision is made, not when a token happens to expire (§242, §243).
+
+Nobody can change their own role or their own access — that is somebody else's
+decision to take (§167, §168).
+
+**Invitations.** The raw token exists in exactly one place: the emailed link.
+What is stored is its SHA-256, so a database leak cannot be replayed into a
+membership, and the activity trail records the address but never the token.
+Delivery is attempted *after* the invitation is committed, so a mail-provider
+outage leaves something a manager can resend rather than a half-created member.
+Every invalid token — unknown, expired, cancelled, already used, suspended
+company — gets the same answer, so `/invite/<token>` cannot be used to discover
+which addresses have been invited.
+
+An address that already has a NESTO account is claimed by **signing in**, never
+by choosing a fresh password: otherwise anybody holding the link could attach
+that person to a company without their knowledge.
+
+**What Team is not.** Salary, bank details, national identifiers, home address
+and medical data belong to HR and never appear in a Team DTO, whoever is asking.
+Last-login is behind its own grant, because "when did they last sign in" is a
+different question from "who works here".
+
+The record URL is `/team/<membershipId>`, not a user id: the same person can
+belong to several companies, and this page is about their membership of *this*
+one.
+
 ### Database
 
 The full core data model (PRD #8): `Company`, `User`, `CompanyMember`,
 `Department`, `Role`, `Permission`, `RolePermission`, `Module`, `CompanyModule`,
 `RoleModuleAccess`, `Project`, `ProjectMember`, `Client`, `Contact`, `Task`,
-`Document`, `Activity`, `Session`, `PasswordResetToken`, `AuthEvent` — plus the
+`Document`, `CompanyInvite`, `Activity`, `Session`, `PasswordResetToken`,
+`AuthEvent` — plus the
 small module test records that make each department module's shell exercisable.
 
 The role lives on `CompanyMember`, never on `User`, which is what lets one

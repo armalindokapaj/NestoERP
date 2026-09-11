@@ -44,6 +44,16 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Company B tasks", actual: await prisma.task.count({ where: { companyId: COMPANY_B } }), expected: 6, comparison: "gte" },
     { label: "Company B documents", actual: await prisma.document.count({ where: { companyId: COMPANY_B } }), expected: 4, comparison: "gte" },
     { label: "Company B disabled modules", actual: await prisma.companyModule.count({ where: { companyId: COMPANY_B, enabled: false } }), expected: 1, comparison: "gte" },
+    // Every membership and invitation state the Team module renders
+    // (PRD #14 §304–§306).
+    { label: "Company A invited members", actual: await prisma.companyMember.count({ where: { companyId: COMPANY_A, status: "INVITED" } }), expected: 1, comparison: "gte" },
+    { label: "Company A inactive members", actual: await prisma.companyMember.count({ where: { companyId: COMPANY_A, status: "INACTIVE" } }), expected: 1, comparison: "gte" },
+    { label: "Company A suspended members", actual: await prisma.companyMember.count({ where: { companyId: COMPANY_A, status: "SUSPENDED" } }), expected: 1, comparison: "gte" },
+    { label: "Company A pending invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "PENDING", expiresAt: { gt: new Date() } } }), expected: 2, comparison: "gte" },
+    { label: "Company A expired invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "PENDING", expiresAt: { lt: new Date() } } }), expected: 1, comparison: "gte" },
+    { label: "Company A cancelled invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "CANCELLED" } }), expected: 1, comparison: "gte" },
+    { label: "Company A accepted invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "ACCEPTED" } }), expected: 1, comparison: "gte" },
+    { label: "Company A departments with a manager", actual: await prisma.department.count({ where: { companyId: COMPANY_A, managerMemberId: { not: null } } }), expected: 5, comparison: "gte" },
   ];
 
   for (const check of checks) {

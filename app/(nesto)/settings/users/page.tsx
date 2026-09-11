@@ -46,7 +46,7 @@ export default async function UsersSettingsPage() {
               <TableRow key={member.id}>
                 <TableCell>
                   <Link
-                    href={`/team/${member.userId}`}
+                    href={`/team/${member.id}`}
                     className="flex items-center gap-2.5 transition-colors hover:text-accent"
                   >
                     <Avatar
