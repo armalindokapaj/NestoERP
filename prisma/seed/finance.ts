@@ -59,11 +59,10 @@ async function seedSettings(prisma: PrismaClient) {
     await prisma.financeSettings.upsert({
       where: { companyId },
       update: {},
+      // Base currency, fiscal year and payment terms live on CompanySettings
+      // now; Finance keeps only what is finance-specific (PRD #24 §124).
       create: {
         companyId,
-        baseCurrency: EUR,
-        defaultPaymentTermsDays: 30,
-        fiscalYearStartMonth: 1,
         invoicePrefix: "INV",
         defaultTaxRate: "20",
       },

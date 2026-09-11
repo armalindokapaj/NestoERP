@@ -19,6 +19,8 @@ import { seedFinanceRecords } from "./seed/finance";
 import { seedHrRecords } from "./seed/hr";
 import { COMPANY_A_USERS, DEMO_PASSWORD } from "./seed/constants";
 import { seedModuleRecords } from "./seed/module-records";
+import { seedAuditEvents } from "./seed/audit";
+import { seedCompanySettings } from "./seed/settings";
 import { seedSalesRecords } from "./seed/sales";
 import { seedTeamRecords } from "./seed/team";
 import { validateSeed } from "./seed/validate";
@@ -47,6 +49,7 @@ async function main() {
 
   const access = await seedAccessConfiguration(prisma);
   const { companyA, companyB, members } = await seedCompanies(prisma);
+  await seedCompanySettings(prisma, { companyA, companyB });
   await seedBusinessRecords(prisma, members);
   const invitations = await seedTeamRecords(prisma, members);
   const finance = await seedFinanceRecords(prisma, members);
@@ -54,6 +57,7 @@ async function main() {
   const sales = await seedSalesRecords(prisma, members);
   await seedModuleRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
+  await seedAuditEvents(prisma, { companyA, companyB });
 
   await validateSeed(prisma);
 

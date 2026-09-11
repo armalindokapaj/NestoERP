@@ -38,7 +38,6 @@ function accessFor(role: RoleKey) {
 }
 
 const PERSONAL = settingsSections.filter((section) => section.personal).map((s) => s.slug);
-const COMPANY = settingsSections.filter((section) => !section.personal).map((s) => s.slug);
 
 describe("visibleSettingsSections", () => {
   /**
@@ -58,15 +57,29 @@ describe("visibleSettingsSections", () => {
     }
   });
 
+  /**
+   * Settings management is the floor for every company section, not the whole
+   * rule. A section may carry a narrower permission of its own — Audit does,
+   * because it is evidence about administrators as much as anyone else, and an
+   * Admin is not automatically an audit reader (PRD #28 §222-§225).
+   */
   it("never shows a company section to a role without settings.manage", () => {
     for (const role of ROLE_KEYS) {
       const access = accessFor(role);
       const slugs = visibleSettingsSections(access).map((section) => section.slug);
       const mayManage = access.permissions.includes("settings.manage");
 
-      for (const company of COMPANY) {
-        expect(slugs.includes(company), `${role} sees ${company}`).toBe(mayManage);
+      for (const section of settingsSections.filter((s) => !s.personal)) {
+        const expected = mayManage && access.permissions.includes(section.permission);
+        expect(slugs.includes(section.slug), `${role} sees ${section.slug}`).toBe(expected);
       }
+    }
+  });
+
+  it("keeps Audit away from every role except the Owner", () => {
+    for (const role of ROLE_KEYS) {
+      const slugs = visibleSettingsSections(accessFor(role)).map((section) => section.slug);
+      expect(slugs.includes("audit"), `${role} sees audit`).toBe(role === "OWNER");
     }
   });
 

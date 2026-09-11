@@ -63,7 +63,13 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      - name: Apply migrations
+      - name: Migration drift check
+        # A schema edited without a matching migration would apply cleanly here
+        # and fail in production instead (PRD #34 §204, PRD #37 §177).
+        run: pnpm db:drift
+
+      - name: Fresh-install migration test
+        # Empty database, every migration from zero (PRD #34 §293, PRD #37 §178).
         run: pnpm db:deploy
 
       - name: Seed demo data
@@ -81,6 +87,11 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Production guard checks
+        # The DEV role switcher and the demo seed must be impossible in a
+        # production build (PRD #34 §52, §53, PRD #30 §261, §264).
+        run: pnpm verify:production-guards
+
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
@@ -96,3 +107,43 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  security:
+    runs-on: ubuntu-latest
+    # Runs alongside verify rather than after it: a dependency advisory should
+    # not wait on a Playwright run (PRD #34 §363).
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Dependency audit
+        # Known exploitable critical/high advisories block the release
+        # (PRD #34 §47, §50, PRD #30 §251).
+        run: pnpm audit --audit-level high
+
+      - name: Secret scan
+        # History as well as the diff: a secret committed and later removed is
+        # still a leaked secret (PRD #34 §48, PRD #30 §256).
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Static analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: CodeQL analysis
+        uses: github/codeql-action/analyze@v3

@@ -4,6 +4,16 @@ import { ZodError } from "zod";
 import { AccessError, type ApiErrorCode, errorStatus } from "@/lib/access/guards";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import type { UserContext } from "@/lib/context/types";
+import { logger, serialiseError } from "@/lib/core/observability/logger";
+import {
+  CORRELATION_ID_HEADER,
+  REQUEST_ID_HEADER,
+  currentRequestContext,
+  enrichRequestContext,
+  newCorrelationId,
+  newRequestId,
+  runWithRequestContext,
+} from "@/lib/core/observability/request-context";
 
 /**
  * API response helpers (PRD #7 §150, §152).
@@ -13,20 +23,36 @@ import type { UserContext } from "@/lib/context/types";
  * traces, no permission implementation details (PRD #7 §149).
  */
 export function apiError(code: ApiErrorCode, message?: string, details?: unknown) {
-  return NextResponse.json(
-    {
-      error: {
-        code,
-        message: message ?? new AccessError(code).message,
-        ...(details === undefined ? {} : { details }),
+  const requestId = currentRequestContext()?.requestId;
+  return withRequestHeaders(
+    NextResponse.json(
+      {
+        error: {
+          code,
+          message: message ?? new AccessError(code).message,
+          // A user reporting a problem can quote this, and it leads straight to
+          // the logs (PRD #32 §29, §207).
+          ...(requestId ? { requestId } : {}),
+          ...(details === undefined ? {} : { details }),
+        },
       },
-    },
-    { status: errorStatus(code) },
+      { status: errorStatus(code) },
+    ),
   );
 }
 
 export function apiOk<T>(data: T, init?: { status?: number }) {
-  return NextResponse.json(data, { status: init?.status ?? 200 });
+  return withRequestHeaders(NextResponse.json(data, { status: init?.status ?? 200 }));
+}
+
+/** Every response carries its request id back (PRD #32 §28, §358). */
+function withRequestHeaders(response: Response): Response {
+  const context = currentRequestContext();
+  if (context) {
+    response.headers.set(REQUEST_ID_HEADER, context.requestId);
+    response.headers.set(CORRELATION_ID_HEADER, context.correlationId);
+  }
+  return response;
 }
 
 /**
@@ -37,6 +63,15 @@ export function apiOk<T>(data: T, init?: { status?: number }) {
  * authentication step.
  */
 export async function withContext(
+  handler: (context: UserContext) => Promise<Response>,
+): Promise<Response> {
+  return runWithRequestContext(
+    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
+    () => handleRequest(handler),
+  );
+}
+
+async function handleRequest(
   handler: (context: UserContext) => Promise<Response>,
 ): Promise<Response> {
   const result = await resolveUserContext();
@@ -50,6 +85,12 @@ export async function withContext(
     return apiError("FORBIDDEN", "Your workspace is unavailable.");
   }
 
+  // Diagnostic identity, never anything the caller could not already see.
+  enrichRequestContext({
+    companyId: result.context.companyId,
+    memberId: result.context.membershipId,
+  });
+
   try {
     return await handler(result.context);
   } catch (error) {
@@ -61,7 +102,9 @@ export async function withContext(
       return apiError("VALIDATION_ERROR", undefined, error.flatten().fieldErrors);
     }
 
-    console.error("[api] unhandled error", error);
+    // The full error reaches the logs; the caller gets a code and a reference
+    // (PRD #32 §53, PRD #30 §150).
+    logger.error("api.unhandled_error", serialiseError(error));
     return apiError("INTERNAL_ERROR");
   }
 }

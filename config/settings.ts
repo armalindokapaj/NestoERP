@@ -57,6 +57,37 @@ export const settingsSections: SettingsSection[] = [
     permission: "settings.manage",
   },
   {
+    slug: "localization",
+    label: "Localization",
+    description: "Language, timezone, date format and company-wide finance defaults.",
+    icon: "Globe",
+    permission: "settings.manage",
+  },
+  {
+    slug: "integrations",
+    label: "Integrations",
+    description: "Cross-module behaviours such as quality gating and finance commitments.",
+    icon: "Workflow",
+    permission: "settings.manage",
+  },
+  {
+    slug: "numbering",
+    label: "Numbering",
+    description: "How invoice, order and record numbers are generated.",
+    icon: "Hash",
+    permission: "settings.manage",
+  },
+  {
+    slug: "audit",
+    label: "Audit",
+    description: "Immutable evidence of important business and security actions.",
+    icon: "ScrollText",
+    // Narrower than the other company sections on purpose: audit is evidence
+    // about administrators too, so only the Owner holds it by default
+    // (PRD #28 §222-§225).
+    permission: "audit.view",
+  },
+  {
     slug: "appearance",
     label: "Appearance",
     description: "Theme and display preferences.",
