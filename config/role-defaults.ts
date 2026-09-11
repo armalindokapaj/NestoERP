@@ -86,17 +86,85 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     CONTRIBUTE: ["document.create", "document.update"],
     MANAGE: ["document.archive", "document.restore"],
   },
+  /**
+   * Finance (PRD #15 §16, §18).
+   *
+   * APPROVE is a rung of its own rather than something MANAGE implies for free:
+   * operational management and approval authority are different jobs, and a
+   * role that holds both holds it because the matrix says so, not by accident
+   * (PRD #15 §18). `finance.approval.self` is never on the ladder at all — it
+   * is an explicit grant, because "who checked this?" must have an answer other
+   * than "the person who wrote it" (PRD #15 §19).
+   */
   finance: {
     VIEW: [
       "finance.view",
+      "finance.dashboard.view",
+      "finance.report.view",
+      "finance.activity.view",
       "finance.invoice.view",
       "finance.payment.view",
+      "finance.expense.view",
       "finance.budget.view",
+      "finance.commitment.view",
+      "finance.approval.view",
+      "finance.receivables.view",
+      "finance.payables.view",
+      "finance.cashflow.view",
       "finance.project_budget.view",
+      "finance.project_cost_summary.view",
+      "finance.document.view",
+      "finance.settings.view",
     ],
-    CONTRIBUTE: ["finance.invoice.create", "finance.invoice.update"],
-    APPROVE: ["finance.invoice.approve"],
-    MANAGE: ["finance.manage", "finance.company_summary.view", "finance.invoice.archive"],
+    CONTRIBUTE: [
+      "finance.export",
+      "finance.document.create",
+      "finance.invoice.create",
+      "finance.invoice.update",
+      "finance.invoice.submit",
+      "finance.payment.create",
+      "finance.expense.create",
+      "finance.expense.update",
+      "finance.expense.submit",
+      "finance.budget.create",
+      "finance.budget.update",
+      "finance.budget.submit",
+      "finance.commitment.create",
+      "finance.commitment.update",
+      "finance.commitment.submit",
+    ],
+    APPROVE: [
+      "finance.approval.decide",
+      "finance.invoice.approve",
+      "finance.invoice.reject",
+      "finance.expense.approve",
+      "finance.expense.reject",
+      "finance.budget.approve",
+      "finance.budget.reject",
+      "finance.commitment.approve",
+      "finance.commitment.reject",
+    ],
+    MANAGE: [
+      "finance.manage",
+      "finance.company_summary.view",
+      "finance.project_cost_detail.view",
+      "finance.invoice.mark_sent",
+      "finance.invoice.cancel",
+      "finance.invoice.archive",
+      "finance.invoice.restore",
+      "finance.payment.void",
+      "finance.expense.cancel",
+      "finance.expense.archive",
+      "finance.expense.restore",
+      "finance.budget.revise",
+      "finance.budget.archive",
+      "finance.budget.restore",
+      "finance.commitment.close",
+      "finance.commitment.cancel",
+      "finance.commitment.archive",
+      "finance.commitment.restore",
+      "finance.settings.manage",
+    ],
   },
   hr: {
     VIEW: ["hr.view", "hr.profile.view", "hr.employee.view", "hr.leave.view"],
@@ -315,31 +383,104 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     // Promoting somebody to Owner is the one company action an Admin must not
     // be able to take on their own (PRD #14 §95, §96).
     team: { extra: ["team.owner.assign"] },
+    // The Owner is the one role that may approve their own submission: in a
+    // company where they are the only approver, the alternative is a record
+    // nobody can ever decide (PRD #15 §19).
+    finance: { extra: ["finance.approval.self"] },
   },
   CEO: {
-    // Executive visibility without the bookkeeping surface (PRD #5 §16).
+    // Executive visibility without the bookkeeping surface (PRD #5 §16,
+    // PRD #15 §285): overview, approvals, reports and read access, with no
+    // operational create/edit controls and no self-approval.
     finance: {
       extra: ["finance.company_summary.view"],
-      deny: ["finance.invoice.create", "finance.invoice.update"],
+      deny: [
+        "finance.invoice.create",
+        "finance.invoice.update",
+        "finance.invoice.submit",
+        "finance.invoice.mark_sent",
+        "finance.payment.create",
+        "finance.expense.create",
+        "finance.expense.update",
+        "finance.expense.submit",
+        "finance.budget.create",
+        "finance.budget.update",
+        "finance.budget.submit",
+        "finance.commitment.create",
+        "finance.commitment.update",
+        "finance.commitment.submit",
+        "finance.export",
+        "finance.document.create",
+      ],
     },
     sales: { deny: ["sales.opportunity.create", "sales.opportunity.update"] },
     contracts: { deny: ["legal.contract.create", "legal.contract.update"] },
     procurement: { deny: ["procurement.request.create", "procurement.request.update"] },
   },
   PROJECT_MANAGER: {
-    // Project finance only — no company cash position or payroll (PRD #5 §17).
-    finance: { deny: ["finance.payment.view", "finance.budget.view"] },
+    /**
+     * Project finance only (PRD #5 §17, PRD #15 §183).
+     *
+     * Budget, commitments and the cost summary for their own projects. Not
+     * invoices, not payments, and no company cash position: a project manager
+     * who can open the receivables ledger has company-wide finance access by
+     * another name.
+     */
+    finance: {
+      deny: [
+        "finance.invoice.view",
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.receivables.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.settings.view",
+      ],
+    },
     hr: { deny: ["hr.leave.view"] },
   },
   ARCHITECT: {
-    // Project budget summary only (PRD #5 §18).
+    /**
+     * Project budget summary only (PRD #5 §18, PRD #15 §184).
+     *
+     * Budget amount, actual summary, commitment summary and remaining budget —
+     * never a payee, an invoice, a payment reference, company receivables or
+     * company cashflow.
+     */
     finance: {
-      deny: ["finance.invoice.view", "finance.payment.view", "finance.budget.view"],
+      deny: [
+        "finance.invoice.view",
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.commitment.view",
+        "finance.receivables.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.report.view",
+        "finance.activity.view",
+        "finance.settings.view",
+      ],
     },
   },
   ENGINEER: {
     finance: {
-      deny: ["finance.invoice.view", "finance.payment.view", "finance.budget.view"],
+      deny: [
+        "finance.invoice.view",
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.commitment.view",
+        "finance.receivables.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.report.view",
+        "finance.activity.view",
+        "finance.settings.view",
+      ],
     },
     procurement: { deny: ["procurement.order.view"] },
     inventory: { deny: ["inventory.movement.view"] },
@@ -347,27 +488,97 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
   FINANCE: {
     // Commercial context only, not the Sales workspace (PRD #5 §20).
     sales: { deny: [] },
+    /**
+     * The operational finance workspace — and not the approver (PRD #15 §18,
+     * §284).
+     *
+     * MANAGE is the ladder's top rung, so without this the role that raises
+     * every invoice would also sign them off. Separation of duties is the
+     * point: approval authority is the CEO's and the Owner's.
+     */
+    finance: {
+      deny: [
+        "finance.approval.decide",
+        "finance.invoice.approve",
+        "finance.invoice.reject",
+        "finance.expense.approve",
+        "finance.expense.reject",
+        "finance.budget.approve",
+        "finance.budget.reject",
+        "finance.commitment.approve",
+        "finance.commitment.reject",
+      ],
+    },
   },
   LEGAL: {
-    // Contract-related financial data only (PRD #5 §21).
+    // Contract-related financial data only (PRD #5 §21, PRD #15 §290):
+    // invoice and commitment summaries, never general cashflow.
     finance: {
-      deny: ["finance.payment.view", "finance.budget.view", "finance.project_budget.view"],
+      deny: [
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.project_budget.view",
+        "finance.project_cost_summary.view",
+        "finance.receivables.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.settings.view",
+      ],
     },
   },
   SALES: {
-    // Proposal value and invoice status, never corporate cashflow (PRD #5 §22).
+    // Customer invoices, outstanding receivables and client payment status —
+    // never corporate cashflow, expenses or budgets (PRD #5 §22, PRD #15 §289).
     finance: {
-      deny: ["finance.payment.view", "finance.budget.view", "finance.project_budget.view"],
+      deny: [
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.commitment.view",
+        "finance.project_budget.view",
+        "finance.project_cost_summary.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.settings.view",
+      ],
     },
   },
   PROCUREMENT: {
-    // PO value, supplier commitments and procurement budget (PRD #5 §23).
-    finance: { deny: ["finance.payment.view", "finance.project_budget.view"] },
+    // Project budget availability and commitments; no customer invoices or
+    // payments (PRD #5 §23, PRD #15 §291).
+    finance: {
+      deny: [
+        "finance.invoice.view",
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.receivables.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.settings.view",
+      ],
+    },
   },
   INVENTORY: {
-    // Item/project cost only where explicitly permitted (PRD #5 §24).
+    // Project-scoped cost and commitment summary only (PRD #5 §24,
+    // PRD #15 §292).
     finance: {
-      deny: ["finance.invoice.view", "finance.payment.view", "finance.budget.view"],
+      deny: [
+        "finance.invoice.view",
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.receivables.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.report.view",
+        "finance.activity.view",
+        "finance.settings.view",
+      ],
     },
   },
 };

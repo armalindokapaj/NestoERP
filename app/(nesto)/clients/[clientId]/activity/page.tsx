@@ -50,6 +50,7 @@ export default async function ClientActivityPage({ params, searchParams }: Param
         show={{
           contacts: client.capabilities.canViewContacts,
           projects: client.capabilities.canViewProjects,
+          finance: client.capabilities.canViewFinance,
           documents: client.capabilities.canViewDocuments,
           activity: true,
         }}

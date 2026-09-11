@@ -12,11 +12,6 @@ export const db = new PrismaClient();
 
 /** Returns the approval fixtures to the state the seed documents. */
 export async function resetApprovalFixtures(): Promise<void> {
-  await db.invoice.updateMany({
-    where: { invoiceNumber: { in: ["INV-001", "INV-006"] } },
-    data: { status: "PENDING", approvedBy: null, approvedAt: null },
-  });
-
   await db.purchaseRequest.updateMany({
     where: { reference: { in: ["PR-001", "PR-004", "PR-009"] } },
     data: { status: "PENDING_APPROVAL", approvedBy: null, approvedAt: null },
@@ -172,4 +167,85 @@ export async function removeTestDepartments(namePrefix: string): Promise<void> {
     data: { departmentId: null },
   });
   await db.department.deleteMany({ where: { id: { in: ids } } });
+}
+
+/**
+ * Returns the Finance fixtures to the state the seed documents.
+ *
+ * The approval and payment specs necessarily change money, so they put it back
+ * here rather than by clicking through the UI a second time.
+ */
+export async function resetFinanceFixtures(): Promise<void> {
+  await db.invoice.updateMany({
+    where: { id: "invoice_008" },
+    data: { status: "PENDING_APPROVAL", sentAt: null },
+  });
+  await db.invoice.updateMany({
+    where: { id: "invoice_009" },
+    data: { status: "APPROVED", sentAt: null },
+  });
+  await db.expense.updateMany({
+    where: { id: { in: ["expense_011", "expense_012"] } },
+    data: { status: "PENDING_APPROVAL" },
+  });
+  await db.commitment.updateMany({
+    where: { id: "commitment_006" },
+    data: { status: "PENDING_APPROVAL" },
+  });
+  await db.projectBudget.updateMany({
+    where: { id: "budget_c_v2" },
+    data: { status: "PENDING_APPROVAL", isCurrent: false, approvedAt: null },
+  });
+  await db.projectBudget.updateMany({
+    where: { id: "budget_c_v1" },
+    data: { isCurrent: true },
+  });
+
+  await db.financeApproval.updateMany({
+    where: {
+      id: { in: ["approval_001", "approval_002", "approval_003", "approval_004", "approval_005"] },
+    },
+    data: { status: "PENDING", decidedByMemberId: null, decidedAt: null, decisionNote: null },
+  });
+}
+
+/** Removes the finance records a spec created, so a rerun starts from the seed. */
+export async function removeTestFinanceRecords(prefix: string): Promise<void> {
+  const invoices = await db.invoice.findMany({
+    where: { invoiceNumber: { startsWith: prefix } },
+    select: { id: true },
+  });
+  const expenses = await db.expense.findMany({
+    where: { description: { startsWith: prefix } },
+    select: { id: true },
+  });
+  const commitments = await db.commitment.findMany({
+    where: { description: { startsWith: prefix } },
+    select: { id: true },
+  });
+
+  const ids = [
+    ...invoices.map((row) => row.id),
+    ...expenses.map((row) => row.id),
+    ...commitments.map((row) => row.id),
+  ];
+  if (ids.length === 0) return;
+
+  // Payments first: a record with one cannot be deleted.
+  await db.payment.deleteMany({
+    where: {
+      OR: [
+        { invoiceId: { in: invoices.map((row) => row.id) } },
+        { expenseId: { in: expenses.map((row) => row.id) } },
+      ],
+    },
+  });
+  await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+  await db.financeApproval.deleteMany({ where: { recordId: { in: ids } } });
+  await db.invoiceLineItem.deleteMany({
+    where: { invoiceId: { in: invoices.map((row) => row.id) } },
+  });
+  await db.invoice.deleteMany({ where: { id: { in: invoices.map((row) => row.id) } } });
+  await db.expense.deleteMany({ where: { id: { in: expenses.map((row) => row.id) } } });
+  await db.commitment.deleteMany({ where: { id: { in: commitments.map((row) => row.id) } } });
 }

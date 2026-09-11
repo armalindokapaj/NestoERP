@@ -681,5 +681,20 @@ export function projectActions(context: UserContext) {
     canViewTasks: can(context, "project.task.view") && can(context, "task.view"),
     canViewDocuments: can(context, "project.document.view") && can(context, "document.view"),
     canViewActivity: can(context, "project.activity.view"),
+    /**
+     * The Finance tab appears when the reader holds at least one finance
+     * permission that has something to show on a project (PRD #15 §182).
+     *
+     * An Architect with only `finance.project_budget.view` sees a budget
+     * summary; a Project Manager also sees commitments. Somebody with none of
+     * them sees no tab rather than an empty one.
+     */
+    canViewFinance:
+      can(context, "finance.view") &&
+      (can(context, "finance.project_budget.view") ||
+        can(context, "finance.project_cost_summary.view") ||
+        can(context, "finance.invoice.view") ||
+        can(context, "finance.expense.view") ||
+        can(context, "finance.commitment.view")),
   };
 }

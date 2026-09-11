@@ -136,13 +136,15 @@ describe("parent access (PRD #13 §229, §232, §270)", () => {
   it("hides a document filed under an unregistered entity type", async () => {
     const owner = await loginAs("OWNER");
 
+    // A shape no module has registered a resolver for. Finance record types
+    // are registered now (PRD #15 §188), so the fixture uses one that is not.
     const orphan = await prisma.document.create({
       data: {
         companyId: owner.companyId,
         name: "Unregistered Parent Fixture",
-        module: "finance",
-        entityType: "invoice",
-        entityId: "invoice_001",
+        module: "qaqc",
+        entityType: "inspection",
+        entityId: "inspection_does_not_exist",
         status: "ACTIVE",
         createdBy: owner.userId,
       },

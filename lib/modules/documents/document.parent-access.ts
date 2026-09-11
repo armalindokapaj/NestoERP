@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { can, getModuleScope } from "@/lib/access/can";
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
+import type { Permission } from "@/config/permissions";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
@@ -108,6 +109,53 @@ const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
     });
     return Boolean(found);
   },
+
+  /*
+   * Finance parents (PRD #15 §187, §188).
+   *
+   * Each finance record answers with its own scope clause and its own view
+   * permission, so an invoice PDF is exactly as reachable as the invoice —
+   * never more (PRD #15 §189–§192).
+   */
+  async invoice(context, entityId) {
+    if (!can(context, "finance.invoice.view")) return false;
+    const { buildInvoiceScopeWhere } = await import("@/lib/modules/finance/finance.scope");
+    const found = await prisma.invoice.findFirst({
+      where: { AND: [buildInvoiceScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async expense(context, entityId) {
+    if (!can(context, "finance.expense.view")) return false;
+    const { buildExpenseScopeWhere } = await import("@/lib/modules/finance/finance.scope");
+    const found = await prisma.expense.findFirst({
+      where: { AND: [buildExpenseScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async budget(context, entityId) {
+    if (!can(context, "finance.budget.view")) return false;
+    const { buildBudgetScopeWhere } = await import("@/lib/modules/finance/finance.scope");
+    const found = await prisma.projectBudget.findFirst({
+      where: { AND: [buildBudgetScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async commitment(context, entityId) {
+    if (!can(context, "finance.commitment.view")) return false;
+    const { buildCommitmentScopeWhere } = await import("@/lib/modules/finance/finance.scope");
+    const found = await prisma.commitment.findFirst({
+      where: { AND: [buildCommitmentScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -156,6 +204,17 @@ export async function canReachDocumentParent(
   return isModuleKey(ref.module) && companyLevelModules(context).includes(ref.module);
 }
 
+/**
+ * Modules that require their own upload grant on top of `document.create`
+ * before a document may be filed against one of their records.
+ *
+ * Finance is the case this exists for: reading an invoice is not the same
+ * permission as attaching a file to it (PRD #15 §189–§192).
+ */
+const MODULE_UPLOAD_GRANT: Record<string, Permission> = {
+  finance: "finance.document.create",
+};
+
 /** May this caller file a *new* document against that parent (PRD #13 §43, §91)? */
 export async function canAttachToDocumentParent(
   context: UserContext,
@@ -167,6 +226,10 @@ export async function canAttachToDocumentParent(
     // (PRD #13 §92).
     return can(context, "document.company.create");
   }
+
+  const grant = ref.module ? MODULE_UPLOAD_GRANT[ref.module] : undefined;
+  if (grant && !can(context, grant)) return false;
+
   return canReachDocumentParent(context, ref);
 }
 
@@ -181,6 +244,21 @@ export async function canAttachToDocumentParent(
  * and filtering in memory — which would be both slow and one refactor away
  * from a leak.
  */
+/**
+ * The view permission behind each record-document branch.
+ *
+ * Deliberately a table rather than a chain of ifs: adding a record type means
+ * adding a line here and a resolver above, and forgetting either one leaves the
+ * documents invisible rather than exposed.
+ */
+const RECORD_DOCUMENT_GRANTS: Record<string, Permission> = {
+  task: "task.view",
+  invoice: "finance.invoice.view",
+  expense: "finance.expense.view",
+  budget: "finance.budget.view",
+  commitment: "finance.commitment.view",
+};
+
 export function buildDocumentAccessWhere(context: UserContext): Prisma.DocumentWhereInput {
   const reachable = reachableModules(context);
   const companyLevel = companyLevelModules(context);
@@ -211,13 +289,14 @@ export function buildDocumentAccessWhere(context: UserContext): Prisma.DocumentW
     });
   }
 
-  // A task document follows task access.
-  if (can(context, "task.view")) {
+  // A record document follows its own record's access. Each entity type is
+  // gated by the permission that governs reading the record itself, which is
+  // what keeps an invoice PDF exactly as reachable as its invoice — never more
+  // (PRD #13 §44, PRD #15 §189–§192).
+  for (const [entityType, permission] of Object.entries(RECORD_DOCUMENT_GRANTS)) {
+    if (!can(context, permission)) continue;
     branches.push({
-      AND: [
-        { projectId: null, clientId: null, entityType: "task" },
-        moduleGate(reachable),
-      ],
+      AND: [{ projectId: null, clientId: null, entityType }, moduleGate(reachable)],
     });
   }
 

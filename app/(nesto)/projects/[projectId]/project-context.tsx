@@ -27,7 +27,13 @@ export async function loadProject(
   }
 }
 
-export type ProjectTabKey = "overview" | "tasks" | "team" | "documents" | "activity";
+export type ProjectTabKey =
+  | "overview"
+  | "tasks"
+  | "team"
+  | "finance"
+  | "documents"
+  | "activity";
 
 export function projectBreadcrumbs(project: ProjectDetailDTO, tab?: string) {
   const crumbs = [

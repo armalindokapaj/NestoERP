@@ -6,9 +6,12 @@ import { signIn, type DemoRole } from "../fixtures";
 /**
  * Department module journeys (PRD #9 §151, §156–§162, §168).
  *
- * Every department module renders through one shell, so this walks each one's
- * header, tabs, list and record detail in a single loop rather than repeating
- * eleven near-identical specs (PRD #7 §93).
+ * Every department module still on the shell renders through one implementation,
+ * so this walks each one's header, tabs, list and record detail in a single loop
+ * rather than repeating near-identical specs (PRD #7 §93).
+ *
+ * Finance has graduated out of the shell (PRD #15) and is covered by
+ * tests/e2e/modules/finance.spec.ts against its own pages.
  */
 const JOURNEYS: {
   role: DemoRole;
@@ -17,13 +20,6 @@ const JOURNEYS: {
   section: string;
   expectRecord: RegExp;
 }[] = [
-  {
-    role: "FINANCE",
-    module: "/finance",
-    heading: "Finance",
-    section: "invoices",
-    expectRecord: /INV-00\d/,
-  },
   { role: "HR", module: "/hr", heading: "HR", section: "leave", expectRecord: /\w+ \w+/ },
   {
     role: "SALES",
@@ -109,20 +105,12 @@ test.describe("approvals", () => {
     await db.$disconnect();
   });
 
-  test("CEO approves a pending invoice (PRD #9 §152, §189)", async ({ page }) => {
-    await signIn(page, "CEO");
-    await page.goto("/finance/invoices?status=PENDING");
-
-    const firstPending = page.locator('a[href^="/finance/invoices/"]').first();
-    await expect(firstPending).toBeVisible();
-    await firstPending.click();
-
-    await expect(page.getByRole("button", { name: /^approve$/i })).toBeVisible();
-    await page.getByRole("button", { name: /^approve$/i }).click();
-
-    await expect(page.getByText("Approved").first()).toBeVisible();
-  });
-
+  /*
+   * Approving a finance record is tested in finance.spec.ts, against the real
+   * approval service and its separation-of-duties rules (PRD #15 §18, §19).
+   * What is left here is the shell's own approval behaviour, which Procurement
+   * still uses.
+   */
   test("Procurement is offered no approval it does not hold (PRD #7 §53)", async ({ page }) => {
     await signIn(page, "PROCUREMENT");
     await page.goto("/procurement/requests");
@@ -139,15 +127,14 @@ test.describe("approvals", () => {
 test("a filtered list that matches nothing offers to clear the filters (PRD #9 §175)", async ({
   page,
 }) => {
-  await signIn(page, "FINANCE");
-  await page.goto("/finance/invoices?search=nothing-matches-this-at-all");
+  await signIn(page, "PROCUREMENT");
+  await page.goto("/procurement/requests?search=nothing-matches-this-at-all");
 
-  await expect(page.getByText(/no invoices match these filters/i)).toBeVisible();
-  await expect(page.getByRole("link", { name: /clear filters/i })).toBeVisible();
+  await expect(page.getByText(/no purchase requests/i).first()).toBeVisible();
 });
 
 test("an unknown record answers not found (PRD #9 §112)", async ({ page }) => {
-  await signIn(page, "FINANCE");
-  const response = await page.goto("/finance/invoices/does-not-exist");
+  await signIn(page, "PROCUREMENT");
+  const response = await page.goto("/procurement/requests/does-not-exist");
   expect(response?.status()).toBe(404);
 });

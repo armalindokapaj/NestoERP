@@ -68,7 +68,7 @@ test.describe("Owner (PRD #14 §257)", () => {
     await page.getByRole("button", { name: `Cancel invitation for ${email}` }).click();
     await page.getByRole("button", { name: "Cancel invitation" }).click();
 
-    await expect(page.getByText("Invitation cancelled.")).toBeVisible();
+    await expect(page.getByText("Invitation cancelled.").first()).toBeVisible();
 
     const row = await db.companyInvite.findFirstOrThrow({ where: { email } });
     expect(row.status).toBe("CANCELLED");
@@ -88,7 +88,7 @@ test.describe("Owner (PRD #14 §257)", () => {
     await page.getByRole("menuitem", { name: "Archive department" }).click();
     await page.getByRole("button", { name: "Archive department" }).click();
 
-    await expect(page.getByText("Department archived.")).toBeVisible();
+    await expect(page.getByText("Department archived.").first()).toBeVisible();
     await expect(mainRegion(page).getByText(name)).toHaveCount(0);
   });
 

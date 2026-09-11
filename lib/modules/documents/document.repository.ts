@@ -112,6 +112,8 @@ export function buildDocumentListWhere(
   }
 
   if (query.moduleKey) filters.push({ module: query.moduleKey });
+  if (query.entityType) filters.push({ entityType: query.entityType });
+  if (query.entityId) filters.push({ entityId: query.entityId });
   if (query.projectId) filters.push({ projectId: query.projectId });
   if (query.clientId) filters.push({ clientId: query.clientId });
   if (query.uploadedByMemberId) filters.push({ uploadedByMemberId: query.uploadedByMemberId });

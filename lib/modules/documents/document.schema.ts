@@ -12,8 +12,25 @@ import { FILE_TYPE_GROUPS } from "./document.files";
  */
 
 /** Where a new document is filed (PRD #13 §88). */
-export const DOCUMENT_CONTEXTS = ["company", "project", "client"] as const;
+export const DOCUMENT_CONTEXTS = ["company", "project", "client", "record"] as const;
 export type DocumentContextKind = (typeof DOCUMENT_CONTEXTS)[number];
+
+/**
+ * Record contexts a module has registered a parent resolver for
+ * (PRD #13 §44, PRD #15 §187).
+ *
+ * An entity type absent from this list cannot be filed against at all — the
+ * same fail-closed rule the read path applies, stated where a write enters.
+ */
+export const DOCUMENT_RECORD_TYPES = [
+  "task",
+  "invoice",
+  "expense",
+  "budget",
+  "commitment",
+] as const;
+
+export type DocumentRecordType = (typeof DOCUMENT_RECORD_TYPES)[number];
 
 export const createDocumentSchema = z
   .object({
@@ -26,6 +43,13 @@ export const createDocumentSchema = z
     context: z.enum(DOCUMENT_CONTEXTS),
     projectId: optionalId,
     clientId: optionalId,
+    entityType: z
+      .union([z.enum(DOCUMENT_RECORD_TYPES), z.literal("")])
+      .optional()
+      .transform((value) =>
+        value === "" || value === undefined ? undefined : (value as DocumentRecordType),
+      ),
+    entityId: optionalId,
   })
   .refine((value) => value.context !== "project" || Boolean(value.projectId), {
     message: "Choose a project.",
@@ -34,7 +58,11 @@ export const createDocumentSchema = z
   .refine((value) => value.context !== "client" || Boolean(value.clientId), {
     message: "Choose a client.",
     path: ["clientId"],
-  });
+  })
+  .refine(
+    (value) => value.context !== "record" || (Boolean(value.entityType) && Boolean(value.entityId)),
+    { message: "Choose a record.", path: ["entityId"] },
+  );
 
 export type CreateDocumentInput = z.infer<typeof createDocumentSchema>;
 
@@ -79,6 +107,13 @@ export const documentListQuerySchema = z.object({
   fileType: z.array(z.enum(FILE_GROUPS)).optional(),
   context: z.array(z.enum(DOCUMENT_CONTEXT_FILTERS)).optional(),
   moduleKey: z.string().trim().max(40).optional(),
+  /**
+   * The record a document hangs off, for a module's own record tab
+   * (PRD #13 §44, PRD #15 §187). Filtering narrows; the access clause still
+   * decides what is reachable, so naming an entity cannot widen anything.
+   */
+  entityType: z.string().trim().max(40).optional(),
+  entityId: z.string().trim().max(64).optional(),
   projectId: z.string().optional(),
   clientId: z.string().optional(),
   uploadedByMemberId: z.string().optional(),

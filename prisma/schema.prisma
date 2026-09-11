@@ -142,13 +142,91 @@ enum AuthEventType {
 // Deliberately small shapes that exercise the Module Shell: lists, details,
 // statuses, scope and approval. They are not the final ERP domain models.
 
+/// Invoice workflow state (PRD #15 §41).
+///
+/// Deliberately free of any notion of payment: whether an invoice has been
+/// settled is derived from its recorded payments, never stored here, so
+/// issuance workflow and cash settlement cannot drift apart (PRD #15 §42, §45).
 enum InvoiceStatus {
   DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SENT
+  CANCELLED
+  ARCHIVED
+}
+
+enum PaymentDirection {
+  RECEIPT
+  DISBURSEMENT
+}
+
+enum PaymentStatus {
+  RECORDED
+  VOIDED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CARD
+  CASH
+  CHECK
+  OTHER
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+  ARCHIVED
+}
+
+/// One cost vocabulary for expenses, budget lines and commitments, so budget
+/// vs actual compares like with like (PRD #15 §89).
+enum FinanceCostCategory {
+  LABOR
+  MATERIALS
+  EQUIPMENT
+  SUBCONTRACTOR
+  SERVICES
+  TRAVEL
+  ADMINISTRATION
+  OTHER
+}
+
+enum BudgetStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum CommitmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CLOSED
+  CANCELLED
+  ARCHIVED
+}
+
+enum FinanceApprovalRecordType {
+  INVOICE
+  EXPENSE
+  BUDGET
+  COMMITMENT
+}
+
+enum FinanceApprovalStatus {
   PENDING
   APPROVED
-  PAID
-  OVERDUE
-  ARCHIVED
+  REJECTED
+  CANCELLED
 }
 
 enum LeaveStatus {
@@ -290,7 +368,13 @@ model Company {
   documents  Document[]
   activities Activity[]
 
+  financeSettings  FinanceSettings?
   invoices         Invoice[]
+  expenses         Expense[]
+  payments         Payment[]
+  projectBudgets   ProjectBudget[]
+  commitments      Commitment[]
+  financeApprovals FinanceApproval[]
   leaveRequests    LeaveRequest[]
   opportunities    Opportunity[]
   contracts        Contract[]
@@ -314,13 +398,13 @@ model Company {
 }
 
 model Department {
-  id              String           @id @default(cuid())
-  companyId       String
-  name            String
-  key             String?
-  description     String?
-  managerMemberId String?
-  status          DepartmentStatus @default(ACTIVE)
+  id               String            @id @default(cuid())
+  companyId        String
+  name             String
+  key              String?
+  description      String?
+  managerMemberId  String?
+  status           DepartmentStatus  @default(ACTIVE)
   /// Restore returns the department to the status it held (PRD #14 §125).
   preArchiveStatus DepartmentStatus?
 
@@ -475,7 +559,7 @@ model CompanyMember {
   deactivatedAt         DateTime?
   deactivatedByMemberId String?
 
-  archivedAt   DateTime?
+  archivedAt DateTime?
 
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -494,7 +578,6 @@ model CompanyMember {
   activityActions Activity[] @relation("ActivityActorMember")
 
   leaveRequests    LeaveRequest[]      @relation("LeaveEmployee")
-  ownedInvoices    Invoice[]           @relation("InvoiceOwner")
   ownedOpportunity Opportunity[]       @relation("OpportunityOwner")
   requestedOrders  PurchaseRequest[]   @relation("PurchaseRequester")
   stockMovements   InventoryMovement[] @relation("MovementActor")
@@ -557,6 +640,9 @@ model Project {
   documents Document[]
 
   invoices         Invoice[]
+  expenses         Expense[]
+  budgets          ProjectBudget[]
+  commitments      Commitment[]
   contracts        Contract[]
   purchaseRequests PurchaseRequest[]
   purchaseOrders   PurchaseOrder[]
@@ -967,31 +1053,62 @@ model AuthEvent {
 // scope, approval. Each department module replaces its table when its own PRD
 // lands; none of these is a final domain model.
 
+/// Per-company finance configuration (PRD #15 §28).
+model FinanceSettings {
+  id                      String   @id @default(cuid())
+  companyId               String   @unique
+  baseCurrency            String   @default("EUR") @db.VarChar(3)
+  defaultPaymentTermsDays Int      @default(30)
+  fiscalYearStartMonth    Int      @default(1)
+  invoicePrefix           String?
+  defaultTaxRate          Decimal? @db.Decimal(7, 4)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("finance_settings")
+}
+
+/// A customer receivable (PRD #15 §38).
+///
+/// Totals are columns rather than derived at read time because a historical
+/// invoice must keep the numbers it was issued with, whatever later happens to
+/// its lines. They are recalculated by the server on every write and never
+/// accepted from the browser (PRD #15 §52, §220).
 model Invoice {
-  id            String        @id @default(cuid())
+  id            String  @id @default(cuid())
   companyId     String
-  projectId     String?
-  clientId      String?
-  ownerMemberId String?
   invoiceNumber String
-  title         String
-  amount        Decimal       @db.Decimal(14, 2)
-  currency      String        @default("EUR")
-  status        InvoiceStatus @default(DRAFT)
-  issueDate     DateTime?
-  dueDate       DateTime?
+  clientId      String
+  projectId     String?
 
-  createdBy  String
-  updatedBy  String?
-  approvedBy String?
-  approvedAt DateTime?
-  archivedBy String?
-  archivedAt DateTime?
+  issueDate DateTime
+  dueDate   DateTime
+  currency  String   @db.VarChar(3)
 
-  company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  client  Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  owner   CompanyMember? @relation("InvoiceOwner", fields: [ownerMemberId], references: [id], onDelete: SetNull)
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  status           InvoiceStatus  @default(DRAFT)
+  preArchiveStatus InvoiceStatus?
+
+  notes  String?
+  sentAt DateTime?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  lineItems InvoiceLineItem[]
+  payments  Payment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -999,10 +1116,271 @@ model Invoice {
   @@unique([companyId, invoiceNumber])
   @@index([companyId])
   @@index([companyId, status])
-  @@index([projectId])
+  @@index([companyId, dueDate])
   @@index([clientId])
+  @@index([projectId])
+  @@index([issueDate])
   @@index([dueDate])
+  @@index([currency])
+  @@index([updatedAt])
   @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id        String @id @default(cuid())
+  invoiceId String
+
+  description String
+  quantity    Decimal @db.Decimal(18, 4)
+  unitPrice   Decimal @db.Decimal(18, 4)
+  taxRate     Decimal @db.Decimal(7, 4)
+
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  sortOrder Int @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+/// A cost incurred by the company, with or without a project (PRD #15 §87).
+model Expense {
+  id            String  @id @default(cuid())
+  companyId     String
+  expenseNumber String?
+  projectId     String?
+
+  expenseDate DateTime
+  category    FinanceCostCategory
+  description String
+  payeeName   String?
+
+  currency    String  @db.VarChar(3)
+  netAmount   Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  status           ExpenseStatus  @default(DRAFT)
+  preArchiveStatus ExpenseStatus?
+
+  notes String?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, expenseNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, expenseDate])
+  @@index([projectId])
+  @@index([category])
+  @@index([currency])
+  @@index([updatedAt])
+  @@map("expenses")
+}
+
+/// Actual cash movement against exactly one invoice or one expense
+/// (PRD #15 §70, §74). Voided rather than deleted, so the trail survives.
+model Payment {
+  id        String @id @default(cuid())
+  companyId String
+
+  direction PaymentDirection
+  invoiceId String?
+  expenseId String?
+
+  amount      Decimal       @db.Decimal(18, 2)
+  currency    String        @db.VarChar(3)
+  paymentDate DateTime
+  method      PaymentMethod
+
+  reference String?
+  notes     String?
+
+  status PaymentStatus @default(RECORDED)
+
+  createdByMemberId String
+  voidedByMemberId  String?
+  voidedAt          DateTime?
+  voidReason        String?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  expense Expense? @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, paymentDate])
+  @@index([invoiceId])
+  @@index([expenseId])
+  @@index([direction])
+  @@index([currency])
+  @@map("payments")
+}
+
+/// A versioned project budget (PRD #15 §103, §109).
+///
+/// An approved budget is never edited; a revision is a new version, and exactly
+/// one version per project carries `isCurrent` (PRD #15 §111, §115, §201).
+model ProjectBudget {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  version          Int
+  name             String?
+  currency         String        @db.VarChar(3)
+  status           BudgetStatus  @default(DRAFT)
+  preArchiveStatus BudgetStatus?
+  isCurrent        Boolean       @default(false)
+
+  totalAmount Decimal @db.Decimal(18, 2)
+  notes       String?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  approvedByMemberId String?
+  approvedAt         DateTime?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  lineItems ProjectBudgetLineItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, version])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([projectId, isCurrent])
+  @@index([currency])
+  @@map("project_budgets")
+}
+
+model ProjectBudgetLineItem {
+  id       String @id @default(cuid())
+  budgetId String
+
+  category      FinanceCostCategory
+  description   String
+  plannedAmount Decimal             @db.Decimal(18, 2)
+  sortOrder     Int                 @default(0)
+
+  budget ProjectBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([budgetId])
+  @@index([category])
+  @@map("project_budget_line_items")
+}
+
+/// Approved future spend not yet recognised as an expense (PRD #15 §124).
+///
+/// The source columns exist so a future Procurement purchase order can claim
+/// the commitment it created rather than a second one appearing beside it
+/// (PRD #15 §127).
+model Commitment {
+  id        String  @id @default(cuid())
+  companyId String
+  projectId String?
+
+  reference        String?
+  description      String
+  counterpartyName String?
+  category         FinanceCostCategory
+
+  currency String  @db.VarChar(3)
+  amount   Decimal @db.Decimal(18, 2)
+
+  expectedDate     DateTime?
+  status           CommitmentStatus  @default(DRAFT)
+  preArchiveStatus CommitmentStatus?
+
+  sourceModule     String?
+  sourceEntityType String?
+  sourceEntityId   String?
+
+  notes String?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([category])
+  @@index([expectedDate])
+  @@index([currency])
+  @@index([sourceModule, sourceEntityType, sourceEntityId])
+  @@map("commitments")
+}
+
+/// One approval cycle for one finance record (PRD #15 §137).
+///
+/// A resubmission creates a new row rather than reopening the old one, so the
+/// record's approval history stays readable (PRD #15 §64, §145).
+model FinanceApproval {
+  id        String @id @default(cuid())
+  companyId String
+
+  recordType FinanceApprovalRecordType
+  recordId   String
+
+  status FinanceApprovalStatus @default(PENDING)
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("finance_approvals")
 }
 
 model LeaveRequest {

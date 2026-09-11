@@ -13,7 +13,8 @@ import { COMPANY_A, PROJECT_IDS, daysFromNow } from "./constants";
 type Members = Map<string, string>;
 
 export async function seedModuleRecords(prisma: PrismaClient, members: Members) {
-  await seedInvoices(prisma, members);
+  // Finance has its own seed now (prisma/seed/finance.ts): invoices with line
+  // items, expenses, payments, budgets, commitments and approvals (PRD #15 §328).
   await seedLeaveRequests(prisma, members);
   await seedOpportunities(prisma, members);
   await seedContracts(prisma);
@@ -22,56 +23,6 @@ export async function seedModuleRecords(prisma: PrismaClient, members: Members) 
   await seedQuality(prisma, members);
   await seedHse(prisma, members);
   await seedSupport(prisma, members);
-}
-
-/* Finance — 12 invoices covering every status (PRD #9 §68–§70) -------------- */
-
-const INVOICES = [
-  { number: "INV-001", title: "Riverside — stage 3 valuation", project: PROJECT_IDS.a, client: "client_acme", amount: 128000, status: "PENDING", due: 12 },
-  { number: "INV-002", title: "Central Office — design fee", project: PROJECT_IDS.b, client: "client_beta", amount: 85000, status: "PAID", due: -20 },
-  { number: "INV-003", title: "Riverside — stage 2 valuation", project: PROJECT_IDS.a, client: "client_acme", amount: 96500, status: "OVERDUE", due: -14 },
-  { number: "INV-004", title: "Marina — concept package", project: PROJECT_IDS.c, client: "client_meridian", amount: 42000, status: "DRAFT", due: 30 },
-  { number: "INV-005", title: "Logistics Hub — survey works", project: PROJECT_IDS.d, client: "client_atlas", amount: 31500, status: "APPROVED", due: 8 },
-  { number: "INV-006", title: "Central Office — enabling works", project: PROJECT_IDS.b, client: "client_beta", amount: 210000, status: "PENDING", due: 5 },
-  { number: "INV-007", title: "Retail Centre — final account", project: PROJECT_IDS.f, client: "client_urban", amount: 64000, status: "PAID", due: -70 },
-  { number: "INV-008", title: "Marina — planning support", project: PROJECT_IDS.c, client: "client_meridian", amount: 18750, status: "OVERDUE", due: -32 },
-  { number: "INV-009", title: "Riverside — variation 04", project: PROJECT_IDS.a, client: "client_acme", amount: 27300, status: "APPROVED", due: 21 },
-  { number: "INV-010", title: "Greenline — feasibility study", project: PROJECT_IDS.e, client: "client_greenline", amount: 14500, status: "DRAFT", due: 45 },
-  { number: "INV-011", title: "Logistics Hub — standby costs", project: PROJECT_IDS.d, client: "client_atlas", amount: 9800, status: "PAID", due: -50 },
-  { number: "INV-012", title: "Superseded — retail retention", project: PROJECT_IDS.f, client: "client_urban", amount: 12000, status: "ARCHIVED", due: -120 },
-] as const;
-
-async function seedInvoices(prisma: PrismaClient, members: Members) {
-  let index = 0;
-  for (const invoice of INVOICES) {
-    index += 1;
-    const id = `invoice_${index.toString().padStart(3, "0")}`;
-    const approved = invoice.status === "APPROVED" || invoice.status === "PAID";
-
-    await prisma.invoice.upsert({
-      where: { id },
-      update: {},
-      create: {
-        id,
-        companyId: COMPANY_A,
-        projectId: invoice.project,
-        clientId: invoice.client,
-        ownerMemberId: members.get("user_finance")!,
-        invoiceNumber: invoice.number,
-        title: invoice.title,
-        amount: invoice.amount,
-        currency: "EUR",
-        status: invoice.status,
-        issueDate: daysFromNow(invoice.due - 30),
-        dueDate: daysFromNow(invoice.due),
-        createdBy: "user_finance",
-        approvedBy: approved ? "user_ceo" : null,
-        approvedAt: approved ? daysFromNow(invoice.due - 10) : null,
-        archivedAt: invoice.status === "ARCHIVED" ? daysFromNow(-100) : null,
-        archivedBy: invoice.status === "ARCHIVED" ? "user_finance" : null,
-      },
-    });
-  }
 }
 
 /* HR — 8 leave requests, own and other (PRD #9 §71, §72) -------------------- */

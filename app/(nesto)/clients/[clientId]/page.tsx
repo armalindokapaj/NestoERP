@@ -96,6 +96,7 @@ export default async function ClientOverviewPage({ params }: Params) {
         show={{
           contacts: may.canViewContacts,
           projects: may.canViewProjects,
+          finance: may.canViewFinance,
           documents: may.canViewDocuments,
           activity: may.canViewActivity,
         }}

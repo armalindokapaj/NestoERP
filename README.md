@@ -1,6 +1,6 @@
 # NESTO V0.1
 
-**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients, Documents & Team**
+**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients, Documents, Team & Finance**
 
 V0.1 is not the finished ERP. It is the permanent foundation: one application,
 one design system, one app shell, one navigation engine, one access system, one
@@ -9,7 +9,7 @@ meet NESTO from their own perspective, every module has a real route with real
 scoped data, and Projects is fully functional as the reference implementation
 every later module follows.
 
-Implements PRDs #1–#14.
+Implements PRDs #1–#15.
 
 | PRD | Delivered by |
 | --- | --- |
@@ -27,6 +27,7 @@ Implements PRDs #1–#14.
 | #12 Clients Module | `lib/modules/clients`, `app/(nesto)/clients`, `app/api/clients` |
 | #13 Documents Module | `lib/modules/documents`, `lib/storage`, `app/(nesto)/documents`, `app/api/documents` |
 | #14 Team Module | `lib/modules/team`, `app/(nesto)/team`, `app/(public)/invite`, `app/api/{team,departments}` |
+| #15 Finance Module | `lib/modules/finance`, `app/(nesto)/finance`, `app/api/finance` |
 
 ---
 
@@ -485,13 +486,79 @@ The record URL is `/team/<membershipId>`, not a user id: the same person can
 belong to several companies, and this page is about their membership of *this*
 one.
 
+### Finance: the numbers have to be right
+
+Finance (PRD #15) is operational finance, not a general ledger: project budgets,
+customer invoices, expenses, payments, commitments and the approvals that gate
+them. It deliberately does not claim to be accounting — no double entry, no
+chart of accounts, no tax filing, and no credit notes.
+
+```
+lib/modules/finance/
+  finance.money.ts        Decimal arithmetic and one rounding rule
+  finance.currency.ts     the supported-currency allowlist
+  finance.scope.ts        company vs project, reusing the Projects resolver
+  finance.settlement.ts   what has actually been paid, in grouped aggregates
+  invoices/               invoice.calculation.ts is the totals authority
+  expenses/ budgets/ commitments/ payments/
+  approvals/              one approval cycle per submission, never reopened
+  budgets/budget.summary.ts  the one budget-vs-actual calculation
+  reports/ overview/
+```
+
+**No financial figure ever passes through a JavaScript float.** Every amount is
+a `Prisma.Decimal` in the database and a decimal string across the API —
+`"12500.50"`, never `12500.4999999997`. Rounding happens in exactly one place,
+and each invoice line is rounded to the cent *before* the totals are summed, so
+an invoice's lines always add up to its total.
+
+**The server owns the numbers.** `subtotal`, `taxAmount`, `totalAmount`,
+`paidAmount` and every variance are absent from every input schema. There is
+nothing for a crafted request to inflate, because there is no field to put it
+in.
+
+**Workflow and settlement are separate facts.** `status` says where an invoice
+is in its approval; whether the money arrived is derived from its payments at
+read time. A fully paid invoice stays `SENT`. Storing one inside the other is
+how a paid invoice ends up impossible to cancel for the wrong reason.
+
+**Separation of duties is enforced, not suggested.** MANAGE is the top rung of
+the ladder and still does not include approval: the Finance role raises every
+invoice and signs off none of them. And the person who submitted a record
+cannot decide it unless they hold `finance.approval.self` — a grant only the
+Owner has by default, because in a company where they are the only approver the
+alternative is a record nobody can ever decide.
+
+**Money can never be paid twice.** The outstanding balance is recalculated
+*inside* the payment transaction, not read beforehand, so two people paying the
+last €500 of an invoice at the same moment cannot both be told there is room. A
+payment is never deleted: voiding leaves the row and its reason behind and stops
+it counting.
+
+**One budget-vs-actual calculation.** Actual cost is approved expenses —
+approval is when a cost is recognised, payment is a cash event that happens
+later. Forecast adds open commitments. Every screen that shows a variance reads
+it from `budget.summary.ts`, so a project cannot show one number on its Finance
+tab and a different one in the report.
+
+**Currencies are reported, never added.** V0.1 has no FX engine, so EUR and USD
+appear side by side and are never summed. A project's expenses and commitments
+must match its approved budget's currency, because otherwise its actual cost
+would be unaddable.
+
+**Finance is confidential.** Admin and Company IT have no Finance access at all:
+administering NESTO is not financial authorisation. An Architect sees a project
+budget summary and never a payee, an invoice or company cashflow.
+
 ### Database
 
 The full core data model (PRD #8): `Company`, `User`, `CompanyMember`,
 `Department`, `Role`, `Permission`, `RolePermission`, `Module`, `CompanyModule`,
 `RoleModuleAccess`, `Project`, `ProjectMember`, `Client`, `Contact`, `Task`,
-`Document`, `CompanyInvite`, `Activity`, `Session`, `PasswordResetToken`,
-`AuthEvent` — plus the
+`Document`, `CompanyInvite`, `FinanceSettings`, `Invoice`, `InvoiceLineItem`,
+`Expense`, `Payment`, `ProjectBudget`, `ProjectBudgetLineItem`, `Commitment`,
+`FinanceApproval`, `Activity`, `Session`, `PasswordResetToken`, `AuthEvent` —
+plus the
 small module test records that make each department module's shell exercisable.
 
 The role lives on `CompanyMember`, never on `User`, which is what lets one
