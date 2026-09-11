@@ -25,8 +25,6 @@ export type UserMenuUser = {
   avatarUrl: string | null;
   roleLabel: string;
   companyName: string;
-  /** Roles without Settings access still reach their own profile (PRD #5 §39). */
-  canOpenSettings: boolean;
 };
 
 /**
@@ -71,14 +69,21 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
             Profile
           </Link>
         </DropdownMenuItem>
-        {user.canOpenSettings ? (
-          <DropdownMenuItem asChild>
-            <Link href="/settings">
-              <Settings />
-              Settings
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
+        {/*
+         * Offered to everyone, not just roles with Settings module access
+         * (PRD #5 §39). Profile and Appearance are personal — they belong to
+         * the person rather than the company — and /settings lists exactly the
+         * sections the reader may open, so a role with no company settings
+         * still lands on a page with something on it. Gating this link on the
+         * module was how twelve of the sixteen roles ended up with no way to
+         * reach their own theme preferences.
+         */}
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <Settings />
+            Settings
+          </Link>
+        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 

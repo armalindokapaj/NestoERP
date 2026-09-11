@@ -3,8 +3,8 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import { getIcon } from "@/components/layout/nav-icon";
+import { visibleSettingsSections } from "@/lib/access/settings-sections";
 import { requireUserContext } from "@/lib/context/current-user";
-import { visibleSettingsSections } from "./settings-access";
 
 export const metadata: Metadata = {
   title: "Settings",

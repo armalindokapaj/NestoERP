@@ -21,8 +21,17 @@ export default auth((req) => {
   const isAuthenticated = Boolean(req.auth?.user?.id);
 
   if (isPublicRoute(pathname)) {
-    // An authenticated user has no business on /login or /forgot-password.
-    if (isAuthenticated && redirectsWhenAuthenticated(pathname)) {
+    const reason = nextUrl.searchParams.get("reason");
+
+    // An authenticated user has no business on /login or /forgot-password —
+    // unless a page just sent them here because their session no longer
+    // resolves, in which case bouncing them back is an infinite loop.
+    //
+    // The stale cookie is deliberately left alone rather than cleared here:
+    // Auth.js appends its own refreshed session cookie to whatever this
+    // middleware returns, so a delete on this response is silently overwritten.
+    // It stops mattering the moment they sign in, which replaces it.
+    if (isAuthenticated && redirectsWhenAuthenticated(pathname, reason)) {
       return NextResponse.redirect(new URL("/dashboard", nextUrl));
     }
     return NextResponse.next();

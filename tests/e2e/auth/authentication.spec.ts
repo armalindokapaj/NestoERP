@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { db } from "../db";
 import { DEMO_EMAIL, DEMO_PASSWORD, signIn, signOut } from "../fixtures";
 
 /**
@@ -19,7 +20,7 @@ test.describe("sign in", () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill(DEMO_EMAIL.OWNER);
     await page.getByLabel("Password").fill("definitely-not-the-password");
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
     await expect(page.locator("form").getByRole("alert")).toContainText(/incorrect email or password/i);
     await expect(page).toHaveURL(/\/login/);
@@ -29,7 +30,7 @@ test.describe("sign in", () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill("nobody@nesto.test");
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
     await expect(page.locator("form").getByRole("alert")).toContainText(/incorrect email or password/i);
   });
@@ -38,7 +39,7 @@ test.describe("sign in", () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill("inactive-user@nesto.test");
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
     await expect(page.locator("form").getByRole("alert")).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
@@ -48,7 +49,7 @@ test.describe("sign in", () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill("suspended-company@nesto.test");
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
     await expect(page.locator("form").getByRole("alert")).toBeVisible();
   });
@@ -66,7 +67,7 @@ test.describe("route protection", () => {
 
     await page.getByLabel("Email").fill(DEMO_EMAIL.PROJECT_MANAGER);
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/projects\/project_a/);
     await expect(page.getByRole("heading", { name: "Riverside Residences" })).toBeVisible();
@@ -75,6 +76,38 @@ test.describe("route protection", () => {
   test("bounces an authenticated visitor off the login page", async ({ page }) => {
     await signIn(page, "VIEWER");
     await page.goto("/login");
+    await expect(page).toHaveURL(/\/dashboard/);
+  });
+
+  /**
+   * A session cookie that outlives its session row (PRD #6 §51).
+   *
+   * The browser still holds a valid cookie, but the row it names is gone —
+   * revoked, expired, or dropped by a reseed. Middleware reads only the cookie
+   * and calls them signed in; the page reads the database and does not. Unless
+   * middleware is told the page already rejected them, the two trade redirects
+   * forever and the login page never renders — locking the person out of the
+   * one page that could have fixed it.
+   */
+  test("lets an expired session reach the login page instead of looping", async ({ page }) => {
+    await signIn(page, "OWNER");
+
+    // Revoke it behind their back: the cookie stays, the session row does not.
+    await db.session.deleteMany({ where: { user: { email: DEMO_EMAIL.OWNER } } });
+
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/login\?reason=session-expired/);
+    await expect(page.getByRole("status")).toContainText(/session expired/i);
+
+    // And the login page stays reachable when asked for directly, stale cookie
+    // and all — this is the navigation that used to end in ERR_TOO_MANY_REDIRECTS.
+    await page.goto("/login");
+    await expect(page.getByLabel("Email")).toBeVisible();
+
+    // The whole point of getting them here: they can sign back in.
+    await page.getByLabel("Email").fill(DEMO_EMAIL.OWNER);
+    await page.getByLabel("Password").fill(DEMO_PASSWORD);
+    await page.locator("form").getByRole("button", { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/dashboard/);
   });
 });

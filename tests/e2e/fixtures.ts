@@ -34,7 +34,10 @@ export async function signIn(page: Page, role: DemoRole, options: { to?: string 
   await page.goto(options.to ? `/login?callbackUrl=${encodeURIComponent(options.to)}` : "/login");
   await page.getByLabel("Email").fill(DEMO_EMAIL[role]);
   await page.getByLabel("Password").fill(DEMO_PASSWORD);
-  await page.getByRole("button", { name: /sign in/i }).click();
+  // Scoped to the form: in a development build the login page also carries the
+  // demo-account panel, whose sixteen "Sign in as ..." buttons would otherwise
+  // make this locator ambiguous.
+  await page.locator("form").getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }
 
