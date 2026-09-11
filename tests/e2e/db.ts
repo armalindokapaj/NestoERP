@@ -249,3 +249,98 @@ export async function removeTestFinanceRecords(prefix: string): Promise<void> {
   await db.expense.deleteMany({ where: { id: { in: expenses.map((row) => row.id) } } });
   await db.commitment.deleteMany({ where: { id: { in: commitments.map((row) => row.id) } } });
 }
+
+/**
+ * Returns the HR fixtures to the state the seed documents (PRD #16 §330).
+ *
+ * Deciding a leave request changes it, and a decided request also writes and
+ * removes attendance days — so the reset puts the request, its decision and the
+ * attendance it generated back where the seed left them.
+ */
+export async function resetHrFixtures(): Promise<void> {
+  const decided = ["leave_008", "leave_009", "leave_010", "leave_011"];
+
+  // The attendance an approval would have written for these requests.
+  await db.attendanceRecord.deleteMany({ where: { sourceEntityId: { in: decided } } });
+
+  await db.leaveRequest.updateMany({
+    where: { id: { in: decided } },
+    data: {
+      status: "PENDING",
+      approvedByMemberId: null,
+      approvedAt: null,
+      rejectedByMemberId: null,
+      rejectedAt: null,
+      cancelledByMemberId: null,
+      cancelledAt: null,
+      decisionNote: null,
+    },
+  });
+
+  await db.leaveRequest.updateMany({
+    where: { id: { in: ["leave_012", "leave_013"] } },
+    data: { status: "DRAFT", submittedAt: null },
+  });
+
+  // usedDays is derived from approved leave, so it is recomputed rather than
+  // restored to a number written down somewhere (PRD #16 §219).
+  const balances = await db.leaveBalance.findMany({
+    select: { id: true, employeeProfileId: true, leaveType: true, year: true },
+  });
+
+  for (const balance of balances) {
+    const used = await db.leaveRequest.aggregate({
+      where: {
+        employeeProfileId: balance.employeeProfileId,
+        leaveType: balance.leaveType,
+        status: "APPROVED",
+        startDate: {
+          gte: new Date(Date.UTC(balance.year, 0, 1)),
+          lte: new Date(Date.UTC(balance.year, 11, 31, 23, 59, 59)),
+        },
+      },
+      _sum: { days: true },
+    });
+
+    await db.leaveBalance.update({
+      where: { id: balance.id },
+      data: { usedDays: used._sum.days ?? 0 },
+    });
+  }
+}
+
+/** Removes the HR records a spec created, so a rerun starts from the seed. */
+export async function removeTestHrRecords(prefix: string): Promise<void> {
+  const requests = await db.leaveRequest.findMany({
+    where: { reason: { startsWith: prefix } },
+    select: { id: true },
+  });
+  const ids = requests.map((row) => row.id);
+
+  if (ids.length > 0) {
+    await db.attendanceRecord.deleteMany({ where: { sourceEntityId: { in: ids } } });
+    await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+    await db.leaveRequest.deleteMany({ where: { id: { in: ids } } });
+  }
+
+  await db.attendanceRecord.deleteMany({ where: { notes: { startsWith: prefix } } });
+
+  const pay = await db.compensation.findMany({
+    where: { notes: { startsWith: prefix } },
+    select: { id: true, employeeProfileId: true },
+  });
+
+  if (pay.length > 0) {
+    await db.compensation.deleteMany({ where: { id: { in: pay.map((row) => row.id) } } });
+    // Reopen the record each deleted one had closed, so every employee is left
+    // with exactly one current pay level again (PRD #16 §189).
+    await db.$executeRawUnsafe(
+      `UPDATE "compensations" c SET "effectiveTo" = NULL
+       WHERE c."effectiveTo" IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM "compensations" o
+           WHERE o."employeeProfileId" = c."employeeProfileId" AND o."effectiveTo" IS NULL
+         )`,
+    );
+  }
+}

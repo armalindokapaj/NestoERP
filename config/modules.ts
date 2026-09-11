@@ -60,6 +60,14 @@ export type ModuleSectionConfig = {
   permission?: Permission;
   /** Minimum module access level required for the section to render. */
   accessLevel?: AccessLevel;
+  /**
+   * A second door into the section, for somebody who reaches only their own
+   * records (PRD #16 §11). Holding this without `permission` still renders the
+   * tab — under `selfLabel`, because "My leave" and "Leave" are not the same
+   * promise.
+   */
+  selfPermission?: Permission;
+  selfLabel?: string;
 };
 
 export type ModuleDefinition = {
@@ -194,11 +202,42 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     permission: "hr.view",
     writePermission: "hr.leave.create",
     defaultSection: "overview",
+    // Sections adapt to the reader (PRD #16 §10, §11). An HR manager sees the
+    // whole module; somebody with self-service alone sees their own employment,
+    // leave, attendance and documents, named as theirs.
     sections: [
       { key: "overview", label: "Overview" },
-      { key: "employees", label: "Employees", permission: "hr.employee.view" },
-      { key: "leave", label: "Leave", permission: "hr.leave.view" },
-      { key: "my-profile", label: "My Profile", permission: "hr.profile.view" },
+      {
+        key: "employees",
+        label: "Employees",
+        permission: "hr.employee.view",
+        selfPermission: "hr.self.employment",
+        selfLabel: "My employment",
+      },
+      {
+        key: "leave",
+        label: "Leave",
+        permission: "hr.leave.view",
+        selfPermission: "hr.self.leave",
+        selfLabel: "My leave",
+      },
+      {
+        key: "attendance",
+        label: "Attendance",
+        permission: "hr.attendance.view",
+        selfPermission: "hr.self.attendance",
+        selfLabel: "My attendance",
+      },
+      { key: "onboarding", label: "Onboarding", permission: "hr.onboarding.view" },
+      { key: "offboarding", label: "Offboarding", permission: "hr.offboarding.view" },
+      {
+        key: "documents",
+        label: "Documents",
+        permission: "hr.document.view",
+        selfPermission: "hr.self.documents",
+        selfLabel: "My documents",
+      },
+      { key: "reports", label: "Reports", permission: "hr.report.view" },
     ],
   },
   sales: {

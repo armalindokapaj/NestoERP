@@ -17,8 +17,6 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-const listArgs = { filters: {}, page: 1, limit: 50 };
-
 async function expectError(promise: Promise<unknown>, code: string) {
   await expect(promise).rejects.toBeInstanceOf(AccessError);
   await promise.catch((error: AccessError) => expect(error.code).toBe(code));

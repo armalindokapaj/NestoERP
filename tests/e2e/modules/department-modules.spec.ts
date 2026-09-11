@@ -10,8 +10,8 @@ import { signIn, type DemoRole } from "../fixtures";
  * so this walks each one's header, tabs, list and record detail in a single loop
  * rather than repeating near-identical specs (PRD #7 §93).
  *
- * Finance has graduated out of the shell (PRD #15) and is covered by
- * tests/e2e/modules/finance.spec.ts against its own pages.
+ * Finance (PRD #15) and HR (PRD #16) have graduated out of the shell and are
+ * covered by their own specs, against their own pages.
  */
 const JOURNEYS: {
   role: DemoRole;
@@ -20,7 +20,6 @@ const JOURNEYS: {
   section: string;
   expectRecord: RegExp;
 }[] = [
-  { role: "HR", module: "/hr", heading: "HR", section: "leave", expectRecord: /\w+ \w+/ },
   {
     role: "SALES",
     module: "/sales",

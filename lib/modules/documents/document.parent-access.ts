@@ -156,6 +156,44 @@ const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
     });
     return Boolean(found);
   },
+
+  /*
+   * HR parents (PRD #16 §129, §204, §205).
+   *
+   * `employee` is addressed by membership id, the way every HR route is. Both
+   * resolvers allow the self-service door: somebody reaches the files on their
+   * own employment record and their own leave without holding an HR grant over
+   * anybody else (PRD #16 §133, §135).
+   */
+  async employee(context, entityId) {
+    const { buildEmployeeScopeWhere, isSelf } = await import("@/lib/modules/hr/hr.scope");
+
+    // Either the pair of HR grants, or this is the reader's own record
+    // (PRD #16 §133, §135).
+    const byGrant = can(context, "hr.document.view") && can(context, "hr.employee.view");
+    const byOwnership = isSelf(context, entityId) && can(context, "hr.self.documents");
+    if (!byGrant && !byOwnership) return false;
+
+    const found = await prisma.employeeProfile.findFirst({
+      where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async leave_request(context, entityId) {
+    // No self-service door: a supporting file on a leave request may be a
+    // medical certificate, which is what `hr.leave.view` protects
+    // (PRD #16 §132).
+    if (!can(context, "hr.document.view") || !can(context, "hr.leave.view")) return false;
+
+    const { buildLeaveScopeWhere } = await import("@/lib/modules/hr/hr.scope");
+    const found = await prisma.leaveRequest.findFirst({
+      where: { AND: [buildLeaveScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -213,6 +251,10 @@ export async function canReachDocumentParent(
  */
 const MODULE_UPLOAD_GRANT: Record<string, Permission> = {
   finance: "finance.document.create",
+  // Self-service covers *reading* your own HR file, never adding one: an
+  // employee putting a document onto their own record is still an HR filing
+  // decision (PRD #16 §134, §135).
+  hr: "hr.document.create",
 };
 
 /** May this caller file a *new* document against that parent (PRD #13 §43, §91)? */
@@ -251,13 +293,29 @@ export async function canAttachToDocumentParent(
  * adding a line here and a resolver above, and forgetting either one leaves the
  * documents invisible rather than exposed.
  */
-const RECORD_DOCUMENT_GRANTS: Record<string, Permission> = {
-  task: "task.view",
-  invoice: "finance.invoice.view",
-  expense: "finance.expense.view",
-  budget: "finance.budget.view",
-  commitment: "finance.commitment.view",
+const RECORD_DOCUMENT_GRANTS: Record<string, Permission[]> = {
+  task: ["task.view"],
+  invoice: ["finance.invoice.view"],
+  expense: ["finance.expense.view"],
+  budget: ["finance.budget.view"],
+  commitment: ["finance.commitment.view"],
+  // HR needs both the document grant and access to the kind of record it hangs
+  // off: an employee file is not reachable through leave access, or the other
+  // way round (PRD #16 §132, §133).
+  employee: ["hr.document.view", "hr.employee.view"],
+  leave_request: ["hr.document.view", "hr.leave.view"],
 };
+
+/**
+ * The one self-service branch (PRD #16 §135).
+ *
+ * `hr.self.documents` reaches documents parented to the reader's *own*
+ * employment record and nothing else. Leave documents are deliberately absent:
+ * a supporting file on a leave request requires `hr.leave.view`, because
+ * medical certificates are exactly what that permission is protecting
+ * (PRD #16 §132).
+ */
+const SELF_RECORD_DOCUMENT_GRANT: Permission = "hr.self.documents";
 
 export function buildDocumentAccessWhere(context: UserContext): Prisma.DocumentWhereInput {
   const reachable = reachableModules(context);
@@ -293,10 +351,24 @@ export function buildDocumentAccessWhere(context: UserContext): Prisma.DocumentW
   // gated by the permission that governs reading the record itself, which is
   // what keeps an invoice PDF exactly as reachable as its invoice — never more
   // (PRD #13 §44, PRD #15 §189–§192).
-  for (const [entityType, permission] of Object.entries(RECORD_DOCUMENT_GRANTS)) {
-    if (!can(context, permission)) continue;
+  for (const [entityType, permissions] of Object.entries(RECORD_DOCUMENT_GRANTS)) {
+    if (permissions.every((permission) => can(context, permission))) {
+      branches.push({
+        AND: [{ projectId: null, clientId: null, entityType }, moduleGate(reachable)],
+      });
+    }
+  }
+
+  // Somebody's own employment file, reachable without any HR grant over anybody
+  // else. Narrowed to their own membership, which is what "own" means here
+  // (PRD #16 §135).
+  if (can(context, SELF_RECORD_DOCUMENT_GRANT)) {
     branches.push({
-      AND: [{ projectId: null, clientId: null, entityType }, moduleGate(reachable)],
+      AND: [
+        { projectId: null, clientId: null, entityType: "employee" },
+        { entityId: context.membershipId },
+        moduleGate(reachable),
+      ],
     });
   }
 

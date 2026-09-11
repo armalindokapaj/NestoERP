@@ -465,6 +465,8 @@ const MODULE_FOR_RECORD: Record<DocumentRecordType, string> = {
   expense: "finance",
   budget: "finance",
   commitment: "finance",
+  employee: "hr",
+  leave_request: "hr",
 };
 
 /* -------------------------------------------------------------------------- */
