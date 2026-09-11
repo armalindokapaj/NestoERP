@@ -46,9 +46,9 @@ export function resolveModuleExperience(
   const enabled = isModuleEnabled(context, moduleKey);
   const permissions = context.moduleAccess[moduleKey]?.permissions ?? [];
 
-  const sections = definition.sections.filter((section) =>
-    isSectionVisible(context, moduleKey, section),
-  );
+  const sections = definition.sections
+    .filter((section) => isSectionVisible(context, moduleKey, section))
+    .map((section) => resolveSectionLabel(context, moduleKey, section));
 
   const defaultSection =
     definition.defaultSection && sections.some((s) => s.key === definition.defaultSection)
@@ -85,8 +85,36 @@ export function isSectionVisible(
   const accessLevel = getAccessLevel(context, moduleKey);
   if (accessLevel === "NONE") return false;
   if (section.accessLevel && !accessAtLeast(accessLevel, section.accessLevel)) return false;
-  if (section.permission && !can(context, section.permission)) return false;
+  if (section.permission && !can(context, section.permission)) {
+    // The self-service door: the section still renders for somebody who may
+    // only see their own records (PRD #16 §11).
+    return section.selfPermission ? can(context, section.selfPermission) : false;
+  }
   return true;
+}
+
+/** Scopes where a section with a `selfLabel` only ever shows the reader's own. */
+const NARROW_SCOPES: DataScope[] = ["SELF", "ASSIGNED", "PROJECT"];
+
+/**
+ * Names the section for who is reading it.
+ *
+ * "My leave" rather than "Leave" when the tab leads to the reader's own records
+ * and nothing else (PRD #16 §11). That is true in two different ways, and both
+ * count: they hold only the self-service grant, or their scope is narrow enough
+ * that the module grant reaches nobody but them.
+ */
+function resolveSectionLabel(
+  context: UserContext,
+  moduleKey: ModuleKey,
+  section: ModuleSectionConfig,
+): ModuleSectionConfig {
+  if (!section.selfLabel) return section;
+
+  const throughSelfGrant = Boolean(section.permission) && !can(context, section.permission!);
+  const narrowScope = NARROW_SCOPES.includes(getModuleScope(context, moduleKey));
+
+  return throughSelfGrant || narrowScope ? { ...section, label: section.selfLabel } : section;
 }
 
 /**

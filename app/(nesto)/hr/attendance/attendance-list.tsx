@@ -1,0 +1,131 @@
+import Link from "next/link";
+import { CalendarCheck } from "lucide-react";
+
+import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
+import { Pagination } from "@/components/data/pagination";
+import { AttendanceTable } from "@/components/hr/attendance-table";
+import { DateRangeFilter } from "@/components/hr/date-range-filter";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { can } from "@/lib/access/can";
+import type { UserContext } from "@/lib/context/types";
+import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
+import { parseAttendanceQuery } from "@/lib/modules/hr/hr.query";
+import { ATTENDANCE_STATUSES } from "@/lib/modules/hr/hr.schema";
+import { attendanceStatusLabels } from "@/lib/modules/hr/hr.status";
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+/**
+ * The attendance list (PRD #16 §114, §115).
+ *
+ * "Exceptions" is a query rather than a filter applied in memory — an absence,
+ * or a day somebody checked in and never checked out — so paging stays honest.
+ */
+export async function AttendanceList({
+  context,
+  searchParams,
+}: {
+  context: UserContext;
+  searchParams: SearchParams;
+}) {
+  const query = parseAttendanceQuery(searchParams);
+  const result = await attendance.listAttendance(context, query);
+
+  const seesOthers = can(context, "hr.attendance.view");
+  const hasFilters = Boolean(
+    query.search || query.status?.length || query.from || query.to || query.exceptionsOnly,
+  );
+
+  const filters: FilterConfig[] = [
+    {
+      param: "status",
+      label: "Status",
+      options: ATTENDANCE_STATUSES.map((value) => ({
+        value,
+        label: attendanceStatusLabels[value],
+      })),
+    },
+  ];
+
+  function withParam(key: string, value: string | null) {
+    const params = new URLSearchParams();
+    for (const [param, entry] of Object.entries(searchParams)) {
+      if (typeof entry === "string" && param !== key && param !== "page") params.set(param, entry);
+    }
+    if (value) params.set(key, value);
+    const search = params.toString();
+    return search ? `/hr/attendance?${search}` : "/hr/attendance";
+  }
+
+  function buildHref(page: number) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(searchParams)) {
+      if (typeof value === "string" && key !== "page") params.set(key, value);
+    }
+    if (page > 1) params.set("page", String(page));
+    const search = params.toString();
+    return search ? `/hr/attendance?${search}` : "/hr/attendance";
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <ListToolbar
+          searchPlaceholder="Search employee…"
+          filters={filters}
+          sortOptions={[
+            { value: "date-desc", label: "Newest first" },
+            { value: "date-asc", label: "Oldest first" },
+          ]}
+          className="flex-1"
+        />
+        <Button
+          asChild
+          variant={query.exceptionsOnly ? "primary" : "secondary"}
+          size="sm"
+        >
+          <Link href={withParam("exceptions", query.exceptionsOnly ? null : "1")}>
+            {query.exceptionsOnly ? "All days" : "Exceptions"}
+          </Link>
+        </Button>
+        {seesOthers ? (
+          <Button asChild variant={query.mine ? "primary" : "secondary"} size="sm">
+            <Link href={withParam("mine", query.mine ? null : "1")}>
+              {query.mine ? "Everyone" : "Only mine"}
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+
+      <DateRangeFilter label="Days" basePath="/hr/attendance" />
+
+      {result.data.length === 0 ? (
+        hasFilters ? (
+          <EmptyState
+            icon={<CalendarCheck />}
+            title="No HR records match these filters."
+            description="Adjust or clear the filters to see more."
+            action={{ label: "Clear filters", href: "/hr/attendance" }}
+          />
+        ) : (
+          <EmptyState
+            icon={<CalendarCheck />}
+            title="No attendance records for this period."
+            description="Days recorded by HR, recorded by people themselves, or written from approved leave appear here."
+            action={
+              can(context, "hr.attendance.create") || can(context, "hr.self.attendance")
+                ? { label: "Record a day", href: "/hr/attendance/new" }
+                : undefined
+            }
+          />
+        )
+      ) : (
+        <>
+          <AttendanceTable records={result.data} showEmployee={seesOthers && !query.mine} />
+          <Pagination meta={result.pagination} buildHref={buildHref} />
+        </>
+      )}
+    </div>
+  );
+}

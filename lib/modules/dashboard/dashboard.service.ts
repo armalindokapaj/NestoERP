@@ -14,6 +14,8 @@ import {
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import * as financeKpis from "@/lib/modules/finance/finance.kpis";
 import { buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
+import { buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
+import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
@@ -187,7 +189,7 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
     case "pendingLeave":
       return String(
         await prisma.leaveRequest.count({
-          where: { ...leaveScope(context), status: "PENDING" },
+          where: { AND: [buildLeaveScopeWhere(context), { status: "PENDING" }] },
         }),
       );
 
@@ -595,29 +597,40 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
 
     case "leaveRequests": {
       const rows = await prisma.leaveRequest.findMany({
-        where: leaveScope(context),
+        // The HR module's own scope resolver, so a dashboard widget can never
+        // show leave the HR pages would hide (PRD #16 §164).
+        where: buildLeaveScopeWhere(context),
         orderBy: [{ status: "asc" }, { startDate: "asc" }],
         take: 6,
         select: {
           id: true,
-          type: true,
+          leaveType: true,
           days: true,
           status: true,
           startDate: true,
-          employee: { select: { user: { select: { firstName: true, lastName: true } } } },
+          employeeProfile: {
+            select: {
+              companyMember: {
+                select: { user: { select: { firstName: true, lastName: true } } },
+              },
+            },
+          },
         },
       });
 
       return {
         kind: "list",
-        items: rows.map((row) => ({
-          id: row.id,
-          title: `${row.employee.user.firstName} ${row.employee.user.lastName}`,
-          subtitle: `${row.type} · ${row.days} days`,
-          meta: formatRelativeTime(row.startDate),
-          status: row.status,
-          href: `/hr/leave/${row.id}`,
-        })),
+        items: rows.map((row) => {
+          const user = row.employeeProfile.companyMember.user;
+          return {
+            id: row.id,
+            title: `${user.firstName} ${user.lastName}`,
+            subtitle: `${leaveTypeLabels[row.leaveType]} · ${row.days.toFixed(2)} days`,
+            meta: formatRelativeTime(row.startDate),
+            status: row.status,
+            href: `/hr/leave/${row.id}`,
+          };
+        }),
       };
     }
 
@@ -1246,24 +1259,39 @@ async function loadApprovals(context: UserContext) {
 
   if (can(context, "hr.leave.approve")) {
     const rows = await prisma.leaveRequest.findMany({
-      where: { companyId: context.companyId, status: "PENDING" },
+      where: {
+        AND: [
+          buildLeaveScopeWhere(context),
+          { status: "PENDING" },
+          // Never your own: an approval queue that offers you your own request
+          // is offering something the service will refuse (PRD #16 §194).
+          { companyMemberId: { not: context.membershipId } },
+        ],
+      },
       orderBy: { startDate: "asc" },
       take: 5,
       select: {
         id: true,
-        type: true,
+        leaveType: true,
         days: true,
-        employee: { select: { user: { select: { firstName: true, lastName: true } } } },
+        employeeProfile: {
+          select: {
+            companyMember: { select: { user: { select: { firstName: true, lastName: true } } } },
+          },
+        },
       },
     });
 
     items.push(
-      ...rows.map((row) => ({
-        id: `leave-${row.id}`,
-        title: `${row.employee.user.firstName} ${row.employee.user.lastName}`,
-        subtitle: `Leave · ${row.type}, ${row.days} days`,
-        href: `/hr/leave/${row.id}`,
-      })),
+      ...rows.map((row) => {
+        const user = row.employeeProfile.companyMember.user;
+        return {
+          id: `leave-${row.id}`,
+          title: `${user.firstName} ${user.lastName}`,
+          subtitle: `Leave · ${leaveTypeLabels[row.leaveType]}, ${row.days.toFixed(2)} days`,
+          href: `/hr/leave/${row.id}`,
+        };
+      }),
     );
   }
 
@@ -1318,14 +1346,6 @@ async function loadApprovals(context: UserContext) {
  * on projects they belong to (PRD #4 §29).
  */
 /** Leave follows HR scope: SELF means only the person's own requests. */
-function leaveScope(context: UserContext) {
-  const scope = context.moduleAccess.hr.scope;
-  if (scope === "COMPANY" || scope === "SYSTEM" || scope === "DEPARTMENT") {
-    return { companyId: context.companyId };
-  }
-  return { companyId: context.companyId, employeeMemberId: context.membershipId };
-}
-
 /**
  * Renders a finance KPI in the currency it was measured in.
  *

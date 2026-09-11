@@ -32,6 +32,11 @@ export async function seedAccessConfiguration(prisma: PrismaClient) {
     });
   }
 
+  // A permission the registry no longer declares is removed, not left behind.
+  // Seeds converge in both directions: a stale row would still be granted to
+  // every role that used to hold it, and nothing in the code would check it.
+  await prisma.permission.deleteMany({ where: { key: { notIn: [...PERMISSIONS] } } });
+
   for (const key of MODULE_KEYS) {
     const definition = modules[key];
     await prisma.module.upsert({

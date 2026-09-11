@@ -166,11 +166,66 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "finance.settings.manage",
     ],
   },
+  /**
+   * HR (PRD #16 §16, §17).
+   *
+   * `hr.compensation.view` is deliberately absent from every rung. Pay is not
+   * something a role acquires by being given "HR access" — it is an explicit
+   * grant, held by the Owner and the HR role and nobody else by default
+   * (PRD #16 §15, §17, §67).
+   *
+   * The four `hr.self.*` grants sit at VIEW, which is what makes self-service
+   * work for a role scoped to itself: an Engineer with SELF scope can file
+   * their own leave without holding `hr.leave.create` over anybody else
+   * (PRD #16 §74).
+   */
   hr: {
-    VIEW: ["hr.view", "hr.profile.view", "hr.employee.view", "hr.leave.view"],
-    CONTRIBUTE: ["hr.leave.create", "hr.leave.update"],
-    APPROVE: ["hr.leave.approve"],
-    MANAGE: ["hr.manage", "hr.employee.update"],
+    VIEW: [
+      "hr.view",
+      "hr.dashboard.view",
+      "hr.employee.view",
+      "hr.employment.view",
+      "hr.leave.view",
+      "hr.leave.balance.view",
+      "hr.attendance.view",
+      "hr.onboarding.view",
+      "hr.offboarding.view",
+      "hr.document.view",
+      "hr.report.view",
+      "hr.activity.view",
+      "hr.self.employment",
+      "hr.self.leave",
+      "hr.self.attendance",
+      "hr.self.documents",
+    ],
+    CONTRIBUTE: [
+      "hr.export",
+      "hr.document.create",
+      "hr.leave.create",
+      "hr.leave.update",
+      "hr.leave.submit",
+      "hr.attendance.create",
+      "hr.attendance.update",
+    ],
+    APPROVE: [
+      "hr.leave.approve",
+      "hr.leave.reject",
+      "hr.leave.cancel",
+      "hr.attendance.approve",
+    ],
+    MANAGE: [
+      "hr.manage",
+      "hr.employee.update",
+      "hr.employee.create_profile",
+      "hr.employee.update_profile",
+      "hr.employee.status.update",
+      "hr.employee.manager.assign",
+      "hr.employment.update",
+      "hr.leave.balance.manage",
+      "hr.leave.reason.view",
+      "hr.onboarding.manage",
+      "hr.offboarding.manage",
+    ],
   },
   sales: {
     VIEW: ["sales.view", "sales.opportunity.view"],
@@ -387,6 +442,21 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     // company where they are the only approver, the alternative is a record
     // nobody can ever decide (PRD #15 §19).
     finance: { extra: ["finance.approval.self"] },
+    // Pay is never on the ladder; the Owner holds it explicitly (PRD #16 §17).
+    hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
+  },
+  ADMIN: {
+    /**
+     * Administering the platform is not seeing the HR file (PRD #16 §18).
+     *
+     * An Admin manages team configuration and company settings, and reads the
+     * employment directory. They do not automatically get the employment file:
+     * contracts, identification and sick notes are documents somebody filed in
+     * confidence. Pay never reaches them either — `hr.compensation.view` is
+     * absent from every rung of the ladder — and the leave reason sits at
+     * MANAGE, above their level.
+     */
+    hr: { deny: ["hr.document.view"] },
   },
   CEO: {
     // Executive visibility without the bookkeeping surface (PRD #5 §16,
@@ -417,6 +487,11 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     contracts: { deny: ["legal.contract.create", "legal.contract.update"] },
     procurement: { deny: ["procurement.request.create", "procurement.request.update"] },
   },
+  HR: {
+    // The role the module exists for: everything on the ladder, plus pay
+    // (PRD #16 §17).
+    hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
+  },
   PROJECT_MANAGER: {
     /**
      * Project finance only (PRD #5 §17, PRD #15 §183).
@@ -438,7 +513,24 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "finance.settings.view",
       ],
     },
-    hr: { deny: ["hr.leave.view"] },
+    /**
+     * No HR confidential surface through project scope (PRD #16 §168).
+     *
+     * A project manager needs to know who is on their project, which is Team's
+     * job. HR documents, leave detail and reports are not a consequence of
+     * running a project.
+     */
+    hr: {
+      deny: [
+        "hr.leave.view",
+        "hr.document.view",
+        "hr.document.create",
+        "hr.leave.reason.view",
+        "hr.report.view",
+        "hr.export",
+        "hr.attendance.view",
+      ],
+    },
   },
   ARCHITECT: {
     /**
@@ -484,6 +576,26 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
     procurement: { deny: ["procurement.order.view"] },
     inventory: { deny: ["inventory.movement.view"] },
+  },
+  COMPANY_IT: {
+    /**
+     * Platform and system access is not HR access (PRD #16 §19).
+     *
+     * What is left is genuine self-service: their own employment record, their
+     * own leave and attendance, their own files.
+     */
+    hr: {
+      deny: [
+        "hr.employee.view",
+        "hr.employment.view",
+        "hr.document.view",
+        "hr.onboarding.view",
+        "hr.offboarding.view",
+        "hr.report.view",
+        "hr.activity.view",
+        "hr.export",
+      ],
+    },
   },
   FINANCE: {
     // Commercial context only, not the Sales workspace (PRD #5 §20).

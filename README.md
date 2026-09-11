@@ -1,6 +1,6 @@
 # NESTO V0.1
 
-**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients, Documents, Team & Finance**
+**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients, Documents, Team, Finance & HR**
 
 V0.1 is not the finished ERP. It is the permanent foundation: one application,
 one design system, one app shell, one navigation engine, one access system, one
@@ -28,6 +28,7 @@ Implements PRDs #1–#15.
 | #13 Documents Module | `lib/modules/documents`, `lib/storage`, `app/(nesto)/documents`, `app/api/documents` |
 | #14 Team Module | `lib/modules/team`, `app/(nesto)/team`, `app/(public)/invite`, `app/api/{team,departments}` |
 | #15 Finance Module | `lib/modules/finance`, `app/(nesto)/finance`, `app/api/finance` |
+| #16 HR Module | `lib/modules/hr`, `app/(nesto)/hr`, `app/api/hr` |
 
 ---
 
@@ -550,6 +551,78 @@ would be unaddable.
 administering NESTO is not financial authorisation. An Architect sees a project
 budget summary and never a payee, an invoice or company cashflow.
 
+
+### HR: employment is not access
+
+HR (PRD #16) is the employment record — who works here, on what terms, what they
+are paid, when they are off and whether they were in. It is not payroll, not
+recruiting, not performance reviews and not benefits: those are named as
+non-goals so that nothing here quietly grows into half of one.
+
+```
+lib/modules/hr/
+  hr.calendar.ts      working days, business dates — no Prisma, so the form shares it
+  hr.date.ts          the one place a day count becomes a stored Decimal
+  hr.scope.ts         SELF / DEPARTMENT / COMPANY, with PROJECT folded into SELF
+  hr.status.ts        employment, leave and attendance lifecycles
+  employees/          the employment record, and onboarding/offboarding readiness
+  compensation/       effective-dated pay, behind its own permission
+  leave/              requests, decisions, and leave.balance.ts
+  attendance/         days worked, and attendance.sync.ts for approved leave
+  overview/ reports/
+```
+
+**Employment is not access.** Ending somebody's employment does not deactivate
+their membership, and deactivating a membership does not end their employment.
+They are different facts, owned by different modules, changed by different
+people: HR records that somebody left, and a Team manager removes their access
+deliberately. Neither ever happens as a side effect of the other.
+
+**Pay is never part of an employee DTO.** Compensation has its own service, its
+own route and its own permission, and `hr.compensation.view` sits on no rung of
+the access ladder — not even MANAGE. Owner and HR hold it explicitly; everybody
+else, Admin and the CEO included, does not. Without it the compensation tab does
+not render at all, because a locked placeholder still confirms that a salary is
+on file. Amounts never reach the activity trail either: it records that pay
+changed and who changed it, never what anybody earns.
+
+**Nobody decides their own leave.** Not the HR manager who holds
+`hr.leave.approve` over the whole company, and not the Owner — there is no
+self-approval grant here, unlike Finance. Approval also takes the balance row's
+lock before reading it, so two approvers signing off the last few days at the
+same moment cannot both be told there is room: checking a figure another
+transaction is about to change is the same as not checking it.
+
+**A leave reason is absent, not null.** It may be medical. Unless the reader is
+the person who wrote it or holds `hr.leave.reason.view`, the field is not in the
+DTO at all — there is nothing to leak through a log, a cache or a serialiser.
+
+**Approved leave writes the attendance days it covers**, tagged with the request
+that created them, so cancelling that leave takes exactly those rows back out
+and never touches a day somebody entered by hand. If attendance already records
+the person as *working* on one of those days, approval fails rather than
+silently skipping it: two records of the same day disagreeing is worse than an
+approval that has to wait for a correction.
+
+**One working-day calculation.** Monday to Friday, no public-holiday calendar in
+V0.1 — stated once in `hr.calendar.ts` rather than assumed at four call sites.
+The leave form counts the days it is about to request with the same function the
+server uses to store them; the browser's figure is a courtesy, and the server
+counts again regardless.
+
+**An export is the list, not a second query.** CSV export parses the same
+search parameters and calls the same list service, so it inherits the same
+scope, permissions and filters by construction — and it carries no leave reason
+and no pay, because a file on somebody's laptop is where data stops being
+governed.
+
+**Scope is not the same as permission.** A self-scoped reader holds
+`hr.employee.view` and `hr.leave.balance.view` — what stops them reading
+somebody else's record is scope, and it answers 404 rather than 403 so the
+response cannot confirm that person works here. PROJECT scope is deliberately
+folded into SELF: running a project tells you who is on it, which is Team's job,
+and must not become access to those people's employment files.
+
 ### Database
 
 The full core data model (PRD #8): `Company`, `User`, `CompanyMember`,
@@ -557,7 +630,9 @@ The full core data model (PRD #8): `Company`, `User`, `CompanyMember`,
 `RoleModuleAccess`, `Project`, `ProjectMember`, `Client`, `Contact`, `Task`,
 `Document`, `CompanyInvite`, `FinanceSettings`, `Invoice`, `InvoiceLineItem`,
 `Expense`, `Payment`, `ProjectBudget`, `ProjectBudgetLineItem`, `Commitment`,
-`FinanceApproval`, `Activity`, `Session`, `PasswordResetToken`, `AuthEvent` —
+`FinanceApproval`, `EmployeeProfile`, `Compensation`, `LeaveRequest`,
+`LeaveBalance`, `AttendanceRecord`, `Activity`, `Session`, `PasswordResetToken`,
+`AuthEvent` —
 plus the
 small module test records that make each department module's shell exercisable.
 
@@ -927,8 +1002,8 @@ shell registry — holds no core sections at all any more, which is exactly what
 it was for.
 
 The department modules follow, one PRD at a time, each replacing its small test
-record with a real domain model: Team (#14), Finance (#15), HR (#16), Sales
-(#17), Legal (#18), Procurement (#19), Inventory (#20), QA/QC (#21) and HSE
+record with a real domain model: Team (#14), Finance (#15) and HR (#16) are
+done; Sales (#17), Legal (#18), Procurement (#19), Inventory (#20), QA/QC (#21) and HSE
 (#22). None of that requires a new shell, a new
 navigation engine, a new access system or a new design system — which is the
 whole point of V0.1.

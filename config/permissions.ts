@@ -154,13 +154,66 @@ export const PERMISSIONS = [
   /* HR ------------------------------------------------------------------- */
   "hr.view",
   "hr.manage",
-  "hr.profile.view",
+  "hr.dashboard.view",
+
   "hr.employee.view",
   "hr.employee.update",
+  "hr.employee.create_profile",
+  "hr.employee.update_profile",
+  "hr.employee.status.update",
+  "hr.employee.manager.assign",
+
+  "hr.employment.view",
+  "hr.employment.update",
+
+  /**
+   * Pay is its own permission, never implied by employee access
+   * (PRD #16 §15, §17). `hr.employee.view` tells you somebody works here;
+   * `hr.compensation.view` tells you what they earn, and those are different
+   * decisions.
+   */
+  "hr.compensation.view",
+  "hr.compensation.update",
+
   "hr.leave.view",
   "hr.leave.create",
   "hr.leave.update",
+  "hr.leave.submit",
   "hr.leave.approve",
+  "hr.leave.reject",
+  "hr.leave.cancel",
+  "hr.leave.balance.view",
+  "hr.leave.balance.manage",
+  /** The reason on a leave request may be medical (PRD #16 §95). */
+  "hr.leave.reason.view",
+
+  "hr.attendance.view",
+  "hr.attendance.create",
+  "hr.attendance.update",
+  "hr.attendance.approve",
+
+  "hr.onboarding.view",
+  "hr.onboarding.manage",
+  "hr.offboarding.view",
+  "hr.offboarding.manage",
+
+  "hr.document.view",
+  "hr.document.create",
+
+  "hr.report.view",
+  "hr.export",
+  "hr.activity.view",
+
+  /**
+   * Self-service (PRD #16 §16).
+   *
+   * These are what a role with no HR business access still holds: their own
+   * employment record, their own leave, their own attendance, their own files.
+   */
+  "hr.self.employment",
+  "hr.self.leave",
+  "hr.self.attendance",
+  "hr.self.documents",
 
   /* Sales ---------------------------------------------------------------- */
   "sales.view",

@@ -15,7 +15,8 @@ type Members = Map<string, string>;
 export async function seedModuleRecords(prisma: PrismaClient, members: Members) {
   // Finance has its own seed now (prisma/seed/finance.ts): invoices with line
   // items, expenses, payments, budgets, commitments and approvals (PRD #15 §328).
-  await seedLeaveRequests(prisma, members);
+  // HR has its own seed now (prisma/seed/hr.ts): employment records,
+  // compensation, leave with balances, and attendance (PRD #16 §327).
   await seedOpportunities(prisma, members);
   await seedContracts(prisma);
   await seedProcurement(prisma, members);
@@ -23,44 +24,6 @@ export async function seedModuleRecords(prisma: PrismaClient, members: Members) 
   await seedQuality(prisma, members);
   await seedHse(prisma, members);
   await seedSupport(prisma, members);
-}
-
-/* HR — 8 leave requests, own and other (PRD #9 §71, §72) -------------------- */
-
-const LEAVE = [
-  { user: "user_architect", type: "Annual leave", start: 20, days: 5, status: "PENDING" },
-  { user: "user_architect", type: "Annual leave", start: -60, days: 3, status: "APPROVED" },
-  { user: "user_engineer", type: "Sick leave", start: -10, days: 2, status: "APPROVED" },
-  { user: "user_engineer", type: "Annual leave", start: 35, days: 10, status: "PENDING" },
-  { user: "user_pm", type: "Annual leave", start: 14, days: 7, status: "PENDING" },
-  { user: "user_qaqc", type: "Training", start: 5, days: 2, status: "APPROVED" },
-  { user: "user_hse", type: "Annual leave", start: -30, days: 4, status: "REJECTED" },
-  { user: "user_finance", type: "Parental leave", start: 60, days: 20, status: "PENDING" },
-] as const;
-
-async function seedLeaveRequests(prisma: PrismaClient, members: Members) {
-  let index = 0;
-  for (const leave of LEAVE) {
-    index += 1;
-    const id = `leave_${index.toString().padStart(3, "0")}`;
-    await prisma.leaveRequest.upsert({
-      where: { id },
-      update: {},
-      create: {
-        id,
-        companyId: COMPANY_A,
-        employeeMemberId: members.get(leave.user)!,
-        type: leave.type,
-        startDate: daysFromNow(leave.start),
-        endDate: daysFromNow(leave.start + leave.days),
-        days: leave.days,
-        status: leave.status,
-        createdBy: leave.user,
-        approvedBy: leave.status === "PENDING" ? null : "user_hr",
-        approvedAt: leave.status === "PENDING" ? null : daysFromNow(leave.start - 5),
-      },
-    });
-  }
 }
 
 /* Sales — 12 opportunities across every stage (PRD #9 §73, §74) ------------- */

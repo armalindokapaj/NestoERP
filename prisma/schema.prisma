@@ -229,10 +229,72 @@ enum FinanceApprovalStatus {
   CANCELLED
 }
 
-enum LeaveStatus {
+/// Employment, which is a different fact from company membership (PRD #16 §29).
+///
+/// A person can hold an active membership and have no employment record at all
+/// (a contractor with a login), or have ended employment while their membership
+/// is deactivated separately. HR never changes access on its own.
+enum EmploymentStatus {
+  PLANNED
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  ENDED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACTOR
+  INTERN
+  TEMPORARY
+  OTHER
+}
+
+enum HrProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  NOT_REQUIRED
+}
+
+enum CompensationPayType {
+  SALARY
+  HOURLY
+  DAILY
+  OTHER
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+  PARENTAL
+  OTHER
+}
+
+enum LeaveRequestStatus {
+  DRAFT
   PENDING
   APPROVED
   REJECTED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  ON_LEAVE
+  REMOTE
+  HOLIDAY
+  OFF
+}
+
+enum AttendanceSource {
+  MANUAL
+  SELF
+  IMPORT
+  SYSTEM
 }
 
 enum OpportunityStage {
@@ -368,23 +430,27 @@ model Company {
   documents  Document[]
   activities Activity[]
 
-  financeSettings  FinanceSettings?
-  invoices         Invoice[]
-  expenses         Expense[]
-  payments         Payment[]
-  projectBudgets   ProjectBudget[]
-  commitments      Commitment[]
-  financeApprovals FinanceApproval[]
-  leaveRequests    LeaveRequest[]
-  opportunities    Opportunity[]
-  contracts        Contract[]
-  purchaseRequests PurchaseRequest[]
-  purchaseOrders   PurchaseOrder[]
-  inventoryItems   InventoryItem[]
-  stockMovements   InventoryMovement[]
-  qualityRecords   QualityRecord[]
-  hseRecords       HseRecord[]
-  supportRequests  SupportRequest[]
+  financeSettings   FinanceSettings?
+  invoices          Invoice[]
+  expenses          Expense[]
+  payments          Payment[]
+  projectBudgets    ProjectBudget[]
+  commitments       Commitment[]
+  financeApprovals  FinanceApproval[]
+  employeeProfiles  EmployeeProfile[]
+  compensations     Compensation[]
+  leaveRequests     LeaveRequest[]
+  leaveBalances     LeaveBalance[]
+  attendanceRecords AttendanceRecord[]
+  opportunities     Opportunity[]
+  contracts         Contract[]
+  purchaseRequests  PurchaseRequest[]
+  purchaseOrders    PurchaseOrder[]
+  inventoryItems    InventoryItem[]
+  stockMovements    InventoryMovement[]
+  qualityRecords    QualityRecord[]
+  hseRecords        HseRecord[]
+  supportRequests   SupportRequest[]
 
   sessions   Session[]
   authEvents AuthEvent[]
@@ -577,13 +643,14 @@ model CompanyMember {
 
   activityActions Activity[] @relation("ActivityActorMember")
 
-  leaveRequests    LeaveRequest[]      @relation("LeaveEmployee")
-  ownedOpportunity Opportunity[]       @relation("OpportunityOwner")
-  requestedOrders  PurchaseRequest[]   @relation("PurchaseRequester")
-  stockMovements   InventoryMovement[] @relation("MovementActor")
-  qualityRecords   QualityRecord[]     @relation("QualityAssignee")
-  hseRecords       HseRecord[]         @relation("HseAssignee")
-  supportRequests  SupportRequest[]    @relation("SupportRequester")
+  employeeProfile         EmployeeProfile?    @relation("EmployeeProfileMember")
+  managedEmployeeProfiles EmployeeProfile[]   @relation("EmployeeProfileManager")
+  ownedOpportunity        Opportunity[]       @relation("OpportunityOwner")
+  requestedOrders         PurchaseRequest[]   @relation("PurchaseRequester")
+  stockMovements          InventoryMovement[] @relation("MovementActor")
+  qualityRecords          QualityRecord[]     @relation("QualityAssignee")
+  hseRecords              HseRecord[]         @relation("HseAssignee")
+  supportRequests         SupportRequest[]    @relation("SupportRequester")
 
   sessions Session[]
 
@@ -1383,32 +1450,209 @@ model FinanceApproval {
   @@map("finance_approvals")
 }
 
+/// The canonical employment record (PRD #16 §25, §26).
+///
+/// One per company membership. It carries employment facts — dates, type,
+/// manager, hours — and deliberately not identity: a person's name, email and
+/// phone belong to their `User`, and their role and department to their
+/// `CompanyMember` (PRD #16 §2).
+model EmployeeProfile {
+  id              String @id @default(cuid())
+  companyId       String
+  companyMemberId String @unique
+
+  employeeNumber   String?
+  employmentStatus EmploymentStatus @default(PLANNED)
+  employmentType   EmploymentType   @default(FULL_TIME)
+
+  startDate        DateTime?
+  probationEndDate DateTime?
+  endDate          DateTime?
+
+  managerMemberId String?
+  workLocation    String?
+  weeklyHours     Decimal? @db.Decimal(6, 2)
+
+  onboardingStatus  HrProgressStatus @default(NOT_STARTED)
+  offboardingStatus HrProgressStatus @default(NOT_REQUIRED)
+
+  createdByMemberId String?
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  companyMember CompanyMember  @relation("EmployeeProfileMember", fields: [companyMemberId], references: [id], onDelete: Restrict)
+  managerMember CompanyMember? @relation("EmployeeProfileManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
+
+  compensations     Compensation[]
+  leaveRequests     LeaveRequest[]
+  leaveBalances     LeaveBalance[]
+  attendanceRecords AttendanceRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, employeeNumber])
+  @@index([companyId])
+  @@index([companyId, employmentStatus])
+  @@index([companyId, employmentType])
+  @@index([managerMemberId])
+  @@index([startDate])
+  @@index([endDate])
+  @@map("employee_profiles")
+}
+
+/// Pay, behind its own permission (PRD #16 §17, §58).
+///
+/// Effective-dated rather than overwritten: a raise opens a new record and
+/// closes the previous one, so what somebody was paid last year survives
+/// (PRD #16 §64, §65).
+model Compensation {
+  id                String @id @default(cuid())
+  companyId         String
+  employeeProfileId String
+
+  currency   String              @db.VarChar(3)
+  payType    CompensationPayType
+  baseAmount Decimal             @db.Decimal(18, 2)
+
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  notes String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([employeeProfileId])
+  @@index([employeeProfileId, effectiveFrom])
+  @@index([currency])
+  @@map("compensations")
+}
+
 model LeaveRequest {
-  id               String      @id @default(cuid())
-  companyId        String
-  employeeMemberId String
-  type             String
-  startDate        DateTime
-  endDate          DateTime
-  days             Int
-  reason           String?
-  status           LeaveStatus @default(PENDING)
+  id                String @id @default(cuid())
+  companyId         String
+  employeeProfileId String
+  companyMemberId   String
 
-  createdBy  String
-  updatedBy  String?
-  approvedBy String?
-  approvedAt DateTime?
+  leaveType LeaveType
+  startDate DateTime
+  endDate   DateTime
+  days      Decimal   @db.Decimal(6, 2)
+  reason    String?
 
-  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee CompanyMember @relation("LeaveEmployee", fields: [employeeMemberId], references: [id], onDelete: Cascade)
+  status LeaveRequestStatus @default(DRAFT)
+
+  submittedAt DateTime?
+
+  approvedByMemberId String?
+  approvedAt         DateTime?
+
+  rejectedByMemberId String?
+  rejectedAt         DateTime?
+
+  cancelledByMemberId String?
+  cancelledAt         DateTime?
+
+  decisionNote String?
+
+  createdByMemberId String
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
   @@index([companyId, status])
-  @@index([employeeMemberId])
+  @@index([companyMemberId])
+  @@index([employeeProfileId])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([leaveType])
   @@map("leave_requests")
+}
+
+/// Entitlement per employee, type and year (PRD #16 §79).
+///
+/// `usedDays` is maintained transactionally from approved leave, never sent by
+/// a browser: it is the number every "do you have enough days" check reads
+/// (PRD #16 §80).
+model LeaveBalance {
+  id                String    @id @default(cuid())
+  companyId         String
+  employeeProfileId String
+  companyMemberId   String
+  leaveType         LeaveType
+  year              Int
+
+  entitledDays   Decimal @db.Decimal(6, 2)
+  usedDays       Decimal @default(0) @db.Decimal(6, 2)
+  adjustmentDays Decimal @default(0) @db.Decimal(6, 2)
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeProfileId, leaveType, year])
+  @@index([companyId])
+  @@index([companyMemberId])
+  @@index([year])
+  @@map("leave_balances")
+}
+
+/// Daily attendance, not biometric timekeeping (PRD #16 §97).
+///
+/// The source columns let approved leave write `ON_LEAVE` days and, when that
+/// leave is cancelled, take exactly those rows back out again — without
+/// touching anything a person entered by hand (PRD #16 §109, §110).
+model AttendanceRecord {
+  id                String @id @default(cuid())
+  companyId         String
+  employeeProfileId String
+  companyMemberId   String
+
+  date   DateTime
+  status AttendanceStatus
+
+  checkIn       DateTime?
+  checkOut      DateTime?
+  workedMinutes Int?
+
+  notes  String?
+  source AttendanceSource @default(MANUAL)
+
+  sourceEntityType String?
+  sourceEntityId   String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyMemberId, date])
+  @@index([companyId])
+  @@index([companyId, date])
+  @@index([companyMemberId])
+  @@index([employeeProfileId])
+  @@index([status])
+  @@index([sourceEntityType, sourceEntityId])
+  @@map("attendance_records")
 }
 
 model Opportunity {

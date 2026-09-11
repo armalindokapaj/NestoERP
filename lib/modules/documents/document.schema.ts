@@ -28,6 +28,8 @@ export const DOCUMENT_RECORD_TYPES = [
   "expense",
   "budget",
   "commitment",
+  "employee",
+  "leave_request",
 ] as const;
 
 export type DocumentRecordType = (typeof DOCUMENT_RECORD_TYPES)[number];

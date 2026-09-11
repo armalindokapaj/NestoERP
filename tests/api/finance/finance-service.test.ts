@@ -384,7 +384,6 @@ describe("approval authority (PRD #15 §18, §19)", () => {
 
   it("refuses a rejection with no reason (PRD #15 §146)", async () => {
     const finance = await loginAs("FINANCE");
-    const owner = await loginAs("OWNER");
 
     const invoice = await invoices.createInvoice(finance, invoiceInput());
     createdInvoices.push(invoice.id);

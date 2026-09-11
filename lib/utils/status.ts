@@ -22,6 +22,10 @@ const TONES: Record<string, StatusTone> = {
 
   /* In flight */
   ACTIVE: "success",
+  PLANNED: "neutral",
+  PRESENT: "success",
+  REMOTE: "info",
+  ON_LEAVE: "info",
   IN_PROGRESS: "info",
   ORDERED: "info",
   SUBMITTED: "info",
@@ -49,8 +53,17 @@ const TONES: Record<string, StatusTone> = {
   WON: "success",
   RESOLVED: "success",
 
+  /* Settled, without a verdict */
+  ENDED: "default",
+  CANCELLED: "default",
+  HOLIDAY: "neutral",
+  OFF: "default",
+  NOT_STARTED: "default",
+  NOT_REQUIRED: "default",
+
   /* Wrong */
   OVERDUE: "danger",
+  ABSENT: "danger",
   BLOCKED: "danger",
   REJECTED: "danger",
   SUSPENDED: "danger",
@@ -58,6 +71,9 @@ const TONES: Record<string, StatusTone> = {
 
 const LABELS: Record<string, string> = {
   ON_HOLD: "On hold",
+  ON_LEAVE: "On leave",
+  NOT_STARTED: "Not started",
+  NOT_REQUIRED: "Not required",
   IN_PROGRESS: "In progress",
   PENDING_APPROVAL: "Pending approval",
   PUNCH_ITEM: "Punch item",
