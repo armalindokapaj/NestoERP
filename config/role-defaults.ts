@@ -227,10 +227,68 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "hr.offboarding.manage",
     ],
   },
+  /**
+   * Sales (PRD #17 §14, §19, §20).
+   *
+   * APPROVE is its own rung, as in Finance: running the pipeline and signing
+   * off the price a client is quoted are different jobs (PRD #17 §19). The
+   * conversion grants sit at MANAGE because each of them reaches into another
+   * module's records, and `sales.approval.self` is on no rung at all — it is an
+   * explicit grant, so "who checked the price?" has an answer other than "the
+   * person who quoted it" (PRD #17 §20).
+   */
   sales: {
-    VIEW: ["sales.view", "sales.opportunity.view"],
-    CONTRIBUTE: ["sales.opportunity.create", "sales.opportunity.update"],
-    MANAGE: ["sales.manage", "sales.opportunity.archive"],
+    VIEW: [
+      "sales.view",
+      "sales.dashboard.view",
+      "sales.lead.view",
+      "sales.opportunity.view",
+      "sales.proposal.view",
+      "sales.pipeline.view",
+      "sales.task.view",
+      "sales.document.view",
+      "sales.activity.view",
+      "sales.report.view",
+    ],
+    CONTRIBUTE: [
+      "sales.export",
+      "sales.task.create",
+      "sales.document.create",
+      "sales.lead.create",
+      "sales.lead.update",
+      "sales.lead.qualify",
+      "sales.lead.disqualify",
+      "sales.opportunity.create",
+      "sales.opportunity.update",
+      "sales.opportunity.stage.update",
+      "sales.proposal.create",
+      "sales.proposal.update",
+      "sales.proposal.submit",
+    ],
+    APPROVE: ["sales.proposal.approve", "sales.proposal.reject"],
+    MANAGE: [
+      "sales.manage",
+      "sales.pipeline.manage",
+      "sales.owner.assign",
+      "sales.lead.assign",
+      "sales.lead.convert",
+      "sales.lead.archive",
+      "sales.lead.restore",
+      "sales.opportunity.assign",
+      "sales.opportunity.mark_won",
+      "sales.opportunity.mark_lost",
+      "sales.opportunity.reopen",
+      "sales.opportunity.archive",
+      "sales.opportunity.restore",
+      "sales.proposal.mark_sent",
+      "sales.proposal.accept",
+      "sales.proposal.decline",
+      "sales.proposal.cancel",
+      "sales.proposal.archive",
+      "sales.proposal.restore",
+      "sales.client.convert",
+      "sales.project.convert",
+    ],
   },
   contracts: {
     VIEW: ["legal.view", "legal.contract.view"],
@@ -367,7 +425,7 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
   },
   PROJECT_MANAGER: {
     projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
-    finance: "V/P", hr: "V/P", contracts: "V/P",
+    finance: "V/P", hr: "V/P", sales: "V/P", contracts: "V/P",
     procurement: "C/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
@@ -440,8 +498,9 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     team: { extra: ["team.owner.assign"] },
     // The Owner is the one role that may approve their own submission: in a
     // company where they are the only approver, the alternative is a record
-    // nobody can ever decide (PRD #15 §19).
+    // nobody can ever decide (PRD #15 §19, PRD #17 §20).
     finance: { extra: ["finance.approval.self"] },
+    sales: { extra: ["sales.approval.self"] },
     // Pay is never on the ladder; the Owner holds it explicitly (PRD #16 §17).
     hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
   },
@@ -483,7 +542,30 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "finance.document.create",
       ],
     },
-    sales: { deny: ["sales.opportunity.create", "sales.opportunity.update"] },
+    /**
+     * Commercial approval without the sales desk (PRD #17 §13, §23, §351).
+     *
+     * The CEO reads the pipeline, decides proposals and runs the reports. They
+     * do not work leads or edit opportunities: APPROVE sits above CONTRIBUTE on
+     * the ladder, so without this the approver would also be an operator.
+     */
+    sales: {
+      deny: [
+        "sales.lead.create",
+        "sales.lead.update",
+        "sales.lead.qualify",
+        "sales.lead.disqualify",
+        "sales.opportunity.create",
+        "sales.opportunity.update",
+        "sales.opportunity.stage.update",
+        "sales.proposal.create",
+        "sales.proposal.update",
+        "sales.proposal.submit",
+        "sales.task.create",
+        "sales.document.create",
+        "sales.export",
+      ],
+    },
     contracts: { deny: ["legal.contract.create", "legal.contract.update"] },
     procurement: { deny: ["procurement.request.create", "procurement.request.update"] },
   },
@@ -529,6 +611,26 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "hr.report.view",
         "hr.export",
         "hr.attendance.view",
+      ],
+    },
+    /**
+     * The deal that became their project, and nothing else (PRD #17 §16, §195,
+     * §354).
+     *
+     * A project manager receives a won opportunity because they are delivering
+     * it. That is not a reason to hand them the open pipeline, the leads behind
+     * it, or the prices in anybody's proposals — which is what the scope
+     * clause and these denials say together.
+     */
+    sales: {
+      deny: [
+        "sales.lead.view",
+        "sales.proposal.view",
+        "sales.pipeline.view",
+        "sales.report.view",
+        "sales.task.view",
+        "sales.document.view",
+        "sales.activity.view",
       ],
     },
   },
@@ -598,8 +700,18 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   FINANCE: {
-    // Commercial context only, not the Sales workspace (PRD #5 §20).
-    sales: { deny: [] },
+    /**
+     * Commercial context only, not the Sales workspace (PRD #5 §20,
+     * PRD #17 §24, §152, §352).
+     *
+     * Won opportunity value and accepted proposal totals are what Finance needs
+     * to raise the invoice. Leads, the pipeline and the follow-up work are the
+     * sales desk's, and `sales.lead.view` is exactly the grant that says so
+     * (PRD #17 §17).
+     */
+    sales: {
+      deny: ["sales.lead.view", "sales.pipeline.view", "sales.task.view"],
+    },
     /**
      * The operational finance workspace — and not the approver (PRD #15 §18,
      * §284).
@@ -623,6 +735,16 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   LEGAL: {
+    /**
+     * The commercial record a contract is drawn from (PRD #17 §269, §353).
+     *
+     * A won opportunity and the proposal the client accepted are what Legal
+     * needs in front of them. Working the leads that got there is not part of
+     * drafting the contract.
+     */
+    sales: {
+      deny: ["sales.lead.view", "sales.pipeline.view", "sales.task.view"],
+    },
     // Contract-related financial data only (PRD #5 §21, PRD #15 §290):
     // invoice and commitment summaries, never general cashflow.
     finance: {
@@ -641,6 +763,17 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   SALES: {
+    /**
+     * The workspace this module exists for — and not the approver
+     * (PRD #17 §19, §20).
+     *
+     * MANAGE is the ladder's top rung, so without this the role that quotes
+     * every price would also sign it off. Commercial approval is the CEO's and
+     * the Owner's.
+     */
+    sales: {
+      deny: ["sales.proposal.approve", "sales.proposal.reject"],
+    },
     // Customer invoices, outstanding receivables and client payment status —
     // never corporate cashflow, expenses or budgets (PRD #5 §22, PRD #15 §289).
     finance: {

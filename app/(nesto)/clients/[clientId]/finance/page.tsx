@@ -33,8 +33,6 @@ export default async function ClientFinancePage({ params }: Params) {
 
   if (!client.capabilities.canViewFinance) notFound();
 
-  const may = client.capabilities;
-
   const [result, currency] = await Promise.all([
     can(context, "finance.invoice.view")
       ? invoices.listInvoices(context, parseInvoiceQuery({ clientId, limit: "50" }))
@@ -71,13 +69,7 @@ export default async function ClientFinancePage({ params }: Params) {
       <ClientTabs
         clientId={client.id}
         active="finance"
-        show={{
-          contacts: may.canViewContacts,
-          projects: may.canViewProjects,
-          finance: true,
-          documents: may.canViewDocuments,
-          activity: may.canViewActivity,
-        }}
+        capabilities={client.capabilities}
       />
 
       {can(context, "finance.receivables.view") ? (

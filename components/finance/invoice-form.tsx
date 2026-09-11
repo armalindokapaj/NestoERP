@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
-import { InvoiceLineItems, type InvoiceLineValue } from "./line-items-field";
+import { PricedLineItems, type PricedLineValue } from "./line-items-field";
 
 export type InvoiceFormValues = {
   invoiceNumber: string;
@@ -23,7 +23,7 @@ export type InvoiceFormValues = {
   dueDate: string;
   currency: string;
   notes: string | null;
-  lineItems: InvoiceLineValue[];
+  lineItems: PricedLineValue[];
 };
 
 /**
@@ -172,7 +172,7 @@ export function InvoiceForm({
         </Field>
       </FormSection>
 
-      <InvoiceLineItems
+      <PricedLineItems
         currency={currency}
         defaultLines={values?.lineItems}
         defaultTaxRate={defaultTaxRate}

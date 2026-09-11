@@ -34,8 +34,14 @@ const TONES: Record<string, StatusTone> = {
   NEGOTIATION: "info",
   OPEN: "info",
   TODO: "neutral",
-  LEAD: "neutral",
   INVITED: "warning",
+  /* Sales pipeline stages (PRD #17 §278, §289) — subtle accents, not a
+     rainbow: a board where every column shouts tells the reader nothing. */
+  PROSPECTING: "neutral",
+  DISCOVERY: "info",
+  NEW: "neutral",
+  CONTACTED: "info",
+  SENT: "info",
 
   /* Waiting on somebody */
   PENDING: "warning",
@@ -56,6 +62,10 @@ const TONES: Record<string, StatusTone> = {
   /* Settled, without a verdict */
   ENDED: "default",
   CANCELLED: "default",
+  DECLINED: "default",
+  DISQUALIFIED: "default",
+  CONVERTED: "success",
+  ACCEPTED: "success",
   HOLIDAY: "neutral",
   OFF: "default",
   NOT_STARTED: "default",
@@ -80,6 +90,10 @@ const LABELS: Record<string, string> = {
   CORRECTIVE_ACTION: "Corrective action",
   NCR: "NCR",
   TODO: "To do",
+  NO_BUDGET: "No budget",
+  NO_RESPONSE: "No response",
+  SCOPE_MISMATCH: "Scope mismatch",
+  INTERNAL_DECISION: "Internal decision",
   QAQC: "QA/QC",
   HSE: "HSE",
   HR: "HR",

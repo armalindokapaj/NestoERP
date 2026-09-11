@@ -47,13 +47,7 @@ export default async function ClientActivityPage({ params, searchParams }: Param
       <ClientTabs
         clientId={client.id}
         active="activity"
-        show={{
-          contacts: client.capabilities.canViewContacts,
-          projects: client.capabilities.canViewProjects,
-          finance: client.capabilities.canViewFinance,
-          documents: client.capabilities.canViewDocuments,
-          activity: true,
-        }}
+        capabilities={client.capabilities}
       />
 
       {activity.data.length === 0 ? (

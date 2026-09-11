@@ -344,3 +344,112 @@ export async function removeTestHrRecords(prefix: string): Promise<void> {
     );
   }
 }
+
+/**
+ * Returns the Sales fixtures to the state the seed documents (PRD #17 §313).
+ *
+ * A spec that approves the last pending proposal and leaves it approved is
+ * exactly how a suite quietly stops asserting anything about the approval
+ * queue.
+ */
+export async function resetSalesFixtures(): Promise<void> {
+  await db.salesApproval.updateMany({
+    where: { id: { in: ["sales_approval_001", "sales_approval_002"] } },
+    data: { status: "PENDING", decidedByMemberId: null, decidedAt: null, decisionNote: null },
+  });
+
+  await db.proposal.updateMany({
+    where: { id: { in: ["proposal_004", "proposal_005"] } },
+    data: { status: "PENDING_APPROVAL", sentAt: null, acceptedAt: null, declinedAt: null },
+  });
+
+  await db.proposal.updateMany({
+    where: { id: "proposal_006" },
+    data: { status: "APPROVED", sentAt: null, acceptedAt: null, declinedAt: null },
+  });
+
+  await db.proposal.updateMany({
+    where: { id: "proposal_003" },
+    data: { status: "DRAFT", sentAt: null },
+  });
+
+  await db.lead.updateMany({
+    where: { id: { in: ["lead_001", "lead_004", "lead_012"] } },
+    data: { status: "QUALIFIED", disqualifyReason: null, convertedAt: null, convertedClientId: null },
+  });
+
+  await db.lead.updateMany({
+    where: { id: { in: ["lead_002", "lead_005"] } },
+    data: { status: "NEW", disqualifyReason: null },
+  });
+
+  await db.opportunity.updateMany({
+    where: { id: "opportunity_003" },
+    data: { stage: "QUALIFIED", actualCloseDate: null, lostReason: null, lostNote: null },
+  });
+}
+
+/**
+ * Removes the Sales records a spec created, so a rerun starts from the seed.
+ *
+ * Deleted in dependency order: a proposal restrains its opportunity, and an
+ * opportunity restrains its lead.
+ */
+export async function removeTestSalesRecords(prefix: string): Promise<void> {
+  const proposals = await db.proposal.findMany({
+    where: { OR: [{ title: { startsWith: prefix } }, { proposalNumber: { startsWith: prefix } }] },
+    select: { id: true },
+  });
+  const proposalIds = proposals.map((row) => row.id);
+
+  if (proposalIds.length > 0) {
+    await db.salesApproval.deleteMany({ where: { recordId: { in: proposalIds } } });
+    await db.activity.deleteMany({ where: { entityId: { in: proposalIds } } });
+    await db.proposal.deleteMany({ where: { id: { in: proposalIds } } });
+  }
+
+  const opportunities = await db.opportunity.findMany({
+    where: { name: { startsWith: prefix } },
+    select: { id: true },
+  });
+  const opportunityIds = opportunities.map((row) => row.id);
+
+  if (opportunityIds.length > 0) {
+    await db.proposal.deleteMany({ where: { opportunityId: { in: opportunityIds } } });
+    await db.activity.deleteMany({ where: { entityId: { in: opportunityIds } } });
+    await db.opportunity.deleteMany({ where: { id: { in: opportunityIds } } });
+  }
+
+  const leads = await db.lead.findMany({
+    where: { OR: [{ name: { startsWith: prefix } }, { companyName: { startsWith: prefix } }] },
+    select: { id: true, convertedClientId: true },
+  });
+
+  if (leads.length > 0) {
+    await db.activity.deleteMany({ where: { entityId: { in: leads.map((row) => row.id) } } });
+    await db.lead.deleteMany({ where: { id: { in: leads.map((row) => row.id) } } });
+  }
+
+  // Clients and projects a conversion created, addressed by the same prefix.
+  const projects = await db.project.findMany({
+    where: { name: { startsWith: prefix } },
+    select: { id: true },
+  });
+  if (projects.length > 0) {
+    const ids = projects.map((row) => row.id);
+    await db.projectMember.deleteMany({ where: { projectId: { in: ids } } });
+    await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+    await db.project.deleteMany({ where: { id: { in: ids } } });
+  }
+
+  const clients = await db.client.findMany({
+    where: { name: { startsWith: prefix } },
+    select: { id: true },
+  });
+  if (clients.length > 0) {
+    const ids = clients.map((row) => row.id);
+    await db.contact.deleteMany({ where: { clientId: { in: ids } } });
+    await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+    await db.client.deleteMany({ where: { id: { in: ids } } });
+  }
+}

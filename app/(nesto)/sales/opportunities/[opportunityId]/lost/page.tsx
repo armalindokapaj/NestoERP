@@ -1,0 +1,41 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+
+import { RecordContextHeader } from "@/components/modules/record-header";
+import { LostForm } from "@/components/sales/close-forms";
+import { markLostAction } from "@/lib/actions/sales";
+import { opportunityContext } from "../opportunity-context";
+
+export const metadata: Metadata = { title: "Mark lost" };
+
+type Params = { params: Promise<{ opportunityId: string }> };
+
+/** Losing a deal, with a reason the report can group by (PRD #17 §93, §168). */
+export default async function MarkLostPage({ params }: Params) {
+  const { opportunityId } = await params;
+  const { opportunity } = await opportunityContext(opportunityId);
+
+  if (!opportunity.capabilities.canMarkLost) redirect(`/sales/opportunities/${opportunityId}`);
+
+  async function action(formData: FormData) {
+    "use server";
+    return markLostAction(opportunityId, formData);
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-5">
+      <RecordContextHeader
+        breadcrumbs={[
+          { label: "Sales", href: "/sales" },
+          { label: "Opportunities", href: "/sales/opportunities" },
+          { label: opportunity.name, href: `/sales/opportunities/${opportunityId}` },
+          { label: "Mark lost" },
+        ]}
+        title={`Mark ${opportunity.name} as lost`}
+        subtitle="It can be reopened later. The reason is what makes the lost-reason report worth reading."
+      />
+
+      <LostForm action={action} cancelHref={`/sales/opportunities/${opportunityId}`} />
+    </div>
+  );
+}

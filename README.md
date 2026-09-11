@@ -1,6 +1,6 @@
 # NESTO V0.1
 
-**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients, Documents, Team, Finance & HR**
+**ERP Foundation: Access, Shell, Dashboards, Module System, Projects, Tasks, Clients, Documents, Team, Finance, HR & Sales**
 
 V0.1 is not the finished ERP. It is the permanent foundation: one application,
 one design system, one app shell, one navigation engine, one access system, one
@@ -29,6 +29,7 @@ Implements PRDs #1–#15.
 | #14 Team Module | `lib/modules/team`, `app/(nesto)/team`, `app/(public)/invite`, `app/api/{team,departments}` |
 | #15 Finance Module | `lib/modules/finance`, `app/(nesto)/finance`, `app/api/finance` |
 | #16 HR Module | `lib/modules/hr`, `app/(nesto)/hr`, `app/api/hr` |
+| #17 Sales Module | `lib/modules/sales`, `app/(nesto)/sales`, `app/api/sales` |
 
 ---
 
@@ -623,6 +624,88 @@ response cannot confirm that person works here. PROJECT scope is deliberately
 folded into SELF: running a project tells you who is on it, which is Team's job,
 and must not become access to those people's employment files.
 
+
+### Sales: the pipeline, not a second CRM
+
+Sales (PRD #17) is the commercial pipeline — a lead somebody has not qualified
+yet, an opportunity being worked, a proposal the client has to say yes to, and
+the moment a deal becomes a customer and a job. It is not a second customer
+database, a second project table or a second invoice.
+
+```
+lib/modules/sales/
+  sales.scope.ts        SELF / DEPARTMENT / COMPANY, plus PROJECT for won work
+  sales.dto.ts          one member reference, carrying whether they still work here
+  sales.export.ts       CSV built on the list services
+  leads/                capture, qualify, disqualify, convert — and lead.duplicate.ts
+  opportunities/        the deal, opportunity.stage.ts and opportunity.forecast.ts
+  proposals/            the offer, its line items and proposal.calculation.ts
+  approvals/            one approval cycle per submission
+  overview/ reports/
+```
+
+**A lead is not a client, and an opportunity is not a project.** The canonical
+records are created at conversion, by the Clients and Projects services, in the
+*same transaction* — `createClientRecord` and `createProjectRecord` exist for
+exactly that. Sales owns no customer table and no project table, so the client
+a deal created is the same row `/clients` serves, with the same id.
+
+**A deal cannot be won without a canonical client.** A won opportunity is a
+customer relationship, and Finance, Legal and delivery all need one record to
+point at. Winning offers "keep", "link an existing" or "create a new" — and the
+options a person is shown are only the ones their permissions actually reach:
+`sales.project.convert` lets somebody hand a deal to a project, `project.create`
+lets them make one, and those are different answers.
+
+**Closing happens once.** Mark-won, mark-lost, lead conversion, approval
+decisions and stage moves are all conditional updates checked by row count, so
+two people pressing at the same moment produce one outcome and one conflict.
+Accepting a proposal additionally takes the opportunity's row lock first, so two
+acceptances cannot both find "nothing accepted yet" and leave one deal with two
+agreed prices.
+
+**Winning is not a stage.** The stage table has no transition into WON or LOST
+from anywhere: closing a deal needs a close date, a client, a reason, and its
+own permission, so it can never happen as a side effect of a drag between two
+Kanban columns. The board has no drag-and-drop at all — PRD §297 requires a
+keyboard alternative, and once the control exists it is the better one on every
+device, because it is explicit and cannot half-happen on a touch screen.
+
+**The forecast is the server's.** Probability is the stage default unless
+somebody overrode it, weighted value is `estimate × probability ÷ 100` in
+Decimal, and both are derived on every read. Nothing arrives from the browser,
+so a crafted request cannot forecast one number while the database holds
+another.
+
+**Currencies are grouped, never summed.** As in Finance, and for the same
+reason: V0.1 has no FX engine, so "€400,000 + $200,000 = 600,000" is not a
+number this product is allowed to print. Every pipeline total, report and KPI
+lists each currency separately.
+
+**Approval is separate from operation.** The sales desk manages the pipeline and
+quotes the price; the CEO and Owner sign it off. `sales.proposal.approve` is
+denied to the Sales role even at MANAGE, and `sales.approval.self` sits on no
+rung at all — the Owner holds it explicitly, because in a company where they are
+the only approver the alternative is a proposal nobody can ever decide.
+
+**A proposal is not an invoice.** It carries no receivable and settles nothing,
+and Finance never reads one as one — though it shares the invoice's arithmetic
+exactly, because a proposal for €395,000 that becomes an invoice for €395,000.01
+is the kind of discrepancy a client writes in about.
+
+**A project manager receives the deal, not the pipeline.** PROJECT scope reaches
+a won opportunity whose converted project they can open, and nothing else: being
+handed a job is not a reason to be handed the company's commercial position.
+Finance and Legal read opportunity and proposal values without `sales.lead.view`
+— commercial context is not the sales workspace.
+
+**History is preserved, not replaced.** A converted lead stays as the record of
+where the deal came from and becomes read-only; a won opportunity stays and
+cannot be archived; an accepted proposal can be neither edited nor cancelled.
+Archiving an opportunity keeps its stage in `preArchiveStage` rather than
+overwriting it, because filing something away is not the same fact as how it
+ended.
+
 ### Database
 
 The full core data model (PRD #8): `Company`, `User`, `CompanyMember`,
@@ -631,7 +714,8 @@ The full core data model (PRD #8): `Company`, `User`, `CompanyMember`,
 `Document`, `CompanyInvite`, `FinanceSettings`, `Invoice`, `InvoiceLineItem`,
 `Expense`, `Payment`, `ProjectBudget`, `ProjectBudgetLineItem`, `Commitment`,
 `FinanceApproval`, `EmployeeProfile`, `Compensation`, `LeaveRequest`,
-`LeaveBalance`, `AttendanceRecord`, `Activity`, `Session`, `PasswordResetToken`,
+`LeaveBalance`, `AttendanceRecord`, `Lead`, `Opportunity`, `Proposal`,
+`ProposalLineItem`, `SalesApproval`, `Activity`, `Session`, `PasswordResetToken`,
 `AuthEvent` —
 plus the
 small module test records that make each department module's shell exercisable.
@@ -652,7 +736,8 @@ app/
   (nesto)/            every authenticated route, inside the one AppShell
     dashboard/        one route, 16 role dashboards
     projects/         the reference module, fully functional
-    finance/ hr/ …    department modules — three-line routes over the registry
+    finance/ hr/ sales/   real modules, each with its own services and pages
+    procurement/ …    department modules still on the shell registry
     settings/         profile and appearance are personal; the rest is gated
   api/
     auth/             Auth.js route handler
@@ -761,8 +846,9 @@ They are set with the `.nesto-eyebrow` utility so the tracking is identical
 everywhere.
 
 `NestoLogo` assembles three ways from that one source: mark plus wordmark for
-compact headers, wordmark plus tagline for the sidebar and drawer, and the mark
-alone for the 72px rail.
+compact headers, wordmark plus tagline for the drawer, and the wordmark or the
+mark alone for the sidebar and its 72px rail, where a second line would overrun
+the width.
 
 ### Shell geometry
 
@@ -776,8 +862,10 @@ width:
 | 1024–1199px | 72px icon rail with tooltips — tablet landscape keeps navigation visible |
 | ≥ 1200px | 240px sidebar, collapsible to the same 72px rail |
 
-The collapse preference lives in a cookie, so it is already correct in the first
-byte of HTML. Settings → Appearance drives the same state.
+The collapse control sits at the left of the top bar, not in the sidebar: the
+rail header has one slot and the mark already owns it as the link home. The
+preference lives in a cookie, so it is already correct in the first byte of HTML.
+Settings → Appearance drives the same state.
 
 ### Component layers
 

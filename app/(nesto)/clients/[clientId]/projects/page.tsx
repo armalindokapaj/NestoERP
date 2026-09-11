@@ -60,12 +60,7 @@ export default async function ClientProjectsPage({ params }: Params) {
       <ClientTabs
         clientId={client.id}
         active="projects"
-        show={{
-          contacts: client.capabilities.canViewContacts,
-          projects: true,
-          documents: client.capabilities.canViewDocuments,
-          activity: client.capabilities.canViewActivity,
-        }}
+        capabilities={client.capabilities}
       />
 
       {projects.length === 0 ? (

@@ -181,6 +181,46 @@ const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
     return Boolean(found);
   },
 
+  /*
+   * Sales parents (PRD #17 §141–§144, §265, §335).
+   *
+   * Each record answers with its own scope clause and its own view permission,
+   * so a proposal PDF is exactly as reachable as the proposal — never more. An
+   * Architect holding generic `document.view` gets nothing here, which is the
+   * release-critical case (PRD #17 §335).
+   */
+  async lead(context, entityId) {
+    if (!can(context, "sales.document.view") || !can(context, "sales.lead.view")) return false;
+    const { buildLeadScopeWhere } = await import("@/lib/modules/sales/sales.scope");
+    const found = await prisma.lead.findFirst({
+      where: { AND: [buildLeadScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async opportunity(context, entityId) {
+    if (!can(context, "sales.document.view") || !can(context, "sales.opportunity.view")) {
+      return false;
+    }
+    const { buildOpportunityScopeWhere } = await import("@/lib/modules/sales/sales.scope");
+    const found = await prisma.opportunity.findFirst({
+      where: { AND: [buildOpportunityScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async proposal(context, entityId) {
+    if (!can(context, "sales.document.view") || !can(context, "sales.proposal.view")) return false;
+    const { buildProposalScopeWhere } = await import("@/lib/modules/sales/sales.scope");
+    const found = await prisma.proposal.findFirst({
+      where: { AND: [buildProposalScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
   async leave_request(context, entityId) {
     // No self-service door: a supporting file on a leave request may be a
     // medical certificate, which is what `hr.leave.view` protects
@@ -255,6 +295,9 @@ const MODULE_UPLOAD_GRANT: Record<string, Permission> = {
   // employee putting a document onto their own record is still an HR filing
   // decision (PRD #16 §134, §135).
   hr: "hr.document.create",
+  // Reading a proposal is not the same permission as attaching a file to it
+  // (PRD #17 §143).
+  sales: "sales.document.create",
 };
 
 /** May this caller file a *new* document against that parent (PRD #13 §43, §91)? */
@@ -304,6 +347,12 @@ const RECORD_DOCUMENT_GRANTS: Record<string, Permission[]> = {
   // way round (PRD #16 §132, §133).
   employee: ["hr.document.view", "hr.employee.view"],
   leave_request: ["hr.document.view", "hr.leave.view"],
+  // Sales needs the document grant and access to the kind of record it hangs
+  // off: an opportunity brief is not reachable through proposal access, or the
+  // other way round (PRD #17 §143).
+  lead: ["sales.document.view", "sales.lead.view"],
+  opportunity: ["sales.document.view", "sales.opportunity.view"],
+  proposal: ["sales.document.view", "sales.proposal.view"],
 };
 
 /**

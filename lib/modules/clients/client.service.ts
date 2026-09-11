@@ -168,66 +168,87 @@ export async function createClient(
     if (matches.length > 0) throw new DuplicateClientError(matches);
   }
 
-  const wantsContact = Boolean(input.contactFirstName && input.contactLastName);
-
   const created = await prisma
-    .$transaction(async (tx) => {
-      const client = await tx.client.create({
-        data: {
-          companyId: context.companyId,
-          ...clientData(input),
-          normalizedName: normalizeName(input.name),
-          createdBy: context.userId,
-        },
-        select: { id: true },
-      });
-
-      await recordActivity(tx, context, {
-        module: MODULE,
-        entityType: CLIENT_ENTITY,
-        entityId: client.id,
-        action: "CLIENT_CREATED",
-        message: "created the client",
-        metadata: { clientId: client.id } as Prisma.InputJsonValue,
-      });
-
-      // The optional primary contact is created in the same transaction, so a
-      // client is never left half-made (PRD #12 §50).
-      if (wantsContact) {
-        assertPermission(context, "contact.create");
-
-        const contact = await tx.contact.create({
-          data: {
-            companyId: context.companyId,
-            clientId: client.id,
-            firstName: input.contactFirstName!,
-            lastName: input.contactLastName!,
-            jobTitle: input.contactJobTitle ?? null,
-            email: input.contactEmail ?? null,
-            phone: input.contactPhone ?? null,
-            isPrimary: true,
-            status: "ACTIVE",
-            createdBy: context.userId,
-          },
-          select: { id: true },
-        });
-
-        await recordActivity(tx, context, {
-          module: MODULE,
-          entityType: CONTACT_ENTITY,
-          entityId: contact.id,
-          action: "CONTACT_CREATED",
-          message: "added the primary contact",
-          metadata: { clientId: client.id, contactId: contact.id } as Prisma.InputJsonValue,
-        });
-      }
-
-      return client;
-    })
+    .$transaction((tx) => createClientRecord(tx, context, input))
     .catch(translateWriteError);
 
   return getClient(context, created.id);
 }
+
+/**
+ * Creating the canonical client, inside somebody else's transaction
+ * (PRD #12 §50, PRD #17 §54, §259, §260).
+ *
+ * Sales converts a lead into a Client and an Opportunity together, and either
+ * both land or neither does. Rather than a second client-creation path living
+ * in Sales, the conversion calls this — the same insert, the same normalised
+ * name, the same activity entry — with its own transaction handle.
+ *
+ * The permission is asserted here rather than only in the caller, so a future
+ * caller cannot reach the insert without it.
+ */
+export async function createClientRecord(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: CreateClientInput,
+): Promise<{ id: string; name: string }> {
+  assertPermission(context, "client.create");
+
+  const client = await tx.client.create({
+    data: {
+      companyId: context.companyId,
+      ...clientData(input),
+      normalizedName: normalizeName(input.name),
+      createdBy: context.userId,
+    },
+    select: { id: true, name: true },
+  });
+
+  await recordActivity(tx, context, {
+    module: MODULE,
+    entityType: CLIENT_ENTITY,
+    entityId: client.id,
+    action: "CLIENT_CREATED",
+    message: "created the client",
+    metadata: { clientId: client.id } as Prisma.InputJsonValue,
+  });
+
+  // The optional primary contact is created in the same transaction, so a
+  // client is never left half-made (PRD #12 §50).
+  if (input.contactFirstName && input.contactLastName) {
+    assertPermission(context, "contact.create");
+
+    const contact = await tx.contact.create({
+      data: {
+        companyId: context.companyId,
+        clientId: client.id,
+        firstName: input.contactFirstName,
+        lastName: input.contactLastName,
+        jobTitle: input.contactJobTitle ?? null,
+        email: input.contactEmail ?? null,
+        phone: input.contactPhone ?? null,
+        isPrimary: true,
+        status: "ACTIVE",
+        createdBy: context.userId,
+      },
+      select: { id: true },
+    });
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: CONTACT_ENTITY,
+      entityId: contact.id,
+      action: "CONTACT_CREATED",
+      message: "added the primary contact",
+      metadata: { clientId: client.id, contactId: contact.id } as Prisma.InputJsonValue,
+    });
+  }
+
+  return client;
+}
+
+/** The duplicate check Sales runs before it offers to create a client (PRD #17 §158). */
+export { findPossibleDuplicates, normalizeName };
 
 export async function updateClient(
   context: UserContext,
@@ -789,6 +810,13 @@ function toDetailDTO(
     canViewFinance:
       can(context, "finance.view") &&
       (can(context, "finance.invoice.view") || can(context, "finance.receivables.view")),
+    /**
+     * The client Sales tab needs client access *and* Sales access to the deals
+     * behind it (PRD #17 §266, §414). Generic client access is never enough —
+     * and what the tab then shows is still narrowed by the Sales scope, so the
+     * counts on it are the reader's own.
+     */
+    canViewSales: can(context, "sales.view") && can(context, "sales.opportunity.view"),
     },
   };
 }

@@ -37,11 +37,15 @@ const EXPECTATIONS: {
      * The Project Manager does hold HR access — VIEW at PROJECT scope
      * (PRD #5 §10) — which is how they see their own project team's
      * availability (PRD #4 §33). Same module, different experience.
+     *
+     * Sales works the same way from PRD #17 §16: VIEW at PROJECT scope, which
+     * reaches the won opportunity behind a project they deliver and nothing
+     * else. The nav entry is there; the open pipeline is not.
      */
     role: "PROJECT_MANAGER",
-    visible: ["Projects", "Tasks", "Clients", "Documents", "Finance", "HR"],
-    hidden: ["Sales"],
-    denied: ["/sales"],
+    visible: ["Projects", "Tasks", "Clients", "Documents", "Finance", "HR", "Sales"],
+    hidden: [],
+    denied: [],
   },
   {
     role: "ARCHITECT",

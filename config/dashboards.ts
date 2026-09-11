@@ -166,7 +166,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "openTasks",
       "recentActivity",
     ],
-    quickActions: ["newOpportunity", "newClient", "uploadDocument"],
+    quickActions: ["newLead", "newOpportunity", "newClient"],
   },
   PROCUREMENT: {
     focus: "Purchasing workflow from request to delivery.",
