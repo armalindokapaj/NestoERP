@@ -66,6 +66,14 @@ export const quickActions: Record<string, QuickActionDefinition> = {
     module: "hr",
     permission: "hr.leave.create",
   },
+  newLead: {
+    key: "newLead",
+    label: "New lead",
+    href: "/sales/leads/new",
+    icon: "UserPlus",
+    module: "sales",
+    permission: "sales.lead.create",
+  },
   newOpportunity: {
     key: "newOpportunity",
     label: "New opportunity",

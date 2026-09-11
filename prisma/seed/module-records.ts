@@ -17,54 +17,14 @@ export async function seedModuleRecords(prisma: PrismaClient, members: Members) 
   // items, expenses, payments, budgets, commitments and approvals (PRD #15 §328).
   // HR has its own seed now (prisma/seed/hr.ts): employment records,
   // compensation, leave with balances, and attendance (PRD #16 §327).
-  await seedOpportunities(prisma, members);
+  // Sales has its own seed now (prisma/seed/sales.ts): leads, opportunities,
+  // proposals with line items, approvals, tasks and documents (PRD #17 §301).
   await seedContracts(prisma);
   await seedProcurement(prisma, members);
   await seedInventory(prisma, members);
   await seedQuality(prisma, members);
   await seedHse(prisma, members);
   await seedSupport(prisma, members);
-}
-
-/* Sales — 12 opportunities across every stage (PRD #9 §73, §74) ------------- */
-
-const OPPORTUNITIES = [
-  { name: "Riverside phase 2", client: "client_acme", stage: "NEGOTIATION", value: 1850000, close: 45 },
-  { name: "Beta head office refurb", client: "client_beta", stage: "PROPOSAL", value: 640000, close: 30 },
-  { name: "Meridian marina retail", client: "client_meridian", stage: "QUALIFIED", value: 920000, close: 90 },
-  { name: "Atlas cold storage", client: "client_atlas", stage: "LEAD", value: 430000, close: 120 },
-  { name: "Nova Living block A", client: "client_nova", stage: "PROPOSAL", value: 1200000, close: 60 },
-  { name: "Urban Core plaza", client: "client_urban", stage: "WON", value: 780000, close: -20 },
-  { name: "Horizon coastal villas", client: "client_horizon", stage: "QUALIFIED", value: 2100000, close: 150 },
-  { name: "Delta workspace fitout", client: "client_delta", stage: "LOST", value: 260000, close: -40 },
-  { name: "Greenline villas package", client: "client_greenline", stage: "NEGOTIATION", value: 1450000, close: 35 },
-  { name: "Municipality civic hall", client: "client_municipality", stage: "LEAD", value: 3300000, close: 210 },
-  { name: "ACME logistics annex", client: "client_acme", stage: "WON", value: 540000, close: -75 },
-  { name: "Beta parking structure", client: "client_beta", stage: "PROPOSAL", value: 380000, close: 25 },
-] as const;
-
-async function seedOpportunities(prisma: PrismaClient, members: Members) {
-  let index = 0;
-  for (const opportunity of OPPORTUNITIES) {
-    index += 1;
-    const id = `opportunity_${index.toString().padStart(3, "0")}`;
-    await prisma.opportunity.upsert({
-      where: { id },
-      update: {},
-      create: {
-        id,
-        companyId: COMPANY_A,
-        clientId: opportunity.client,
-        ownerMemberId: members.get("user_sales")!,
-        name: opportunity.name,
-        stage: opportunity.stage,
-        value: opportunity.value,
-        currency: "EUR",
-        expectedClose: daysFromNow(opportunity.close),
-        createdBy: "user_sales",
-      },
-    });
-  }
 }
 
 /* Legal — 10 contracts, two awaiting approval (PRD #9 §75, §76) ------------- */

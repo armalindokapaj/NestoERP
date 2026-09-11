@@ -62,8 +62,11 @@ const ACTIVITIES: ActivitySpec[] = [
 
   { module: "clients", entityType: "Client", entityId: "client_horizon", action: "CLIENT_CREATED", message: "added Horizon Estates", actor: "user_sales", daysAgo: 26 },
   { module: "clients", entityType: "Client", entityId: "client_nova", action: "CLIENT_UPDATED", message: "updated Nova Living", actor: "user_sales", daysAgo: 13 },
-  { module: "sales", entityType: "Opportunity", entityId: "opportunity_006", action: "OPPORTUNITY_WON", message: "won “Urban Core plaza”", actor: "user_sales", daysAgo: 20 },
-  { module: "sales", entityType: "Opportunity", entityId: "opportunity_001", action: "OPPORTUNITY_UPDATED", message: "moved “Riverside phase 2” to negotiation", actor: "user_sales", daysAgo: 4 },
+  { module: "sales", entityType: "Lead", entityId: "lead_020", action: "SALES_LEAD_CONVERTED", message: "converted the lead Ardit Meta into an opportunity", actor: "user_sales", daysAgo: 90 },
+  { module: "sales", entityType: "Opportunity", entityId: "opportunity_004", action: "SALES_OPPORTUNITY_WON", message: "marked “Urban Core plaza” as won", actor: "user_sales", daysAgo: 20 },
+  { module: "sales", entityType: "Opportunity", entityId: "opportunity_001", action: "SALES_OPPORTUNITY_STAGE_CHANGED", message: "moved the opportunity from PROPOSAL to NEGOTIATION", actor: "user_sales", daysAgo: 8 },
+  { module: "sales", entityType: "Proposal", entityId: "proposal_008", action: "SALES_PROPOSAL_ACCEPTED", message: "recorded proposal PROP-2026-008 as accepted", actor: "user_sales", daysAgo: 8 },
+  { module: "sales", entityType: "Proposal", entityId: "proposal_010", action: "SALES_PROPOSAL_REJECTED", message: "rejected proposal PROP-2026-010", actor: "user_ceo", daysAgo: 4 },
 
   { module: "contracts", entityType: "Contract", entityId: "contract_003", action: "CONTRACT_SUBMITTED", message: "submitted CTR-003 for approval", actor: "user_legal", daysAgo: 7 },
   { module: "contracts", entityType: "Contract", entityId: "contract_004", action: "CONTRACT_EXPIRING", message: "flagged CTR-004 as expiring", actor: "user_legal", daysAgo: 1 },

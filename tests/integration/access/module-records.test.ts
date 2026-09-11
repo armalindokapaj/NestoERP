@@ -131,8 +131,9 @@ describe("company-disabled modules (PRD #9 §110, §142)", () => {
 });
 
 describe("company isolation across every record type (PRD #9 §12, §157)", () => {
+  // Finance, HR and Sales are real modules now, with their own services and
+  // their own tests — they are deliberately absent from the shell registry.
   const cases: { module: string; section: string; role: Parameters<typeof loginAs>[0] }[] = [
-    { module: "sales", section: "opportunities", role: "SALES" },
     { module: "contracts", section: "contracts", role: "LEGAL" },
     { module: "procurement", section: "requests", role: "PROCUREMENT" },
     { module: "inventory", section: "items", role: "INVENTORY" },

@@ -1,0 +1,48 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+
+import { RecordContextHeader } from "@/components/modules/record-header";
+import { LinkProjectForm } from "@/components/sales/link-project-form";
+import { can } from "@/lib/access/can";
+import { salesProjectOptions } from "@/lib/modules/sales/sales.options";
+import { opportunityContext } from "../opportunity-context";
+
+export const metadata: Metadata = { title: "Link a project" };
+
+type Params = { params: Promise<{ opportunityId: string }> };
+
+/**
+ * Handing a won deal over to a project set up afterwards (PRD #17 §423).
+ *
+ * The opportunity stays WON. Only the delivery link is added.
+ */
+export default async function LinkProjectPage({ params }: Params) {
+  const { opportunityId } = await params;
+  const { context, opportunity } = await opportunityContext(opportunityId);
+
+  if (!opportunity.capabilities.canLinkProject) redirect(`/sales/opportunities/${opportunityId}`);
+  if (!can(context, "project.view")) redirect(`/sales/opportunities/${opportunityId}`);
+
+  const projects = await salesProjectOptions(context, opportunity.client?.id ?? null);
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-5">
+      <RecordContextHeader
+        breadcrumbs={[
+          { label: "Sales", href: "/sales" },
+          { label: "Opportunities", href: "/sales/opportunities" },
+          { label: opportunity.name, href: `/sales/opportunities/${opportunityId}` },
+          { label: "Link a project" },
+        ]}
+        title="Link a delivery project"
+        subtitle={`${opportunity.name} stays won. This records which project delivers it.`}
+      />
+
+      <LinkProjectForm
+        opportunityId={opportunityId}
+        projects={projects}
+        cancelHref={`/sales/opportunities/${opportunityId}`}
+      />
+    </div>
+  );
+}

@@ -218,10 +218,71 @@ export const PERMISSIONS = [
   /* Sales ---------------------------------------------------------------- */
   "sales.view",
   "sales.manage",
+  "sales.dashboard.view",
+
+  "sales.lead.view",
+  "sales.lead.create",
+  "sales.lead.update",
+  "sales.lead.assign",
+  "sales.lead.qualify",
+  "sales.lead.disqualify",
+  "sales.lead.convert",
+  "sales.lead.archive",
+  "sales.lead.restore",
+
   "sales.opportunity.view",
   "sales.opportunity.create",
   "sales.opportunity.update",
+  "sales.opportunity.assign",
+  "sales.opportunity.stage.update",
+  "sales.opportunity.mark_won",
+  "sales.opportunity.mark_lost",
+  "sales.opportunity.reopen",
   "sales.opportunity.archive",
+  "sales.opportunity.restore",
+
+  "sales.proposal.view",
+  "sales.proposal.create",
+  "sales.proposal.update",
+  "sales.proposal.submit",
+  "sales.proposal.approve",
+  "sales.proposal.reject",
+  "sales.proposal.mark_sent",
+  "sales.proposal.accept",
+  "sales.proposal.decline",
+  "sales.proposal.cancel",
+  "sales.proposal.archive",
+  "sales.proposal.restore",
+
+  "sales.pipeline.view",
+  "sales.pipeline.manage",
+
+  "sales.task.view",
+  "sales.task.create",
+
+  "sales.document.view",
+  "sales.document.create",
+
+  "sales.activity.view",
+  "sales.report.view",
+  "sales.export",
+
+  /**
+   * Conversion (PRD #17 §397).
+   *
+   * Each of these is only half the decision: turning a lead into a client also
+   * needs `client.create`, and winning a deal into a project also needs
+   * `project.create`. Sales never grants access to another module's records.
+   */
+  "sales.client.convert",
+  "sales.project.convert",
+  "sales.owner.assign",
+  /**
+   * Permission to approve your own proposal. Withheld by default, for the same
+   * reason as in Finance: "who checked the price?" must have an answer other
+   * than "the person who quoted it" (PRD #17 §20).
+   */
+  "sales.approval.self",
 
   /* Legal / Contracts ---------------------------------------------------- */
   "legal.view",

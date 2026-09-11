@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import * as projects from "@/lib/modules/projects/project.service";
+import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import {
   daysRemaining,
   formatDaysRemaining,
@@ -72,6 +73,22 @@ export default async function ProjectOverviewPage({ params }: Params) {
     ? await projects.listActivity(context, projectId, { page: 1, limit: 5 })
     : null;
 
+  /**
+   * The deal this project came from (PRD #17 §267, §385).
+   *
+   * Shown only to somebody who may see Sales records, and resolved through the
+   * Sales scope — so a project manager without Sales access sees nothing here
+   * rather than the commercial value behind their own job (PRD #17 §365, §416).
+   */
+  const sourceOpportunity = can(context, "sales.opportunity.view")
+    ? await prisma.opportunity.findFirst({
+        where: {
+          AND: [buildOpportunityScopeWhere(context), { convertedProjectId: projectId }],
+        },
+        select: { id: true, name: true, stage: true },
+      })
+    : null;
+
   return (
     <div className="space-y-5">
       <RecordHeader
@@ -122,6 +139,21 @@ export default async function ProjectOverviewPage({ params }: Params) {
             ),
           },
           { label: "Schedule", value: scheduleStatusLabels[schedule] },
+          ...(sourceOpportunity
+            ? [
+                {
+                  label: "From opportunity",
+                  value: (
+                    <Link
+                      href={`/sales/opportunities/${sourceOpportunity.id}`}
+                      className="text-fg transition-colors hover:text-accent"
+                    >
+                      {sourceOpportunity.name}
+                    </Link>
+                  ),
+                },
+              ]
+            : []),
         ]}
         actions={
           <ProjectActions

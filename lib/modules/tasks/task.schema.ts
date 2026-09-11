@@ -91,6 +91,17 @@ export const taskListQuerySchema = z.object({
   projectId: z.string().optional(),
   assigneeMemberId: z.string().optional(),
   createdByMemberId: z.string().optional(),
+  /**
+   * The record a task was raised from (PRD #11 §55, PRD #17 §135, §138).
+   *
+   * A module that files tasks against its own records — Sales against a lead or
+   * an opportunity — narrows the canonical list with these rather than keeping
+   * a task table of its own. They filter; they never widen: the task scope
+   * clause still decides which rows are reachable.
+   */
+  moduleKey: z.string().optional(),
+  entityType: z.string().optional(),
+  entityId: z.string().optional(),
   due: z.enum(TASK_DUE_FILTERS).optional(),
   dueFrom: optionalDate,
   dueTo: optionalDate,

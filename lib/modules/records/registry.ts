@@ -52,132 +52,6 @@ function enumValue<T extends string>(value: string | undefined, allowed: readonl
 }
 
 /* -------------------------------------------------------------------------- */
-/* Sales                                                                       */
-/* -------------------------------------------------------------------------- */
-
-const STAGES = ["LEAD", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"] as const;
-
-const opportunities: RecordSection = {
-  module: "sales",
-  section: "opportunities",
-  singular: "Opportunity",
-  plural: "Opportunities",
-  emptyTitle: "No opportunities yet.",
-  emptyDescription: "Opportunities your company is pursuing will appear here.",
-  permission: "sales.opportunity.view",
-  columns: [
-    { key: "name", label: "Opportunity" },
-    { key: "client", label: "Client", hideBelow: "lg" },
-    { key: "stage", label: "Stage" },
-    { key: "close", label: "Expected close", hideBelow: "xl" },
-    { key: "value", label: "Value", align: "right" },
-  ],
-  filters: [
-    {
-      param: "stage",
-      label: "Stage",
-      options: STAGES.map((stage) => ({ value: stage, label: statusLabel(stage) })),
-    },
-  ],
-  async list(context, args) {
-    const where: Prisma.OpportunityWhereInput = {
-      companyId: context.companyId,
-      archivedAt: null,
-      ...(enumValue(args.filters.stage, STAGES)
-        ? { stage: enumValue(args.filters.stage, STAGES) }
-        : {}),
-      ...(searchClause(args.search, ["name"]) ?? {}),
-    };
-
-    const [rows, total] = await Promise.all([
-      prisma.opportunity.findMany({
-        where,
-        orderBy: { value: "desc" },
-        skip: skipFor(args.page, args.limit),
-        take: args.limit,
-        select: {
-          id: true,
-          name: true,
-          stage: true,
-          value: true,
-          currency: true,
-          expectedClose: true,
-          client: { select: { name: true } },
-        },
-      }),
-      prisma.opportunity.count({ where }),
-    ]);
-
-    return {
-      total,
-      rows: rows.map((row) => ({
-        id: row.id,
-        primary: row.name,
-        secondary: row.client?.name,
-        status: row.stage,
-        fields: [
-          { key: "name", label: "Opportunity", value: row.name },
-          { key: "client", label: "Client", value: orDash(row.client?.name), hideBelow: "lg" as const },
-          { key: "stage", label: "Stage", value: row.stage, status: true },
-          {
-            key: "close",
-            label: "Expected close",
-            value: row.expectedClose ? formatDate(row.expectedClose) : "—",
-            hideBelow: "xl" as const,
-          },
-          {
-            key: "value",
-            label: "Value",
-            value: money(row.value, row.currency),
-            align: "right" as const,
-          },
-        ],
-      })),
-    };
-  },
-  async get(context, id) {
-    const row = await prisma.opportunity.findFirst({
-      where: { companyId: context.companyId, id },
-      select: {
-        id: true,
-        name: true,
-        stage: true,
-        value: true,
-        currency: true,
-        expectedClose: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-        client: { select: { name: true } },
-        owner: { select: { user: { select: { firstName: true, lastName: true } } } },
-      },
-    });
-
-    if (!row) return null;
-
-    return {
-      id: row.id,
-      title: row.name,
-      subtitle: row.client?.name,
-      status: row.stage,
-      description: row.notes,
-      fields: [
-        { label: "Value", value: money(row.value, row.currency) },
-        {
-          label: "Expected close",
-          value: row.expectedClose ? formatDate(row.expectedClose) : "—",
-        },
-        {
-          label: "Owner",
-          value: row.owner ? `${row.owner.user.firstName} ${row.owner.user.lastName}` : "—",
-        },
-      ],
-      meta: auditMeta(row),
-    };
-  },
-};
-
-/* -------------------------------------------------------------------------- */
 /* Legal                                                                       */
 /* -------------------------------------------------------------------------- */
 
@@ -1318,8 +1192,9 @@ const SECTIONS: RecordSection[] = [
   // many, and the shell's was the placeholder.
   // HR has its own module now (PRD #16), so its sections are gone from the
   // shell registry — the shell's leave list had no employment record behind it.
-  opportunities,
-  { ...opportunities, section: "pipeline" },
+  // Sales has its own module now (PRD #17): the shell's "opportunity" was a
+  // name, a value and a stage, with no lead in front of it and no proposal
+  // behind it.
   contracts,
   { ...contracts, section: "approvals" },
   { ...contracts, section: "archived" },

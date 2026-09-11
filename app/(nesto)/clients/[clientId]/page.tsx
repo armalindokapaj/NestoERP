@@ -93,13 +93,7 @@ export default async function ClientOverviewPage({ params }: Params) {
       <ClientTabs
         clientId={client.id}
         active="overview"
-        show={{
-          contacts: may.canViewContacts,
-          projects: may.canViewProjects,
-          finance: may.canViewFinance,
-          documents: may.canViewDocuments,
-          activity: may.canViewActivity,
-        }}
+        capabilities={client.capabilities}
       />
 
       {archived ? (

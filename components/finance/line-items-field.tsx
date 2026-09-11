@@ -10,7 +10,12 @@ import { selectClass } from "@/components/forms/record-form";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
 
 /**
- * The line-item editor (PRD #15 §322).
+ * The priced line-item editor (PRD #15 §322, PRD #17 §409).
+ *
+ * Shared by invoices and proposals, because they are the same editor: the same
+ * four fields, the same arithmetic, the same field names. Two copies would be
+ * two chances for a proposal's preview and an invoice's preview to disagree
+ * about the same numbers (PRD #17 §111).
  *
  * Rows are named `lineItems[0].description` and so on, which is how a plain
  * HTML form expresses a list — so the form still submits without JavaScript,
@@ -21,36 +26,36 @@ import { formatAmount } from "@/lib/modules/finance/finance.currency";
  * here can be convenient without being authoritative (PRD #15 §52).
  */
 
-export type InvoiceLineValue = {
+export type PricedLineValue = {
   description: string;
   quantity: string;
   unitPrice: string;
   taxRate: string;
 };
 
-const EMPTY_LINE: InvoiceLineValue = {
+const EMPTY_LINE: PricedLineValue = {
   description: "",
   quantity: "1",
   unitPrice: "0",
   taxRate: "20",
 };
 
-export function InvoiceLineItems({
+export function PricedLineItems({
   currency,
   defaultLines,
   defaultTaxRate,
 }: {
   currency: string;
-  defaultLines?: InvoiceLineValue[];
+  defaultLines?: PricedLineValue[];
   defaultTaxRate?: string | null;
 }) {
-  const [lines, setLines] = React.useState<InvoiceLineValue[]>(
+  const [lines, setLines] = React.useState<PricedLineValue[]>(
     defaultLines && defaultLines.length > 0
       ? defaultLines
       : [{ ...EMPTY_LINE, taxRate: defaultTaxRate ?? EMPTY_LINE.taxRate }],
   );
 
-  function update(index: number, field: keyof InvoiceLineValue, value: string) {
+  function update(index: number, field: keyof PricedLineValue, value: string) {
     setLines((current) =>
       current.map((line, position) =>
         position === index ? { ...line, [field]: value } : line,
@@ -154,8 +159,8 @@ export function InvoiceLineItems({
                   variant="ghost"
                   size="icon-sm"
                   aria-label={`Remove line ${index + 1}`}
-                  // The last line is never removable: an invoice with no lines
-                  // has no total, and the server refuses it anyway.
+                  // The last line is never removable: a priced document with
+                  // no lines has no total, and the server refuses it anyway.
                   disabled={lines.length === 1}
                   onClick={() =>
                     setLines((current) => current.filter((_, position) => position !== index))

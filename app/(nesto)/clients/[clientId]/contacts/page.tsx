@@ -39,13 +39,7 @@ export default async function ClientContactsPage({ params }: Params) {
       <ClientTabs
         clientId={client.id}
         active="contacts"
-        show={{
-          contacts: true,
-          projects: client.capabilities.canViewProjects,
-          finance: client.capabilities.canViewFinance,
-          documents: client.capabilities.canViewDocuments,
-          activity: client.capabilities.canViewActivity,
-        }}
+        capabilities={client.capabilities}
       />
 
       <ContactList

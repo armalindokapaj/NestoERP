@@ -297,13 +297,73 @@ enum AttendanceSource {
   SYSTEM
 }
 
+/// Sales (PRD #17 §173, §174).
+///
+/// The stage ladder is fixed in V0.1: a configurable pipeline is a later
+/// product, and a company that can rename its own stages cannot have its
+/// forecast compared with anybody else's (PRD #17 §391).
 enum OpportunityStage {
-  LEAD
+  PROSPECTING
   QUALIFIED
+  DISCOVERY
   PROPOSAL
   NEGOTIATION
   WON
   LOST
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  DISQUALIFIED
+  CONVERTED
+  ARCHIVED
+}
+
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  OUTBOUND
+  EVENT
+  PARTNER
+  SOCIAL
+  DIRECT
+  OTHER
+}
+
+enum LostReason {
+  PRICE
+  COMPETITOR
+  TIMING
+  NO_BUDGET
+  NO_RESPONSE
+  SCOPE_MISMATCH
+  INTERNAL_DECISION
+  OTHER
+}
+
+enum ProposalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SENT
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  ARCHIVED
+}
+
+enum SalesApprovalRecordType {
+  PROPOSAL
+}
+
+enum SalesApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum ContractStatus {
@@ -442,7 +502,10 @@ model Company {
   leaveRequests     LeaveRequest[]
   leaveBalances     LeaveBalance[]
   attendanceRecords AttendanceRecord[]
+  leads             Lead[]
   opportunities     Opportunity[]
+  proposals         Proposal[]
+  salesApprovals    SalesApproval[]
   contracts         Contract[]
   purchaseRequests  PurchaseRequest[]
   purchaseOrders    PurchaseOrder[]
@@ -645,7 +708,8 @@ model CompanyMember {
 
   employeeProfile         EmployeeProfile?    @relation("EmployeeProfileMember")
   managedEmployeeProfiles EmployeeProfile[]   @relation("EmployeeProfileManager")
-  ownedOpportunity        Opportunity[]       @relation("OpportunityOwner")
+  ownedLeads              Lead[]              @relation("LeadOwner")
+  ownedOpportunities      Opportunity[]       @relation("OpportunityOwner")
   requestedOrders         PurchaseRequest[]   @relation("PurchaseRequester")
   stockMovements          InventoryMovement[] @relation("MovementActor")
   qualityRecords          QualityRecord[]     @relation("QualityAssignee")
@@ -716,6 +780,8 @@ model Project {
   stockMovements   InventoryMovement[]
   qualityRecords   QualityRecord[]
   hseRecords       HseRecord[]
+
+  sourceOpportunities Opportunity[] @relation("OpportunityConvertedProject")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -791,12 +857,14 @@ model Client {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  contacts      Contact[]
-  projects      Project[]
-  documents     Document[]
-  invoices      Invoice[]
-  opportunities Opportunity[]
-  contracts     Contract[]
+  contacts       Contact[]
+  projects       Project[]
+  documents      Document[]
+  invoices       Invoice[]
+  opportunities  Opportunity[]
+  proposals      Proposal[]
+  convertedLeads Lead[]        @relation("LeadConvertedClient")
+  contracts      Contract[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -835,6 +903,8 @@ model Contact {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  opportunities Opportunity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1655,34 +1725,250 @@ model AttendanceRecord {
   @@map("attendance_records")
 }
 
-model Opportunity {
-  id            String           @id @default(cuid())
-  companyId     String
-  clientId      String?
+/// A prospective contact nobody has qualified yet (PRD #17 §32, §33).
+///
+/// A Lead is not a Client. It may name a company that does not exist in the
+/// system, an email nobody has replied to, and a value somebody guessed. The
+/// canonical Client is created at conversion, through the Clients service —
+/// never by copying these fields into a second customer table (PRD #17 §4, §54).
+model Lead {
+  id          String  @id @default(cuid())
+  companyId   String
+  name        String
+  companyName String?
+  email       String?
+  phone       String?
+  website     String?
+
+  source           LeadSource
+  status           LeadStatus  @default(NEW)
+  /// The status to return to on restore, so an archived lead comes back
+  /// CONTACTED if that is what it was (PRD #17 §58).
+  preArchiveStatus LeadStatus?
+
   ownerMemberId String?
-  name          String
-  stage         OpportunityStage @default(LEAD)
-  value         Decimal          @db.Decimal(14, 2)
-  currency      String           @default("EUR")
-  expectedClose DateTime?
   notes         String?
 
-  createdBy  String
-  updatedBy  String?
-  archivedBy String?
-  archivedAt DateTime?
+  estimatedValue Decimal? @db.Decimal(18, 2)
+  currency       String?  @db.VarChar(3)
+
+  /// Why the lead went nowhere. Free text rather than an enum, so a company can
+  /// say what actually happened without a migration (PRD #17 §421).
+  disqualifyReason String?
+
+  /// Conversion lineage (PRD #17 §386, §438). `convertedOpportunity` is the
+  /// back-reference of `Opportunity.sourceLeadId`, so one column carries the
+  /// link and the two records can never disagree about it.
+  convertedAt       DateTime?
+  convertedClientId String?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
 
   company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  client  Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  owner   CompanyMember? @relation("OpportunityOwner", fields: [ownerMemberId], references: [id], onDelete: SetNull)
+  owner   CompanyMember? @relation("LeadOwner", fields: [ownerMemberId], references: [id], onDelete: SetNull)
+
+  convertedClient      Client?      @relation("LeadConvertedClient", fields: [convertedClientId], references: [id], onDelete: SetNull)
+  convertedOpportunity Opportunity? @relation("OpportunitySourceLead")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, ownerMemberId])
+  @@index([companyId, source])
+  @@index([email])
+  @@index([phone])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("leads")
+}
+
+/// A qualified potential deal (PRD #17 §59, §60).
+///
+/// `stage` is the commercial outcome and keeps WON or LOST forever; archiving
+/// is `archivedAt`, a separate fact, so closing the books on a deal never
+/// overwrites how it ended (PRD #17 §61, §62).
+model Opportunity {
+  id            String  @id @default(cuid())
+  companyId     String
+  name          String
+  clientId      String?
+  contactId     String?
+  ownerMemberId String
+
+  stage           OpportunityStage  @default(PROSPECTING)
+  /// Stage the opportunity held before archiving (PRD #17 §60).
+  preArchiveStage OpportunityStage?
+  /// When the stage last moved, for pipeline aging (PRD #17 §439, §442).
+  stageChangedAt  DateTime          @default(now())
+
+  estimatedValue      Decimal  @db.Decimal(18, 2)
+  currency            String   @db.VarChar(3)
+  /// 0–100, overriding the stage default when the owner knows better
+  /// (PRD #17 §28).
+  probabilityOverride Decimal? @db.Decimal(5, 2)
+
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+
+  description String?
+  nextStep    String?
+
+  sourceLeadId String? @unique
+
+  wonReason  String?
+  lostReason LostReason?
+  lostNote   String?
+
+  convertedProjectId String?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  contact Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  owner   CompanyMember @relation("OpportunityOwner", fields: [ownerMemberId], references: [id], onDelete: Restrict)
+
+  sourceLead       Lead?    @relation("OpportunitySourceLead", fields: [sourceLeadId], references: [id], onDelete: SetNull)
+  convertedProject Project? @relation("OpportunityConvertedProject", fields: [convertedProjectId], references: [id], onDelete: SetNull)
+
+  proposals Proposal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
   @@index([companyId, stage])
+  @@index([companyId, ownerMemberId])
   @@index([clientId])
+  @@index([contactId])
+  @@index([convertedProjectId])
+  @@index([expectedCloseDate])
+  @@index([actualCloseDate])
+  @@index([currency])
+  @@index([updatedAt])
   @@map("opportunities")
+}
+
+/// A commercial offer against an Opportunity (PRD #17 §104).
+///
+/// A Proposal is not an Invoice. It carries no receivable, settles nothing, and
+/// the Finance module never reads it as one (PRD #17 §153).
+model Proposal {
+  id             String @id @default(cuid())
+  companyId      String
+  proposalNumber String
+  opportunityId  String
+  clientId       String
+
+  title    String
+  currency String @db.VarChar(3)
+
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  validUntil DateTime?
+
+  status           ProposalStatus  @default(DRAFT)
+  preArchiveStatus ProposalStatus?
+
+  notes String?
+
+  sentAt     DateTime?
+  acceptedAt DateTime?
+  declinedAt DateTime?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  client      Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  lineItems ProposalLineItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, proposalNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([opportunityId])
+  @@index([clientId])
+  @@index([validUntil])
+  @@index([currency])
+  @@index([updatedAt])
+  @@map("proposals")
+}
+
+model ProposalLineItem {
+  id         String @id @default(cuid())
+  proposalId String
+
+  description String
+  quantity    Decimal @db.Decimal(18, 4)
+  unitPrice   Decimal @db.Decimal(18, 4)
+  taxRate     Decimal @db.Decimal(7, 4)
+
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  sortOrder Int @default(0)
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([proposalId])
+  @@map("proposal_line_items")
+}
+
+/// One approval cycle on a Proposal (PRD #17 §128, §129).
+///
+/// Shaped like FinanceApproval and kept separate on purpose: the two modules
+/// grant approval authority through different permissions, and a shared table
+/// would make "who may decide this?" a question about a row rather than about a
+/// module (PRD #17 §19).
+model SalesApproval {
+  id        String @id @default(cuid())
+  companyId String
+
+  recordType SalesApprovalRecordType
+  recordId   String
+
+  status SalesApprovalStatus @default(PENDING)
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("sales_approvals")
 }
 
 model Contract {

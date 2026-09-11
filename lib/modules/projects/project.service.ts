@@ -147,46 +147,80 @@ export async function createProject(
   const managerMemberId = await validateManager(context, input.projectManagerMemberId);
 
   const project = await prisma
-    .$transaction(async (tx) => {
-      const created = await tx.project.create({
-        data: {
-          companyId: context.companyId,
-          code: input.code.trim(),
-          name: input.name,
-          description: input.description ?? null,
-          clientId,
-          projectManagerMemberId: managerMemberId,
-          status: input.status as ProjectStatus,
-          priority: input.priority ?? null,
-          startDate: input.startDate ?? null,
-          endDate: input.endDate ?? null,
-          address: input.address ?? null,
-          city: input.city ?? null,
-          country: input.country ?? null,
-          createdBy: context.userId,
-        },
-      });
-
-      // The manager must also be a project member, or they fall outside their
-      // own project's scope (PRD #10 §39, §172).
-      if (managerMemberId) {
-        await ensureProjectMember(tx, context, created.id, managerMemberId, "Project Manager", true);
-      }
-
-      await recordActivity(tx, context, {
-        module: MODULE,
-        entityType: "Project",
-        entityId: created.id,
-        action: "PROJECT_CREATED",
-        message: "created the project",
-        metadata: { projectId: created.id } as Prisma.InputJsonValue,
-      });
-
-      return created;
-    })
+    .$transaction((tx) =>
+      createProjectRecord(tx, context, { ...input, clientId, projectManagerMemberId: managerMemberId }),
+    )
     .catch(translateWriteError);
 
   return getProject(context, project.id);
+}
+
+/**
+ * Creating the canonical project, inside somebody else's transaction
+ * (PRD #10 §39, PRD #17 §90, §160, §260).
+ *
+ * A won opportunity may create the project that delivers it, and the two have
+ * to land together. Rather than a second project-creation path living in Sales,
+ * the conversion calls this — the same insert, the same manager membership, the
+ * same activity entry — with its own transaction handle.
+ *
+ * The client and manager arrive already validated, because the caller may have
+ * created the client in the very transaction being written: a fresh lookup
+ * through the global client would not see it yet.
+ */
+export async function createProjectRecord(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: Omit<CreateProjectInput, "clientId" | "projectManagerMemberId"> & {
+    clientId: string | null;
+    projectManagerMemberId: string | null;
+  },
+): Promise<{ id: string; code: string; name: string }> {
+  assertPermission(context, "project.create");
+
+  const created = await tx.project.create({
+    data: {
+      companyId: context.companyId,
+      code: input.code.trim(),
+      name: input.name,
+      description: input.description ?? null,
+      clientId: input.clientId,
+      projectManagerMemberId: input.projectManagerMemberId,
+      status: input.status as ProjectStatus,
+      priority: input.priority ?? null,
+      startDate: input.startDate ?? null,
+      endDate: input.endDate ?? null,
+      address: input.address ?? null,
+      city: input.city ?? null,
+      country: input.country ?? null,
+      createdBy: context.userId,
+    },
+    select: { id: true, code: true, name: true },
+  });
+
+  // The manager must also be a project member, or they fall outside their own
+  // project's scope (PRD #10 §39, §172).
+  if (input.projectManagerMemberId) {
+    await ensureProjectMember(
+      tx,
+      context,
+      created.id,
+      input.projectManagerMemberId,
+      "Project Manager",
+      true,
+    );
+  }
+
+  await recordActivity(tx, context, {
+    module: MODULE,
+    entityType: "Project",
+    entityId: created.id,
+    action: "PROJECT_CREATED",
+    message: "created the project",
+    metadata: { projectId: created.id } as Prisma.InputJsonValue,
+  });
+
+  return created;
 }
 
 export async function updateProject(

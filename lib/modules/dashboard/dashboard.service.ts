@@ -15,6 +15,12 @@ import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.paren
 import * as financeKpis from "@/lib/modules/finance/finance.kpis";
 import { buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
 import { buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
+import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
+import { currencyTotals } from "@/lib/modules/sales/opportunities/opportunity.forecast";
+import {
+  OPEN_STAGES,
+  opportunityStageLabels,
+} from "@/lib/modules/sales/opportunities/opportunity.stage";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
@@ -193,25 +199,37 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
         }),
       );
 
+    /**
+     * The open pipeline, inside the reader's own Sales scope (PRD #17 §412).
+     *
+     * The headline figure is the largest currency's, with the rest named
+     * beside it: adding euros to dollars would be a number nobody can act on
+     * (PRD #17 §31).
+     */
     case "pipelineValue": {
-      const total = await prisma.opportunity.aggregate({
+      const rows = await prisma.opportunity.findMany({
         where: {
-          companyId: context.companyId,
-          archivedAt: null,
-          stage: { notIn: ["WON", "LOST"] },
+          AND: [buildOpportunityScopeWhere(context), { archivedAt: null, stage: { in: OPEN_STAGES } }],
         },
-        _sum: { value: true },
+        select: { stage: true, currency: true, estimatedValue: true, probabilityOverride: true },
       });
-      return formatCurrency(decimalToNumber(total._sum.value));
+
+      const totals = currencyTotals(rows);
+      if (totals.length === 0) return formatCurrency(0);
+
+      const [largest, ...rest] = totals;
+      const headline = formatCurrency(Number.parseFloat(largest.value), largest.currency);
+      return rest.length === 0 ? headline : `${headline} +${rest.length}`;
     }
 
     case "openOpportunityCount":
       return String(
         await prisma.opportunity.count({
           where: {
-            companyId: context.companyId,
-            archivedAt: null,
-            stage: { notIn: ["WON", "LOST"] },
+            AND: [
+              buildOpportunityScopeWhere(context),
+              { archivedAt: null, stage: { in: OPEN_STAGES } },
+            ],
           },
         }),
       );
@@ -660,44 +678,45 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     }
 
     case "salesPipeline": {
-      const grouped = await prisma.opportunity.groupBy({
-        by: ["stage"],
-        where: { companyId: context.companyId, archivedAt: null },
-        _sum: { value: true },
-        _count: { _all: true },
+      const rows = await prisma.opportunity.findMany({
+        where: {
+          AND: [buildOpportunityScopeWhere(context), { archivedAt: null, stage: { in: OPEN_STAGES } }],
+        },
+        select: { stage: true, currency: true, estimatedValue: true, probabilityOverride: true },
       });
-
-      const order = ["LEAD", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
 
       return {
         kind: "breakdown",
-        items: grouped
-          .sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage))
-          .map((row) => ({
-            label: row.stage,
-            status: row.stage,
-            value: row._count._all,
-            display: formatCurrency(decimalToNumber(row._sum.value)),
-            href: `/sales/opportunities?stage=${row.stage}`,
-          })),
+        items: OPEN_STAGES.map((stage) => {
+          const stageRows = rows.filter((row) => row.stage === stage);
+          const [largest] = currencyTotals(stageRows);
+
+          return {
+            label: opportunityStageLabels[stage],
+            status: stage,
+            value: stageRows.length,
+            display: largest
+              ? formatCurrency(Number.parseFloat(largest.value), largest.currency)
+              : undefined,
+            href: `/sales/opportunities?stage=${stage}`,
+          };
+        }).filter((item) => item.value > 0),
       };
     }
 
     case "openOpportunities": {
       const rows = await prisma.opportunity.findMany({
         where: {
-          companyId: context.companyId,
-          archivedAt: null,
-          stage: { notIn: ["WON", "LOST"] },
+          AND: [buildOpportunityScopeWhere(context), { archivedAt: null, stage: { in: OPEN_STAGES } }],
         },
-        orderBy: { value: "desc" },
+        orderBy: { estimatedValue: "desc" },
         take: 6,
         select: {
           id: true,
           name: true,
           stage: true,
-          value: true,
-          expectedClose: true,
+          estimatedValue: true,
+          currency: true,
           client: { select: { name: true } },
         },
       });
@@ -708,7 +727,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.name,
           subtitle: row.client?.name ?? undefined,
-          meta: formatCurrency(decimalToNumber(row.value)),
+          meta: formatCurrency(decimalToNumber(row.estimatedValue), row.currency),
           status: row.stage,
           href: `/sales/opportunities/${row.id}`,
         })),

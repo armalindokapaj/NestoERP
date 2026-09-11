@@ -240,10 +240,18 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "reports", label: "Reports", permission: "hr.report.view" },
     ],
   },
+  /**
+   * Sales (PRD #17 §12, §13).
+   *
+   * Seven sections, each behind its own grant, so the same route serves the
+   * sales desk, the CEO approving a proposal, Finance reading a won value and
+   * the project manager who received the work — and each of them sees only the
+   * tabs their access actually reaches (PRD #17 §13).
+   */
   sales: {
     key: "sales",
     label: "Sales",
-    description: "Pipeline, opportunities and commercial activity.",
+    description: "Leads, pipeline, proposals and commercial activity.",
     route: "/sales",
     icon: "Handshake",
     group: "department",
@@ -252,8 +260,12 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     defaultSection: "overview",
     sections: [
       { key: "overview", label: "Overview" },
-      { key: "pipeline", label: "Pipeline", permission: "sales.opportunity.view" },
+      { key: "leads", label: "Leads", permission: "sales.lead.view" },
       { key: "opportunities", label: "Opportunities", permission: "sales.opportunity.view" },
+      { key: "pipeline", label: "Pipeline", permission: "sales.pipeline.view" },
+      { key: "proposals", label: "Proposals", permission: "sales.proposal.view" },
+      { key: "tasks", label: "Tasks", permission: "sales.task.view" },
+      { key: "reports", label: "Reports", permission: "sales.report.view" },
     ],
   },
   contracts: {

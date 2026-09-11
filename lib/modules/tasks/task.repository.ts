@@ -123,6 +123,12 @@ export function buildTaskListWhere(
   if (query.assigneeMemberId) filters.push({ assigneeMemberId: query.assigneeMemberId });
   if (query.createdByMemberId) filters.push({ createdByMemberId: query.createdByMemberId });
 
+  // The record a task came from. These narrow the scoped list; the scope clause
+  // above still decides what is reachable at all (PRD #11 §55, PRD #17 §138).
+  if (query.moduleKey) filters.push({ module: query.moduleKey });
+  if (query.entityType) filters.push({ entityType: query.entityType });
+  if (query.entityId) filters.push({ entityId: query.entityId });
+
   const due = dueClause(query, now);
   if (due) filters.push(due);
 
