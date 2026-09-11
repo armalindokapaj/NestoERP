@@ -4,6 +4,7 @@ import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { optionalText } from "@/lib/modules/shared/fields";
+import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.service";
 import { currencyCode } from "./finance.fields";
 import { DEFAULT_CURRENCY } from "./finance.currency";
 
@@ -48,18 +49,28 @@ export type FinanceSettingsDTO = {
  * No permission check: this is configuration every finance screen needs in
  * order to render an amount at all, and the screens themselves are guarded.
  * Reading it never reveals a monetary value.
+ *
+ * Base currency, fiscal year and payment terms are company-wide and come from
+ * CompanySettings — Finance owns only what is genuinely finance-specific, so a
+ * company has one answer to "what currency are we in" (PRD #24 §41-§43, §124).
  */
 export async function resolveFinanceSettings(companyId: string): Promise<FinanceSettingsDTO> {
-  const existing = await prisma.financeSettings.findUnique({ where: { companyId } });
-  if (existing) return toDTO(existing);
+  const [company, finance] = await Promise.all([
+    ensureCompanySettings(companyId),
+    prisma.financeSettings.upsert({
+      where: { companyId },
+      update: {},
+      create: { companyId },
+    }),
+  ]);
 
-  const created = await prisma.financeSettings.upsert({
-    where: { companyId },
-    update: {},
-    create: { companyId, baseCurrency: DEFAULT_CURRENCY },
-  });
-
-  return toDTO(created);
+  return {
+    baseCurrency: company.baseCurrency,
+    defaultPaymentTermsDays: company.defaultPaymentTermsDays,
+    fiscalYearStartMonth: company.fiscalYearStartMonth,
+    invoicePrefix: finance.invoicePrefix,
+    defaultTaxRate: (finance.defaultTaxRate ?? company.defaultTaxRate)?.toString() ?? null,
+  };
 }
 
 export async function getFinanceSettings(context: UserContext): Promise<FinanceSettingsDTO> {
@@ -75,49 +86,51 @@ export async function updateFinanceSettings(
   assertModule(context, "finance");
   assertPermission(context, "finance.settings.manage");
 
-  const updated = await prisma.financeSettings.upsert({
-    where: { companyId: context.companyId },
-    update: {
-      baseCurrency: input.baseCurrency,
-      defaultPaymentTermsDays: input.defaultPaymentTermsDays,
-      fiscalYearStartMonth: input.fiscalYearStartMonth,
-      invoicePrefix: input.invoicePrefix ?? null,
-      defaultTaxRate: input.defaultTaxRate ?? null,
-    },
-    create: {
-      companyId: context.companyId,
-      baseCurrency: input.baseCurrency,
-      defaultPaymentTermsDays: input.defaultPaymentTermsDays,
-      fiscalYearStartMonth: input.fiscalYearStartMonth,
-      invoicePrefix: input.invoicePrefix ?? null,
-      defaultTaxRate: input.defaultTaxRate ?? null,
-    },
-  });
+  // The company-wide half is written through to CompanySettings, which owns it.
+  // Base currency is refused once monetary records exist, because there is no
+  // FX engine to reinterpret them with (PRD #24 §185-§189).
+  const company = await ensureCompanySettings(context.companyId);
+  if (input.baseCurrency !== company.baseCurrency) {
+    const { baseCurrencyLocked } = await import("@/lib/modules/settings/company-settings.service");
+    if (await baseCurrencyLocked(context.companyId)) throw new Error("BASE_CURRENCY_LOCKED");
+  }
 
-  return toDTO(updated);
+  await prisma.$transaction([
+    prisma.companySettings.update({
+      where: { companyId: context.companyId },
+      data: {
+        baseCurrency: input.baseCurrency,
+        defaultPaymentTermsDays: input.defaultPaymentTermsDays,
+        fiscalYearStartMonth: input.fiscalYearStartMonth,
+        updatedByMemberId: context.membershipId,
+      },
+    }),
+    prisma.financeSettings.upsert({
+      where: { companyId: context.companyId },
+      update: {
+        invoicePrefix: input.invoicePrefix ?? null,
+        defaultTaxRate: input.defaultTaxRate ?? null,
+      },
+      create: {
+        companyId: context.companyId,
+        invoicePrefix: input.invoicePrefix ?? null,
+        defaultTaxRate: input.defaultTaxRate ?? null,
+      },
+    }),
+    prisma.company.update({
+      where: { id: context.companyId },
+      data: { configVersion: { increment: 1 } },
+    }),
+  ]);
+
+  return resolveFinanceSettings(context.companyId);
 }
 
 /** Base currency alone, for the many callers that need only that. */
 export async function baseCurrency(companyId: string): Promise<string> {
-  const settings = await prisma.financeSettings.findUnique({
+  const settings = await prisma.companySettings.findUnique({
     where: { companyId },
     select: { baseCurrency: true },
   });
   return settings?.baseCurrency ?? DEFAULT_CURRENCY;
-}
-
-function toDTO(row: {
-  baseCurrency: string;
-  defaultPaymentTermsDays: number;
-  fiscalYearStartMonth: number;
-  invoicePrefix: string | null;
-  defaultTaxRate: { toString(): string } | null;
-}): FinanceSettingsDTO {
-  return {
-    baseCurrency: row.baseCurrency,
-    defaultPaymentTermsDays: row.defaultPaymentTermsDays,
-    fiscalYearStartMonth: row.fiscalYearStartMonth,
-    invoicePrefix: row.invoicePrefix,
-    defaultTaxRate: row.defaultTaxRate?.toString() ?? null,
-  };
 }

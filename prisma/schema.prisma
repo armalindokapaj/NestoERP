@@ -478,6 +478,10 @@ model Company {
   website   String?
   status    CompanyStatus @default(ACTIVE)
 
+  /// Bumped on every configuration mutation so caches and client context can
+  /// be invalidated without guessing (PRD #37 §22, PRD #24 §315-§317).
+  configVersion Int @default(1)
+
   memberships CompanyMember[]
   invites     CompanyInvite[]
   departments Department[]
@@ -489,6 +493,10 @@ model Company {
   tasks      Task[]
   documents  Document[]
   activities Activity[]
+
+  settings            CompanySettings?
+  integrationSettings CompanyIntegrationSettings?
+  numberingSchemes    CompanyNumberingScheme[]
 
   financeSettings   FinanceSettings?
   invoices          Invoice[]
@@ -515,8 +523,15 @@ model Company {
   hseRecords        HseRecord[]
   supportRequests   SupportRequest[]
 
-  sessions   Session[]
-  authEvents AuthEvent[]
+  sessions            Session[]
+  authEvents          AuthEvent[]
+  auditEvents         AuditEvent[]
+  integrationLinks    IntegrationLink[]
+  integrationAttempts IntegrationAttempt[]
+
+  notifications      Notification[]
+  attentionItems     AttentionItem[]
+  notificationOutbox NotificationEventOutbox[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -542,7 +557,7 @@ model Department {
   archivedBy String?
   archivedAt DateTime?
 
-  company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   members CompanyMember[] @relation("DepartmentMembers")
 
   managerMember CompanyMember? @relation("DepartmentManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
@@ -657,7 +672,7 @@ model CompanyModule {
   moduleId  String
   enabled   Boolean @default(true)
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
   module  Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -680,6 +695,10 @@ model CompanyMember {
   jobTitle     String?
   status       MembershipStatus @default(ACTIVE)
 
+  /// Bumped whenever role, department, project membership or status changes,
+  /// so permission-sensitive caches key off it (PRD #37 §32-§34, PRD #31 §104).
+  accessVersion Int @default(1)
+
   /// Membership lifecycle. Who invited them, when they accepted, and who
   /// removed their access — the questions asked after the fact (PRD #14 §12).
   invitedAt             DateTime?
@@ -690,7 +709,7 @@ model CompanyMember {
 
   archivedAt DateTime?
 
-  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
   user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   role       Role        @relation(fields: [roleId], references: [id], onDelete: Restrict)
   department Department? @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
@@ -761,7 +780,7 @@ model Project {
   archivedBy String?
   archivedAt DateTime?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
   client  Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   projectManager CompanyMember? @relation("ProjectManager", fields: [projectManagerMemberId], references: [id], onDelete: SetNull)
@@ -855,7 +874,7 @@ model Client {
   archivedBy String?
   archivedAt DateTime?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   contacts       Contact[]
   projects       Project[]
@@ -901,7 +920,7 @@ model Contact {
   archivedBy String?
   archivedAt DateTime?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
   client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
   opportunities Opportunity[]
@@ -946,7 +965,7 @@ model Task {
   archivedBy String?
   archivedAt DateTime?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   assignee CompanyMember? @relation("TaskAssignee", fields: [assigneeMemberId], references: [id], onDelete: SetNull)
@@ -1011,7 +1030,7 @@ model Document {
   archivedBy String?
   archivedAt DateTime?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
@@ -1051,7 +1070,11 @@ model Activity {
   actorUserId   String?
   metadata      Json?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// Ties every record written by one logical workflow together, across
+  /// modules and background jobs (PRD #37 §47, PRD #23 §38-§40, PRD #32 §30).
+  correlationId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   actorMember CompanyMember? @relation("ActivityActorMember", fields: [actorMemberId], references: [id], onDelete: SetNull)
   actorUser   User?          @relation("ActivityActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
@@ -1063,6 +1086,7 @@ model Activity {
   @@index([entityType, entityId])
   @@index([actorMemberId])
   @@index([createdAt])
+  @@index([correlationId])
   @@map("activities")
 }
 
@@ -1191,16 +1215,18 @@ model AuthEvent {
 // lands; none of these is a final domain model.
 
 /// Per-company finance configuration (PRD #15 §28).
+/// Finance-specific settings only (PRD #24 §124).
+///
+/// Base currency, fiscal year start and payment terms were duplicated here and
+/// on CompanySettings. CompanySettings owns them now, so a company cannot hold
+/// two different answers to the same question (PRD #24 §41-§43, PRD #37 §320).
 model FinanceSettings {
-  id                      String   @id @default(cuid())
-  companyId               String   @unique
-  baseCurrency            String   @default("EUR") @db.VarChar(3)
-  defaultPaymentTermsDays Int      @default(30)
-  fiscalYearStartMonth    Int      @default(1)
-  invoicePrefix           String?
-  defaultTaxRate          Decimal? @db.Decimal(7, 4)
+  id             String   @id @default(cuid())
+  companyId      String   @unique
+  invoicePrefix  String?
+  defaultTaxRate Decimal? @db.Decimal(7, 4)
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1240,7 +1266,7 @@ model Invoice {
   archivedByMemberId String?
   archivedAt         DateTime?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
   client  Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
@@ -1314,7 +1340,7 @@ model Expense {
   archivedByMemberId String?
   archivedAt         DateTime?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   payments Payment[]
@@ -1358,7 +1384,7 @@ model Payment {
   voidedAt          DateTime?
   voidReason        String?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
   invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   expense Expense? @relation(fields: [expenseId], references: [id], onDelete: Restrict)
 
@@ -1401,7 +1427,7 @@ model ProjectBudget {
   archivedByMemberId String?
   archivedAt         DateTime?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
 
   lineItems ProjectBudgetLineItem[]
@@ -1470,7 +1496,7 @@ model Commitment {
   archivedByMemberId String?
   archivedAt         DateTime?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -1506,7 +1532,7 @@ model FinanceApproval {
   decidedAt         DateTime?
   decisionNote      String?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1549,7 +1575,7 @@ model EmployeeProfile {
   createdByMemberId String?
   updatedByMemberId String?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   companyMember CompanyMember  @relation("EmployeeProfileMember", fields: [companyMemberId], references: [id], onDelete: Restrict)
   managerMember CompanyMember? @relation("EmployeeProfileManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
@@ -1594,7 +1620,7 @@ model Compensation {
   createdByMemberId String
   updatedByMemberId String?
 
-  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -1636,7 +1662,7 @@ model LeaveRequest {
 
   createdByMemberId String
 
-  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -1669,7 +1695,7 @@ model LeaveBalance {
   usedDays       Decimal @default(0) @db.Decimal(6, 2)
   adjustmentDays Decimal @default(0) @db.Decimal(6, 2)
 
-  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -1709,7 +1735,7 @@ model AttendanceRecord {
   createdByMemberId String
   updatedByMemberId String?
 
-  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -1767,7 +1793,7 @@ model Lead {
   archivedByMemberId String?
   archivedAt         DateTime?
 
-  company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   owner   CompanyMember? @relation("LeadOwner", fields: [ownerMemberId], references: [id], onDelete: SetNull)
 
   convertedClient      Client?      @relation("LeadConvertedClient", fields: [convertedClientId], references: [id], onDelete: SetNull)
@@ -1831,7 +1857,7 @@ model Opportunity {
   archivedByMemberId String?
   archivedAt         DateTime?
 
-  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   client  Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   contact Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
   owner   CompanyMember @relation("OpportunityOwner", fields: [ownerMemberId], references: [id], onDelete: Restrict)
@@ -1891,7 +1917,7 @@ model Proposal {
   archivedByMemberId String?
   archivedAt         DateTime?
 
-  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
   opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
   client      Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
@@ -1957,7 +1983,7 @@ model SalesApproval {
   decidedAt         DateTime?
   decisionNote      String?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1992,7 +2018,7 @@ model Contract {
   archivedBy String?
   archivedAt DateTime?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
   client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
@@ -2025,7 +2051,7 @@ model PurchaseRequest {
   approvedBy String?
   approvedAt DateTime?
 
-  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project   Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   requester CompanyMember? @relation("PurchaseRequester", fields: [requestedMemberId], references: [id], onDelete: SetNull)
 
@@ -2059,7 +2085,7 @@ model PurchaseOrder {
   approvedBy String?
   approvedAt DateTime?
 
-  company Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   request PurchaseRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
 
@@ -2089,7 +2115,7 @@ model InventoryItem {
   archivedBy String?
   archivedAt DateTime?
 
-  company   Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company   Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
   movements InventoryMovement[]
 
   createdAt DateTime @default(now())
@@ -2113,7 +2139,7 @@ model InventoryMovement {
 
   createdBy String
 
-  company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   item    InventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
   project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   actor   CompanyMember? @relation("MovementActor", fields: [actorMemberId], references: [id], onDelete: SetNull)
@@ -2144,7 +2170,7 @@ model QualityRecord {
   createdBy String
   updatedBy String?
 
-  company  Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company  Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignee CompanyMember? @relation("QualityAssignee", fields: [assignedMemberId], references: [id], onDelete: SetNull)
 
@@ -2176,7 +2202,7 @@ model HseRecord {
   createdBy String
   updatedBy String?
 
-  company  Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company  Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignee CompanyMember? @relation("HseAssignee", fields: [assignedMemberId], references: [id], onDelete: SetNull)
 
@@ -2203,7 +2229,7 @@ model SupportRequest {
   createdBy String
   updatedBy String?
 
-  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   requester CompanyMember? @relation("SupportRequester", fields: [requestedMemberId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -2213,4 +2239,503 @@ model SupportRequest {
   @@index([companyId])
   @@index([companyId, status])
   @@map("support_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Company configuration (PRD #24, consolidated per PRD #37 §24, §114, §116)
+//
+// Company-wide runtime configuration lives in the database, never in
+// environment variables or frontend constants (PRD #24 §4). None of it grants
+// permission: a module being enabled does not authorise a user (PRD #24 §7).
+// ---------------------------------------------------------------------------
+
+enum NumberingMode {
+  MANUAL
+  AUTO
+}
+
+enum NumberingYearMode {
+  NONE
+  YYYY
+  YY
+}
+
+/// One row per Company. The canonical owner of locale, timezone, base currency
+/// and fiscal defaults — FinanceSettings defers to this rather than duplicating
+/// it (PRD #24 §40-§43, PRD #37 §24).
+model CompanySettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  /// BCP 47. Presentation only (PRD #24 §25).
+  locale     String @default("en")
+  /// IANA name, never a raw UTC offset (PRD #24 §26). Timestamps stay UTC.
+  timezone   String @default("UTC")
+  dateFormat String @default("DD/MM/YYYY")
+
+  /// ISO 4217. A base currency implies no FX support whatsoever (PRD #24 §32).
+  baseCurrency            String   @default("EUR") @db.VarChar(3)
+  fiscalYearStartMonth    Int      @default(1)
+  defaultPaymentTermsDays Int      @default(30)
+  defaultTaxRate          Decimal? @db.Decimal(9, 4)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([baseCurrency])
+  @@index([timezone])
+  @@map("company_settings")
+}
+
+/// Product-defined cross-module behaviours a Company may switch on. These are
+/// not a workflow builder — each flag maps to one implemented integration
+/// (PRD #24 §71-§76, PRD #37 §116).
+model CompanyIntegrationSettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  /// Goods Receipt must pass QA before Inventory may post (PRD #24 §77).
+  qualityGateForInventoryReceipts           Boolean @default(false)
+  /// Approving a Purchase Order opens a Finance Commitment (PRD #24 §82).
+  autoCreateFinanceCommitmentFromApprovedPo Boolean @default(true)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("company_integration_settings")
+}
+
+/// How human-readable business numbers are generated. Database ids stay cuid;
+/// these are the numbers people quote to each other (PRD #24 §86-§99,
+/// PRD #37 §114). Allocation takes a row lock; numbers are never recycled.
+model CompanyNumberingScheme {
+  id        String @id @default(cuid())
+  companyId String
+
+  moduleKey  String
+  entityType String
+
+  mode                NumberingMode     @default(MANUAL)
+  prefix              String?
+  separator           String            @default("-")
+  yearMode            NumberingYearMode @default(YYYY)
+  padding             Int               @default(4)
+  resetSequenceYearly Boolean           @default(true)
+
+  currentYear  Int?
+  nextSequence Int  @default(1)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, moduleKey, entityType])
+  @@index([companyId])
+  @@index([moduleKey, entityType])
+  @@map("company_numbering_schemes")
+}
+
+// ---------------------------------------------------------------------------
+// Audit (PRD #28, consolidated per PRD #37 §109-§112)
+//
+// Audit is evidence, not history. Activity tells a user what happened to a
+// record; AuditEvent proves who did it, when, from where, and what changed
+// (PRD #28 §3-§6). It is append-only: the repository exposes no update and no
+// delete, and no user-facing route can reach one (PRD #28 §10-§12).
+// ---------------------------------------------------------------------------
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  INTEGRATION
+}
+
+enum AuditCategory {
+  AUTHENTICATION
+  ACCESS_CONTROL
+  CONFIGURATION
+  FINANCIAL
+  LEGAL
+  PROCUREMENT
+  INVENTORY
+  QUALITY
+  HSE
+  HR
+  SALES
+  PROJECT
+  DOCUMENT
+  REPORTING
+  SYSTEM
+}
+
+enum AuditSeverity {
+  INFO
+  IMPORTANT
+  CRITICAL
+}
+
+model AuditEvent {
+  id        String @id @default(cuid())
+  companyId String
+
+  occurredAt DateTime @default(now())
+
+  actorType                AuditActorType
+  actorUserId              String?
+  actorMemberId            String?
+  /// Kept as a snapshot so a historical event still reads correctly after the
+  /// member is renamed, changes role or leaves (PRD #28 §17, §219).
+  actorDisplayNameSnapshot String?
+  actorRoleSnapshot        String?
+
+  moduleKey String
+  category  AuditCategory
+  severity  AuditSeverity @default(INFO)
+
+  actionKey String
+
+  entityType          String?
+  entityId            String?
+  entityLabelSnapshot String?
+
+  projectId String?
+
+  /// Minimal, redacted snapshots — never a copy of the whole record, and never
+  /// a secret (PRD #28 §33, §38, §112).
+  beforeJson  Json?
+  afterJson   Json?
+  changesJson Json?
+
+  reason       String?
+  metadataJson Json?
+
+  correlationId String?
+  requestId     String?
+
+  ipAddress String?
+  userAgent String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, occurredAt, id])
+  @@index([companyId, actionKey, occurredAt])
+  @@index([companyId, moduleKey, occurredAt])
+  @@index([companyId, category, occurredAt])
+  @@index([companyId, severity, occurredAt])
+  @@index([actorMemberId, occurredAt])
+  @@index([entityType, entityId])
+  @@index([projectId, occurredAt])
+  @@index([correlationId])
+  @@index([requestId])
+  @@map("audit_events")
+}
+
+// ---------------------------------------------------------------------------
+// Cross-module integration (PRD #23, consolidated per PRD #37 §106-§108)
+//
+// One concept has one canonical owner. When a Sales quote becomes an invoice,
+// Finance owns the invoice — Sales never becomes Finance (PRD #23 §4, §341).
+// These two models are the provenance and the idempotency: the link records
+// that a handoff happened, the attempt records that it was tried.
+// ---------------------------------------------------------------------------
+
+enum IntegrationMode {
+  REFERENCE
+  CREATE_FROM
+  SYNCHRONIZE
+}
+
+enum IntegrationLinkStatus {
+  ACTIVE
+  CANCELLED
+  SUPERSEDED
+  FAILED
+}
+
+enum IntegrationAttemptStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+/// A durable source-to-target relationship between two modules (PRD #23 §18-§24).
+model IntegrationLink {
+  id        String @id @default(cuid())
+  companyId String
+
+  integrationType String
+  mode            IntegrationMode @default(CREATE_FROM)
+
+  sourceModule     String
+  sourceEntityType String
+  sourceEntityId   String
+
+  targetModule     String
+  targetEntityType String
+  targetEntityId   String
+
+  status IntegrationLinkStatus @default(ACTIVE)
+
+  /// The uniqueness that makes a retry safe: the same source cannot produce a
+  /// second target (PRD #23 §21, §45, §230).
+  idempotencyKey String
+
+  correlationId     String?
+  createdByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, integrationType, idempotencyKey])
+  @@index([companyId])
+  @@index([sourceModule, sourceEntityType, sourceEntityId])
+  @@index([targetModule, targetEntityType, targetEntityId])
+  @@index([status])
+  @@index([correlationId])
+  @@map("integration_links")
+}
+
+/// Technical orchestration history, kept out of business Activity (PRD #23 §156-§161).
+model IntegrationAttempt {
+  id        String @id @default(cuid())
+  companyId String
+
+  integrationType String
+
+  sourceModule     String
+  sourceEntityType String
+  sourceEntityId   String
+
+  idempotencyKey String
+  correlationId  String
+
+  status        IntegrationAttemptStatus @default(STARTED)
+  errorCode     String?
+  attemptNumber Int                      @default(1)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([integrationType])
+  @@index([sourceModule, sourceEntityType, sourceEntityId])
+  @@index([idempotencyKey])
+  @@index([correlationId])
+  @@index([status])
+  @@map("integration_attempts")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications and attention (PRD #25, consolidated per PRD #37 §101-§105)
+//
+// Four separate things, kept separate on purpose: Activity is what happened,
+// a Notification is what one person was told, an AttentionItem is what still
+// needs doing, and a Task is the work itself (PRD #25 §2, §364).
+// ---------------------------------------------------------------------------
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum NotificationReadState {
+  UNREAD
+  READ
+}
+
+enum AttentionStatus {
+  ACTIVE
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationEventGroup {
+  ASSIGNMENTS
+  APPROVALS
+  DEADLINES
+  CRITICAL_ALERTS
+  STATUS_UPDATES
+  REMINDERS
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+/// A message directed at one member. Title and body are written after the
+/// recipient has been authorised, so a stored notification is already safe for
+/// the person who will read it (PRD #25 §49, §194).
+model Notification {
+  id                String @id @default(cuid())
+  companyId         String
+  recipientMemberId String
+
+  eventType String
+  moduleKey String
+
+  entityType String?
+  entityId   String?
+  projectId  String?
+
+  title String
+  body  String?
+
+  priority  NotificationPriority  @default(NORMAL)
+  readState NotificationReadState @default(UNREAD)
+
+  /// One notification per event per recipient (PRD #25 §60-§62).
+  dedupeKey String
+
+  readAt DateTime?
+
+  actorMemberId String?
+  correlationId String?
+
+  metadataJson Json?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+  @@index([recipientMemberId, readState, createdAt])
+  @@index([recipientMemberId, createdAt])
+  @@index([moduleKey])
+  @@index([entityType, entityId])
+  @@index([projectId])
+  @@index([priority])
+  @@index([dedupeKey])
+  @@index([correlationId])
+  @@map("notifications")
+}
+
+/// An unresolved condition, not an event. It disappears when the condition
+/// stops being true — paying the invoice is what clears it, not reading about
+/// it (PRD #25 §13-§15, §77).
+model AttentionItem {
+  id                String @id @default(cuid())
+  companyId         String
+  recipientMemberId String
+
+  conditionKey String
+  moduleKey    String
+
+  entityType String
+  entityId   String
+  projectId  String?
+
+  title String
+  body  String?
+
+  priority    NotificationPriority @default(NORMAL)
+  status      AttentionStatus      @default(ACTIVE)
+  /// Some conditions may not be waved away: an active Stop Work is not a
+  /// notification you dismiss (PRD #25 §79).
+  dismissible Boolean              @default(true)
+
+  firstDetectedAt DateTime  @default(now())
+  lastEvaluatedAt DateTime  @default(now())
+  resolvedAt      DateTime?
+  dismissedAt     DateTime?
+
+  dedupeKey String
+
+  metadataJson Json?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, recipientMemberId, dedupeKey])
+  @@index([recipientMemberId, status, priority])
+  @@index([recipientMemberId, lastEvaluatedAt])
+  @@index([moduleKey])
+  @@index([entityType, entityId])
+  @@index([projectId])
+  @@map("attention_items")
+}
+
+/// Per-membership delivery preferences. Mandatory critical alerts ignore them
+/// (PRD #25 §85, §340).
+model NotificationPreference {
+  id        String @id @default(cuid())
+  companyId String
+  memberId  String
+
+  moduleKey  String
+  eventGroup NotificationEventGroup
+
+  inAppEnabled Boolean @default(true)
+  emailEnabled Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, memberId, moduleKey, eventGroup])
+  @@index([memberId])
+  @@index([companyId])
+  @@index([moduleKey])
+  @@map("notification_preferences")
+}
+
+/// The durable handoff between a business transaction and notification
+/// delivery. Enqueued in the same transaction as the mutation, so a rolled-back
+/// action never notifies anybody (PRD #25 §26, §27, §240).
+model NotificationEventOutbox {
+  id        String @id @default(cuid())
+  companyId String
+
+  eventType  String
+  moduleKey  String
+  entityType String
+  entityId   String
+
+  actorMemberId String?
+  projectId     String?
+
+  payloadJson   Json
+  correlationId String?
+
+  status        NotificationOutboxStatus @default(PENDING)
+  attemptCount  Int                      @default(0)
+  nextAttemptAt DateTime?
+  processedAt   DateTime?
+  lastError     String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([companyId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([correlationId])
+  @@map("notification_event_outbox")
 }

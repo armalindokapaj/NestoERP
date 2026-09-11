@@ -22,7 +22,10 @@
     "test:e2e": "playwright test",
     "test:e2e:all-browsers": "E2E_ALL_BROWSERS=1 playwright test",
     "verify:roles": "tsx scripts/verify-roles.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$DATABASE_URL\" --exit-code && echo 'no drift'",
+    "verify:production-guards": "tsx scripts/verify-production-guards.ts",
+    "retention:dry-run": "tsx scripts/retention.ts --dry-run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

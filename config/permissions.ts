@@ -361,9 +361,30 @@ export const PERMISSIONS = [
   "company.view",
   "company.manage",
 
+  /* Company configuration (PRD #24 §13) ---------------------------------- */
+  "company.settings.view",
+  "company.settings.update",
+  "company.modules.view",
+  "company.modules.manage",
+  "company.integrations.view",
+  "company.integrations.manage",
+  "company.numbering.view",
+  "company.numbering.manage",
+  "company.localization.view",
+  "company.localization.manage",
+  "company.finance_settings.view",
+  "company.finance_settings.manage",
+  "company.security_settings.view",
+  "company.security_settings.manage",
+
   /* Settings ------------------------------------------------------------- */
   "settings.view",
   "settings.manage",
+
+  /* Audit (PRD #28 §221) -------------------------------------------------- */
+  "audit.view",
+  "audit.export",
+  "audit.sensitive.view",
 
   /* Support -------------------------------------------------------------- */
   "support.view",

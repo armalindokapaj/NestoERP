@@ -345,8 +345,26 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     ],
   },
   company: {
-    VIEW: ["company.view"],
-    MANAGE: ["company.manage"],
+    VIEW: [
+      "company.view",
+      "company.settings.view",
+      "company.modules.view",
+      "company.integrations.view",
+      "company.numbering.view",
+      "company.localization.view",
+    ],
+    MANAGE: [
+      "company.manage",
+      "company.settings.update",
+      "company.modules.manage",
+      "company.integrations.manage",
+      "company.numbering.manage",
+      "company.localization.manage",
+      "company.finance_settings.view",
+      "company.finance_settings.manage",
+      "company.security_settings.view",
+      "company.security_settings.manage",
+    ],
   },
   settings: {
     VIEW: ["settings.view"],
@@ -503,6 +521,12 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     sales: { extra: ["sales.approval.self"] },
     // Pay is never on the ladder; the Owner holds it explicitly (PRD #16 §17).
     hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
+    /**
+     * Audit is evidence about everyone, including administrators, so it is not
+     * on any ladder. Only the Owner holds it by default — an Admin is not
+     * automatically an audit superuser (PRD #28 §222-§225, PRD #35 §123).
+     */
+    settings: { extra: ["audit.view", "audit.export", "audit.sensitive.view"] },
   },
   ADMIN: {
     /**
@@ -516,6 +540,12 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * MANAGE, above their level.
      */
     hr: { deny: ["hr.document.view"] },
+    /**
+     * Company settings are not the finance ledger's defaults (PRD #24 §15,
+     * §17). An Admin configures the company, its modules and its localisation;
+     * base currency, tax and payment terms stay with whoever holds Finance.
+     */
+    company: { deny: ["company.finance_settings.view", "company.finance_settings.manage"] },
   },
   CEO: {
     // Executive visibility without the bookkeeping surface (PRD #5 §16,
@@ -696,6 +726,19 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "hr.report.view",
         "hr.activity.view",
         "hr.export",
+      ],
+    },
+    /**
+     * IT keeps the system running without acquiring the business (PRD #24 §16,
+     * PRD #35 §124). Security and localisation are theirs to manage; Finance
+     * defaults, numbering and integration behaviour are not.
+     */
+    company: {
+      extra: [
+        "company.security_settings.view",
+        "company.security_settings.manage",
+        "company.localization.manage",
+        "company.settings.update",
       ],
     },
   },
