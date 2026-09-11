@@ -64,6 +64,7 @@ export type ClientDetailDTO = {
     canViewProjects: boolean;
     canViewDocuments: boolean;
     canViewActivity: boolean;
+    canViewFinance: boolean;
   };
 };
 

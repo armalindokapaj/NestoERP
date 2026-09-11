@@ -42,6 +42,7 @@ export default async function ClientContactsPage({ params }: Params) {
         show={{
           contacts: true,
           projects: client.capabilities.canViewProjects,
+          finance: client.capabilities.canViewFinance,
           documents: client.capabilities.canViewDocuments,
           activity: client.capabilities.canViewActivity,
         }}

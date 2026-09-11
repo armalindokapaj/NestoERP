@@ -780,6 +780,15 @@ function toDetailDTO(
       canViewProjects: can(context, "client.project.view") && can(context, "project.view"),
       canViewDocuments: can(context, "client.document.view") && can(context, "document.view"),
       canViewActivity: can(context, "client.activity.view"),
+    /**
+     * The client Finance tab needs client access *and* a finance permission
+     * that has something to show about a client — which is invoices and what
+     * is outstanding on them (PRD #15 §185, §186). Generic client access is
+     * never enough.
+     */
+    canViewFinance:
+      can(context, "finance.view") &&
+      (can(context, "finance.invoice.view") || can(context, "finance.receivables.view")),
     },
   };
 }

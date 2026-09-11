@@ -77,15 +77,79 @@ export const PERMISSIONS = [
   /* Finance -------------------------------------------------------------- */
   "finance.view",
   "finance.manage",
+  "finance.dashboard.view",
+  "finance.report.view",
+  "finance.export",
   "finance.company_summary.view",
-  "finance.project_budget.view",
+
   "finance.invoice.view",
   "finance.invoice.create",
   "finance.invoice.update",
+  "finance.invoice.submit",
   "finance.invoice.approve",
+  "finance.invoice.reject",
+  "finance.invoice.mark_sent",
+  "finance.invoice.cancel",
   "finance.invoice.archive",
+  "finance.invoice.restore",
+
   "finance.payment.view",
+  "finance.payment.create",
+  "finance.payment.void",
+
+  "finance.expense.view",
+  "finance.expense.create",
+  "finance.expense.update",
+  "finance.expense.submit",
+  "finance.expense.approve",
+  "finance.expense.reject",
+  "finance.expense.cancel",
+  "finance.expense.archive",
+  "finance.expense.restore",
+
   "finance.budget.view",
+  "finance.budget.create",
+  "finance.budget.update",
+  "finance.budget.submit",
+  "finance.budget.approve",
+  "finance.budget.reject",
+  "finance.budget.revise",
+  "finance.budget.archive",
+  "finance.budget.restore",
+
+  "finance.commitment.view",
+  "finance.commitment.create",
+  "finance.commitment.update",
+  "finance.commitment.submit",
+  "finance.commitment.approve",
+  "finance.commitment.reject",
+  "finance.commitment.close",
+  "finance.commitment.cancel",
+  "finance.commitment.archive",
+  "finance.commitment.restore",
+
+  "finance.approval.view",
+  "finance.approval.decide",
+  /**
+   * Permission to approve your own submission. Withheld by default, because
+   * "who checked this?" must have an answer other than "the person who wrote
+   * it" (PRD #15 §19).
+   */
+  "finance.approval.self",
+
+  "finance.receivables.view",
+  "finance.payables.view",
+  "finance.cashflow.view",
+  "finance.project_budget.view",
+  "finance.project_cost_summary.view",
+  "finance.project_cost_detail.view",
+
+  "finance.document.view",
+  "finance.document.create",
+
+  "finance.settings.view",
+  "finance.settings.manage",
+  "finance.activity.view",
 
   /* HR ------------------------------------------------------------------- */
   "hr.view",

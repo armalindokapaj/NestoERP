@@ -10,7 +10,7 @@ import { recordActivity } from "@/lib/modules/shared/activity";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import { formatCurrency, formatDate, orDash } from "@/lib/utils/format";
 import { CORE_SECTIONS } from "./core-sections";
-import type { ModuleRecordDetail, RecordSection } from "./types";
+import type { RecordSection } from "./types";
 
 /**
  * The department module sections (PRD #9 §67).
@@ -50,218 +50,6 @@ function enumValue<T extends string>(value: string | undefined, allowed: readonl
   const upper = value.toUpperCase();
   return (allowed as readonly string[]).includes(upper) ? (upper as T) : undefined;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Finance                                                                     */
-/* -------------------------------------------------------------------------- */
-
-const INVOICE_STATUSES = ["DRAFT", "PENDING", "APPROVED", "PAID", "OVERDUE", "ARCHIVED"] as const;
-
-const invoices: RecordSection = {
-  module: "finance",
-  section: "invoices",
-  singular: "Invoice",
-  plural: "Invoices",
-  emptyTitle: "No invoices yet.",
-  emptyDescription: "Invoices raised by your company will appear here.",
-  permission: "finance.invoice.view",
-  approvePermission: "finance.invoice.approve",
-  columns: [
-    { key: "number", label: "Invoice" },
-    { key: "client", label: "Client", hideBelow: "lg" },
-    { key: "project", label: "Project", hideBelow: "xl" },
-    { key: "status", label: "Status" },
-    { key: "due", label: "Due", hideBelow: "xl" },
-    { key: "amount", label: "Amount", align: "right" },
-  ],
-  filters: [statusFilter([...INVOICE_STATUSES])],
-  async list(context, args) {
-    const where: Prisma.InvoiceWhereInput = {
-      ...buildProjectLinkedScopeWhere(context, "finance"),
-      ...(enumValue(args.filters.status, INVOICE_STATUSES)
-        ? { status: enumValue(args.filters.status, INVOICE_STATUSES) }
-        : {}),
-      ...(searchClause(args.search, ["invoiceNumber", "title"]) ?? {}),
-    };
-
-    const [rows, total] = await Promise.all([
-      prisma.invoice.findMany({
-        where,
-        orderBy: { updatedAt: "desc" },
-        skip: skipFor(args.page, args.limit),
-        take: args.limit,
-        select: {
-          id: true,
-          invoiceNumber: true,
-          title: true,
-          amount: true,
-          currency: true,
-          status: true,
-          dueDate: true,
-          client: { select: { name: true } },
-          project: { select: { name: true } },
-        },
-      }),
-      prisma.invoice.count({ where }),
-    ]);
-
-    return {
-      total,
-      rows: rows.map((row) => ({
-        id: row.id,
-        primary: row.invoiceNumber,
-        secondary: row.title,
-        status: row.status,
-        fields: [
-          { key: "number", label: "Invoice", value: row.invoiceNumber },
-          { key: "client", label: "Client", value: orDash(row.client?.name), hideBelow: "lg" as const },
-          { key: "project", label: "Project", value: orDash(row.project?.name), hideBelow: "xl" as const },
-          { key: "status", label: "Status", value: row.status, status: true },
-          {
-            key: "due",
-            label: "Due",
-            value: row.dueDate ? formatDate(row.dueDate) : "—",
-            hideBelow: "xl" as const,
-          },
-          {
-            key: "amount",
-            label: "Amount",
-            value: money(row.amount, row.currency),
-            align: "right" as const,
-          },
-        ],
-      })),
-    };
-  },
-  async get(context, id) {
-    const row = await prisma.invoice.findFirst({
-      where: { ...buildProjectLinkedScopeWhere(context, "finance"), id },
-      select: {
-        id: true,
-        invoiceNumber: true,
-        title: true,
-        amount: true,
-        currency: true,
-        status: true,
-        issueDate: true,
-        dueDate: true,
-        createdAt: true,
-        updatedAt: true,
-        approvedAt: true,
-        client: { select: { name: true } },
-        project: { select: { name: true } },
-      },
-    });
-
-    if (!row) return null;
-
-    return {
-      id: row.id,
-      title: row.invoiceNumber,
-      subtitle: row.title,
-      status: row.status,
-      fields: [
-        { label: "Client", value: orDash(row.client?.name) },
-        { label: "Project", value: orDash(row.project?.name) },
-        { label: "Amount", value: money(row.amount, row.currency) },
-        { label: "Issued", value: row.issueDate ? formatDate(row.issueDate) : "—" },
-        { label: "Due", value: row.dueDate ? formatDate(row.dueDate) : "—" },
-      ],
-      meta: auditMeta(row),
-      approval: { status: row.status, pending: row.status === "PENDING" },
-    } satisfies ModuleRecordDetail;
-  },
-  async decide(context, id, decision) {
-    await decideRecord(context, {
-      module: "finance",
-      entityType: "Invoice",
-      id,
-      decision,
-      permission: "finance.invoice.approve",
-      find: () =>
-        prisma.invoice.findFirst({
-          where: { ...buildProjectLinkedScopeWhere(context, "finance"), id },
-          select: { id: true, status: true, invoiceNumber: true },
-        }),
-      pendingStatus: "PENDING",
-      apply: (tx, approved) =>
-        tx.invoice.update({
-          where: { id },
-          data: {
-            status: approved ? "APPROVED" : "DRAFT",
-            approvedBy: approved ? context.userId : null,
-            approvedAt: approved ? new Date() : null,
-            updatedBy: context.userId,
-          },
-        }),
-      label: (record) => record.invoiceNumber,
-    });
-  },
-};
-
-const payments: RecordSection = {
-  module: "finance",
-  section: "payments",
-  singular: "Payment",
-  plural: "Payments",
-  emptyTitle: "No payments recorded.",
-  emptyDescription: "Invoices marked as paid appear here.",
-  permission: "finance.payment.view",
-  columns: [
-    { key: "number", label: "Invoice" },
-    { key: "client", label: "Client", hideBelow: "lg" },
-    { key: "status", label: "Status" },
-    { key: "amount", label: "Amount", align: "right" },
-  ],
-  async list(context, args) {
-    const where: Prisma.InvoiceWhereInput = {
-      ...buildProjectLinkedScopeWhere(context, "finance"),
-      status: "PAID",
-      ...(searchClause(args.search, ["invoiceNumber", "title"]) ?? {}),
-    };
-
-    const [rows, total] = await Promise.all([
-      prisma.invoice.findMany({
-        where,
-        orderBy: { updatedAt: "desc" },
-        skip: skipFor(args.page, args.limit),
-        take: args.limit,
-        select: {
-          id: true,
-          invoiceNumber: true,
-          title: true,
-          amount: true,
-          currency: true,
-          status: true,
-          client: { select: { name: true } },
-        },
-      }),
-      prisma.invoice.count({ where }),
-    ]);
-
-    return {
-      total,
-      rows: rows.map((row) => ({
-        id: row.id,
-        primary: row.invoiceNumber,
-        secondary: row.title,
-        status: row.status,
-        fields: [
-          { key: "number", label: "Invoice", value: row.invoiceNumber },
-          { key: "client", label: "Client", value: orDash(row.client?.name), hideBelow: "lg" as const },
-          { key: "status", label: "Status", value: row.status, status: true },
-          {
-            key: "amount",
-            label: "Amount",
-            value: money(row.amount, row.currency),
-            align: "right" as const,
-          },
-        ],
-      })),
-    };
-  },
-  get: (context, id) => invoices.get(context, id),
-};
 
 /* -------------------------------------------------------------------------- */
 /* HR                                                                          */
@@ -1819,9 +1607,9 @@ async function decideRecord<T extends { id: string; status: string }>(
 
 const SECTIONS: RecordSection[] = [
   ...CORE_SECTIONS,
-  invoices,
-  payments,
-  { ...invoices, section: "project-budgets", permission: "finance.project_budget.view" },
+  // Finance has its own module now (PRD #15), so its sections are gone from
+  // the shell registry: two implementations of "list the invoices" is one too
+  // many, and the shell's was the placeholder.
   leave,
   employees,
   opportunities,

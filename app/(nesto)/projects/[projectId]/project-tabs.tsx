@@ -16,12 +16,24 @@ export function ProjectTabs({
 }: {
   projectId: string;
   active: ProjectTabKey;
-  show: { tasks: boolean; team: boolean; documents: boolean; activity: boolean };
+  show: {
+    tasks: boolean;
+    team: boolean;
+    finance?: boolean;
+    documents: boolean;
+    activity: boolean;
+  };
 }) {
   const tabs: { key: ProjectTabKey; label: string; href: string; visible: boolean }[] = [
     { key: "overview", label: "Overview", href: `/projects/${projectId}`, visible: true },
     { key: "tasks", label: "Tasks", href: `/projects/${projectId}/tasks`, visible: show.tasks },
     { key: "team", label: "Team", href: `/projects/${projectId}/team`, visible: show.team },
+    {
+      key: "finance",
+      label: "Finance",
+      href: `/projects/${projectId}/finance`,
+      visible: Boolean(show.finance),
+    },
     {
       key: "documents",
       label: "Documents",

@@ -24,29 +24,12 @@ async function expectError(promise: Promise<unknown>, code: string) {
   await promise.catch((error: AccessError) => expect(error.code).toBe(code));
 }
 
-describe("finance access (PRD #9 §134)", () => {
-  const invoices = findRecordSection("finance", "invoices")!;
-
-  it("gives the Finance role every Company A invoice", async () => {
-    const context = await loginAs("FINANCE");
-    const result = await invoices.list(context, listArgs);
-    expect(result.total).toBeGreaterThanOrEqual(12);
-  });
-
-  it("keeps the Project Manager to invoices on their own projects", async () => {
-    const context = await loginAs("PROJECT_MANAGER");
-    const result = await invoices.list(context, listArgs);
-
-    const projectIds = await prisma.invoice.findMany({
-      where: { id: { in: result.rows.map((row) => row.id) } },
-      select: { projectId: true },
-    });
-
-    for (const row of projectIds) {
-      expect(["project_a", "project_b"]).toContain(row.projectId);
-    }
-  });
-
+describe("finance module access (PRD #9 §134)", () => {
+  /*
+   * The invoice list itself is tested in tests/api/finance, against the real
+   * Finance service (PRD #15). What belongs here is the *module-level* access
+   * that the shell still owns: who reaches Finance at all, and with what.
+   */
   it("denies the Viewer Finance entirely (PRD #5 §32)", async () => {
     const context = await loginAs("VIEWER");
     expect(canAccessModule(context, "finance")).toBe(false);
@@ -55,97 +38,33 @@ describe("finance access (PRD #9 §134)", () => {
   it("gives the Architect no operational invoice permission (PRD #5 §18)", async () => {
     const context = await loginAs("ARCHITECT");
     expect(context.permissions).not.toContain("finance.invoice.view");
-  });
-});
-
-describe("HR scope (PRD #9 §135)", () => {
-  const leave = findRecordSection("hr", "leave")!;
-
-  it("gives HR the whole company's leave", async () => {
-    const context = await loginAs("HR");
-    const result = await leave.list(context, listArgs);
-    expect(result.total).toBeGreaterThanOrEqual(8);
+    // What an Architect does keep is the project budget summary.
+    expect(context.permissions).toContain("finance.project_budget.view");
   });
 
-  it("gives the Architect only their own leave (SELF scope)", async () => {
-    const context = await loginAs("ARCHITECT");
-    const result = await leave.list(context, listArgs);
-
-    const rows = await prisma.leaveRequest.findMany({
-      where: { id: { in: result.rows.map((row) => row.id) } },
-      select: { employeeMemberId: true },
-    });
-
-    for (const row of rows) {
-      expect(row.employeeMemberId).toBe(context.membershipId);
+  it("keeps Admin and Company IT out of Finance (PRD #15 §20)", async () => {
+    // Administering NESTO is not financial authorisation.
+    for (const role of ["ADMIN", "COMPANY_IT"] as const) {
+      const context = await loginAs(role);
+      expect(canAccessModule(context, "finance")).toBe(false);
     }
-  });
-
-  it("denies the Project Manager sensitive leave records", async () => {
-    const context = await loginAs("PROJECT_MANAGER");
-    expect(context.permissions).not.toContain("hr.leave.view");
   });
 });
 
 describe("approval shell (PRD #9 §189)", () => {
-  const invoices = findRecordSection("finance", "invoices")!;
+  /*
+   * Finance has graduated out of the record shell (PRD #15), so the invoice
+   * cases that used to live here are now in tests/api/finance — against the
+   * real approval service, with its own separation-of-duties rules. What is
+   * left is the shell's own approval behaviour, which Procurement still uses.
+   */
   const requests = findRecordSection("procurement", "requests")!;
 
   afterEach(async () => {
-    // Return the seeded fixtures to their documented state.
-    await prisma.invoice.updateMany({
-      where: { invoiceNumber: { in: ["INV-001", "INV-006"] } },
-      data: { status: "PENDING", approvedBy: null, approvedAt: null },
-    });
     await prisma.purchaseRequest.updateMany({
       where: { reference: "PR-001" },
       data: { status: "PENDING_APPROVAL", approvedBy: null, approvedAt: null },
     });
-  });
-
-  it("lets an approver approve, and records who and when", async () => {
-    const context = await loginAs("CEO");
-    const invoice = await prisma.invoice.findFirstOrThrow({
-      where: { invoiceNumber: "INV-001" },
-    });
-
-    await invoices.decide!(context, invoice.id, "APPROVE");
-
-    const after = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
-    expect(after.status).toBe("APPROVED");
-    expect(after.approvedBy).toBe(context.userId);
-    expect(after.approvedAt).not.toBeNull();
-
-    const activity = await prisma.activity.findFirst({
-      where: { entityId: invoice.id, action: "RECORD_APPROVED" },
-      orderBy: { createdAt: "desc" },
-    });
-    expect(activity).not.toBeNull();
-  });
-
-  it("refuses a non-approver (PRD #9 §189)", async () => {
-    const context = await loginAs("PROJECT_MANAGER");
-    const invoice = await prisma.invoice.findFirstOrThrow({
-      where: { invoiceNumber: "INV-006" },
-    });
-
-    await expectError(invoices.decide!(context, invoice.id, "APPROVE"), "FORBIDDEN");
-  });
-
-  it("refuses the Viewer outright", async () => {
-    const context = await loginAs("VIEWER");
-    const invoice = await prisma.invoice.findFirstOrThrow({
-      where: { invoiceNumber: "INV-006" },
-    });
-
-    await expectError(invoices.decide!(context, invoice.id, "APPROVE"), "FORBIDDEN");
-  });
-
-  it("refuses a record that is not awaiting a decision (PRD #9 §190)", async () => {
-    const context = await loginAs("CEO");
-    const paid = await prisma.invoice.findFirstOrThrow({ where: { invoiceNumber: "INV-002" } });
-
-    await expectError(invoices.decide!(context, paid.id, "APPROVE"), "CONFLICT");
   });
 
   it("approves a purchase request for a permitted approver", async () => {
@@ -158,6 +77,33 @@ describe("approval shell (PRD #9 §189)", () => {
 
     const after = await prisma.purchaseRequest.findUniqueOrThrow({ where: { id: request.id } });
     expect(after.status).toBe("APPROVED");
+  });
+
+  it("refuses a non-approver (PRD #9 §189)", async () => {
+    const context = await loginAs("PROJECT_MANAGER");
+    const request = await prisma.purchaseRequest.findFirstOrThrow({
+      where: { reference: "PR-001" },
+    });
+
+    await expectError(requests.decide!(context, request.id, "APPROVE"), "FORBIDDEN");
+  });
+
+  it("refuses the Viewer outright", async () => {
+    const context = await loginAs("VIEWER");
+    const request = await prisma.purchaseRequest.findFirstOrThrow({
+      where: { reference: "PR-001" },
+    });
+
+    await expectError(requests.decide!(context, request.id, "APPROVE"), "FORBIDDEN");
+  });
+
+  it("refuses a record that is not awaiting a decision (PRD #9 §190)", async () => {
+    const context = await loginAs("CEO");
+    const ordered = await prisma.purchaseRequest.findFirstOrThrow({
+      where: { reference: "PR-002" },
+    });
+
+    await expectError(requests.decide!(context, ordered.id, "APPROVE"), "CONFLICT");
   });
 });
 
@@ -188,7 +134,6 @@ describe("company-disabled modules (PRD #9 §110, §142)", () => {
 
 describe("company isolation across every record type (PRD #9 §12, §157)", () => {
   const cases: { module: string; section: string; role: Parameters<typeof loginAs>[0] }[] = [
-    { module: "finance", section: "invoices", role: "FINANCE" },
     { module: "sales", section: "opportunities", role: "SALES" },
     { module: "contracts", section: "contracts", role: "LEGAL" },
     { module: "procurement", section: "requests", role: "PROCUREMENT" },

@@ -170,17 +170,18 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     permission: "finance.view",
     writePermission: "finance.invoice.create",
     defaultSection: "overview",
+    // Sections adapt to the reader: an Architect with only the project-budget
+    // grant sees Overview alone rather than five tabs that refuse them
+    // (PRD #15 §11).
     sections: [
       { key: "overview", label: "Overview" },
       { key: "invoices", label: "Invoices", permission: "finance.invoice.view" },
       { key: "payments", label: "Payments", permission: "finance.payment.view" },
+      { key: "expenses", label: "Expenses", permission: "finance.expense.view" },
       { key: "budgets", label: "Budgets", permission: "finance.budget.view" },
-      {
-        key: "project-budgets",
-        label: "Project Budgets",
-        permission: "finance.project_budget.view",
-      },
-      { key: "reports", label: "Reports", permission: "finance.company_summary.view" },
+      { key: "commitments", label: "Commitments", permission: "finance.commitment.view" },
+      { key: "approvals", label: "Approvals", permission: "finance.approval.view" },
+      { key: "reports", label: "Reports", permission: "finance.report.view" },
     ],
   },
   hr: {

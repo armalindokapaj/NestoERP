@@ -35,7 +35,14 @@ export function DocumentUploadForm({
   clients: SelectOption[];
   canFileToCompany: boolean;
   /** Fixed parent when opened from a record page (PRD #13 §89, §90). */
-  lockedContext?: { kind: "project" | "client"; id: string; label: string };
+  /**
+   * A parent fixed by where the form was opened from. `record` is a module's
+   * own record — a finance invoice, say — identified by its entity type
+   * (PRD #13 §91, PRD #15 §187).
+   */
+  lockedContext?:
+    | { kind: "project" | "client"; id: string; label: string }
+    | { kind: "record"; id: string; label: string; entityType: string };
   maxMegabytes: number;
   cancelHref: string;
   action: (formData: FormData) => Promise<DocumentActionResult>;
@@ -95,11 +102,18 @@ export function DocumentUploadForm({
         {lockedContext ? (
           <>
             <input type="hidden" name="context" value={lockedContext.kind} />
-            <input
-              type="hidden"
-              name={lockedContext.kind === "project" ? "projectId" : "clientId"}
-              value={lockedContext.id}
-            />
+            {lockedContext.kind === "record" ? (
+              <>
+                <input type="hidden" name="entityType" value={lockedContext.entityType} />
+                <input type="hidden" name="entityId" value={lockedContext.id} />
+              </>
+            ) : (
+              <input
+                type="hidden"
+                name={lockedContext.kind === "project" ? "projectId" : "clientId"}
+                value={lockedContext.id}
+              />
+            )}
             <div className="sm:col-span-2">
               <Field label="Context" name="context">
                 <p className="rounded-md border border-line bg-surface-2 px-3 py-2.5 text-body text-fg">

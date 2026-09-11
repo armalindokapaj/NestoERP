@@ -15,6 +15,7 @@ import { seedAccessConfiguration } from "./seed/access";
 import { seedActivities } from "./seed/activities";
 import { seedBusinessRecords } from "./seed/business";
 import { seedCompanies } from "./seed/companies";
+import { seedFinanceRecords } from "./seed/finance";
 import { COMPANY_A_USERS, DEMO_PASSWORD } from "./seed/constants";
 import { seedModuleRecords } from "./seed/module-records";
 import { seedTeamRecords } from "./seed/team";
@@ -46,6 +47,7 @@ async function main() {
   const { companyA, companyB, members } = await seedCompanies(prisma);
   await seedBusinessRecords(prisma, members);
   const invitations = await seedTeamRecords(prisma, members);
+  const finance = await seedFinanceRecords(prisma, members);
   await seedModuleRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
 
@@ -74,6 +76,10 @@ async function main() {
   console.log(`✓ Tasks: ${counts.tasks}`);
   console.log(`✓ Documents: ${counts.documents}`);
   console.log(`✓ Company members: ${counts.members} (invitations: ${invitations})`);
+  console.log(
+    `✓ Finance: ${finance.invoices} invoices, ${finance.expenses} expenses, ` +
+      `${finance.payments} payments, ${finance.budgets} budgets, ${finance.commitments} commitments`,
+  );
   console.log(`✓ Activities: ${activities}`);
   console.log("✓ Seed validation passed");
   console.log(

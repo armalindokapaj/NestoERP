@@ -19,7 +19,12 @@ import {
   type DocumentParentRef,
 } from "./document.parent-access";
 import * as repository from "./document.repository";
-import type { CreateDocumentInput, DocumentListQuery, UpdateDocumentInput } from "./document.schema";
+import type {
+  CreateDocumentInput,
+  DocumentListQuery,
+  DocumentRecordType,
+  UpdateDocumentInput,
+} from "./document.schema";
 import type {
   DocumentActivityDTO,
   DocumentContextDTO,
@@ -432,8 +437,35 @@ async function resolveParent(
     };
   }
 
+  if (input.context === "record") {
+    /*
+     * A document filed against a module's own record (PRD #15 §187).
+     *
+     * The parent is not looked up here: `canAttachToDocumentParent` runs the
+     * registered resolver for this entity type, which reads the record through
+     * *its* module's scope. One place decides reachability, so a record type
+     * added later cannot quietly acquire a second interpretation.
+     */
+    return {
+      projectId: null,
+      clientId: null,
+      module: MODULE_FOR_RECORD[input.entityType!],
+      entityType: input.entityType!,
+      entityId: input.entityId!,
+    };
+  }
+
   return { projectId: null, clientId: null, module: null, entityType: null, entityId: null };
 }
+
+/** Which module owns each record type a document can be filed against. */
+const MODULE_FOR_RECORD: Record<DocumentRecordType, string> = {
+  task: "tasks",
+  invoice: "finance",
+  expense: "finance",
+  budget: "finance",
+  commitment: "finance",
+};
 
 /* -------------------------------------------------------------------------- */
 /* DTO mapping                                                                 */

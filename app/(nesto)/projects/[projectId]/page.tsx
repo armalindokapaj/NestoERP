@@ -148,6 +148,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
         show={{
           tasks: actions.canViewTasks,
           team: actions.canViewMembers,
+          finance: actions.canViewFinance,
           documents: actions.canViewDocuments,
           activity: actions.canViewActivity,
         }}

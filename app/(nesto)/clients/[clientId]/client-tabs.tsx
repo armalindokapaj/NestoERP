@@ -15,6 +15,7 @@ const TABS = [
   { key: "overview", label: "Overview", suffix: "" },
   { key: "contacts", label: "Contacts", suffix: "/contacts" },
   { key: "projects", label: "Projects", suffix: "/projects" },
+  { key: "finance", label: "Finance", suffix: "/finance" },
   { key: "documents", label: "Documents", suffix: "/documents" },
   { key: "activity", label: "Activity", suffix: "/activity" },
 ] as const;

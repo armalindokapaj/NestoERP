@@ -12,6 +12,8 @@ import {
   buildTaskScopeWhere,
 } from "@/lib/access/scope";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
+import * as financeKpis from "@/lib/modules/finance/finance.kpis";
+import { buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
@@ -154,21 +156,26 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
         }),
       );
 
+    // Finance figures come from the Finance module's own helpers, so a
+    // dashboard number and the Finance overview can never disagree
+    // (PRD #15 §258, §259).
     case "receivables":
-      return formatCurrency(
-        await sumInvoices(context, { status: { in: ["PENDING", "APPROVED", "OVERDUE"] } }),
-      );
+      return formatKpi(await financeKpis.receivablesKpi(context));
 
     case "overdueValue":
-      return formatCurrency(await sumInvoices(context, { status: "OVERDUE" }));
+      return formatKpi(await financeKpis.overdueReceivablesKpi(context));
 
     case "invoicedValue":
-      return formatCurrency(
-        await sumInvoices(context, { status: { in: ["APPROVED", "PAID", "OVERDUE", "PENDING"] } }),
-      );
+      return formatKpi(await financeKpis.invoicedValueKpi(context));
 
-    case "projectInvoiced":
-      return formatCurrency(await sumInvoices(context, { projectId: { not: null } }));
+    case "projectInvoiced": {
+      const { currency, rows } = await financeKpis.invoicedByProject(context);
+      const total = rows.reduce(
+        (sum, row) => sum.plus(row._sum.totalAmount ?? 0),
+        new Prisma.Decimal(0),
+      );
+      return formatKpi({ amount: total, currency });
+    }
 
     case "headcount":
       return String(
@@ -494,10 +501,12 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     }
 
     case "financeSummary": {
-      const statuses = ["DRAFT", "PENDING", "APPROVED", "PAID", "OVERDUE"] as const;
+      const statuses = ["DRAFT", "PENDING_APPROVAL", "APPROVED", "SENT"] as const;
       const counts = await Promise.all(
         statuses.map((status) =>
-          prisma.invoice.count({ where: { ...invoiceScope(context), status } }),
+          prisma.invoice.count({
+            where: { AND: [buildInvoiceScopeWhere(context), { status }] },
+          }),
         ),
       );
 
@@ -513,15 +522,22 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     }
 
     case "overdueInvoices": {
+      // Overdue is derived, not stored: a sent invoice past its due date with
+      // something still owing (PRD #15 §44).
       const rows = await prisma.invoice.findMany({
-        where: { ...invoiceScope(context), status: "OVERDUE" },
+        where: {
+          AND: [
+            buildInvoiceScopeWhere(context),
+            { status: "SENT", dueDate: { lt: new Date() } },
+          ],
+        },
         orderBy: { dueDate: "asc" },
         take: 5,
         select: {
           id: true,
           invoiceNumber: true,
-          title: true,
-          amount: true,
+          currency: true,
+          totalAmount: true,
           dueDate: true,
           client: { select: { name: true } },
         },
@@ -531,8 +547,8 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         kind: "list",
         items: rows.map((row) => ({
           id: row.id,
-          title: `${row.invoiceNumber} · ${row.client?.name ?? row.title}`,
-          subtitle: formatCurrency(decimalToNumber(row.amount)),
+          title: `${row.invoiceNumber} · ${row.client.name}`,
+          subtitle: formatKpi({ amount: row.totalAmount, currency: row.currency }),
           meta: row.dueDate ? formatRelativeTime(row.dueDate) : undefined,
           status: "OVERDUE",
           href: `/finance/invoices/${row.id}`,
@@ -541,11 +557,8 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     }
 
     case "projectBudgets": {
-      const grouped = await prisma.invoice.groupBy({
-        by: ["projectId"],
-        where: { ...invoiceScope(context), projectId: { not: null } },
-        _sum: { amount: true },
-      });
+      const { currency: projectCurrency, rows: grouped } =
+        await financeKpis.invoicedByProject(context);
 
       const projectIds = grouped
         .map((row) => row.projectId)
@@ -569,7 +582,10 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
               id: project.id,
               title: project.name,
               subtitle: project.code,
-              meta: formatCurrency(decimalToNumber(row._sum.amount)),
+              meta: formatKpi({
+                amount: row._sum.totalAmount ?? new Prisma.Decimal(0),
+                currency: projectCurrency,
+              }),
               status: project.status,
               href: `/projects/${project.id}`,
             };
@@ -1110,14 +1126,14 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
   }
 
   if (can(context, "finance.invoice.view")) {
-    const overdueValue = await sumInvoices(context, { status: "OVERDUE" });
-    if (overdueValue > 0) {
+    const overdue = await financeKpis.overdueReceivablesKpi(context);
+    if (overdue.amount.greaterThan(0)) {
       alerts.push({
         id: "invoices-overdue",
         priority: "CRITICAL",
-        title: `${formatCurrency(overdueValue)} overdue`,
-        detail: "Invoices past their due date and unpaid.",
-        href: "/finance/invoices?status=OVERDUE",
+        title: `${formatKpi(overdue)} overdue`,
+        detail: "Invoices past their due date with money still outstanding.",
+        href: "/finance/invoices?settlement=OVERDUE",
       });
     }
   }
@@ -1204,17 +1220,25 @@ async function loadApprovals(context: UserContext) {
 
   if (can(context, "finance.invoice.approve")) {
     const rows = await prisma.invoice.findMany({
-      where: { ...invoiceScope(context), status: "PENDING" },
+      where: {
+        AND: [buildInvoiceScopeWhere(context), { status: "PENDING_APPROVAL" }],
+      },
       orderBy: { dueDate: "asc" },
       take: 5,
-      select: { id: true, invoiceNumber: true, title: true, amount: true },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        currency: true,
+        totalAmount: true,
+        client: { select: { name: true } },
+      },
     });
 
     items.push(
       ...rows.map((row) => ({
         id: `invoice-${row.id}`,
-        title: `${row.invoiceNumber} — ${row.title}`,
-        subtitle: `Invoice · ${formatCurrency(decimalToNumber(row.amount))}`,
+        title: `${row.invoiceNumber} — ${row.client.name}`,
+        subtitle: `Invoice · ${formatKpi({ amount: row.totalAmount, currency: row.currency })}`,
         href: `/finance/invoices/${row.id}`,
       })),
     );
@@ -1293,10 +1317,6 @@ async function loadApprovals(context: UserContext) {
  * Invoices follow Finance's own scope: a project-scoped user sees only invoices
  * on projects they belong to (PRD #4 §29).
  */
-function invoiceScope(context: UserContext) {
-  return buildProjectLinkedScopeWhere(context, "finance");
-}
-
 /** Leave follows HR scope: SELF means only the person's own requests. */
 function leaveScope(context: UserContext) {
   const scope = context.moduleAccess.hr.scope;
@@ -1306,15 +1326,15 @@ function leaveScope(context: UserContext) {
   return { companyId: context.companyId, employeeMemberId: context.membershipId };
 }
 
-async function sumInvoices(
-  context: UserContext,
-  where: Prisma.InvoiceWhereInput,
-): Promise<number> {
-  const result = await prisma.invoice.aggregate({
-    where: { ...invoiceScope(context), ...where },
-    _sum: { amount: true },
-  });
-  return decimalToNumber(result._sum.amount);
+/**
+ * Renders a finance KPI in the currency it was measured in.
+ *
+ * The amount stays a `Prisma.Decimal` until the last possible moment, and the
+ * currency travels with it: a figure labelled "€" that was summed from dollars
+ * would be worse than no figure at all (PRD #15 §36).
+ */
+function formatKpi(kpi: { amount: Prisma.Decimal; currency: string }): string {
+  return formatCurrency(kpi.amount.toNumber(), kpi.currency);
 }
 
 /**

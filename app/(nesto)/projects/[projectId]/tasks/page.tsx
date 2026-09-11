@@ -63,6 +63,7 @@ export default async function ProjectTasksPage({ params }: Params) {
         show={{
           tasks: actions.canViewTasks,
           team: actions.canViewMembers,
+          finance: actions.canViewFinance,
           documents: actions.canViewDocuments,
           activity: actions.canViewActivity,
         }}
