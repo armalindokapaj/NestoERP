@@ -139,8 +139,29 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     MANAGE: ["hse.manage"],
   },
   team: {
-    VIEW: ["team.view"],
-    MANAGE: ["team.manage"],
+    VIEW: ["team.view", "team.member.view", "team.department.view", "team.activity.view"],
+    // Editing a colleague's membership is management, not contribution: there
+    // is nothing a contributor should be changing about somebody else
+    // (PRD #14 §18, §85).
+    MANAGE: [
+      "team.manage",
+      "team.member.invite",
+      "team.member.update",
+      "team.member.role.assign",
+      "team.member.department.assign",
+      "team.member.deactivate",
+      "team.member.reactivate",
+      "team.member.suspend",
+      "team.member.unsuspend",
+      "team.member.security_metadata.view",
+      "team.invitation.view",
+      "team.invitation.resend",
+      "team.invitation.cancel",
+      "team.department.create",
+      "team.department.update",
+      "team.department.archive",
+      "team.department.restore",
+    ],
   },
   company: {
     VIEW: ["company.view"],
@@ -290,6 +311,11 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
 type Override = { extra?: Permission[]; deny?: Permission[] };
 
 const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> = {
+  OWNER: {
+    // Promoting somebody to Owner is the one company action an Admin must not
+    // be able to take on their own (PRD #14 §95, §96).
+    team: { extra: ["team.owner.assign"] },
+  },
   CEO: {
     // Executive visibility without the bookkeeping surface (PRD #5 §16).
     finance: {

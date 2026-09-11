@@ -156,6 +156,28 @@ export const PERMISSIONS = [
   /* Team ----------------------------------------------------------------- */
   "team.view",
   "team.manage",
+  "team.member.view",
+  "team.member.invite",
+  "team.member.update",
+  "team.member.role.assign",
+  "team.member.department.assign",
+  "team.member.deactivate",
+  "team.member.reactivate",
+  "team.member.suspend",
+  "team.member.unsuspend",
+  // Assigning OWNER is its own grant: Admin is not Owner (PRD #14 §95, §96).
+  "team.owner.assign",
+  // Last-login is security metadata, not directory data (PRD #14 §49).
+  "team.member.security_metadata.view",
+  "team.invitation.view",
+  "team.invitation.resend",
+  "team.invitation.cancel",
+  "team.department.view",
+  "team.department.create",
+  "team.department.update",
+  "team.department.archive",
+  "team.department.restore",
+  "team.activity.view",
 
   /* Company -------------------------------------------------------------- */
   "company.view",

@@ -17,6 +17,7 @@ import { seedBusinessRecords } from "./seed/business";
 import { seedCompanies } from "./seed/companies";
 import { COMPANY_A_USERS, DEMO_PASSWORD } from "./seed/constants";
 import { seedModuleRecords } from "./seed/module-records";
+import { seedTeamRecords } from "./seed/team";
 import { validateSeed } from "./seed/validate";
 
 const prisma = new PrismaClient();
@@ -44,6 +45,7 @@ async function main() {
   const access = await seedAccessConfiguration(prisma);
   const { companyA, companyB, members } = await seedCompanies(prisma);
   await seedBusinessRecords(prisma, members);
+  const invitations = await seedTeamRecords(prisma, members);
   await seedModuleRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
 
@@ -56,6 +58,7 @@ async function main() {
     clients: await prisma.client.count(),
     tasks: await prisma.task.count(),
     documents: await prisma.document.count(),
+    members: await prisma.companyMember.count(),
   };
 
   // Concise output only — never a hash, a token or a secret (PRD #9 §240).
@@ -70,6 +73,7 @@ async function main() {
   console.log(`✓ Clients: ${counts.clients}`);
   console.log(`✓ Tasks: ${counts.tasks}`);
   console.log(`✓ Documents: ${counts.documents}`);
+  console.log(`✓ Company members: ${counts.members} (invitations: ${invitations})`);
   console.log(`✓ Activities: ${activities}`);
   console.log("✓ Seed validation passed");
   console.log(

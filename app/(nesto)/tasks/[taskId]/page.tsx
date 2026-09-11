@@ -59,7 +59,7 @@ export default async function TaskDetailPage({ params }: Params) {
               <span className="flex items-center gap-2">
                 {can(context, "team.view") ? (
                   <Link
-                    href={`/team/${task.assignee.userId}`}
+                    href={`/team/${task.assignee.memberId}`}
                     className="text-fg transition-colors hover:text-accent"
                   >
                     {task.assignee.fullName}

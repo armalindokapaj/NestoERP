@@ -316,10 +316,13 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     group: "company",
     permission: "team.view",
     writePermission: "team.manage",
-    defaultSection: "people",
+    defaultSection: "overview",
     sections: [
+      { key: "overview", label: "Overview" },
       { key: "people", label: "People" },
-      { key: "departments", label: "Departments" },
+      { key: "departments", label: "Departments", permission: "team.department.view" },
+      { key: "invitations", label: "Invitations", permission: "team.invitation.view" },
+      { key: "inactive", label: "Inactive", permission: "team.member.view" },
     ],
   },
   company: {
