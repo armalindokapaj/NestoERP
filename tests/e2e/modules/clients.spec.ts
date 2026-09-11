@@ -64,7 +64,9 @@ test.describe("Sales (PRD #12 §229)", () => {
     await page.getByRole("button", { name: "Actions for Dritan Hoxha" }).click();
     await page.getByRole("menuitem", { name: "Make primary" }).click();
 
-    await expect(page.getByText("Primary contact changed.")).toBeVisible();
+    // Radix Toast renders the message twice — once visibly, once in the live
+    // region a screen reader announces — so the assertion takes the first.
+    await expect(page.getByText("Primary contact changed.").first()).toBeVisible();
 
     // Exactly one badge: promoting somebody stands the previous primary down
     // in the same transaction (PRD #12 §83, §84).

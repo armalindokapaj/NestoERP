@@ -5,7 +5,6 @@ import { NotificationsMenu } from "@/components/layout/notifications-menu";
 import { PageTitle } from "@/components/layout/page-title";
 import { UserMenu } from "@/components/layout/user-menu";
 import type { NavigationGroup } from "@/config/navigation";
-import { canAccessModule } from "@/lib/access/can";
 import { isDevMode } from "@/lib/auth/dev-role";
 import type { UserContext } from "@/lib/context/types";
 
@@ -55,7 +54,6 @@ export function Topbar({
             avatarUrl: context.avatarUrl,
             roleLabel: context.roleLabel,
             companyName: context.company.name,
-            canOpenSettings: canAccessModule(context, "settings"),
           }}
         />
       </div>

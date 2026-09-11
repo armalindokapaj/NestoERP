@@ -41,6 +41,29 @@ const PUBLIC_ROUTE_PREFIXES = ["/invite/"] as const;
 /** Public routes an authenticated user should never sit on. */
 const AUTHED_REDIRECT_ROUTES = ["/login", "/forgot-password", "/reset-password"] as const;
 
+/**
+ * Reasons the app itself sent a cookie-carrying visitor back to /login
+ * (PRD #6 §50, §51).
+ *
+ * A session cookie can be perfectly valid and still name a session that no
+ * longer exists: the row was revoked, it expired, or the database was reseeded
+ * in development. Middleware cannot tell — it reads the cookie and never
+ * touches the database (PRD #6 §44). The page can, and redirects to
+ * /login?reason=...
+ *
+ * Middleware has to know that, or the two disagree forever: it bounces the
+ * "signed in" visitor to /dashboard, the dashboard resolves no context and
+ * sends them straight back, and the login page becomes unreachable behind
+ * ERR_TOO_MANY_REDIRECTS — locking the person out of the only page that could
+ * have fixed their session.
+ */
+const DEAD_SESSION_REASONS = ["session-expired", "account-unavailable"] as const;
+
+/** Did a server-side context check already reject the cookie on this request? */
+export function isDeadSessionReason(reason: string | null | undefined): boolean {
+  return (DEAD_SESSION_REASONS as readonly string[]).includes(reason ?? "");
+}
+
 export function isPublicRoute(pathname: string): boolean {
   if ((PUBLIC_ROUTES as readonly string[]).includes(pathname)) return true;
   // An invitation stays reachable while signed in: somebody with an existing
@@ -50,8 +73,14 @@ export function isPublicRoute(pathname: string): boolean {
   );
 }
 
-export function redirectsWhenAuthenticated(pathname: string): boolean {
-  return (AUTHED_REDIRECT_ROUTES as readonly string[]).includes(pathname);
+export function redirectsWhenAuthenticated(
+  pathname: string,
+  reason?: string | null,
+): boolean {
+  if (!(AUTHED_REDIRECT_ROUTES as readonly string[]).includes(pathname)) return false;
+  // The page already rejected this session against the database. Sending them
+  // back into the app would only produce the same rejection.
+  return !isDeadSessionReason(reason);
 }
 
 /**

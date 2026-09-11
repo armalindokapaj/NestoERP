@@ -120,3 +120,34 @@ test("Company B hides its disabled modules (PRD #9 §164)", async ({ page }) => 
   await expect(page).toHaveURL(/\/module-unavailable/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/module unavailable/i);
 });
+
+/**
+ * Personal settings belong to everyone (PRD #5 §39).
+ *
+ * The sidebar's Settings item is the *company* settings module, so it stays
+ * with the four roles that administer the company. The user menu is a different
+ * door: Profile and Appearance describe the person, so every role must be able
+ * to reach them. Gating the menu link on the module was how twelve of the
+ * sixteen roles ended up with no route to their own theme preferences.
+ */
+for (const role of ["VIEWER", "ENGINEER", "FINANCE"] as const) {
+  test(`${role}: reaches personal settings from the user menu`, async ({ page }) => {
+    await signIn(page, role);
+
+    // No company Settings in the sidebar — that part is unchanged.
+    await expect(sidebar(page).getByRole("link", { name: "Settings", exact: true })).toHaveCount(0);
+
+    await page.getByRole("button", { name: /open user menu/i }).click();
+    await page.getByRole("menuitem", { name: "Settings" }).click();
+
+    await expect(page).toHaveURL(/\/settings$/);
+    const main = page.locator("#nesto-main");
+    await expect(main.getByRole("link", { name: /^Profile/ })).toBeVisible();
+    await expect(main.getByRole("link", { name: /^Appearance/ })).toBeVisible();
+
+    // The company sections stay out of reach, by absence and by guard.
+    await expect(main.getByRole("link", { name: /^Users/ })).toHaveCount(0);
+    await page.goto("/settings/company");
+    await expect(page).toHaveURL(/\/access-denied/);
+  });
+}
