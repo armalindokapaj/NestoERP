@@ -221,6 +221,47 @@ const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
     return Boolean(found);
   },
 
+  /*
+   * Legal parents (PRD #18 §199–§201, §437).
+   *
+   * An amendment and an obligation are exactly as reachable as the contract
+   * they belong to — they carry no scope of their own, so there is one answer
+   * to "may this person see this agreement?" and the document resolver is not a
+   * second one. Release-critical: a generic `document.view` must never open a
+   * signed contract (PRD #18 §437).
+   */
+  async contract(context, entityId) {
+    if (!can(context, "legal.document.view") || !can(context, "legal.contract.view")) return false;
+    const { buildContractScopeWhere } = await import("@/lib/modules/contracts/contract.scope");
+    const found = await prisma.contract.findFirst({
+      where: { AND: [buildContractScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async amendment(context, entityId) {
+    if (!can(context, "legal.document.view") || !can(context, "legal.amendment.view")) return false;
+    const { buildAmendmentScopeWhere } = await import("@/lib/modules/contracts/contract.scope");
+    const found = await prisma.contractAmendment.findFirst({
+      where: { AND: [buildAmendmentScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async obligation(context, entityId) {
+    if (!can(context, "legal.document.view") || !can(context, "legal.obligation.view")) {
+      return false;
+    }
+    const { buildObligationScopeWhere } = await import("@/lib/modules/contracts/contract.scope");
+    const found = await prisma.contractObligation.findFirst({
+      where: { AND: [buildObligationScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
   async leave_request(context, entityId) {
     // No self-service door: a supporting file on a leave request may be a
     // medical certificate, which is what `hr.leave.view` protects
@@ -298,6 +339,9 @@ const MODULE_UPLOAD_GRANT: Record<string, Permission> = {
   // Reading a proposal is not the same permission as attaching a file to it
   // (PRD #17 §143).
   sales: "sales.document.create",
+  // Nor is reading a contract the same permission as filing against it
+  // (PRD #18 §203).
+  contracts: "legal.document.create",
 };
 
 /** May this caller file a *new* document against that parent (PRD #13 §43, §91)? */
@@ -353,6 +397,11 @@ const RECORD_DOCUMENT_GRANTS: Record<string, Permission[]> = {
   lead: ["sales.document.view", "sales.lead.view"],
   opportunity: ["sales.document.view", "sales.opportunity.view"],
   proposal: ["sales.document.view", "sales.proposal.view"],
+  // Legal is the same shape: a signed contract is reachable through contract
+  // access, an amendment through amendment access (PRD #18 §200, §201).
+  contract: ["legal.document.view", "legal.contract.view"],
+  amendment: ["legal.document.view", "legal.amendment.view"],
+  obligation: ["legal.document.view", "legal.obligation.view"],
 };
 
 /**

@@ -366,37 +366,277 @@ enum SalesApprovalStatus {
   CANCELLED
 }
 
+/// What kind of agreement this is (PRD #18 §38).
+///
+/// Deliberately industry-neutral: the same list has to serve construction,
+/// professional services and software without a migration (PRD #18 §483).
+enum ContractType {
+  CLIENT_AGREEMENT
+  SERVICE_AGREEMENT
+  PURCHASE_AGREEMENT
+  SUBCONTRACT
+  LEASE
+  NDA
+  CONSULTING
+  FRAMEWORK
+  EMPLOYMENT_RELATED
+  OTHER
+}
+
+/// The contract lifecycle (PRD #18 §40, §191).
+///
+/// EXPIRING is deliberately absent. "Expiring soon" is a fact about today and
+/// the expiry date, derived on read — storing it would mean a contract's status
+/// depended on when a maintenance job last ran (PRD #18 §75, §193).
 enum ContractStatus {
   DRAFT
+  IN_REVIEW
   PENDING_APPROVAL
+  APPROVED
+  SENT
+  SIGNED
   ACTIVE
-  EXPIRING
   EXPIRED
+  TERMINATED
+  CANCELLED
   ARCHIVED
+}
+
+enum ContractRenewalType {
+  NONE
+  MANUAL
+  AUTO_RENEW
+  EVERGREEN
+}
+
+enum ContractPartyRole {
+  OUR_COMPANY
+  CLIENT
+  COUNTERPARTY
+  GUARANTOR
+  SUBCONTRACTOR
+  OTHER
+}
+
+enum ContractPartyType {
+  COMPANY
+  INDIVIDUAL
+  PUBLIC_ENTITY
+  OTHER
+}
+
+enum ContractObligationType {
+  DELIVERABLE
+  NOTICE
+  PAYMENT
+  DOCUMENT
+  COMPLIANCE
+  RENEWAL
+  OTHER
+}
+
+/// OVERDUE is not here on purpose: it is OPEN plus a due date in the past, and
+/// a stored copy would be wrong every night at midnight (PRD #18 §152).
+enum ContractObligationStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum ContractAmendmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SENT
+  SIGNED
+  ACTIVE
+  CANCELLED
+  ARCHIVED
+}
+
+enum ContractApprovalRecordType {
+  CONTRACT
+  AMENDMENT
+}
+
+enum ContractApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum PurchaseRequestStatus {
   DRAFT
-  SUBMITTED
   PENDING_APPROVAL
   APPROVED
   REJECTED
+  IN_SOURCING
+  PARTIALLY_ORDERED
   ORDERED
+  COMPLETED
+  CANCELLED
+  ARCHIVED
 }
 
 enum PurchaseOrderStatus {
   DRAFT
   PENDING_APPROVAL
   APPROVED
-  ORDERED
-  DELIVERED
+  REJECTED
+  ISSUED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
+  CANCELLED
+  ARCHIVED
 }
 
-enum MovementType {
-  IN
-  OUT
-  TRANSFER
-  ADJUSTMENT
+enum SupplierType {
+  COMPANY
+  INDIVIDUAL
+  PUBLIC_ENTITY
+  OTHER
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ProcurementPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ProcurementCategory {
+  MATERIALS
+  EQUIPMENT
+  SUBCONTRACT
+  SERVICES
+  LOGISTICS
+  OFFICE
+  OTHER
+}
+
+enum RFQStatus {
+  DRAFT
+  ISSUED
+  CLOSED
+  CANCELLED
+}
+
+enum RFQSupplierStatus {
+  INVITED
+  RESPONDED
+  DECLINED
+  DISQUALIFIED
+}
+
+enum SupplierQuoteStatus {
+  DRAFT
+  RECEIVED
+  DISQUALIFIED
+  SELECTED
+  NOT_SELECTED
+}
+
+enum GoodsReceiptStatus {
+  RECORDED
+  VOIDED
+}
+
+enum ProcurementApprovalRecordType {
+  PURCHASE_REQUEST
+  PURCHASE_ORDER
+}
+
+enum ProcurementApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum InventoryItemCategory {
+  MATERIAL
+  EQUIPMENT
+  TOOL
+  CONSUMABLE
+  SPARE_PART
+  OFFICE
+  OTHER
+}
+
+enum InventoryItemStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum WarehouseType {
+  CENTRAL
+  PROJECT_SITE
+  OFFICE
+  TEMPORARY
+  OTHER
+}
+
+enum WarehouseStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum InventoryLocationStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+/// Every row in the ledger is one of these. REVERSAL undoes an earlier
+/// movement without deleting it (PRD #20 §68, §70).
+enum StockMovementType {
+  RECEIPT
+  ISSUE
+  RETURN_TO_STOCK
+  TRANSFER_OUT
+  TRANSFER_IN
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  REVERSAL
+}
+
+/// Every stock document shares one lifecycle: drafted, posted to the ledger,
+/// and then either cancelled before posting or reversed after (PRD #20 §280).
+enum InventoryTransactionStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+  REVERSED
+}
+
+enum StockAdjustmentReason {
+  OPENING_BALANCE
+  PHYSICAL_COUNT
+  DAMAGE
+  LOSS
+  FOUND
+  CORRECTION
+  OTHER
+}
+
+enum StockReservationStatus {
+  ACTIVE
+  PARTIALLY_FULFILLED
+  FULFILLED
+  RELEASED
+  CANCELLED
+  EXPIRED
 }
 
 enum QualityRecordType {
@@ -498,30 +738,48 @@ model Company {
   integrationSettings CompanyIntegrationSettings?
   numberingSchemes    CompanyNumberingScheme[]
 
-  financeSettings   FinanceSettings?
-  invoices          Invoice[]
-  expenses          Expense[]
-  payments          Payment[]
-  projectBudgets    ProjectBudget[]
-  commitments       Commitment[]
-  financeApprovals  FinanceApproval[]
-  employeeProfiles  EmployeeProfile[]
-  compensations     Compensation[]
-  leaveRequests     LeaveRequest[]
-  leaveBalances     LeaveBalance[]
-  attendanceRecords AttendanceRecord[]
-  leads             Lead[]
-  opportunities     Opportunity[]
-  proposals         Proposal[]
-  salesApprovals    SalesApproval[]
-  contracts         Contract[]
-  purchaseRequests  PurchaseRequest[]
-  purchaseOrders    PurchaseOrder[]
-  inventoryItems    InventoryItem[]
-  stockMovements    InventoryMovement[]
-  qualityRecords    QualityRecord[]
-  hseRecords        HseRecord[]
-  supportRequests   SupportRequest[]
+  financeSettings      FinanceSettings?
+  invoices             Invoice[]
+  expenses             Expense[]
+  payments             Payment[]
+  projectBudgets       ProjectBudget[]
+  commitments          Commitment[]
+  financeApprovals     FinanceApproval[]
+  employeeProfiles     EmployeeProfile[]
+  compensations        Compensation[]
+  leaveRequests        LeaveRequest[]
+  leaveBalances        LeaveBalance[]
+  attendanceRecords    AttendanceRecord[]
+  leads                Lead[]
+  opportunities        Opportunity[]
+  proposals            Proposal[]
+  salesApprovals       SalesApproval[]
+  contracts            Contract[]
+  contractParties      ContractParty[]
+  contractObligations  ContractObligation[]
+  contractAmendments   ContractAmendment[]
+  contractApprovals    ContractApproval[]
+  suppliers            Supplier[]
+  purchaseRequests     PurchaseRequest[]
+  purchaseOrders       PurchaseOrder[]
+  rfqs                 RFQ[]
+  supplierQuotes       SupplierQuote[]
+  goodsReceipts        GoodsReceipt[]
+  procurementApprovals ProcurementApproval[]
+  inventoryItems       InventoryItem[]
+  warehouses           Warehouse[]
+  inventoryLocations   InventoryLocation[]
+  inventoryBalances    InventoryBalance[]
+  stockMovements       StockMovement[]
+  inventoryReceipts    InventoryReceipt[]
+  stockIssues          StockIssue[]
+  stockReturns         StockReturn[]
+  stockTransfers       StockTransfer[]
+  stockAdjustments     StockAdjustment[]
+  stockReservations    StockReservation[]
+  qualityRecords       QualityRecord[]
+  hseRecords           HseRecord[]
+  supportRequests      SupportRequest[]
 
   sessions            Session[]
   authEvents          AuthEvent[]
@@ -562,8 +820,9 @@ model Department {
 
   managerMember CompanyMember? @relation("DepartmentManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  purchaseRequests PurchaseRequest[]
 
   @@unique([companyId, name])
   @@unique([companyId, key])
@@ -725,15 +984,20 @@ model CompanyMember {
 
   activityActions Activity[] @relation("ActivityActorMember")
 
-  employeeProfile         EmployeeProfile?    @relation("EmployeeProfileMember")
-  managedEmployeeProfiles EmployeeProfile[]   @relation("EmployeeProfileManager")
-  ownedLeads              Lead[]              @relation("LeadOwner")
-  ownedOpportunities      Opportunity[]       @relation("OpportunityOwner")
-  requestedOrders         PurchaseRequest[]   @relation("PurchaseRequester")
-  stockMovements          InventoryMovement[] @relation("MovementActor")
-  qualityRecords          QualityRecord[]     @relation("QualityAssignee")
-  hseRecords              HseRecord[]         @relation("HseAssignee")
-  supportRequests         SupportRequest[]    @relation("SupportRequester")
+  employeeProfile         EmployeeProfile?  @relation("EmployeeProfileMember")
+  managedEmployeeProfiles EmployeeProfile[] @relation("EmployeeProfileManager")
+  ownedLeads              Lead[]            @relation("LeadOwner")
+  ownedOpportunities      Opportunity[]     @relation("OpportunityOwner")
+  ownedContracts          Contract[]        @relation("ContractOwner")
+
+  responsibleContractObligations ContractObligation[] @relation("ContractObligationResponsible")
+
+  requestedPurchases PurchaseRequest[] @relation("PurchaseRequestRequester")
+  ownedPurchases     PurchaseRequest[] @relation("PurchaseRequestOwner")
+  goodsReceived      GoodsReceipt[]    @relation("GoodsReceiptReceiver")
+  qualityRecords     QualityRecord[]   @relation("QualityAssignee")
+  hseRecords         HseRecord[]       @relation("HseAssignee")
+  supportRequests    SupportRequest[]  @relation("SupportRequester")
 
   sessions Session[]
 
@@ -789,16 +1053,22 @@ model Project {
   tasks     Task[]
   documents Document[]
 
-  invoices         Invoice[]
-  expenses         Expense[]
-  budgets          ProjectBudget[]
-  commitments      Commitment[]
-  contracts        Contract[]
-  purchaseRequests PurchaseRequest[]
-  purchaseOrders   PurchaseOrder[]
-  stockMovements   InventoryMovement[]
-  qualityRecords   QualityRecord[]
-  hseRecords       HseRecord[]
+  invoices          Invoice[]
+  expenses          Expense[]
+  budgets           ProjectBudget[]
+  commitments       Commitment[]
+  contracts         Contract[]
+  purchaseRequests  PurchaseRequest[]
+  purchaseOrders    PurchaseOrder[]
+  rfqs              RFQ[]
+  goodsReceipts     GoodsReceipt[]
+  warehouses        Warehouse[]
+  stockMovements    StockMovement[]
+  stockIssues       StockIssue[]
+  stockReturns      StockReturn[]
+  stockReservations StockReservation[]
+  qualityRecords    QualityRecord[]
+  hseRecords        HseRecord[]
 
   sourceOpportunities Opportunity[] @relation("OpportunityConvertedProject")
 
@@ -876,14 +1146,15 @@ model Client {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
-  contacts       Contact[]
-  projects       Project[]
-  documents      Document[]
-  invoices       Invoice[]
-  opportunities  Opportunity[]
-  proposals      Proposal[]
-  convertedLeads Lead[]        @relation("LeadConvertedClient")
-  contracts      Contract[]
+  contacts        Contact[]
+  projects        Project[]
+  documents       Document[]
+  invoices        Invoice[]
+  opportunities   Opportunity[]
+  proposals       Proposal[]
+  convertedLeads  Lead[]          @relation("LeadConvertedClient")
+  contracts       Contract[]
+  contractParties ContractParty[] @relation("ContractPartyClient")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1866,6 +2137,7 @@ model Opportunity {
   convertedProject Project? @relation("OpportunityConvertedProject", fields: [convertedProjectId], references: [id], onDelete: SetNull)
 
   proposals Proposal[]
+  contracts Contract[] @relation("ContractSourceOpportunity")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1922,6 +2194,7 @@ model Proposal {
   client      Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
   lineItems ProposalLineItem[]
+  contracts Contract[]         @relation("ContractSourceProposal")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1997,160 +2270,1528 @@ model SalesApproval {
   @@map("sales_approvals")
 }
 
+/// The canonical legal agreement record (PRD #18 §35, §528).
+///
+/// A Contract is not a Document and not a Proposal. The Proposal is the price
+/// somebody offered, the Document is the file that was signed, and this is the
+/// agreement's metadata and lifecycle — the only one of the three that has a
+/// status, an owner and an expiry (PRD #18 §3).
+///
+/// `contractValue` and `expiryDate` are *current effective* values. Their
+/// history is not overwritten but preserved in ContractAmendment, which is why
+/// a signed contract is changed by amendment rather than by edit
+/// (PRD #18 §330, §331).
 model Contract {
-  id           String         @id @default(cuid())
-  companyId    String
-  clientId     String?
-  projectId    String?
-  reference    String
-  title        String
-  value        Decimal?       @db.Decimal(14, 2)
-  currency     String         @default("EUR")
-  status       ContractStatus @default(DRAFT)
-  startDate    DateTime?
-  endDate      DateTime?
-  counterparty String?
+  id             String       @id @default(cuid())
+  companyId      String
+  contractNumber String
+  title          String
+  contractType   ContractType
 
-  createdBy  String
-  updatedBy  String?
-  approvedBy String?
-  approvedAt DateTime?
-  archivedBy String?
-  archivedAt DateTime?
+  clientId      String?
+  projectId     String?
+  /// Sales lineage (PRD #18 §56). Real foreign keys rather than loose ids, so
+  /// a contract can never point at an opportunity that no longer exists.
+  opportunityId String?
+  proposalId    String?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  /// The internal business owner of the record. Ownership is not authority: it
+  /// says who answers for the contract, never what they may do (PRD #18 §52).
+  ownerMemberId String
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status           ContractStatus  @default(DRAFT)
+  /// The status to return to on restore (PRD #18 §135).
+  preArchiveStatus ContractStatus?
 
-  @@unique([companyId, reference])
+  /// A snapshot of the other side's legal name. Not the Client's name read
+  /// live: the entity that signed is a historical fact (PRD #18 §61, §141).
+  counterpartyName String?
+
+  currency      String?  @db.VarChar(3)
+  contractValue Decimal? @db.Decimal(18, 2)
+
+  sentAt        DateTime?
+  signedDate    DateTime?
+  effectiveDate DateTime?
+  expiryDate    DateTime?
+
+  renewalType             ContractRenewalType @default(NONE)
+  renewalNoticeDays       Int?
+  autoRenewalPeriodMonths Int?
+
+  governingLaw String?
+  jurisdiction String?
+
+  summary         String?
+  /// Permission-gated. Visible only with `legal.commercial.view` (PRD #18 §79).
+  commercialNotes String?
+  /// Permission-gated. Visible only with `legal.confidential_terms.view`
+  /// (PRD #18 §80).
+  legalNotes      String?
+
+  terminationDate      DateTime?
+  terminationReason    String?
+  terminatedByMemberId String?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project     Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  owner       CompanyMember @relation("ContractOwner", fields: [ownerMemberId], references: [id], onDelete: Restrict)
+  opportunity Opportunity?  @relation("ContractSourceOpportunity", fields: [opportunityId], references: [id], onDelete: SetNull)
+  proposal    Proposal?     @relation("ContractSourceProposal", fields: [proposalId], references: [id], onDelete: SetNull)
+
+  parties     ContractParty[]
+  obligations ContractObligation[]
+  amendments  ContractAmendment[]
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([companyId, contractNumber])
   @@index([companyId])
   @@index([companyId, status])
+  @@index([companyId, expiryDate])
   @@index([clientId])
   @@index([projectId])
-  @@index([endDate])
+  @@index([opportunityId])
+  @@index([proposalId])
+  @@index([ownerMemberId])
+  @@index([contractType])
+  @@index([effectiveDate])
+  @@index([expiryDate])
+  @@index([renewalType])
+  @@index([currency])
+  @@index([updatedAt])
   @@map("contracts")
 }
 
-model PurchaseRequest {
-  id                String                @id @default(cuid())
-  companyId         String
-  projectId         String?
-  requestedMemberId String?
-  reference         String
-  title             String
-  amount            Decimal?              @db.Decimal(14, 2)
-  currency          String                @default("EUR")
-  status            PurchaseRequestStatus @default(DRAFT)
-  neededBy          DateTime?
+/// A legal party to an agreement, stored as a snapshot (PRD #18 §137, §141).
+///
+/// `clientId` is traceability only. The name, legal name and address are what
+/// the contract said at signing, so renaming the Client later must not rewrite
+/// who signed (PRD #18 §329).
+model ContractParty {
+  id         String @id @default(cuid())
+  companyId  String
+  contractId String
 
-  createdBy  String
-  updatedBy  String?
-  approvedBy String?
-  approvedAt DateTime?
+  partyRole ContractPartyRole
+  partyType ContractPartyType
 
-  company   Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  project   Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  requester CompanyMember? @relation("PurchaseRequester", fields: [requestedMemberId], references: [id], onDelete: SetNull)
+  name               String
+  legalName          String?
+  registrationNumber String?
+  taxId              String?
 
-  orders PurchaseOrder[]
+  clientId String?
+
+  address String?
+  city    String?
+  country String?
+
+  signatoryName  String?
+  signatoryTitle String?
+
+  /// At most one per contract, enforced by a partial unique index in the
+  /// migration and inside the transaction that sets it (PRD #18 §144, §236).
+  isPrimaryCounterparty Boolean @default(false)
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  client   Client?  @relation("ContractPartyClient", fields: [clientId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyId, reference])
+  @@index([companyId])
+  @@index([contractId])
+  @@index([clientId])
+  @@index([partyRole])
+  @@map("contract_parties")
+}
+
+/// A contractual requirement with a date (PRD #18 §149).
+///
+/// An obligation is not a Task. The obligation is what the agreement requires;
+/// a Task is work somebody does to satisfy it, and the Task lives in Tasks
+/// where every other piece of work lives (PRD #18 §154).
+model ContractObligation {
+  id         String @id @default(cuid())
+  companyId  String
+  contractId String
+
+  title          String
+  description    String?
+  obligationType ContractObligationType
+
+  responsibleMemberId String?
+  dueDate             DateTime?
+
+  status      ContractObligationStatus @default(OPEN)
+  completedAt DateTime?
+
+  /// Set when an amendment introduced the obligation (PRD #18 §337).
+  sourceAmendmentId String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  responsibleMember CompanyMember?     @relation("ContractObligationResponsible", fields: [responsibleMemberId], references: [id], onDelete: SetNull)
+  sourceAmendment   ContractAmendment? @relation("ObligationSourceAmendment", fields: [sourceAmendmentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([contractId])
+  @@index([responsibleMemberId])
+  @@index([dueDate])
+  @@index([obligationType])
+  @@map("contract_obligations")
+}
+
+/// A legal change to an approved or signed Contract (PRD #18 §160).
+///
+/// The amendment does not replace the contract; activating it copies the new
+/// value and expiry onto the contract and keeps the previous ones here, which
+/// is how the contract carries a current figure and a history at the same time
+/// (PRD #18 §174, §175).
+model ContractAmendment {
+  id         String @id @default(cuid())
+  companyId  String
+  contractId String
+
+  amendmentNumber String
+  title           String
+  summary         String
+
+  status ContractAmendmentStatus @default(DRAFT)
+
+  effectiveDate DateTime?
+  signedDate    DateTime?
+
+  /// The resulting value is authoritative; the delta is derived from it by the
+  /// server so the two can never disagree (PRD #18 §167, §332).
+  valueDelta       Decimal?  @db.Decimal(18, 2)
+  newContractValue Decimal?  @db.Decimal(18, 2)
+  newExpiryDate    DateTime?
+
+  /// What the contract held before this amendment was activated, so activation
+  /// is reversible evidence rather than an overwrite (PRD #18 §175).
+  previousContractValue Decimal?  @db.Decimal(18, 2)
+  previousExpiryDate    DateTime?
+  activatedAt           DateTime?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  obligations ContractObligation[] @relation("ObligationSourceAmendment")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contractId, amendmentNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([contractId])
+  @@index([effectiveDate])
+  @@index([newExpiryDate])
+  @@map("contract_amendments")
+}
+
+/// One approval cycle on a Contract or an Amendment (PRD #18 §181, §182).
+///
+/// Shaped like FinanceApproval and SalesApproval and kept separate for the same
+/// reason: the three modules grant approval authority through different
+/// permissions, and a shared table would make "who may decide this?" a question
+/// about a row rather than about a module (PRD #18 §526).
+model ContractApproval {
+  id        String @id @default(cuid())
+  companyId String
+
+  recordType ContractApprovalRecordType
+  recordId   String
+
+  status ContractApprovalStatus @default(PENDING)
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("contract_approvals")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Procurement (PRD #19)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+/**
+ * A supplier is who we buy from (PRD #19 §10, §26).
+ * Deliberately its own record rather than a Client with a flag. A Client is who
+ * pays us and a Supplier is who we pay, and the two answer different questions
+ * even when the same organisation is both — which V0.1 records twice on purpose
+ * (PRD #19 §3, §11).
+ */
+model Supplier {
+  id        String @id @default(cuid())
+  companyId String
+
+  code         String?
+  name         String
+  legalName    String?
+  supplierType SupplierType @default(COMPANY)
+
+  email   String?
+  phone   String?
+  website String?
+
+  taxId              String?
+  registrationNumber String?
+
+  address String?
+  city    String?
+  country String?
+
+  status SupplierStatus @default(ACTIVE)
+
+  /**
+   * Used to date an invoice due from a receipt (PRD #19 §39).
+   */
+  paymentTermsDays Int?
+  defaultCurrency  String? @db.VarChar(3)
+
+  notes String?
+
+  /**
+   * Lower-cased, punctuation-stripped name for duplicate detection (§31).
+   */
+  normalizedName String?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  rfqSuppliers   RFQSupplier[]
+  quotes         SupplierQuote[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts  GoodsReceipt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([name])
+  @@index([normalizedName])
+  @@index([taxId])
+  @@index([registrationNumber])
+  @@index([country])
+  @@index([updatedAt])
+  @@map("suppliers")
+}
+
+/**
+ * A purchase request is somebody asking to buy something (PRD #19 §41).
+ * It is a need, not a commitment. Nothing is owed to anybody until a purchase
+ * order is issued, which is why the two are separate records rather than one
+ * with a status (PRD #19 §3).
+ */
+model PurchaseRequest {
+  id        String @id @default(cuid())
+  companyId String
+
+  requestNumber String
+  title         String
+  description   String?
+
+  projectId    String?
+  departmentId String?
+
+  requestedByMemberId String
+  ownerMemberId       String?
+
+  requiredDate DateTime?
+  priority     ProcurementPriority @default(MEDIUM)
+
+  currency       String? @db.VarChar(3)
+  estimatedTotal Decimal @default(0) @db.Decimal(18, 2)
+
+  status           PurchaseRequestStatus  @default(DRAFT)
+  preArchiveStatus PurchaseRequestStatus?
+
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  approvedByMemberId String?
+  rejectedAt         DateTime?
+  rejectedByMemberId String?
+  rejectionReason    String?
+  cancelledAt        DateTime?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  requestedBy CompanyMember  @relation("PurchaseRequestRequester", fields: [requestedByMemberId], references: [id], onDelete: Restrict)
+  owner       CompanyMember? @relation("PurchaseRequestOwner", fields: [ownerMemberId], references: [id], onDelete: SetNull)
+
+  items          PurchaseRequestItem[]
+  rfqs           RFQ[]
+  purchaseOrders PurchaseOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, requestNumber])
   @@index([companyId])
   @@index([companyId, status])
   @@index([projectId])
+  @@index([departmentId])
+  @@index([requestedByMemberId])
+  @@index([ownerMemberId])
+  @@index([requiredDate])
+  @@index([priority])
+  @@index([updatedAt])
   @@map("purchase_requests")
 }
 
-model PurchaseOrder {
-  id         String              @id @default(cuid())
-  companyId  String
-  projectId  String?
-  requestId  String?
-  reference  String
-  supplier   String
-  amount     Decimal             @db.Decimal(14, 2)
-  currency   String              @default("EUR")
-  status     PurchaseOrderStatus @default(DRAFT)
-  orderedAt  DateTime?
-  expectedAt DateTime?
+model PurchaseRequestItem {
+  id                String @id @default(cuid())
+  purchaseRequestId String
 
-  createdBy  String
-  updatedBy  String?
-  approvedBy String?
-  approvedAt DateTime?
+  description        String
+  quantity           Decimal              @db.Decimal(18, 4)
+  unit               String
+  estimatedUnitPrice Decimal?             @db.Decimal(18, 4)
+  estimatedAmount    Decimal              @default(0) @db.Decimal(18, 2)
+  category           ProcurementCategory?
+  specification      String?
 
-  company Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  project Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  request PurchaseRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  sortOrder Int @default(0)
+
+  purchaseRequest PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyId, reference])
+  @@index([purchaseRequestId])
+  @@index([category])
+  @@map("purchase_request_items")
+}
+
+/**
+ * A request for quotation: the same ask, sent to several suppliers (§64).
+ */
+model RFQ {
+  id        String @id @default(cuid())
+  companyId String
+
+  rfqNumber String
+  title     String
+
+  purchaseRequestId String?
+  projectId         String?
+
+  currency        String    @db.VarChar(3)
+  responseDueDate DateTime?
+
+  status RFQStatus @default(DRAFT)
+
+  issuedAt    DateTime?
+  closedAt    DateTime?
+  cancelledAt DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseRequest PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id], onDelete: SetNull)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  suppliers      RFQSupplier[]
+  items          RFQItem[]
+  quotes         SupplierQuote[]
+  purchaseOrders PurchaseOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, rfqNumber])
   @@index([companyId])
   @@index([companyId, status])
+  @@index([purchaseRequestId])
   @@index([projectId])
+  @@index([responseDueDate])
+  @@index([updatedAt])
+  @@map("rfqs")
+}
+
+model RFQSupplier {
+  id         String @id @default(cuid())
+  rfqId      String
+  supplierId String
+
+  status      RFQSupplierStatus @default(INVITED)
+  invitedAt   DateTime?
+  respondedAt DateTime?
+
+  rfq      RFQ      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([rfqId, supplierId])
+  @@index([rfqId])
+  @@index([supplierId])
+  @@index([status])
+  @@map("rfq_suppliers")
+}
+
+model RFQItem {
+  id                  String  @id @default(cuid())
+  rfqId               String
+  sourceRequestItemId String?
+
+  description   String
+  quantity      Decimal @db.Decimal(18, 4)
+  unit          String
+  specification String?
+  sortOrder     Int     @default(0)
+
+  rfq RFQ @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  quoteItems SupplierQuoteItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([rfqId])
+  @@index([sourceRequestItemId])
+  @@map("rfq_items")
+}
+
+/**
+ * What one supplier answered (PRD #19 §78).
+ * A quote is commercially confidential to the buying side: one supplier must
+ * never be shown another's price, which is why quote reads are gated separately
+ * from the RFQ itself (PRD #19 §260).
+ */
+model SupplierQuote {
+  id         String @id @default(cuid())
+  companyId  String
+  rfqId      String
+  supplierId String
+
+  quoteNumber String?
+  quoteDate   DateTime
+  validUntil  DateTime?
+
+  currency String @db.VarChar(3)
+
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  leadTimeDays Int?
+  deliveryDate DateTime?
+
+  status SupplierQuoteStatus @default(DRAFT)
+
+  disqualificationReason String?
+  notes                  String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  rfq      RFQ      @relation(fields: [rfqId], references: [id], onDelete: Restrict)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  items          SupplierQuoteItem[]
+  purchaseOrders PurchaseOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([rfqId])
+  @@index([supplierId])
+  @@index([quoteDate])
+  @@index([validUntil])
+  @@index([currency])
+  @@map("supplier_quotes")
+}
+
+model SupplierQuoteItem {
+  id              String @id @default(cuid())
+  supplierQuoteId String
+  rfqItemId       String
+
+  quantity  Decimal @db.Decimal(18, 4)
+  unitPrice Decimal @db.Decimal(18, 4)
+  taxRate   Decimal @db.Decimal(7, 4)
+
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  notes String?
+
+  supplierQuote SupplierQuote @relation(fields: [supplierQuoteId], references: [id], onDelete: Cascade)
+  rfqItem       RFQItem       @relation(fields: [rfqItemId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([supplierQuoteId, rfqItemId])
+  @@index([supplierQuoteId])
+  @@index([rfqItemId])
+  @@map("supplier_quote_items")
+}
+
+/**
+ * A purchase order is the commitment (PRD #19 §95).
+ * Issuing one is the moment the company owes somebody money, which is why it is
+ * also the moment a Finance commitment appears (PRD #19 §116).
+ */
+model PurchaseOrder {
+  id        String @id @default(cuid())
+  companyId String
+
+  poNumber   String
+  supplierId String
+
+  purchaseRequestId String?
+  rfqId             String?
+  supplierQuoteId   String?
+
+  projectId           String?
+  contractId          String?
+  financeCommitmentId String?
+
+  orderDate    DateTime
+  requiredDate DateTime?
+  currency     String    @db.VarChar(3)
+
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  /**
+   * True once somebody edited a line the selected quote priced (§107).
+   */
+  modifiedFromQuote Boolean @default(false)
+
+  status           PurchaseOrderStatus  @default(DRAFT)
+  preArchiveStatus PurchaseOrderStatus?
+
+  notes String?
+
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  approvedByMemberId String?
+  rejectedAt         DateTime?
+  rejectedByMemberId String?
+  rejectionReason    String?
+  issuedAt           DateTime?
+  closedAt           DateTime?
+  cancelledAt        DateTime?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier        Supplier         @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  purchaseRequest PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id], onDelete: SetNull)
+  rfq             RFQ?             @relation(fields: [rfqId], references: [id], onDelete: SetNull)
+  supplierQuote   SupplierQuote?   @relation(fields: [supplierQuoteId], references: [id], onDelete: SetNull)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  contract        Contract?        @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  items    PurchaseOrderItem[]
+  receipts GoodsReceipt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, poNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([supplierId])
+  @@index([projectId])
+  @@index([purchaseRequestId])
+  @@index([rfqId])
+  @@index([supplierQuoteId])
+  @@index([contractId])
+  @@index([financeCommitmentId])
+  @@index([orderDate])
+  @@index([requiredDate])
+  @@index([currency])
+  @@index([updatedAt])
   @@map("purchase_orders")
 }
 
+model PurchaseOrderItem {
+  id              String @id @default(cuid())
+  purchaseOrderId String
+
+  sourceRequestItemId String?
+  sourceQuoteItemId   String?
+
+  description String
+  quantity    Decimal @db.Decimal(18, 4)
+  unit        String
+
+  unitPrice Decimal @db.Decimal(18, 4)
+  taxRate   Decimal @db.Decimal(7, 4)
+
+  subtotal    Decimal @db.Decimal(18, 2)
+  taxAmount   Decimal @db.Decimal(18, 2)
+  totalAmount Decimal @db.Decimal(18, 2)
+
+  sortOrder Int @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  receiptItems GoodsReceiptItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([sourceRequestItemId])
+  @@index([sourceQuoteItemId])
+  @@map("purchase_order_items")
+}
+
+/**
+ * What actually turned up (PRD #19 §132).
+ * Receipts are additive: a correction is a new receipt or a void, never an edit
+ * of what was recorded as delivered (PRD #19 §143, §144).
+ */
+model GoodsReceipt {
+  id        String @id @default(cuid())
+  companyId String
+
+  receiptNumber   String
+  purchaseOrderId String
+  projectId       String?
+  supplierId      String
+
+  receiptDate       DateTime
+  deliveryReference String?
+
+  status GoodsReceiptStatus @default(RECORDED)
+
+  receivedByMemberId String
+  notes              String?
+
+  createdByMemberId String
+  voidedByMemberId  String?
+  voidedAt          DateTime?
+  voidReason        String?
+
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  project       Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  supplier      Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  receivedBy CompanyMember @relation("GoodsReceiptReceiver", fields: [receivedByMemberId], references: [id], onDelete: Restrict)
+
+  items GoodsReceiptItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, receiptNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([purchaseOrderId])
+  @@index([projectId])
+  @@index([supplierId])
+  @@index([receiptDate])
+  @@index([receivedByMemberId])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptItem {
+  id                  String @id @default(cuid())
+  goodsReceiptId      String
+  purchaseOrderItemId String
+
+  receivedQuantity Decimal @db.Decimal(18, 4)
+  acceptedQuantity Decimal @db.Decimal(18, 4)
+  rejectedQuantity Decimal @db.Decimal(18, 4)
+
+  notes String?
+
+  goodsReceipt      GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrderItem PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([goodsReceiptId])
+  @@index([purchaseOrderItemId])
+  @@map("goods_receipt_items")
+}
+
+/**
+ * One approval cycle, on a request or an order (PRD #19 §148).
+ */
+model ProcurementApproval {
+  id        String @id @default(cuid())
+  companyId String
+
+  recordType ProcurementApprovalRecordType
+  recordId   String
+
+  status ProcurementApprovalStatus @default(PENDING)
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("procurement_approvals")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Inventory (PRD #20)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+/**
+ * An inventory item is a *kind* of thing, not a quantity of it (PRD #20 §25).
+ * How much exists lives in InventoryBalance, one row per item per location, and
+ * every change to it is a row in StockMovement. Putting a `quantity` column on
+ * the item is what makes stock figures that nobody can explain.
+ */
 model InventoryItem {
-  id           String   @id @default(cuid())
-  companyId    String
-  sku          String
-  name         String
-  unit         String   @default("unit")
-  quantity     Int      @default(0)
-  reorderLevel Int      @default(0)
-  location     String?
-  unitCost     Decimal? @db.Decimal(12, 2)
+  id        String @id @default(cuid())
+  companyId String
 
-  createdBy  String
-  updatedBy  String?
-  archivedBy String?
-  archivedAt DateTime?
+  sku         String
+  name        String
+  description String?
 
-  company   Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  movements InventoryMovement[]
+  category InventoryItemCategory
+  /// The unit every movement of this item is measured in. Immutable once stock
+  /// exists: changing it would silently reinterpret history (PRD #20 §46).
+  baseUnit String
+
+  status InventoryItemStatus @default(ACTIVE)
+
+  minimumStock Decimal? @db.Decimal(18, 4)
+  reorderPoint Decimal? @db.Decimal(18, 4)
+
+  defaultWarehouseId String?
+  defaultLocationId  String?
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  balances        InventoryBalance[]
+  movements       StockMovement[]
+  receiptLines    InventoryReceiptLine[]
+  issueLines      StockIssueLine[]
+  returnLines     StockReturnLine[]
+  transferLines   StockTransferLine[]
+  adjustmentLines StockAdjustmentLine[]
+  reservations    StockReservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, sku])
   @@index([companyId])
+  @@index([companyId, status])
+  @@index([category])
   @@index([name])
+  @@index([updatedAt])
   @@map("inventory_items")
 }
 
-model InventoryMovement {
-  id            String       @id @default(cuid())
-  companyId     String
-  itemId        String
+/**
+ * Where stock is held (PRD #20 §49).
+ */
+model Warehouse {
+  id        String @id @default(cuid())
+  companyId String
+
+  code        String
+  name        String
+  description String?
+
+  warehouseType WarehouseType
   projectId     String?
-  actorMemberId String?
-  type          MovementType
-  quantity      Int
-  note          String?
 
-  createdBy String
+  address String?
+  city    String?
+  country String?
 
-  company Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  item    InventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  project Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  actor   CompanyMember? @relation("MovementActor", fields: [actorMemberId], references: [id], onDelete: SetNull)
+  status WarehouseStatus @default(ACTIVE)
+
+  createdByMemberId  String
+  updatedByMemberId  String?
+  archivedByMemberId String?
+  archivedAt         DateTime?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  locations InventoryLocation[]
+  balances  InventoryBalance[]
+  movements StockMovement[]
+
+  inventoryReceipts InventoryReceipt[]
+  stockIssues       StockIssue[]
+  stockReturns      StockReturn[]
+
+  transfersFrom StockTransfer[] @relation("StockTransferFromWarehouse")
+  transfersTo   StockTransfer[] @relation("StockTransferToWarehouse")
+
+  adjustments  StockAdjustment[]
+  reservations StockReservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([warehouseType])
+  @@index([projectId])
+  @@index([city])
+  @@map("warehouses")
+}
+
+/**
+ * A bin, bay or yard inside a warehouse (PRD #20 §61).
+ * Balances hang off the location rather than the warehouse, so "where is it"
+ * has one answer. Every warehouse gets a default location, because a warehouse
+ * with no location has nowhere to put stock (PRD #20 §64).
+ */
+model InventoryLocation {
+  id          String @id @default(cuid())
+  companyId   String
+  warehouseId String
+
+  code        String
+  name        String?
+  description String?
+
+  status InventoryLocationStatus @default(ACTIVE)
+
+  /// The one location a warehouse uses when nobody picks another (§64).
+  isDefault Boolean @default(false)
+
+  createdByMemberId String
+  updatedByMemberId String?
+  archivedAt        DateTime?
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  balances     InventoryBalance[]
+  movements    StockMovement[]
+  receiptLines InventoryReceiptLine[]
+  issueLines   StockIssueLine[]
+  returnLines  StockReturnLine[]
+
+  transferFromLines StockTransferLine[] @relation("StockTransferFromLocation")
+  transferToLines   StockTransferLine[] @relation("StockTransferToLocation")
+
+  adjustmentLines StockAdjustmentLine[]
+  reservations    StockReservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([warehouseId, code])
+  @@index([companyId])
+  @@index([warehouseId])
+  @@index([status])
+  @@map("inventory_locations")
+}
+
+/**
+ * What is where, right now (PRD #20 §79–§83).
+ * A projection of the movement ledger, never a source of truth. It exists
+ * because summing every movement ever recorded to answer "how many bags of
+ * cement are on site" does not scale — but it can always be rebuilt from the
+ * ledger, and a repair that disagrees with the ledger is a bug in the
+ * projection, never a correction to history (PRD #20 §82, §83).
+ * `availableQuantity` is `onHand - reserved`, stored so it can be indexed and
+ * filtered on (PRD #20 §76).
+ */
+model InventoryBalance {
+  id              String @id @default(cuid())
+  companyId       String
+  inventoryItemId String
+  warehouseId     String
+  locationId      String
+
+  onHandQuantity    Decimal @default(0) @db.Decimal(18, 4)
+  reservedQuantity  Decimal @default(0) @db.Decimal(18, 4)
+  availableQuantity Decimal @default(0) @db.Decimal(18, 4)
+
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  warehouse     Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  location      InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([inventoryItemId, locationId])
+  @@index([companyId])
+  @@index([warehouseId])
+  @@index([inventoryItemId])
+  @@index([availableQuantity])
+  @@map("inventory_balances")
+}
+
+/**
+ * The stock ledger (PRD #20 §67, §70, §71).
+ * Append-only. A movement is never edited or deleted: a mistake is corrected by
+ * a REVERSAL row that points at the one it undoes, so the history of what
+ * somebody believed at the time survives the correction.
+ * `signedQuantity` carries the direction — negative for anything leaving — so
+ * a balance is the sum of a single column rather than a case statement over
+ * movement types (PRD #20 §71).
+ */
+model StockMovement {
+  id        String @id @default(cuid())
+  companyId String
+
+  inventoryItemId String
+  warehouseId     String
+  locationId      String
+
+  movementType StockMovementType
+
+  quantity       Decimal @db.Decimal(18, 4)
+  signedQuantity Decimal @db.Decimal(18, 4)
+  unit           String
+
+  projectId String?
+
+  /// Where this came from, so a movement can always be traced back to the
+  /// document that caused it (PRD #20 §179, §291, §292).
+  sourceModule     String
+  sourceEntityType String
+  sourceEntityId   String
+  sourceLineId     String?
+
+  reversalOfMovementId String?
+
+  occurredAt       DateTime
+  postedByMemberId String
+
+  notes String?
+
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  warehouse     Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  location      InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  project       Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  reversalOf StockMovement?  @relation("StockMovementReversal", fields: [reversalOfMovementId], references: [id], onDelete: Restrict)
+  reversals  StockMovement[] @relation("StockMovementReversal")
 
   createdAt DateTime @default(now())
 
   @@index([companyId])
-  @@index([itemId])
+  @@index([companyId, occurredAt])
+  @@index([inventoryItemId])
+  @@index([warehouseId])
+  @@index([locationId])
   @@index([projectId])
-  @@index([createdAt])
-  @@map("inventory_movements")
+  @@index([movementType])
+  @@index([sourceModule, sourceEntityType, sourceEntityId])
+  @@index([sourceLineId])
+  @@index([reversalOfMovementId])
+  @@map("stock_movements")
+}
+
+/**
+ * Stock coming in, usually from a Procurement delivery (PRD #20 §84).
+ */
+model InventoryReceipt {
+  id        String @id @default(cuid())
+  companyId String
+
+  receiptNumber  String
+  /// The Procurement goods receipt this was posted from, when there is one.
+  /// Unique so one delivery cannot be booked into stock twice (PRD #20 §91).
+  goodsReceiptId String?
+
+  warehouseId String
+
+  status InventoryTransactionStatus @default(DRAFT)
+
+  receiptDate DateTime
+  postedAt    DateTime?
+  reversedAt  DateTime?
+
+  createdByMemberId  String
+  postedByMemberId   String?
+  reversedByMemberId String?
+
+  notes String?
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  lines InventoryReceiptLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, receiptNumber])
+  @@unique([goodsReceiptId])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([warehouseId])
+  @@index([postedAt])
+  @@map("inventory_receipts")
+}
+
+model InventoryReceiptLine {
+  id                 String @id @default(cuid())
+  inventoryReceiptId String
+
+  goodsReceiptItemId String?
+
+  inventoryItemId String
+  locationId      String
+
+  quantity Decimal @db.Decimal(18, 4)
+  unit     String
+
+  movementId String?
+
+  notes String?
+
+  inventoryReceipt InventoryReceipt  @relation(fields: [inventoryReceiptId], references: [id], onDelete: Cascade)
+  inventoryItem    InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  location         InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inventoryReceiptId])
+  @@index([goodsReceiptItemId])
+  @@index([inventoryItemId])
+  @@index([locationId])
+  @@index([movementId])
+  @@map("inventory_receipt_lines")
+}
+
+/**
+ * Stock going out to a project or a person (PRD #20 §104).
+ */
+model StockIssue {
+  id        String @id @default(cuid())
+  companyId String
+
+  issueNumber String
+  projectId   String?
+  warehouseId String
+
+  status InventoryTransactionStatus @default(DRAFT)
+
+  issueDate           DateTime
+  issuedToMemberId    String?
+  requestedByMemberId String?
+
+  createdByMemberId String
+  postedByMemberId  String?
+
+  cancelledAt DateTime?
+  reversedAt  DateTime?
+
+  notes String?
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  lines StockIssueLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, issueNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([warehouseId])
+  @@index([issueDate])
+  @@index([issuedToMemberId])
+  @@map("stock_issues")
+}
+
+model StockIssueLine {
+  id           String @id @default(cuid())
+  stockIssueId String
+
+  inventoryItemId String
+  locationId      String
+
+  quantity Decimal @db.Decimal(18, 4)
+  unit     String
+
+  reservationId String?
+  movementId    String?
+
+  notes String?
+
+  stockIssue    StockIssue        @relation(fields: [stockIssueId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  location      InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stockIssueId])
+  @@index([inventoryItemId])
+  @@index([locationId])
+  @@index([reservationId])
+  @@index([movementId])
+  @@map("stock_issue_lines")
+}
+
+/**
+ * Unused material coming back from a project (PRD #20 §121).
+ */
+model StockReturn {
+  id        String @id @default(cuid())
+  companyId String
+
+  returnNumber String
+  projectId    String
+  warehouseId  String
+
+  returnDate DateTime
+  status     InventoryTransactionStatus @default(DRAFT)
+
+  returnedByMemberId String?
+
+  createdByMemberId String
+  postedByMemberId  String?
+
+  notes String?
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  lines StockReturnLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, returnNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([warehouseId])
+  @@index([returnDate])
+  @@map("stock_returns")
+}
+
+model StockReturnLine {
+  id            String @id @default(cuid())
+  stockReturnId String
+
+  inventoryItemId String
+  locationId      String
+
+  quantity Decimal @db.Decimal(18, 4)
+  unit     String
+
+  sourceIssueLineId String?
+  movementId        String?
+
+  notes String?
+
+  stockReturn   StockReturn       @relation(fields: [stockReturnId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  location      InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stockReturnId])
+  @@index([inventoryItemId])
+  @@index([locationId])
+  @@index([sourceIssueLineId])
+  @@index([movementId])
+  @@map("stock_return_lines")
+}
+
+/**
+ * Stock moving between locations (PRD #20 §129).
+ * Posts two movements per line — out of one location, into another — in one
+ * transaction, so total stock never changes and the two halves cannot be
+ * separated (PRD #20 §137, §138).
+ */
+model StockTransfer {
+  id        String @id @default(cuid())
+  companyId String
+
+  transferNumber String
+
+  fromWarehouseId String
+  toWarehouseId   String
+
+  transferDate DateTime
+  status       InventoryTransactionStatus @default(DRAFT)
+
+  createdByMemberId String
+  postedByMemberId  String?
+
+  notes String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  fromWarehouse Warehouse @relation("StockTransferFromWarehouse", fields: [fromWarehouseId], references: [id], onDelete: Restrict)
+  toWarehouse   Warehouse @relation("StockTransferToWarehouse", fields: [toWarehouseId], references: [id], onDelete: Restrict)
+
+  lines StockTransferLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, transferNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([transferDate])
+  @@map("stock_transfers")
+}
+
+model StockTransferLine {
+  id              String @id @default(cuid())
+  stockTransferId String
+
+  inventoryItemId String
+
+  fromLocationId String
+  toLocationId   String
+
+  quantity Decimal @db.Decimal(18, 4)
+  unit     String
+
+  outMovementId String?
+  inMovementId  String?
+
+  notes String?
+
+  stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  fromLocation InventoryLocation @relation("StockTransferFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation   InventoryLocation @relation("StockTransferToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stockTransferId])
+  @@index([inventoryItemId])
+  @@index([fromLocationId])
+  @@index([toLocationId])
+  @@map("stock_transfer_lines")
+}
+
+/**
+ * A correction to what the system believes is there (PRD #20 §141).
+ * Always carries a reason, because "the number changed" with no explanation is
+ * exactly what an inventory audit exists to catch (PRD #20 §144).
+ */
+model StockAdjustment {
+  id        String @id @default(cuid())
+  companyId String
+
+  adjustmentNumber String
+  warehouseId      String
+
+  adjustmentDate DateTime
+  reason         StockAdjustmentReason
+
+  status InventoryTransactionStatus @default(DRAFT)
+
+  createdByMemberId String
+  postedByMemberId  String?
+
+  notes String?
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  lines StockAdjustmentLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, adjustmentNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([warehouseId])
+  @@index([adjustmentDate])
+  @@index([reason])
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentLine {
+  id                String @id @default(cuid())
+  stockAdjustmentId String
+
+  inventoryItemId String
+  locationId      String
+
+  /// Signed: negative writes stock off, positive writes it on (PRD #20 §147).
+  quantityDelta Decimal @db.Decimal(18, 4)
+  unit          String
+
+  movementId String?
+
+  notes String?
+
+  stockAdjustment StockAdjustment   @relation(fields: [stockAdjustmentId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  location        InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stockAdjustmentId])
+  @@index([inventoryItemId])
+  @@index([locationId])
+  @@index([movementId])
+  @@map("stock_adjustment_lines")
+}
+
+/**
+ * Stock spoken for but not yet issued (PRD #20 §152).
+ * A reservation moves quantity from available to reserved without moving it out
+ * of the warehouse. It writes no ledger row, because nothing has physically
+ * happened (PRD #20 §166).
+ */
+model StockReservation {
+  id        String @id @default(cuid())
+  companyId String
+
+  reservationNumber String
+
+  inventoryItemId String
+  warehouseId     String
+  locationId      String
+
+  projectId String?
+
+  quantity          Decimal @db.Decimal(18, 4)
+  fulfilledQuantity Decimal @default(0) @db.Decimal(18, 4)
+
+  status StockReservationStatus @default(ACTIVE)
+
+  requiredDate DateTime?
+  expiresAt    DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  warehouse     Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  location      InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  project       Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, reservationNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([inventoryItemId])
+  @@index([warehouseId])
+  @@index([locationId])
+  @@index([projectId])
+  @@index([requiredDate])
+  @@index([expiresAt])
+  @@map("stock_reservations")
 }
 
 model QualityRecord {

@@ -20,6 +20,7 @@ export function ProjectTabs({
     tasks: boolean;
     team: boolean;
     finance?: boolean;
+    contracts?: boolean;
     documents: boolean;
     activity: boolean;
   };
@@ -33,6 +34,12 @@ export function ProjectTabs({
       label: "Finance",
       href: `/projects/${projectId}/finance`,
       visible: Boolean(show.finance),
+    },
+    {
+      key: "contracts",
+      label: "Contracts",
+      href: `/projects/${projectId}/contracts`,
+      visible: Boolean(show.contracts),
     },
     {
       key: "documents",

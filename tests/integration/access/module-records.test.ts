@@ -1,6 +1,5 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
-import { AccessError } from "@/lib/access/guards";
 import { canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { findRecordSection } from "@/lib/modules/records/registry";
 import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
@@ -17,10 +16,6 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-async function expectError(promise: Promise<unknown>, code: string) {
-  await expect(promise).rejects.toBeInstanceOf(AccessError);
-  await promise.catch((error: AccessError) => expect(error.code).toBe(code));
-}
 
 describe("finance module access (PRD #9 §134)", () => {
   /*
@@ -49,61 +44,14 @@ describe("finance module access (PRD #9 §134)", () => {
   });
 });
 
-describe("approval shell (PRD #9 §189)", () => {
-  /*
-   * Finance has graduated out of the record shell (PRD #15), so the invoice
-   * cases that used to live here are now in tests/api/finance — against the
-   * real approval service, with its own separation-of-duties rules. What is
-   * left is the shell's own approval behaviour, which Procurement still uses.
-   */
-  const requests = findRecordSection("procurement", "requests")!;
-
-  afterEach(async () => {
-    await prisma.purchaseRequest.updateMany({
-      where: { reference: "PR-001" },
-      data: { status: "PENDING_APPROVAL", approvedBy: null, approvedAt: null },
-    });
-  });
-
-  it("approves a purchase request for a permitted approver", async () => {
-    const context = await loginAs("CEO");
-    const request = await prisma.purchaseRequest.findFirstOrThrow({
-      where: { reference: "PR-001" },
-    });
-
-    await requests.decide!(context, request.id, "APPROVE");
-
-    const after = await prisma.purchaseRequest.findUniqueOrThrow({ where: { id: request.id } });
-    expect(after.status).toBe("APPROVED");
-  });
-
-  it("refuses a non-approver (PRD #9 §189)", async () => {
-    const context = await loginAs("PROJECT_MANAGER");
-    const request = await prisma.purchaseRequest.findFirstOrThrow({
-      where: { reference: "PR-001" },
-    });
-
-    await expectError(requests.decide!(context, request.id, "APPROVE"), "FORBIDDEN");
-  });
-
-  it("refuses the Viewer outright", async () => {
-    const context = await loginAs("VIEWER");
-    const request = await prisma.purchaseRequest.findFirstOrThrow({
-      where: { reference: "PR-001" },
-    });
-
-    await expectError(requests.decide!(context, request.id, "APPROVE"), "FORBIDDEN");
-  });
-
-  it("refuses a record that is not awaiting a decision (PRD #9 §190)", async () => {
-    const context = await loginAs("CEO");
-    const ordered = await prisma.purchaseRequest.findFirstOrThrow({
-      where: { reference: "PR-002" },
-    });
-
-    await expectError(requests.decide!(context, ordered.id, "APPROVE"), "CONFLICT");
-  });
-});
+/*
+ * The shell's own approval behaviour has no module left to demonstrate it.
+ *
+ * Finance (PRD #15), Sales (PRD #17), Legal (PRD #18) and now Procurement
+ * (PRD #19) each run their own approval service, with their own separation-of-
+ * duties rules, covered in tests/api/{finance,sales,contracts,procurement}. The
+ * department modules still on the shell record no approvals.
+ */
 
 describe("company-disabled modules (PRD #9 §110, §142)", () => {
   it("switches Finance off for Company B", async () => {
@@ -131,12 +79,10 @@ describe("company-disabled modules (PRD #9 §110, §142)", () => {
 });
 
 describe("company isolation across every record type (PRD #9 §12, §157)", () => {
-  // Finance, HR and Sales are real modules now, with their own services and
-  // their own tests — they are deliberately absent from the shell registry.
+  // Finance, HR, Sales, Legal, Procurement and Inventory are real modules now,
+  // with their own services and their own tests — they are deliberately absent
+  // from the shell registry.
   const cases: { module: string; section: string; role: Parameters<typeof loginAs>[0] }[] = [
-    { module: "contracts", section: "contracts", role: "LEGAL" },
-    { module: "procurement", section: "requests", role: "PROCUREMENT" },
-    { module: "inventory", section: "items", role: "INVENTORY" },
     { module: "qaqc", section: "inspections", role: "QAQC" },
     { module: "hse", section: "incidents", role: "HSE" },
   ];
@@ -156,9 +102,10 @@ describe("company isolation across every record type (PRD #9 §12, §157)", () =
   }
 
   /**
-   * Tasks (PRD #11), Clients (PRD #12) and Documents (PRD #13) have left the
-   * generic registry for their own services. Their isolation is covered by
-   * tests/api/{tasks,clients,documents}; what remains here is the department
-   * modules still rendering through the shell.
+   * Tasks (PRD #11), Clients (PRD #12), Documents (PRD #13), Legal (PRD #18),
+   * Procurement (PRD #19) and Inventory (PRD #20) have left the generic
+   * registry for their own services. Their isolation is covered by
+   * tests/api/{tasks,clients,documents,contracts,procurement,inventory}; what
+   * remains here is the department modules still rendering through the shell.
    */
 });

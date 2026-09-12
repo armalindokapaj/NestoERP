@@ -10,8 +10,9 @@ import { signIn, type DemoRole } from "../fixtures";
  * so this walks each one's header, tabs, list and record detail in a single loop
  * rather than repeating near-identical specs (PRD #7 §93).
  *
- * Finance (PRD #15), HR (PRD #16) and Sales (PRD #17) have graduated out of the
- * shell and are covered by their own specs, against their own pages.
+ * Finance (PRD #15), HR (PRD #16), Sales (PRD #17), Legal (PRD #18),
+ * Procurement (PRD #19) and Inventory (PRD #20) have graduated out of the shell
+ * and are covered by their own specs, against their own pages.
  */
 const JOURNEYS: {
   role: DemoRole;
@@ -20,27 +21,6 @@ const JOURNEYS: {
   section: string;
   expectRecord: RegExp;
 }[] = [
-  {
-    role: "LEGAL",
-    module: "/contracts",
-    heading: "Legal",
-    section: "contracts",
-    expectRecord: /CTR-00\d/,
-  },
-  {
-    role: "PROCUREMENT",
-    module: "/procurement",
-    heading: "Procurement",
-    section: "requests",
-    expectRecord: /PR-00\d/,
-  },
-  {
-    role: "INVENTORY",
-    module: "/inventory",
-    heading: "Inventory",
-    section: "items",
-    expectRecord: /Cement/,
-  },
   {
     role: "QAQC",
     module: "/qaqc",
@@ -103,15 +83,16 @@ test.describe("approvals", () => {
    * What is left here is the shell's own approval behaviour, which Procurement
    * still uses.
    */
-  test("Procurement is offered no approval it does not hold (PRD #7 §53)", async ({ page }) => {
-    await signIn(page, "PROCUREMENT");
-    await page.goto("/procurement/requests");
+  test("QA/QC is offered no approval it does not hold (PRD #7 §53)", async ({ page }) => {
+    await signIn(page, "QAQC");
+    await page.goto("/qaqc/ncrs");
 
-    const first = page.locator('a[href^="/procurement/requests/"]').first();
+    const first = page.locator('a[href^="/qaqc/ncrs/"]').first();
     await first.click();
 
-    // Procurement manages requests, but the approve grant belongs to the CEO,
-    // so no Approve control renders at all — not a disabled one (PRD #5 §32).
+    // QA/QC raises and closes its own records, but no approval grant comes with
+    // it, so no Approve control renders at all — not a disabled one
+    // (PRD #5 §32).
     await expect(page.getByRole("button", { name: /^approve$/i })).toHaveCount(0);
   });
 });
@@ -119,14 +100,14 @@ test.describe("approvals", () => {
 test("a filtered list that matches nothing offers to clear the filters (PRD #9 §175)", async ({
   page,
 }) => {
-  await signIn(page, "PROCUREMENT");
-  await page.goto("/procurement/requests?search=nothing-matches-this-at-all");
+  await signIn(page, "QAQC");
+  await page.goto("/qaqc/ncrs?search=nothing-matches-this-at-all");
 
-  await expect(page.getByText(/no purchase requests/i).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /clear filters/i }).first()).toBeVisible();
 });
 
 test("an unknown record answers not found (PRD #9 §112)", async ({ page }) => {
-  await signIn(page, "PROCUREMENT");
-  const response = await page.goto("/procurement/requests/does-not-exist");
+  await signIn(page, "QAQC");
+  const response = await page.goto("/qaqc/ncrs/does-not-exist");
   expect(response?.status()).toBe(404);
 });

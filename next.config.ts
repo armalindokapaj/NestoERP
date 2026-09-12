@@ -51,6 +51,21 @@ const nextConfig: NextConfig = {
   // served to the public (PRD #30 §259, PRD #34 §51).
   productionBrowserSourceMaps: false,
 
+  /**
+   * `/legal` is the same module as `/contracts` (PRD #18 §8).
+   *
+   * Older shell configuration used `/legal` as the route for this module. It
+   * resolves to the canonical one rather than being maintained beside it: two
+   * legal modules that can disagree is the failure this redirect exists to
+   * prevent.
+   */
+  async redirects() {
+    return [
+      { source: "/legal", destination: "/contracts", permanent: true },
+      { source: "/legal/:path*", destination: "/contracts/:path*", permanent: true },
+    ];
+  },
+
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

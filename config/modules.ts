@@ -280,9 +280,13 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     defaultSection: "overview",
     sections: [
       { key: "overview", label: "Overview" },
-      { key: "contracts", label: "Contracts", permission: "legal.contract.view" },
-      { key: "approvals", label: "Approvals", permission: "legal.contract.approve" },
-      { key: "archived", label: "Archive", permission: "legal.contract.view" },
+      { key: "all", label: "All contracts", permission: "legal.contract.view" },
+      { key: "drafts", label: "Drafts", permission: "legal.contract.update" },
+      { key: "review", label: "Review", permission: "legal.contract.view" },
+      { key: "active", label: "Active", permission: "legal.contract.view" },
+      { key: "expiring", label: "Expiring", permission: "legal.contract.view" },
+      { key: "approvals", label: "Approvals", permission: "legal.approval.view" },
+      { key: "reports", label: "Reports", permission: "legal.report.view" },
     ],
   },
   procurement: {
@@ -298,12 +302,11 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     sections: [
       { key: "overview", label: "Overview" },
       { key: "requests", label: "Requests", permission: "procurement.request.view" },
-      { key: "orders", label: "Purchase Orders", permission: "procurement.order.view" },
-      {
-        key: "approvals",
-        label: "Approvals",
-        permission: "procurement.request.approve",
-      },
+      { key: "rfqs", label: "Enquiries", permission: "procurement.rfq.view" },
+      { key: "orders", label: "Orders", permission: "procurement.order.view" },
+      { key: "suppliers", label: "Suppliers", permission: "procurement.supplier.view" },
+      { key: "approvals", label: "Approvals", permission: "procurement.approval.view" },
+      { key: "reports", label: "Reports", permission: "procurement.report.view" },
     ],
   },
   inventory: {
@@ -319,8 +322,15 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     sections: [
       { key: "overview", label: "Overview" },
       { key: "items", label: "Items", permission: "inventory.item.view" },
+      { key: "warehouses", label: "Warehouses", permission: "inventory.warehouse.view" },
+      { key: "receipts", label: "Receipts", permission: "inventory.receipt.view" },
+      { key: "issues", label: "Issues", permission: "inventory.issue.view" },
+      { key: "transfers", label: "Transfers", permission: "inventory.transfer.view" },
+      { key: "adjustments", label: "Adjustments", permission: "inventory.adjustment.view" },
+      { key: "reservations", label: "Reservations", permission: "inventory.reservation.view" },
       { key: "movements", label: "Movements", permission: "inventory.movement.view" },
-      { key: "low-stock", label: "Low Stock", permission: "inventory.item.view" },
+      { key: "low-stock", label: "Low stock", permission: "inventory.low_stock.view" },
+      { key: "reports", label: "Reports", permission: "inventory.report.view" },
     ],
   },
   qaqc: {

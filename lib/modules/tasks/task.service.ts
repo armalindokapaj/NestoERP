@@ -102,9 +102,25 @@ export async function listActivity(
 /* Writes                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Where a task came from, when another module raised it (PRD #11 §26,
+ * PRD #18 §155).
+ *
+ * A server-side argument rather than a field on `createTaskSchema`: the context
+ * says which record the work belongs to, and that is a statement the calling
+ * service makes, never something a browser gets to assert about a task it is
+ * filing.
+ */
+export type TaskParentContext = {
+  moduleKey: string;
+  entityType: string;
+  entityId: string;
+};
+
 export async function createTask(
   context: UserContext,
   input: CreateTaskInput,
+  parent?: TaskParentContext,
 ): Promise<TaskDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "task.create");
@@ -132,6 +148,9 @@ export async function createTask(
           // (PRD #11 §50, §117).
           completedAt: status === "COMPLETED" ? new Date() : null,
           createdBy: context.userId,
+          module: parent?.moduleKey ?? null,
+          entityType: parent?.entityType ?? null,
+          entityId: parent?.entityId ?? null,
         },
         select: { id: true },
       });
