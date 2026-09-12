@@ -4,12 +4,33 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
+import { ProcurementHandoff } from "@/components/inventory/procurement-handoff";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { voidReceiptAction } from "@/lib/actions/procurement";
+import type {
+  ItemOption,
+  LocationOption,
+  Option,
+} from "@/lib/modules/inventory/inventory.options";
 import type { ReceiptDTO } from "@/lib/modules/procurement/procurement.types";
 import { formatDate } from "@/lib/utils/format";
+
+/**
+ * What the Inventory handoff needs to offer a mapping (PRD #20 §11).
+ *
+ * `null` means the reader has no Inventory access, and no booking control
+ * appears at all — a Procurement clerk does not gain warehouse rights by
+ * standing next to a delivery (PRD #20 §303).
+ */
+export type InventoryHandoff = {
+  items: ItemOption[];
+  warehouses: Option[];
+  locations: LocationOption[];
+  /** Deliveries already booked into stock, keyed by goods-receipt id. */
+  posted: Record<string, { id: string; receiptNumber: string; status: string }>;
+};
 
 /**
  * Deliveries recorded against one order (PRD #19 §143, §144).
@@ -21,9 +42,18 @@ import { formatDate } from "@/lib/utils/format";
 export function ReceiptList({
   orderId,
   receipts,
+  handoff,
+  qualityGate,
 }: {
   orderId: string;
   receipts: ReceiptDTO[];
+  handoff?: InventoryHandoff | null;
+  /**
+   * The quality position on each delivery, rendered by the server and keyed by
+   * receipt id (PRD #21 §12, §13). Passed in rather than fetched here, because
+   * a card in a client component cannot read the database.
+   */
+  qualityGate?: Record<string, React.ReactNode>;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -97,6 +127,29 @@ export function ReceiptList({
                 ))}
               </tbody>
             </table>
+
+            {qualityGate?.[receipt.id] ? (
+              <div className="mt-4">{qualityGate[receipt.id]}</div>
+            ) : null}
+
+            {handoff && receipt.status !== "VOIDED" ? (
+              <div className="mt-4 border-t border-line pt-4">
+                <ProcurementHandoff
+                  goodsReceiptId={receipt.id}
+                  receiptNumber={receipt.receiptNumber}
+                  lines={receipt.items.map((item) => ({
+                    goodsReceiptItemId: item.id,
+                    description: item.description,
+                    unit: item.unit,
+                    acceptedQuantity: item.acceptedQuantity,
+                  }))}
+                  items={handoff.items}
+                  warehouses={handoff.warehouses}
+                  locations={handoff.locations}
+                  existing={handoff.posted[receipt.id] ?? null}
+                />
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>

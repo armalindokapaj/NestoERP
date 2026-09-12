@@ -65,6 +65,8 @@ export default async function ProjectContractsPage({ params }: Params) {
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
           contracts: true,
+          inventory: actions.canViewInventory,
+          qaqc: actions.canViewQaqc,
           documents: actions.canViewDocuments,
           activity: actions.canViewActivity,
         }}

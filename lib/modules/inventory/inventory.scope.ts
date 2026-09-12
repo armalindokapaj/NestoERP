@@ -130,11 +130,27 @@ export function buildReservationScopeWhere(
   return { warehouse: { is: buildWarehouseScopeWhere(context) } };
 }
 
-/** Projects stock may be issued to or returned from (PRD #20 §109). */
+/**
+ * Projects stock may be issued to, returned from or reserved for
+ * (PRD #20 §109, §244, §245).
+ *
+ * A company-scope inventory user reaches every live project in the company,
+ * because that is their job: a storeman issues cement to whichever site asked
+ * for it, and they are not a member of any of those projects. Deferring to the
+ * Projects module scope here would leave them unable to name a project at all,
+ * which is most of what the module is for.
+ *
+ * Everybody else falls back to the projects they actually reach, so a project
+ * user still cannot issue material to a job that is not theirs (§245).
+ */
 export function buildInventoryProjectWhere(context: UserContext): Prisma.ProjectWhereInput {
-  return {
-    AND: [buildProjectScopeWhere(context), { archivedAt: null, status: { not: "ARCHIVED" } }],
-  };
+  const live: Prisma.ProjectWhereInput = { archivedAt: null, status: { not: "ARCHIVED" } };
+
+  if (hasCompanyInventoryScope(context)) {
+    return { AND: [{ companyId: context.companyId }, live] };
+  }
+
+  return { AND: [buildProjectScopeWhere(context), live] };
 }
 
 export function canSeeStockFigures(context: UserContext): boolean {

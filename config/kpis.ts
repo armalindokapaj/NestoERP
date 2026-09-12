@@ -206,7 +206,7 @@ export const kpis: Record<string, KpiDefinition> = {
   openQualityCount: {
     key: "openQualityCount",
     module: "qaqc",
-    permission: "qaqc.record.view",
+    permission: "qaqc.inspection.view",
     label: "Open Quality Items",
     icon: "ClipboardCheck",
     href: "/qaqc/inspections",
@@ -214,7 +214,7 @@ export const kpis: Record<string, KpiDefinition> = {
   openNcrCount: {
     key: "openNcrCount",
     module: "qaqc",
-    permission: "qaqc.record.view",
+    permission: "qaqc.ncr.view",
     label: "Open NCRs",
     icon: "FileX",
     href: "/qaqc/ncrs",

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 /**
  * Direct database access for E2E setup and teardown (PRD #9 §126).
@@ -733,4 +733,313 @@ export async function removeTestProcurementRecords(prefix: string): Promise<void
   await db.rFQ.deleteMany({ where: { id: { in: rfqIds } } });
   await db.purchaseRequest.deleteMany({ where: { id: { in: requestIds } } });
   await db.supplier.deleteMany({ where: { name: { startsWith: prefix } } });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Inventory (PRD #20 §418–§435)                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Puts the seeded stock documents back the way the seed left them.
+ *
+ * A spec that posts a seeded draft has changed shared state: the next run would
+ * find a document that is already posted, and the failure would look like a
+ * product bug rather than leftover test state.
+ */
+export async function resetInventoryFixtures(): Promise<void> {
+  await db.inventoryReceipt.updateMany({
+    where: { id: "rcpt_draft" },
+    data: { status: "DRAFT", postedAt: null, reversedAt: null },
+  });
+
+  await db.stockIssue.updateMany({
+    where: { id: "iss_draft" },
+    data: { status: "DRAFT", cancelledAt: null, reversedAt: null },
+  });
+
+  await db.stockTransfer.updateMany({
+    where: { id: "trf_draft" },
+    data: { status: "DRAFT" },
+  });
+
+  await db.stockAdjustment.updateMany({
+    where: { id: "adj_draft" },
+    data: { status: "DRAFT" },
+  });
+
+  await db.stockReservation.updateMany({
+    where: { id: { in: ["rsv_001", "rsv_003"] } },
+    data: { status: "ACTIVE" },
+  });
+
+  // Anything a posted draft wrote into the ledger has to come back out, or the
+  // balances stop agreeing with it (PRD #20 §83).
+  await db.stockMovement.deleteMany({
+    where: { sourceEntityId: { in: ["rcpt_draft", "iss_draft", "trf_draft", "adj_draft"] } },
+  });
+
+  await reprojectInventoryBalances();
+}
+
+/** Removes anything a spec created, identified by its number prefix. */
+export async function removeTestInventoryRecords(prefix: string): Promise<void> {
+  const [receipts, issues, returns, transfers, adjustments, reservations] = await Promise.all([
+    db.inventoryReceipt.findMany({ where: { notes: { startsWith: prefix } }, select: { id: true } }),
+    db.stockIssue.findMany({ where: { notes: { startsWith: prefix } }, select: { id: true } }),
+    db.stockReturn.findMany({ where: { notes: { startsWith: prefix } }, select: { id: true } }),
+    db.stockTransfer.findMany({ where: { notes: { startsWith: prefix } }, select: { id: true } }),
+    db.stockAdjustment.findMany({ where: { notes: { startsWith: prefix } }, select: { id: true } }),
+    db.stockReservation.findMany({
+      where: { inventoryItem: { sku: { startsWith: prefix } } },
+      select: { id: true },
+    }),
+  ]);
+
+  const ids = [
+    ...receipts.map((row) => row.id),
+    ...issues.map((row) => row.id),
+    ...returns.map((row) => row.id),
+    ...transfers.map((row) => row.id),
+    ...adjustments.map((row) => row.id),
+  ];
+
+  if (ids.length > 0) {
+    await db.stockMovement.deleteMany({ where: { sourceEntityId: { in: ids } } });
+    await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+  }
+
+  await db.inventoryReceiptLine.deleteMany({ where: { inventoryReceiptId: { in: receipts.map((r) => r.id) } } });
+  await db.inventoryReceipt.deleteMany({ where: { id: { in: receipts.map((r) => r.id) } } });
+  await db.stockIssueLine.deleteMany({ where: { stockIssueId: { in: issues.map((r) => r.id) } } });
+  await db.stockIssue.deleteMany({ where: { id: { in: issues.map((r) => r.id) } } });
+  await db.stockReturnLine.deleteMany({ where: { stockReturnId: { in: returns.map((r) => r.id) } } });
+  await db.stockReturn.deleteMany({ where: { id: { in: returns.map((r) => r.id) } } });
+  await db.stockTransferLine.deleteMany({ where: { stockTransferId: { in: transfers.map((r) => r.id) } } });
+  await db.stockTransfer.deleteMany({ where: { id: { in: transfers.map((r) => r.id) } } });
+  await db.stockAdjustmentLine.deleteMany({ where: { stockAdjustmentId: { in: adjustments.map((r) => r.id) } } });
+  await db.stockAdjustment.deleteMany({ where: { id: { in: adjustments.map((r) => r.id) } } });
+
+  await db.stockReservation.deleteMany({ where: { id: { in: reservations.map((r) => r.id) } } });
+
+  // Reservations the spec made against seeded items carry the prefix in a note
+  // nowhere, so they are found by their number instead.
+  const numbered = await db.stockReservation.findMany({
+    where: { reservationNumber: { startsWith: "RSV-" }, createdAt: { gt: new Date(Date.now() - 60 * 60 * 1000) } },
+    select: { id: true, reservationNumber: true },
+  });
+  const spare = numbered.filter((row) => !["RSV-2026-0001", "RSV-2026-0002", "RSV-2026-0003", "RSV-2026-0004", "RSV-2026-0005"].includes(row.reservationNumber));
+  if (spare.length > 0) {
+    await db.activity.deleteMany({ where: { entityId: { in: spare.map((r) => r.id) } } });
+    await db.stockReservation.deleteMany({ where: { id: { in: spare.map((r) => r.id) } } });
+  }
+
+  await db.inventoryBalance.deleteMany({ where: { inventoryItem: { sku: { startsWith: prefix } } } });
+  await db.inventoryItem.deleteMany({ where: { sku: { startsWith: prefix } } });
+  await db.inventoryLocation.deleteMany({ where: { warehouse: { code: { startsWith: prefix } } } });
+  await db.warehouse.deleteMany({ where: { code: { startsWith: prefix } } });
+
+  await reprojectInventoryBalances();
+}
+
+/**
+ * Reprojects every balance from the ledger, exactly as the seed does
+ * (PRD #20 §79, §82).
+ */
+async function reprojectInventoryBalances(): Promise<void> {
+  const sums = await db.stockMovement.groupBy({
+    by: ["inventoryItemId", "locationId"],
+    _sum: { signedQuantity: true },
+  });
+
+  for (const row of sums) {
+    const held = await db.stockReservation.aggregate({
+      where: {
+        inventoryItemId: row.inventoryItemId,
+        locationId: row.locationId,
+        status: { in: ["ACTIVE", "PARTIALLY_FULFILLED"] },
+      },
+      _sum: { quantity: true, fulfilledQuantity: true },
+    });
+
+    const reserved = (held._sum.quantity ?? new Prisma.Decimal(0)).minus(
+      held._sum.fulfilledQuantity ?? new Prisma.Decimal(0),
+    );
+    const onHand = row._sum.signedQuantity ?? new Prisma.Decimal(0);
+
+    await db.inventoryBalance.updateMany({
+      where: { inventoryItemId: row.inventoryItemId, locationId: row.locationId },
+      data: {
+        onHandQuantity: onHand,
+        reservedQuantity: reserved,
+        availableQuantity: onHand.minus(reserved),
+      },
+    });
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* QA/QC (PRD #21 §420–§440)                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Puts the seeded quality records back the way the seed left them.
+ *
+ * A spec that approves a seeded inspection has changed shared state: the next
+ * run would find it already approved, and the failure would look like a product
+ * bug rather than leftover test state.
+ */
+export async function resetQaqcFixtures(): Promise<void> {
+  await db.qualityInspection.updateMany({
+    where: { id: { in: ["ins_005", "ins_006"] } },
+    data: {
+      status: "PENDING_APPROVAL",
+      approvedAt: null,
+      approvedByMemberId: null,
+      rejectedAt: null,
+      rejectedByMemberId: null,
+      closedAt: null,
+      closedByMemberId: null,
+      cancelledAt: null,
+    },
+  });
+
+  await db.qualityInspection.updateMany({
+    where: { id: "ins_008" },
+    data: { status: "IN_PROGRESS", result: "NOT_SET", submittedAt: null },
+  });
+
+  await db.qualityInspection.updateMany({
+    where: { id: "ins_009" },
+    data: { status: "DRAFT", result: "NOT_SET", submittedAt: null, inspectionDate: null },
+  });
+
+  await db.nonConformanceReport.updateMany({
+    where: { id: "ncr_002" },
+    data: {
+      status: "PENDING_APPROVAL",
+      approvedAt: null,
+      approvedByMemberId: null,
+      rejectedAt: null,
+      rejectedByMemberId: null,
+      closedAt: null,
+      closedByMemberId: null,
+    },
+  });
+
+  await db.qualityDefect.updateMany({
+    where: { id: "def_003" },
+    data: { status: "RESOLVED", closedAt: null, closedByMemberId: null },
+  });
+
+  await db.qualityDefect.updateMany({
+    where: { id: "def_004" },
+    data: {
+      status: "OPEN",
+      resolutionNote: null,
+      resolvedAt: null,
+      resolvedByMemberId: null,
+      closedAt: null,
+      closedByMemberId: null,
+    },
+  });
+
+  await db.correctiveAction.updateMany({
+    where: { id: "ca_003" },
+    data: {
+      status: "PENDING_VERIFICATION",
+      verificationNote: null,
+      verifiedAt: null,
+      verifiedByMemberId: null,
+    },
+  });
+
+  await db.inspectionRequest.updateMany({
+    where: { id: "ir_005" },
+    data: { status: "OPEN", assignedInspectorMemberId: null, cancelledAt: null },
+  });
+
+  // A used template is versioned rather than edited, so a spec that saves one
+  // leaves the original retired to INACTIVE (PRD #21 §53).
+  await db.inspectionTemplate.updateMany({
+    where: { id: { in: ["tpl_concrete", "tpl_material", "tpl_handover"] } },
+    data: { status: "ACTIVE", archivedAt: null },
+  });
+
+  // The approval cycles those records were waiting on.
+  await db.qualityApproval.updateMany({
+    where: { id: { in: ["qa_appr_001", "qa_appr_002", "qa_appr_003"] } },
+    data: { status: "PENDING", decidedByMemberId: null, decidedAt: null, decisionNote: null },
+  });
+}
+
+/** Removes anything a spec created, identified by its title prefix. */
+export async function removeTestQaqcRecords(prefix: string): Promise<void> {
+  const [templates, requests, inspections, defects, ncrs, actions] = await Promise.all([
+    db.inspectionTemplate.findMany({ where: { name: { startsWith: prefix } }, select: { id: true } }),
+    db.inspectionRequest.findMany({ where: { title: { startsWith: prefix } }, select: { id: true } }),
+    db.qualityInspection.findMany({ where: { summary: { startsWith: prefix } }, select: { id: true } }),
+    db.qualityDefect.findMany({ where: { title: { startsWith: prefix } }, select: { id: true } }),
+    db.nonConformanceReport.findMany({ where: { title: { startsWith: prefix } }, select: { id: true } }),
+    db.correctiveAction.findMany({ where: { title: { startsWith: prefix } }, select: { id: true } }),
+  ]);
+
+  const ids = [
+    ...templates.map((r) => r.id),
+    ...requests.map((r) => r.id),
+    ...inspections.map((r) => r.id),
+    ...defects.map((r) => r.id),
+    ...ncrs.map((r) => r.id),
+    ...actions.map((r) => r.id),
+  ];
+  if (ids.length > 0) await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+
+  const actionIds = actions.map((r) => r.id);
+  const ncrIds = ncrs.map((r) => r.id);
+  const defectIds = defects.map((r) => r.id);
+  const inspectionIds = inspections.map((r) => r.id);
+
+  await db.correctiveAction.deleteMany({
+    where: {
+      OR: [
+        { id: { in: actionIds } },
+        { ncrId: { in: ncrIds } },
+        { defectId: { in: defectIds } },
+        { inspectionId: { in: inspectionIds } },
+      ],
+    },
+  });
+
+  await db.qualityApproval.deleteMany({
+    where: { recordId: { in: [...ncrIds, ...inspectionIds] } },
+  });
+
+  await db.nonConformanceReport.deleteMany({
+    where: { OR: [{ id: { in: ncrIds } }, { sourceDefectId: { in: defectIds } }] },
+  });
+  await db.qualityDefect.deleteMany({ where: { id: { in: defectIds } } });
+
+  await db.materialInspectionDecision.deleteMany({ where: { inspectionId: { in: inspectionIds } } });
+  await db.qualityMaterialRelease.deleteMany({ where: { inspectionId: { in: inspectionIds } } });
+  await db.inspectionChecklistItem.deleteMany({ where: { inspectionId: { in: inspectionIds } } });
+  await db.qualityInspection.deleteMany({ where: { parentInspectionId: { in: inspectionIds } } });
+  await db.qualityInspection.deleteMany({ where: { id: { in: inspectionIds } } });
+
+  await db.inspectionRequest.deleteMany({ where: { id: { in: requests.map((r) => r.id) } } });
+
+  await db.inspectionTemplateItem.deleteMany({
+    where: { inspectionTemplateId: { in: templates.map((r) => r.id) } },
+  });
+  await db.inspectionTemplate.deleteMany({ where: { id: { in: templates.map((r) => r.id) } } });
+
+  // A spec that saved a used template left a v2 behind.
+  const spares = await db.inspectionTemplate.findMany({
+    where: { code: { in: ["WRK-CONC", "MAT-IN", "GEN-HAND"] }, version: { gt: 1 } },
+    select: { id: true },
+  });
+  if (spares.length > 0) {
+    await db.inspectionTemplateItem.deleteMany({
+      where: { inspectionTemplateId: { in: spares.map((r) => r.id) } },
+    });
+    await db.inspectionTemplate.deleteMany({ where: { id: { in: spares.map((r) => r.id) } } });
+  }
 }

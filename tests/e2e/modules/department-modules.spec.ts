@@ -21,13 +21,8 @@ const JOURNEYS: {
   section: string;
   expectRecord: RegExp;
 }[] = [
-  {
-    role: "QAQC",
-    module: "/qaqc",
-    heading: "QA/QC",
-    section: "ncrs",
-    expectRecord: /QA-00\d/,
-  },
+  // QA/QC has its own module now (PRD #21) and its own journey in
+  // qaqc.spec.ts. HSE is the last department module on the generic shell.
   {
     role: "HSE",
     module: "/hse",
@@ -83,14 +78,14 @@ test.describe("approvals", () => {
    * What is left here is the shell's own approval behaviour, which Procurement
    * still uses.
    */
-  test("QA/QC is offered no approval it does not hold (PRD #7 §53)", async ({ page }) => {
-    await signIn(page, "QAQC");
-    await page.goto("/qaqc/ncrs");
+  test("HSE is offered no approval it does not hold (PRD #7 §53)", async ({ page }) => {
+    await signIn(page, "HSE");
+    await page.goto("/hse/incidents");
 
-    const first = page.locator('a[href^="/qaqc/ncrs/"]').first();
+    const first = page.locator('a[href^="/hse/incidents/"]').first();
     await first.click();
 
-    // QA/QC raises and closes its own records, but no approval grant comes with
+    // HSE raises and closes its own records, but no approval grant comes with
     // it, so no Approve control renders at all — not a disabled one
     // (PRD #5 §32).
     await expect(page.getByRole("button", { name: /^approve$/i })).toHaveCount(0);
@@ -100,14 +95,14 @@ test.describe("approvals", () => {
 test("a filtered list that matches nothing offers to clear the filters (PRD #9 §175)", async ({
   page,
 }) => {
-  await signIn(page, "QAQC");
-  await page.goto("/qaqc/ncrs?search=nothing-matches-this-at-all");
+  await signIn(page, "HSE");
+  await page.goto("/hse/incidents?search=nothing-matches-this-at-all");
 
   await expect(page.getByRole("link", { name: /clear filters/i }).first()).toBeVisible();
 });
 
 test("an unknown record answers not found (PRD #9 §112)", async ({ page }) => {
-  await signIn(page, "QAQC");
-  const response = await page.goto("/qaqc/ncrs/does-not-exist");
+  await signIn(page, "HSE");
+  const response = await page.goto("/hse/incidents/does-not-exist");
   expect(response?.status()).toBe(404);
 });

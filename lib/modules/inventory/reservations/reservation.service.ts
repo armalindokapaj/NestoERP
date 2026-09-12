@@ -2,7 +2,6 @@ import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
-import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -16,7 +15,7 @@ import {
 } from "../inventory.dto";
 import { nextDocumentNumber } from "../inventory.numbering";
 import { quantityString, toStoredQuantity } from "../inventory.quantity";
-import { buildReservationScopeWhere, buildWarehouseScopeWhere } from "../inventory.scope";
+import { buildInventoryProjectWhere, buildReservationScopeWhere, buildWarehouseScopeWhere } from "../inventory.scope";
 import type { ReservationInput, ReservationListQuery } from "../inventory.schema";
 import { isReservationHolding } from "../inventory.status";
 import type { ReservationDTO } from "../inventory.types";
@@ -309,7 +308,7 @@ export async function expireOverdue(context: UserContext, today = new Date()): P
 
 async function requireProject(context: UserContext, projectId: string) {
   const project = await prisma.project.findFirst({
-    where: { AND: [buildProjectScopeWhere(context), { id: projectId }] },
+    where: { AND: [buildInventoryProjectWhere(context), { id: projectId }] },
     select: { id: true },
   });
   if (!project) {

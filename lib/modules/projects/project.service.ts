@@ -741,5 +741,31 @@ export function projectActions(context: UserContext) {
       isModuleEnabled(context, "contracts") &&
       can(context, "legal.view") &&
       can(context, "legal.contract.view"),
+    /**
+     * The Inventory tab needs project access *and* inventory access to the
+     * material on the job (PRD #20 §10, §182).
+     *
+     * Being given a project does not hand somebody the stock behind it: the
+     * inventory scope narrows every figure again, and a company with the module
+     * switched off has no tab at all (PRD #20 §301).
+     */
+    canViewInventory:
+      isModuleEnabled(context, "inventory") &&
+      can(context, "inventory.view") &&
+      (can(context, "inventory.issue.view") || can(context, "inventory.reservation.view")),
+    /**
+     * The QA/QC tab needs project access *and* quality access to the work on
+     * the job (PRD #21 §11, §26).
+     *
+     * Being given a project does not hand somebody its quality record: the
+     * quality scope narrows every list again, and a company with the module
+     * switched off has no tab at all.
+     */
+    canViewQaqc:
+      isModuleEnabled(context, "qaqc") &&
+      can(context, "qaqc.view") &&
+      (can(context, "qaqc.inspection.view") ||
+        can(context, "qaqc.defect.view") ||
+        can(context, "qaqc.ncr.view")),
   };
 }

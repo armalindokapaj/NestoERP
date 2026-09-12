@@ -413,6 +413,88 @@ export async function reverseReceipt(context: UserContext, receiptId: string): P
  * guessing the correspondence would put the wrong material on the shelf
  * (PRD #20 §93).
  */
+/**
+ * Which Procurement deliveries have already been booked into stock?
+ *
+ * The Procurement side asks so it can offer "book in" once and show a link
+ * afterwards — posting the same delivery twice would double the stock, and the
+ * unique constraint refuses it anyway (PRD #20 §91, §236).
+ */
+export async function inventoryPostingsFor(
+  context: UserContext,
+  goodsReceiptIds: string[],
+): Promise<Map<string, { id: string; receiptNumber: string; status: string }>> {
+  if (goodsReceiptIds.length === 0 || !can(context, "inventory.receipt.view")) return new Map();
+
+  const rows = await prisma.inventoryReceipt.findMany({
+    where: {
+      AND: [
+        buildReceiptScopeWhere(context),
+        { goodsReceiptId: { in: goodsReceiptIds } },
+      ],
+    },
+    select: { id: true, receiptNumber: true, status: true, goodsReceiptId: true },
+  });
+
+  return new Map(
+    rows
+      .filter((row): row is typeof row & { goodsReceiptId: string } => row.goodsReceiptId !== null)
+      .map((row) => [
+        row.goodsReceiptId,
+        { id: row.id, receiptNumber: row.receiptNumber, status: row.status },
+      ]),
+  );
+}
+
+/**
+ * Whether Quality has cleared a delivery for stock (PRD #21 §95, §102).
+ *
+ * Only when the company has switched the gate on. Left off — the default — the
+ * accepted quantity that Procurement recorded is the authority, exactly as it
+ * was before QA/QC existed, and Inventory carries on unchanged (PRD #21 §95).
+ *
+ * Switched on, quality decides what may be used, and a delivery nobody has
+ * inspected is not yet bookable.
+ */
+async function assertQualityCleared(
+  context: UserContext,
+  goodsReceiptId: string,
+): Promise<void> {
+  const { getCompanyRuntimeConfig } = await import("@/lib/config/company-config.service");
+  const config = await getCompanyRuntimeConfig(context.companyId);
+  if (!config.integrations.qualityGateForInventoryReceipts) return;
+
+  const release = await prisma.qualityMaterialRelease.findFirst({
+    where: {
+      companyId: context.companyId,
+      goodsReceiptItem: { is: { goodsReceiptId } },
+      status: { in: ["RELEASED", "PARTIALLY_RELEASED"] },
+    },
+    select: { id: true },
+  });
+
+  if (release) return;
+
+  const inspection = await prisma.qualityInspection.findFirst({
+    where: {
+      companyId: context.companyId,
+      goodsReceiptId,
+      inspectionType: "MATERIAL",
+      status: { not: "CANCELLED" },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { inspectionNumber: true, status: true },
+  });
+
+  throw new AccessError(
+    "CONFLICT",
+    inspection
+      ? `Quality inspection ${inspection.inspectionNumber} has not released this material yet.`
+      : "This company requires a quality inspection before material can be booked into stock.",
+    { code: "QUALITY_GATE" },
+  );
+}
+
 export async function postFromGoodsReceipt(
   context: UserContext,
   goodsReceiptId: string,
@@ -429,6 +511,10 @@ export async function postFromGoodsReceipt(
     select: { id: true },
   });
   if (existing) return getReceipt(context, existing.id);
+
+  // A precondition on the delivery itself, so it answers before anything about
+  // the line mapping (PRD #21 §102).
+  await assertQualityCleared(context, goodsReceiptId);
 
   const delivery = assertFound(
     await prisma.goodsReceipt.findFirst({

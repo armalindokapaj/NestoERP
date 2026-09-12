@@ -108,11 +108,11 @@ export const quickActions: Record<string, QuickActionDefinition> = {
   },
   newQualityRecord: {
     key: "newQualityRecord",
-    label: "New quality record",
+    label: "New inspection",
     href: "/qaqc/inspections/new",
     icon: "ClipboardCheck",
     module: "qaqc",
-    permission: "qaqc.record.create",
+    permission: "qaqc.inspection.create",
   },
   reportIncident: {
     key: "reportIncident",

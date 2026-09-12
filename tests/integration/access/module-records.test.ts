@@ -79,11 +79,11 @@ describe("company-disabled modules (PRD #9 §110, §142)", () => {
 });
 
 describe("company isolation across every record type (PRD #9 §12, §157)", () => {
-  // Finance, HR, Sales, Legal, Procurement and Inventory are real modules now,
-  // with their own services and their own tests — they are deliberately absent
-  // from the shell registry.
+  // Finance, HR, Sales, Legal, Procurement, Inventory and QA/QC are real
+  // modules now, with their own services and their own tests — they are
+  // deliberately absent from the shell registry. HSE is the last one still
+  // rendering through it.
   const cases: { module: string; section: string; role: Parameters<typeof loginAs>[0] }[] = [
-    { module: "qaqc", section: "inspections", role: "QAQC" },
     { module: "hse", section: "incidents", role: "HSE" },
   ];
 
@@ -103,9 +103,9 @@ describe("company isolation across every record type (PRD #9 §12, §157)", () =
 
   /**
    * Tasks (PRD #11), Clients (PRD #12), Documents (PRD #13), Legal (PRD #18),
-   * Procurement (PRD #19) and Inventory (PRD #20) have left the generic
-   * registry for their own services. Their isolation is covered by
-   * tests/api/{tasks,clients,documents,contracts,procurement,inventory}; what
-   * remains here is the department modules still rendering through the shell.
+   * Procurement (PRD #19), Inventory (PRD #20) and QA/QC (PRD #21) have left
+   * the generic registry for their own services. Their isolation is covered by
+   * tests/api/{tasks,clients,documents,contracts,procurement,inventory,qaqc};
+   * what remains here is HSE, still rendering through the shell.
    */
 });

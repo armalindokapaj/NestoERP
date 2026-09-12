@@ -97,10 +97,13 @@ test.describe("Architect confidentiality (PRD #13 §255, §270)", () => {
   test("the Context filter does not offer Company (PRD #13 §231)", async ({ page }) => {
     await page.goto("/documents/all");
 
-    const options = await mainRegion(page)
-      .getByLabel("Context")
-      .locator("option")
-      .allTextContents();
+    // The toolbar streams in behind a Suspense boundary, and allTextContents()
+    // does not auto-wait — so the filter has to be on screen before its options
+    // are read, or a slow run reads an empty list and asserts nothing.
+    const contextFilter = mainRegion(page).getByLabel("Context");
+    await expect(contextFilter).toBeVisible();
+
+    const options = await contextFilter.locator("option").allTextContents();
 
     expect(options.join(" ")).toContain("Project");
     expect(options.join(" ")).not.toContain("Company");

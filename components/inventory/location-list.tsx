@@ -1,0 +1,183 @@
+"use client";
+
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { StatusBadge } from "@/components/modules/status-badge";
+import { useToast } from "@/components/ui/toast";
+import { archiveLocationAction, createLocationAction } from "@/lib/actions/inventory";
+import type { LocationDTO } from "@/lib/modules/inventory/inventory.types";
+
+/**
+ * The bins, racks and bays inside a warehouse (PRD #20 §61–§66).
+ *
+ * A location is where stock actually sits, and every movement names one. The
+ * default location is where a document lands when nobody picks — every
+ * warehouse has exactly one, created with it (PRD #20 §64).
+ */
+export function LocationList({
+  warehouseId,
+  locations,
+  canCreate,
+}: {
+  warehouseId: string;
+  locations: LocationDTO[];
+  canCreate: boolean;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = React.useTransition();
+  const [adding, setAdding] = React.useState(false);
+  const [archiving, setArchiving] = React.useState<LocationDTO | null>(null);
+  const [errors, setErrors] = React.useState<Record<string, string[]>>({});
+
+  function add(formData: FormData) {
+    startTransition(async () => {
+      const result = await createLocationAction(warehouseId, formData);
+      if (result.ok) {
+        setAdding(false);
+        setErrors({});
+        toast({ title: "Location added.", tone: "success" });
+        router.refresh();
+      } else {
+        setErrors(result.fieldErrors ?? {});
+        toast({ title: result.error, tone: "danger" });
+      }
+    });
+  }
+
+  function archive(location: LocationDTO) {
+    startTransition(async () => {
+      const result = await archiveLocationAction(warehouseId, location.id);
+      if (result.ok) {
+        setArchiving(null);
+        toast({ title: "Location archived.", tone: "success" });
+        router.refresh();
+      } else {
+        toast({ title: result.error, tone: "danger" });
+      }
+    });
+  }
+
+  return (
+    <section className="nesto-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-card font-semibold text-fg">Locations</h2>
+          <p className="mt-1 text-meta text-fg-subtle">
+            Every movement names one. Stock lives in a location, not in a warehouse.
+          </p>
+        </div>
+        {canCreate ? (
+          <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
+            <Plus aria-hidden="true" />
+            Add location
+          </Button>
+        ) : null}
+      </div>
+
+      {locations.length === 0 ? (
+        <p className="mt-4 text-table text-fg-subtle">
+          No locations are visible here.
+        </p>
+      ) : (
+        <ul className="mt-4 divide-y divide-line">
+          {locations.map((location) => (
+            <li
+              key={location.id}
+              className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0"
+            >
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 text-table font-medium text-fg">
+                  {location.code}
+                  {location.isDefault ? <Badge tone="info">Default</Badge> : null}
+                  {location.status !== "ACTIVE" ? (
+                    <StatusBadge status={location.status} />
+                  ) : null}
+                </p>
+                <p className="text-meta text-fg-subtle">
+                  {location.name ?? "No name"}
+                  {location.distinctItems > 0
+                    ? ` · ${location.distinctItems} item${location.distinctItems === 1 ? "" : "s"} held`
+                    : " · empty"}
+                </p>
+              </div>
+
+              {location.capabilities.canArchive && !location.isDefault ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => setArchiving(location)}
+                >
+                  Archive
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Dialog open={adding} onOpenChange={setAdding}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>Add a location</DialogTitle>
+          <DialogDescription>
+            A bin, rack, bay or yard inside this warehouse.
+          </DialogDescription>
+
+          <form action={add} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="location-code">Code</Label>
+              <Input id="location-code" name="code" required maxLength={40} />
+              {errors.code ? (
+                <p className="text-meta text-danger-strong">{errors.code[0]}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="location-name">Name</Label>
+              <Input id="location-name" name="name" maxLength={200} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="location-description">Description</Label>
+              <Input id="location-description" name="description" maxLength={1000} />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setAdding(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Adding…" : "Add location"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={archiving !== null}
+        onOpenChange={(open) => setArchiving(open ? archiving : null)}
+        title={archiving ? `Archive ${archiving.code}?` : "Archive location?"}
+        description="It stops accepting stock and cannot be named on new documents. A location still holding stock cannot be archived — move it out first."
+        confirmLabel="Archive location"
+        pending={pending}
+        onConfirm={() => archiving && archive(archiving)}
+      />
+    </section>
+  );
+}

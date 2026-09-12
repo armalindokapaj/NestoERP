@@ -288,23 +288,34 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
     case "lowStockCount":
       return String(await countLowStock(context));
 
+    // An inspection that nobody has finished, whatever stage it is at
+    // (PRD #21 §31). A closed one is not an open item, and a cancelled one
+    // never was.
     case "openQualityCount":
       return String(
-        await prisma.qualityRecord.count({
+        await prisma.qualityInspection.count({
           where: {
             ...buildProjectLinkedScopeWhere(context, "qaqc"),
-            status: { in: ["OPEN", "IN_PROGRESS"] },
+            status: { in: ["DRAFT", "IN_PROGRESS", "PENDING_APPROVAL", "REJECTED"] },
           },
         }),
       );
 
     case "openNcrCount":
       return String(
-        await prisma.qualityRecord.count({
+        await prisma.nonConformanceReport.count({
           where: {
             ...buildProjectLinkedScopeWhere(context, "qaqc"),
-            type: "NCR",
-            status: { in: ["OPEN", "IN_PROGRESS"] },
+            status: {
+              in: [
+                "OPEN",
+                "IN_PROGRESS",
+                "PENDING_VERIFICATION",
+                "PENDING_APPROVAL",
+                "APPROVED_FOR_CLOSE",
+                "REOPENED",
+              ],
+            },
           },
         }),
       );
@@ -890,37 +901,67 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     }
 
     case "qualityRecords": {
-      const grouped = await prisma.qualityRecord.groupBy({
-        by: ["type"],
-        where: {
-          ...buildProjectLinkedScopeWhere(context, "qaqc"),
-          status: { in: ["OPEN", "IN_PROGRESS"] },
-        },
-        _count: { _all: true },
-      });
+      /*
+       * Four different kinds of quality work, counted separately (PRD #21 §3).
+       * They are deliberately not summed into one "quality items" figure: an
+       * open NCR and an open inspection are not comparable units of anything.
+       */
+      const scope = buildProjectLinkedScopeWhere(context, "qaqc");
+
+      const [inspections, defects, ncrs, actions] = await Promise.all([
+        prisma.qualityInspection.count({
+          where: { ...scope, status: { in: ["DRAFT", "IN_PROGRESS", "PENDING_APPROVAL"] } },
+        }),
+        prisma.qualityDefect.count({
+          where: { ...scope, status: { in: ["OPEN", "IN_PROGRESS", "REOPENED"] } },
+        }),
+        prisma.nonConformanceReport.count({
+          where: {
+            ...scope,
+            status: {
+              in: ["OPEN", "IN_PROGRESS", "PENDING_VERIFICATION", "PENDING_APPROVAL", "REOPENED"],
+            },
+          },
+        }),
+        prisma.correctiveAction.count({
+          where: {
+            ...scope,
+            status: { in: ["OPEN", "IN_PROGRESS", "PENDING_VERIFICATION", "REOPENED"] },
+          },
+        }),
+      ]);
 
       return {
         kind: "breakdown",
-        items: grouped.map((row) => ({
-          label: row.type,
-          status: row.type,
-          value: row._count._all,
-        })),
+        items: [
+          { label: "Inspections", status: "IN_PROGRESS", value: inspections },
+          { label: "Defects", status: "OPEN", value: defects },
+          { label: "NCRs", status: "PENDING", value: ncrs },
+          { label: "Corrective actions", status: "IN_PROGRESS", value: actions },
+        ].filter((row) => row.value > 0),
       };
     }
 
     case "openNcrs": {
-      const rows = await prisma.qualityRecord.findMany({
+      const rows = await prisma.nonConformanceReport.findMany({
         where: {
           ...buildProjectLinkedScopeWhere(context, "qaqc"),
-          type: "NCR",
-          status: { in: ["OPEN", "IN_PROGRESS"] },
+          status: {
+            in: [
+              "OPEN",
+              "IN_PROGRESS",
+              "PENDING_VERIFICATION",
+              "PENDING_APPROVAL",
+              "APPROVED_FOR_CLOSE",
+              "REOPENED",
+            ],
+          },
         },
         orderBy: [{ severity: "desc" }, { dueDate: "asc" }],
         take: 5,
         select: {
           id: true,
-          reference: true,
+          ncrNumber: true,
           title: true,
           status: true,
           severity: true,
@@ -933,8 +974,8 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         items: rows.map((row) => ({
           id: row.id,
           title: row.title,
-          subtitle: `${row.reference} · ${row.project?.name ?? "No project"}`,
-          meta: row.severity ?? undefined,
+          subtitle: `${row.ncrNumber} · ${row.project?.name ?? "No project"}`,
+          meta: row.severity,
           status: row.status,
           href: `/qaqc/ncrs/${row.id}`,
         })),
@@ -1210,12 +1251,20 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
     }
   }
 
-  if (can(context, "qaqc.record.view")) {
-    const ncrs = await prisma.qualityRecord.count({
+  if (can(context, "qaqc.ncr.view")) {
+    const ncrs = await prisma.nonConformanceReport.count({
       where: {
         ...buildProjectLinkedScopeWhere(context, "qaqc"),
-        type: "NCR",
-        status: { in: ["OPEN", "IN_PROGRESS"] },
+        status: {
+          in: [
+            "OPEN",
+            "IN_PROGRESS",
+            "PENDING_VERIFICATION",
+            "PENDING_APPROVAL",
+            "APPROVED_FOR_CLOSE",
+            "REOPENED",
+          ],
+        },
       },
     });
 

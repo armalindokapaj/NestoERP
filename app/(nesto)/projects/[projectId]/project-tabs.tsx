@@ -21,6 +21,8 @@ export function ProjectTabs({
     team: boolean;
     finance?: boolean;
     contracts?: boolean;
+    inventory?: boolean;
+    qaqc?: boolean;
     documents: boolean;
     activity: boolean;
   };
@@ -40,6 +42,18 @@ export function ProjectTabs({
       label: "Contracts",
       href: `/projects/${projectId}/contracts`,
       visible: Boolean(show.contracts),
+    },
+    {
+      key: "inventory",
+      label: "Inventory",
+      href: `/projects/${projectId}/inventory`,
+      visible: Boolean(show.inventory),
+    },
+    {
+      key: "qaqc",
+      label: "QA/QC",
+      href: `/projects/${projectId}/qaqc`,
+      visible: Boolean(show.qaqc),
     },
     {
       key: "documents",

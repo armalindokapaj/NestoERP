@@ -262,6 +262,131 @@ const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
     return Boolean(found);
   },
 
+  /*
+   * Inventory parents (PRD #20 §189–§196).
+   *
+   * Each stock record answers with its own scope clause and its own view
+   * permission, so a delivery photo is exactly as reachable as the receipt it
+   * is filed against. A generic `document.view` opens nothing here, which is
+   * the release-critical case: a project user must not reach central-warehouse
+   * paperwork by way of the Documents module (PRD #20 §191, §302).
+   */
+  async inventory_item(context, entityId) {
+    if (!can(context, "inventory.document.view") || !can(context, "inventory.item.view")) {
+      return false;
+    }
+    const { buildItemScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
+    const found = await prisma.inventoryItem.findFirst({
+      where: { AND: [buildItemScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async warehouse(context, entityId) {
+    if (!can(context, "inventory.document.view") || !can(context, "inventory.warehouse.view")) {
+      return false;
+    }
+    const { buildWarehouseScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
+    const found = await prisma.warehouse.findFirst({
+      where: { AND: [buildWarehouseScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async inventory_receipt(context, entityId) {
+    if (!can(context, "inventory.document.view") || !can(context, "inventory.receipt.view")) {
+      return false;
+    }
+    const { buildReceiptScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
+    const found = await prisma.inventoryReceipt.findFirst({
+      where: { AND: [buildReceiptScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async stock_issue(context, entityId) {
+    if (!can(context, "inventory.document.view") || !can(context, "inventory.issue.view")) {
+      return false;
+    }
+    const { buildIssueScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
+    const found = await prisma.stockIssue.findFirst({
+      where: { AND: [buildIssueScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async stock_adjustment(context, entityId) {
+    if (!can(context, "inventory.document.view") || !can(context, "inventory.adjustment.view")) {
+      return false;
+    }
+    const { buildAdjustmentScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
+    const found = await prisma.stockAdjustment.findFirst({
+      where: { AND: [buildAdjustmentScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  /*
+   * QA/QC parents (PRD #21 §175–§183).
+   *
+   * Each quality record answers with its own scope clause and its own view
+   * permission, so a photograph of a failed check is exactly as reachable as
+   * the inspection it hangs off. A generic `document.view` opens nothing here:
+   * quality evidence is often the record of somebody's mistake, and it is not
+   * everybody's to read (PRD #21 §177, §187).
+   */
+  async quality_inspection(context, entityId) {
+    if (!can(context, "qaqc.document.view") || !can(context, "qaqc.inspection.view")) {
+      return false;
+    }
+    const { buildInspectionScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
+    const found = await prisma.qualityInspection.findFirst({
+      where: { AND: [buildInspectionScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async quality_defect(context, entityId) {
+    if (!can(context, "qaqc.document.view") || !can(context, "qaqc.defect.view")) return false;
+    const { buildDefectScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
+    const found = await prisma.qualityDefect.findFirst({
+      where: { AND: [buildDefectScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async non_conformance_report(context, entityId) {
+    if (!can(context, "qaqc.document.view") || !can(context, "qaqc.ncr.view")) return false;
+    const { buildNcrScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
+    const found = await prisma.nonConformanceReport.findFirst({
+      where: { AND: [buildNcrScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async corrective_action(context, entityId) {
+    if (
+      !can(context, "qaqc.document.view") ||
+      !can(context, "qaqc.corrective_action.view")
+    ) {
+      return false;
+    }
+    const { buildCorrectiveActionScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
+    const found = await prisma.correctiveAction.findFirst({
+      where: { AND: [buildCorrectiveActionScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
   async leave_request(context, entityId) {
     // No self-service door: a supporting file on a leave request may be a
     // medical certificate, which is what `hr.leave.view` protects
@@ -342,6 +467,12 @@ const MODULE_UPLOAD_GRANT: Record<string, Permission> = {
   // Nor is reading a contract the same permission as filing against it
   // (PRD #18 §203).
   contracts: "legal.document.create",
+  // Reading a delivery note is not the same permission as filing one
+  // (PRD #20 §189).
+  inventory: "inventory.document.create",
+  // Nor is reading an inspection the same permission as attaching evidence to
+  // it (PRD #21 §175).
+  qaqc: "qaqc.document.create",
 };
 
 /** May this caller file a *new* document against that parent (PRD #13 §43, §91)? */

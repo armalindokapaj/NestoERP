@@ -3,11 +3,19 @@ import { notFound } from "next/navigation";
 import { Truck } from "lucide-react";
 
 import { ReceiptForm } from "@/components/procurement/receipt-form";
-import { ReceiptList } from "@/components/procurement/receipt-list";
+import {
+  ReceiptList,
+  type InventoryHandoff,
+} from "@/components/procurement/receipt-list";
+import { QualityGate } from "@/components/qaqc/quality-gate";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { EmptyState } from "@/components/ui/empty-state";
+import { can, isModuleEnabled } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import * as inventoryReceipts from "@/lib/modules/inventory/documents/receipt.service";
+import * as inventoryItems from "@/lib/modules/inventory/items/item.service";
+import * as warehouses from "@/lib/modules/inventory/warehouses/warehouse.service";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
 import * as receipts from "@/lib/modules/procurement/receipts/receipt.service";
 
@@ -38,6 +46,37 @@ export default async function ReceiptsPage({ params }: Params) {
 
   const recorded = await receipts.listForOrder(context, purchaseOrderId);
 
+  /*
+   * The Inventory handoff, when the reader holds *both* sides (PRD #20 §303).
+   *
+   * Standing next to a delivery does not give a Procurement clerk warehouse
+   * rights, so a reader without Inventory access sees the delivery history and
+   * no booking control at all — not a disabled one.
+   */
+  const handoff: InventoryHandoff | null =
+    isModuleEnabled(context, "inventory") &&
+    can(context, "inventory.view") &&
+    can(context, "inventory.receipt.create")
+      ? await (async () => {
+          const [items, warehouseOptions, locationOptions, posted] = await Promise.all([
+            inventoryItems.selectableItems(context),
+            warehouses.selectableWarehouses(context),
+            warehouses.selectableLocations(context),
+            inventoryReceipts.inventoryPostingsFor(
+              context,
+              recorded.map((row) => row.id),
+            ),
+          ]);
+
+          return {
+            items,
+            warehouses: warehouseOptions,
+            locations: locationOptions,
+            posted: Object.fromEntries(posted),
+          };
+        })()
+      : null;
+
   return (
     <div className="space-y-5">
       <RecordContextHeader
@@ -62,7 +101,22 @@ export default async function ReceiptsPage({ params }: Params) {
             description="Deliveries booked in against this order appear here, newest first."
           />
         ) : (
-          <ReceiptList orderId={order.id} receipts={recorded} />
+          <ReceiptList
+            orderId={order.id}
+            receipts={recorded}
+            handoff={handoff}
+            /*
+             * The quality position on each delivery, beside the delivery it is
+             * about (PRD #21 §12, §13). It says whether the material may be
+             * booked in — not what the inspector found.
+             */
+            qualityGate={Object.fromEntries(
+              recorded.map((receipt) => [
+                receipt.id,
+                <QualityGate key={receipt.id} context={context} goodsReceiptId={receipt.id} />,
+              ]),
+            )}
+          />
         )}
       </section>
     </div>

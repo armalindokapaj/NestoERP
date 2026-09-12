@@ -2,7 +2,6 @@ import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
-import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -18,7 +17,7 @@ import {
 } from "../inventory.dto";
 import { nextDocumentNumber } from "../inventory.numbering";
 import { ZERO, quantityString, toStoredQuantity } from "../inventory.quantity";
-import { buildIssueScopeWhere, buildWarehouseScopeWhere } from "../inventory.scope";
+import { buildInventoryProjectWhere, buildIssueScopeWhere, buildWarehouseScopeWhere } from "../inventory.scope";
 import type { IssueInput, TransactionListQuery } from "../inventory.schema";
 import type {
   IssueDetailDTO,
@@ -535,7 +534,7 @@ async function resolveProject(
   if (!projectId) return null;
 
   const project = await prisma.project.findFirst({
-    where: { AND: [buildProjectScopeWhere(context), { id: projectId, archivedAt: null }] },
+    where: { AND: [buildInventoryProjectWhere(context), { id: projectId }] },
     select: { id: true },
   });
 

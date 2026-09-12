@@ -543,13 +543,100 @@ export const PERMISSIONS = [
   "inventory.report.view",
   "inventory.export",
 
-  /* QA / QC -------------------------------------------------------------- */
+  /* QA / QC (PRD #21 §20) ------------------------------------------------- */
   "qaqc.view",
   "qaqc.manage",
-  "qaqc.record.view",
-  "qaqc.record.create",
-  "qaqc.record.update",
-  "qaqc.record.close",
+  "qaqc.dashboard.view",
+
+  /*
+   * Asking for an inspection is not doing one, and doing one is not approving
+   * it. The three acts are separate grants throughout (PRD #21 §3, §73).
+   */
+  "qaqc.request.view",
+  "qaqc.request.create",
+  "qaqc.request.update",
+  "qaqc.request.assign",
+  "qaqc.request.cancel",
+
+  "qaqc.template.view",
+  "qaqc.template.create",
+  "qaqc.template.update",
+  "qaqc.template.archive",
+  "qaqc.template.restore",
+
+  "qaqc.inspection.view",
+  "qaqc.inspection.create",
+  "qaqc.inspection.assign",
+  "qaqc.inspection.execute",
+  "qaqc.inspection.update_draft",
+  "qaqc.inspection.submit",
+  "qaqc.inspection.approve",
+  "qaqc.inspection.reject",
+  "qaqc.inspection.close",
+  "qaqc.inspection.cancel",
+  "qaqc.inspection.reopen",
+
+  /*
+   * Releasing material to stock is the act with consequences outside Quality:
+   * it is what lets Inventory book a delivery in, so it is granted separately
+   * from inspecting (PRD #21 §98, §102).
+   */
+  "qaqc.material.view",
+  "qaqc.material.inspect",
+  "qaqc.material.release",
+  "qaqc.material.reject",
+  "qaqc.material.conditional_accept",
+
+  "qaqc.defect.view",
+  "qaqc.defect.create",
+  "qaqc.defect.update",
+  "qaqc.defect.assign",
+  "qaqc.defect.resolve",
+  "qaqc.defect.close",
+  "qaqc.defect.reopen",
+  "qaqc.defect.cancel",
+
+  "qaqc.ncr.view",
+  "qaqc.ncr.create",
+  "qaqc.ncr.update",
+  "qaqc.ncr.assign",
+  "qaqc.ncr.submit",
+  "qaqc.ncr.approve",
+  "qaqc.ncr.reject",
+  "qaqc.ncr.close",
+  "qaqc.ncr.reopen",
+  "qaqc.ncr.cancel",
+
+  "qaqc.corrective_action.view",
+  "qaqc.corrective_action.create",
+  "qaqc.corrective_action.update",
+  "qaqc.corrective_action.assign",
+  "qaqc.corrective_action.complete",
+  "qaqc.corrective_action.verify",
+  "qaqc.corrective_action.reopen",
+  "qaqc.corrective_action.cancel",
+
+  "qaqc.reinspection.view",
+  "qaqc.reinspection.create",
+  "qaqc.reinspection.execute",
+
+  "qaqc.approval.view",
+  "qaqc.approval.decide",
+  /*
+   * Granted to nobody by default. Approving your own inspection is the one
+   * thing a quality system exists to prevent (PRD #21 §165).
+   */
+  "qaqc.approval.self",
+
+  "qaqc.document.view",
+  "qaqc.document.create",
+
+  "qaqc.task.view",
+  "qaqc.task.create",
+
+  "qaqc.activity.view",
+  "qaqc.report.view",
+  "qaqc.export",
 
   /* HSE ------------------------------------------------------------------ */
   "hse.view",
