@@ -1043,3 +1043,241 @@ export async function removeTestQaqcRecords(prefix: string): Promise<void> {
     await db.inspectionTemplate.deleteMany({ where: { id: { in: spares.map((r) => r.id) } } });
   }
 }
+
+/**
+ * Puts the HSE fixtures back where the seed left them (PRD #22 §374).
+ *
+ * The E2E suite runs against the shared development database, so a spec that
+ * approves an inspection or releases a stop-work has to restore it — otherwise
+ * the next run finds nothing pending and the failure looks like a product bug
+ * rather than a dirty fixture.
+ */
+export async function resetHseFixtures(): Promise<void> {
+  await db.hseInspection.updateMany({
+    where: { id: { in: ["hse_ins_006", "hse_ins_007", "hse_ins_008"] } },
+    data: {
+      status: "PENDING_APPROVAL",
+      approvedAt: null,
+      approvedByMemberId: null,
+      rejectedAt: null,
+      rejectedByMemberId: null,
+      closedAt: null,
+      closedByMemberId: null,
+      cancelledAt: null,
+      decisionNote: null,
+    },
+  });
+
+  await db.hseInspection.updateMany({
+    where: { id: { in: ["hse_ins_010", "hse_ins_011", "hse_ins_030"] } },
+    data: { status: "IN_PROGRESS", result: "NOT_SET", submittedAt: null },
+  });
+
+  await db.hseInspection.updateMany({
+    where: { id: { in: ["hse_ins_015", "hse_ins_016"] } },
+    data: { status: "DRAFT", result: "NOT_SET", submittedAt: null },
+  });
+
+  // The approvals those submissions opened, so the queue is populated again.
+  await db.hseApproval.updateMany({
+    where: { id: { in: ["hse_ap_001", "hse_ap_002", "hse_ap_003", "hse_ap_004", "hse_ap_005", "hse_ap_006", "hse_ap_007", "hse_ap_008", "hse_ap_009"] } },
+    data: { status: "PENDING", decidedByMemberId: null, decidedAt: null, decisionNote: null },
+  });
+
+  await db.hseHazard.updateMany({
+    where: { id: { in: ["hse_hz_002", "hse_hz_035"] } },
+    data: {
+      status: "OPEN",
+      closedAt: null,
+      closedByMemberId: null,
+      closureNote: null,
+      cancelledAt: null,
+    },
+  });
+
+  await db.hseHazard.updateMany({
+    where: { id: "hse_hz_004" },
+    data: { status: "IN_PROGRESS", closedAt: null, closedByMemberId: null, closureNote: null },
+  });
+
+  await db.hseIncident.updateMany({
+    where: { id: "hse_inc_011" },
+    data: {
+      status: "UNDER_INVESTIGATION",
+      // Deliberately without a cause: that is what makes the closure rule
+      // visible without anybody having to break one (PRD #22 §95).
+      rootCause: null,
+      investigationSummary: null,
+      submittedForCloseAt: null,
+      closedAt: null,
+      closedByMemberId: null,
+      closureNote: null,
+    },
+  });
+
+  await db.hseIncident.updateMany({
+    where: { id: "hse_inc_009" },
+    data: {
+      status: "PENDING_CLOSE",
+      closedAt: null,
+      closedByMemberId: null,
+    },
+  });
+
+  await db.hseAction.updateMany({
+    where: { id: "hse_act_002" },
+    data: {
+      status: "PENDING_VERIFICATION",
+      verificationNote: null,
+      verifiedAt: null,
+      verifiedByMemberId: null,
+    },
+  });
+
+  await db.hseAction.updateMany({
+    where: { id: "hse_act_021" },
+    data: {
+      status: "OPEN",
+      completionNote: null,
+      completedAt: null,
+      completedByMemberId: null,
+      verificationNote: null,
+      verifiedAt: null,
+      verifiedByMemberId: null,
+    },
+  });
+
+  await db.stopWorkRecord.updateMany({
+    where: { id: { in: ["hse_sw_001", "hse_sw_002"] } },
+    data: { status: "ACTIVE", releasedAt: null, releasedByMemberId: null, releaseReason: null },
+  });
+
+  await db.hseWorkPermit.updateMany({
+    where: { id: "hse_ptw_007" },
+    data: {
+      status: "PENDING_APPROVAL",
+      approvedAt: null,
+      approvedByMemberId: null,
+      activatedAt: null,
+      closedAt: null,
+      closedByMemberId: null,
+    },
+  });
+
+  await db.hseRiskAssessment.updateMany({
+    where: { id: "hse_ra_008" },
+    data: { status: "PENDING_APPROVAL", approvedAt: null, approvedByMemberId: null },
+  });
+
+  await db.toolboxTalk.updateMany({
+    where: { id: "hse_tbt_013" },
+    data: { status: "DRAFT", completedAt: null, cancelledAt: null },
+  });
+
+  await db.environmentalObservation.updateMany({
+    where: { id: "hse_env_005" },
+    data: { status: "OPEN", closedAt: null, closedByMemberId: null, closureNote: null },
+  });
+}
+
+/** Removes anything an HSE spec created, children first (PRD #9 §223). */
+export async function removeTestHseRecords(prefix: string): Promise<void> {
+  const like = { contains: prefix };
+
+  const hazards = await db.hseHazard.findMany({
+    where: { title: like },
+    select: { id: true },
+  });
+  const incidents = await db.hseIncident.findMany({
+    where: { title: like },
+    select: { id: true },
+  });
+  const inspections = await db.hseInspection.findMany({
+    where: { locationText: like },
+    select: { id: true },
+  });
+  const assessments = await db.hseRiskAssessment.findMany({
+    where: { title: like },
+    select: { id: true },
+  });
+  const permits = await db.hseWorkPermit.findMany({
+    where: { title: like },
+    select: { id: true },
+  });
+  const stopWorks = await db.stopWorkRecord.findMany({
+    where: { title: like },
+    select: { id: true },
+  });
+  const observations = await db.environmentalObservation.findMany({
+    where: { title: like },
+    select: { id: true },
+  });
+  const talks = await db.toolboxTalk.findMany({ where: { title: like }, select: { id: true } });
+
+  const ids = [
+    ...hazards, ...incidents, ...inspections, ...assessments,
+    ...permits, ...stopWorks, ...observations, ...talks,
+  ].map((row) => row.id);
+
+  // Actions reference every one of those, so they go first.
+  await db.hseAction.deleteMany({
+    where: {
+      OR: [
+        { title: like },
+        { hazardId: { in: hazards.map((row) => row.id) } },
+        { incidentId: { in: incidents.map((row) => row.id) } },
+        { inspectionId: { in: inspections.map((row) => row.id) } },
+        { riskAssessmentId: { in: assessments.map((row) => row.id) } },
+        { permitId: { in: permits.map((row) => row.id) } },
+        { stopWorkId: { in: stopWorks.map((row) => row.id) } },
+        { environmentalObservationId: { in: observations.map((row) => row.id) } },
+      ],
+    },
+  });
+
+  await db.stopWorkRecord.deleteMany({
+    where: {
+      OR: [
+        { id: { in: stopWorks.map((row) => row.id) } },
+        { hazardId: { in: hazards.map((row) => row.id) } },
+        { incidentId: { in: incidents.map((row) => row.id) } },
+      ],
+    },
+  });
+
+  await db.hseApproval.deleteMany({ where: { recordId: { in: ids } } });
+  await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+
+  await db.hseHazard.deleteMany({
+    where: {
+      OR: [
+        { id: { in: hazards.map((row) => row.id) } },
+        { inspectionId: { in: inspections.map((row) => row.id) } },
+      ],
+    },
+  });
+  await db.hseIncident.deleteMany({ where: { id: { in: incidents.map((row) => row.id) } } });
+  await db.hseInspectionChecklistItem.deleteMany({
+    where: { inspectionId: { in: inspections.map((row) => row.id) } },
+  });
+  await db.hseInspection.deleteMany({ where: { id: { in: inspections.map((row) => row.id) } } });
+  await db.hseWorkPermit.deleteMany({ where: { id: { in: permits.map((row) => row.id) } } });
+  await db.hseRiskAssessmentItem.deleteMany({
+    where: { riskAssessmentId: { in: assessments.map((row) => row.id) } },
+  });
+  await db.hseRiskAssessment.deleteMany({
+    where: { id: { in: assessments.map((row) => row.id) } },
+  });
+  await db.environmentalObservation.deleteMany({
+    where: { id: { in: observations.map((row) => row.id) } },
+  });
+  await db.toolboxTalkParticipant.deleteMany({
+    where: { toolboxTalkId: { in: talks.map((row) => row.id) } },
+  });
+  await db.toolboxTalk.deleteMany({ where: { id: { in: talks.map((row) => row.id) } } });
+  await db.ppeCheck.deleteMany({ where: { notes: like } });
+  await db.hseInspectionTemplateItem.deleteMany({
+    where: { template: { name: like } },
+  });
+  await db.hseInspectionTemplate.deleteMany({ where: { name: like } });
+}

@@ -387,6 +387,109 @@ const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
     return Boolean(found);
   },
 
+  /*
+   * HSE parents (PRD #22 §185–§193).
+   *
+   * Each safety record answers with its own scope clause and its own view
+   * permission, so a photograph of an unguarded edge is exactly as reachable as
+   * the hazard it hangs off. A generic `document.view` opens nothing here: an
+   * incident's supporting files may show somebody being hurt, and they are not
+   * everybody's to read (PRD #22 §21, §187).
+   */
+  async hse_inspection(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.inspection.view")) {
+      return false;
+    }
+    const { buildInspectionScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.hseInspection.findFirst({
+      where: { AND: [buildInspectionScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async hazard(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.hazard.view")) return false;
+    const { buildHazardScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.hseHazard.findFirst({
+      where: { AND: [buildHazardScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async incident(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.incident.view")) return false;
+    const { buildIncidentScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.hseIncident.findFirst({
+      where: { AND: [buildIncidentScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async risk_assessment(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.risk.view")) return false;
+    const { buildRiskAssessmentScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.hseRiskAssessment.findFirst({
+      where: { AND: [buildRiskAssessmentScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async hse_action(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.action.view")) return false;
+    const { buildActionScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.hseAction.findFirst({
+      where: { AND: [buildActionScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async toolbox_talk(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.toolbox.view")) return false;
+    const { buildToolboxScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.toolboxTalk.findFirst({
+      where: { AND: [buildToolboxScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async work_permit(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.permit.view")) return false;
+    const { buildPermitScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.hseWorkPermit.findFirst({
+      where: { AND: [buildPermitScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async environmental_observation(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.environment.view")) {
+      return false;
+    }
+    const { buildObservationScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.environmentalObservation.findFirst({
+      where: { AND: [buildObservationScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
+  async stop_work(context, entityId) {
+    if (!can(context, "hse.document.view") || !can(context, "hse.stop_work.view")) return false;
+    const { buildStopWorkScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+    const found = await prisma.stopWorkRecord.findFirst({
+      where: { AND: [buildStopWorkScopeWhere(context), { id: entityId }] },
+      select: { id: true },
+    });
+    return Boolean(found);
+  },
+
   async leave_request(context, entityId) {
     // No self-service door: a supporting file on a leave request may be a
     // medical certificate, which is what `hr.leave.view` protects
@@ -473,6 +576,9 @@ const MODULE_UPLOAD_GRANT: Record<string, Permission> = {
   // Nor is reading an inspection the same permission as attaching evidence to
   // it (PRD #21 §175).
   qaqc: "qaqc.document.create",
+  // Nor is reading a hazard the same permission as filing evidence against it
+  // (PRD #22 §185, §187).
+  hse: "hse.document.create",
 };
 
 /** May this caller file a *new* document against that parent (PRD #13 §43, §91)? */

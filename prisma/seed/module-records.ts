@@ -1,9 +1,9 @@
 /**
  * Module test records (PRD #9 §67–§87).
  *
- * Deliberately small: enough to exercise lists, details, statuses, scope,
- * approvals and dashboard widgets. These shapes are not the final ERP domain
- * models — each department module replaces its table when its own PRD lands
+ * Every department module now has a domain of its own, so what is left here is
+ * the platform's own support queue — the last thing still on the generic record
+ * shell, and the reason the shell's machinery is still worth keeping
  * (PRD #9 §252).
  */
 import type { PrismaClient } from "@prisma/client";
@@ -31,51 +31,11 @@ export async function seedModuleRecords(prisma: PrismaClient, members: Members) 
   // QA/QC has its own seed now (prisma/seed/qaqc.ts): templates with real
   // checklists, inspections at every stage, material decisions that balance,
   // defects, NCRs and the corrective actions that let them close (PRD #21 §342).
-  await seedHse(prisma, members);
+  // HSE has its own seed now (prisma/seed/hse.ts): checklists, inspections at
+  // every stage, hazards scored on the 5×5 matrix, incidents and near misses,
+  // risk assessments, permits, toolbox talks, PPE checks and stop-work
+  // (PRD #22 §374). It was the last department module on this shell.
   await seedSupport(prisma, members);
-}
-
-/* HSE — 12 records across four types (PRD #9 §85, §86) --------------------- */
-
-const HSE = [
-  { reference: "HSE-001", type: "INCIDENT", title: "Minor hand injury — block A", project: PROJECT_IDS.a, status: "CLOSED", severity: "LOW" },
-  { reference: "HSE-002", type: "INCIDENT", title: "Near miss — falling formwork clamp", project: PROJECT_IDS.a, status: "OPEN", severity: "HIGH" },
-  { reference: "HSE-003", type: "INSPECTION", title: "Weekly site safety walk", project: PROJECT_IDS.a, status: "CLOSED", severity: "LOW" },
-  { reference: "HSE-004", type: "PERMIT", title: "Hot works permit — roof plant", project: PROJECT_IDS.a, status: "IN_PROGRESS", severity: "MEDIUM" },
-  { reference: "HSE-005", type: "CORRECTIVE_ACTION", title: "Install edge protection level 5", project: PROJECT_IDS.a, status: "OPEN", severity: "HIGH" },
-  { reference: "HSE-006", type: "INSPECTION", title: "Scaffold handover inspection", project: PROJECT_IDS.b, status: "OPEN", severity: "MEDIUM" },
-  { reference: "HSE-007", type: "PERMIT", title: "Confined space permit — basement", project: PROJECT_IDS.b, status: "IN_PROGRESS", severity: "HIGH" },
-  { reference: "HSE-008", type: "INCIDENT", title: "Vehicle contact with hoarding", project: PROJECT_IDS.b, status: "CLOSED", severity: "MEDIUM" },
-  { reference: "HSE-009", type: "INCIDENT", title: "Fuel spill in vehicle yard", project: PROJECT_IDS.d, status: "OPEN", severity: "CRITICAL" },
-  { reference: "HSE-010", type: "CORRECTIVE_ACTION", title: "Replace damaged spill kit", project: PROJECT_IDS.d, status: "OPEN", severity: "MEDIUM" },
-  { reference: "HSE-011", type: "INSPECTION", title: "Plant and equipment check", project: PROJECT_IDS.d, status: "IN_PROGRESS", severity: "LOW" },
-  { reference: "HSE-012", type: "PERMIT", title: "Excavation permit — drainage run", project: PROJECT_IDS.d, status: "CLOSED", severity: "MEDIUM" },
-] as const;
-
-async function seedHse(prisma: PrismaClient, members: Members) {
-  let index = 0;
-  for (const record of HSE) {
-    index += 1;
-    const id = `hse_${index.toString().padStart(3, "0")}`;
-    await prisma.hseRecord.upsert({
-      where: { id },
-      update: {},
-      create: {
-        id,
-        companyId: COMPANY_A,
-        projectId: record.project,
-        assignedMemberId: members.get("user_hse")!,
-        reference: record.reference,
-        type: record.type,
-        title: record.title,
-        severity: record.severity,
-        status: record.status,
-        occurredAt: daysFromNow(-index * 2),
-        closedAt: record.status === "CLOSED" ? daysFromNow(-index) : null,
-        createdBy: "user_hse",
-      },
-    });
-  }
 }
 
 /* Support — 3 requests (PRD #9 §87) ---------------------------------------- */

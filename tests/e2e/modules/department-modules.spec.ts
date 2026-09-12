@@ -4,15 +4,17 @@ import { db, resetApprovalFixtures } from "../db";
 import { signIn, type DemoRole } from "../fixtures";
 
 /**
- * Department module journeys (PRD #9 §151, §156–§162, §168).
+ * The generic record shell (PRD #9 §151, §156–§162, §168).
  *
- * Every department module still on the shell renders through one implementation,
- * so this walks each one's header, tabs, list and record detail in a single loop
- * rather than repeating near-identical specs (PRD #7 §93).
+ * Every *department* module has graduated to services of its own — Finance
+ * (#15), HR (#16), Sales (#17), Legal (#18), Procurement (#19), Inventory (#20),
+ * QA/QC (#21) and HSE (#22) — and each is covered by its own spec against its
+ * own pages.
  *
- * Finance (PRD #15), HR (PRD #16), Sales (PRD #17), Legal (PRD #18),
- * Procurement (PRD #19) and Inventory (PRD #20) have graduated out of the shell
- * and are covered by their own specs, against their own pages.
+ * What still renders through the shell is the platform's own support queue, so
+ * that is what these tests walk. They are not about support: they are about the
+ * shell's header, tabs, list, record detail, filtered-empty state and 404, which
+ * any future module will inherit before it earns a domain.
  */
 const JOURNEYS: {
   role: DemoRole;
@@ -21,14 +23,12 @@ const JOURNEYS: {
   section: string;
   expectRecord: RegExp;
 }[] = [
-  // QA/QC has its own module now (PRD #21) and its own journey in
-  // qaqc.spec.ts. HSE is the last department module on the generic shell.
   {
-    role: "HSE",
-    module: "/hse",
-    heading: "HSE",
-    section: "incidents",
-    expectRecord: /HSE-00\d/,
+    role: "ADMIN",
+    module: "/support",
+    heading: "Support",
+    section: "requests",
+    expectRecord: /SUP-00\d/,
   },
 ];
 
@@ -73,21 +73,20 @@ test.describe("approvals", () => {
   });
 
   /*
-   * Approving a finance record is tested in finance.spec.ts, against the real
-   * approval service and its separation-of-duties rules (PRD #15 §18, §19).
-   * What is left here is the shell's own approval behaviour, which Procurement
-   * still uses.
+   * Approving a real record is tested in each module's own spec, against its
+   * own approval service and its separation-of-duties rules. What is left here
+   * is the shell's own behaviour: a section with no approve grant renders no
+   * Approve control at all — not a disabled one (PRD #5 §32, PRD #7 §53).
    */
-  test("HSE is offered no approval it does not hold (PRD #7 §53)", async ({ page }) => {
-    await signIn(page, "HSE");
-    await page.goto("/hse/incidents");
+  test("a section with no approval grant offers no Approve control (PRD #7 §53)", async ({
+    page,
+  }) => {
+    await signIn(page, "ADMIN");
+    await page.goto("/support/requests");
 
-    const first = page.locator('a[href^="/hse/incidents/"]').first();
+    const first = page.locator('a[href^="/support/requests/"]').first();
     await first.click();
 
-    // HSE raises and closes its own records, but no approval grant comes with
-    // it, so no Approve control renders at all — not a disabled one
-    // (PRD #5 §32).
     await expect(page.getByRole("button", { name: /^approve$/i })).toHaveCount(0);
   });
 });
@@ -95,14 +94,14 @@ test.describe("approvals", () => {
 test("a filtered list that matches nothing offers to clear the filters (PRD #9 §175)", async ({
   page,
 }) => {
-  await signIn(page, "HSE");
-  await page.goto("/hse/incidents?search=nothing-matches-this-at-all");
+  await signIn(page, "ADMIN");
+  await page.goto("/support/requests?search=nothing-matches-this-at-all");
 
   await expect(page.getByRole("link", { name: /clear filters/i }).first()).toBeVisible();
 });
 
 test("an unknown record answers not found (PRD #9 §112)", async ({ page }) => {
-  await signIn(page, "HSE");
-  const response = await page.goto("/hse/incidents/does-not-exist");
+  await signIn(page, "ADMIN");
+  const response = await page.goto("/support/requests/does-not-exist");
   expect(response?.status()).toBe(404);
 });

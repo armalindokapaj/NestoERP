@@ -222,7 +222,7 @@ export const kpis: Record<string, KpiDefinition> = {
   openIncidentCount: {
     key: "openIncidentCount",
     module: "hse",
-    permission: "hse.record.view",
+    permission: "hse.incident.view",
     label: "Open Incidents",
     icon: "TriangleAlert",
     href: "/hse/incidents",
@@ -230,10 +230,18 @@ export const kpis: Record<string, KpiDefinition> = {
   openPermitCount: {
     key: "openPermitCount",
     module: "hse",
-    permission: "hse.record.view",
+    permission: "hse.permit.view",
     label: "Active Permits",
     icon: "FileBadge",
     href: "/hse/permits",
+  },
+  openHazardCount: {
+    key: "openHazardCount",
+    module: "hse",
+    permission: "hse.hazard.view",
+    label: "Open Hazards",
+    icon: "TriangleAlert",
+    href: "/hse/hazards",
   },
   teamSize: {
     key: "teamSize",

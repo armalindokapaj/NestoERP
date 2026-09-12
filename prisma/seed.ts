@@ -18,6 +18,7 @@ import { seedCompanies } from "./seed/companies";
 import { seedContractRecords } from "./seed/contracts";
 import { seedFinanceRecords } from "./seed/finance";
 import { seedHrRecords } from "./seed/hr";
+import { seedHseRecords } from "./seed/hse";
 import { COMPANY_A_USERS, DEMO_PASSWORD } from "./seed/constants";
 import { seedModuleRecords } from "./seed/module-records";
 import { seedInventoryRecords } from "./seed/inventory";
@@ -63,6 +64,7 @@ async function main() {
   const procurement = await seedProcurementRecords(prisma, members);
   const inventory = await seedInventoryRecords(prisma, members);
   const qaqc = await seedQaqcRecords(prisma, members);
+  const hse = await seedHseRecords(prisma, members);
   await seedModuleRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
   await seedAuditEvents(prisma, { companyA, companyB });
@@ -121,6 +123,12 @@ async function main() {
     `✓ QA/QC: ${qaqc.templates} templates, ${qaqc.requests} requests, ` +
       `${qaqc.inspections} inspections, ${qaqc.defects} defects, ${qaqc.ncrs} NCRs, ` +
       `${qaqc.actions} corrective actions`,
+  );
+  console.log(
+    `✓ HSE: ${hse.hazards} hazards, ${hse.incidents} incidents, ${hse.inspections} inspections, ` +
+      `${hse.assessments} risk assessments, ${hse.actions} actions, ${hse.permits} permits, ` +
+      `${hse.toolbox} toolbox talks, ${hse.ppe} PPE checks, ${hse.observations} environmental, ` +
+      `${hse.stopWorks} stop-work`,
   );
   console.log(`✓ Activities: ${activities}`);
   console.log("✓ Seed validation passed");

@@ -35,6 +35,7 @@ export type ProjectTabKey =
   | "contracts"
   | "inventory"
   | "qaqc"
+  | "hse"
   | "documents"
   | "activity";
 

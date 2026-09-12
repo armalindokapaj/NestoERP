@@ -203,3 +203,98 @@ test.describe("mobile inspection execution (PRD #21 §440)", () => {
     await expect(page.locator("table").first()).toBeHidden();
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Safety on a phone (PRD #22 §325–§329, §334, §336, §338).
+ *
+ * HSE is the module most often used one-handed on a site, in daylight, by
+ * somebody who is not sitting down. The reporting forms must be reachable
+ * without deep navigation (§338), the checklist must be answerable without
+ * pinching, and nothing may need a sideways scroll.
+ */
+test.describe("mobile HSE (PRD #22 §334)", () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page, "HSE");
+  });
+
+  test("renders the hazard register as cards rather than a squeezed table", async ({ page }) => {
+    await page.goto("/hse/hazards");
+
+    const card = page.locator("#nesto-main li").filter({ visible: true }).first();
+    await expect(card).toBeVisible();
+    await expect(page.locator("table").first()).toBeHidden();
+  });
+
+  test("shows the risk as a level and a number on a hazard card (§326, §332)", async ({
+    page,
+  }) => {
+    await page.goto("/hse/hazards?sort=risk-desc");
+
+    const card = page.locator("#nesto-main li").filter({ visible: true }).first();
+    await expect(card).toBeVisible();
+    // Never colour alone: the band and the score are both words on the card.
+    await expect(card.getByText(/Critical|High|Medium|Low/).first()).toBeVisible();
+    await expect(card.getByText("Risk")).toBeVisible();
+  });
+
+  /*
+   * §336, §338: a critical report form buried three levels down is one that
+   * gets filled in after the shift instead of during it.
+   */
+  test("the hazard report form is usable one-handed", async ({ page }) => {
+    await page.goto("/hse/hazards/new");
+
+    await expect(page.getByLabel("Title")).toBeVisible();
+    await page.getByLabel(/^Risk — likelihood/).selectOption("4");
+    await page.getByLabel(/^Risk — severity/).selectOption("5");
+
+    await expect(page.getByText(/Score 20 · Critical risk/)).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
+  test("answers a safety checklist on a phone (§334)", async ({ page }) => {
+    // HSE-INS-2026-0010 is under way, so its checklist is editable.
+    await page.goto("/hse/inspections/hse_ins_010/execute");
+
+    const first = page.locator("#answer-0");
+    await expect(first).toBeVisible();
+    await first.selectOption("PASS");
+
+    await expect(page.getByRole("button", { name: "Save checklist" })).toBeVisible();
+  });
+
+  test("keeps the safety checklist inside the viewport", async ({ page }) => {
+    await page.goto("/hse/inspections/hse_ins_010/execute");
+    await expect(page.locator("#answer-0")).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
+  test("keeps the 5×5 risk matrix inside the viewport (§357)", async ({ page }) => {
+    await page.goto("/hse/reports?report=risk-matrix");
+    await expect(page.getByText("Likelihood ↓ / Severity →")).toBeVisible();
+
+    // The grid scrolls inside its own container, never the page (§184).
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
+  test("the stop-work banner is the first thing on the overview (§338)", async ({ page }) => {
+    await page.goto("/hse");
+
+    const banner = page.locator("#nesto-main").getByRole("alert").first();
+    await expect(banner).toContainText("Work is stopped");
+    await expect(banner).toBeInViewport();
+  });
+});

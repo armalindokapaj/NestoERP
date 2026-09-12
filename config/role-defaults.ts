@@ -596,11 +596,117 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "qaqc.corrective_action.cancel",
     ],
   },
+  /**
+   * Safety access widens downwards, not upwards (PRD #22 §19, §27, §28).
+   *
+   * Reporting sits in CONTRIBUTE and nowhere higher: an engineer who finds a
+   * blocked fire exit must be able to raise it, and a hazard that only the
+   * safety officer may report is a hazard that waits for the safety officer to
+   * walk past it. Judging the risk, signing off a permit and agreeing a control
+   * actually worked are the acts that need the safety function.
+   */
   hse: {
-    VIEW: ["hse.view", "hse.record.view"],
-    CONTRIBUTE: ["hse.record.create", "hse.record.update"],
-    APPROVE: ["hse.record.close"],
-    MANAGE: ["hse.manage"],
+    VIEW: [
+      "hse.view",
+      "hse.dashboard.view",
+      "hse.inspection.view",
+      "hse.template.view",
+      "hse.hazard.view",
+      "hse.incident.view",
+      "hse.risk.view",
+      "hse.action.view",
+      "hse.toolbox.view",
+      "hse.permit.view",
+      "hse.ppe.view",
+      "hse.environment.view",
+      "hse.stop_work.view",
+      "hse.approval.view",
+      "hse.document.view",
+      "hse.task.view",
+      "hse.activity.view",
+      "hse.report.view",
+    ],
+    CONTRIBUTE: [
+      "hse.export",
+      "hse.inspection.create",
+      "hse.inspection.execute",
+      "hse.inspection.submit",
+      "hse.hazard.create",
+      "hse.hazard.update",
+      "hse.hazard.control",
+      "hse.incident.create",
+      "hse.incident.update",
+      "hse.risk.create",
+      "hse.risk.update",
+      "hse.risk.submit",
+      "hse.action.create",
+      "hse.action.update",
+      "hse.action.complete",
+      "hse.toolbox.create",
+      "hse.toolbox.update",
+      "hse.toolbox.complete",
+      "hse.permit.create",
+      "hse.permit.update",
+      "hse.permit.submit",
+      "hse.ppe.create",
+      "hse.ppe.update",
+      "hse.environment.create",
+      "hse.environment.update",
+      /*
+       * Calling a stop-work is a contributor act deliberately: anybody who can
+       * see the work going wrong can halt it. Letting it restart is not
+       * (PRD #22 §173, §174).
+       */
+      "hse.stop_work.create",
+      "hse.document.create",
+      "hse.task.create",
+    ],
+    /*
+     * Deciding is where a safety record stops describing and starts
+     * authorising: an approved permit lets hot work begin, a verified action
+     * says the control is genuinely in, and a released stop-work sends people
+     * back to the job (PRD #22 §122, §149, §174).
+     */
+    APPROVE: [
+      "hse.inspection.assign",
+      "hse.inspection.approve",
+      "hse.inspection.reject",
+      "hse.inspection.close",
+      "hse.hazard.assign",
+      "hse.hazard.assess",
+      "hse.hazard.close",
+      "hse.hazard.reopen",
+      "hse.incident.assign",
+      "hse.incident.investigate",
+      "hse.incident.submit_close",
+      "hse.incident.close",
+      "hse.incident.reopen",
+      "hse.risk.approve",
+      "hse.action.assign",
+      "hse.action.verify",
+      "hse.action.reopen",
+      "hse.permit.approve",
+      "hse.permit.activate",
+      "hse.permit.suspend",
+      "hse.permit.close",
+      "hse.environment.close",
+      "hse.stop_work.release",
+      "hse.approval.decide",
+    ],
+    MANAGE: [
+      "hse.manage",
+      "hse.template.create",
+      "hse.template.update",
+      "hse.template.archive",
+      "hse.template.restore",
+      "hse.risk.archive",
+      "hse.inspection.cancel",
+      "hse.hazard.cancel",
+      "hse.incident.cancel",
+      "hse.action.cancel",
+      "hse.toolbox.cancel",
+      "hse.permit.cancel",
+    ],
   },
   team: {
     VIEW: ["team.view", "team.member.view", "team.department.view", "team.activity.view"],
@@ -1008,6 +1114,29 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "finance.settings.view",
       ],
     },
+    /**
+     * The project's safety position, not the company's safety apparatus
+     * (PRD #22 §18, §19 — the `*` on the access matrix).
+     *
+     * An architect on a site needs to know what has gone wrong there and what
+     * is being done about it: hazards, incidents, inspections and the permits
+     * governing work near their design. The checklists the company inspects
+     * against, the approval queue, the risk register, stop-work authority and
+     * the company reports belong to the safety function.
+     */
+    hse: {
+      deny: [
+        "hse.template.view",
+        "hse.risk.view",
+        "hse.toolbox.view",
+        "hse.ppe.view",
+        "hse.environment.view",
+        "hse.stop_work.view",
+        "hse.approval.view",
+        "hse.report.view",
+        "hse.export",
+      ],
+    },
   },
   ENGINEER: {
     finance: {
@@ -1293,6 +1422,49 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "finance.report.view",
         "finance.activity.view",
         "finance.settings.view",
+      ],
+    },
+  },
+  QAQC: {
+    /*
+     * The project HSE summary, and nothing that lets quality edit safety
+     * (PRD #22 §29 — the `*` on the access matrix).
+     *
+     * Quality and safety look at the same site and answer different questions.
+     * A quality engineer needs to know a hazard exists near their work; the
+     * safety function's checklists, register, approval queue and stop-work
+     * authority are not theirs.
+     */
+    hse: {
+      deny: [
+        "hse.template.view",
+        "hse.risk.view",
+        "hse.toolbox.view",
+        "hse.ppe.view",
+        "hse.environment.view",
+        "hse.stop_work.view",
+        "hse.approval.view",
+        "hse.report.view",
+        "hse.export",
+      ],
+    },
+  },
+  HSE: {
+    /*
+     * The quality position on a job, and nothing that lets safety edit it
+     * (PRD #21 §29, reciprocal to the block above).
+     *
+     * A failed safety inspection and a failed quality inspection are different
+     * facts about the same site; each function reads the other's headline and
+     * writes neither.
+     */
+    qaqc: {
+      deny: [
+        "qaqc.template.view",
+        "qaqc.material.view",
+        "qaqc.approval.view",
+        "qaqc.report.view",
+        "qaqc.export",
       ],
     },
   },

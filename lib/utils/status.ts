@@ -106,6 +106,21 @@ const TONES: Record<string, StatusTone> = {
   SUSPENDED: "danger",
   OUT_OF_STOCK: "danger",
   BELOW_MINIMUM: "danger",
+
+  /*
+   * HSE (PRD #22 §61, §81, §172, §331).
+   *
+   * Two deliberate choices. A CONTROLLED hazard is `info`, not `success`: the
+   * control is in but the hazard is still live, and dressing it green is how it
+   * stops being looked at. And an ACTIVE stop-work is `danger` — everywhere
+   * else ACTIVE means healthy, but here it means work has been halted, which is
+   * the one status on an HSE page that must not read as reassuring.
+   */
+  CONTROLLED: "info",
+  UNDER_INVESTIGATION: "info",
+  ACTIONS_OPEN: "warning",
+  PENDING_CLOSE: "warning",
+  STOP_WORK_ACTIVE: "danger",
 };
 
 const LABELS: Record<string, string> = {
@@ -147,6 +162,21 @@ const LABELS: Record<string, string> = {
   SPARE_PART: "Spare part",
   QAQC: "QA/QC",
   HSE: "HSE",
+  UNDER_INVESTIGATION: "Under investigation",
+  ACTIONS_OPEN: "Actions open",
+  PENDING_CLOSE: "Pending close",
+  NEAR_MISS: "Near miss",
+  FIRST_AID: "First aid",
+  PROPERTY_DAMAGE: "Property damage",
+  ENVIRONMENTAL_EVENT: "Environmental event",
+  VEHICLE_EVENT: "Vehicle event",
+  FIRE_EVENT: "Fire event",
+  WORK_AT_HEIGHT: "Work at height",
+  CONFINED_SPACE: "Confined space",
+  HOT_WORK: "Hot work",
+  SITE_SAFETY: "Site safety",
+  FIRE_SAFETY: "Fire safety",
+  PPE: "PPE",
   HR: "HR",
 };
 

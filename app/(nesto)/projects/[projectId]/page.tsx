@@ -184,6 +184,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
           contracts: actions.canViewContracts,
           inventory: actions.canViewInventory,
           qaqc: actions.canViewQaqc,
+          hse: actions.canViewHse,
           documents: actions.canViewDocuments,
           activity: actions.canViewActivity,
         }}

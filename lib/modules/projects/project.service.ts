@@ -767,5 +767,20 @@ export function projectActions(context: UserContext) {
       (can(context, "qaqc.inspection.view") ||
         can(context, "qaqc.defect.view") ||
         can(context, "qaqc.ncr.view")),
+    /**
+     * The HSE tab needs project access *and* safety access to what happened on
+     * the job (PRD #22 §12, §26, §373).
+     *
+     * Being given a project does not hand somebody its incident history: the
+     * HSE scope narrows every list again, and a company with the module
+     * switched off has no tab at all (PRD #22 §450).
+     */
+    canViewHse:
+      isModuleEnabled(context, "hse") &&
+      can(context, "hse.view") &&
+      (can(context, "hse.hazard.view") ||
+        can(context, "hse.incident.view") ||
+        can(context, "hse.inspection.view") ||
+        can(context, "hse.permit.view")),
   };
 }
