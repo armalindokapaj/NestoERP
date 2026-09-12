@@ -79,12 +79,11 @@ describe("company-disabled modules (PRD #9 §110, §142)", () => {
 });
 
 describe("company isolation across every record type (PRD #9 §12, §157)", () => {
-  // Finance, HR, Sales, Legal, Procurement, Inventory and QA/QC are real
-  // modules now, with their own services and their own tests — they are
-  // deliberately absent from the shell registry. HSE is the last one still
-  // rendering through it.
+  // Every department module now has services of its own, with its own tests —
+  // they are deliberately absent from the shell registry. What still renders
+  // through it is the platform's own support queue.
   const cases: { module: string; section: string; role: Parameters<typeof loginAs>[0] }[] = [
-    { module: "hse", section: "incidents", role: "HSE" },
+    { module: "support", section: "requests", role: "ADMIN" },
   ];
 
   for (const testCase of cases) {
@@ -102,10 +101,10 @@ describe("company isolation across every record type (PRD #9 §12, §157)", () =
   }
 
   /**
-   * Tasks (PRD #11), Clients (PRD #12), Documents (PRD #13), Legal (PRD #18),
-   * Procurement (PRD #19), Inventory (PRD #20) and QA/QC (PRD #21) have left
-   * the generic registry for their own services. Their isolation is covered by
-   * tests/api/{tasks,clients,documents,contracts,procurement,inventory,qaqc};
-   * what remains here is HSE, still rendering through the shell.
+   * Every department module has left the generic registry for its own services
+   * — Tasks (#11), Clients (#12), Documents (#13), Finance (#15), HR (#16),
+   * Sales (#17), Legal (#18), Procurement (#19), Inventory (#20), QA/QC (#21)
+   * and now HSE (#22). Their isolation is covered by their own suites under
+   * tests/api; what remains here is the support queue.
    */
 });

@@ -638,13 +638,120 @@ export const PERMISSIONS = [
   "qaqc.report.view",
   "qaqc.export",
 
-  /* HSE ------------------------------------------------------------------ */
+  /* HSE (PRD #22 §19) ----------------------------------------------------- */
   "hse.view",
   "hse.manage",
-  "hse.record.view",
-  "hse.record.create",
-  "hse.record.update",
-  "hse.record.close",
+  "hse.dashboard.view",
+
+  "hse.inspection.view",
+  "hse.inspection.create",
+  "hse.inspection.assign",
+  "hse.inspection.execute",
+  "hse.inspection.submit",
+  "hse.inspection.approve",
+  "hse.inspection.reject",
+  "hse.inspection.close",
+  "hse.inspection.cancel",
+
+  "hse.template.view",
+  "hse.template.create",
+  "hse.template.update",
+  "hse.template.archive",
+  "hse.template.restore",
+
+  /*
+   * Reporting a hazard is deliberately the widest grant in the module.
+   * A hazard nobody may report is a hazard nobody fixes, so anybody who reaches
+   * a site can raise one; assessing its risk and closing it are the acts that
+   * need the safety function (PRD #22 §27, §66, §70).
+   */
+  "hse.hazard.view",
+  "hse.hazard.create",
+  "hse.hazard.update",
+  "hse.hazard.assign",
+  "hse.hazard.assess",
+  "hse.hazard.control",
+  "hse.hazard.close",
+  "hse.hazard.reopen",
+  "hse.hazard.cancel",
+
+  "hse.incident.view",
+  "hse.incident.create",
+  "hse.incident.update",
+  "hse.incident.assign",
+  "hse.incident.investigate",
+  "hse.incident.submit_close",
+  "hse.incident.close",
+  "hse.incident.reopen",
+  "hse.incident.cancel",
+
+  "hse.risk.view",
+  "hse.risk.create",
+  "hse.risk.update",
+  "hse.risk.submit",
+  "hse.risk.approve",
+  "hse.risk.archive",
+
+  "hse.action.view",
+  "hse.action.create",
+  "hse.action.update",
+  "hse.action.assign",
+  "hse.action.complete",
+  "hse.action.verify",
+  "hse.action.reopen",
+  "hse.action.cancel",
+
+  "hse.toolbox.view",
+  "hse.toolbox.create",
+  "hse.toolbox.update",
+  "hse.toolbox.complete",
+  "hse.toolbox.cancel",
+
+  "hse.permit.view",
+  "hse.permit.create",
+  "hse.permit.update",
+  "hse.permit.submit",
+  "hse.permit.approve",
+  "hse.permit.activate",
+  "hse.permit.suspend",
+  "hse.permit.close",
+  "hse.permit.cancel",
+
+  "hse.ppe.view",
+  "hse.ppe.create",
+  "hse.ppe.update",
+
+  "hse.environment.view",
+  "hse.environment.create",
+  "hse.environment.update",
+  "hse.environment.close",
+
+  /*
+   * Stopping work is separated from releasing it on purpose: the whole point of
+   * a stop-work is that whoever called it does not have to argue with the person
+   * who wants the job restarted (PRD #22 §173, §174).
+   */
+  "hse.stop_work.view",
+  "hse.stop_work.create",
+  "hse.stop_work.release",
+
+  "hse.approval.view",
+  "hse.approval.decide",
+  /*
+   * Granted to nobody by default. Signing off your own permit is how a
+   * permit-to-work system stops being one (PRD #22 §182).
+   */
+  "hse.approval.self",
+
+  "hse.document.view",
+  "hse.document.create",
+
+  "hse.task.view",
+  "hse.task.create",
+
+  "hse.activity.view",
+  "hse.report.view",
+  "hse.export",
 
   /* Team ----------------------------------------------------------------- */
   "team.view",

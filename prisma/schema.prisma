@@ -791,6 +791,19 @@ model Company {
   correctiveActions           CorrectiveAction[]
   qualityApprovals            QualityApproval[]
 
+  hseInspectionTemplates    HseInspectionTemplate[]
+  hseInspections            HseInspection[]
+  hseHazards                HseHazard[]
+  hseIncidents              HseIncident[]
+  hseRiskAssessments        HseRiskAssessment[]
+  hseActions                HseAction[]
+  toolboxTalks              ToolboxTalk[]
+  hseWorkPermits            HseWorkPermit[]
+  ppeChecks                 PpeCheck[]
+  environmentalObservations EnvironmentalObservation[]
+  stopWorkRecords           StopWorkRecord[]
+  hseApprovals              HseApproval[]
+
   sessions            Session[]
   authEvents          AuthEvent[]
   auditEvents         AuditEvent[]
@@ -1021,6 +1034,27 @@ model CompanyMember {
   submittedQualityApprovals  QualityApproval[]        @relation("QualityApprovalSubmitter")
   decidedQualityApprovals    QualityApproval[]        @relation("QualityApprovalDecider")
 
+  assignedHseInspections HseInspection[]            @relation("HseInspector")
+  executedHseInspections HseInspection[]            @relation("HseInspectionExecutor")
+  reportedHazards        HseHazard[]                @relation("HseHazardReporter")
+  assignedHazards        HseHazard[]                @relation("HseHazardAssignee")
+  reportedIncidents      HseIncident[]              @relation("HseIncidentReporter")
+  investigatedIncidents  HseIncident[]              @relation("HseIncidentInvestigator")
+  ownedRiskAssessments   HseRiskAssessment[]        @relation("HseRiskAssessmentOwner")
+  assignedHseActions     HseAction[]                @relation("HseActionAssignee")
+  conductedToolboxTalks  ToolboxTalk[]              @relation("ToolboxConductor")
+  toolboxAttendances     ToolboxTalkParticipant[]   @relation("ToolboxParticipant")
+  requestedPermits       HseWorkPermit[]            @relation("HsePermitRequester")
+  responsiblePermits     HseWorkPermit[]            @relation("HsePermitResponsible")
+  performedPpeChecks     PpeCheck[]                 @relation("PpeChecker")
+  subjectPpeChecks       PpeCheck[]                 @relation("PpeSubject")
+  reportedObservations   EnvironmentalObservation[] @relation("EnvObservationReporter")
+  assignedObservations   EnvironmentalObservation[] @relation("EnvObservationAssignee")
+  issuedStopWorks        StopWorkRecord[]           @relation("StopWorkIssuer")
+  releasedStopWorks      StopWorkRecord[]           @relation("StopWorkReleaser")
+  submittedHseApprovals  HseApproval[]              @relation("HseApprovalSubmitter")
+  decidedHseApprovals    HseApproval[]              @relation("HseApprovalDecider")
+
   sessions Session[]
 
   createdAt DateTime @default(now())
@@ -1092,11 +1126,22 @@ model Project {
   qualityRecords    QualityRecord[]
   hseRecords        HseRecord[]
 
-  inspectionRequests    InspectionRequest[]
-  qualityInspections    QualityInspection[]
-  qualityDefects        QualityDefect[]
-  nonConformanceReports NonConformanceReport[]
-  correctiveActions     CorrectiveAction[]
+  inspectionRequests InspectionRequest[]
+  qualityInspections QualityInspection[]
+  qualityDefects     QualityDefect[]
+
+  hseInspections            HseInspection[]
+  hseHazards                HseHazard[]
+  hseIncidents              HseIncident[]
+  hseRiskAssessments        HseRiskAssessment[]
+  hseActions                HseAction[]
+  toolboxTalks              ToolboxTalk[]
+  hseWorkPermits            HseWorkPermit[]
+  ppeChecks                 PpeCheck[]
+  environmentalObservations EnvironmentalObservation[]
+  stopWorkRecords           StopWorkRecord[]
+  nonConformanceReports     NonConformanceReport[]
+  correctiveActions         CorrectiveAction[]
 
   sourceOpportunities Opportunity[] @relation("OpportunityConvertedProject")
 
@@ -5108,4 +5153,1091 @@ model QualityApproval {
   @@index([decidedByMemberId])
   @@index([submittedAt])
   @@map("quality_approvals")
+}
+
+// ---------------------------------------------------------------------------
+// HSE — Health, Safety & Environment (PRD #22)
+// ---------------------------------------------------------------------------
+
+/**
+ * Safety is a chain: something is observed, its risk is judged, a control goes
+ * in, somebody is made accountable for it, and somebody else verifies it went
+ * in (PRD #22 §4).
+ * The entities here are deliberately not the ones they resemble (PRD #22 §3):
+ * - an *HSE inspection* is a safety look, not a QA/QC inspection,
+ * - a *hazard* is a condition that could hurt somebody, not an NCR,
+ * - an *incident* is something that happened, not a defect,
+ * - an *HSE action* is the safety obligation and its verification; the Task is
+ * the work item used to discharge it (PRD #22 §128).
+ * Risk is `likelihood x severity` on a 5x5 matrix, and both the score and the
+ * level are derived on the server every time. A browser that could post its own
+ * riskLevel could file a critical hazard as low and route it away from the
+ * people who must see it (PRD #22 §243).
+ * Injury is recorded as operational flags only — occurred, first aid, medical
+ * treatment, lost time. No diagnosis, no medical history: V0.1 stores what
+ * safety management needs to act and nothing a medical record would hold
+ * (PRD #22 §22, §87).
+ */
+
+enum HseInspectionType {
+  SITE_SAFETY
+  PPE
+  HOUSEKEEPING
+  WORK_AT_HEIGHT
+  ELECTRICAL
+  FIRE_SAFETY
+  EXCAVATION
+  LIFTING
+  ENVIRONMENTAL
+  GENERAL
+}
+
+enum HseInspectionStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CLOSED
+  CANCELLED
+}
+
+enum HseInspectionResult {
+  NOT_SET
+  PASS
+  FAIL
+  CONDITIONAL
+}
+
+enum HseTemplateStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum HseChecklistResponseType {
+  PASS_FAIL
+  PASS_FAIL_NA
+  BOOLEAN
+  TEXT
+  NUMBER
+}
+
+enum HseChecklistResult {
+  PASS
+  FAIL
+  NA
+}
+
+enum HseHazardCategory {
+  WORK_AT_HEIGHT
+  ELECTRICAL
+  FIRE
+  EXCAVATION
+  LIFTING
+  MACHINERY
+  VEHICLE
+  HOUSEKEEPING
+  PPE
+  CHEMICAL
+  ENVIRONMENTAL
+  ERGONOMIC
+  OTHER
+}
+
+enum HseRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum HseHazardStatus {
+  OPEN
+  CONTROLLED
+  IN_PROGRESS
+  PENDING_VERIFICATION
+  CLOSED
+  CANCELLED
+  REOPENED
+}
+
+enum HseIncidentType {
+  INCIDENT
+  NEAR_MISS
+  FIRST_AID
+  PROPERTY_DAMAGE
+  ENVIRONMENTAL_EVENT
+  VEHICLE_EVENT
+  FIRE_EVENT
+  OTHER
+}
+
+enum HseSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum HseIncidentStatus {
+  OPEN
+  UNDER_INVESTIGATION
+  ACTIONS_OPEN
+  PENDING_CLOSE
+  CLOSED
+  CANCELLED
+  REOPENED
+}
+
+enum HseRiskAssessmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ARCHIVED
+}
+
+enum HsePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum HseActionType {
+  CORRECTIVE
+  PREVENTIVE
+  IMMEDIATE
+  FOLLOW_UP
+  OTHER
+}
+
+enum HseActionStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  CANCELLED
+  REOPENED
+}
+
+enum ToolboxTalkStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+enum ToolboxAttendanceStatus {
+  ATTENDED
+  ABSENT
+  EXCUSED
+}
+
+enum HsePermitType {
+  HOT_WORK
+  WORK_AT_HEIGHT
+  CONFINED_SPACE
+  EXCAVATION
+  ELECTRICAL
+  LIFTING
+  GENERAL
+  OTHER
+}
+
+enum HsePermitStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  CLOSED
+  CANCELLED
+}
+
+enum PpeCheckResult {
+  PASS
+  FAIL
+  CONDITIONAL
+}
+
+enum EnvironmentalCategory {
+  SPILL
+  WASTE
+  DUST
+  NOISE
+  WATER
+  SOIL
+  EMISSIONS
+  BIODIVERSITY
+  OTHER
+}
+
+enum EnvironmentalStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_VERIFICATION
+  CLOSED
+  CANCELLED
+  REOPENED
+}
+
+enum StopWorkStatus {
+  ACTIVE
+  RELEASED
+  CANCELLED
+}
+
+enum HseApprovalRecordType {
+  INSPECTION
+  RISK_ASSESSMENT
+  WORK_PERMIT
+  INCIDENT_CLOSE
+}
+
+enum HseApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/**
+ * A safety checklist the company inspects against (PRD #22 §42, §43).
+ * Versioned, never rewritten: once a version has been used, editing it would
+ * rewrite what somebody actually checked on a site months ago (PRD #22 §349).
+ */
+model HseInspectionTemplate {
+  id        String @id @default(cuid())
+  companyId String
+
+  code           String
+  name           String
+  inspectionType HseInspectionType
+  description    String?
+
+  version Int               @default(1)
+  status  HseTemplateStatus @default(ACTIVE)
+
+  createdByMemberId String
+  updatedByMemberId String?
+  archivedAt        DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  items       HseInspectionTemplateItem[]
+  inspections HseInspection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code, version])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([inspectionType])
+  @@index([code])
+  @@map("hse_inspection_templates")
+}
+
+model HseInspectionTemplateItem {
+  id         String @id @default(cuid())
+  templateId String
+
+  code        String?
+  label       String
+  description String?
+
+  responseType HseChecklistResponseType
+  required     Boolean                  @default(true)
+  sortOrder    Int                      @default(0)
+
+  riskIfFailed       HseSeverity?
+  requiresNoteOnFail Boolean      @default(false)
+
+  template HseInspectionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([templateId])
+  @@index([sortOrder])
+  @@map("hse_inspection_template_items")
+}
+
+/**
+ * An executed safety inspection (PRD #22 §33).
+ * Status and result are separate facts, as in QA/QC: an inspection can sit at
+ * PENDING_APPROVAL with a result of FAIL — the inspector has finished and found
+ * a problem, and somebody still has to sign it off (PRD #22 §37, §38).
+ */
+model HseInspection {
+  id        String @id @default(cuid())
+  companyId String
+
+  inspectionNumber String
+  inspectionType   HseInspectionType
+
+  projectId       String?
+  templateId      String?
+  templateVersion Int?
+
+  assignedInspectorMemberId String
+  executedByMemberId        String?
+
+  status HseInspectionStatus @default(DRAFT)
+  result HseInspectionResult @default(NOT_SET)
+
+  scheduledDate  DateTime?
+  inspectionDate DateTime?
+
+  locationText String?
+  summary      String?
+  decisionNote String?
+
+  submittedAt DateTime?
+
+  approvedAt         DateTime?
+  approvedByMemberId String?
+
+  rejectedAt         DateTime?
+  rejectedByMemberId String?
+
+  closedAt         DateTime?
+  closedByMemberId String?
+  cancelledAt      DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company  Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project  Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  template HseInspectionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  assignedInspector CompanyMember  @relation("HseInspector", fields: [assignedInspectorMemberId], references: [id], onDelete: Restrict)
+  executedBy        CompanyMember? @relation("HseInspectionExecutor", fields: [executedByMemberId], references: [id], onDelete: SetNull)
+
+  checklistItems HseInspectionChecklistItem[]
+  hazards        HseHazard[]
+  actions        HseAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, inspectionNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, result])
+  @@index([projectId])
+  @@index([templateId])
+  @@index([assignedInspectorMemberId])
+  @@index([scheduledDate])
+  @@index([inspectionDate])
+  @@map("hse_inspections")
+}
+
+/**
+ * The checklist as it stood when the inspection was raised (PRD #22 §47).
+ */
+model HseInspectionChecklistItem {
+  id             String  @id @default(cuid())
+  inspectionId   String
+  templateItemId String?
+
+  code        String?
+  label       String
+  description String?
+
+  responseType HseChecklistResponseType
+  required     Boolean                  @default(true)
+  sortOrder    Int                      @default(0)
+
+  responseValue String?
+  result        HseChecklistResult?
+  note          String?
+
+  riskIfFailed       HseSeverity?
+  requiresNoteOnFail Boolean      @default(false)
+
+  inspection HseInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([sortOrder])
+  @@index([result])
+  @@map("hse_inspection_checklist_items")
+}
+
+/**
+ * A condition with the potential to cause harm (PRD #22 §57).
+ * `severityScore` rather than `severity`: it is one axis of the 5x5 matrix, an
+ * integer 1-5, not the LOW/MEDIUM/HIGH/CRITICAL enum that an incident carries.
+ * Naming both "severity" is how a hazard ends up filed at the wrong risk.
+ */
+model HseHazard {
+  id        String @id @default(cuid())
+  companyId String
+
+  hazardNumber String
+  title        String
+  description  String
+
+  projectId    String?
+  inspectionId String?
+
+  hazardCategory HseHazardCategory
+
+  likelihood    Int
+  severityScore Int
+  riskScore     Int
+  riskLevel     HseRiskLevel
+
+  residualLikelihood Int?
+  residualSeverity   Int?
+  residualRiskScore  Int?
+  residualRiskLevel  HseRiskLevel?
+
+  status HseHazardStatus @default(OPEN)
+
+  locationText String?
+  observedAt   DateTime
+
+  reportedByMemberId String
+  assignedToMemberId String?
+
+  immediateControl String?
+  controlMeasure   String?
+
+  dueDate DateTime?
+
+  closedAt         DateTime?
+  closedByMemberId String?
+  closureNote      String?
+  cancelledAt      DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project    Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  inspection HseInspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+
+  reportedBy CompanyMember  @relation("HseHazardReporter", fields: [reportedByMemberId], references: [id], onDelete: Restrict)
+  assignedTo CompanyMember? @relation("HseHazardAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+
+  actions   HseAction[]
+  stopWorks StopWorkRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, hazardNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, riskLevel])
+  @@index([projectId])
+  @@index([inspectionId])
+  @@index([hazardCategory])
+  @@index([assignedToMemberId])
+  @@index([dueDate])
+  @@index([observedAt])
+  @@map("hse_hazards")
+}
+
+/**
+ * Something that caused harm, or could have (PRD #22 §76).
+ * A near miss is the same record with `incidentType = NEAR_MISS`, not a second
+ * table: the whole value of near-miss reporting is that it sits in the same
+ * register as the incidents it predicts (PRD #22 §82).
+ */
+model HseIncident {
+  id        String @id @default(cuid())
+  companyId String
+
+  incidentNumber String
+  incidentType   HseIncidentType
+
+  title       String
+  description String
+
+  projectId String?
+
+  occurredAt DateTime
+  reportedAt DateTime @default(now())
+
+  locationText String?
+
+  severity HseSeverity
+  status   HseIncidentStatus @default(OPEN)
+
+  reportedByMemberId   String
+  investigatorMemberId String?
+
+  injuryOccurred           Boolean @default(false)
+  firstAidRequired         Boolean @default(false)
+  medicalTreatmentRequired Boolean @default(false)
+  lostTime                 Boolean @default(false)
+  propertyDamage           Boolean @default(false)
+  environmentalImpact      Boolean @default(false)
+
+  immediateAction String?
+
+  investigationSummary String?
+  rootCause            String?
+  lessonsLearned       String?
+
+  dueDate DateTime?
+
+  submittedForCloseAt DateTime?
+  closedAt            DateTime?
+  closedByMemberId    String?
+  closureNote         String?
+  cancelledAt         DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  reportedBy   CompanyMember  @relation("HseIncidentReporter", fields: [reportedByMemberId], references: [id], onDelete: Restrict)
+  investigator CompanyMember? @relation("HseIncidentInvestigator", fields: [investigatorMemberId], references: [id], onDelete: SetNull)
+
+  actions   HseAction[]
+  stopWorks StopWorkRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, incidentNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, incidentType])
+  @@index([companyId, severity])
+  @@index([projectId])
+  @@index([reportedByMemberId])
+  @@index([investigatorMemberId])
+  @@index([occurredAt])
+  @@index([dueDate])
+  @@map("hse_incidents")
+}
+
+/**
+ * A structured risk evaluation for an activity or location (PRD #22 §100).
+ */
+model HseRiskAssessment {
+  id        String @id @default(cuid())
+  companyId String
+
+  assessmentNumber String
+  title            String
+  description      String?
+
+  projectId String?
+
+  activityType String?
+  locationText String?
+
+  version Int                     @default(1)
+  status  HseRiskAssessmentStatus @default(DRAFT)
+
+  ownerMemberId String?
+
+  assessmentDate DateTime
+  reviewDate     DateTime?
+
+  submittedAt DateTime?
+
+  approvedAt         DateTime?
+  approvedByMemberId String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+  archivedAt        DateTime?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  owner CompanyMember? @relation("HseRiskAssessmentOwner", fields: [ownerMemberId], references: [id], onDelete: SetNull)
+
+  items   HseRiskAssessmentItem[]
+  actions HseAction[]
+  permits HseWorkPermit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, assessmentNumber, version])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([ownerMemberId])
+  @@index([assessmentDate])
+  @@index([reviewDate])
+  @@map("hse_risk_assessments")
+}
+
+model HseRiskAssessmentItem {
+  id               String @id @default(cuid())
+  riskAssessmentId String
+
+  hazardDescription String
+  existingControls  String?
+
+  likelihood    Int
+  severityScore Int
+  riskScore     Int
+  riskLevel     HseRiskLevel
+
+  additionalControls String?
+
+  residualLikelihood Int?
+  residualSeverity   Int?
+  residualRiskScore  Int?
+  residualRiskLevel  HseRiskLevel?
+
+  responsibleMemberId String?
+  dueDate             DateTime?
+
+  sortOrder Int @default(0)
+
+  riskAssessment HseRiskAssessment @relation(fields: [riskAssessmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([riskAssessmentId])
+  @@index([riskLevel])
+  @@index([responsibleMemberId])
+  @@index([dueDate])
+  @@map("hse_risk_assessment_items")
+}
+
+/**
+ * A safety obligation and its verification (PRD #22 §114).
+ * Not a Task. The Task is the work item somebody does; the action is the record
+ * that the obligation existed, was discharged, and was checked by somebody
+ * other than whoever discharged it (PRD #22 §128).
+ */
+model HseAction {
+  id        String @id @default(cuid())
+  companyId String
+
+  actionNumber String
+  actionType   HseActionType
+  title        String
+  description  String
+
+  projectId String?
+
+  hazardId                   String?
+  incidentId                 String?
+  inspectionId               String?
+  riskAssessmentId           String?
+  environmentalObservationId String?
+  stopWorkId                 String?
+  permitId                   String?
+
+  assignedToMemberId String
+  dueDate            DateTime?
+
+  priority HsePriority
+  status   HseActionStatus @default(OPEN)
+
+  completionNote      String?
+  completedAt         DateTime?
+  completedByMemberId String?
+
+  verificationNote   String?
+  verifiedAt         DateTime?
+  verifiedByMemberId String?
+
+  cancelledAt DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  hazard                   HseHazard?                @relation(fields: [hazardId], references: [id], onDelete: SetNull)
+  incident                 HseIncident?              @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  inspection               HseInspection?            @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  riskAssessment           HseRiskAssessment?        @relation(fields: [riskAssessmentId], references: [id], onDelete: SetNull)
+  environmentalObservation EnvironmentalObservation? @relation(fields: [environmentalObservationId], references: [id], onDelete: SetNull)
+  stopWork                 StopWorkRecord?           @relation(fields: [stopWorkId], references: [id], onDelete: SetNull)
+  permit                   HseWorkPermit?            @relation(fields: [permitId], references: [id], onDelete: SetNull)
+
+  assignedTo CompanyMember @relation("HseActionAssignee", fields: [assignedToMemberId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, actionNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([hazardId])
+  @@index([incidentId])
+  @@index([inspectionId])
+  @@index([riskAssessmentId])
+  @@index([environmentalObservationId])
+  @@index([stopWorkId])
+  @@index([permitId])
+  @@index([assignedToMemberId])
+  @@index([priority])
+  @@index([dueDate])
+  @@map("hse_actions")
+}
+
+/**
+ * A short safety briefing, with who was there (PRD #22 §129).
+ */
+model ToolboxTalk {
+  id        String @id @default(cuid())
+  companyId String
+
+  talkNumber String
+  title      String
+  topic      String
+
+  projectId String?
+
+  talkDate     DateTime
+  locationText String?
+
+  conductedByMemberId String
+
+  status ToolboxTalkStatus @default(DRAFT)
+  notes  String?
+
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  conductedBy CompanyMember @relation("ToolboxConductor", fields: [conductedByMemberId], references: [id], onDelete: Restrict)
+
+  participants ToolboxTalkParticipant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, talkNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([talkDate])
+  @@index([conductedByMemberId])
+  @@map("toolbox_talks")
+}
+
+/**
+ * Somebody who attended, or did not (PRD #22 §132).
+ * `externalName` exists because subcontractors attend toolbox talks and are not
+ * company members; a talk that could only record employees would record half
+ * the people who were actually briefed (PRD #22 §133).
+ */
+model ToolboxTalkParticipant {
+  id            String @id @default(cuid())
+  toolboxTalkId String
+
+  companyMemberId String?
+  externalName    String?
+
+  attendanceStatus  ToolboxAttendanceStatus
+  signatureRecorded Boolean                 @default(false)
+
+  toolboxTalk   ToolboxTalk    @relation(fields: [toolboxTalkId], references: [id], onDelete: Cascade)
+  companyMember CompanyMember? @relation("ToolboxParticipant", fields: [companyMemberId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([toolboxTalkId])
+  @@index([companyMemberId])
+  @@index([attendanceStatus])
+  @@map("toolbox_talk_participants")
+}
+
+/**
+ * Authorisation for controlled or high-risk work (PRD #22 §140).
+ */
+model HseWorkPermit {
+  id        String @id @default(cuid())
+  companyId String
+
+  permitNumber String
+  permitType   HsePermitType
+  title        String
+
+  projectId    String
+  locationText String
+
+  riskAssessmentId String?
+
+  validFrom  DateTime
+  validUntil DateTime
+
+  requestedByMemberId String
+  responsibleMemberId String?
+
+  status HsePermitStatus @default(DRAFT)
+
+  hazardsSummary    String?
+  controlsSummary   String?
+  ppeRequirements   String?
+  specialConditions String?
+
+  suspensionReason String?
+
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  approvedByMemberId String?
+  activatedAt        DateTime?
+  suspendedAt        DateTime?
+  closedAt           DateTime?
+  closedByMemberId   String?
+  cancelledAt        DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  riskAssessment HseRiskAssessment? @relation(fields: [riskAssessmentId], references: [id], onDelete: SetNull)
+
+  requestedBy CompanyMember  @relation("HsePermitRequester", fields: [requestedByMemberId], references: [id], onDelete: Restrict)
+  responsible CompanyMember? @relation("HsePermitResponsible", fields: [responsibleMemberId], references: [id], onDelete: SetNull)
+
+  actions HseAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, permitNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([permitType])
+  @@index([riskAssessmentId])
+  @@index([validFrom])
+  @@index([validUntil])
+  @@index([requestedByMemberId])
+  @@index([responsibleMemberId])
+  @@map("hse_work_permits")
+}
+
+/**
+ * Whether the protective equipment was there and was being worn (PRD #22 §158).
+ * It never touches Inventory. Issuing a helmet from the store is a stock issue;
+ * checking somebody is wearing one is a safety observation (PRD #22 §162).
+ */
+model PpeCheck {
+  id        String @id @default(cuid())
+  companyId String
+
+  checkNumber String
+  projectId   String?
+
+  checkDate    DateTime
+  locationText String?
+
+  checkedByMemberId String
+
+  subjectMemberId     String?
+  externalSubjectName String?
+
+  helmetOk                Boolean?
+  eyeProtectionOk         Boolean?
+  glovesOk                Boolean?
+  footwearOk              Boolean?
+  harnessOk               Boolean?
+  hearingProtectionOk     Boolean?
+  respiratoryProtectionOk Boolean?
+  otherPpeNote            String?
+
+  result PpeCheckResult
+  notes  String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  checkedBy CompanyMember  @relation("PpeChecker", fields: [checkedByMemberId], references: [id], onDelete: Restrict)
+  subject   CompanyMember? @relation("PpeSubject", fields: [subjectMemberId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, checkNumber])
+  @@index([companyId])
+  @@index([projectId])
+  @@index([checkDate])
+  @@index([checkedByMemberId])
+  @@index([subjectMemberId])
+  @@index([result])
+  @@map("ppe_checks")
+}
+
+/**
+ * An environmental issue or event (PRD #22 §163).
+ */
+model EnvironmentalObservation {
+  id        String @id @default(cuid())
+  companyId String
+
+  observationNumber String
+  projectId         String?
+
+  category    EnvironmentalCategory
+  title       String
+  description String
+
+  observedAt   DateTime
+  locationText String?
+
+  severity HseSeverity
+  status   EnvironmentalStatus @default(OPEN)
+
+  reportedByMemberId String
+  assignedToMemberId String?
+
+  immediateAction String?
+  dueDate         DateTime?
+
+  closedAt         DateTime?
+  closedByMemberId String?
+  closureNote      String?
+  cancelledAt      DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  reportedBy CompanyMember  @relation("EnvObservationReporter", fields: [reportedByMemberId], references: [id], onDelete: Restrict)
+  assignedTo CompanyMember? @relation("EnvObservationAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+
+  actions HseAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, observationNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([category])
+  @@index([severity])
+  @@index([reportedByMemberId])
+  @@index([assignedToMemberId])
+  @@index([dueDate])
+  @@index([observedAt])
+  @@map("environmental_observations")
+}
+
+/**
+ * A formal stop to work because it was not safe to continue (PRD #22 §170).
+ * V0.1 does not freeze the project's other data — it is an operational state
+ * and an alert that has to be impossible to miss, not a lock (PRD #22 §176).
+ */
+model StopWorkRecord {
+  id        String @id @default(cuid())
+  companyId String
+
+  stopWorkNumber String
+  projectId      String
+
+  title        String
+  reason       String
+  locationText String?
+
+  hazardId   String?
+  incidentId String?
+
+  issuedAt         DateTime
+  issuedByMemberId String
+
+  status StopWorkStatus @default(ACTIVE)
+
+  releasedAt         DateTime?
+  releasedByMemberId String?
+  releaseReason      String?
+  cancelledAt        DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  hazard   HseHazard?   @relation(fields: [hazardId], references: [id], onDelete: SetNull)
+  incident HseIncident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  issuedBy   CompanyMember  @relation("StopWorkIssuer", fields: [issuedByMemberId], references: [id], onDelete: Restrict)
+  releasedBy CompanyMember? @relation("StopWorkReleaser", fields: [releasedByMemberId], references: [id], onDelete: SetNull)
+
+  actions HseAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, stopWorkNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([hazardId])
+  @@index([incidentId])
+  @@index([issuedAt])
+  @@map("stop_work_records")
+}
+
+/**
+ * One sign-off, kept after it is decided (PRD #22 §177, §183).
+ * The row survives the decision so the queue can be re-read as a history of who
+ * approved what and when, rather than only showing what is still outstanding.
+ */
+model HseApproval {
+  id        String @id @default(cuid())
+  companyId String
+
+  recordType HseApprovalRecordType
+  recordId   String
+
+  status HseApprovalStatus @default(PENDING)
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  submittedBy CompanyMember  @relation("HseApprovalSubmitter", fields: [submittedByMemberId], references: [id], onDelete: Restrict)
+  decidedBy   CompanyMember? @relation("HseApprovalDecider", fields: [decidedByMemberId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("hse_approvals")
 }

@@ -24,6 +24,17 @@ import {
   opportunityStageLabels,
 } from "@/lib/modules/sales/opportunities/opportunity.stage";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
+import {
+  buildHazardScopeWhere,
+  buildIncidentScopeWhere,
+  buildPermitScopeWhere,
+  buildStopWorkScopeWhere,
+} from "@/lib/modules/hse/hse.scope";
+import { riskLevelLabels } from "@/lib/modules/hse/hse.risk";
+import {
+  OPEN_HAZARD_STATUSES,
+  OPEN_INCIDENT_STATUSES,
+} from "@/lib/modules/hse/hse.status";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
@@ -322,22 +333,36 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
 
     case "openIncidentCount":
       return String(
-        await prisma.hseRecord.count({
+        await prisma.hseIncident.count({
           where: {
-            ...buildProjectLinkedScopeWhere(context, "hse"),
-            type: "INCIDENT",
-            status: { in: ["OPEN", "IN_PROGRESS"] },
+            ...buildIncidentScopeWhere(context),
+            status: { in: OPEN_INCIDENT_STATUSES },
           },
         }),
       );
 
+    case "openHazardCount":
+      return String(
+        await prisma.hseHazard.count({
+          where: {
+            ...buildHazardScopeWhere(context),
+            status: { in: OPEN_HAZARD_STATUSES },
+          },
+        }),
+      );
+
+    /*
+     * Counted by the window it authorises, not by the column (PRD #22 §151).
+     * A permit whose validity ran out last night is not an active permit, and a
+     * dashboard that says it is tells somebody they may still start hot work.
+     */
     case "openPermitCount":
       return String(
-        await prisma.hseRecord.count({
+        await prisma.hseWorkPermit.count({
           where: {
-            ...buildProjectLinkedScopeWhere(context, "hse"),
-            type: "PERMIT",
-            status: { in: ["OPEN", "IN_PROGRESS"] },
+            ...buildPermitScopeWhere(context),
+            status: "ACTIVE",
+            validUntil: { gte: new Date() },
           },
         }),
       );
@@ -982,38 +1007,42 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       };
     }
 
-    case "hseRecords": {
-      const grouped = await prisma.hseRecord.groupBy({
-        by: ["type"],
+    case "hseHazardsByRisk": {
+      const grouped = await prisma.hseHazard.groupBy({
+        by: ["riskLevel"],
         where: {
-          ...buildProjectLinkedScopeWhere(context, "hse"),
-          status: { in: ["OPEN", "IN_PROGRESS"] },
+          ...buildHazardScopeWhere(context),
+          status: { in: OPEN_HAZARD_STATUSES },
         },
         _count: { _all: true },
       });
 
+      // Critical first: the order a safety manager reads them in.
+      const order = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
       return {
         kind: "breakdown",
-        items: grouped.map((row) => ({
-          label: row.type,
-          status: row.type,
-          value: row._count._all,
-        })),
+        items: grouped
+          .slice()
+          .sort((a, b) => order.indexOf(a.riskLevel) - order.indexOf(b.riskLevel))
+          .map((row) => ({
+            label: riskLevelLabels[row.riskLevel],
+            status: row.riskLevel,
+            value: row._count._all,
+          })),
       };
     }
 
     case "openIncidents": {
-      const rows = await prisma.hseRecord.findMany({
+      const rows = await prisma.hseIncident.findMany({
         where: {
-          ...buildProjectLinkedScopeWhere(context, "hse"),
-          type: "INCIDENT",
-          status: { in: ["OPEN", "IN_PROGRESS"] },
+          ...buildIncidentScopeWhere(context),
+          status: { in: OPEN_INCIDENT_STATUSES },
         },
         orderBy: [{ severity: "desc" }, { occurredAt: "desc" }],
         take: 5,
         select: {
           id: true,
-          reference: true,
+          incidentNumber: true,
           title: true,
           status: true,
           severity: true,
@@ -1026,7 +1055,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         items: rows.map((row) => ({
           id: row.id,
           title: row.title,
-          subtitle: `${row.reference} · ${row.project?.name ?? "No project"}`,
+          subtitle: `${row.incidentNumber} · ${row.project?.name ?? "No project"}`,
           meta: row.severity ?? undefined,
           status: row.status,
           href: `/hse/incidents/${row.id}`,
@@ -1231,20 +1260,61 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
     }
   }
 
-  if (can(context, "hse.record.view")) {
-    const critical = await prisma.hseRecord.count({
+  /*
+   * An active stop-work outranks everything else on the dashboard (PRD #22
+   * §361). It means people have been sent off a job right now, and it is the
+   * one safety state that must not be something you scroll to find.
+   */
+  if (can(context, "hse.stop_work.view")) {
+    const stopped = await prisma.stopWorkRecord.count({
+      where: { ...buildStopWorkScopeWhere(context), status: "ACTIVE" },
+    });
+
+    if (stopped > 0) {
+      alerts.push({
+        id: "hse-stop-work",
+        priority: "CRITICAL",
+        title: `${stopped} stop-work${stopped === 1 ? "" : "s"} in force`,
+        detail: "Work is halted until somebody releases it.",
+        href: "/hse/stop-work",
+      });
+    }
+  }
+
+  if (can(context, "hse.hazard.view")) {
+    const critical = await prisma.hseHazard.count({
       where: {
-        ...buildProjectLinkedScopeWhere(context, "hse"),
-        severity: { in: ["HIGH", "CRITICAL"] },
-        status: { in: ["OPEN", "IN_PROGRESS"] },
+        ...buildHazardScopeWhere(context),
+        riskLevel: "CRITICAL",
+        status: { in: OPEN_HAZARD_STATUSES },
       },
     });
 
     if (critical > 0) {
       alerts.push({
-        id: "hse-critical",
+        id: "hse-critical-hazard",
         priority: "CRITICAL",
-        title: `${critical} serious HSE item${critical === 1 ? "" : "s"} open`,
+        title: `${critical} critical hazard${critical === 1 ? "" : "s"} open`,
+        detail: "Scored 17 or higher on the risk matrix and not yet closed.",
+        href: "/hse/hazards?riskLevel=CRITICAL",
+      });
+    }
+  }
+
+  if (can(context, "hse.incident.view")) {
+    const serious = await prisma.hseIncident.count({
+      where: {
+        ...buildIncidentScopeWhere(context),
+        severity: { in: ["HIGH", "CRITICAL"] },
+        status: { in: OPEN_INCIDENT_STATUSES },
+      },
+    });
+
+    if (serious > 0) {
+      alerts.push({
+        id: "hse-serious-incident",
+        priority: "CRITICAL",
+        title: `${serious} serious incident${serious === 1 ? "" : "s"} open`,
         detail: "High or critical severity, not yet closed.",
         href: "/hse/incidents",
       });

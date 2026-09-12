@@ -120,7 +120,20 @@ export const quickActions: Record<string, QuickActionDefinition> = {
     href: "/hse/incidents/new",
     icon: "TriangleAlert",
     module: "hse",
-    permission: "hse.record.create",
+    permission: "hse.incident.create",
+  },
+  /*
+   * Reporting a hazard is one tap from wherever somebody is standing, on
+   * purpose: a critical report form buried three levels down is a report that
+   * gets made after the shift instead of during it (PRD #22 §336, §338).
+   */
+  reportHazard: {
+    key: "reportHazard",
+    label: "Report hazard",
+    href: "/hse/hazards/new",
+    icon: "ShieldAlert",
+    module: "hse",
+    permission: "hse.hazard.create",
   },
   inviteUser: {
     key: "inviteUser",
