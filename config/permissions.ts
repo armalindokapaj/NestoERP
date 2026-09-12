@@ -798,6 +798,13 @@ export const PERMISSIONS = [
   "company.finance_settings.manage",
   "company.security_settings.view",
   "company.security_settings.manage",
+  /**
+   * How much file storage the company is using (PRD #29 §244, §245).
+   *
+   * Reading the number, not configuring the buckets: physical storage is
+   * deployment configuration and no company admin edits it (PRD #29 §246).
+   */
+  "company.storage.view",
 
   /* Settings ------------------------------------------------------------- */
   "settings.view",

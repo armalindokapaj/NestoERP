@@ -1,4 +1,9 @@
-import type { DocumentStatus } from "@prisma/client";
+import type {
+  DocumentPreviewStatus,
+  DocumentScanStatus,
+  DocumentStatus,
+  DocumentStorageStatus,
+} from "@prisma/client";
 
 /**
  * Document DTOs (PRD #13 §138, §139).
@@ -25,6 +30,14 @@ export type DocumentSummaryDTO = {
   mimeType: string | null;
   sizeBytes: string | null;
   status: DocumentStatus;
+  /**
+   * The storage lifecycle, which is not the business status (PRD #29 §2).
+   * A row can be ACTIVE and still not downloadable because its object has not
+   * been verified — the list needs to show that rather than imply a file that
+   * is not there yet (PRD #29 §162, §342).
+   */
+  storageStatus: DocumentStorageStatus;
+  storageMessage: string | null;
   context: DocumentContextDTO;
   uploadedBy: { memberId: string; fullName: string } | null;
   createdAt: string;
@@ -42,9 +55,17 @@ export type DocumentDetailDTO = {
     typeLabel: string;
     mimeType: string | null;
     sizeBytes: string | null;
-    /** False when the row exists but the object does not (PRD #13 §116, §191). */
+    /** True only in the AVAILABLE storage state (PRD #29 §162). */
     available: boolean;
     previewable: boolean;
+    storageStatus: DocumentStorageStatus;
+    scanStatus: DocumentScanStatus;
+    previewStatus: DocumentPreviewStatus;
+    /** A safe code, never scanner internals (PRD #29 §211). */
+    rejectionReason: string | null;
+    /** What to tell the reader while the file is not available (§163-§165). */
+    storageMessage: string | null;
+    checksum: string | null;
   };
 
   context: DocumentContextDTO & {
@@ -65,6 +86,7 @@ export type DocumentDetailDTO = {
    */
   capabilities: {
     canDownload: boolean;
+    canPreview: boolean;
     canEdit: boolean;
     canArchive: boolean;
     canRestore: boolean;

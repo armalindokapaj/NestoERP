@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { DocumentUploadForm } from "@/components/documents/document-upload-form";
+import { DocumentUploader } from "@/components/documents/document-uploader";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
-import { uploadDocumentAction } from "@/lib/actions/documents";
 import { maxUploadMegabytes } from "@/lib/modules/documents/document.files";
 import { documentFormOptions } from "@/lib/modules/documents/document.options";
 import {
@@ -74,18 +73,19 @@ export default async function NewDocumentPage({
       <div>
         <h1 className="text-page font-semibold text-fg">Add document</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Files are stored privately and reachable only through the record they belong to.
+          Files upload straight to private storage and are reachable only through the record
+          they belong to.
         </p>
       </div>
 
-      <DocumentUploadForm
+      <DocumentUploader
         projects={options.projects}
         clients={options.clients}
         canFileToCompany={options.canFileToCompany}
         lockedContext={lockedContext}
         maxMegabytes={maxUploadMegabytes()}
         cancelHref={cancelHref(lockedContext)}
-        action={uploadDocumentAction}
+        doneHref={cancelHref(lockedContext)}
       />
     </div>
   );

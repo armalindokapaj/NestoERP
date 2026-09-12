@@ -35,6 +35,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
+import { seedStoredDocument } from "./document-objects";
 
 type Members = Map<string, string>;
 
@@ -1533,30 +1534,17 @@ async function seedHseDocuments(prisma: PrismaClient) {
   });
   if (!uploader) return;
 
-  for (const [index, doc] of DOCUMENTS.entries()) {
-    await prisma.document.upsert({
-      where: { id: doc.id },
-      update: {},
-      create: {
-        id: doc.id,
-        companyId: COMPANY_A,
-        projectId: doc.project ? PROJECT_IDS[doc.project] : null,
-        module: "hse",
-        entityType: doc.entityType,
-        entityId: doc.entityId,
-        name: doc.name,
-        fileName: doc.name,
-        status: "ACTIVE",
-        storageKey: `seed/hse/${doc.id}`,
-        mimeType: doc.name.endsWith(".jpg")
-          ? "image/jpeg"
-          : doc.name.endsWith(".xlsx")
-            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            : "application/pdf",
-        sizeBytes: BigInt(180_000 + index * 4_096),
-        uploadedByMemberId: uploader.id,
-        createdBy: uploader.userId,
-      },
+  for (const doc of DOCUMENTS) {
+    await seedStoredDocument(prisma, {
+      id: doc.id,
+      companyId: COMPANY_A,
+      name: doc.name,
+      projectId: doc.project ? PROJECT_IDS[doc.project] : null,
+      module: "hse",
+      entityType: doc.entityType,
+      entityId: doc.entityId,
+      uploadedByMemberId: uploader.id,
+      createdBy: uploader.userId,
     });
   }
 }

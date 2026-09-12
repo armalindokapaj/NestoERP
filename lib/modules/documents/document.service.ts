@@ -2,27 +2,17 @@ import { Prisma } from "@prisma/client";
 
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
-import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
-import { buildStorageKey, documentStorage } from "@/lib/storage";
-import {
-  checkFile,
-  fileTypeLabel,
-  isPreviewable,
-  sanitizeFileName,
-} from "./document.files";
-import {
-  canAttachToDocumentParent,
-  type DocumentParentRef,
-} from "./document.parent-access";
+import { fileTypeLabel, storageStatusMessage } from "@/lib/core/storage";
+import { attachDocumentFromBytes } from "./storage/upload.service";
+import { readDocumentBytes } from "./storage/download.service";
 import * as repository from "./document.repository";
 import type {
   CreateDocumentInput,
   DocumentListQuery,
-  DocumentRecordType,
   UpdateDocumentInput,
 } from "./document.schema";
 import type {
@@ -76,11 +66,15 @@ export async function getDocument(
   // (PRD #13 §149).
   const document = assertFound(await repository.findDocumentInScope(context, documentId));
 
-  const available = document.storageKey
-    ? await documentStorage().objectExists(document.storageKey)
-    : false;
-
-  return toDetailDTO(context, document, available);
+  /*
+   * Availability is a state, not a probe (PRD #29 §162, §233).
+   *
+   * This used to stat the object on every detail read, which answered a
+   * slightly different question — "is there a file?" rather than "has this
+   * file been verified?" — and cost a storage round trip to do it. The
+   * lifecycle column carries the answer now.
+   */
+  return toDetailDTO(context, document, document.storageStatus === "AVAILABLE");
 }
 
 export async function getDocumentOverview(
@@ -140,29 +134,9 @@ export async function listActivity(
 export async function readDocumentFile(
   context: UserContext,
   documentId: string,
-): Promise<{ bytes: Uint8Array; fileName: string; mimeType: string; inline: boolean }> {
-  assertModule(context, MODULE);
-  assertPermission(context, "document.view");
-  assertPermission(context, "document.download");
-
-  const document = assertFound(await repository.findDocumentInScope(context, documentId));
-  if (!document.storageKey) throw new AccessError("NOT_FOUND", "This document has no file.");
-
-  const bytes = await documentStorage().get(document.storageKey);
-  if (!bytes) {
-    // The row survived its object. Say so plainly rather than exposing storage
-    // internals (PRD #13 §116, §191).
-    throw new AccessError("NOT_FOUND", "The file could not be retrieved.");
-  }
-
-  return {
-    bytes,
-    fileName: document.originalFileName ?? `${document.name}.${document.extension ?? "bin"}`,
-    mimeType: document.mimeType ?? "application/octet-stream",
-    // Only formats that cannot execute in the browser are ever shown inline
-    // (PRD #13 §156, §157).
-    inline: isPreviewable(document.extension),
-  };
+  options: { inline?: boolean } = {},
+): Promise<{ bytes: Uint8Array; fileName: string; mimeType: string; disposition: string }> {
+  return readDocumentBytes(context, documentId, options);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -176,93 +150,38 @@ export type UploadPayload = {
 };
 
 /**
- * Stores a file and creates the document that describes it (PRD #13 §20, §96).
+ * Stores a file the server already holds and creates the document that
+ * describes it (PRD #13 §20, PRD #29 §233).
  *
- * The order matters. Permission and parent access are checked first, then the
- * file is validated, then the object is written, and only then is the row
- * created. If the row fails, the orphan object is removed — a Document must
- * never exist without its file, and a file must not linger without a Document
- * (PRD #13 §21, §96, §97).
+ * A thin wrapper now. The whole upload pipeline — parent access, declared type
+ * and size, quota, object write, HEAD verification, magic-byte detection,
+ * checksum, scan gate — lives in `storage/upload.service.ts` and this path
+ * runs every step of it. There is one definition of how a document becomes
+ * available, and both entry points use it (PRD #29 §320).
+ *
+ * A browser upload does not come through here: it goes straight to storage
+ * with a signed URL (PRD #29 §9, §389).
  */
 export async function createDocument(
   context: UserContext,
   input: CreateDocumentInput,
   upload: UploadPayload,
 ): Promise<DocumentDetailDTO> {
-  assertModule(context, MODULE);
-  assertPermission(context, "document.create");
-
-  const ref = await resolveParent(context, input);
-
-  if (!(await canAttachToDocumentParent(context, ref))) {
-    throw new AccessError("FORBIDDEN", "You cannot add documents to that record.");
-  }
-
-  const check = checkFile({
-    fileName: upload.fileName,
-    mimeType: upload.mimeType,
-    sizeBytes: upload.bytes.byteLength,
-  });
-  if (!check.ok) {
-    throw new AccessError(
-      check.code === "FILE_TOO_LARGE" ? "VALIDATION_ERROR" : "VALIDATION_ERROR",
-      check.message,
-    );
-  }
-
-  const storage = documentStorage();
-  const documentId = generateDocumentId();
-  const safeName = sanitizeFileName(upload.fileName);
-  const storageKey = buildStorageKey(context.companyId, documentId, safeName);
-
-  const stored = await storage.put(storageKey, upload.bytes);
-
-  try {
-    await prisma.$transaction(async (tx) => {
-      await tx.document.create({
-        data: {
-          id: documentId,
-          companyId: context.companyId,
-          name: input.name,
-          description: input.description ?? null,
-          originalFileName: upload.fileName,
-          fileName: safeName,
-          extension: check.extension,
-          storageProvider: storage.provider,
-          storageKey: stored.storageKey,
-          mimeType: upload.mimeType,
-          sizeBytes: BigInt(stored.sizeBytes),
-          checksum: stored.checksum,
-          projectId: ref.projectId,
-          clientId: ref.clientId,
-          module: ref.module,
-          entityType: ref.entityType,
-          entityId: ref.entityId,
-          status: "ACTIVE",
-          uploadedByMemberId: context.membershipId,
-          createdBy: context.userId,
-        },
-      });
-
-      await recordActivity(tx, context, {
-        module: MODULE,
-        entityType: ENTITY,
-        entityId: documentId,
-        action: "DOCUMENT_UPLOADED",
-        message: `added ${input.name}`,
-        // Never a signed URL or a storage credential (PRD #13 §122).
-        metadata: {
-          documentId,
-          fileName: safeName,
-          projectId: ref.projectId,
-          clientId: ref.clientId,
-        } as Prisma.InputJsonValue,
-      });
-    });
-  } catch (error) {
-    await storage.deleteObject(storageKey).catch(() => undefined);
-    throw error;
-  }
+  const { documentId } = await attachDocumentFromBytes(
+    context,
+    {
+      name: input.name,
+      description: input.description,
+      context: input.context,
+      projectId: input.projectId,
+      clientId: input.clientId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      fileName: upload.fileName,
+      mimeType: upload.mimeType ?? undefined,
+    },
+    upload.bytes,
+  );
 
   return getDocument(context, documentId);
 }
@@ -322,13 +241,34 @@ export async function archiveDocument(context: UserContext, documentId: string):
   if (isArchived(existing)) {
     throw new AccessError("CONFLICT", "This document is already archived.");
   }
+  // Only a verified document can be archived. An upload still in flight has to
+  // settle first, or its own pipeline would fight the archive for the same
+  // column (PRD #29 §319, §321).
+  if (existing.storageStatus !== "AVAILABLE") {
+    throw new AccessError("CONFLICT", "This file is still being processed.");
+  }
 
   await prisma.$transaction(async (tx) => {
+    /*
+     * Two states move together, and they mean different things (PRD #29 §135).
+     *
+     *   status        the business visibility state
+     *   storageStatus the storage lifecycle
+     *
+     * Both have to change, because the storage lifecycle is what the download
+     * and preview grants consult — an archived document whose storage state
+     * still read AVAILABLE would leave its file downloadable after it left the
+     * lists (PRD #29 §162, §319).
+     *
+     * `storageKey` is deliberately untouched. The object stays exactly where
+     * it is: archive is never a deletion (PRD #29 §139).
+     */
     await tx.document.update({
       where: { id: documentId },
       data: {
         preArchiveStatus: existing.status,
         status: "ARCHIVED",
+        storageStatus: "ARCHIVED",
         archivedAt: new Date(),
         archivedBy: context.userId,
         updatedBy: context.userId,
@@ -362,6 +302,9 @@ export async function restoreDocument(context: UserContext, documentId: string):
       where: { id: documentId },
       data: {
         status: existing.preArchiveStatus ?? "ACTIVE",
+        // Back to available, because the object was never removed and was
+        // verified before it was archived (PRD #29 §137).
+        storageStatus: "AVAILABLE",
         preArchiveStatus: null,
         archivedAt: null,
         archivedBy: null,
@@ -387,87 +330,6 @@ export async function restoreDocument(context: UserContext, documentId: string):
 function isArchived(row: { status: string; archivedAt: Date | null }): boolean {
   return row.status === "ARCHIVED" || row.archivedAt !== null;
 }
-
-/** Ids are generated here so the storage key can contain one (PRD #13 §16). */
-function generateDocumentId(): string {
-  return `doc_${crypto.randomUUID().replace(/-/g, "")}`;
-}
-
-/**
- * Turns a create request into a parent reference, validating the record it
- * names belongs to this company.
- *
- * The context chosen in the form is not trusted: a project id from another
- * company, or one this caller cannot open, is refused here rather than being
- * written and hidden later (PRD #13 §91, §236).
- */
-async function resolveParent(
-  context: UserContext,
-  input: CreateDocumentInput,
-): Promise<DocumentParentRef> {
-  if (input.context === "project") {
-    // Looked up inside the caller's own scope, so a project they cannot reach
-    // reads as "does not exist" rather than being confirmed to them.
-    const project = await prisma.project.findFirst({
-      where: { AND: [buildProjectScopeWhere(context), { id: input.projectId! }] },
-      select: { id: true, clientId: true },
-    });
-    if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.");
-    return {
-      projectId: project.id,
-      clientId: null,
-      module: "projects",
-      entityType: "project",
-      entityId: project.id,
-    };
-  }
-
-  if (input.context === "client") {
-    const client = await prisma.client.findFirst({
-      where: { AND: [buildClientScopeWhere(context), { id: input.clientId! }] },
-      select: { id: true },
-    });
-    if (!client) throw new AccessError("VALIDATION_ERROR", "That client does not exist.");
-    return {
-      projectId: null,
-      clientId: client.id,
-      module: "clients",
-      entityType: "client",
-      entityId: client.id,
-    };
-  }
-
-  if (input.context === "record") {
-    /*
-     * A document filed against a module's own record (PRD #15 §187).
-     *
-     * The parent is not looked up here: `canAttachToDocumentParent` runs the
-     * registered resolver for this entity type, which reads the record through
-     * *its* module's scope. One place decides reachability, so a record type
-     * added later cannot quietly acquire a second interpretation.
-     */
-    return {
-      projectId: null,
-      clientId: null,
-      module: MODULE_FOR_RECORD[input.entityType!],
-      entityType: input.entityType!,
-      entityId: input.entityId!,
-    };
-  }
-
-  return { projectId: null, clientId: null, module: null, entityType: null, entityId: null };
-}
-
-/** Which module owns each record type a document can be filed against. */
-const MODULE_FOR_RECORD: Record<DocumentRecordType, string> = {
-  task: "tasks",
-  invoice: "finance",
-  expense: "finance",
-  budget: "finance",
-  commitment: "finance",
-  employee: "hr",
-  leave_request: "hr",
-};
 
 /* -------------------------------------------------------------------------- */
 /* DTO mapping                                                                 */
@@ -545,6 +407,8 @@ export function toSummaryDTO(row: repository.DocumentSummaryRow): DocumentSummar
     // BigInt does not survive JSON, so it leaves as a string (PRD #13 §127).
     sizeBytes: row.sizeBytes === null ? null : row.sizeBytes.toString(),
     status: row.status,
+    storageStatus: row.storageStatus,
+    storageMessage: storageStatusMessage(row.storageStatus),
     context: contextDTO(row),
     uploadedBy: uploader(row),
     createdAt: row.createdAt.toISOString(),
@@ -571,7 +435,13 @@ function toDetailDTO(
       mimeType: row.mimeType,
       sizeBytes: row.sizeBytes === null ? null : row.sizeBytes.toString(),
       available,
-      previewable: available && isPreviewable(row.extension),
+      previewable: row.previewStatus === "READY",
+      storageStatus: row.storageStatus,
+      scanStatus: row.scanStatus,
+      previewStatus: row.previewStatus,
+      rejectionReason: row.rejectionReason,
+      storageMessage: storageStatusMessage(row.storageStatus),
+      checksum: row.checksum,
     },
     context: { ...base, project: row.project, client: row.client },
     uploadedBy: uploader(row),
@@ -581,6 +451,9 @@ function toDetailDTO(
     archivedAt: row.archivedAt?.toISOString() ?? null,
     capabilities: {
       canDownload: available && can(context, "document.download"),
+      // Preview is the same authorisation as download; what narrows it is the
+      // format, and only PDF and images qualify (PRD #29 §44, §105).
+      canPreview: available && row.previewStatus === "READY" && can(context, "document.download"),
       canEdit: !archived && can(context, "document.update"),
       canArchive: !archived && can(context, "document.archive"),
       canRestore: archived && can(context, "document.restore"),

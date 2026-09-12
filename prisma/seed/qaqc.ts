@@ -22,6 +22,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
+import { seedStoredDocument } from "./document-objects";
 
 type Members = Map<string, string>;
 
@@ -1120,24 +1121,21 @@ async function seedQaqcDocuments(prisma: PrismaClient) {
     { name: "Method statement rev C.pdf", entityType: "corrective_action", entityId: "ca_002" },
   ];
 
-  for (const [index, document] of fixtures.entries()) {
-    const id = `document_qaqc_${(index + 1).toString().padStart(2, "0")}`;
+  const uploader = await prisma.companyMember.findFirst({
+    where: { companyId: COMPANY_A, user: { email: "qaqc@nesto.test" } },
+    select: { id: true },
+  });
 
-    await prisma.document.upsert({
-      where: { id },
-      update: {},
-      create: {
-        id,
-        companyId: COMPANY_A,
-        name: document.name,
-        fileName: document.name,
-        mimeType: document.name.endsWith(".jpg") ? "image/jpeg" : "application/pdf",
-        sizeBytes: BigInt(140_000 + index * 5_400),
-        module: "qaqc",
-        entityType: document.entityType,
-        entityId: document.entityId,
-        createdBy: "user_qaqc",
-      },
+  for (const [index, document] of fixtures.entries()) {
+    await seedStoredDocument(prisma, {
+      id: `document_qaqc_${(index + 1).toString().padStart(2, "0")}`,
+      companyId: COMPANY_A,
+      name: document.name,
+      module: "qaqc",
+      entityType: document.entityType,
+      entityId: document.entityId,
+      uploadedByMemberId: uploader?.id ?? null,
+      createdBy: "user_qaqc",
     });
   }
 }

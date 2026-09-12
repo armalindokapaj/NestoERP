@@ -753,6 +753,13 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "company.finance_settings.manage",
       "company.security_settings.view",
       "company.security_settings.manage",
+      /*
+       * Storage usage sits with company administration, not with company
+       * VIEW. PRD #29 §244 calls it "Admin Storage Visibility", and it lives
+       * behind a Settings section — so it follows the same floor every other
+       * company section does.
+       */
+      "company.storage.view",
     ],
   },
   settings: {

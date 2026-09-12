@@ -78,6 +78,15 @@ export const settingsSections: SettingsSection[] = [
     permission: "settings.manage",
   },
   {
+    slug: "storage",
+    label: "File storage",
+    description: "How much file storage your company is using, and its limits.",
+    icon: "HardDrive",
+    // Reading the number, not configuring the buckets — physical storage is
+    // deployment configuration and no company admin edits it (PRD #29 §246).
+    permission: "company.storage.view",
+  },
+  {
     slug: "audit",
     label: "Audit",
     description: "Immutable evidence of important business and security actions.",

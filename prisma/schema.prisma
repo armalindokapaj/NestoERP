@@ -128,6 +128,53 @@ enum DocumentStatus {
   ARCHIVED
 }
 
+/// The life of a stored object, from authorised intent to archived
+/// (PRD #29 §12, §14). `AVAILABLE` is the only state a download is served in,
+/// and nothing reaches it before the object has been verified (PRD #29 §162,
+/// §233).
+enum DocumentStorageStatus {
+  PENDING_UPLOAD
+  UPLOADED
+  VERIFYING
+  SCANNING
+  AVAILABLE
+  REJECTED
+  FAILED
+  ARCHIVED
+}
+
+/// Malware scan outcome (PRD #29 §56). `NOT_REQUIRED` is what a deployment
+/// with no scanner configured records — deliberately distinct from `CLEAN`,
+/// which claims a scanner actually looked (PRD #29 §55, §59).
+enum DocumentScanStatus {
+  NOT_REQUIRED
+  PENDING
+  SCANNING
+  CLEAN
+  INFECTED
+  ERROR
+}
+
+/// Derived-preview state (PRD #29 §50). A failed preview never invalidates the
+/// original file (PRD #29 §235, §277).
+enum DocumentPreviewStatus {
+  NOT_REQUIRED
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
+/// One authorised upload attempt (PRD #29 §67).
+enum DocumentUploadSessionStatus {
+  CREATED
+  UPLOADING
+  COMPLETED
+  EXPIRED
+  ABORTED
+  FAILED
+}
+
 enum AuthEventType {
   LOGIN_SUCCESS
   LOGIN_FAILED
@@ -736,6 +783,9 @@ model Company {
 
   settings            CompanySettings?
   integrationSettings CompanyIntegrationSettings?
+  storageQuota        CompanyStorageQuota?
+  storageUsage        CompanyStorageUsage?
+  uploadSessions      DocumentUploadSession[]
   numberingSchemes    CompanyNumberingScheme[]
 
   financeSettings      FinanceSettings?
@@ -1000,7 +1050,8 @@ model CompanyMember {
   managedProjects    Project[]       @relation("ProjectManager")
   projectMemberships ProjectMember[]
 
-  uploadedDocuments Document[] @relation("DocumentUploadedBy")
+  uploadedDocuments Document[]              @relation("DocumentUploadedBy")
+  uploadSessions    DocumentUploadSession[] @relation("UploadSessionMember")
 
   assignedTasks Task[] @relation("TaskAssignee")
   createdTasks  Task[] @relation("TaskCreatorMember")
@@ -1339,7 +1390,7 @@ model Task {
 /// File metadata plus the business context that governs who may see it.
 /// A document is reachable only through its parent's permissions (PRD #8 §43).
 model Document {
-  id               String          @id @default(cuid())
+  id               String  @id @default(cuid())
   companyId        String
   name             String
   description      String?
@@ -1349,12 +1400,41 @@ model Document {
   fileName         String?
   extension        String?
   storageProvider  String?
+  /// Deployment metadata only, kept so a bucket rename is a migration rather
+  /// than an archaeology exercise. The key stays provider-neutral and the
+  /// live bucket comes from configuration (PRD #29 §354, §356, §358).
+  storageBucket    String?
   storageKey       String?
   mimeType         String?
+  /// What the bytes actually are, read from the object's leading magic bytes
+  /// after upload. The browser's declared type is advisory; this is not
+  /// (PRD #29 §29, §31, §270).
+  detectedMimeType String?
   sizeBytes        BigInt?
   /// SHA-256 of the stored object. Integrity and duplicate diagnostics only —
-  /// never authorisation (PRD #13 §32).
+  /// never authorisation (PRD #13 §32, PRD #29 §88).
   checksum         String?
+
+  /// The storage lifecycle, separate from `status`, which is the *business*
+  /// visibility state. A document can be ACTIVE and still not downloadable
+  /// because its object has not been verified (PRD #29 §2, §162).
+  storageStatus       DocumentStorageStatus @default(PENDING_UPLOAD)
+  scanStatus          DocumentScanStatus    @default(NOT_REQUIRED)
+  scanProvider        String?
+  scanCompletedAt     DateTime?
+  previewStatus       DocumentPreviewStatus @default(NOT_REQUIRED)
+  previewMimeType     String?
+  /// Derived objects live under the original's prefix and are just as private
+  /// (PRD #29 §237, §238).
+  previewStorageKey   String?
+  thumbnailStorageKey String?
+
+  uploadedAt       DateTime?
+  verifiedAt       DateTime?
+  availableAt      DateTime?
+  rejectedAt       DateTime?
+  /// A safe code, never scanner internals or a signature name (PRD #29 §211).
+  rejectionReason  String?
   projectId        String?
   clientId         String?
   module           String?
@@ -1380,9 +1460,14 @@ model Document {
 
   uploadedBy CompanyMember? @relation("DocumentUploadedBy", fields: [uploadedByMemberId], references: [id], onDelete: SetNull)
 
+  uploadSessions DocumentUploadSession[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// One object, one document. An upload can never be pointed at a key another
+  /// row already owns (PRD #29 §179, §180, §349).
+  @@unique([storageKey])
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, updatedAt])
@@ -1397,7 +1482,100 @@ model Document {
   @@index([mimeType])
   @@index([extension])
   @@index([updatedAt])
+  @@index([companyId, storageStatus])
+  @@index([checksum])
   @@map("documents")
+}
+
+/// One authorised upload attempt (PRD #29 §64, §68).
+///
+/// The session is the record of what the server agreed to accept: which key,
+/// which member, how many bytes, and until when. Completion is checked against
+/// it rather than against whatever the browser claims afterwards
+/// (PRD #29 §65, §77, §80).
+model DocumentUploadSession {
+  id         String @id @default(cuid())
+  companyId  String
+  documentId String
+  memberId   String
+
+  storageKey        String
+  expectedFileName  String
+  expectedMimeType  String?
+  expectedSizeBytes BigInt
+
+  status DocumentUploadSessionStatus @default(CREATED)
+
+  /// Bytes held against the company quota while this session is open, so two
+  /// concurrent uploads cannot both squeeze under the same headroom
+  /// (PRD #29 §149, §150).
+  reservedBytes BigInt @default(0)
+
+  expiresAt   DateTime
+  completedAt DateTime?
+
+  /// Reserved for the multipart flow the provider interface already allows
+  /// (PRD #29 §124, §125). V0.1 uploads are a single PUT.
+  multipartUploadId String?
+
+  /// Repeating a create with the same key returns the same session rather than
+  /// opening a second one (PRD #29 §261, §262).
+  idempotencyKey String?
+  attemptCount   Int     @default(0)
+
+  failureReason String?
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  document Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  member   CompanyMember @relation("UploadSessionMember", fields: [memberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storageKey])
+  @@unique([companyId, memberId, idempotencyKey])
+  @@index([companyId])
+  @@index([documentId])
+  @@index([memberId])
+  @@index([status, expiresAt])
+  @@map("document_upload_sessions")
+}
+
+/// What a company is allowed to store (PRD #29 §142, §144).
+///
+/// A null `maxStorageBytes` means no hard ceiling: usage is still measured and
+/// shown, the deployment simply has not set one (PRD #29 §145, §151).
+model CompanyStorageQuota {
+  companyId String @id
+
+  maxStorageBytes    BigInt?
+  maxSingleFileBytes BigInt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("company_storage_quotas")
+}
+
+/// What a company is actually storing (PRD #29 §147, §148).
+///
+/// A projection, maintained on successful upload and physical deletion, so the
+/// quota check is one row read rather than a sum over every document. Derived
+/// previews are deliberately excluded: the customer-facing number counts the
+/// bytes they uploaded (PRD #29 §242, §243).
+model CompanyStorageUsage {
+  companyId String @id
+
+  usedBytes BigInt @default(0)
+  fileCount Int    @default(0)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("company_storage_usage")
 }
 
 /// Business/user-visible activity. Authentication events go to AuthEvent —

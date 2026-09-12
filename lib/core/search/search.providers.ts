@@ -2,6 +2,7 @@ import { can, canAccessModule } from "@/lib/access/can";
 import { buildClientScopeWhere, buildProjectScopeWhere, buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { SCORE, scoreMatch, type GlobalSearchProvider, type GlobalSearchQuery, type GlobalSearchResultDTO } from "./search.types";
 
 /**
@@ -134,15 +135,32 @@ const documentProvider: GlobalSearchProvider = {
   async search(context, query) {
     if (!available(context, "documents", "document.view")) return [];
 
-    // Metadata only: NESTO does not index the contents of private binaries
-    // (PRD #26 §66, §71).
+    /*
+     * Metadata only: NESTO does not index the contents of private binaries
+     * (PRD #26 §66, §71).
+     *
+     * And metadata is not public either. `buildDocumentAccessWhere` is the
+     * same clause the Documents list uses, so a file filed under Finance is
+     * exactly as findable here as it is there — which is to say, not at all
+     * for somebody without Finance access. Searching on company alone leaked
+     * the *title* of a confidential document to anyone holding a generic
+     * `document.view`, and a title is precisely what §160 says must not be
+     * confirmable (PRD #13 §270, PRD #29 §3, §248).
+     */
     const rows = await prisma.document.findMany({
       where: {
-        companyId: context.companyId,
-        archivedAt: null,
-        OR: [
-          { name: { contains: query.text, mode: "insensitive" } },
-          { fileName: { contains: query.text, mode: "insensitive" } },
+        AND: [
+          buildDocumentAccessWhere(context),
+          { archivedAt: null },
+          // A placeholder whose upload never completed is not a document yet
+          // (PRD #29 §162, §233).
+          { storageStatus: "AVAILABLE" },
+          {
+            OR: [
+              { name: { contains: query.text, mode: "insensitive" } },
+              { fileName: { contains: query.text, mode: "insensitive" } },
+            ],
+          },
         ],
       },
       select: { id: true, name: true, fileName: true, entityType: true },

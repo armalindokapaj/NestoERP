@@ -25,7 +25,9 @@
     "postinstall": "prisma generate",
     "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$DATABASE_URL\" --exit-code && echo 'no drift'",
     "verify:production-guards": "tsx scripts/verify-production-guards.ts",
-    "retention:dry-run": "tsx scripts/retention.ts --dry-run"
+    "retention:dry-run": "tsx scripts/retention.ts --dry-run",
+    "storage:maintenance": "tsx scripts/storage-maintenance.ts",
+    "storage:maintenance:apply": "tsx scripts/storage-maintenance.ts --apply"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

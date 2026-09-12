@@ -70,8 +70,11 @@ export const AuditAction = {
 
   // Documents (PRD #28 §129)
   DOCUMENT_DOWNLOAD_GRANTED: "DOCUMENT_DOWNLOAD_GRANTED",
+  DOCUMENT_PREVIEW_GRANTED: "DOCUMENT_PREVIEW_GRANTED",
   DOCUMENT_ARCHIVED: "DOCUMENT_ARCHIVED",
   DOCUMENT_RESTORED: "DOCUMENT_RESTORED",
+  /** A file a scanner refused. Worth evidence in its own right (PRD #29 §63). */
+  DOCUMENT_REJECTED_MALWARE: "DOCUMENT_REJECTED_MALWARE",
 
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
@@ -149,6 +152,10 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.DOCUMENT_DOWNLOAD_GRANTED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },
   { actionKey: AuditAction.DOCUMENT_ARCHIVED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
   { actionKey: AuditAction.DOCUMENT_RESTORED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
+  { actionKey: AuditAction.DOCUMENT_PREVIEW_GRANTED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },
+  // Required: a file refused for malware is evidence, and a refusal nobody can
+  // later find is not much of a control (PRD #28 §49, PRD #29 §63).
+  { actionKey: AuditAction.DOCUMENT_REJECTED_MALWARE, moduleKey: "documents", category: "DOCUMENT", severity: "CRITICAL", snapshotMode: "NONE", allowFields: [], required: true },
 
   /* Reporting ------------------------------------------------------------ */
   { actionKey: AuditAction.REPORT_EXPORTED_CSV, moduleKey: "settings", category: "REPORTING", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: false },

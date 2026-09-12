@@ -11,8 +11,15 @@ import {
   updateDocumentSchema,
 } from "@/lib/modules/documents/document.schema";
 import * as documents from "@/lib/modules/documents/document.service";
-import { LocalDocumentStorage } from "@/lib/storage/local.storage";
-import { setDocumentStorage } from "@/lib/storage";
+import {
+  findOrphanedDocuments,
+  reconcileStorageUsage,
+} from "@/lib/modules/documents/storage/cleanup.service";
+import { LocalStorageProvider } from "@/lib/core/storage/providers/local.provider";
+import {
+  setStorageProvider,
+  storageProvider,
+} from "@/lib/core/storage/storage-provider.factory";
 import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
@@ -28,19 +35,29 @@ const created: string[] = [];
 
 beforeAll(async () => {
   storageRoot = await mkdtemp(path.join(tmpdir(), "nesto-docs-"));
-  setDocumentStorage(new LocalDocumentStorage(storageRoot));
+  setStorageProvider(
+    new LocalStorageProvider({ root: storageRoot, baseUrl: "http://localhost:3000" }),
+  );
 });
 
 afterEach(async () => {
   if (created.length === 0) return;
   await prisma.activity.deleteMany({ where: { entityId: { in: created } } });
+  await prisma.documentUploadSession.deleteMany({ where: { documentId: { in: created } } });
   await prisma.document.deleteMany({ where: { id: { in: created } } });
   created.length = 0;
 });
 
 afterAll(async () => {
-  setDocumentStorage(null);
+  setStorageProvider(null);
   await rm(storageRoot, { recursive: true, force: true });
+
+  // These tests delete their documents directly rather than through the
+  // product's lifecycle, which leaves the usage projection ahead of the rows.
+  // The development database is shared with the E2E suite and with the seed's
+  // own storage invariants, so it is rebuilt before leaving (PRD #29 §148).
+  await reconcileStorageUsage();
+
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -245,10 +262,11 @@ describe("download (PRD #13 §233)", () => {
     const context = await loginAs("PROJECT_MANAGER");
     const document = await track(documents.createDocument(context, createInput(), upload()));
 
-    const file = await documents.readDocumentFile(context, document.id);
+    const file = await documents.readDocumentFile(context, document.id, { inline: true });
     expect(new TextDecoder().decode(file.bytes)).toContain("%PDF");
     expect(file.fileName).toBe("Fixture.pdf");
-    expect(file.inline).toBe(true);
+    // A PDF is inline-safe, so an inline read is served inline (PRD #29 §44).
+    expect(file.disposition).toMatch(/^inline;/);
   });
 
   it("refuses a reader who cannot reach the parent", async () => {
@@ -262,7 +280,16 @@ describe("download (PRD #13 §233)", () => {
     await expectError(documents.readDocumentFile(architect, document.id), "NOT_FOUND");
   });
 
-  it("reports a missing object rather than crashing (PRD #13 §240)", async () => {
+  /**
+   * A document whose object has vanished (PRD #13 §240, PRD #29 §128, §157).
+   *
+   * The row still says AVAILABLE, because that is what it was verified as, and
+   * the detail page no longer stats storage on every read — availability is a
+   * lifecycle state, not a probe (PRD #29 §162). What must not happen is a
+   * crash: the read fails with the documented code, and the orphan sweep is
+   * what notices the inconsistency.
+   */
+  it("reports a missing object rather than crashing", async () => {
     const context = await loginAs("PROJECT_MANAGER");
     const document = await track(documents.createDocument(context, createInput(), upload()));
 
@@ -272,11 +299,10 @@ describe("download (PRD #13 §233)", () => {
     });
     await rm(path.join(storageRoot, row.storageKey!), { force: true });
 
-    const detail = await documents.getDocument(context, document.id);
-    expect(detail.file.available).toBe(false);
-    expect(detail.capabilities.canDownload).toBe(false);
+    await expectError(documents.readDocumentFile(context, document.id), "CONFLICT");
 
-    await expectError(documents.readDocumentFile(context, document.id), "NOT_FOUND");
+    const orphans = await findOrphanedDocuments({ limit: 500 });
+    expect(orphans.map((orphan) => orphan.documentId)).toContain(document.id);
   });
 });
 
@@ -311,10 +337,26 @@ describe("metadata and lifecycle (PRD #13 §238, §239)", () => {
     const context = await loginAs("OWNER");
     const document = await track(documents.createDocument(context, createInput(), upload()));
 
+    const key = (
+      await prisma.document.findUniqueOrThrow({
+        where: { id: document.id },
+        select: { storageKey: true },
+      })
+    ).storageKey!;
+
     await documents.archiveDocument(context, document.id);
     const archived = await documents.getDocument(context, document.id);
     expect(archived.status).toBe("ARCHIVED");
-    expect(archived.file.available).toBe(true);
+
+    /*
+     * `available` now means "downloadable right now", which an archived
+     * document is not — the storage lifecycle moved to ARCHIVED with the
+     * business status (PRD #29 §135, §162). What survives is the object, and
+     * that is what this asserts.
+     */
+    expect(archived.file.available).toBe(false);
+    expect(archived.file.storageStatus).toBe("ARCHIVED");
+    expect(await storageProvider().headObject(key)).not.toBeNull();
 
     await expectError(
       documents.updateDocument(
@@ -329,6 +371,9 @@ describe("metadata and lifecycle (PRD #13 §238, §239)", () => {
     const restored = await documents.getDocument(context, document.id);
     expect(restored.status).toBe("ACTIVE");
     expect(restored.archivedAt).toBeNull();
+    // Downloadable again, because the object was never removed (PRD #29 §137).
+    expect(restored.file.storageStatus).toBe("AVAILABLE");
+    expect(restored.file.available).toBe(true);
   });
 
   it("refuses a stale write", async () => {
