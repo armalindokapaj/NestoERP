@@ -10,8 +10,11 @@ import { defineConfig, devices } from "@playwright/test";
 /*
  * NESTO runs on port 3000 and only port 3000 — dev, start, E2E and the role
  * walk all point here, so a link copied from one is valid in the others.
- * `reuseExistingServer` means a dev server already on 3000 is used as-is; for
- * a strict production-build run, stop it first or set E2E_PORT.
+ * `reuseExistingServer` means a dev server already on 3000 is used as-is, so a
+ * plain `pnpm test:e2e` exercises whatever is already running. Use
+ * `pnpm test:e2e:prod` for a real production-build run: it builds into its own
+ * `NEXT_DIST_DIR` on its own port, so it cannot overwrite the build directory a
+ * dev server is reading from underneath it.
  */
 const PORT = Number(process.env.E2E_PORT ?? 3000);
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;

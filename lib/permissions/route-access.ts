@@ -29,6 +29,25 @@ export const PUBLIC_ROUTES = [
 ] as const;
 
 /**
+ * Unauthenticated operational endpoints (PRD #32 §119-§122).
+ *
+ * A liveness or readiness probe has no session and cannot acquire one — a load
+ * balancer is not a person. Behind the session gate these answered
+ * `307 -> /login`, which is worse than unreachable: the redirect happens before
+ * the handler runs, so a probe that treats 3xx as success reports a healthy
+ * instance whose database is unreachable, and one that does not keeps the
+ * instance out of rotation forever.
+ *
+ * They are safe to expose because they are written for it — each returns a
+ * status word and nothing else, never naming the database, the bucket, the
+ * endpoint or the provider (PRD #30 §268, PRD #29 §398).
+ */
+export const PUBLIC_OPERATIONAL_ROUTES = [
+  "/api/health/live",
+  "/api/health/ready",
+] as const;
+
+/**
  * Public routes whose path carries a secret rather than being a fixed page.
  *
  * An invitation link must work for somebody who has no account yet, so the
@@ -66,6 +85,7 @@ export function isDeadSessionReason(reason: string | null | undefined): boolean 
 
 export function isPublicRoute(pathname: string): boolean {
   if ((PUBLIC_ROUTES as readonly string[]).includes(pathname)) return true;
+  if ((PUBLIC_OPERATIONAL_ROUTES as readonly string[]).includes(pathname)) return true;
   // An invitation stays reachable while signed in: somebody with an existing
   // account accepts it from their own session (PRD #14 §75).
   return PUBLIC_ROUTE_PREFIXES.some(

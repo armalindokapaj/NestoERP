@@ -19,6 +19,8 @@
 
 # next.js
 /.next/
+# isolated build directory for production E2E runs (NEXT_DIST_DIR)
+/.next-e2e/
 /out/
 
 # production

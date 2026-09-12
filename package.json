@@ -20,6 +20,7 @@
     "test:integration": "vitest run tests/integration",
     "test:api": "vitest run tests/api",
     "test:e2e": "playwright test",
+    "test:e2e:prod": "NEXT_DIST_DIR=.next-e2e next build --turbopack && NEXT_DIST_DIR=.next-e2e E2E_PORT=3100 playwright test",
     "test:e2e:all-browsers": "E2E_ALL_BROWSERS=1 playwright test",
     "verify:roles": "tsx scripts/verify-roles.ts",
     "postinstall": "prisma generate",
