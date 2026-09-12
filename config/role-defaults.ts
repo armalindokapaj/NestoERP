@@ -505,11 +505,96 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "inventory.reservation.cancel",
     ],
   },
+  /*
+   * QA/QC (PRD #21 §17, §19).
+   *
+   * The ladder carries the module's central separation: looking, deciding and
+   * approving are three different acts. Executing an inspection is a
+   * contribution; approving one is not, and neither is releasing material to
+   * stock — that is the act with consequences outside Quality (PRD #21 §73,
+   * §98, §165).
+   */
   qaqc: {
-    VIEW: ["qaqc.view", "qaqc.record.view"],
-    CONTRIBUTE: ["qaqc.record.create", "qaqc.record.update"],
-    APPROVE: ["qaqc.record.close"],
-    MANAGE: ["qaqc.manage"],
+    VIEW: [
+      "qaqc.view",
+      "qaqc.dashboard.view",
+      "qaqc.request.view",
+      "qaqc.template.view",
+      "qaqc.inspection.view",
+      "qaqc.material.view",
+      "qaqc.defect.view",
+      "qaqc.ncr.view",
+      "qaqc.corrective_action.view",
+      "qaqc.reinspection.view",
+      "qaqc.approval.view",
+      "qaqc.document.view",
+      "qaqc.task.view",
+      "qaqc.activity.view",
+      "qaqc.report.view",
+    ],
+    CONTRIBUTE: [
+      "qaqc.export",
+      "qaqc.request.create",
+      "qaqc.request.update",
+      "qaqc.inspection.create",
+      "qaqc.inspection.execute",
+      "qaqc.inspection.update_draft",
+      "qaqc.inspection.submit",
+      "qaqc.material.inspect",
+      "qaqc.defect.create",
+      "qaqc.defect.update",
+      "qaqc.defect.resolve",
+      "qaqc.ncr.create",
+      "qaqc.ncr.update",
+      "qaqc.ncr.submit",
+      "qaqc.corrective_action.create",
+      "qaqc.corrective_action.update",
+      "qaqc.corrective_action.complete",
+      "qaqc.reinspection.create",
+      "qaqc.reinspection.execute",
+      "qaqc.document.create",
+      "qaqc.task.create",
+    ],
+    /*
+     * Deciding is where quality stops being a record and starts being a
+     * commitment: an approved inspection releases material, and a closed NCR
+     * states the problem is genuinely fixed (PRD #21 §80, §136).
+     */
+    APPROVE: [
+      "qaqc.request.assign",
+      "qaqc.inspection.assign",
+      "qaqc.inspection.approve",
+      "qaqc.inspection.reject",
+      "qaqc.inspection.close",
+      "qaqc.material.release",
+      "qaqc.material.reject",
+      "qaqc.material.conditional_accept",
+      "qaqc.defect.assign",
+      "qaqc.defect.close",
+      "qaqc.defect.reopen",
+      "qaqc.ncr.assign",
+      "qaqc.ncr.approve",
+      "qaqc.ncr.reject",
+      "qaqc.ncr.close",
+      "qaqc.ncr.reopen",
+      "qaqc.corrective_action.assign",
+      "qaqc.corrective_action.verify",
+      "qaqc.corrective_action.reopen",
+      "qaqc.approval.decide",
+    ],
+    MANAGE: [
+      "qaqc.manage",
+      "qaqc.template.create",
+      "qaqc.template.update",
+      "qaqc.template.archive",
+      "qaqc.template.restore",
+      "qaqc.request.cancel",
+      "qaqc.inspection.cancel",
+      "qaqc.inspection.reopen",
+      "qaqc.defect.cancel",
+      "qaqc.ncr.cancel",
+      "qaqc.corrective_action.cancel",
+    ],
   },
   hse: {
     VIEW: ["hse.view", "hse.record.view"],
@@ -675,11 +760,12 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
   PROCUREMENT: {
     projects: "V/C", tasks: "C/S", documents: "C/C",
     finance: "V/C", contracts: "V/C", procurement: "M/C", inventory: "V/C",
+    qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   INVENTORY: {
     projects: "V/P", tasks: "C/S", documents: "C/C",
-    finance: "V/P", procurement: "C/C", inventory: "M/C",
+    finance: "V/P", procurement: "C/C", inventory: "M/C", qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   QAQC: {
@@ -1111,6 +1197,29 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   PROCUREMENT: {
+    /*
+     * The quality outcome on its own deliveries, and nothing else
+     * (PRD #21 §28).
+     *
+     * A buyer needs to know whether the material they accepted passed. They do
+     * not approve inspections, and they do not see the quality on site work.
+     */
+    qaqc: {
+      deny: [
+        "qaqc.request.view",
+        "qaqc.template.view",
+        "qaqc.defect.view",
+        "qaqc.ncr.view",
+        "qaqc.corrective_action.view",
+        "qaqc.reinspection.view",
+        "qaqc.approval.view",
+        "qaqc.document.view",
+        "qaqc.task.view",
+        "qaqc.activity.view",
+        "qaqc.report.view",
+        "qaqc.dashboard.view",
+      ],
+    },
     /**
      * Supplier-side agreements as purchasing context (PRD #18 §31, §402).
      *
@@ -1145,6 +1254,30 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   INVENTORY: {
+    /*
+     * Enough quality to book a delivery in, and nothing more (PRD #21 §29).
+     *
+     * A storeman needs to know how much was released, how much was rejected
+     * and whether the inspection is settled. They do not need the inspector's
+     * checklist, the defects it raised, or the non-conformances behind them —
+     * quality evidence is often the record of somebody's mistake.
+     */
+    qaqc: {
+      deny: [
+        "qaqc.request.view",
+        "qaqc.template.view",
+        "qaqc.defect.view",
+        "qaqc.ncr.view",
+        "qaqc.corrective_action.view",
+        "qaqc.reinspection.view",
+        "qaqc.approval.view",
+        "qaqc.document.view",
+        "qaqc.task.view",
+        "qaqc.activity.view",
+        "qaqc.report.view",
+        "qaqc.dashboard.view",
+      ],
+    },
     // Project-scoped cost and commitment summary only (PRD #5 §24,
     // PRD #15 §292).
     finance: {

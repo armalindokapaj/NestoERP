@@ -781,6 +781,16 @@ model Company {
   hseRecords           HseRecord[]
   supportRequests      SupportRequest[]
 
+  inspectionRequests          InspectionRequest[]
+  inspectionTemplates         InspectionTemplate[]
+  qualityInspections          QualityInspection[]
+  materialInspectionDecisions MaterialInspectionDecision[]
+  qualityMaterialReleases     QualityMaterialRelease[]
+  qualityDefects              QualityDefect[]
+  nonConformanceReports       NonConformanceReport[]
+  correctiveActions           CorrectiveAction[]
+  qualityApprovals            QualityApproval[]
+
   sessions            Session[]
   authEvents          AuthEvent[]
   auditEvents         AuditEvent[]
@@ -999,6 +1009,18 @@ model CompanyMember {
   hseRecords         HseRecord[]       @relation("HseAssignee")
   supportRequests    SupportRequest[]  @relation("SupportRequester")
 
+  requestedInspections       InspectionRequest[]      @relation("InspectionRequester")
+  assignedInspectionRequests InspectionRequest[]      @relation("InspectionRequestInspector")
+  assignedInspections        QualityInspection[]      @relation("QualityInspector")
+  executedInspections        QualityInspection[]      @relation("QualityInspectionExecutor")
+  materialReleases           QualityMaterialRelease[] @relation("QualityReleaser")
+  assignedDefects            QualityDefect[]          @relation("QualityDefectAssignee")
+  assignedNcrs               NonConformanceReport[]   @relation("NcrAssignee")
+  ownedNcrs                  NonConformanceReport[]   @relation("NcrOwner")
+  assignedCorrectiveActions  CorrectiveAction[]       @relation("CorrectiveActionAssignee")
+  submittedQualityApprovals  QualityApproval[]        @relation("QualityApprovalSubmitter")
+  decidedQualityApprovals    QualityApproval[]        @relation("QualityApprovalDecider")
+
   sessions Session[]
 
   createdAt DateTime @default(now())
@@ -1069,6 +1091,12 @@ model Project {
   stockReservations StockReservation[]
   qualityRecords    QualityRecord[]
   hseRecords        HseRecord[]
+
+  inspectionRequests    InspectionRequest[]
+  qualityInspections    QualityInspection[]
+  qualityDefects        QualityDefect[]
+  nonConformanceReports NonConformanceReport[]
+  correctiveActions     CorrectiveAction[]
 
   sourceOpportunities Opportunity[] @relation("OpportunityConvertedProject")
 
@@ -3047,6 +3075,10 @@ model GoodsReceipt {
 
   items GoodsReceiptItem[]
 
+  inspectionRequests    InspectionRequest[]
+  qualityInspections    QualityInspection[]
+  nonConformanceReports NonConformanceReport[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3074,6 +3106,12 @@ model GoodsReceiptItem {
 
   goodsReceipt      GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
   purchaseOrderItem PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+
+  inspectionRequests    InspectionRequest[]
+  qualityInspections    QualityInspection[]
+  materialDecisions     MaterialInspectionDecision[]
+  materialReleases      QualityMaterialRelease[]
+  nonConformanceReports NonConformanceReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4379,4 +4417,695 @@ model NotificationEventOutbox {
   @@index([createdAt])
   @@index([correlationId])
   @@map("notification_event_outbox")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * QA/QC (PRD #21)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+/**
+ * Quality is a decision about material or work, made by somebody accountable
+ * for it, and recorded so it can be re-read later (PRD #21 §2).
+ * Three ideas that look alike and are not (PRD #21 §3):
+ * - an *inspection* is the act of looking, with a result,
+ * - a *defect* is a fault on a job that somebody must fix,
+ * - an *NCR* is a formal statement that something did not meet requirement,
+ * which needs a root cause and a corrective action before it can close.
+ * Quantities are Decimal throughout: a rejected quantity that a JSON parser has
+ * rounded is a quantity nobody can reconcile against the delivery it came from
+ * (PRD #21 §220).
+ */
+
+enum QualityInspectionType {
+  MATERIAL
+  WORK
+  GENERAL
+}
+
+enum QualityPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum InspectionRequestStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InspectionTemplateStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum InspectionResponseType {
+  PASS_FAIL
+  PASS_FAIL_NA
+  TEXT
+  NUMBER
+  BOOLEAN
+}
+
+enum QualityInspectionStatus {
+  DRAFT
+  IN_PROGRESS
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CLOSED
+  CANCELLED
+}
+
+/// NOT_SET is the honest default: an inspection nobody has finished has no
+/// verdict, and "PASS until proven otherwise" would be a lie (PRD #21 §64).
+enum QualityInspectionResult {
+  NOT_SET
+  PASS
+  FAIL
+  CONDITIONAL
+}
+
+enum ChecklistItemResult {
+  PASS
+  FAIL
+  NA
+}
+
+enum QualitySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum QualityDefectStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+  REOPENED
+}
+
+enum NCRCategory {
+  MATERIAL
+  WORKMANSHIP
+  DOCUMENTATION
+  PROCESS
+  SUPPLIER
+  DESIGN
+  OTHER
+}
+
+enum NCRStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  PENDING_VERIFICATION
+  PENDING_APPROVAL
+  APPROVED_FOR_CLOSE
+  CLOSED
+  REJECTED
+  CANCELLED
+  REOPENED
+}
+
+enum CorrectiveActionStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  CANCELLED
+  REOPENED
+}
+
+enum QualityApprovalRecordType {
+  INSPECTION
+  NCR
+}
+
+enum QualityApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum MaterialReleaseStatus {
+  RELEASED
+  PARTIALLY_RELEASED
+  HELD
+  REJECTED
+  REVOKED
+}
+
+/// Somebody asking for an inspection is not the inspection (PRD #21 §34).
+model InspectionRequest {
+  id        String @id @default(cuid())
+  companyId String
+
+  requestNumber  String
+  title          String
+  inspectionType QualityInspectionType
+
+  projectId          String?
+  goodsReceiptId     String?
+  goodsReceiptItemId String?
+
+  requestedByMemberId       String
+  assignedInspectorMemberId String?
+
+  requestedDate  DateTime
+  requiredByDate DateTime?
+
+  priority QualityPriority         @default(MEDIUM)
+  status   InspectionRequestStatus @default(OPEN)
+
+  description  String?
+  locationText String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  cancelledAt DateTime?
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project          Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  goodsReceipt     GoodsReceipt?     @relation(fields: [goodsReceiptId], references: [id], onDelete: SetNull)
+  goodsReceiptItem GoodsReceiptItem? @relation(fields: [goodsReceiptItemId], references: [id], onDelete: SetNull)
+
+  requestedBy       CompanyMember  @relation("InspectionRequester", fields: [requestedByMemberId], references: [id], onDelete: Restrict)
+  assignedInspector CompanyMember? @relation("InspectionRequestInspector", fields: [assignedInspectorMemberId], references: [id], onDelete: SetNull)
+
+  inspections QualityInspection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, requestNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([goodsReceiptId])
+  @@index([goodsReceiptItemId])
+  @@index([requestedByMemberId])
+  @@index([assignedInspectorMemberId])
+  @@index([requiredByDate])
+  @@index([priority])
+  @@map("inspection_requests")
+}
+
+/// The checklist a company inspects against. Versioned, never edited in place
+/// once used, so a past inspection still reads against what it was actually
+/// checked with (PRD #21 §53).
+model InspectionTemplate {
+  id        String @id @default(cuid())
+  companyId String
+
+  code           String
+  name           String
+  inspectionType QualityInspectionType
+  description    String?
+
+  status  InspectionTemplateStatus @default(ACTIVE)
+  version Int                      @default(1)
+
+  createdByMemberId String
+  updatedByMemberId String?
+  archivedAt        DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  items       InspectionTemplateItem[]
+  inspections QualityInspection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code, version])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([inspectionType])
+  @@index([code])
+  @@map("inspection_templates")
+}
+
+model InspectionTemplateItem {
+  id                   String @id @default(cuid())
+  inspectionTemplateId String
+
+  code        String?
+  label       String
+  description String?
+
+  responseType InspectionResponseType
+  required     Boolean                @default(true)
+  sortOrder    Int                    @default(0)
+
+  passCriteriaText       String?
+  requiresEvidenceOnFail Boolean @default(false)
+
+  template InspectionTemplate @relation(fields: [inspectionTemplateId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionTemplateId])
+  @@index([sortOrder])
+  @@map("inspection_template_items")
+}
+
+/// The act of looking, and its verdict (PRD #21 §59).
+model QualityInspection {
+  id        String @id @default(cuid())
+  companyId String
+
+  inspectionNumber String
+  inspectionType   QualityInspectionType
+
+  requestId       String?
+  templateId      String?
+  templateVersion Int?
+
+  parentInspectionId   String?
+  reinspectionSequence Int?
+
+  projectId          String?
+  goodsReceiptId     String?
+  goodsReceiptItemId String?
+
+  assignedInspectorMemberId String
+  executedByMemberId        String?
+
+  status QualityInspectionStatus @default(DRAFT)
+  result QualityInspectionResult @default(NOT_SET)
+
+  inspectionDate DateTime?
+  submittedAt    DateTime?
+
+  approvedAt         DateTime?
+  approvedByMemberId String?
+
+  rejectedAt         DateTime?
+  rejectedByMemberId String?
+
+  closedAt         DateTime?
+  closedByMemberId String?
+  cancelledAt      DateTime?
+
+  locationText           String?
+  workReference          String?
+  drawingReference       String?
+  specificationReference String?
+
+  summary      String?
+  decisionNote String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project          Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  goodsReceipt     GoodsReceipt?     @relation(fields: [goodsReceiptId], references: [id], onDelete: SetNull)
+  goodsReceiptItem GoodsReceiptItem? @relation(fields: [goodsReceiptItemId], references: [id], onDelete: SetNull)
+
+  request  InspectionRequest?  @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  template InspectionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  assignedInspector CompanyMember  @relation("QualityInspector", fields: [assignedInspectorMemberId], references: [id], onDelete: Restrict)
+  executedBy        CompanyMember? @relation("QualityInspectionExecutor", fields: [executedByMemberId], references: [id], onDelete: SetNull)
+
+  parentInspection QualityInspection?  @relation("QualityReinspection", fields: [parentInspectionId], references: [id], onDelete: SetNull)
+  reinspections    QualityInspection[] @relation("QualityReinspection")
+
+  checklistItems    InspectionChecklistItem[]
+  materialDecisions MaterialInspectionDecision[]
+  materialReleases  QualityMaterialRelease[]
+  defects           QualityDefect[]
+  ncrs              NonConformanceReport[]
+  correctiveActions CorrectiveAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, inspectionNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, result])
+  @@index([projectId])
+  @@index([requestId])
+  @@index([templateId])
+  @@index([parentInspectionId])
+  @@index([goodsReceiptId])
+  @@index([goodsReceiptItemId])
+  @@index([assignedInspectorMemberId])
+  @@index([inspectionDate])
+  @@map("quality_inspections")
+}
+
+/// A snapshot of the template, taken when the inspection was created. Editing
+/// the template afterwards must not rewrite what somebody actually checked
+/// (PRD #21 §69).
+model InspectionChecklistItem {
+  id           String @id @default(cuid())
+  inspectionId String
+
+  templateItemId String?
+
+  code        String?
+  label       String
+  description String?
+
+  responseType InspectionResponseType
+  required     Boolean                @default(true)
+  sortOrder    Int                    @default(0)
+
+  responseValue String?
+  result        ChecklistItemResult?
+  note          String?
+
+  /// Copied from the template alongside the question, so a five-year-old
+  /// inspection still says what "pass" meant on the day (PRD #21 §69).
+  passCriteriaText       String?
+  requiresEvidenceOnFail Boolean @default(false)
+
+  inspection QualityInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([sortOrder])
+  @@index([result])
+  @@map("inspection_checklist_items")
+}
+
+/// How much of a delivered line passed, failed, or passed with a condition.
+/// accepted + rejected + conditional must equal inspected, exactly, in Decimal
+/// (PRD #21 §91, §220).
+model MaterialInspectionDecision {
+  id                 String @id @default(cuid())
+  companyId          String
+  inspectionId       String
+  goodsReceiptItemId String
+
+  inspectedQuantity   Decimal @db.Decimal(18, 4)
+  acceptedQuantity    Decimal @db.Decimal(18, 4)
+  rejectedQuantity    Decimal @db.Decimal(18, 4)
+  conditionalQuantity Decimal @db.Decimal(18, 4)
+
+  unit  String
+  notes String?
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inspection       QualityInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  goodsReceiptItem GoodsReceiptItem  @relation(fields: [goodsReceiptItemId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([inspectionId, goodsReceiptItemId])
+  @@index([companyId])
+  @@index([inspectionId])
+  @@index([goodsReceiptItemId])
+  @@map("material_inspection_decisions")
+}
+
+/// The act of letting material through to stock. Quality decides; Inventory
+/// records the movement (PRD #21 §98, §102).
+model QualityMaterialRelease {
+  id        String @id @default(cuid())
+  companyId String
+
+  inspectionId       String
+  goodsReceiptItemId String
+
+  releasedQuantity Decimal @db.Decimal(18, 4)
+  rejectedQuantity Decimal @db.Decimal(18, 4)
+  heldQuantity     Decimal @db.Decimal(18, 4)
+
+  unit   String
+  status MaterialReleaseStatus
+
+  releasedByMemberId String
+  releasedAt         DateTime
+
+  revokedAt         DateTime?
+  revokedByMemberId String?
+  revocationReason  String?
+
+  notes String?
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inspection       QualityInspection @relation(fields: [inspectionId], references: [id], onDelete: Restrict)
+  goodsReceiptItem GoodsReceiptItem  @relation(fields: [goodsReceiptItemId], references: [id], onDelete: Restrict)
+  releasedBy       CompanyMember     @relation("QualityReleaser", fields: [releasedByMemberId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One cumulative release per inspection line, versioned by revocation
+  /// rather than by a second row (PRD #21 §219).
+  @@unique([inspectionId, goodsReceiptItemId])
+  @@index([companyId])
+  @@index([inspectionId])
+  @@index([goodsReceiptItemId])
+  @@index([status])
+  @@index([releasedAt])
+  @@map("quality_material_releases")
+}
+
+/// A fault on a job that somebody must fix. Always on a project — a defect with
+/// no site is nobody's to close (PRD #21 §111, §222).
+model QualityDefect {
+  id        String @id @default(cuid())
+  companyId String
+
+  defectNumber String
+  title        String
+  description  String
+
+  projectId    String
+  inspectionId String?
+
+  severity QualitySeverity
+  status   QualityDefectStatus @default(OPEN)
+
+  locationText String?
+
+  assignedToMemberId String?
+  dueDate            DateTime?
+
+  resolvedAt         DateTime?
+  resolvedByMemberId String?
+  resolutionNote     String?
+
+  closedAt         DateTime?
+  closedByMemberId String?
+
+  cancelledAt DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project    Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  inspection QualityInspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+
+  assignedTo CompanyMember? @relation("QualityDefectAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+
+  ncrs              NonConformanceReport[]
+  correctiveActions CorrectiveAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, defectNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([inspectionId])
+  @@index([severity])
+  @@index([assignedToMemberId])
+  @@index([dueDate])
+  @@map("quality_defects")
+}
+
+/// A formal statement that something did not meet requirement. It cannot close
+/// without a root cause and a verified corrective action — that is the whole
+/// difference between an NCR and a defect (PRD #21 §122, §136).
+model NonConformanceReport {
+  id        String @id @default(cuid())
+  companyId String
+
+  ncrNumber   String
+  title       String
+  description String
+
+  projectId          String?
+  inspectionId       String?
+  goodsReceiptId     String?
+  goodsReceiptItemId String?
+  sourceDefectId     String?
+
+  category NCRCategory
+  severity QualitySeverity
+  status   NCRStatus       @default(DRAFT)
+
+  assignedToMemberId String?
+  ownerMemberId      String?
+
+  immediateAction         String?
+  rootCause               String?
+  correctiveActionSummary String?
+
+  dueDate DateTime?
+
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  approvedByMemberId String?
+  rejectedAt         DateTime?
+  rejectedByMemberId String?
+
+  closedAt         DateTime?
+  closedByMemberId String?
+  closureNote      String?
+
+  cancelledAt DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company          Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project          Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  inspection       QualityInspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  goodsReceipt     GoodsReceipt?      @relation(fields: [goodsReceiptId], references: [id], onDelete: SetNull)
+  goodsReceiptItem GoodsReceiptItem?  @relation(fields: [goodsReceiptItemId], references: [id], onDelete: SetNull)
+  sourceDefect     QualityDefect?     @relation(fields: [sourceDefectId], references: [id], onDelete: SetNull)
+
+  assignedTo CompanyMember? @relation("NcrAssignee", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+  owner      CompanyMember? @relation("NcrOwner", fields: [ownerMemberId], references: [id], onDelete: SetNull)
+
+  correctiveActions CorrectiveAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, ncrNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([projectId])
+  @@index([inspectionId])
+  @@index([goodsReceiptId])
+  @@index([goodsReceiptItemId])
+  @@index([sourceDefectId])
+  @@index([category])
+  @@index([severity])
+  @@index([assignedToMemberId])
+  @@index([ownerMemberId])
+  @@index([dueDate])
+  @@map("non_conformance_reports")
+}
+
+/// What somebody actually does about a non-conformance. Verified by somebody
+/// other than whoever completed it (PRD #21 §140, §147).
+model CorrectiveAction {
+  id        String @id @default(cuid())
+  companyId String
+
+  actionNumber String
+  title        String
+  description  String
+
+  ncrId        String?
+  defectId     String?
+  inspectionId String?
+
+  projectId String?
+
+  assignedToMemberId String
+  dueDate            DateTime?
+
+  status CorrectiveActionStatus @default(OPEN)
+
+  completionNote      String?
+  completedAt         DateTime?
+  completedByMemberId String?
+
+  verificationNote   String?
+  verifiedAt         DateTime?
+  verifiedByMemberId String?
+
+  cancelledAt DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  company    Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ncr        NonConformanceReport? @relation(fields: [ncrId], references: [id], onDelete: SetNull)
+  defect     QualityDefect?        @relation(fields: [defectId], references: [id], onDelete: SetNull)
+  inspection QualityInspection?    @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  project    Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  assignedTo CompanyMember @relation("CorrectiveActionAssignee", fields: [assignedToMemberId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, actionNumber])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([ncrId])
+  @@index([defectId])
+  @@index([inspectionId])
+  @@index([projectId])
+  @@index([assignedToMemberId])
+  @@index([dueDate])
+  @@map("corrective_actions")
+}
+
+/// The approval cycle for an inspection or an NCR. At most one PENDING row per
+/// record, enforced transactionally (PRD #21 §160, §218).
+model QualityApproval {
+  id        String @id @default(cuid())
+  companyId String
+
+  recordType QualityApprovalRecordType
+  recordId   String
+
+  status QualityApprovalStatus @default(PENDING)
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  submittedBy CompanyMember  @relation("QualityApprovalSubmitter", fields: [submittedByMemberId], references: [id], onDelete: Restrict)
+  decidedBy   CompanyMember? @relation("QualityApprovalDecider", fields: [decidedByMemberId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("quality_approvals")
 }

@@ -2,7 +2,6 @@ import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
-import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -10,7 +9,7 @@ import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list
 import { dateString, loadMemberRef, toItemRef, toLocationRef, toWarehouseRef } from "../inventory.dto";
 import { nextDocumentNumber } from "../inventory.numbering";
 import { quantityString, toStoredQuantity } from "../inventory.quantity";
-import { buildReturnScopeWhere, buildWarehouseScopeWhere } from "../inventory.scope";
+import { buildInventoryProjectWhere, buildReturnScopeWhere, buildWarehouseScopeWhere } from "../inventory.scope";
 import type { ReturnInput, TransactionListQuery } from "../inventory.schema";
 import type {
   ReturnDetailDTO,
@@ -352,7 +351,7 @@ async function requireWarehouse(context: UserContext, warehouseId: string) {
 
 async function requireProject(context: UserContext, projectId: string) {
   const project = await prisma.project.findFirst({
-    where: { AND: [buildProjectScopeWhere(context), { id: projectId }] },
+    where: { AND: [buildInventoryProjectWhere(context), { id: projectId }] },
     select: { id: true },
   });
   if (!project) {

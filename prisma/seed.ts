@@ -22,6 +22,7 @@ import { COMPANY_A_USERS, DEMO_PASSWORD } from "./seed/constants";
 import { seedModuleRecords } from "./seed/module-records";
 import { seedInventoryRecords } from "./seed/inventory";
 import { seedProcurementRecords } from "./seed/procurement";
+import { seedQaqcRecords } from "./seed/qaqc";
 import { seedAuditEvents } from "./seed/audit";
 import { seedCompanySettings } from "./seed/settings";
 import { seedSalesRecords } from "./seed/sales";
@@ -61,6 +62,7 @@ async function main() {
   const legal = await seedContractRecords(prisma, members);
   const procurement = await seedProcurementRecords(prisma, members);
   const inventory = await seedInventoryRecords(prisma, members);
+  const qaqc = await seedQaqcRecords(prisma, members);
   await seedModuleRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
   await seedAuditEvents(prisma, { companyA, companyB });
@@ -114,6 +116,11 @@ async function main() {
   console.log(
     `✓ Inventory: ${inventory.items} items, ${inventory.warehouses} warehouses, ` +
       `${inventory.movements} movements, ${inventory.balances} balances`,
+  );
+  console.log(
+    `✓ QA/QC: ${qaqc.templates} templates, ${qaqc.requests} requests, ` +
+      `${qaqc.inspections} inspections, ${qaqc.defects} defects, ${qaqc.ncrs} NCRs, ` +
+      `${qaqc.actions} corrective actions`,
   );
   console.log(`✓ Activities: ${activities}`);
   console.log("✓ Seed validation passed");

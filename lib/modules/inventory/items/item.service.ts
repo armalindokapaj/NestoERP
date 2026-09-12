@@ -274,6 +274,21 @@ export async function selectableItems(
   }));
 }
 
+/**
+ * Has this item ever moved?
+ *
+ * The edit form asks so it can lock the base unit before the person types
+ * rather than refusing after they save — the rule is the same either way, and
+ * the service enforces it regardless (PRD #20 §46).
+ */
+export async function hasMovements(itemId: string): Promise<boolean> {
+  const moved = await prisma.stockMovement.count({
+    where: { inventoryItemId: itemId },
+    take: 1,
+  });
+  return moved > 0;
+}
+
 export async function itemFilterOptions(context: UserContext) {
   assertModule(context, MODULE);
   assertPermission(context, "inventory.item.view");

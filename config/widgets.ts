@@ -295,9 +295,9 @@ export const widgets: Record<string, WidgetDefinition> = {
   qualityRecords: {
     key: "qualityRecords",
     module: "qaqc",
-    permission: "qaqc.record.view",
+    permission: "qaqc.inspection.view",
     title: "Quality Records",
-    description: "Inspections, NCRs, punch items and tests.",
+    description: "Inspections, defects, NCRs and corrective actions.",
     kind: "breakdown",
     size: "MEDIUM",
     priority: 3,
@@ -307,7 +307,7 @@ export const widgets: Record<string, WidgetDefinition> = {
   openNcrs: {
     key: "openNcrs",
     module: "qaqc",
-    permission: "qaqc.record.view",
+    permission: "qaqc.ncr.view",
     title: "Open NCRs",
     description: "Non-conformances still to close.",
     kind: "list",

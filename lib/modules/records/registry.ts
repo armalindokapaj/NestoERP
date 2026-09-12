@@ -49,153 +49,10 @@ function enumValue<T extends string>(value: string | undefined, allowed: readonl
 }
 
 /* -------------------------------------------------------------------------- */
-/* QA/QC and HSE                                                               */
+/* HSE                                                                         */
 /* -------------------------------------------------------------------------- */
 
 const WORK_STATUSES = ["OPEN", "IN_PROGRESS", "CLOSED"] as const;
-
-function qualitySection(section: string, type: "INSPECTION" | "NCR" | "PUNCH_ITEM" | "TEST" | null): RecordSection {
-  const label = type ? statusLabel(type) : "Quality record";
-
-  return {
-    module: "qaqc",
-    section,
-    singular: label,
-    plural: `${label}s`,
-    emptyTitle: `No ${label.toLowerCase()} records.`,
-    emptyDescription: "Quality records raised on your projects will appear here.",
-    permission: "qaqc.record.view",
-    approvePermission: "qaqc.record.close",
-    columns: [
-      { key: "reference", label: "Reference" },
-      { key: "title", label: "Title", hideBelow: "md" },
-      { key: "project", label: "Project", hideBelow: "lg" },
-      { key: "severity", label: "Severity", hideBelow: "xl" },
-      { key: "status", label: "Status" },
-    ],
-    filters: [statusFilter([...WORK_STATUSES])],
-    async list(context, args) {
-      const where: Prisma.QualityRecordWhereInput = {
-        ...buildProjectLinkedScopeWhere(context, "qaqc"),
-        ...(type ? { type } : {}),
-        ...(enumValue(args.filters.status, WORK_STATUSES)
-          ? { status: enumValue(args.filters.status, WORK_STATUSES) }
-          : {}),
-        ...(searchClause(args.search, ["reference", "title"]) ?? {}),
-      };
-
-      const [rows, total] = await Promise.all([
-        prisma.qualityRecord.findMany({
-          where,
-          orderBy: [{ status: "asc" }, { severity: "desc" }],
-          skip: skipFor(args.page, args.limit),
-          take: args.limit,
-          select: {
-            id: true,
-            reference: true,
-            title: true,
-            severity: true,
-            status: true,
-            project: { select: { name: true } },
-          },
-        }),
-        prisma.qualityRecord.count({ where }),
-      ]);
-
-      return {
-        total,
-        rows: rows.map((row) => ({
-          id: row.id,
-          primary: row.reference,
-          secondary: row.title,
-          status: row.status,
-          fields: [
-            { key: "reference", label: "Reference", value: row.reference },
-            { key: "title", label: "Title", value: row.title, hideBelow: "md" as const },
-            { key: "project", label: "Project", value: orDash(row.project?.name), hideBelow: "lg" as const },
-            {
-              key: "severity",
-              label: "Severity",
-              value: orDash(row.severity && statusLabel(row.severity)),
-              hideBelow: "xl" as const,
-            },
-            { key: "status", label: "Status", value: row.status, status: true },
-          ],
-        })),
-      };
-    },
-    async get(context, id) {
-      const row = await prisma.qualityRecord.findFirst({
-        where: { ...buildProjectLinkedScopeWhere(context, "qaqc"), id },
-        select: {
-          id: true,
-          reference: true,
-          title: true,
-          description: true,
-          type: true,
-          severity: true,
-          status: true,
-          dueDate: true,
-          closedAt: true,
-          createdAt: true,
-          updatedAt: true,
-          project: { select: { name: true } },
-          assignee: { select: { user: { select: { firstName: true, lastName: true } } } },
-        },
-      });
-
-      if (!row) return null;
-
-      return {
-        id: row.id,
-        title: row.reference,
-        subtitle: row.title,
-        status: row.status,
-        description: row.description,
-        fields: [
-          { label: "Type", value: statusLabel(row.type) },
-          { label: "Project", value: orDash(row.project?.name) },
-          { label: "Severity", value: orDash(row.severity && statusLabel(row.severity)) },
-          { label: "Due", value: row.dueDate ? formatDate(row.dueDate) : "—" },
-          {
-            label: "Assigned to",
-            value: row.assignee
-              ? `${row.assignee.user.firstName} ${row.assignee.user.lastName}`
-              : "—",
-          },
-        ],
-        meta: auditMeta(row),
-        approval: { status: row.status, pending: row.status !== "CLOSED" },
-      };
-    },
-    async decide(context, id, decision) {
-      await decideRecord(context, {
-        module: "qaqc",
-        entityType: "QualityRecord",
-        id,
-        decision,
-        permission: "qaqc.record.close",
-        find: () =>
-          prisma.qualityRecord.findFirst({
-            where: { ...buildProjectLinkedScopeWhere(context, "qaqc"), id },
-            select: { id: true, status: true, reference: true },
-          }),
-        pendingStatus: null,
-        apply: (tx, approved) =>
-          tx.qualityRecord.update({
-            where: { id },
-            data: {
-              status: approved ? "CLOSED" : "IN_PROGRESS",
-              closedAt: approved ? new Date() : null,
-              updatedBy: context.userId,
-            },
-          }),
-        label: (record) => record.reference,
-        verbs: { approve: "closed", reject: "reopened" },
-      });
-    },
-  };
-}
 
 function hseSection(
   section: string,
@@ -526,10 +383,9 @@ const SECTIONS: RecordSection[] = [
   // Inventory has its own module now (PRD #20): the shell's "item" carried its
   // own integer quantity and a free-text location, with no ledger behind the
   // number and nowhere the stock actually was.
-  qualitySection("inspections", "INSPECTION"),
-  qualitySection("ncrs", "NCR"),
-  qualitySection("punch-lists", "PUNCH_ITEM"),
-  qualitySection("tests", "TEST"),
+  // QA/QC has its own module now (PRD #21): the shell's "quality record" was a
+  // title, a severity and a status, with no checklist behind the verdict, no
+  // root cause behind the NCR and nothing that could release material to stock.
   hseSection("incidents", "INCIDENT"),
   hseSection("inspections", "INSPECTION"),
   hseSection("permits", "PERMIT"),

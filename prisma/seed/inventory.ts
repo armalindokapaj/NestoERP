@@ -268,7 +268,7 @@ const MOVEMENTS: MovementFixture[] = [
 
   // Some of it comes back.
   { id: "mv_ret_1", item: "item_cement", location: "loc_riverside_main", type: "RETURN_TO_STOCK", quantity: 40, daysAgo: 4, project: PROJECT_IDS.a, source: { entityType: "stock_return", entityId: "ret_001" } },
-  { id: "mv_ret_2", item: "item_scaffold", location: "loc_marina_main", type: "RETURN_TO_STOCK", quantity: 25, daysAgo: 3, project: PROJECT_IDS.c, source: { entityType: "stock_return", entityId: "ret_001" } },
+  { id: "mv_ret_2", item: "item_scaffold", location: "loc_marina_main", type: "RETURN_TO_STOCK", quantity: 25, daysAgo: 3, project: PROJECT_IDS.c, source: { entityType: "stock_return", entityId: "ret_002" } },
 
   // A stock count found a discrepancy.
   { id: "mv_adj_1", item: "item_sand", location: "loc_central_main", type: "ADJUSTMENT_OUT", quantity: 118, daysAgo: 2, source: { entityType: "stock_adjustment", entityId: "adj_count" } },
@@ -461,6 +461,16 @@ async function seedDocuments(prisma: PrismaClient, members: { inventory: string;
     },
   });
 
+  await prisma.stockReturn.upsert({
+    where: { id: "ret_002" },
+    update: {},
+    create: {
+      id: "ret_002", companyId: COMPANY_A, returnNumber: "RET-2026-0002",
+      warehouseId: "wh_marina", projectId: PROJECT_IDS.c, returnDate: daysFromNow(-3),
+      status: "POSTED", createdByMemberId: members.pm, postedByMemberId: members.inventory,
+    },
+  });
+
   for (const [index, [id, from, to, daysAgo]] of (
     [
       ["trf_001", "wh_central", "wh_riverside", 24],
@@ -498,6 +508,134 @@ async function seedDocuments(prisma: PrismaClient, members: { inventory: string;
       toLocationId: "loc_marina_main", quantity: qty(2), unit: "each",
     },
   });
+
+  await seedPostedLines(prisma);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Lines behind the posted documents                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Derives each posted document's lines from the ledger it produced
+ * (PRD #20 §293, §432).
+ *
+ * The movements are the fixture; the lines are read back out of them. Writing
+ * both by hand would let a corrected quantity land in one and not the other,
+ * and the seeded state would then be one the application itself could never
+ * have produced.
+ *
+ * Every line carries the movement id it wrote, which is what makes a posted
+ * document traceable to the ledger rather than merely consistent with it.
+ */
+async function seedPostedLines(prisma: PrismaClient) {
+  const movements = MOVEMENTS.map((movement) => ({
+    ...movement,
+    unit: UNIT_BY_ITEM[movement.item]!,
+  }));
+
+  const byDocument = new Map<string, typeof movements>();
+  for (const movement of movements) {
+    const key = `${movement.source.entityType}:${movement.source.entityId}`;
+    byDocument.set(key, [...(byDocument.get(key) ?? []), movement]);
+  }
+
+  for (const [key, lines] of byDocument) {
+    const [entityType, entityId] = key.split(":") as [string, string];
+
+    if (entityType === "inventory_receipt") {
+      for (const [index, line] of lines.entries()) {
+        await prisma.inventoryReceiptLine.upsert({
+          where: { id: `${entityId}_line_${index + 1}` },
+          update: { quantity: qty(line.quantity), movementId: line.id },
+          create: {
+            id: `${entityId}_line_${index + 1}`, inventoryReceiptId: entityId,
+            inventoryItemId: line.item, locationId: line.location,
+            quantity: qty(line.quantity), unit: line.unit, movementId: line.id,
+          },
+        });
+      }
+      continue;
+    }
+
+    if (entityType === "stock_issue") {
+      for (const [index, line] of lines.entries()) {
+        await prisma.stockIssueLine.upsert({
+          where: { id: `${entityId}_line_${index + 1}` },
+          update: { quantity: qty(line.quantity), movementId: line.id },
+          create: {
+            id: `${entityId}_line_${index + 1}`, stockIssueId: entityId,
+            inventoryItemId: line.item, locationId: line.location,
+            quantity: qty(line.quantity), unit: line.unit, movementId: line.id,
+          },
+        });
+      }
+      continue;
+    }
+
+    if (entityType === "stock_return") {
+      for (const [index, line] of lines.entries()) {
+        await prisma.stockReturnLine.upsert({
+          where: { id: `${entityId}_line_${index + 1}` },
+          update: { quantity: qty(line.quantity), movementId: line.id },
+          create: {
+            id: `${entityId}_line_${index + 1}`, stockReturnId: entityId,
+            inventoryItemId: line.item, locationId: line.location,
+            quantity: qty(line.quantity), unit: line.unit, movementId: line.id,
+          },
+        });
+      }
+      continue;
+    }
+
+    if (entityType === "stock_adjustment") {
+      for (const [index, line] of lines.entries()) {
+        // Signed: the ledger already knows the direction, and the line has to
+        // say the same thing (PRD #20 §147).
+        const delta = qty(line.quantity).mul(DIRECTION[line.type]);
+        await prisma.stockAdjustmentLine.upsert({
+          where: { id: `${entityId}_line_${index + 1}` },
+          update: { quantityDelta: delta, movementId: line.id },
+          create: {
+            id: `${entityId}_line_${index + 1}`, stockAdjustmentId: entityId,
+            inventoryItemId: line.item, locationId: line.location,
+            quantityDelta: delta, unit: line.unit, movementId: line.id,
+          },
+        });
+      }
+      continue;
+    }
+
+    if (entityType === "stock_transfer") {
+      /*
+       * A transfer line is one item crossing once, so the paired out/in
+       * movements collapse back into a single row (PRD #20 §131, §137).
+       */
+      const outs = lines.filter((line) => line.type === "TRANSFER_OUT");
+      for (const [index, out] of outs.entries()) {
+        const paired = lines.find(
+          (line) => line.type === "TRANSFER_IN" && line.item === out.item,
+        );
+        if (!paired) continue;
+
+        await prisma.stockTransferLine.upsert({
+          where: { id: `${entityId}_line_${index + 1}` },
+          update: {
+            quantity: qty(out.quantity),
+            outMovementId: out.id,
+            inMovementId: paired.id,
+          },
+          create: {
+            id: `${entityId}_line_${index + 1}`, stockTransferId: entityId,
+            inventoryItemId: out.item,
+            fromLocationId: out.location, toLocationId: paired.location,
+            quantity: qty(out.quantity), unit: out.unit,
+            outMovementId: out.id, inMovementId: paired.id,
+          },
+        });
+      }
+    }
+  }
 }
 
 /* -------------------------------------------------------------------------- */

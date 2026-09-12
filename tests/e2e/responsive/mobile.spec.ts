@@ -108,3 +108,98 @@ test.describe("mobile module layout (PRD #9 §184)", () => {
     await expect(page.getByRole("navigation", { name: "Project sections" })).toBeVisible();
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* Inventory on a phone (PRD #20 §322–§326, §417, §418)                        */
+/* -------------------------------------------------------------------------- */
+
+test.describe("mobile inventory (PRD #20 §418)", () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page, "INVENTORY");
+  });
+
+  test("renders the item master as cards rather than a squeezed table (§322)", async ({
+    page,
+  }) => {
+    await page.goto("/inventory/items");
+
+    // Both layouts are in the document; only one of them is on screen. The
+    // desktop table is hidden below the tablet breakpoint (PRD #7 §86), so the
+    // assertion has to name the copy the reader actually sees.
+    await expect(
+      page.locator("#nesto-main").getByText("MAT-001").filter({ visible: true }).first(),
+    ).toBeVisible();
+    await expect(page.locator("table").first()).toBeHidden();
+  });
+
+  test("shows on hand, reserved and available on an item card (§322)", async ({ page }) => {
+    await page.goto("/inventory/items");
+
+    const card = page.locator("#nesto-main li").filter({ visible: true }).first();
+    await expect(card.getByText("On hand")).toBeVisible();
+    await expect(card.getByText("Available")).toBeVisible();
+  });
+
+  test("keeps the stock ledger inside the viewport (§417)", async ({ page }) => {
+    await page.goto("/inventory/movements");
+    await expect(page.locator("#nesto-main")).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
+  test("keeps a stock document form inside the viewport (§417)", async ({ page }) => {
+    await page.goto("/inventory/issues/new");
+    await expect(page.locator("#warehouseId")).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* QA/QC on a phone (PRD #21 §440)                                             */
+/* -------------------------------------------------------------------------- */
+
+test.describe("mobile inspection execution (PRD #21 §440)", () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page, "QAQC");
+  });
+
+  test("answers a checklist on a phone", async ({ page }) => {
+    // INS-2026-0008 is under way, so its checklist is editable.
+    await page.goto("/qaqc/inspections/ins_008/execute");
+
+    const first = page.locator("#answer-0");
+    await expect(first).toBeVisible();
+    await first.selectOption("PASS");
+
+    await expect(page.getByRole("button", { name: "Save answers" })).toBeVisible();
+  });
+
+  test("keeps the checklist inside the viewport", async ({ page }) => {
+    await page.goto("/qaqc/inspections/ins_008/execute");
+    await expect(page.locator("#answer-0")).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
+  test("renders the inspection list as cards, with status and result", async ({ page }) => {
+    await page.goto("/qaqc/inspections");
+
+    const card = page.locator("#nesto-main li").filter({ visible: true }).first();
+    await expect(card).toBeVisible();
+    // The two facts stay separate even on a card (§65).
+    await expect(card.getByText("Status")).toBeVisible();
+    await expect(card.getByText("Result")).toBeVisible();
+
+    await expect(page.locator("table").first()).toBeHidden();
+  });
+});

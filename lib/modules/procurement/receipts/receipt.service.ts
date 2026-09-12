@@ -284,6 +284,69 @@ export async function recordReceipt(
  * arrived. Deleting it would erase that somebody recorded a delivery, which is
  * exactly the fact an audit needs.
  */
+/**
+ * A delivery that other modules have already acted on cannot simply be voided
+ * (PRD #21 §104, PRD #20 §370).
+ *
+ * Quality may have inspected and released it; Inventory may have booked it into
+ * stock. Voiding underneath either would leave a quality release pointing at a
+ * delivery that no longer happened, or stock on a shelf with nothing behind it.
+ * The downstream record has to be cancelled or reversed first, by whoever owns
+ * that module.
+ */
+async function assertNoDownstreamState(
+  context: UserContext,
+  receiptId: string,
+  receiptNumber: string,
+): Promise<void> {
+  const [release, inventoryReceipt, inspection] = await Promise.all([
+    prisma.qualityMaterialRelease.findFirst({
+      where: {
+        companyId: context.companyId,
+        goodsReceiptItem: { is: { goodsReceiptId: receiptId } },
+        status: { in: ["RELEASED", "PARTIALLY_RELEASED"] },
+      },
+      select: { id: true },
+    }),
+    prisma.inventoryReceipt.findFirst({
+      where: { companyId: context.companyId, goodsReceiptId: receiptId, status: "POSTED" },
+      select: { receiptNumber: true },
+    }),
+    prisma.qualityInspection.findFirst({
+      where: {
+        companyId: context.companyId,
+        goodsReceiptId: receiptId,
+        status: { in: ["APPROVED", "CLOSED"] },
+      },
+      select: { inspectionNumber: true },
+    }),
+  ]);
+
+  if (inventoryReceipt) {
+    throw new AccessError(
+      "CONFLICT",
+      `Inventory has already booked ${receiptNumber} in as ${inventoryReceipt.receiptNumber}. Reverse that first.`,
+      { code: "INVENTORY_POSTED" },
+    );
+  }
+
+  if (release) {
+    throw new AccessError(
+      "CONFLICT",
+      `Quality has released material from ${receiptNumber}. Revoke the release first.`,
+      { code: "QUALITY_RELEASED" },
+    );
+  }
+
+  if (inspection) {
+    throw new AccessError(
+      "CONFLICT",
+      `Quality inspection ${inspection.inspectionNumber} has been decided against ${receiptNumber}. Cancel it first.`,
+      { code: "QUALITY_DECIDED" },
+    );
+  }
+}
+
 export async function voidReceipt(
   context: UserContext,
   receiptId: string,
@@ -300,6 +363,8 @@ export async function voidReceipt(
   );
 
   if (existing.status === "VOIDED") return;
+
+  await assertNoDownstreamState(context, receiptId, existing.receiptNumber);
 
   await prisma.$transaction(async (tx) => {
     const result = await tx.goodsReceipt.updateMany({
