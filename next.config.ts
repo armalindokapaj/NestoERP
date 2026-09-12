@@ -29,6 +29,17 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /**
+   * Build directory (PRD #34 §51).
+   *
+   * Overridable so a production build can be told to write somewhere other than
+   * `.next`. Two servers sharing one build directory corrupt each other: a
+   * `next build` run while a `next dev` server is up replaces the manifests that
+   * server is reading, and every route then answers 500 with no useful error.
+   * The E2E script sets this, so a production run cannot disturb a dev server.
+   */
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+
   // The floating dev badge sits on top of the sidebar footer; the build output
   // and error overlay are unaffected.
   devIndicators: false,

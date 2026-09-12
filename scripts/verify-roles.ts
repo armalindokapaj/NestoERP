@@ -17,7 +17,7 @@ import { kpis } from "../config/kpis";
 import { MODULE_KEYS, modules, type ModuleKey } from "../config/modules";
 import { accessibleModules, permissionsForRole } from "../config/role-defaults";
 import { roleList, roleLabel, type RoleKey } from "../config/roles";
-import { PUBLIC_ROUTES } from "../lib/permissions/route-access";
+import { PUBLIC_OPERATIONAL_ROUTES, PUBLIC_ROUTES } from "../lib/permissions/route-access";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 
@@ -211,12 +211,16 @@ async function verifyPublicRoutes() {
   const session = new Session();
 
   /*
-   * Read from PUBLIC_ROUTES rather than a list kept here. That constant is what
-   * middleware actually lets through, so adding a route to it now also adds it
-   * to this walk — a public page that middleware admits but nobody ever loads
-   * is exactly how a broken or unintended one survives.
+   * Read from the route-access constants rather than a list kept here. Those are
+   * what middleware actually lets through, so adding a route to one now also
+   * adds it to this walk — a public route that middleware admits but nobody
+   * ever loads is exactly how a broken or unintended one survives.
+   *
+   * The health probes are walked here too, and they are the reason this matters:
+   * they sat behind the session gate answering 307 to every probe, which no
+   * page-level test would ever have noticed.
    */
-  for (const path of PUBLIC_ROUTES) {
+  for (const path of [...PUBLIC_ROUTES, ...PUBLIC_OPERATIONAL_ROUTES]) {
     const response = await session.request(path);
     check(response.status === 200, `public: ${path} returns 200`, String(response.status));
   }

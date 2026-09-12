@@ -4,6 +4,7 @@ import {
   isContextlessRoute,
   isDeadSessionReason,
   isPublicRoute,
+  PUBLIC_OPERATIONAL_ROUTES,
   redirectsWhenAuthenticated,
 } from "@/lib/permissions/route-access";
 
@@ -30,6 +31,26 @@ describe("isPublicRoute", () => {
     expect(isPublicRoute("/invite/some-token")).toBe(true);
     expect(isPublicRoute("/invite/")).toBe(false);
     expect(isPublicRoute("/invite")).toBe(false);
+  });
+
+  /**
+   * The probes (PRD #32 §119-§122).
+   *
+   * These were gated, and a gated readiness probe does not merely fail to
+   * answer — it answers 307 before the handler runs, so it reports the same
+   * thing whether the database is up or down. A probe that cannot say "not
+   * ready" is not a probe.
+   */
+  it("admits the health probes, which have no session to offer", () => {
+    for (const path of PUBLIC_OPERATIONAL_ROUTES) {
+      expect(isPublicRoute(path), path).toBe(true);
+    }
+  });
+
+  it("does not open the rest of the API along with them", () => {
+    for (const path of ["/api/health", "/api/documents", "/api/projects", "/api/health/ready/x"]) {
+      expect(isPublicRoute(path), path).toBe(false);
+    }
   });
 });
 
