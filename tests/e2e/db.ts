@@ -138,7 +138,49 @@ export async function removeTestDocuments(namePrefix: string): Promise<void> {
   const ids = documents.map((document) => document.id);
 
   await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+  await db.auditEvent.deleteMany({ where: { entityId: { in: ids } } });
+  // An upload session holds a foreign key to its document and a quota
+  // reservation, so it has to go first (PRD #29 §68).
+  await db.documentUploadSession.deleteMany({ where: { documentId: { in: ids } } });
   await db.document.deleteMany({ where: { id: { in: ids } } });
+
+  await reconcileStorageUsageProjection();
+}
+
+/**
+ * Rebuilds every company's storage usage projection (PRD #29 §148).
+ *
+ * The E2E suite deletes its documents directly rather than through the
+ * product's lifecycle, which leaves the projection ahead of the rows. The seed
+ * validation checks that the two agree, so this puts it back.
+ */
+export async function reconcileStorageUsageProjection(): Promise<void> {
+  const companies = await db.company.findMany({ select: { id: true } });
+
+  for (const company of companies) {
+    const totals = await db.document.aggregate({
+      where: {
+        companyId: company.id,
+        storageKey: { not: null },
+        storageStatus: { not: "REJECTED" },
+      },
+      _sum: { sizeBytes: true },
+      _count: true,
+    });
+
+    await db.companyStorageUsage.upsert({
+      where: { companyId: company.id },
+      create: {
+        companyId: company.id,
+        usedBytes: totals._sum.sizeBytes ?? BigInt(0),
+        fileCount: totals._count,
+      },
+      update: {
+        usedBytes: totals._sum.sizeBytes ?? BigInt(0),
+        fileCount: totals._count,
+      },
+    });
+  }
 }
 
 /**

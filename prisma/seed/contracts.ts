@@ -29,6 +29,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
+import { seedStoredDocument } from "./document-objects";
 
 type Members = Map<string, string>;
 
@@ -901,26 +902,23 @@ const CONTRACT_DOCUMENTS = [
 ];
 
 async function seedContractDocuments(prisma: PrismaClient) {
+  const uploader = await prisma.companyMember.findFirst({
+    where: { companyId: COMPANY_A, user: { email: "legal@nesto.test" } },
+    select: { id: true },
+  });
+
   let index = 0;
   for (const document of CONTRACT_DOCUMENTS) {
     index += 1;
-    const id = `document_contract_${index.toString().padStart(2, "0")}`;
-
-    await prisma.document.upsert({
-      where: { id },
-      update: {},
-      create: {
-        id,
-        companyId: COMPANY_A,
-        name: document.name,
-        fileName: document.name,
-        mimeType: "application/pdf",
-        sizeBytes: BigInt(180_000 + index * 6_200),
-        module: "contracts",
-        entityType: document.entityType,
-        entityId: document.entityId,
-        createdBy: "user_legal",
-      },
+    await seedStoredDocument(prisma, {
+      id: `document_contract_${index.toString().padStart(2, "0")}`,
+      companyId: COMPANY_A,
+      name: document.name,
+      module: "contracts",
+      entityType: document.entityType,
+      entityId: document.entityId,
+      uploadedByMemberId: uploader?.id ?? null,
+      createdBy: "user_legal",
     });
   }
 }

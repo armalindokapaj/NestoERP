@@ -183,6 +183,49 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     problems.push(`${crossCompanyProjects} Company A project(s) reference a client from another company`);
   }
 
+  /*
+   * Storage invariants (PRD #29 §17, §128, §233).
+   *
+   * A Document references one stored object. A demo dataset full of rows with
+   * no bytes behind them would make every storage guarantee untestable, so
+   * these are checked rather than assumed.
+   */
+  const documentsWithoutObjects = await prisma.document.count({ where: { storageKey: null } });
+  if (documentsWithoutObjects > 0) {
+    problems.push(`${documentsWithoutObjects} document(s) have no storage key`);
+  }
+
+  const unverifiedDocuments = await prisma.document.count({
+    where: { storageStatus: { notIn: ["AVAILABLE", "ARCHIVED"] } },
+  });
+  if (unverifiedDocuments > 0) {
+    problems.push(`${unverifiedDocuments} document(s) are not in a verified storage state`);
+  }
+
+  // Every company gets a quota row, so the ceiling is a stated policy rather
+  // than an implicit default (PRD #29 §145).
+  const companies = await prisma.company.count();
+  const quotas = await prisma.companyStorageQuota.count();
+  if (quotas < companies) {
+    problems.push(`${companies - quotas} company(s) have no storage quota row`);
+  }
+
+  // The usage projection must agree with the documents it projects
+  // (PRD #29 §148, PRD #35 §238).
+  const usageRows = await prisma.companyStorageUsage.findMany();
+  for (const usage of usageRows) {
+    const actual = await prisma.document.aggregate({
+      where: { companyId: usage.companyId, storageKey: { not: null }, storageStatus: { not: "REJECTED" } },
+      _sum: { sizeBytes: true },
+      _count: true,
+    });
+    if ((actual._sum.sizeBytes ?? BigInt(0)) !== usage.usedBytes || actual._count !== usage.fileCount) {
+      problems.push(
+        `storage usage for ${usage.companyId} does not reconcile: projection ${usage.fileCount} files, documents ${actual._count}`,
+      );
+    }
+  }
+
   if (problems.length > 0) {
     throw new Error(`Seed validation failed:\n  - ${problems.join("\n  - ")}`);
   }

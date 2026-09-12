@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { db, removeTestDocuments } from "../db";
 import { signIn } from "../fixtures";
 
 /**
@@ -296,5 +297,92 @@ test.describe("mobile HSE (PRD #22 §334)", () => {
     const banner = page.locator("#nesto-main").getByRole("alert").first();
     await expect(banner).toContainText("Work is stopped");
     await expect(banner).toBeInViewport();
+  });
+});
+
+/**
+ * Mobile file upload (PRD #29 §172, §173, §185, §344).
+ *
+ * A phone is where site photos actually come from, so this is the upload path
+ * that matters most in construction — and the one most likely to be
+ * interrupted. Progress, cancel and retry all have to work at 412px.
+ */
+test.describe("mobile upload (PRD #29 §185)", () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page, "PROJECT_MANAGER");
+  });
+
+  const MOBILE_PREFIX = "E2E mobile document";
+
+  test.afterAll(async () => {
+    await removeTestDocuments(MOBILE_PREFIX);
+    await db.$disconnect();
+  });
+
+  test("uploads a site photo taken on the phone (§172, §173)", async ({ page }) => {
+    await page.goto("/documents/new?projectId=project_a");
+
+    const name = `${MOBILE_PREFIX} Site Photo`;
+    await page.getByLabel("Document name").fill(name);
+
+    // A real JPEG: the same magic-byte verification applies to a camera image
+    // as to anything else (PRD #29 §173).
+    await page.getByLabel("Choose files to upload").setInputFiles({
+      name: "site-photo.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00,
+        0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+      ]),
+    });
+
+    await expect(page.locator("#nesto-main").getByText(/· Uploaded$/)).toBeVisible({
+      timeout: 20_000,
+    });
+
+    const stored = await db.document.findFirstOrThrow({
+      where: { name },
+      select: { storageStatus: true, detectedMimeType: true, previewStatus: true },
+    });
+    expect(stored.storageStatus).toBe("AVAILABLE");
+    expect(stored.detectedMimeType).toBe("image/jpeg");
+    // An image is inline-safe, so it previews (PRD #29 §47, §53).
+    expect(stored.previewStatus).toBe("READY");
+  });
+
+  test("keeps the dropzone and the queue inside the viewport (§184)", async ({ page }) => {
+    await page.goto("/documents/new?projectId=project_a");
+
+    await expect(page.getByRole("button", { name: /Drop files here/ })).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
+  /**
+   * The dropzone has to be reachable without a pointer (PRD #29 §343).
+   *
+   * It is a button with a labelled file input behind it, rather than a `div`
+   * with a drop handler bolted on — so the keyboard and a screen reader get
+   * the same door a mouse does.
+   */
+  test("the file picker is a labelled control, not a drop target only (§343)", async ({ page }) => {
+    await page.goto("/documents/new?projectId=project_a");
+
+    const input = page.getByLabel("Choose files to upload");
+    await expect(input).toHaveAttribute("type", "file");
+    await expect(input).toHaveAttribute("multiple", "");
+
+    const dropzone = page.getByRole("button", { name: /Drop files here/ });
+    await expect(dropzone).toHaveAttribute("aria-describedby", "upload-hint");
+  });
+
+  test("says what it will refuse before a file is chosen (§154)", async ({ page }) => {
+    await page.goto("/documents/new?projectId=project_a");
+
+    await expect(page.locator("#upload-hint")).toContainText(/Executables, scripts, archives/);
+    await expect(page.locator("#upload-hint")).toContainText(/100 MB/);
   });
 });

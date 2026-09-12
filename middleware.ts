@@ -2,6 +2,11 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
 import { authConfig } from "@/lib/auth/auth.config";
+import {
+  buildContentSecurityPolicy,
+  CSP_NONCE_HEADER,
+  newCspNonce,
+} from "@/lib/core/security/csp";
 import { isPublicRoute, redirectsWhenAuthenticated } from "@/lib/permissions/route-access";
 
 /**
@@ -12,6 +17,11 @@ import { isPublicRoute, redirectsWhenAuthenticated } from "@/lib/permissions/rou
  * in?" — module permissions are resolved server-side by requireModule() inside
  * the route, from the live database, so a revoked membership takes effect
  * immediately and no restricted markup is ever produced (PRD #5 §128).
+ *
+ * It also mints the per-request CSP nonce (PRD #30 §108). That has to happen
+ * here rather than in `next.config.ts`, because a nonce that is the same on
+ * every response is not a nonce — and `script-src 'self'` with no nonce at all
+ * blocks Next's own bootstrap scripts and leaves the page blank.
  */
 const { auth } = NextAuth(authConfig);
 
@@ -19,6 +29,27 @@ export default auth((req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
   const isAuthenticated = Boolean(req.auth?.user?.id);
+
+  const nonce = newCspNonce();
+  const csp = buildContentSecurityPolicy({
+    nonce,
+    isProduction: process.env.NODE_ENV === "production",
+  });
+
+  /*
+   * The policy goes on the *request* as well as the response: Next reads it
+   * from there to decide which nonce to stamp onto its script tags. Without
+   * this, the response header would name a nonce no script carries.
+   */
+  const forwarded = new Headers(req.headers);
+  forwarded.set(CSP_NONCE_HEADER, nonce);
+  forwarded.set("Content-Security-Policy", csp);
+
+  const proceed = () => {
+    const response = NextResponse.next({ request: { headers: forwarded } });
+    response.headers.set("Content-Security-Policy", csp);
+    return response;
+  };
 
   if (isPublicRoute(pathname)) {
     const reason = nextUrl.searchParams.get("reason");
@@ -34,7 +65,7 @@ export default auth((req) => {
     if (isAuthenticated && redirectsWhenAuthenticated(pathname, reason)) {
       return NextResponse.redirect(new URL("/dashboard", nextUrl));
     }
-    return NextResponse.next();
+    return proceed();
   }
 
   if (!isAuthenticated) {
@@ -47,7 +78,7 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return proceed();
 });
 
 export const config = {

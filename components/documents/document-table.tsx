@@ -33,6 +33,13 @@ export function DocumentTable({
               {document.originalFileName}
             </span>
           ) : null}
+          {/* A row can be ACTIVE and still have no downloadable file behind it.
+              Saying so beats implying one is there (PRD #29 §162, §342). */}
+          {document.storageMessage && document.storageStatus !== "ARCHIVED" ? (
+            <span className="block text-meta font-normal text-warning-strong">
+              {document.storageMessage}
+            </span>
+          ) : null}
         </>
       ),
     },

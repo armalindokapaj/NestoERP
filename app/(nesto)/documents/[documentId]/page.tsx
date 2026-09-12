@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileWarning } from "lucide-react";
 
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { DocumentActions } from "@/components/documents/document-actions";
+import { DocumentFilePanel } from "@/components/documents/document-file-panel";
 import { Badge } from "@/components/ui/badge";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import * as documents from "@/lib/modules/documents/document.service";
+import type { DocumentDetailDTO } from "@/lib/modules/documents/document.types";
 import { formatDateTime, orDash } from "@/lib/utils/format";
 import { documentBreadcrumbs, loadDocument } from "./document-context";
 
@@ -78,20 +79,6 @@ export default async function DocumentDetailPage({ params }: Params) {
         </p>
       ) : null}
 
-      {!document.file.available ? (
-        // The row survived its object. Say so plainly rather than exposing
-        // storage internals (PRD #13 §116, §191).
-        <div className="flex items-start gap-3 rounded-md border border-warning/40 bg-warning-soft px-4 py-3.5">
-          <FileWarning aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
-          <div>
-            <p className="text-table font-medium text-fg">File unavailable.</p>
-            <p className="mt-0.5 text-meta text-fg-muted">
-              The document record exists, but the file could not be retrieved.
-            </p>
-          </div>
-        </div>
-      ) : null}
-
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
           <h2 className="text-card font-semibold text-fg">Description</h2>
@@ -103,33 +90,15 @@ export default async function DocumentDetailPage({ params }: Params) {
             <p className="mt-3 text-table text-fg-subtle">No description was added.</p>
           )}
 
-          {document.file.previewable && document.capabilities.canDownload ? (
-            <div className="mt-5 border-t border-line pt-5">
-              <h3 className="text-table font-semibold text-fg">Preview</h3>
-              <div className="mt-3 overflow-hidden rounded-md border border-line bg-surface-2">
-                {/* Same authorisation as download; only formats that cannot
-                    execute in the browser reach here (PRD #13 §35, §157). */}
-                <object
-                  data={`/api/documents/${document.id}/download?inline=1`}
-                  type={document.file.mimeType ?? "application/octet-stream"}
-                  aria-label={`Preview of ${document.name}`}
-                  className="h-[28rem] w-full"
-                >
-                  <p className="p-4 text-table text-fg-muted">
-                    This file cannot be previewed here.{" "}
-                    <a
-                      href={`/api/documents/${document.id}/download`}
-                      className="text-accent-strong hover:underline"
-                      download
-                    >
-                      Download it instead
-                    </a>
-                    .
-                  </p>
-                </object>
-              </div>
+          <div className="mt-5 border-t border-line pt-5">
+            <h3 className="text-table font-semibold text-fg">File</h3>
+            <div className="mt-3">
+              {/* Download and preview both ask the server for a short-lived
+                  grant, so the access decision is made at the click with the
+                  reader's current permissions (PRD #29 §100, §104). */}
+              <DocumentFilePanel document={document} />
             </div>
-          ) : null}
+          </div>
         </section>
 
         <div className="space-y-4">
@@ -149,6 +118,19 @@ export default async function DocumentDetailPage({ params }: Params) {
                 },
                 { label: "Added", value: formatDateTime(document.createdAt) },
                 { label: "Updated", value: formatDateTime(document.updatedAt) },
+                // The storage lifecycle, which is not the business status
+                // (PRD #29 §2).
+                { label: "Storage", value: storageLabel(document.file.storageStatus) },
+                {
+                  label: "Checksum",
+                  value: document.file.checksum ? (
+                    <span className="font-mono text-meta">
+                      {document.file.checksum.slice(0, 16)}…
+                    </span>
+                  ) : (
+                    "—"
+                  ),
+                },
               ]}
             />
           </section>
@@ -185,4 +167,22 @@ export default async function DocumentDetailPage({ params }: Params) {
       </div>
     </div>
   );
+}
+
+/** The storage lifecycle in words, not an enum value (PRD #29 §162). */
+function storageLabel(status: DocumentDetailDTO["file"]["storageStatus"]): string {
+  switch (status) {
+    case "AVAILABLE":
+      return "Verified and available";
+    case "ARCHIVED":
+      return "Archived — file kept";
+    case "REJECTED":
+      return "Rejected";
+    case "FAILED":
+      return "Upload failed";
+    case "SCANNING":
+      return "Being checked";
+    default:
+      return "Processing";
+  }
 }

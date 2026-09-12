@@ -1,11 +1,13 @@
 import type { Prisma } from "@prisma/client";
 
+import { AccessError } from "@/lib/access/guards";
 import { can, getModuleScope } from "@/lib/access/can";
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
+import type { CreateDocumentInput, DocumentRecordType } from "./document.schema";
 
 /**
  * The parent-access registry (PRD #13 §42–§45).
@@ -725,3 +727,99 @@ export function buildDocumentAccessWhere(context: UserContext): Prisma.DocumentW
 
   return { companyId: context.companyId, OR: branches };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Parent resolution                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Turns a create request into a parent reference, validating the record it
+ * names belongs to this company.
+ *
+ * The context chosen in the form is not trusted: a project id from another
+ * company, or one this caller cannot open, is refused here rather than being
+ * written and hidden later (PRD #13 §91, §236).
+ */
+/**
+ * Just the fields that name a parent.
+ *
+ * Narrower than either input schema on purpose: both the metadata form and the
+ * upload request satisfy it, so neither has to be cast to the other's shape to
+ * ask the same question.
+ */
+export type DocumentParentInput = {
+  context: CreateDocumentInput["context"];
+  projectId?: string;
+  clientId?: string;
+  entityType?: DocumentRecordType;
+  entityId?: string;
+};
+
+export async function resolveDocumentParent(
+  context: UserContext,
+  input: DocumentParentInput,
+): Promise<DocumentParentRef> {
+  if (input.context === "project") {
+    // Looked up inside the caller's own scope, so a project they cannot reach
+    // reads as "does not exist" rather than being confirmed to them.
+    const project = await prisma.project.findFirst({
+      where: { AND: [buildProjectScopeWhere(context), { id: input.projectId! }] },
+      select: { id: true, clientId: true },
+    });
+    if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.");
+    return {
+      projectId: project.id,
+      clientId: null,
+      module: "projects",
+      entityType: "project",
+      entityId: project.id,
+    };
+  }
+
+  if (input.context === "client") {
+    const client = await prisma.client.findFirst({
+      where: { AND: [buildClientScopeWhere(context), { id: input.clientId! }] },
+      select: { id: true },
+    });
+    if (!client) throw new AccessError("VALIDATION_ERROR", "That client does not exist.");
+    return {
+      projectId: null,
+      clientId: client.id,
+      module: "clients",
+      entityType: "client",
+      entityId: client.id,
+    };
+  }
+
+  if (input.context === "record") {
+    /*
+     * A document filed against a module's own record (PRD #15 §187).
+     *
+     * The parent is not looked up here: `canAttachToDocumentParent` runs the
+     * registered resolver for this entity type, which reads the record through
+     * *its* module's scope. One place decides reachability, so a record type
+     * added later cannot quietly acquire a second interpretation.
+     */
+    return {
+      projectId: null,
+      clientId: null,
+      module: MODULE_FOR_RECORD[input.entityType!],
+      entityType: input.entityType!,
+      entityId: input.entityId!,
+    };
+  }
+
+  return { projectId: null, clientId: null, module: null, entityType: null, entityId: null };
+}
+
+/** Which module owns each record type a document can be filed against. */
+const MODULE_FOR_RECORD: Record<DocumentRecordType, string> = {
+  task: "tasks",
+  invoice: "finance",
+  expense: "finance",
+  budget: "finance",
+  commitment: "finance",
+  employee: "hr",
+  leave_request: "hr",
+};
+

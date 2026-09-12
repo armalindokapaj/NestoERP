@@ -89,8 +89,16 @@ jobs:
 
       - name: Production guard checks
         # The DEV role switcher and the demo seed must be impossible in a
-        # production build (PRD #34 §52, §53, PRD #30 §261, §264).
+        # production build, storage must require HTTPS, and the file allowlist
+        # must stay closed (PRD #34 §52, §53, PRD #30 §261, PRD #29 §186, §366).
         run: pnpm verify:production-guards
+
+      - name: Storage maintenance dry run
+        # Exercises the worker the storage architecture depends on and reports
+        # any document whose object has gone missing. A dry run changes
+        # nothing, and a non-zero orphan count on seeded data means the seed
+        # and the objects have drifted apart (PRD #29 §128, §129, §377).
+        run: pnpm storage:maintenance
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium

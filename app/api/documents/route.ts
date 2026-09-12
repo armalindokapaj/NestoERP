@@ -5,12 +5,18 @@ import * as documents from "@/lib/modules/documents/document.service";
 
 /**
  * GET  /api/documents — scoped, filtered, paginated list (PRD #13 §141).
- * POST /api/documents — multipart upload (PRD #13 §20, §141).
+ * POST /api/documents — multipart upload, for programmatic callers.
  *
- * V0.1 uses the server-proxy upload the PRD permits for files of this size.
- * The storage abstraction and the tenant-safe key layout are already in place,
- * so moving to direct-to-object-storage later is an adapter and a route, not a
- * redesign (PRD #13 §20, §273).
+ * The browser does not use this route. A browser upload goes through
+ * `POST /api/documents/uploads`, gets a signed URL and pushes the bytes
+ * straight at storage, which is what keeps binaries off the app server
+ * (PRD #29 §9, §389).
+ *
+ * This one stays for API clients that hold the bytes already and would rather
+ * make one call than three. It is not a shortcut: it runs the same pipeline —
+ * parent access, type and size validation, quota, object write, HEAD
+ * verification, magic-byte detection, checksum and the scan gate
+ * (PRD #29 §233).
  */
 export async function GET(request: Request) {
   return withContext(async (context) => {

@@ -29,6 +29,8 @@ import { seedCompanySettings } from "./seed/settings";
 import { seedSalesRecords } from "./seed/sales";
 import { seedTeamRecords } from "./seed/team";
 import { validateSeed } from "./seed/validate";
+import { reconcileStorageUsage } from "../lib/modules/documents/storage/cleanup.service";
+import { seedStorageQuotas } from "./seed/storage";
 
 const prisma = new PrismaClient();
 
@@ -68,6 +70,12 @@ async function main() {
   await seedModuleRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
   await seedAuditEvents(prisma, { companyA, companyB });
+
+  // Documents are seeded by nine different modules, so the usage projection is
+  // rebuilt from them once at the end rather than incremented nine times
+  // (PRD #29 §146, §148).
+  await seedStorageQuotas(prisma);
+  await reconcileStorageUsage();
 
   await validateSeed(prisma);
 

@@ -8,28 +8,14 @@ import type { NextConfig } from "next";
  * frame-ancestors blocks clickjacking, nosniff stops MIME confusion, and HSTS
  * keeps production on TLS (PRD #30 §106, §112, §114).
  *
- * `unsafe-inline` for styles is Next.js's styled-jsx requirement; scripts do not
- * get it in production (PRD #30 §107, §108).
+ * The Content-Security-Policy itself is *not* here. It carries a per-request
+ * nonce, so it is built in `lib/core/security/csp.ts` and set by middleware —
+ * a static `script-src 'self'` would block Next's own bootstrap scripts and
+ * serve a blank page (PRD #30 §108). Everything below is genuinely static.
  */
 const isProduction = process.env.NODE_ENV === "production";
 
-const csp = [
-  "default-src 'self'",
-  isProduction ? "script-src 'self'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self'",
-  "frame-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  ...(isProduction ? ["upgrade-insecure-requests"] : []),
-].join("; ");
-
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {

@@ -5,10 +5,7 @@ import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
 import { requireUserContext } from "@/lib/context/current-user";
-import {
-  createDocumentSchema,
-  updateDocumentSchema,
-} from "@/lib/modules/documents/document.schema";
+import { updateDocumentSchema } from "@/lib/modules/documents/document.schema";
 import * as documents from "@/lib/modules/documents/document.service";
 
 /**
@@ -48,43 +45,6 @@ function textValues(formData: FormData): Record<string, unknown> {
     if (typeof value === "string") values[key] = value;
   }
   return values;
-}
-
-export async function uploadDocumentAction(formData: FormData): Promise<DocumentActionResult> {
-  const context = await requireUserContext();
-
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: "Choose a file to upload.", fieldErrors: { file: ["Required"] } };
-  }
-
-  const parsed = createDocumentSchema.safeParse(textValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
-
-  let documentId: string;
-  let projectId: string | null;
-  let clientId: string | null;
-  try {
-    const document = await documents.createDocument(context, parsed.data, {
-      fileName: file.name,
-      mimeType: file.type || null,
-      bytes: new Uint8Array(await file.arrayBuffer()),
-    });
-    documentId = document.id;
-    projectId = document.context.project?.id ?? null;
-    clientId = document.context.client?.id ?? null;
-  } catch (error) {
-    return toResult(error);
-  }
-
-  revalidateDocuments(documentId, projectId, clientId);
-  redirect(`/documents/${documentId}`);
 }
 
 export async function updateDocumentAction(
