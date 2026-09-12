@@ -18,6 +18,7 @@ const TABS = [
   { key: "projects", label: "Projects", suffix: "/projects" },
   { key: "finance", label: "Finance", suffix: "/finance" },
   { key: "sales", label: "Sales", suffix: "/sales" },
+  { key: "contracts", label: "Contracts", suffix: "/contracts" },
   { key: "documents", label: "Documents", suffix: "/documents" },
   { key: "activity", label: "Activity", suffix: "/activity" },
 ] as const;
@@ -46,6 +47,7 @@ export function ClientTabs({
     projects: capabilities.canViewProjects,
     finance: capabilities.canViewFinance,
     sales: capabilities.canViewSales,
+    contracts: capabilities.canViewContracts,
     documents: capabilities.canViewDocuments,
     activity: capabilities.canViewActivity,
   };

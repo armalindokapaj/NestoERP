@@ -10,16 +10,51 @@ import { PrismaClient } from "@prisma/client";
  */
 export const db = new PrismaClient();
 
-/** Returns the approval fixtures to the state the seed documents. */
+/**
+ * Returns the approval fixtures to the state the seed documents.
+ *
+ * Procurement runs its own approval service now (PRD #19), so this resets the
+ * real records rather than the shell's: the requests and orders the seed leaves
+ * awaiting a decision, and the approval cycles attached to them.
+ */
 export async function resetApprovalFixtures(): Promise<void> {
-  await db.purchaseRequest.updateMany({
-    where: { reference: { in: ["PR-001", "PR-004", "PR-009"] } },
-    data: { status: "PENDING_APPROVAL", approvedBy: null, approvedAt: null },
+  await db.procurementApproval.updateMany({
+    where: {
+      id: {
+        in: [
+          "procurement_approval_001",
+          "procurement_approval_002",
+          "procurement_approval_003",
+          "procurement_approval_008",
+        ],
+      },
+    },
+    data: { status: "PENDING", decidedByMemberId: null, decidedAt: null, decisionNote: null },
   });
 
-  await db.contract.updateMany({
-    where: { reference: { in: ["CTR-003", "CTR-007"] } },
-    data: { status: "PENDING_APPROVAL", approvedBy: null, approvedAt: null },
+  await db.purchaseRequest.updateMany({
+    where: { id: { in: ["request_005", "request_009", "request_016"] } },
+    data: {
+      status: "PENDING_APPROVAL",
+      approvedAt: null,
+      approvedByMemberId: null,
+      rejectedAt: null,
+      rejectedByMemberId: null,
+      rejectionReason: null,
+    },
+  });
+
+  await db.purchaseOrder.updateMany({
+    where: { id: "order_009" },
+    data: {
+      status: "PENDING_APPROVAL",
+      approvedAt: null,
+      approvedByMemberId: null,
+      rejectedAt: null,
+      rejectedByMemberId: null,
+      rejectionReason: null,
+      issuedAt: null,
+    },
   });
 }
 
@@ -452,4 +487,250 @@ export async function removeTestSalesRecords(prefix: string): Promise<void> {
     await db.activity.deleteMany({ where: { entityId: { in: ids } } });
     await db.client.deleteMany({ where: { id: { in: ids } } });
   }
+}
+
+/**
+ * Puts the Legal fixtures back the way the seed left them (PRD #18 §406–§417).
+ *
+ * The contracts spec walks real lifecycle actions — submitting for review,
+ * approving, signing, activating, terminating — so the records it touches end
+ * the run in a different state than they started. Restoring them keeps a rerun
+ * honest rather than dependent on the order the last one happened to take.
+ */
+export async function resetContractFixtures(): Promise<void> {
+  await db.contractApproval.updateMany({
+    where: { id: { in: ["contract_approval_001", "contract_approval_002"] } },
+    data: { status: "PENDING", decidedByMemberId: null, decidedAt: null, decisionNote: null },
+  });
+
+  await db.contract.updateMany({
+    where: { id: "contract_010" },
+    data: { status: "DRAFT" },
+  });
+
+  await db.contract.updateMany({
+    where: { id: "contract_011" },
+    data: { status: "IN_REVIEW" },
+  });
+
+  await db.contract.updateMany({
+    where: { id: { in: ["contract_012", "contract_013"] } },
+    data: { status: "PENDING_APPROVAL" },
+  });
+
+  await db.contract.updateMany({
+    where: { id: "contract_014" },
+    data: { status: "APPROVED", sentAt: null, signedDate: null },
+  });
+
+  await db.contract.updateMany({
+    where: { id: "contract_015" },
+    data: { status: "SENT", signedDate: null },
+  });
+
+  await db.contract.updateMany({
+    where: { id: "contract_016" },
+    data: { status: "SIGNED" },
+  });
+
+  await db.contract.updateMany({
+    where: { id: "contract_019" },
+    data: { status: "CANCELLED", archivedAt: null },
+  });
+}
+
+/** Removes the Legal records a spec created, so a rerun starts from the seed. */
+export async function removeTestContractRecords(prefix: string): Promise<void> {
+  const contracts = await db.contract.findMany({
+    where: { OR: [{ title: { startsWith: prefix } }, { contractNumber: { startsWith: prefix } }] },
+    select: { id: true },
+  });
+  const contractIds = contracts.map((row) => row.id);
+
+  const amendments = await db.contractAmendment.findMany({
+    where: {
+      OR: [
+        { contractId: { in: contractIds } },
+        { title: { startsWith: prefix } },
+        { amendmentNumber: { startsWith: prefix } },
+      ],
+    },
+    select: { id: true },
+  });
+  const amendmentIds = amendments.map((row) => row.id);
+
+  // Obligations a spec created against a *seeded* contract go too, matched by
+  // title — otherwise they accumulate on every run.
+  await db.contractObligation.deleteMany({
+    where: { OR: [{ contractId: { in: contractIds } }, { title: { startsWith: prefix } }] },
+  });
+
+  await db.contractApproval.deleteMany({
+    where: { recordId: { in: [...contractIds, ...amendmentIds] } },
+  });
+  await db.contractAmendment.deleteMany({ where: { id: { in: amendmentIds } } });
+  await db.contractParty.deleteMany({
+    where: { OR: [{ contractId: { in: contractIds } }, { name: { startsWith: prefix } }] },
+  });
+  await db.task.deleteMany({ where: { title: { startsWith: prefix } } });
+  await db.activity.deleteMany({ where: { entityId: { in: contractIds } } });
+  await db.contract.deleteMany({ where: { id: { in: contractIds } } });
+}
+
+/**
+ * Puts the Procurement fixtures back the way the seed left them (PRD #19 §294).
+ *
+ * The procurement spec walks real lifecycle actions — submitting, approving,
+ * issuing, receiving — so the records it touches end the run in a different
+ * state than they started.
+ */
+export async function resetProcurementFixtures(): Promise<void> {
+  await db.procurementApproval.updateMany({
+    where: {
+      id: {
+        in: [
+          "procurement_approval_001",
+          "procurement_approval_002",
+          "procurement_approval_003",
+          "procurement_approval_008",
+        ],
+      },
+    },
+    data: { status: "PENDING", decidedByMemberId: null, decidedAt: null, decisionNote: null },
+  });
+
+  await db.purchaseRequest.updateMany({
+    where: { id: { in: ["request_005", "request_009", "request_016"] } },
+    data: {
+      status: "PENDING_APPROVAL",
+      approvedAt: null,
+      approvedByMemberId: null,
+      rejectedAt: null,
+      rejectedByMemberId: null,
+      rejectionReason: null,
+    },
+  });
+
+  await db.purchaseRequest.updateMany({
+    where: { id: { in: ["request_007", "request_019"] } },
+    data: { status: "DRAFT", submittedAt: null },
+  });
+
+  await db.purchaseOrder.updateMany({
+    where: { id: "order_009" },
+    data: {
+      status: "PENDING_APPROVAL",
+      approvedAt: null,
+      approvedByMemberId: null,
+      issuedAt: null,
+      rejectedAt: null,
+      rejectedByMemberId: null,
+      rejectionReason: null,
+    },
+  });
+
+  await db.purchaseOrder.updateMany({
+    where: { id: "order_010" },
+    data: { status: "DRAFT", submittedAt: null, financeCommitmentId: null },
+  });
+
+  await db.rFQ.updateMany({ where: { id: "rfq_007" }, data: { status: "DRAFT", issuedAt: null } });
+
+  /*
+   * An order a run booked goods against.
+   *
+   * Deleting the receipt does not re-derive the order — receiving status is
+   * computed when a receipt is written or voided, not on read — so the order
+   * has to be put back explicitly (PRD #19 §141).
+   */
+  await db.goodsReceiptItem.deleteMany({
+    where: { goodsReceipt: { purchaseOrderId: "order_004", id: { notIn: SEEDED_RECEIPTS } } },
+  });
+  await db.goodsReceipt.deleteMany({
+    where: { purchaseOrderId: "order_004", id: { notIn: SEEDED_RECEIPTS } },
+  });
+  await db.purchaseOrder.updateMany({
+    where: { id: "order_004" },
+    data: { status: "ISSUED" },
+  });
+
+  /*
+   * Approval cycles a run opened on a seeded record.
+   *
+   * Putting the record back to DRAFT is not enough: one pending cycle per
+   * record is the rule, so a leftover cycle makes the next run's submit
+   * conflict rather than fail informatively (PRD #19 §213).
+   */
+  await db.procurementApproval.deleteMany({
+    where: {
+      recordId: { in: ["request_007", "request_019", "order_010"] },
+      id: { notIn: SEEDED_PROCUREMENT_APPROVALS },
+    },
+  });
+}
+
+/** The receipts the seed itself creates, which must survive a reset. */
+const SEEDED_RECEIPTS = Array.from(
+  { length: 18 },
+  (_, index) => `receipt_${String(index + 1).padStart(3, "0")}`,
+);
+
+/** The approval cycles the seed itself creates, which must survive a reset. */
+const SEEDED_PROCUREMENT_APPROVALS = [
+  "procurement_approval_001",
+  "procurement_approval_002",
+  "procurement_approval_003",
+  "procurement_approval_004",
+  "procurement_approval_005",
+  "procurement_approval_006",
+  "procurement_approval_007",
+  "procurement_approval_008",
+  "procurement_approval_009",
+  "procurement_approval_010",
+  "procurement_approval_011",
+];
+
+/** Removes the Procurement records a spec created, so a rerun starts from the seed. */
+export async function removeTestProcurementRecords(prefix: string): Promise<void> {
+  const orders = await db.purchaseOrder.findMany({
+    where: { OR: [{ notes: { startsWith: prefix } }, { items: { some: { description: { startsWith: prefix } } } }] },
+    select: { id: true },
+  });
+  const orderIds = orders.map((row) => row.id);
+
+  const rfqs = await db.rFQ.findMany({
+    where: { title: { startsWith: prefix } },
+    select: { id: true },
+  });
+  const rfqIds = rfqs.map((row) => row.id);
+
+  const requests = await db.purchaseRequest.findMany({
+    where: { title: { startsWith: prefix } },
+    select: { id: true },
+  });
+  const requestIds = requests.map((row) => row.id);
+
+  await db.goodsReceiptItem.deleteMany({
+    where: { OR: [{ goodsReceipt: { purchaseOrderId: { in: orderIds } } }, { goodsReceipt: { deliveryReference: { startsWith: prefix } } }] },
+  });
+  await db.goodsReceipt.deleteMany({
+    where: { OR: [{ purchaseOrderId: { in: orderIds } }, { deliveryReference: { startsWith: prefix } }] },
+  });
+  await db.supplierQuoteItem.deleteMany({
+    where: { supplierQuote: { rfqId: { in: rfqIds } } },
+  });
+  await db.supplierQuote.deleteMany({ where: { rfqId: { in: rfqIds } } });
+  await db.rFQSupplier.deleteMany({ where: { rfqId: { in: rfqIds } } });
+  await db.rFQItem.deleteMany({ where: { rfqId: { in: rfqIds } } });
+  await db.procurementApproval.deleteMany({
+    where: { recordId: { in: [...orderIds, ...requestIds] } },
+  });
+  await db.commitment.deleteMany({ where: { sourceEntityId: { in: orderIds } } });
+  await db.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: { in: orderIds } } });
+  await db.purchaseRequestItem.deleteMany({ where: { purchaseRequestId: { in: requestIds } } });
+  await db.activity.deleteMany({ where: { entityId: { in: [...orderIds, ...rfqIds, ...requestIds] } } });
+  await db.purchaseOrder.deleteMany({ where: { id: { in: orderIds } } });
+  await db.rFQ.deleteMany({ where: { id: { in: rfqIds } } });
+  await db.purchaseRequest.deleteMany({ where: { id: { in: requestIds } } });
+  await db.supplier.deleteMany({ where: { name: { startsWith: prefix } } });
 }

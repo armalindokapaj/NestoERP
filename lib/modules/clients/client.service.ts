@@ -1,7 +1,7 @@
 import { Prisma, type ClientStatus, type ClientType, type ContactStatus } from "@prisma/client";
 
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
-import { can } from "@/lib/access/can";
+import { can, isModuleEnabled } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -817,6 +817,19 @@ function toDetailDTO(
      * counts on it are the reader's own.
      */
     canViewSales: can(context, "sales.view") && can(context, "sales.opportunity.view"),
+    /**
+     * The client Contracts tab needs client access *and* legal access to the
+     * agreements behind it (PRD #18 §10, §251). Client access alone never
+     * reaches a contract — that separation is the point: somebody who can open
+     * a customer record has not thereby been told what the company agreed to
+     * pay its subcontractor on that customer's job.
+     *
+     * A company with the module switched off has no tab at all (PRD #18 §518).
+     */
+    canViewContracts:
+      isModuleEnabled(context, "contracts") &&
+      can(context, "legal.view") &&
+      can(context, "legal.contract.view"),
     },
   };
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { RecordHeader } from "@/components/modules/record-header";
 import { OpportunityActions } from "@/components/sales/opportunity-actions";
 import { ProposalTable } from "@/components/sales/proposal-table";
+import { SalesContractHandoff } from "@/components/contracts/sales-handoff";
 import { SalesRecordDocuments } from "@/components/sales/record-documents";
 import { SalesActivityFeed } from "@/components/sales/sales-activity";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +120,20 @@ export default async function OpportunityPage({ params }: Params) {
             )}
           </div>
         </section>
+      ) : null}
+
+      {/* The agreement behind a won deal (PRD #18 §12, §366). */}
+      {opportunity.stage === "WON" ? (
+        <SalesContractHandoff
+          context={context}
+          source={{ opportunityId: opportunity.id }}
+          prefill={{
+            title: opportunity.name,
+            clientId: opportunity.client?.id ?? null,
+            currency: opportunity.currency,
+            contractValue: opportunity.estimatedValue,
+          }}
+        />
       ) : null}
 
       {opportunity.stage === "LOST" && opportunity.lostReason ? (

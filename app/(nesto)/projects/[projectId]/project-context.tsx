@@ -32,6 +32,7 @@ export type ProjectTabKey =
   | "tasks"
   | "team"
   | "finance"
+  | "contracts"
   | "documents"
   | "activity";
 

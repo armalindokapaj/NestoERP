@@ -290,22 +290,220 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "sales.project.convert",
     ],
   },
+  /**
+   * Legal / Contracts (PRD #18 §16, §19, §22, §27).
+   *
+   * APPROVE is its own rung, as in Finance and Sales. Reading the commercial
+   * value is on VIEW because most people who may see a contract at all need to
+   * know what it is worth — but it is a separate grant precisely so a role can
+   * be given the agreement without the price (PRD #18 §22).
+   *
+   * `legal.confidential_terms.view` and `legal.approval.self` are on no rung.
+   * Legal notes are an assessment written for the company's lawyers, and
+   * deciding your own submission is not something a promotion should confer
+   * (PRD #18 §23, §116).
+   */
   contracts: {
-    VIEW: ["legal.view", "legal.contract.view"],
-    CONTRIBUTE: ["legal.contract.create", "legal.contract.update"],
-    APPROVE: ["legal.contract.approve"],
-    MANAGE: ["legal.manage", "legal.contract.archive"],
+    VIEW: [
+      "legal.view",
+      "legal.dashboard.view",
+      "legal.contract.view",
+      "legal.commercial.view",
+      "legal.party.view",
+      "legal.obligation.view",
+      "legal.amendment.view",
+      "legal.approval.view",
+      "legal.document.view",
+      "legal.task.view",
+      "legal.activity.view",
+      "legal.report.view",
+      "legal.sales_source.view",
+      "legal.client_link.view",
+      "legal.project_link.view",
+    ],
+    CONTRIBUTE: [
+      "legal.export",
+      "legal.contract.create",
+      "legal.contract.update",
+      "legal.contract.submit_review",
+      "legal.party.manage",
+      "legal.obligation.create",
+      "legal.obligation.update",
+      "legal.amendment.create",
+      "legal.amendment.update",
+      "legal.amendment.submit",
+      "legal.document.create",
+      "legal.task.create",
+    ],
+    APPROVE: [
+      "legal.approval.decide",
+      "legal.contract.approve",
+      "legal.contract.reject",
+      "legal.amendment.approve",
+      "legal.amendment.reject",
+    ],
+    MANAGE: [
+      "legal.manage",
+      "legal.contract.owner.assign",
+      "legal.contract.review",
+      "legal.contract.submit_approval",
+      "legal.contract.mark_sent",
+      "legal.contract.mark_signed",
+      "legal.contract.activate",
+      "legal.contract.expire",
+      "legal.contract.terminate",
+      "legal.contract.cancel",
+      "legal.contract.archive",
+      "legal.contract.restore",
+      "legal.obligation.complete",
+      "legal.obligation.cancel",
+      "legal.amendment.mark_sent",
+      "legal.amendment.mark_signed",
+      "legal.amendment.activate",
+      "legal.amendment.cancel",
+      "legal.amendment.archive",
+    ],
   },
   procurement: {
-    VIEW: ["procurement.view", "procurement.request.view", "procurement.order.view"],
-    CONTRIBUTE: ["procurement.request.create", "procurement.request.update"],
-    APPROVE: ["procurement.request.approve", "procurement.order.approve"],
-    MANAGE: ["procurement.manage", "procurement.order.create", "procurement.order.update"],
+    VIEW: [
+      "procurement.view",
+      "procurement.dashboard.view",
+      "procurement.supplier.view",
+      "procurement.request.view",
+      "procurement.rfq.view",
+      "procurement.quote.view",
+      "procurement.order.view",
+      "procurement.receipt.view",
+      "procurement.approval.view",
+      "procurement.document.view",
+      "procurement.task.view",
+      "procurement.activity.view",
+      "procurement.report.view",
+      "procurement.commitment.view",
+    ],
+    CONTRIBUTE: [
+      "procurement.export",
+      "procurement.supplier.create",
+      "procurement.supplier.update",
+      "procurement.request.create",
+      "procurement.request.update",
+      "procurement.request.submit",
+      "procurement.rfq.create",
+      "procurement.rfq.update",
+      "procurement.quote.create",
+      "procurement.quote.update",
+      "procurement.order.create",
+      "procurement.order.update",
+      "procurement.order.submit",
+      "procurement.receipt.create",
+      "procurement.document.create",
+      "procurement.task.create",
+    ],
+    APPROVE: [
+      "procurement.approval.decide",
+      "procurement.request.approve",
+      "procurement.request.reject",
+      "procurement.order.approve",
+      "procurement.order.reject",
+      "procurement.budget.view",
+    ],
+    MANAGE: [
+      "procurement.manage",
+      "procurement.supplier.archive",
+      "procurement.supplier.restore",
+      "procurement.request.cancel",
+      "procurement.request.archive",
+      "procurement.request.restore",
+      "procurement.rfq.issue",
+      "procurement.rfq.close",
+      "procurement.rfq.cancel",
+      "procurement.quote.select",
+      "procurement.quote.disqualify",
+      "procurement.order.issue",
+      "procurement.order.cancel",
+      "procurement.order.close",
+      "procurement.order.archive",
+      "procurement.order.restore",
+      "procurement.receipt.update",
+      "procurement.receipt.void",
+      "procurement.budget.view",
+      "procurement.commitment.sync",
+    ],
   },
   inventory: {
-    VIEW: ["inventory.view", "inventory.item.view", "inventory.movement.view"],
-    CONTRIBUTE: ["inventory.movement.create", "inventory.item.update"],
-    MANAGE: ["inventory.manage", "inventory.item.create", "inventory.item.archive"],
+    VIEW: [
+      "inventory.view",
+      "inventory.dashboard.view",
+      "inventory.item.view",
+      "inventory.warehouse.view",
+      "inventory.location.view",
+      "inventory.movement.view",
+      "inventory.balance.view",
+      "inventory.low_stock.view",
+      "inventory.receipt.view",
+      "inventory.issue.view",
+      "inventory.transfer.view",
+      "inventory.return.view",
+      "inventory.adjustment.view",
+      "inventory.reservation.view",
+      "inventory.document.view",
+      "inventory.task.view",
+      "inventory.activity.view",
+      "inventory.report.view",
+    ],
+    CONTRIBUTE: [
+      "inventory.export",
+      "inventory.item.update",
+      "inventory.movement.create",
+      "inventory.receipt.create",
+      "inventory.issue.create",
+      "inventory.issue.update",
+      "inventory.transfer.create",
+      "inventory.transfer.update",
+      "inventory.return.create",
+      "inventory.reservation.create",
+      "inventory.reservation.update",
+      "inventory.document.create",
+      "inventory.task.create",
+    ],
+    /*
+     * Posting is an APPROVE-level act, not a contribution (PRD #20 §281).
+     * Writing a delivery note down and committing it to the stock ledger are
+     * different decisions, and the ladder says so.
+     */
+    APPROVE: [
+      "inventory.receipt.post",
+      "inventory.issue.post",
+      "inventory.transfer.post",
+      "inventory.return.post",
+      "inventory.reservation.release",
+      "inventory.reservation.fulfill",
+    ],
+    MANAGE: [
+      "inventory.manage",
+      "inventory.item.create",
+      "inventory.item.archive",
+      "inventory.item.restore",
+      "inventory.warehouse.create",
+      "inventory.warehouse.update",
+      "inventory.warehouse.archive",
+      "inventory.warehouse.restore",
+      "inventory.location.create",
+      "inventory.location.update",
+      "inventory.location.archive",
+      "inventory.location.restore",
+      "inventory.receipt.reverse",
+      "inventory.issue.cancel",
+      "inventory.issue.reverse",
+      "inventory.transfer.cancel",
+      "inventory.transfer.reverse",
+      "inventory.adjustment.create",
+      "inventory.adjustment.update",
+      "inventory.adjustment.post",
+      "inventory.adjustment.cancel",
+      "inventory.adjustment.reverse",
+      "inventory.reservation.cancel",
+    ],
   },
   qaqc: {
     VIEW: ["qaqc.view", "qaqc.record.view"],
@@ -519,6 +717,7 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     // nobody can ever decide (PRD #15 §19, PRD #17 §20).
     finance: { extra: ["finance.approval.self"] },
     sales: { extra: ["sales.approval.self"] },
+    contracts: { extra: ["legal.approval.self", "legal.confidential_terms.view"] },
     // Pay is never on the ladder; the Owner holds it explicitly (PRD #16 §17).
     hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
     /**
@@ -596,7 +795,29 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "sales.export",
       ],
     },
-    contracts: { deny: ["legal.contract.create", "legal.contract.update"] },
+    /**
+     * The approver, not the legal desk (PRD #18 §26, §398).
+     *
+     * The CEO reads the portfolio, decides contracts and amendments, and runs
+     * the reports. They do not draft agreements, edit parties or record
+     * obligations: APPROVE sits above CONTRIBUTE on the ladder, so without this
+     * the person signing contracts off would also be writing them.
+     */
+    contracts: {
+      deny: [
+        "legal.contract.create",
+        "legal.contract.update",
+        "legal.contract.submit_review",
+        "legal.party.manage",
+        "legal.obligation.create",
+        "legal.obligation.update",
+        "legal.amendment.create",
+        "legal.amendment.update",
+        "legal.amendment.submit",
+        "legal.document.create",
+        "legal.task.create",
+      ],
+    },
     procurement: { deny: ["procurement.request.create", "procurement.request.update"] },
   },
   HR: {
@@ -662,6 +883,19 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "sales.document.view",
         "sales.activity.view",
       ],
+    },
+    /**
+     * The agreement behind the job, not the commercial file (PRD #18 §28,
+     * §399, §441, §445).
+     *
+     * A project manager needs to know a contract governs their project, when it
+     * expires and what it obliges somebody to deliver. The price the company
+     * agreed is a different question, and so is the approval queue — which is
+     * why `legal.commercial.view` is a separate grant rather than part of
+     * `legal.contract.view`.
+     */
+    contracts: {
+      deny: ["legal.commercial.view", "legal.approval.view", "legal.sales_source.view"],
     },
   },
   ARCHITECT: {
@@ -763,6 +997,22 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * every invoice would also sign them off. Separation of duties is the
      * point: approval authority is the CEO's and the Owner's.
      */
+    /**
+     * Contract value as invoicing context, not the legal file (PRD #18 §30,
+     * §401).
+     *
+     * Value, currency, dates, client and project are what Finance needs to
+     * raise against an agreement. The parties' tax identifiers, the obligation
+     * register and the approval queue belong to the legal desk.
+     */
+    contracts: {
+      deny: [
+        "legal.party.view",
+        "legal.obligation.view",
+        "legal.approval.view",
+        "legal.task.view",
+      ],
+    },
     finance: {
       deny: [
         "finance.approval.decide",
@@ -778,6 +1028,16 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   LEGAL: {
+    /**
+     * The role the module exists for (PRD #18 §27, §397).
+     *
+     * Legal reads the confidential terms because Legal writes them. Approval
+     * authority stays on the ladder — a second lawyer may sign off a
+     * colleague's contract — but `legal.approval.self` is not granted, so the
+     * person who drafted an agreement is never the person who approves it
+     * (PRD #18 §116).
+     */
+    contracts: { extra: ["legal.confidential_terms.view"] },
     /**
      * The commercial record a contract is drawn from (PRD #17 §269, §353).
      *
@@ -817,6 +1077,22 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     sales: {
       deny: ["sales.proposal.approve", "sales.proposal.reject"],
     },
+    /**
+     * The contract their deal became (PRD #18 §29, §400).
+     *
+     * Sales follows an accepted proposal through to a signed agreement: status,
+     * dates, value, and the lineage back to the opportunity. The obligation
+     * register, the parties' legal identifiers and the approval queue are the
+     * legal desk's work, not the account manager's.
+     */
+    contracts: {
+      deny: [
+        "legal.party.view",
+        "legal.obligation.view",
+        "legal.approval.view",
+        "legal.task.view",
+      ],
+    },
     // Customer invoices, outstanding receivables and client payment status —
     // never corporate cashflow, expenses or budgets (PRD #5 §22, PRD #15 §289).
     finance: {
@@ -835,6 +1111,24 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   PROCUREMENT: {
+    /**
+     * Supplier-side agreements as purchasing context (PRD #18 §31, §402).
+     *
+     * Procurement needs to know which contract a commitment sits under and what
+     * it is worth. The sales lineage behind a client agreement, the legal
+     * obligation register and the approval queue are not part of raising a
+     * purchase order.
+     */
+    contracts: {
+      deny: [
+        "legal.party.view",
+        "legal.obligation.view",
+        "legal.approval.view",
+        "legal.task.view",
+        "legal.sales_source.view",
+        "legal.report.view",
+      ],
+    },
     // Project budget availability and commitments; no customer invoices or
     // payments (PRD #5 §23, PRD #15 §291).
     finance: {

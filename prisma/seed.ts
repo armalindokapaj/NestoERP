@@ -15,10 +15,13 @@ import { seedAccessConfiguration } from "./seed/access";
 import { seedActivities } from "./seed/activities";
 import { seedBusinessRecords } from "./seed/business";
 import { seedCompanies } from "./seed/companies";
+import { seedContractRecords } from "./seed/contracts";
 import { seedFinanceRecords } from "./seed/finance";
 import { seedHrRecords } from "./seed/hr";
 import { COMPANY_A_USERS, DEMO_PASSWORD } from "./seed/constants";
 import { seedModuleRecords } from "./seed/module-records";
+import { seedInventoryRecords } from "./seed/inventory";
+import { seedProcurementRecords } from "./seed/procurement";
 import { seedAuditEvents } from "./seed/audit";
 import { seedCompanySettings } from "./seed/settings";
 import { seedSalesRecords } from "./seed/sales";
@@ -55,6 +58,9 @@ async function main() {
   const finance = await seedFinanceRecords(prisma, members);
   const hr = await seedHrRecords(prisma, members);
   const sales = await seedSalesRecords(prisma, members);
+  const legal = await seedContractRecords(prisma, members);
+  const procurement = await seedProcurementRecords(prisma, members);
+  const inventory = await seedInventoryRecords(prisma, members);
   await seedModuleRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
   await seedAuditEvents(prisma, { companyA, companyB });
@@ -95,6 +101,19 @@ async function main() {
   console.log(
     `✓ Sales: ${sales.leads} leads, ${sales.opportunities} opportunities, ` +
       `${sales.proposals} proposals, ${sales.approvals} approvals`,
+  );
+  console.log(
+    `✓ Legal: ${legal.contracts} contracts, ${legal.parties} parties, ` +
+      `${legal.obligations} obligations, ${legal.amendments} amendments, ${legal.approvals} approvals`,
+  );
+  console.log(
+    `✓ Procurement: ${procurement.suppliers} suppliers, ${procurement.requests} requests, ` +
+      `${procurement.rfqs} RFQs, ${procurement.quotes} quotes, ${procurement.orders} orders, ` +
+      `${procurement.receipts} receipts`,
+  );
+  console.log(
+    `✓ Inventory: ${inventory.items} items, ${inventory.warehouses} warehouses, ` +
+      `${inventory.movements} movements, ${inventory.balances} balances`,
   );
   console.log(`✓ Activities: ${activities}`);
   console.log("✓ Seed validation passed");

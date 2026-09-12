@@ -287,33 +287,261 @@ export const PERMISSIONS = [
   /* Legal / Contracts ---------------------------------------------------- */
   "legal.view",
   "legal.manage",
+  "legal.dashboard.view",
+
   "legal.contract.view",
   "legal.contract.create",
   "legal.contract.update",
-  "legal.contract.approve",
-  "legal.contract.archive",
+  "legal.contract.owner.assign",
 
-  /* Procurement ---------------------------------------------------------- */
+  "legal.contract.submit_review",
+  "legal.contract.review",
+  "legal.contract.submit_approval",
+  "legal.contract.approve",
+  "legal.contract.reject",
+
+  "legal.contract.mark_sent",
+  "legal.contract.mark_signed",
+  "legal.contract.activate",
+  "legal.contract.expire",
+  "legal.contract.terminate",
+  "legal.contract.cancel",
+
+  "legal.contract.archive",
+  "legal.contract.restore",
+
+  "legal.party.view",
+  "legal.party.manage",
+
+  "legal.obligation.view",
+  "legal.obligation.create",
+  "legal.obligation.update",
+  "legal.obligation.complete",
+  "legal.obligation.cancel",
+
+  "legal.amendment.view",
+  "legal.amendment.create",
+  "legal.amendment.update",
+  "legal.amendment.submit",
+  "legal.amendment.approve",
+  "legal.amendment.reject",
+  "legal.amendment.mark_sent",
+  "legal.amendment.mark_signed",
+  "legal.amendment.activate",
+  "legal.amendment.cancel",
+  "legal.amendment.archive",
+
+  "legal.approval.view",
+  "legal.approval.decide",
+
+  "legal.document.view",
+  "legal.document.create",
+
+  "legal.task.view",
+  "legal.task.create",
+
+  "legal.activity.view",
+  "legal.report.view",
+  "legal.export",
+
+  /**
+   * Two separate curtains over one contract (PRD #18 §19, §22, §23).
+   *
+   * `legal.contract.view` says a person may know the agreement exists and what
+   * state it is in. It does not say they may read the price, and it does not
+   * say they may read the legal assessment. A project manager delivering the
+   * work needs the first; neither of the others follows from it.
+   */
+  "legal.commercial.view",
+  "legal.confidential_terms.view",
+
+  /**
+   * Lineage is shown only to somebody it means something to (PRD #18 §252,
+   * §496). Each of these is half a decision: the contract also has to name a
+   * record the reader can actually open, or the link renders as plain text.
+   */
+  "legal.sales_source.view",
+  "legal.client_link.view",
+  "legal.project_link.view",
+
+  /**
+   * Permission to decide an approval you submitted yourself. Withheld by
+   * default, as in Finance and Sales: "who approved this contract?" must have
+   * an answer other than "the person who drafted it" (PRD #18 §116).
+   */
+  "legal.approval.self",
+
+  /* Procurement (PRD #19 §18) --------------------------------------------- */
   "procurement.view",
   "procurement.manage",
+  "procurement.dashboard.view",
+
+  "procurement.supplier.view",
+  "procurement.supplier.create",
+  "procurement.supplier.update",
+  "procurement.supplier.archive",
+  "procurement.supplier.restore",
+
   "procurement.request.view",
   "procurement.request.create",
   "procurement.request.update",
+  "procurement.request.submit",
   "procurement.request.approve",
+  "procurement.request.reject",
+  "procurement.request.cancel",
+  "procurement.request.archive",
+  "procurement.request.restore",
+
+  "procurement.rfq.view",
+  "procurement.rfq.create",
+  "procurement.rfq.update",
+  "procurement.rfq.issue",
+  "procurement.rfq.close",
+  "procurement.rfq.cancel",
+
+  /**
+   * A quote is what one supplier answered, and it is commercially confidential
+   * to the buying side (PRD #19 §260). Seeing that an RFQ exists is not seeing
+   * what anybody bid on it, which is why these are separate from `rfq.view`.
+   */
+  "procurement.quote.view",
+  "procurement.quote.create",
+  "procurement.quote.update",
+  "procurement.quote.select",
+  "procurement.quote.disqualify",
+
   "procurement.order.view",
   "procurement.order.create",
   "procurement.order.update",
+  "procurement.order.submit",
   "procurement.order.approve",
+  "procurement.order.reject",
+  "procurement.order.issue",
+  "procurement.order.cancel",
+  "procurement.order.close",
+  "procurement.order.archive",
+  "procurement.order.restore",
 
-  /* Inventory ------------------------------------------------------------ */
+  "procurement.receipt.view",
+  "procurement.receipt.create",
+  "procurement.receipt.update",
+  "procurement.receipt.void",
+
+  "procurement.approval.view",
+  "procurement.approval.decide",
+
+  /**
+   * Budget headroom and the Finance commitment behind an order are Finance
+   * facts shown inside Procurement. Each needs its own grant: running the
+   * buying is not being told what the project has left (PRD #19 §123, §259).
+   */
+  "procurement.budget.view",
+  "procurement.commitment.view",
+  "procurement.commitment.sync",
+
+  "procurement.document.view",
+  "procurement.document.create",
+
+  "procurement.task.view",
+  "procurement.task.create",
+
+  "procurement.activity.view",
+  "procurement.report.view",
+  "procurement.export",
+
+  /**
+   * Held by nobody by default (PRD #19 §21). Approving what you submitted is
+   * not an operational convenience; the queue and the record both withhold the
+   * decision from its own author.
+   */
+  "procurement.approval.self",
+
+  /* Inventory (PRD #20 §18) ------------------------------------------------ */
   "inventory.view",
   "inventory.manage",
+  "inventory.dashboard.view",
+
   "inventory.item.view",
   "inventory.item.create",
   "inventory.item.update",
   "inventory.item.archive",
+  "inventory.item.restore",
+
+  "inventory.warehouse.view",
+  "inventory.warehouse.create",
+  "inventory.warehouse.update",
+  "inventory.warehouse.archive",
+  "inventory.warehouse.restore",
+
+  "inventory.location.view",
+  "inventory.location.create",
+  "inventory.location.update",
+  "inventory.location.archive",
+  "inventory.location.restore",
+
+  /**
+   * Posting is separated from drafting throughout (PRD #20 §281).
+   *
+   * Writing a document down is not the same act as committing it to the stock
+   * ledger, and a storeman who may record a delivery is not thereby entitled to
+   * write stock off.
+   */
+  "inventory.receipt.view",
+  "inventory.receipt.create",
+  "inventory.receipt.post",
+  "inventory.receipt.reverse",
+
+  "inventory.issue.view",
+  "inventory.issue.create",
+  "inventory.issue.update",
+  "inventory.issue.post",
+  "inventory.issue.cancel",
+  "inventory.issue.reverse",
+
+  "inventory.transfer.view",
+  "inventory.transfer.create",
+  "inventory.transfer.update",
+  "inventory.transfer.post",
+  "inventory.transfer.cancel",
+  "inventory.transfer.reverse",
+
+  "inventory.return.view",
+  "inventory.return.create",
+  "inventory.return.post",
+
+  /**
+   * An adjustment changes what the company believes it owns without anything
+   * physically moving. It is the one action that can make stock appear, so it
+   * is granted separately from everything else (PRD #20 §146).
+   */
+  "inventory.adjustment.view",
+  "inventory.adjustment.create",
+  "inventory.adjustment.update",
+  "inventory.adjustment.post",
+  "inventory.adjustment.cancel",
+  "inventory.adjustment.reverse",
+
+  "inventory.reservation.view",
+  "inventory.reservation.create",
+  "inventory.reservation.update",
+  "inventory.reservation.release",
+  "inventory.reservation.fulfill",
+  "inventory.reservation.cancel",
+
   "inventory.movement.view",
   "inventory.movement.create",
+  "inventory.balance.view",
+  "inventory.low_stock.view",
+
+  "inventory.document.view",
+  "inventory.document.create",
+
+  "inventory.task.view",
+  "inventory.task.create",
+
+  "inventory.activity.view",
+  "inventory.report.view",
+  "inventory.export",
 
   /* QA / QC -------------------------------------------------------------- */
   "qaqc.view",
@@ -471,6 +699,15 @@ const MUTATING_ACTIONS = new Set([
   "close",
   "reopen",
   "submit",
+  // Lifecycle verbs that move a record from one state to the next. They read
+  // like nouns but every one of them writes (PRD #17 §120, PRD #18 §191).
+  "submit_review",
+  "submit_approval",
+  "review",
+  "mark_sent",
+  "mark_signed",
+  "accept",
+  "decline",
   "cancel",
   "decide",
   "void",

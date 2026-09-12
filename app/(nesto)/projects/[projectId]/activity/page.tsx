@@ -53,6 +53,7 @@ export default async function ProjectActivityPage({ params, searchParams }: Para
           tasks: actions.canViewTasks,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
+          contracts: actions.canViewContracts,
           documents: actions.canViewDocuments,
           activity: actions.canViewActivity,
         }}

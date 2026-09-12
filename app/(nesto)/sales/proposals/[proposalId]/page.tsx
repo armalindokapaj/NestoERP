@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { SalesContractHandoff } from "@/components/contracts/sales-handoff";
 import { RecordHeader } from "@/components/modules/record-header";
 import { ApprovalHistory } from "@/components/sales/approval-history";
 import { ProposalActions } from "@/components/sales/proposal-actions";
@@ -126,6 +127,25 @@ export default async function ProposalPage({ params }: Params) {
           />
         </dl>
       </section>
+
+      {/*
+        * The agreement behind an accepted proposal (PRD #18 §12, §366, §367).
+        *
+        * The proposal total prefills the contract value and does not fix it:
+        * what was quoted and what was signed are allowed to differ.
+        */}
+      {proposal.status === "ACCEPTED" ? (
+        <SalesContractHandoff
+          context={context}
+          source={{ proposalId: proposal.id, opportunityId: proposal.opportunity.id }}
+          prefill={{
+            title: proposal.title,
+            clientId: proposal.client.id,
+            currency: proposal.currency,
+            contractValue: proposal.totalAmount,
+          }}
+        />
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="space-y-3">

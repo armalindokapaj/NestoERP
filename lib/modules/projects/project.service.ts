@@ -2,7 +2,7 @@ import { Prisma, type ProjectStatus } from "@prisma/client";
 
 import { roleLabel, isRoleKey } from "@/config/roles";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
-import { can } from "@/lib/access/can";
+import { can, isModuleEnabled } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -730,5 +730,16 @@ export function projectActions(context: UserContext) {
         can(context, "finance.invoice.view") ||
         can(context, "finance.expense.view") ||
         can(context, "finance.commitment.view")),
+    /**
+     * The Contracts tab needs project access *and* legal access to the
+     * agreements behind the job (PRD #18 §11, §440). Being given a project does
+     * not hand somebody the contracts on it — the contract scope narrows the
+     * list again, and a company with the module switched off has no tab at all
+     * (PRD #18 §518).
+     */
+    canViewContracts:
+      isModuleEnabled(context, "contracts") &&
+      can(context, "legal.view") &&
+      can(context, "legal.contract.view"),
   };
 }

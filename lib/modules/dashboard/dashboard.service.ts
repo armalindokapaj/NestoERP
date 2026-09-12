@@ -15,6 +15,8 @@ import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.paren
 import * as financeKpis from "@/lib/modules/finance/finance.kpis";
 import { buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
 import { buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
+import { buildContractScopeWhere } from "@/lib/modules/contracts/contract.scope";
+import { EXPIRING_SOON_DAYS } from "@/lib/modules/contracts/contracts/contract.status";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { currencyTotals } from "@/lib/modules/sales/opportunities/opportunity.forecast";
 import {
@@ -237,23 +239,23 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
     case "activeContracts":
       return String(
         await prisma.contract.count({
-          where: { companyId: context.companyId, status: "ACTIVE" },
+          where: { AND: [buildContractScopeWhere(context), { status: "ACTIVE", archivedAt: null }] },
         }),
       );
 
     case "expiringContractCount":
-      return String(
-        await prisma.contract.count({
-          where: { companyId: context.companyId, status: "EXPIRING" },
-        }),
-      );
+      // "Expiring" is ACTIVE plus a horizon, derived from today rather than
+      // stored — there is no EXPIRING status to count (PRD #18 §75, §193).
+      return String(await countExpiringContracts(context));
 
     case "openRequests":
       return String(
         await prisma.purchaseRequest.count({
           where: {
             ...buildProjectLinkedScopeWhere(context, "procurement"),
-            status: { in: ["DRAFT", "SUBMITTED", "PENDING_APPROVAL", "APPROVED"] },
+            status: {
+              in: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "IN_SOURCING", "PARTIALLY_ORDERED"],
+            },
           },
         }),
       );
@@ -263,21 +265,24 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
         await prisma.purchaseOrder.count({
           where: {
             ...buildProjectLinkedScopeWhere(context, "procurement"),
-            status: { in: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "ORDERED"] },
+            status: {
+              in: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "ISSUED", "PARTIALLY_RECEIVED"],
+            },
           },
         }),
       );
 
     case "stockValue": {
-      const items = await prisma.inventoryItem.findMany({
-        where: { companyId: context.companyId, archivedAt: null },
-        select: { quantity: true, unitCost: true },
+      /*
+       * V0.1 does not value stock (PRD #20 §186). There is no costing method,
+       * so a currency figure here would be a number nobody could defend. What
+       * the tile reports instead is how many distinct items are actually held.
+       */
+      const held = await prisma.inventoryBalance.groupBy({
+        by: ["inventoryItemId"],
+        where: { companyId: context.companyId, onHandQuantity: { gt: 0 } },
       });
-      const total = items.reduce(
-        (sum, item) => sum + item.quantity * decimalToNumber(item.unitCost),
-        0,
-      );
-      return formatCurrency(total);
+      return String(held.length);
     }
 
     case "lowStockCount":
@@ -737,7 +742,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "contracts": {
       const grouped = await prisma.contract.groupBy({
         by: ["status"],
-        where: { companyId: context.companyId },
+        where: { AND: [buildContractScopeWhere(context), { archivedAt: null }] },
         _count: { _all: true },
       });
 
@@ -747,22 +752,31 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           label: row.status,
           status: row.status,
           value: row._count._all,
-          href: `/contracts/contracts?status=${row.status}`,
+          href: `/contracts/all?status=${row.status}`,
         })),
       };
     }
 
     case "expiringContracts": {
       const rows = await prisma.contract.findMany({
-        where: { companyId: context.companyId, status: { in: ["EXPIRING", "PENDING_APPROVAL"] } },
-        orderBy: { endDate: "asc" },
+        where: {
+          AND: [
+            buildContractScopeWhere(context),
+            {
+              archivedAt: null,
+              status: "ACTIVE",
+              expiryDate: { gte: new Date(), lte: expiryHorizon() },
+            },
+          ],
+        },
+        orderBy: { expiryDate: "asc" },
         take: 5,
         select: {
           id: true,
-          reference: true,
+          contractNumber: true,
           title: true,
           status: true,
-          endDate: true,
+          expiryDate: true,
           client: { select: { name: true } },
         },
       });
@@ -772,10 +786,10 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         items: rows.map((row) => ({
           id: row.id,
           title: row.title,
-          subtitle: `${row.reference} · ${row.client?.name ?? "No client"}`,
-          meta: row.endDate ? formatRelativeTime(row.endDate) : undefined,
+          subtitle: `${row.contractNumber} · ${row.client?.name ?? "No client"}`,
+          meta: row.expiryDate ? formatRelativeTime(row.expiryDate) : undefined,
           status: row.status,
-          href: `/contracts/contracts/${row.id}`,
+          href: `/contracts/${row.id}`,
         })),
       };
     }
@@ -805,10 +819,10 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         take: 5,
         select: {
           id: true,
-          reference: true,
-          supplier: true,
-          amount: true,
+          poNumber: true,
+          totalAmount: true,
           status: true,
+          supplier: { select: { name: true } },
           project: { select: { name: true } },
         },
       });
@@ -817,9 +831,9 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         kind: "list",
         items: rows.map((row) => ({
           id: row.id,
-          title: `${row.reference} · ${row.supplier}`,
+          title: `${row.poNumber} · ${row.supplier.name}`,
           subtitle: row.project?.name ?? "No project",
-          meta: formatCurrency(decimalToNumber(row.amount)),
+          meta: formatCurrency(decimalToNumber(row.totalAmount)),
           status: row.status,
           href: `/procurement/orders/${row.id}`,
         })),
@@ -835,37 +849,43 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.name,
           subtitle: row.sku,
-          meta: `${row.quantity} ${row.unit} · reorder at ${row.reorderLevel}`,
-          status: row.quantity === 0 ? "BLOCKED" : "PENDING",
+          meta: `${row.onHand} ${row.baseUnit} on hand · reorder at ${row.reorder}`,
+          status: row.onHand === 0 ? "BLOCKED" : "PENDING",
           href: `/inventory/items/${row.id}`,
         })),
       };
     }
 
     case "recentMovements": {
-      const rows = await prisma.inventoryMovement.findMany({
+      const rows = await prisma.stockMovement.findMany({
         where: { companyId: context.companyId },
-        orderBy: { createdAt: "desc" },
+        orderBy: { occurredAt: "desc" },
         take: 6,
         select: {
           id: true,
-          type: true,
-          quantity: true,
-          createdAt: true,
-          item: { select: { name: true, unit: true } },
-          project: { select: { name: true } },
+          movementType: true,
+          signedQuantity: true,
+          unit: true,
+          occurredAt: true,
+          inventoryItem: { select: { name: true } },
+          warehouse: { select: { name: true } },
         },
       });
 
       return {
         kind: "list",
-        items: rows.map((row) => ({
-          id: row.id,
-          title: row.item.name,
-          subtitle: `${row.type} · ${row.quantity} ${row.item.unit}`,
-          meta: formatRelativeTime(row.createdAt),
-          href: "/inventory/movements",
-        })),
+        items: rows.map((row) => {
+          const signed = decimalToNumber(row.signedQuantity);
+          return {
+            id: row.id,
+            title: row.inventoryItem.name,
+            // The sign is the whole point of a ledger row: "+40" and "−40" are
+            // different events (PRD #20 §71).
+            subtitle: `${signed > 0 ? "+" : ""}${signed} ${row.unit} · ${row.warehouse.name}`,
+            meta: formatRelativeTime(row.occurredAt),
+            href: "/inventory/movements",
+          };
+        }),
       };
     }
 
@@ -1211,9 +1231,7 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
   }
 
   if (can(context, "legal.contract.view")) {
-    const expiring = await prisma.contract.count({
-      where: { companyId: context.companyId, status: "EXPIRING" },
-    });
+    const expiring = await countExpiringContracts(context);
 
     if (expiring > 0) {
       alerts.push({
@@ -1221,7 +1239,7 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
         priority: "WARNING",
         title: `${expiring} contract${expiring === 1 ? "" : "s"} expiring`,
         detail: "Ending soon and not yet renewed.",
-        href: "/contracts/contracts?status=EXPIRING",
+        href: "/contracts/expiring",
       });
     }
   }
@@ -1320,16 +1338,16 @@ async function loadApprovals(context: UserContext) {
         ...buildProjectLinkedScopeWhere(context, "procurement"),
         status: "PENDING_APPROVAL",
       },
-      orderBy: { neededBy: "asc" },
+      orderBy: { requiredDate: "asc" },
       take: 5,
-      select: { id: true, reference: true, title: true, amount: true },
+      select: { id: true, requestNumber: true, title: true, estimatedTotal: true },
     });
 
     items.push(
       ...rows.map((row) => ({
         id: `request-${row.id}`,
-        title: `${row.reference} — ${row.title}`,
-        subtitle: `Purchase request · ${formatCurrency(decimalToNumber(row.amount))}`,
+        title: `${row.requestNumber} — ${row.title}`,
+        subtitle: `Purchase request · ${formatCurrency(decimalToNumber(row.estimatedTotal))}`,
         href: `/procurement/requests/${row.id}`,
       })),
     );
@@ -1337,18 +1355,18 @@ async function loadApprovals(context: UserContext) {
 
   if (can(context, "legal.contract.approve")) {
     const rows = await prisma.contract.findMany({
-      where: { companyId: context.companyId, status: "PENDING_APPROVAL" },
-      orderBy: { endDate: "asc" },
+      where: { AND: [buildContractScopeWhere(context), { status: "PENDING_APPROVAL" }] },
+      orderBy: { updatedAt: "desc" },
       take: 5,
-      select: { id: true, reference: true, title: true },
+      select: { id: true, contractNumber: true, title: true },
     });
 
     items.push(
       ...rows.map((row) => ({
         id: `contract-${row.id}`,
-        title: `${row.reference} — ${row.title}`,
+        title: `${row.contractNumber} — ${row.title}`,
         subtitle: "Contract",
-        href: `/contracts/contracts/${row.id}`,
+        href: `/contracts/${row.id}`,
       })),
     );
   }
@@ -1372,6 +1390,32 @@ async function loadApprovals(context: UserContext) {
  * currency travels with it: a figure labelled "€" that was summed from dollars
  * would be worse than no figure at all (PRD #15 §36).
  */
+
+/**
+ * Contracts ending inside the standard horizon (PRD #18 §75, §90).
+ *
+ * Counted from today rather than read from a status column, so the dashboard
+ * and the Legal module cannot disagree about which contracts are expiring.
+ */
+function expiryHorizon(days = EXPIRING_SOON_DAYS): Date {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
+function countExpiringContracts(context: UserContext, days = EXPIRING_SOON_DAYS): Promise<number> {
+  return prisma.contract.count({
+    where: {
+      AND: [
+        buildContractScopeWhere(context),
+        {
+          archivedAt: null,
+          status: "ACTIVE",
+          expiryDate: { gte: new Date(), lte: expiryHorizon(days) },
+        },
+      ],
+    },
+  });
+}
+
 function formatKpi(kpi: { amount: Prisma.Decimal; currency: string }): string {
   return formatCurrency(kpi.amount.toNumber(), kpi.currency);
 }
@@ -1413,25 +1457,54 @@ async function countProjectsAtRisk(context: UserContext): Promise<number> {
   });
 }
 
-async function lowStockItems(context: UserContext, take: number) {
-  // Prisma cannot compare two columns in a filter, so the comparison happens
-  // after a narrow select rather than by loading the whole table.
+/**
+ * Items at or below their reorder point (PRD #20 §167).
+ *
+ * On-hand is summed across every location from the balance projection, because
+ * stock sitting in three bins is still stock. Prisma cannot compare two columns
+ * in a filter, so the comparison happens after a narrow select rather than by
+ * loading the whole table.
+ */
+async function lowStockRows(context: UserContext) {
   const items = await prisma.inventoryItem.findMany({
-    where: { companyId: context.companyId, archivedAt: null },
-    select: { id: true, sku: true, name: true, unit: true, quantity: true, reorderLevel: true },
-    orderBy: { quantity: "asc" },
-    take: 200,
+    where: {
+      companyId: context.companyId,
+      archivedAt: null,
+      status: "ACTIVE",
+      reorderPoint: { not: null },
+    },
+    select: { id: true, sku: true, name: true, baseUnit: true, reorderPoint: true },
+    take: 300,
   });
 
-  return items.filter((item) => item.quantity <= item.reorderLevel).slice(0, take);
+  if (items.length === 0) return [];
+
+  const balances = await prisma.inventoryBalance.groupBy({
+    by: ["inventoryItemId"],
+    where: { companyId: context.companyId, inventoryItemId: { in: items.map((i) => i.id) } },
+    _sum: { onHandQuantity: true },
+  });
+
+  const onHandById = new Map(
+    balances.map((row) => [row.inventoryItemId, decimalToNumber(row._sum.onHandQuantity)]),
+  );
+
+  return items
+    .map((item) => ({
+      ...item,
+      onHand: onHandById.get(item.id) ?? 0,
+      reorder: decimalToNumber(item.reorderPoint),
+    }))
+    .filter((item) => item.onHand <= item.reorder)
+    .sort((a, b) => a.onHand - b.onHand);
+}
+
+async function lowStockItems(context: UserContext, take: number) {
+  return (await lowStockRows(context)).slice(0, take);
 }
 
 async function countLowStock(context: UserContext): Promise<number> {
-  const items = await prisma.inventoryItem.findMany({
-    where: { companyId: context.companyId, archivedAt: null },
-    select: { quantity: true, reorderLevel: true },
-  });
-  return items.filter((item) => item.quantity <= item.reorderLevel).length;
+  return (await lowStockRows(context)).length;
 }
 
 function decimalToNumber(value: Prisma.Decimal | null | undefined): number {
