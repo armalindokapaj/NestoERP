@@ -232,3 +232,90 @@ microservices.
 - [ ] `notifications:dispatch` and `storage:maintenance` scheduled
 - [ ] `retention.ts` scheduled, first run in dry-run mode
 - [ ] Rollback plan rehearsed; this release's migrations are additive-only
+
+---
+
+## 10. PRD #38 — Collaboration & Production Completion re-audit (§132, §180-§182)
+
+Prepared 2026-09-14 against `2550098` and the commit that carries this section.
+Same rule as the rest of this record: what was verified, what was not, and what
+is knowingly absent.
+
+**Verified for this section:** 1 586 vitest across 77 files; Playwright **347
+passed, 0 failed** against a production build (chromium + mobile, 4.0 min),
+including the new `collaboration/workflows.spec.ts` (10) and
+`roles/role-acceptance.spec.ts` (16 roles); after self-hosting the fonts the
+build was repeated and the affected specs (45) re-run green. Typecheck clean,
+lint 0 errors, 17 production guards pass, 26 migrations, `pnpm worker --once`
+exercised every job against the development database.
+
+### 10.1 Hard release blockers (§132)
+
+| Blocker | State | Evidence |
+|---|---|---|
+| Invitations do not send real email | **Closed in code** — Resend/Postmark providers, `MailDelivery` rows, resend with throttle | `lib/mail/`, `tests/integration/mail/mail-delivery.test.ts`. Live delivery needs a provider key: not verified |
+| Password reset does not send real email | **Closed in code**, same provider path | `tests/integration/auth/password-reset.test.ts`. Live delivery not verified |
+| Login/reset/invite abuse not rate-limited | **Closed** — PostgreSQL-backed throttles shared across instances | `tests/integration/security/throttle.test.ts`, guard "account flows are throttled" |
+| Known cross-company leak | **None known** | Registry matrices for all 39 record types (`tests/api/records/record-parent-matrix.test.ts`), collaboration/version/review/notification IDOR tests |
+| Comment/mention/watch authorisation bypass | **None known** | `tests/api/collaboration/collaboration-service.test.ts` (16), collaboration parent matrix |
+| Document parent registry inconsistent | **Closed** — one registry drives read, upload, UI and return routes | `lib/core/records/`, document parent matrix; the HSE incident-photo leak through the project branch is fixed |
+| Task module-origin context lost | **Closed** — trusted parent via the registry; Sales keeps its lead/opportunity | `tests/api/tasks/tasks-service.test.ts`, E2E "Sales raises a follow-up task" |
+| Notification bell placeholder | **Closed** — real bell, centre, preferences, re-authorising deep links | E2E workflows + 16-role acceptance |
+| Notification worker not scheduled/deployed | **Closed in code** — `pnpm worker` with per-job leases and heartbeats | `docs/runbooks/workers.md`, lease tests. Deploying it is an operator step |
+| Attention has no real producers | **Closed** — ten conditions, reconciled every 5 min, resolved on the spot | `tests/api/notifications/attention-reconcile.test.ts`, E2E dashboard flow |
+| Topbar search disabled | **Closed** — palette on `/api/search`, keyboard navigable | E2E search flows (including the Viewer seeing nothing from Finance) |
+| Production storage public or incomplete | **Unchanged from §6** — private S3 driver exists; no deployed bucket verified | — |
+| Malware scanner required but absent | **Closed in code** — ClamAV over clamd INSTREAM, fails closed; EICAR refused in production | `tests/unit/storage/clamav-scanner.test.ts`, guard "the malware scanner is real and fails closed". No live clamd verified |
+| Build depends on live external fonts | **Closed** — Geist and Instrument Serif self-hosted via `next/font/local` | `lib/fonts/`, guard "fonts are self-hosted" |
+| Restore drill failed | **Not performed** (still §6 gate 2) | — |
+| 16-role critical suite failed | **Passing** | `tests/e2e/roles/role-acceptance.spec.ts` (16 roles) + `role-navigation.spec.ts` |
+
+### 10.2 Readiness matrix (§180)
+
+| Area | Required state | State |
+|---|---|---|
+| Email | Real provider working | Code complete; needs provider credentials to verify |
+| Invites | Delivered and resend works | Code complete and tested with the memory provider |
+| Password reset | Delivered and rate-limited | Code complete and tested |
+| Collaboration | Comments, mentions, subscriptions | **Done** — 31 record pages carry the discussion panel |
+| Tasks | Collaboration, attachments, parent context | **Done** |
+| Documents | Unified parents, versions, review | **Done** |
+| Notifications | Real UI and deployed worker | **Done** in code; worker deployment is operational |
+| Attention | Real producers and resolution | **Done** |
+| Search | Topbar connected to existing backend | **Done** |
+| Storage | Private production bucket | Not verified (no staging) |
+| Scanner | Production scanner active | Adapter done; not verified against a live clamd |
+| Workers | Scheduled/deployed/observable | Observable (`--status`, readiness, metrics); deployment is operational |
+| Roles | 16-role acceptance passes | **Passing** |
+| Security | Auth/collaboration/document tests pass | **Passing** |
+| Recovery | Restore drill passes | **Not performed** |
+| Build | Reproducible production build | **Done** — no network fetch during build |
+
+### 10.3 Weighted readiness (§181)
+
+| Area | Status | Notes |
+|---|---|---|
+| Accounts | DONE (code) / BLOCKED (live mail) | Everything but a real provider key |
+| Collaboration | DONE | Goods receipts and obligations are discussed on their parent order/contract, which have no page of their own per record |
+| Tasks | DONE | |
+| Documents | DONE | Version upload is single-PUT like first upload (multipart remains the §8 limitation) |
+| Notifications | DONE | Email copies depend on the mail provider |
+| Attention | DONE | |
+| Search | DONE | |
+| Security | DONE | Dependency scanner still absent (§6 gate 3) |
+| Production infrastructure | PARTIAL | Code, runbooks and guards done; staging, bucket, clamd, backups are deployment work |
+| 16-role acceptance | DONE | |
+
+### 10.4 What changed in the earlier sections
+
+- §5 item 3 (topbar palette placeholder): **closed**.
+- §5 item 4 (`--color-surface-2`): fixed on the document pages this work touched; the remaining pages belong to the design workstream.
+- §8: *document versioning* is no longer absent; the *antivirus engine* row is superseded by the ClamAV adapter; *company creation flow* is now `pnpm company:bootstrap`.
+- §9: "`notifications:dispatch` and `storage:maintenance` scheduled" is replaced by "`pnpm worker` deployed per `docs/runbooks/workers.md`", with `WORKER_RETENTION_APPLY` left off until the retention dry run is reviewed.
+
+### 10.5 Recommendation for PRD #38
+
+**CONDITIONAL GO**, unchanged in kind from §7. Every §132 blocker that code can
+close is closed and tested. What remains is operational and cannot be proven from
+this repository: a live mail provider, a deployed private bucket and clamd, the
+deployed worker processes, a staging environment, and the restore drill.

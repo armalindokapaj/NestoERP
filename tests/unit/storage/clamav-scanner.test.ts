@@ -99,12 +99,27 @@ describe("ClamAV scanner", () => {
     delete process.env.CLAMAV_HOST;
     try {
       expect(fileScanner()?.provider).toBe("clamav");
+      // An engine nobody registered is still a scanner, and it never says clean.
+      process.env.STORAGE_SCANNER = "some-engine";
+      expect(fileScanner()?.provider).toBe("some-engine");
+      process.env.STORAGE_SCANNER = "clamav";
       expect(clamAvOptionsFromEnv()).toBeNull();
       expect(clamAvOptionsFromEnv({ CLAMAV_HOST: "clamd", CLAMAV_PORT: "3310" })).toEqual({ host: "clamd", port: 3310, timeoutMs: 30_000 });
     } finally {
       process.env.STORAGE_SCANNER = previous.scanner;
       if (previous.host) process.env.CLAMAV_HOST = previous.host;
       if (previous.scanner === undefined) delete process.env.STORAGE_SCANNER;
+    }
+  });
+
+  it("never calls a file clean when the named engine is not loaded", async () => {
+    const previous = process.env.STORAGE_SCANNER;
+    process.env.STORAGE_SCANNER = "some-engine";
+    try {
+      expect((await fileScanner()!.scan(input("anything"))).verdict).toBe("ERROR");
+    } finally {
+      if (previous === undefined) delete process.env.STORAGE_SCANNER;
+      else process.env.STORAGE_SCANNER = previous;
     }
   });
 });

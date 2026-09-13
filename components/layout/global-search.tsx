@@ -120,7 +120,7 @@ export function GlobalSearch() {
     };
   }, [query, open]);
 
-  const results = state.status === "done" ? state.response.results : [];
+  const results = React.useMemo(() => (state.status === "done" ? state.response.results : []), [state]);
 
   // Grouped by module, keeping the server's ranking inside each group and the
   // order in which groups first appear.
@@ -254,7 +254,7 @@ export function GlobalSearch() {
                           id={`${listId}-option-${position}`}
                           role="option"
                           aria-selected={selected}
-                          onMouseEnter={() => setActive(position)}
+                          onMouseMove={() => setActive(position)}
                           onClick={() => openResult(result)}
                           className={cn(
                             "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2",

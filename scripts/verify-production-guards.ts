@@ -6,7 +6,7 @@
  * asserts the guards exist in source, so removing one breaks the build rather
  * than quietly shipping.
  */
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 
 type Check = { name: string; run: () => string | null };
 
@@ -228,6 +228,55 @@ const checks: Check[] = [
         .filter(([path, pattern]) => !pattern.test(readFileSync(path, "utf8")))
         .map(([path, pattern]) => `${path} ${pattern.source}`);
       return missing.length > 0 ? `unthrottled: ${missing.join("; ")}` : null;
+    },
+  },
+  {
+    // PRD #38 §99, §100: a named scanner must be a real one, and it must fail closed.
+    name: "the malware scanner is real and fails closed",
+    run: () => {
+      const env = readFileSync("lib/config/env.ts", "utf8");
+      const scanner = readFileSync("lib/core/storage/scanner.ts", "utf8");
+      const clamav = readFileSync("lib/core/storage/clamav-scanner.ts", "utf8");
+      if (!/STORAGE_SCANNER=eicar is a test scanner and cannot run in production/.test(env)) {
+        return "lib/config/env.ts no longer refuses the EICAR test scanner in production";
+      }
+      if (!/registerFileScanner\("clamav"/.test(clamav) || !/new UnavailableFileScanner\(configured\)/.test(scanner)) {
+        return "STORAGE_SCANNER=clamav no longer selects the ClamAV scanner, or an unloaded engine no longer fails closed";
+      }
+      if (!/import "@\/lib\/core\/storage\/clamav-scanner"/.test(readFileSync("lib/modules/documents/storage/scan.service.ts", "utf8"))) {
+        return "the scan service no longer loads the ClamAV engine";
+      }
+      if (!/verdict: "ERROR", detail: "CLAMAV_HOST is not configured"/.test(clamav)) {
+        return "an unconfigured ClamAV scanner no longer fails closed";
+      }
+      return null;
+    },
+  },
+  {
+    // PRD #38 §94, §95: scheduled work belongs to the worker, never to web instances.
+    name: "background jobs run only in the worker",
+    run: () => {
+      const offenders = ["instrumentation.ts", "middleware.ts", "app/layout.tsx"]
+        .filter((path) => existsSync(path))
+        .filter((path) => /setInterval|runDueJobs|dispatchNotifications|reconcileAttention/.test(readFileSync(path, "utf8")));
+      return offenders.length > 0 ? `scheduled work started from ${offenders.join(", ")}` : null;
+    },
+  },
+  {
+    // PRD #38 §102: the build must not need the internet to fetch typefaces.
+    name: "fonts are self-hosted",
+    run: () => {
+      const roots = ["app", "components", "lib"];
+      const offenders: string[] = [];
+      const walk = (dir: string) => {
+        for (const name of readdirSync(dir)) {
+          const path = `${dir}/${name}`;
+          if (statSync(path).isDirectory()) walk(path);
+          else if (/\.(ts|tsx)$/.test(path) && readFileSync(path, "utf8").includes("next/font/google")) offenders.push(path);
+        }
+      };
+      roots.forEach(walk);
+      return offenders.length > 0 ? `next/font/google still imported by ${offenders.join(", ")}` : null;
     },
   },
   {

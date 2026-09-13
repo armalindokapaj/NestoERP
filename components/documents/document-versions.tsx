@@ -548,7 +548,7 @@ function RequestReviewDialog({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
-            <div role="radiogroup" aria-label="Reviewer" className="max-h-52 overflow-y-auto rounded-md border border-line">
+            <div role="radiogroup" aria-label="Eligible reviewers" className="max-h-52 overflow-y-auto rounded-md border border-line">
               {reviewers === null ? (
                 <p className="px-3 py-2 text-table text-fg-subtle">Loading…</p>
               ) : reviewers.length === 0 ? (

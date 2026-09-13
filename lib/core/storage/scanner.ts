@@ -1,5 +1,3 @@
-import { ClamAvFileScanner, clamAvOptionsFromEnv } from "./clamav-scanner";
-
 /**
  * The malware scanner seam (PRD #29 §54, §57, §58).
  *
@@ -80,11 +78,28 @@ export class EicarFileScanner implements FileScanner {
 export function fileScanner(): FileScanner | null {
   const configured = (process.env.STORAGE_SCANNER ?? "none").toLowerCase();
   if (configured === "eicar") return new EicarFileScanner();
-  // A production engine (PRD #38 §99). Named but unconfigured still returns a
-  // scanner — one whose every verdict is ERROR — so a missing host holds files
-  // back instead of quietly skipping the scan.
-  if (configured === "clamav") return new ClamAvFileScanner(clamAvOptionsFromEnv());
+  // A production engine (PRD #38 §99). Engines that need server-only modules
+  // register themselves (clamav-scanner.ts, loaded by the scan service), which
+  // keeps this file isomorphic. Named but not loaded still returns a scanner —
+  // one whose every verdict is ERROR — so files wait instead of skipping the scan.
+  if (configured !== "none") return engines.get(configured)?.() ?? new UnavailableFileScanner(configured);
   return null;
+}
+
+const engines = new Map<string, () => FileScanner>();
+
+/** Makes a server-side engine selectable by `STORAGE_SCANNER` (PRD #38 §99). */
+export function registerFileScanner(name: string, factory: () => FileScanner): void {
+  engines.set(name.toLowerCase(), factory);
+}
+
+/** A named scanner this process cannot run. Never CLEAN: the gate fails closed. */
+class UnavailableFileScanner implements FileScanner {
+  constructor(readonly provider: string) {}
+
+  async scan(): Promise<FileScanResult> {
+    return { verdict: "ERROR", detail: `${this.provider} scanner is not available in this process` };
+  }
 }
 
 /** Test seam: `null` means "no scanner", `undefined` means "read the env". */

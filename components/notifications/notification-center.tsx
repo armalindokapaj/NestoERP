@@ -7,7 +7,7 @@ import { Check, CheckCheck, Loader2, RotateCcw } from "lucide-react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { relativeTime } from "@/components/layout/notifications-menu";
 import { Button } from "@/components/ui/button";
-import type { NotificationListItemDTO, NotificationPage } from "@/lib/core/notifications/notification.service";
+import type { NotificationPage } from "@/lib/core/notifications/notification.service";
 import { cn } from "@/lib/utils/cn";
 
 /**
