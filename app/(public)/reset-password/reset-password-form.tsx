@@ -7,10 +7,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2 } from "lucide-react";
 import { z } from "zod";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { resetPasswordAction } from "@/lib/actions/auth";
+import { translateAuthError } from "@/lib/i18n/auth-errors";
 
 /**
  * Choose a new password (PRD #6 §56, §96).
@@ -33,6 +35,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function ResetPasswordForm({ token }: { token: string }) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations("auth");
 
   const {
     register,
@@ -49,12 +52,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <div className="mx-auto mb-3 grid size-10 place-items-center rounded-full bg-success-soft text-success-strong">
           <CheckCircle2 className="size-5" />
         </div>
-        <p className="text-card font-semibold text-fg">Password updated successfully.</p>
-        <p className="mt-1 text-table text-fg-muted">
-          Any other sessions have been signed out.
-        </p>
+        <p className="text-card font-semibold text-fg">{t("reset.doneTitle")}</p>
+        <p className="mt-1 text-table text-fg-muted">{t("reset.doneDescription")}</p>
         <Button asChild className="mt-4">
-          <Link href="/login">Sign in</Link>
+          <Link href="/login">{t("reset.signIn")}</Link>
         </Button>
       </div>
     );
@@ -76,16 +77,16 @@ export function ResetPasswordForm({ token }: { token: string }) {
           role="alert"
           className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong"
         >
-          {error}{" "}
+          {translateAuthError(t, error)}{" "}
           <Link href="/forgot-password" className="underline underline-offset-2">
-            Request a new link
+            {t("reset.requestNewLink")}
           </Link>
           .
         </p>
       ) : null}
 
       <div className="space-y-1.5">
-        <Label htmlFor="password">New password</Label>
+        <Label htmlFor="password">{t("reset.newPassword")}</Label>
         <Input
           id="password"
           type="password"
@@ -97,15 +98,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
         />
         {errors.password ? (
           <p id="password-error" className="text-meta text-danger-strong">
-            {errors.password.message}
+            {translateAuthError(t, errors.password.message ?? "")}
           </p>
         ) : (
-          <p className="text-meta text-fg-subtle">At least 10 characters.</p>
+          <p className="text-meta text-fg-subtle">{t("reset.passwordHint")}</p>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="confirmPassword">Confirm password</Label>
+        <Label htmlFor="confirmPassword">{t("reset.confirmPassword")}</Label>
         <Input
           id="confirmPassword"
           type="password"
@@ -116,13 +117,13 @@ export function ResetPasswordForm({ token }: { token: string }) {
         />
         {errors.confirmPassword ? (
           <p id="confirmPassword-error" className="text-meta text-danger-strong">
-            {errors.confirmPassword.message}
+            {translateAuthError(t, errors.confirmPassword.message ?? "")}
           </p>
         ) : null}
       </div>
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Updating…" : "Reset password"}
+        {isSubmitting ? t("reset.submitting") : t("reset.submit")}
       </Button>
     </form>
   );

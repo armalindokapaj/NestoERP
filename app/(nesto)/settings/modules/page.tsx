@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { ModuleToggleList } from "@/components/settings/module-toggle-list";
+import { getTranslations } from "@/lib/i18n/server";
 import { listCompanyModules } from "@/lib/modules/settings/module-toggle.service";
 import { requireSettingsSection } from "../settings-access";
 
-export const metadata: Metadata = {
-  title: "Modules",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("settings");
+  return { title: t("sections.modules.label") };
+}
 
 /**
  * Company module activation (PRD #24 §48, §55).
@@ -19,21 +21,18 @@ export const metadata: Metadata = {
 export default async function ModulesSettingsPage() {
   const context = await requireSettingsSection("modules");
   const companyModules = await listCompanyModules(context);
+  const t = await getTranslations("settings");
 
   return (
     <div className="space-y-5">
       <SettingsPageHeader
-        title="Modules"
-        description="Which NESTO modules are active for your company."
+        title={t("sections.modules.label")}
+        description={t("sections.modules.description")}
       />
 
       <ModuleToggleList modules={companyModules} />
 
-      <p className="text-meta text-fg-subtle">
-        Turning a module off hides it for everyone and refuses its routes at
-        once. Records already created are kept, not deleted, and reappear if the
-        module is turned back on.
-      </p>
+      <p className="text-meta text-fg-subtle">{t("modules.note")}</p>
     </div>
   );
 }

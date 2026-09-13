@@ -2,23 +2,24 @@ import Link from "next/link";
 
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { Button } from "@/components/ui/button";
+import { getTranslations } from "@/lib/i18n/server";
 
 /** 404 page (spec §57). */
-export default function NotFound() {
+export default async function NotFound() {
+  const t = await getTranslations("system");
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 text-center">
       <NestoLogo className="mb-8" />
       <p className="text-micro font-semibold uppercase tracking-[0.18em] text-fg-subtle">404</p>
-      <h1 className="mt-3 text-section font-semibold text-fg">Page not found.</h1>
-      <p className="mt-2 max-w-sm text-body text-fg-muted">
-        The page you&apos;re looking for doesn&apos;t exist.
-      </p>
+      <h1 className="mt-3 text-section font-semibold text-fg">{t("notFound.title")}</h1>
+      <p className="mt-2 max-w-sm text-body text-fg-muted">{t("notFound.description")}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
         <Button asChild>
-          <Link href="/dashboard">Return to Dashboard</Link>
+          <Link href="/dashboard">{t("returnToDashboard")}</Link>
         </Button>
         <Button asChild variant="secondary">
-          <Link href="/">Go to home page</Link>
+          <Link href="/">{t("notFound.home")}</Link>
         </Button>
       </div>
     </div>

@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { NumberingSchemeForm } from "@/components/settings/numbering-scheme-form";
-import { modules as registry, isModuleKey } from "@/config/modules";
+import { isModuleKey } from "@/config/modules";
+import { getTranslations } from "@/lib/i18n/server";
 import { listNumberingSchemes } from "@/lib/modules/settings/numbering.service";
 import { requireSettingsSection } from "../settings-access";
 
-export const metadata: Metadata = { title: "Numbering" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("settings");
+  return { title: t("sections.numbering.label") };
+}
 
 function entityLabel(entityType: string): string {
   return entityType
@@ -23,7 +27,11 @@ function entityLabel(entityType: string): string {
  */
 export default async function NumberingSettingsPage() {
   const context = await requireSettingsSection("numbering");
-  const schemes = await listNumberingSchemes(context);
+  const [schemes, t, tModules] = await Promise.all([
+    listNumberingSchemes(context),
+    getTranslations("settings"),
+    getTranslations("modules"),
+  ]);
 
   const byModule = new Map<string, typeof schemes>();
   for (const scheme of schemes) {
@@ -35,15 +43,15 @@ export default async function NumberingSettingsPage() {
   return (
     <div className="space-y-5">
       <SettingsPageHeader
-        title="Numbering"
-        description="How human-readable record numbers are generated. Changes apply to future records only."
+        title={t("sections.numbering.label")}
+        description={t("numbering.description")}
       />
 
       {[...byModule.entries()].map(([moduleKey, list]) => (
         <section key={moduleKey} className="nesto-card">
           <header className="border-b border-line px-5 py-3">
             <h2 className="text-table font-medium text-fg">
-              {isModuleKey(moduleKey) ? registry[moduleKey].label : moduleKey}
+              {isModuleKey(moduleKey) ? tModules(`${moduleKey}.label`) : moduleKey}
             </h2>
           </header>
           <div className="divide-y divide-line">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { Divider } from "@/components/ui/divider";
@@ -25,6 +26,8 @@ function NavItem({
   onNavigate?: () => void;
 }) {
   const Icon = getIcon(item.icon);
+  const t = useTranslations("modules");
+  const label = t(`${item.key}.label`);
 
   /* Light accent ground, accent icon and text, plus a 2px left marker
      (PRD #3 §12). */
@@ -49,7 +52,7 @@ function NavItem({
           active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted",
         )}
       />
-      <span className="nesto-nav-label truncate">{item.label}</span>
+      <span className="nesto-nav-label truncate">{label}</span>
     </Link>
   );
 
@@ -60,7 +63,7 @@ function NavItem({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{item.label}</TooltipContent>
+      <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
   );
 }
@@ -83,18 +86,19 @@ export function SidebarNav({
 }) {
   const pathname = usePathname();
   const { isRail } = useSidebar();
+  const t = useTranslations("shell");
 
   return (
     <nav
-      aria-label="Main navigation"
+      aria-label={t("mainNavigation")}
       className={cn("flex flex-col px-3 py-2", inDrawer ? "gap-4" : "gap-6")}
     >
       {navigation.map((group, index) => (
         <div key={group.group}>
-          {group.label ? (
+          {group.group !== "primary" ? (
             <>
               <p className="nesto-nav-group-label nesto-eyebrow mb-2 px-3 text-fg-subtle">
-                {group.label}
+                {t(`groups.${group.group}`)}
               </p>
               {/* The rail has no room for group headings, so a hairline keeps
                   the groups legible instead (PRD #3 §84). */}

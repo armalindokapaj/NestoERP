@@ -6,6 +6,7 @@ import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import type { NavigationGroup } from "@/config/navigation";
 import { isDevMode } from "@/lib/auth/dev-role";
+import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 
 /**
@@ -23,13 +24,15 @@ import type { UserContext } from "@/lib/context/types";
  * width once the account cluster leaves it less than 420px (PRD #3 §18). Held
  * by roles/topbar-search-position.spec.ts.
  */
-export function Topbar({
+export async function Topbar({
   context,
   navigation,
 }: {
   context: UserContext;
   navigation: NavigationGroup[];
 }) {
+  const t = await getTranslations("roles");
+
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface/85 px-4 backdrop-blur-md md:h-16 md:px-6 xl:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -63,7 +66,7 @@ export function Topbar({
             firstName: context.firstName,
             lastName: context.lastName,
             avatarUrl: context.avatarUrl,
-            roleLabel: context.roleLabel,
+            roleLabel: t(`${context.role}.label`),
             companyName: context.company.name,
           }}
         />

@@ -6,12 +6,14 @@ import { NestoLogo } from "@/components/layout/nesto-logo";
 import { DEMO_PASSWORD, demoAccountsInRoleOrder } from "@/config/demo-accounts";
 import { roles } from "@/config/roles";
 import { isDevMode } from "@/lib/auth/dev-role";
+import { getTranslations } from "@/lib/i18n/server";
 import { DemoAccounts } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = {
-  title: "Sign in",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth");
+  return { title: t("login.metaTitle") };
+}
 
 /**
  * Why the person was sent back here (PRD #6 §51, §50).
@@ -19,11 +21,14 @@ export const metadata: Metadata = {
  * "Your session expired" and "sign in to continue" are different messages, and
  * being told the wrong one is how people conclude software is broken.
  */
-const SIGN_IN_NOTICES: Record<string, string> = {
-  "session-expired": "Your session expired. Please sign in again.",
-  "account-unavailable":
-    "Your account is currently unavailable. Contact your administrator.",
-};
+const SIGN_IN_NOTICES = {
+  "session-expired": "login.sessionExpired",
+  "account-unavailable": "login.accountUnavailable",
+} as const;
+
+function isSignInNotice(reason: string | undefined): reason is keyof typeof SIGN_IN_NOTICES {
+  return reason !== undefined && Object.hasOwn(SIGN_IN_NOTICES, reason);
+}
 
 /**
  * Login (spec §7; design spec §83, §84).
@@ -41,7 +46,8 @@ export default async function LoginPage({
   searchParams: Promise<{ callbackUrl?: string; reason?: string }>;
 }) {
   const { callbackUrl, reason } = await searchParams;
-  const notice = SIGN_IN_NOTICES[reason ?? ""];
+  const [t, tShell] = await Promise.all([getTranslations("auth"), getTranslations("shell")]);
+  const notice = isSignInNotice(reason) ? t(SIGN_IN_NOTICES[reason]) : null;
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,42%)_minmax(0,1fr)]">
@@ -49,17 +55,15 @@ export default async function LoginPage({
 
       <div className="flex min-h-dvh flex-col bg-surface lg:min-h-0">
         <header className="flex h-16 shrink-0 items-center px-4 sm:px-8 lg:hidden">
-          <Link href="/" aria-label="NESTO home">
+          <Link href="/" aria-label={tShell("homeLink")}>
             <NestoLogo />
           </Link>
         </header>
 
         <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8">
           <div className="w-full max-w-lg">
-            <h1 className="text-section font-semibold text-fg">Welcome back</h1>
-            <p className="mb-6 mt-1.5 text-body text-fg-muted">
-              Sign in to continue to your workspace.
-            </p>
+            <h1 className="text-section font-semibold text-fg">{t("login.title")}</h1>
+            <p className="mb-6 mt-1.5 text-body text-fg-muted">{t("login.description")}</p>
 
             {notice ? (
               <p
@@ -77,7 +81,7 @@ export default async function LoginPage({
                 href="/"
                 className="text-table text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
               >
-                Back to home
+                {t("backToHome")}
               </Link>
             </div>
 

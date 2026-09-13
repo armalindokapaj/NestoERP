@@ -3,13 +3,14 @@
 import * as React from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { THEME_COOKIE, type ThemeChoice } from "@/lib/layout/theme-state";
 import { cn } from "@/lib/utils/cn";
 
 const OPTIONS = [
-  { value: "system", label: "System", icon: Monitor },
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", icon: Monitor },
+  { value: "light", icon: Sun },
+  { value: "dark", icon: Moon },
 ] as const;
 
 /**
@@ -24,6 +25,7 @@ const OPTIONS = [
  */
 export function ThemePreference({ initial }: { initial: ThemeChoice }) {
   const [choice, setChoice] = React.useState<ThemeChoice>(initial);
+  const t = useTranslations("settings");
 
   function select(next: ThemeChoice) {
     setChoice(next);
@@ -37,7 +39,7 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
   return (
     <div
       role="radiogroup"
-      aria-label="Colour scheme"
+      aria-label={t("appearance.colourScheme")}
       className="inline-flex shrink-0 gap-0.5 rounded-lg border border-line bg-surface-muted p-0.5"
     >
       {OPTIONS.map((option) => {
@@ -65,7 +67,7 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
             )}
           >
             <option.icon aria-hidden="true" className="size-4" />
-            {option.label}
+            {t(`appearance.themes.${option.value}`)}
           </button>
         );
       })}

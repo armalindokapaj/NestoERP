@@ -4,14 +4,32 @@ import type { Permission } from "./permissions";
  * Settings sections (PRD #5 §39).
  *
  * Profile and Appearance are *personal*: every authenticated user reaches them
- * from the top-bar user menu, whatever their role's Settings access. The
- * company sections are gated on `settings.manage`, and Roles additionally on
- * team administration.
+ * from Settings in the top-bar user menu, whatever their role's Settings
+ * access. The company sections are gated on `settings.manage`, and Roles
+ * additionally on team administration.
+ */
+export const SETTINGS_SLUGS = [
+  "profile",
+  "company",
+  "users",
+  "roles",
+  "modules",
+  "localization",
+  "integrations",
+  "numbering",
+  "storage",
+  "audit",
+  "appearance",
+] as const;
+
+export type SettingsSlug = (typeof SETTINGS_SLUGS)[number];
+
+/**
+ * A section's name and description are interface copy, so they live in the
+ * dictionaries under `settings.sections.<slug>` rather than here.
  */
 export type SettingsSection = {
-  slug: string;
-  label: string;
-  description: string;
+  slug: SettingsSlug;
   icon: string;
   /** Section is hidden and blocked without this permission. */
   permission: Permission;
@@ -22,65 +40,47 @@ export type SettingsSection = {
 export const settingsSections: SettingsSection[] = [
   {
     slug: "profile",
-    label: "Profile",
-    description: "Your personal details and contact information.",
     icon: "IdCard",
     permission: "settings.view",
     personal: true,
   },
   {
     slug: "company",
-    label: "Company",
-    description: "Company identity, address and contact details.",
     icon: "Landmark",
     permission: "settings.manage",
   },
   {
     slug: "users",
-    label: "Users",
-    description: "Accounts, invitations and access status.",
     icon: "Users",
     permission: "settings.manage",
   },
   {
     slug: "roles",
-    label: "Roles",
-    description: "The 16 NESTO roles and the permissions each one holds.",
     icon: "ShieldCheck",
     permission: "settings.manage",
   },
   {
     slug: "modules",
-    label: "Modules",
-    description: "Which NESTO modules are active for your company.",
     icon: "Boxes",
     permission: "settings.manage",
   },
   {
     slug: "localization",
-    label: "Localization",
-    description: "Language, timezone, date format and company-wide finance defaults.",
     icon: "Globe",
     permission: "settings.manage",
   },
   {
     slug: "integrations",
-    label: "Integrations",
-    description: "Cross-module behaviours such as quality gating and finance commitments.",
     icon: "Workflow",
     permission: "settings.manage",
   },
   {
     slug: "numbering",
-    label: "Numbering",
-    description: "How invoice, order and record numbers are generated.",
     icon: "Hash",
     permission: "settings.manage",
   },
   {
     slug: "storage",
-    label: "File storage",
-    description: "How much file storage your company is using, and its limits.",
     icon: "HardDrive",
     // Reading the number, not configuring the buckets — physical storage is
     // deployment configuration and no company admin edits it (PRD #29 §246).
@@ -88,8 +88,6 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     slug: "audit",
-    label: "Audit",
-    description: "Immutable evidence of important business and security actions.",
     icon: "ScrollText",
     // Narrower than the other company sections on purpose: audit is evidence
     // about administrators too, so only the Owner holds it by default
@@ -98,8 +96,6 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     slug: "appearance",
-    label: "Appearance",
-    description: "Theme and display preferences.",
     icon: "Settings",
     permission: "settings.view",
     personal: true,

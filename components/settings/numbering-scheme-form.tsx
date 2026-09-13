@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ export function NumberingSchemeForm({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
+  const t = useTranslations("settings");
 
   const [mode, setMode] = React.useState(scheme.mode);
   const [prefix, setPrefix] = React.useState(scheme.prefix ?? "");
@@ -45,14 +47,14 @@ export function NumberingSchemeForm({
   const [padding, setPadding] = React.useState(String(scheme.padding));
 
   const preview = React.useMemo(() => {
-    if (mode !== "AUTO") return "Typed in by whoever creates the record";
+    if (mode !== "AUTO") return t("numbering.manualPreview");
     const year = new Date().getUTCFullYear();
     const parts = [prefix || null];
     if (yearMode === "YYYY") parts.push(String(year));
     if (yearMode === "YY") parts.push(String(year).slice(-2));
     parts.push(String(scheme.nextSequence).padStart(Number(padding) || 1, "0"));
     return parts.filter(Boolean).join(separator);
-  }, [mode, prefix, separator, yearMode, padding, scheme.nextSequence]);
+  }, [mode, prefix, separator, yearMode, padding, scheme.nextSequence, t]);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +62,7 @@ export function NumberingSchemeForm({
     startTransition(async () => {
       const result = await updateNumberingSchemeAction(formData);
       if (result.ok) {
-        toast({ title: `${label} numbering updated.`, tone: "success" });
+        toast({ title: t("numbering.updated", { label }), tone: "success" });
         router.refresh();
       } else {
         toast({ title: result.message, tone: "danger" });
@@ -83,7 +85,7 @@ export function NumberingSchemeForm({
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
-          <Label htmlFor={`${id}-mode`}>Mode</Label>
+          <Label htmlFor={`${id}-mode`}>{t("numbering.mode")}</Label>
           <select
             id={`${id}-mode`}
             name="mode"
@@ -92,13 +94,13 @@ export function NumberingSchemeForm({
             disabled={disabled}
             onChange={(event) => setMode(event.target.value as typeof mode)}
           >
-            <option value="AUTO">Automatic</option>
-            <option value="MANUAL">Manual</option>
+            <option value="AUTO">{t("numbering.automatic")}</option>
+            <option value="MANUAL">{t("numbering.manual")}</option>
           </select>
         </div>
 
         <div>
-          <Label htmlFor={`${id}-prefix`}>Prefix</Label>
+          <Label htmlFor={`${id}-prefix`}>{t("numbering.prefix")}</Label>
           <Input
             id={`${id}-prefix`}
             name="prefix"
@@ -111,7 +113,7 @@ export function NumberingSchemeForm({
         </div>
 
         <div>
-          <Label htmlFor={`${id}-separator`}>Separator</Label>
+          <Label htmlFor={`${id}-separator`}>{t("numbering.separator")}</Label>
           <Input
             id={`${id}-separator`}
             name="separator"
@@ -123,7 +125,7 @@ export function NumberingSchemeForm({
         </div>
 
         <div>
-          <Label htmlFor={`${id}-yearMode`}>Year</Label>
+          <Label htmlFor={`${id}-yearMode`}>{t("numbering.year")}</Label>
           <select
             id={`${id}-yearMode`}
             name="yearMode"
@@ -132,14 +134,14 @@ export function NumberingSchemeForm({
             disabled={disabled || mode !== "AUTO"}
             onChange={(event) => setYearMode(event.target.value as typeof yearMode)}
           >
-            <option value="NONE">None</option>
+            <option value="NONE">{t("numbering.noYear")}</option>
             <option value="YYYY">2026</option>
             <option value="YY">26</option>
           </select>
         </div>
 
         <div>
-          <Label htmlFor={`${id}-padding`}>Digits</Label>
+          <Label htmlFor={`${id}-padding`}>{t("numbering.digits")}</Label>
           <Input
             id={`${id}-padding`}
             name="padding"
@@ -162,13 +164,13 @@ export function NumberingSchemeForm({
             disabled={disabled || mode !== "AUTO"}
           />
           <label htmlFor={`${id}-reset`} className="text-meta text-fg-muted">
-            Restart the sequence each year
+            {t("numbering.resetYearly")}
           </label>
         </div>
 
         {scheme.canManage ? (
           <Button type="submit" size="sm" variant="secondary" disabled={pending}>
-            {pending ? "Saving…" : "Save"}
+            {pending ? t("saving") : t("save")}
           </Button>
         ) : null}
       </div>

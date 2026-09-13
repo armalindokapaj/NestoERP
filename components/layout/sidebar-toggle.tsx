@@ -2,6 +2,7 @@
 
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -22,8 +23,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  */
 export function SidebarToggle() {
   const { state, toggle } = useSidebar();
+  const t = useTranslations("shell");
   const collapsed = state === "collapsed";
-  const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  const label = collapsed ? t("expandSidebar") : t("collapseSidebar");
   const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (

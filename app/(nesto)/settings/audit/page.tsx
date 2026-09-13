@@ -8,16 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { auditQuerySchema, listAuditEvents } from "@/lib/core/audit/audit-query.service";
 import { can } from "@/lib/access/can";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDateTime } from "@/lib/utils/format";
 import { requireSettingsSection } from "../settings-access";
 
-export const metadata: Metadata = { title: "Audit" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("settings");
+  return { title: t("sections.audit.label") };
+}
 
-const SEVERITY_TONE: Record<string, "default" | "warning" | "danger"> = {
+const SEVERITY_TONE = {
   INFO: "default",
   IMPORTANT: "warning",
   CRITICAL: "danger",
-};
+} as const;
+
+function isKnownSeverity(severity: string): severity is keyof typeof SEVERITY_TONE {
+  return severity in SEVERITY_TONE;
+}
 
 /** Turns FINANCE_INVOICE_APPROVED into "Finance invoice approved". */
 function humanise(actionKey: string): string {
@@ -44,14 +52,17 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
     query: typeof params.q === "string" ? params.q : undefined,
   });
 
-  const { data, pagination } = await listAuditEvents(context, query);
+  const [{ data, pagination }, t] = await Promise.all([
+    listAuditEvents(context, query),
+    getTranslations("settings"),
+  ]);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <SettingsPageHeader
-          title="Audit"
-          description="Who did what, when, and what changed. Append-only: nothing here can be edited or removed."
+          title={t("sections.audit.label")}
+          description={t("audit.description")}
         />
         {/* Taking a copy of the evidence is its own decision, and its own
             permission (PRD #28 §170). */}
@@ -61,8 +72,8 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
       {data.length === 0 ? (
         <EmptyState
           icon={<ScrollText />}
-          title="No audit events match these filters."
-          description="Audited actions from the last 30 days appear here."
+          title={t("audit.emptyTitle")}
+          description={t("audit.emptyDescription")}
         />
       ) : (
         <>
@@ -70,11 +81,11 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
             <table className="w-full min-w-[52rem]">
               <thead>
                 <tr className="border-b border-line text-meta text-fg-subtle">
-                  <th scope="col" className="px-5 py-2 text-left font-medium">When</th>
-                  <th scope="col" className="px-5 py-2 text-left font-medium">Actor</th>
-                  <th scope="col" className="px-5 py-2 text-left font-medium">Action</th>
-                  <th scope="col" className="px-5 py-2 text-left font-medium">Record</th>
-                  <th scope="col" className="px-5 py-2 text-left font-medium">Severity</th>
+                  <th scope="col" className="px-5 py-2 text-left font-medium">{t("audit.when")}</th>
+                  <th scope="col" className="px-5 py-2 text-left font-medium">{t("audit.actor")}</th>
+                  <th scope="col" className="px-5 py-2 text-left font-medium">{t("audit.action")}</th>
+                  <th scope="col" className="px-5 py-2 text-left font-medium">{t("audit.record")}</th>
+                  <th scope="col" className="px-5 py-2 text-left font-medium">{t("audit.severity")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -94,9 +105,13 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
                       {event.entity?.label ?? event.entity?.type ?? "—"}
                     </td>
                     <td className="px-5 py-3">
-                      <Badge tone={SEVERITY_TONE[event.severity] ?? "default"}>
-                        {event.severity.charAt(0) + event.severity.slice(1).toLowerCase()}
-                      </Badge>
+                      {isKnownSeverity(event.severity) ? (
+                        <Badge tone={SEVERITY_TONE[event.severity]}>
+                          {t(`audit.severities.${event.severity}`)}
+                        </Badge>
+                      ) : (
+                        <Badge tone="default">{event.severity}</Badge>
+                      )}
                     </td>
                   </tr>
                 ))}
