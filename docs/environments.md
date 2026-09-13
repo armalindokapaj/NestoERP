@@ -37,7 +37,36 @@ deployment built with `NODE_ENV=development` still refuses the role switcher.
 | `APP_ENV` | optional | required | required |
 | `NEXT_PUBLIC_APP_URL` | optional | required | required |
 | `STORAGE_DRIVER` | `local` | `s3` | `s3` (`local` is refused) |
+| `STORAGE_SCANNER` | `none` | `clamav` | `clamav` (a scanner is required) |
 | `LOG_LEVEL` | `debug` | `info` | `info` |
+| `MAIL_PROVIDER` | `memory` | `resend` / `postmark` | `resend` / `postmark` (sinks refused) |
+| `MAIL_FROM`, `MAIL_API_KEY` | — | required | required |
+| `MAIL_ALLOWED_RECIPIENTS` | optional | required | ignored |
+| `APP_URL` | optional | required | required |
+| `METRICS_TOKEN` | optional | required | required |
+
+`APP_URL` is the origin every emailed link is built from — invitations, reset
+links, notification emails. It is configuration, never a request header, so a
+spoofed `Host` cannot redirect a link (PRD #38 §162).
+
+## Rate limiting
+
+Sign-in, password reset (request and submission), invitation resend and
+invitation acceptance are throttled by `lib/core/security/throttle.ts`, whose
+counters live in PostgreSQL (`rate_limit_buckets`) so every instance shares one
+count (PRD #38 §17). Each flow is limited per account and per client address.
+The client address is the first entry of `X-Forwarded-For`: deploy behind a
+proxy or load balancer that sets that header itself and strips any value the
+client sent.
+
+Search, uploads and download grants use the in-process limiter in
+`lib/core/security/rate-limit.ts`, which is deliberately per-instance.
+
+## Mail
+
+See `docs/runbooks/mail-delivery.md`. Staging must use a sandbox or allowlisted
+provider: with `APP_ENV=staging`, a recipient outside `MAIL_ALLOWED_RECIPIENTS`
+is recorded as `SUPPRESSED` and never sent (PRD #38 §12).
 
 Secrets never appear in `NEXT_PUBLIC_*`, in the client bundle, in logs or in
 this repository (PRD #34 §60).

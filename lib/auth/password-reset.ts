@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { appLink } from "@/lib/config/app-url";
 import { prisma } from "@/lib/database/prisma";
-import { sendMail } from "@/lib/mail/transport";
+import { sendMail } from "@/lib/mail";
 import { recordAuthEvent } from "./events";
 import { hashPassword } from "./password";
 import { revokeSessionsForUser } from "./session-store";
@@ -25,41 +26,52 @@ function hashToken(token: string): string {
  */
 export async function requestPasswordReset(
   email: string,
-  options: { appUrl?: string } = {},
+  options: { ipAddress?: string | null; userAgent?: string | null } = {},
 ): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
     select: { id: true, status: true, firstName: true, email: true },
   });
 
-  await recordAuthEvent({ type: "PASSWORD_RESET_REQUEST", userId: user?.id ?? null });
+  await recordAuthEvent({
+    type: "PASSWORD_RESET_REQUEST",
+    userId: user?.id ?? null,
+    ipAddress: options.ipAddress,
+    userAgent: options.userAgent,
+  });
 
   if (!user || user.status !== "ACTIVE") return;
 
   const token = randomBytes(32).toString("hex");
 
-  await prisma.passwordResetToken.create({
+  const created = await prisma.passwordResetToken.create({
     data: {
       userId: user.id,
       tokenHash: hashToken(token),
       expiresAt: new Date(Date.now() + TOKEN_TTL_MS),
     },
+    select: { id: true },
   });
 
-  const base = options.appUrl ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const membership = await prisma.companyMember.findFirst({
+    where: { userId: user.id, status: "ACTIVE" },
+    select: { companyId: true },
+    orderBy: { createdAt: "asc" },
+  });
 
+  // The delivery is recorded against the token row, never the token itself,
+  // and a failure is visible to operators without being visible to the person
+  // asking — the response stays the same either way (PRD #38 §16, §21).
   await sendMail({
     to: user.email,
-    subject: "Reset your NESTO password",
-    body: [
-      `Hello ${user.firstName},`,
-      "",
-      "Use the link below to choose a new password. It expires in one hour and can only be used once.",
-      "",
-      `${base}/reset-password?token=${token}`,
-      "",
-      "If you didn't ask for this, you can ignore this message.",
-    ].join("\n"),
+    templateKey: "auth.password_reset",
+    variables: {
+      firstName: user.firstName,
+      resetUrl: appLink(`/reset-password?token=${token}`),
+    },
+    idempotencyKey: `password-reset:${created.id}`,
+    companyId: membership?.companyId ?? null,
+    entity: { type: "PasswordResetToken", id: created.id },
   });
 }
 

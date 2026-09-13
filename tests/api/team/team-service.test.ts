@@ -6,6 +6,7 @@ import * as invitations from "@/lib/modules/team/invitations/invite.service";
 import { hashInviteToken } from "@/lib/modules/team/invitations/invite.token";
 import { teamListQuerySchema, updateMemberSchema } from "@/lib/modules/team/team.schema";
 import * as team from "@/lib/modules/team/team.service";
+import { clearOutbox, readOutbox, setMailProvider } from "@/lib/mail";
 import { cleanupSessions, loginAs, prisma } from "../../helpers";
 
 /**
@@ -22,7 +23,11 @@ const createdMembers: string[] = [];
 const createdDepartments: string[] = [];
 
 afterEach(async () => {
+  setMailProvider(null);
+  await prisma.rateLimitBucket.deleteMany({ where: { key: { startsWith: "INVITE_RESEND:" } } });
   if (createdInvites.length > 0) {
+    await prisma.mailDelivery.deleteMany({ where: { entityId: { in: createdInvites } } });
+    await prisma.auditEvent.deleteMany({ where: { entityId: { in: createdInvites } } });
     await prisma.activity.deleteMany({ where: { entityId: { in: createdInvites } } });
     await prisma.companyInvite.deleteMany({ where: { id: { in: createdInvites } } });
     createdInvites.length = 0;
@@ -523,6 +528,128 @@ describe("invitations (PRD #14 §61–§80)", () => {
       ),
       "FORBIDDEN",
     );
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Invitation delivery                                                          */
+/* -------------------------------------------------------------------------- */
+
+describe("invitation delivery (PRD #38 §14, §15, §21)", () => {
+  async function invite(email: string) {
+    const owner = await loginAs("OWNER");
+    const role = await prisma.role.findUniqueOrThrow({ where: { key: "VIEWER" } });
+    const result = await invitations.inviteMember(owner, {
+      email,
+      roleId: role.id,
+      firstName: undefined,
+      lastName: undefined,
+      departmentId: undefined,
+      jobTitle: undefined,
+    });
+    createdInvites.push(result.inviteId);
+    return { owner, result };
+  }
+
+  it("records a sent message against the invitation, and the list shows it", async () => {
+    clearOutbox();
+    const { owner, result } = await invite("delivery-sent@nesto.test");
+
+    expect(result).toMatchObject({ delivered: true, deliveryStatus: "SENT" });
+    const delivery = await prisma.mailDelivery.findFirstOrThrow({
+      where: { entityType: "CompanyInvite", entityId: result.inviteId },
+    });
+    expect(delivery).toMatchObject({ status: "SENT", templateKey: "team.invitation" });
+
+    const message = readOutbox().at(-1)!;
+    expect(message.to).toBe("delivery-sent@nesto.test");
+    expect(message.text).toContain("/invite/");
+
+    const listed = (await invitations.listInvitations(owner)).find((row) => row.id === result.inviteId);
+    expect(listed?.delivery?.status).toBe("SENT");
+  });
+
+  it("keeps the invitation when delivery fails, and makes the failure visible", async () => {
+    setMailProvider({
+      name: "failing",
+      sink: false,
+      send: async () => ({ status: "FAILED", errorCode: "HTTP_401", retryable: false }),
+    });
+    const { owner, result } = await invite("delivery-failed@nesto.test");
+
+    expect(result).toMatchObject({ delivered: false, deliveryStatus: "FAILED" });
+    const row = await prisma.companyInvite.findUniqueOrThrow({ where: { id: result.inviteId } });
+    expect(row.status).toBe("PENDING");
+
+    const listed = (await invitations.listInvitations(owner)).find((item) => item.id === result.inviteId);
+    expect(listed?.delivery).toMatchObject({ status: "FAILED", errorCode: "HTTP_401" });
+  });
+
+  it("mails the new link on resend, and records it as audit evidence", async () => {
+    const { owner, result } = await invite("delivery-resend@nesto.test");
+    clearOutbox();
+
+    const resent = await invitations.resendInvitation(owner, result.inviteId);
+    expect(resent.deliveryStatus).toBe("SENT");
+
+    const deliveries = await prisma.mailDelivery.findMany({
+      where: { entityType: "CompanyInvite", entityId: result.inviteId },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(deliveries.map((delivery) => delivery.templateKey)).toEqual(["team.invitation", "team.invitation_resend"]);
+    expect(readOutbox().at(-1)?.text).toContain(resent.inviteUrl!.split("/invite/")[1]);
+
+    const audit = await prisma.auditEvent.findFirst({
+      where: { actionKey: "TEAM_INVITATION_RESENT", entityId: result.inviteId },
+    });
+    expect(audit).not.toBeNull();
+  });
+
+  it("throttles resending one invitation (PRD #38 §15, §17)", async () => {
+    const { owner, result } = await invite("delivery-throttle@nesto.test");
+
+    for (let i = 0; i < 3; i += 1) {
+      await invitations.resendInvitation(owner, result.inviteId);
+    }
+    await expectError(invitations.resendInvitation(owner, result.inviteId), "CONFLICT");
+  });
+
+  it("activates a new account from its invitation exactly once, with audit evidence", async () => {
+    const { result } = await invite("delivery-accept@nesto.test");
+    const token = result.inviteUrl!.split("/invite/")[1];
+
+    try {
+      const accepted = await invitations.acceptInvite({
+        token,
+        firstName: "Accepted",
+        lastName: "Person",
+        password: "a-long-enough-password",
+      });
+      createdMembers.push(accepted.membershipId);
+
+      const membership = await prisma.companyMember.findUniqueOrThrow({ where: { id: accepted.membershipId } });
+      expect(membership.status).toBe("ACTIVE");
+
+      const audit = await prisma.auditEvent.findFirst({
+        where: { actionKey: "TEAM_MEMBER_ACTIVATED", entityId: accepted.membershipId },
+      });
+      expect(audit).not.toBeNull();
+
+      await expectError(
+        invitations.acceptInvite({ token, firstName: "Again", lastName: "Person", password: "a-long-enough-password" }),
+        "NOT_FOUND",
+      );
+    } finally {
+      const user = await prisma.user.findUnique({ where: { email: "delivery-accept@nesto.test" } });
+      if (user) {
+        await prisma.auditEvent.deleteMany({ where: { actorUserId: user.id } });
+        await prisma.activity.deleteMany({ where: { actorUserId: user.id } });
+        await prisma.companyInvite.updateMany({ where: { userId: user.id }, data: { userId: null, companyMemberId: null } });
+        await prisma.companyMember.deleteMany({ where: { userId: user.id } });
+        createdMembers.length = 0;
+        await prisma.user.delete({ where: { id: user.id } });
+      }
+    }
   });
 });
 

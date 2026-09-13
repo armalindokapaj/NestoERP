@@ -17,9 +17,8 @@ import { translateAuthError } from "@/lib/i18n/auth-errors";
  * Password recovery (PRD #6 §55, §95).
  *
  * The confirmation is identical whether or not the address exists, so this page
- * cannot be used to enumerate accounts. V0.1 has no configured mail provider:
- * the reset link is written to the server log by the default transport, which
- * is also what the tests read.
+ * cannot be used to enumerate accounts — including by timing, because the
+ * message is sent after the response (PRD #38 §16).
  */
 export function ForgotPasswordForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -42,7 +41,7 @@ export function ForgotPasswordForm() {
         </div>
         <p className="text-card font-semibold text-fg">{t("forgot.sentTitle")}</p>
         <p className="mt-1 text-table text-fg-muted">{t("forgot.sentDescription")}</p>
-        <p className="mt-3 text-meta text-fg-subtle">{t("forgot.noMailProvider")}</p>
+        <p className="mt-3 text-meta text-fg-subtle">{t("forgot.sentHint")}</p>
       </div>
     );
   }

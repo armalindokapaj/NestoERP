@@ -1,5 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+import { appLink } from "@/lib/config/app-url";
+
 /**
  * Invitation tokens (PRD #14 §67, §237, §238, §239).
  *
@@ -49,12 +51,7 @@ export function isInviteExpired(expiresAt: Date, now: Date = new Date()): boolea
  * site (PRD #14 §241).
  */
 export function inviteUrl(token: string): string {
-  const origin = (
-    process.env.APP_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000"
-  ).replace(/\/+$/, "");
-  return `${origin}/invite/${token}`;
+  return appLink(`/invite/${token}`);
 }
 
 /** Email matching is normalised so case cannot create a second account (PRD #14 §318). */

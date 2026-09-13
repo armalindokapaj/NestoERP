@@ -48,6 +48,16 @@ export const PUBLIC_OPERATIONAL_ROUTES = [
 ] as const;
 
 /**
+ * Machine endpoints that carry their own credential (PRD #38 §97, §105).
+ *
+ * A metrics scraper has no session to offer, so middleware lets these through
+ * and the handler demands a bearer token instead — refusing everything, with a
+ * 404, when no token is configured. They are not in PUBLIC_OPERATIONAL_ROUTES
+ * because they do not answer an anonymous visitor.
+ */
+export const TOKEN_AUTHENTICATED_ROUTES = ["/api/internal/metrics"] as const;
+
+/**
  * Public routes whose path carries a secret rather than being a fixed page.
  *
  * An invitation link must work for somebody who has no account yet, so the
@@ -86,6 +96,7 @@ export function isDeadSessionReason(reason: string | null | undefined): boolean 
 export function isPublicRoute(pathname: string): boolean {
   if ((PUBLIC_ROUTES as readonly string[]).includes(pathname)) return true;
   if ((PUBLIC_OPERATIONAL_ROUTES as readonly string[]).includes(pathname)) return true;
+  if ((TOKEN_AUTHENTICATED_ROUTES as readonly string[]).includes(pathname)) return true;
   // An invitation stays reachable while signed in: somebody with an existing
   // account accepts it from their own session (PRD #14 §75).
   return PUBLIC_ROUTE_PREFIXES.some(

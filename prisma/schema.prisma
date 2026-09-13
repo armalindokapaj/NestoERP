@@ -183,6 +183,24 @@ enum AuthEventType {
   PASSWORD_RESET_SUCCESS
   ACCOUNT_BLOCKED
   MEMBERSHIP_DENIED
+  /// Refused before the password was checked: too many recent failures for the
+  /// account or the address (PRD #38 §17).
+  LOGIN_RATE_LIMITED
+  PASSWORD_CHANGED
+  SESSIONS_REVOKED
+}
+
+/// Where one transactional email got to (PRD #38 §13).
+///
+/// QUEUED     recorded, not yet handed to a provider
+/// SENT       the provider accepted it
+/// FAILED     the provider refused it, or could not be reached
+/// SUPPRESSED deliberately not sent — a staging recipient outside the allowlist
+enum MailDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  SUPPRESSED
 }
 
 // Module test-record enums (PRD #9 §67)
@@ -1727,6 +1745,57 @@ model AuthEvent {
   @@index([type])
   @@index([createdAt])
   @@map("auth_events")
+}
+
+/// One transactional email and what became of it (PRD #38 §13, §164).
+///
+/// Metadata only. The body is never stored: an invitation or a reset link is a
+/// credential, and a table of them would be a table of ways into accounts. A
+/// failed message is recovered by issuing a new one — resend the invitation,
+/// request another reset — never by replaying an old body.
+model MailDelivery {
+  id                String             @id @default(cuid())
+  companyId         String?
+  recipient         String
+  templateKey       String
+  provider          String
+  providerMessageId String?
+  status            MailDeliveryStatus @default(QUEUED)
+  errorCode         String?
+  attempts          Int                @default(0)
+  /// Repeating a send with the same key returns the first delivery instead of
+  /// sending twice (PRD #38 §155).
+  idempotencyKey    String?            @unique
+  /// What the message was about, so an operator can find the failed invitation.
+  entityType        String?
+  entityId          String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastAttemptAt DateTime?
+  sentAt        DateTime?
+
+  @@index([status, createdAt])
+  @@index([companyId, createdAt])
+  @@index([entityType, entityId])
+  @@map("mail_deliveries")
+}
+
+/// A fixed-window counter every application instance shares (PRD #38 §17).
+///
+/// Held in PostgreSQL rather than process memory, because a limit each instance
+/// counts separately is a limit multiplied by the number of instances. The key
+/// is `category:subject`, and the subject is always a hash or an opaque id —
+/// never an email address or a token (PRD #38 §18).
+model RateLimitBucket {
+  key          String   @id
+  count        Int
+  windowEndsAt DateTime
+
+  updatedAt DateTime @updatedAt
+
+  @@index([windowEndsAt])
+  @@map("rate_limit_buckets")
 }
 
 // ---------------------------------------------------------------------------
