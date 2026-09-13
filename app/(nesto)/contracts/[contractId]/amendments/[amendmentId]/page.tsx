@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
+import { RecordDocuments } from "@/components/documents/record-documents";
 import { AmendmentActions } from "@/components/contracts/amendment-actions";
 import { ContractApprovalHistory } from "@/components/contracts/approval-history";
 import { ContractRecordDocuments } from "@/components/contracts/record-documents";
@@ -156,6 +158,10 @@ export default async function AmendmentDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
+
+      <RecordDocuments context={context} entityType="amendment" entityId={amendmentId} title="Documents" emptyDescription="The signed amendment and its supporting papers appear here." />
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="amendment" parentId={amendmentId} />
     </div>
   );
 }

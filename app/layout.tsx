@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { cookies } from "next/headers";
 
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { brand } from "@/config/brand";
+import { geistMono, geistSans, instrumentSerif } from "@/lib/fonts";
 import { site } from "@/config/marketing";
 import {
   readThemeChoice,
@@ -14,26 +14,6 @@ import { getLocale } from "@/lib/i18n/server";
 import { messages } from "@/lib/i18n/messages";
 import { siteUrl } from "@/lib/marketing/site-url";
 import "../styles/globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-/**
- * Display face for the wordmark and executive headings (design spec §7).
- * Used sparingly — the application interface itself stays on Geist.
- */
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-nesto-serif",
-  subsets: ["latin"],
-  weight: "400",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

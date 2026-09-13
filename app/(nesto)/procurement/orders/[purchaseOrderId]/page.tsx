@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { RecordDocuments } from "@/components/documents/record-documents";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { OrderActions } from "@/components/procurement/order-actions";
 import { ProcurementApprovalHistory } from "@/components/procurement/approval-history";
@@ -254,6 +255,7 @@ export default async function OrderDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
+      <RecordDocuments context={context} entityType="purchase_order" entityId={purchaseOrderId} title="Documents" emptyDescription="The issued order, supplier confirmations and delivery notes appear here." />
       {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
       <RecordTasks context={context} parentType="purchase_order" parentId={purchaseOrderId} />
       {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}

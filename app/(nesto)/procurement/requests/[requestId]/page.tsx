@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { RecordDocuments } from "@/components/documents/record-documents";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { RequestActions } from "@/components/procurement/request-actions";
 import { ProcurementApprovalHistory } from "@/components/procurement/approval-history";
@@ -231,6 +232,7 @@ export default async function RequestDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
+      <RecordDocuments context={context} entityType="purchase_request" entityId={requestId} title="Documents" emptyDescription="Specifications, quotations and justifications attached to this request appear here." />
       {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
       <RecordTasks context={context} parentType="purchase_request" parentId={requestId} />
       {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}

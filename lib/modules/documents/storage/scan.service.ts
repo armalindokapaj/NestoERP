@@ -10,6 +10,8 @@ import {
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { promoteVersion } from "./version.promote";
+// Registers the ClamAV engine: server-only, so it is loaded here, where scans run.
+import "@/lib/core/storage/clamav-scanner";
 
 /** The current version mirrors its document's scan verdict (PRD #38 §56). */
 async function syncCurrentVersion(documentId: string): Promise<void> {

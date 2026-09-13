@@ -1,6 +1,6 @@
 import { Socket } from "node:net";
 
-import type { FileScanInput, FileScanner, FileScanResult } from "./scanner";
+import { registerFileScanner, type FileScanInput, type FileScanner, type FileScanResult } from "./scanner";
 
 /**
  * ClamAV over clamd's INSTREAM protocol (PRD #38 §99, §100).
@@ -94,3 +94,5 @@ export class ClamAvFileScanner implements FileScanner {
     });
   }
 }
+
+registerFileScanner("clamav", () => new ClamAvFileScanner(clamAvOptionsFromEnv()));

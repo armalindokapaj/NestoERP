@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { RecordDocuments } from "@/components/documents/record-documents";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { InviteSupplierControl } from "@/components/procurement/invite-supplier-control";
 import { RfqActions } from "@/components/procurement/rfq-actions";
@@ -228,6 +229,7 @@ export default async function RfqDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
+      <RecordDocuments context={context} entityType="rfq" entityId={rfqId} title="Documents" emptyDescription="The request pack and supplier submissions attached to this RFQ appear here." />
       {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
       <CollaborationPanel parentType="rfq" parentId={rfqId} />
     </div>

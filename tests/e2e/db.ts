@@ -83,8 +83,34 @@ export async function removeTestTasks(titlePrefix: string): Promise<void> {
   if (tasks.length === 0) return;
   const ids = tasks.map((task) => task.id);
 
+  await removeRecordTrail("task", ids);
   await db.activity.deleteMany({ where: { entityId: { in: ids } } });
   await db.task.deleteMany({ where: { id: { in: ids } } });
+}
+
+/**
+ * What PRD #38 hangs off a record without a foreign key: its discussion,
+ * watchers, notifications, queued events and attention items. A spec that
+ * removes a record it created removes these too, or the next run meets orphans.
+ */
+export async function removeRecordTrail(entityType: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const threads = await db.collaborationThread.findMany({
+    where: { parentType: entityType, parentId: { in: ids } },
+    select: { id: true },
+  });
+  const threadIds = threads.map((thread) => thread.id);
+  if (threadIds.length > 0) {
+    const comments = await db.comment.findMany({ where: { threadId: { in: threadIds } }, select: { id: true } });
+    await db.mention.deleteMany({ where: { commentId: { in: comments.map((comment) => comment.id) } } });
+    await db.comment.updateMany({ where: { threadId: { in: threadIds } }, data: { replyToId: null } });
+    await db.comment.deleteMany({ where: { threadId: { in: threadIds } } });
+    await db.subscription.deleteMany({ where: { threadId: { in: threadIds } } });
+    await db.collaborationThread.deleteMany({ where: { id: { in: threadIds } } });
+  }
+  await db.notification.deleteMany({ where: { entityType, entityId: { in: ids } } });
+  await db.notificationEventOutbox.deleteMany({ where: { entityType, entityId: { in: ids } } });
+  await db.attentionItem.deleteMany({ where: { entityType, entityId: { in: ids } } });
 }
 
 /**
@@ -137,6 +163,7 @@ export async function removeTestDocuments(namePrefix: string): Promise<void> {
   if (documents.length === 0) return;
   const ids = documents.map((document) => document.id);
 
+  await removeRecordTrail("document", ids);
   await db.activity.deleteMany({ where: { entityId: { in: ids } } });
   await db.auditEvent.deleteMany({ where: { entityId: { in: ids } } });
   // An upload session holds a foreign key to its document and a quota

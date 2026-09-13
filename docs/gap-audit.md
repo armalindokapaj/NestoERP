@@ -466,3 +466,15 @@ The release review that followed (PRD #35) found two more things this audit had
 not: Workflow K was implemented but entirely untested, and Workflow L — Sales
 quote to invoice — did not exist at all. Both are recorded in
 `docs/release-readiness.md` §2.
+
+### PRD #38 (2026-09-14)
+
+The "found while fixing" items above are closed by PRD #38: the topbar palette now
+queries `/api/search` (`2550098`), and the notification layer gained a real bell,
+preferences, a leased worker and re-authorising links. The full PRD #38 re-audit —
+blockers, readiness matrix and weighted readiness — is `docs/release-readiness.md`
+§10. New regression guards: registry-generated record/collaboration/document parent
+matrices (`tests/api/records/record-parent-matrix.test.ts`), notification, attention
+and job registry completeness (`tests/unit/notifications/notification-registry.test.ts`,
+`tests/unit/records/record-registry.test.ts`), and production guards for the scanner,
+the worker boundary and self-hosted fonts.
