@@ -245,9 +245,8 @@
   }
 
   /*
-   * The sidebar foot carries the brand signoff and the collapse control. The
-   * rail below 1200px has neither, so without this it renders as an empty
-   * bordered strip.
+   * The sidebar foot carries the brand signoff, which the rail has no room
+   * for — without this it renders as an empty bordered strip.
    */
   .nesto-sidebar-footer {
     display: none;
@@ -270,8 +269,8 @@
       display: none;
     }
 
-    .nesto-sidebar-footer {
-      display: flex;
+    [data-sidebar="expanded"] .nesto-sidebar-footer {
+      display: block;
     }
   }
 }

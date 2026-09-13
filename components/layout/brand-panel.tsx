@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { NestoLogo } from "@/components/layout/nesto-logo";
 
 /**
@@ -29,7 +31,9 @@ export function BrandPanel({ tagline = "People. Projects. Progress." }: { taglin
       </svg>
 
       <div className="relative">
-        <NestoLogo tone="inverse" />
+        <Link href="/" aria-label="NESTO home" className="inline-flex">
+          <NestoLogo tone="inverse" />
+        </Link>
       </div>
 
       <div className="relative max-w-sm">

@@ -21,6 +21,12 @@ import { cn } from "@/lib/utils/cn";
  *
  * Rendered only when the shell is built in development — see AppShell — and the
  * server action behind it is independently gated, so it cannot reach production.
+ *
+ * It is also the piece of the top bar that gives way when the account cluster
+ * runs out of room: `min-w-0` plus a truncating label lets the role name go —
+ * down to the flask alone at tablet width — while the icon, and the signed-in
+ * person's own name and role beside it, keep their size. Development chrome
+ * should not be what decides how the product's own top bar lays out.
  */
 export function DevRoleSwitcher({
   role,
@@ -44,15 +50,15 @@ export function DevRoleSwitcher({
       <DropdownMenuTrigger
         disabled={isPending}
         className={cn(
-          "flex h-8 items-center gap-1.5 rounded-md border px-2 text-micro font-medium transition-colors",
+          "flex h-8 min-w-0 items-center gap-1.5 rounded-md border px-2 text-micro font-medium transition-colors",
           isOverridden
             ? "border-warning/40 bg-warning-soft text-warning-strong"
             : "border-line-strong bg-surface text-fg-muted hover:bg-hover",
         )}
         title="Development role switcher"
       >
-        <FlaskConical className="size-3.5" />
-        <span className="hidden lg:inline">{roleLabel(role)}</span>
+        <FlaskConical className="size-3.5 shrink-0" />
+        <span className="hidden truncate lg:inline">{roleLabel(role)}</span>
         <span className="lg:hidden">DEV</span>
       </DropdownMenuTrigger>
 

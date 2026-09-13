@@ -17,7 +17,7 @@ export function NotificationsMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="relative grid size-9 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg data-[state=open]:bg-hover"
+        className="relative grid size-9 shrink-0 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg data-[state=open]:bg-hover"
         aria-label="Notifications"
       >
         <Bell aria-hidden="true" className="size-[18px]" />
