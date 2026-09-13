@@ -28,7 +28,8 @@
     "verify:production-guards": "tsx scripts/verify-production-guards.ts",
     "retention:dry-run": "tsx scripts/retention.ts --dry-run",
     "storage:maintenance": "tsx scripts/storage-maintenance.ts",
-    "storage:maintenance:apply": "tsx scripts/storage-maintenance.ts --apply"
+    "storage:maintenance:apply": "tsx scripts/storage-maintenance.ts --apply",
+    "notifications:dispatch": "tsx scripts/notifications.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

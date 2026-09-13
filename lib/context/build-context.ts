@@ -133,7 +133,13 @@ export async function resolveContextForSession(
 }
 
 /** Company-level module activation (PRD #7 §59). */
-async function resolveEnabledModules(companyId: string): Promise<ModuleKey[]> {
+/**
+ * Exported so anything resolving access outside a session — the notification
+ * dispatcher re-checking each recipient — uses this definition rather than its
+ * own. Two module-access rules that can disagree is how a notification tells
+ * somebody about a module their company switched off.
+ */
+export async function resolveEnabledModules(companyId: string): Promise<ModuleKey[]> {
   const rows = await prisma.companyModule.findMany({
     where: { companyId, enabled: true },
     include: { module: true },
@@ -145,7 +151,7 @@ async function resolveEnabledModules(companyId: string): Promise<ModuleKey[]> {
   return MODULE_KEYS.filter((key) => key === "dashboard" || enabled.has(key));
 }
 
-function buildModuleAccess(
+export function buildModuleAccess(
   role: RoleKey,
   enabledModules: readonly ModuleKey[],
 ): Record<ModuleKey, ModuleAccess> {
