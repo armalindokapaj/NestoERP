@@ -212,12 +212,65 @@ describe("invoice creation (PRD #15 §341, §342)", () => {
     expect(invoice.settlementStatus).toBe("UNPAID");
   });
 
-  it("refuses an invoice number already used in the company (PRD #15 §46)", async () => {
+  /**
+   * The company's scheme has finance/invoice on AUTO, so the number is
+   * allocated under a row lock and what somebody typed is discarded — the
+   * uniqueness this once tested is now structural rather than checked
+   * (PRD #24 §102, §114).
+   */
+  it("allocates the number itself and ignores a supplied one (PRD #24 §114)", async () => {
     const finance = await loginAs("FINANCE");
-    await expectError(
-      invoices.createInvoice(finance, invoiceInput({ invoiceNumber: "INV-2026-001" })),
-      "CONFLICT",
+
+    const invoice = await invoices.createInvoice(
+      finance,
+      invoiceInput({ invoiceNumber: "INV-2026-001" }),
     );
+    createdInvoices.push(invoice.id);
+
+    expect(invoice.invoiceNumber).not.toBe("INV-2026-001");
+    expect(invoice.invoiceNumber).toMatch(/^INV-/);
+  });
+
+  it("still refuses a duplicate number when the company numbers manually", async () => {
+    const finance = await loginAs("FINANCE");
+
+    await prisma.companyNumberingScheme.updateMany({
+      where: { companyId: finance.companyId, moduleKey: "finance", entityType: "invoice" },
+      data: { mode: "MANUAL" },
+    });
+
+    try {
+      await expectError(
+        invoices.createInvoice(finance, invoiceInput({ invoiceNumber: "INV-2026-001" })),
+        "CONFLICT",
+      );
+    } finally {
+      await prisma.companyNumberingScheme.updateMany({
+        where: { companyId: finance.companyId, moduleKey: "finance", entityType: "invoice" },
+        data: { mode: "AUTO" },
+      });
+    }
+  });
+
+  it("refuses a manual create with no number at all", async () => {
+    const finance = await loginAs("FINANCE");
+
+    await prisma.companyNumberingScheme.updateMany({
+      where: { companyId: finance.companyId, moduleKey: "finance", entityType: "invoice" },
+      data: { mode: "MANUAL" },
+    });
+
+    try {
+      await expectError(
+        invoices.createInvoice(finance, invoiceInput({ invoiceNumber: undefined })),
+        "VALIDATION_ERROR",
+      );
+    } finally {
+      await prisma.companyNumberingScheme.updateMany({
+        where: { companyId: finance.companyId, moduleKey: "finance", entityType: "invoice" },
+        data: { mode: "AUTO" },
+      });
+    }
   });
 
   it("refuses a due date before the issue date (PRD #15 §51)", async () => {

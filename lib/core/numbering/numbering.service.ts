@@ -133,3 +133,25 @@ export const NUMBERING_DEFAULTS: Array<{
   { moduleKey: "hse", entityType: "permit", prefix: "PTW" },
   { moduleKey: "hse", entityType: "action", prefix: "HSA" },
 ];
+
+/**
+ * Whether a record type numbers itself (PRD #24 §114).
+ *
+ * Read by forms so they do not ask for a number the service is going to
+ * allocate and discard. The allocation itself never trusts this — it re-reads
+ * the scheme under a row lock — so a stale answer here costs a confusing field,
+ * not a wrong number.
+ */
+export async function isAutoNumbered(target: NumberingTarget): Promise<boolean> {
+  const scheme = await prisma.companyNumberingScheme.findUnique({
+    where: {
+      companyId_moduleKey_entityType: {
+        companyId: target.companyId,
+        moduleKey: target.moduleKey,
+        entityType: target.entityType,
+      },
+    },
+    select: { mode: true },
+  });
+  return scheme?.mode === "AUTO";
+}

@@ -34,7 +34,9 @@ export const invoiceLineSchema = z.object({
 export type InvoiceLineInput = z.infer<typeof invoiceLineSchema>;
 
 const invoiceFields = {
-  invoiceNumber: requiredText(1, 60, "Invoice number"),
+  // Optional because an AUTO scheme allocates it; the service refuses a
+  // MANUAL create with none (PRD #24 §114).
+  invoiceNumber: optionalText(60),
   clientId: z.string().trim().min(1, "Choose a client"),
   projectId: optionalId,
   issueDate: businessDate,
