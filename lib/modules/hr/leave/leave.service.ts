@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -448,6 +450,17 @@ export async function approveLeave(
       },
       { tx },
     );
+
+    // The person who asked is the person waiting for the answer (PRD #25 §33).
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.LEAVE_DECIDED,
+      moduleKey: "hr",
+      entityType: ENTITY,
+      entityId: leaveId,
+      actorMemberId: context.membershipId,
+      payload: { memberId: existing.companyMemberId, decision: "APPROVED" },
+    });
   });
 }
 
@@ -493,6 +506,16 @@ export async function rejectLeave(
       },
       { tx },
     );
+
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.LEAVE_DECIDED,
+      moduleKey: "hr",
+      entityType: ENTITY,
+      entityId: leaveId,
+      actorMemberId: context.membershipId,
+      payload: { memberId: existing.companyMemberId, decision: "REJECTED", reason: note },
+    });
   });
 }
 

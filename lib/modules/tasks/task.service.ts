@@ -6,6 +6,8 @@ import { canAccessProject } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as repository from "./task.repository";
 import type { CreateTaskInput, TaskListQuery, UpdateTaskInput } from "./task.schema";
@@ -173,6 +175,19 @@ export async function createTask(
           message: "assigned the task",
           metadata: { taskId: task.id, assigneeMemberId } as Prisma.InputJsonValue,
         });
+
+        // Being given work is the one thing somebody should not have to go
+        // looking for (PRD #25 §30).
+        await enqueueNotificationEvent(tx, {
+          companyId: context.companyId,
+          eventType: NotificationEvent.TASK_ASSIGNED,
+          moduleKey: "tasks",
+          entityType: ENTITY,
+          entityId: task.id,
+          actorMemberId: context.membershipId,
+          projectId,
+          payload: { assigneeMemberId, title: input.title },
+        });
       }
 
       return task;
@@ -288,6 +303,21 @@ export async function updateTask(
             }) as object),
           } as Prisma.InputJsonValue,
         });
+
+        // Only on gaining an assignee. Being unassigned is not news somebody
+        // needs a notification about.
+        if (assigneeMemberId) {
+          await enqueueNotificationEvent(tx, {
+            companyId: context.companyId,
+            eventType: NotificationEvent.TASK_ASSIGNED,
+            moduleKey: "tasks",
+            entityType: ENTITY,
+            entityId: taskId,
+            actorMemberId: context.membershipId,
+            projectId,
+            payload: { assigneeMemberId, title: input.title ?? existing.title },
+          });
+        }
       }
 
       if (projectChanged) {

@@ -1,6 +1,8 @@
 import { Prisma, type FinanceApprovalRecordType } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
@@ -118,7 +120,32 @@ export async function openApproval(
     select: { id: true },
   });
 
+  /*
+   * Every finance approval passes through here, so this is the one place that
+   * needs to tell anybody. Enqueued on the caller's transaction: a submission
+   * that rolls back notifies nobody (PRD #25 §25).
+   */
+  await enqueueNotificationEvent(tx, {
+    companyId: context.companyId,
+    eventType: NotificationEvent.APPROVAL_REQUESTED,
+    moduleKey: "finance",
+    entityType: type,
+    entityId: recordId,
+    actorMemberId: context.membershipId,
+    payload: {
+      recordLabel: recordTypeLabel(type),
+      submittedByName: context.fullName,
+      submittedByMemberId: context.membershipId,
+    },
+  });
+
   return approval.id;
+}
+
+/** "INVOICE" reads as "An invoice" in a notification title. */
+function recordTypeLabel(type: FinanceApprovalRecordType): string {
+  const word = type.toLowerCase().replace(/_/g, " ");
+  return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
 /** The pending cycle for a record, or a conflict if there is none. */
@@ -167,6 +194,29 @@ export async function decideApproval(
 
   if (result.count === 0) {
     throw new AccessError("CONFLICT", "This record has already been decided.");
+  }
+
+  // Back to whoever submitted it — they are the person waiting (PRD #25 §32).
+  const approval = await tx.financeApproval.findUnique({
+    where: { id: approvalId },
+    select: { recordType: true, recordId: true, submittedByMemberId: true },
+  });
+
+  if (approval) {
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.APPROVAL_DECIDED,
+      moduleKey: "finance",
+      entityType: approval.recordType,
+      entityId: approval.recordId,
+      actorMemberId: context.membershipId,
+      payload: {
+        recordLabel: recordTypeLabel(approval.recordType),
+        decision,
+        reason: note,
+        submittedByMemberId: approval.submittedByMemberId,
+      },
+    });
   }
 }
 
