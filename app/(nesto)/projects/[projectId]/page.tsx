@@ -180,6 +180,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
         active="overview"
         show={{
           tasks: actions.canViewTasks,
+          calendar: actions.canViewCalendar,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
           contracts: actions.canViewContracts,

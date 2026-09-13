@@ -27,6 +27,7 @@ export type DocumentReviewDTO = {
   requestedBy: { memberId: string; fullName: string };
   requestNote: string | null;
   decisionNote: string | null;
+  dueDate: string | null;
   requestedAt: string;
   decidedAt: string | null;
   canDecide: boolean;
@@ -122,6 +123,7 @@ export async function listVersions(context: UserContext, documentId: string): Pr
         requestedBy: { memberId: review.requestedByMemberId, fullName: name(review.requestedByMemberId) },
         requestNote: review.requestNote,
         decisionNote: review.decisionNote,
+        dueDate: review.dueAt ? review.dueAt.toISOString().slice(0, 10) : null,
         requestedAt: review.requestedAt.toISOString(),
         decidedAt: review.decidedAt?.toISOString() ?? null,
         canDecide:

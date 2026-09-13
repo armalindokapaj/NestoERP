@@ -94,6 +94,14 @@ export const AuditAction = {
   COMMENT_EDITED: "COMMENT_EDITED",
   COMMENT_ARCHIVED: "COMMENT_ARCHIVED",
 
+  // Calendar (PRD #39 §112) — never a private description, never a personal title
+  CALENDAR_EVENT_CREATED: "CALENDAR_EVENT_CREATED",
+  CALENDAR_EVENT_UPDATED: "CALENDAR_EVENT_UPDATED",
+  CALENDAR_EVENT_ARCHIVED: "CALENDAR_EVENT_ARCHIVED",
+  CALENDAR_PARTICIPANT_ADDED: "CALENDAR_PARTICIPANT_ADDED",
+  CALENDAR_PARTICIPANT_REMOVED: "CALENDAR_PARTICIPANT_REMOVED",
+  CALENDAR_VISIBILITY_CHANGED: "CALENDAR_VISIBILITY_CHANGED",
+
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
   REPORT_EXPORTED_XLSX: "REPORT_EXPORTED_XLSX",
@@ -195,6 +203,15 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.COMMENT_CREATED, moduleKey: "collaboration", category: "COLLABORATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["parentType", "parentId", "mentionCount", "length"], required: false },
   { actionKey: AuditAction.COMMENT_EDITED, moduleKey: "collaboration", category: "COLLABORATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["parentType", "parentId", "length"], required: false },
   { actionKey: AuditAction.COMMENT_ARCHIVED, moduleKey: "collaboration", category: "COLLABORATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["parentType", "parentId", "archivedAt"], required: false },
+
+  /* Calendar ------------------------------------------------------------- */
+  { actionKey: AuditAction.CALENDAR_EVENT_CREATED, moduleKey: "calendar", category: "CALENDAR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["eventType", "visibility", "allDay", "recurring", "projectId", "departmentId", "participantCount"], required: false },
+  { actionKey: AuditAction.CALENDAR_EVENT_UPDATED, moduleKey: "calendar", category: "CALENDAR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["eventType", "allDay", "recurring", "projectId", "departmentId", "moved"], required: false },
+  { actionKey: AuditAction.CALENDAR_EVENT_ARCHIVED, moduleKey: "calendar", category: "CALENDAR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["eventType", "visibility"], required: false },
+  { actionKey: AuditAction.CALENDAR_PARTICIPANT_ADDED, moduleKey: "calendar", category: "CALENDAR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["memberIds", "count"], required: false },
+  { actionKey: AuditAction.CALENDAR_PARTICIPANT_REMOVED, moduleKey: "calendar", category: "CALENDAR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["memberId"], required: false },
+  // Who can see an event is an access decision, so a change to it is recorded as one.
+  { actionKey: AuditAction.CALENDAR_VISIBILITY_CHANGED, moduleKey: "calendar", category: "CALENDAR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["from", "to", "projectId", "departmentId"], required: true },
 
   /* Reporting ------------------------------------------------------------ */
   { actionKey: AuditAction.REPORT_EXPORTED_CSV, moduleKey: "settings", category: "REPORTING", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: false },

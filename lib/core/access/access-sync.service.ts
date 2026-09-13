@@ -1,6 +1,6 @@
 import type { AccessLevel, DataScope, PrismaClient } from "@prisma/client";
 
-import { MODULE_KEYS, modules } from "@/config/modules";
+import { CORE_MODULE_KEYS, MODULE_KEYS, modules } from "@/config/modules";
 import { PERMISSIONS, moduleForPermission, permissionAction } from "@/config/permissions";
 import { roleModuleAccess } from "@/config/role-defaults";
 import { ROLE_KEYS, roles } from "@/config/roles";
@@ -101,6 +101,18 @@ export async function syncAccessConfiguration(prisma: PrismaClient) {
     // behind to be granted by a stale row nothing in the code checks.
     prisma.permission.deleteMany({ where: { key: { notIn: [...PERMISSIONS] } } }),
   ]);
+
+  // A core module added after a company was created is switched on for it: a
+  // company cannot be without the shell (PRD #39 §127). Existing switches are
+  // never changed here.
+  const companies = await prisma.company.findMany({ select: { id: true } });
+  const coreModuleIds = CORE_MODULE_KEYS.map((key) => moduleId.get(key)).filter((id): id is string => Boolean(id));
+  if (companies.length > 0 && coreModuleIds.length > 0) {
+    await prisma.companyModule.createMany({
+      data: companies.flatMap((company) => coreModuleIds.map((id) => ({ companyId: company.id, moduleId: id, enabled: true }))),
+      skipDuplicates: true,
+    });
+  }
 
   return {
     roles: ROLE_KEYS.length,

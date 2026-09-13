@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Boxes,
   Building2,
+  CalendarDays,
   ClipboardCheck,
   FileSignal,
   FileText,
@@ -42,6 +43,7 @@ const MIN_QUERY = 2;
 const DEBOUNCE_MS = 200;
 
 const ENTITY_ICONS: Record<string, LucideIcon> = {
+  calendar_event: CalendarDays,
   project: FolderKanban,
   task: SquareCheckBig,
   client: Building2,

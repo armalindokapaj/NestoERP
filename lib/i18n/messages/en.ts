@@ -96,6 +96,7 @@ export const en = {
 
   modules: {
     dashboard: { label: "Dashboard", description: "Your role overview across the company." },
+    calendar: { label: "Calendar", description: "Deadlines, events and schedules across the company." },
     projects: { label: "Projects", description: "Manage company projects and project activity." },
     tasks: { label: "Tasks", description: "Work assigned across projects and departments." },
     clients: { label: "Clients", description: "Companies and people your company works with." },
@@ -210,6 +211,7 @@ export const en = {
         hr: { label: "HR", description: "Decisions on your leave requests." },
         contracts: { label: "Legal", description: "Contract obligations coming due." },
         procurement: { label: "Procurement", description: "Purchase orders to approve and goods received." },
+        calendar: { label: "Calendar", description: "Reminders, invitations and changes to events you are on." },
       },
     },
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { assertPermission } from "@/lib/access/guards";
-import { MODULE_KEYS, modules as registry, type ModuleKey } from "@/config/modules";
+import { CORE_MODULE_KEYS, MODULE_KEYS, modules as registry, type ModuleKey } from "@/config/modules";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
@@ -18,7 +18,7 @@ import { integrationBlockers } from "./integration-settings.service";
  */
 
 /** Core modules are the product itself and cannot be switched off (PRD #24 §47, §175). */
-const CORE_MODULES: ModuleKey[] = ["dashboard", "team", "company", "settings", "support"];
+const CORE_MODULES: ModuleKey[] = [...CORE_MODULE_KEYS];
 
 /** Shared work modules other modules reference constantly (PRD #24 §48, §173). */
 const SHARED_MODULES: ModuleKey[] = ["projects", "tasks", "clients", "documents"];

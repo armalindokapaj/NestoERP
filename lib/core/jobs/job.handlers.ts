@@ -4,6 +4,7 @@ import { dispatchNotifications, workerIdentity } from "@/lib/core/notifications/
 import { runAllRetentionPolicies } from "@/lib/core/retention/retention.service";
 import { purgeExpiredThrottles } from "@/lib/core/security/throttle";
 import { scannerEnabled } from "@/lib/core/storage";
+import { runCalendarReminders } from "@/lib/modules/calendar/calendar.reminders";
 import { findOrphanedDocuments, runStorageCleanup } from "@/lib/modules/documents/storage/cleanup.service";
 import { runPendingScans } from "@/lib/modules/documents/storage/scan.service";
 import type { JobHandler } from "./job.registry";
@@ -22,6 +23,10 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
   "notifications.dispatch": async ({ env }) => {
     const result = await dispatchNotifications(batchSize(env, "NOTIFICATION_BATCH_SIZE", 100), workerIdentity());
     return { processed: result.processed, detail: { ...result } };
+  },
+  "calendar.reminders": async ({ now }) => {
+    const result = await runCalendarReminders(now);
+    return { processed: result.fired, detail: result };
   },
   "notifications.due": async ({ now, lastSuccessAt }) => {
     const result = await enqueueDueNotifications({ now, since: lastSuccessAt });

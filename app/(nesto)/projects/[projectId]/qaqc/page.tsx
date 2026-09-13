@@ -85,6 +85,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
         active="qaqc"
         show={{
           tasks: projectActions.canViewTasks,
+          calendar: projectActions.canViewCalendar,
           team: projectActions.canViewMembers,
           finance: projectActions.canViewFinance,
           contracts: projectActions.canViewContracts,

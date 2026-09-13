@@ -56,6 +56,7 @@ export default async function ProjectTeamPage({ params }: Params) {
         active="team"
         show={{
           tasks: actions.canViewTasks,
+          calendar: actions.canViewCalendar,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
           contracts: actions.canViewContracts,

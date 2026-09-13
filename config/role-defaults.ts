@@ -54,6 +54,25 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "collaboration.watch",
     ],
   },
+  /**
+   * Calendar (PRD #39 §43, §129-§144).
+   *
+   * Contributors keep their own events, invite colleagues and set reminders;
+   * managers publish company-wide events and holidays. Nothing here reveals a
+   * module's dates — each source provider asks its own module (PRD #39 §45).
+   */
+  calendar: {
+    VIEW: ["calendar.view"],
+    CONTRIBUTE: [
+      "calendar.event.create",
+      "calendar.event.edit",
+      "calendar.event.archive",
+      "calendar.private_event.manage",
+      "calendar.reminder.manage",
+      "calendar.availability.view",
+    ],
+    MANAGE: ["calendar.company_event.manage"],
+  },
   projects: {
     VIEW: [
       "project.view",
@@ -828,86 +847,86 @@ type RoleMatrixRow = Partial<Record<ModuleKey, MatrixCell>>;
  */
 const MATRIX: Record<RoleKey, RoleMatrixRow> = {
   OWNER: {
-    projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
+    calendar: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
     finance: "M/C", hr: "M/C", sales: "M/C", contracts: "M/C",
     procurement: "M/C", inventory: "M/C", qaqc: "M/C", hse: "M/C",
     team: "M/C", company: "M/C", settings: "M/C", support: "V/C",
   },
   ADMIN: {
-    projects: "V/C", tasks: "V/C", clients: "V/C", documents: "M/C",
+    calendar: "M/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "M/C",
     hr: "V/C",
     team: "M/C", company: "M/C", settings: "M/SYS", support: "M/SYS",
   },
   COMPANY_IT: {
-    tasks: "C/S", documents: "V/C", hr: "V/S",
+    calendar: "C/C", tasks: "C/S", documents: "V/C", hr: "V/S",
     team: "V/C", company: "V/C", settings: "M/SYS", support: "M/SYS",
   },
   HR: {
-    projects: "V/C", tasks: "C/S", documents: "C/D", hr: "M/C",
+    calendar: "M/C", projects: "V/C", tasks: "C/S", documents: "C/D", hr: "M/C",
     team: "M/C", company: "V/C", settings: "V/S", support: "V/C",
   },
   CEO: {
-    projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
+    calendar: "C/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
     finance: "A/C", hr: "V/C", sales: "A/C", contracts: "A/C",
     procurement: "A/C", inventory: "V/C", qaqc: "V/C", hse: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   PROJECT_MANAGER: {
-    projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
+    calendar: "C/C", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
     finance: "V/P", hr: "V/P", sales: "V/P", contracts: "V/P",
     procurement: "C/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   ARCHITECT: {
-    projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S", qaqc: "V/P", hse: "V/P",
     team: "V/P", support: "V/C",
   },
   ENGINEER: {
-    projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S",
     procurement: "V/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", support: "V/C",
   },
   FINANCE: {
-    projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
+    calendar: "C/C", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
     finance: "M/C", hr: "V/S", sales: "V/C", contracts: "V/C",
     procurement: "V/C", inventory: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   LEGAL: {
-    projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
+    calendar: "C/C", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
     finance: "V/C", sales: "V/C", contracts: "M/C", procurement: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   SALES: {
-    projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
+    calendar: "C/C", projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
     finance: "V/C", sales: "M/C", contracts: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   PROCUREMENT: {
-    projects: "V/C", tasks: "C/S", documents: "C/C",
+    calendar: "C/C", projects: "V/C", tasks: "C/S", documents: "C/C",
     finance: "V/C", contracts: "V/C", procurement: "M/C", inventory: "V/C",
     qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   INVENTORY: {
-    projects: "V/P", tasks: "C/S", documents: "C/C",
+    calendar: "C/C", projects: "V/P", tasks: "C/S", documents: "C/C",
     finance: "V/P", procurement: "C/C", inventory: "M/C", qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   QAQC: {
-    projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "M/C", hse: "V/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   HSE: {
-    projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "V/P", hse: "M/C",
     team: "V/P", company: "V/C", support: "V/C",
   },
   VIEWER: {
-    projects: "V/AS", tasks: "V/AS", clients: "V/AS", documents: "V/AS",
+    calendar: "V/C", projects: "V/AS", tasks: "V/AS", clients: "V/AS", documents: "V/AS",
     team: "V/AS", company: "V/C", support: "V/C",
   },
 };

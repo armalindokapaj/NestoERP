@@ -274,6 +274,7 @@ function VersionRow({
                 Requested by {review.requestedBy.fullName} · {formatDateTime(review.requestedAt)}
                 {review.decidedAt ? ` · decided ${formatDateTime(review.decidedAt)}` : ""}
               </p>
+              {review.dueDate && review.status === "PENDING" ? <p className="text-meta text-fg-subtle">Decision needed by {review.dueDate}</p> : null}
               {review.requestNote ? <p className="mt-1 whitespace-pre-wrap text-fg-muted">“{review.requestNote}”</p> : null}
               {review.decisionNote ? <p className="mt-1 whitespace-pre-wrap text-fg">{review.decisionNote}</p> : null}
             </li>
@@ -476,6 +477,7 @@ function RequestReviewDialog({
   const [reviewers, setReviewers] = React.useState<Reviewer[] | null>(null);
   const [selected, setSelected] = React.useState<string>("");
   const [note, setNote] = React.useState("");
+  const [dueDate, setDueDate] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const open = version !== null;
@@ -485,6 +487,7 @@ function RequestReviewDialog({
     setQuery("");
     setSelected("");
     setNote("");
+    setDueDate("");
     setError(null);
   }, [open]);
 
@@ -520,7 +523,7 @@ function RequestReviewDialog({
     try {
       await api(`/api/document-versions/${version.id}/reviews`, {
         method: "POST",
-        body: JSON.stringify({ reviewerMemberId: selected, note: note.trim() || undefined }),
+        body: JSON.stringify({ reviewerMemberId: selected, note: note.trim() || undefined, dueDate: dueDate || undefined }),
       });
       toast({ title: "Review requested", tone: "success" });
       onOpenChange(false);
@@ -572,6 +575,11 @@ function RequestReviewDialog({
                 ))
               )}
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="review-due">Decision needed by</Label>
+            <Input id="review-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            <p className="text-meta text-fg-subtle">Optional. A date puts the review on both calendars.</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="review-note">Note</Label>

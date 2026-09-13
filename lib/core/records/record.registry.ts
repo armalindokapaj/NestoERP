@@ -1257,6 +1257,38 @@ const DEFINITIONS: RecordDefinition[] = [
     documents: { view: ["hse.document.view"], upload: null, tabHref: recordPage, reviewable: false },
     collaboration: null,
   },
+  {
+    // A Calendar-owned event (PRD #39 §36). Its visibility rules are the
+    // calendar's own; a reminder or invitation links here and is re-read.
+    type: "calendar_event",
+    moduleKey: "calendar",
+    noun: "Calendar event",
+    activityEntityType: "CalendarEvent",
+    viewPermissions: ["calendar.view"],
+    async find(context, id) {
+      const { readableEventWhere } = await import("@/lib/modules/calendar/calendar.visibility");
+      const row = await prisma.calendarEvent.findFirst({
+        where: { AND: [readableEventWhere(context), { id }] },
+        select: { id: true, companyId: true, title: true, projectId: true, archivedAt: true, createdByMemberId: true },
+      });
+      return row && {
+        type: "calendar_event", id: row.id, companyId: row.companyId, label: row.title,
+        href: `/calendar?event=${row.id}`, projectId: row.projectId, archived: row.archivedAt !== null,
+        stakeholderMemberIds: unique(row.createdByMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableEventWhere } = await import("@/lib/modules/calendar/calendar.visibility");
+      const rows = await prisma.calendarEvent.findMany({
+        where: { AND: [readableEventWhere(context), { id: { in: ids } }] },
+        select: { id: true },
+      });
+      return rows.map((row) => row.id);
+    },
+    documents: null,
+    collaboration: null,
+  },
 ];
 
 const BY_TYPE = new Map<RecordType, RecordDefinition>();

@@ -119,6 +119,7 @@ export const contrasts = [
 /** Marketing copy per module. Labels and icons come from config/modules.ts. */
 export const moduleCopy: Record<ModuleKey, string> = {
   dashboard: "The screen each role opens first — their numbers, not everyone else's.",
+  calendar: "Deadlines, inspections, deliveries and company events in one permission-aware schedule.",
   projects: "Every project as one record: programme, team, budget, drawings and status.",
   tasks: "Daily work assigned across site and office, always against a project.",
   clients: "Clients, contacts, and the history of every job you have delivered for them.",

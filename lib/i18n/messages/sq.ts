@@ -86,6 +86,7 @@ export const sq: Messages = {
 
   modules: {
     dashboard: { label: "Paneli", description: "Pasqyra e rolit tuaj në të gjithë kompaninë." },
+    calendar: { label: "Kalendari", description: "Afatet, ngjarjet dhe oraret në të gjithë kompaninë." },
     projects: { label: "Projektet", description: "Menaxhoni projektet e kompanisë dhe aktivitetin e tyre." },
     tasks: { label: "Detyrat", description: "Puna e caktuar në projekte dhe departamente." },
     clients: { label: "Klientët", description: "Kompanitë dhe personat me të cilët punon kompania juaj." },
@@ -201,6 +202,7 @@ export const sq: Messages = {
         hr: { label: "BNj", description: "Vendimet për kërkesat tuaja për leje." },
         contracts: { label: "Ligjore", description: "Detyrimet kontraktuale që po afrohen." },
         procurement: { label: "Prokurimi", description: "Porositë për miratim dhe mallrat e pranuara." },
+        calendar: { label: "Kalendari", description: "Kujtesat, ftesat dhe ndryshimet e ngjarjeve ku jeni pjesë." },
       },
     },
 

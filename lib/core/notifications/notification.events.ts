@@ -44,6 +44,7 @@ export const NOTIFICATION_CATEGORIES = [
   "hr",
   "contracts",
   "procurement",
+  "calendar",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -147,6 +148,11 @@ export const NotificationEvent = {
   HSE_ACTION_ASSIGNED: "HSE_ACTION_ASSIGNED",
   CONTRACT_OBLIGATION_DUE: "CONTRACT_OBLIGATION_DUE",
   LEAVE_DECIDED: "LEAVE_DECIDED",
+  CALENDAR_EVENT_CREATED: "CALENDAR_EVENT_CREATED",
+  CALENDAR_EVENT_UPDATED: "CALENDAR_EVENT_UPDATED",
+  CALENDAR_EVENT_CANCELLED: "CALENDAR_EVENT_CANCELLED",
+  CALENDAR_PARTICIPANT_ADDED: "CALENDAR_PARTICIPANT_ADDED",
+  CALENDAR_REMINDER: "CALENDAR_REMINDER",
 } as const;
 
 const DEFINITIONS: NotificationEventDefinition[] = [
@@ -458,6 +464,73 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `Your leave request was ${text(payload, "decision", "decided").toLowerCase()}`,
     body: (payload) => (payload.reason ? text(payload, "reason") : null),
     dedupe: perEvent,
+  },
+
+  /* Calendar (PRD #39 §108) ----------------------------------------------- */
+  {
+    eventType: NotificationEvent.CALENDAR_EVENT_CREATED,
+    category: "calendar",
+    priority: "LOW",
+    // Company holidays and closures are announced to the company; everything
+    // else only to the people on it. Each recipient must still see the event.
+    async recipients(tx, event, payload) {
+      const announce = payload.announceToCompany === true;
+      return announce ? activeMembers(tx, event.companyId) : ids(payload, "participantIds");
+    },
+    title: (payload) => `New on the calendar: ${recordName(payload, "an event")}`,
+    body: (payload) => text(payload, "when") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.CALENDAR_EVENT_UPDATED,
+    category: "calendar",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "participantIds");
+    },
+    title: (payload) => `${recordName(payload, "An event")} was changed`,
+    body: (payload) => text(payload, "when") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.CALENDAR_EVENT_CANCELLED,
+    category: "calendar",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "participantIds");
+    },
+    title: (payload) => `${recordName(payload, "An event")} was cancelled`,
+    body: (payload) => text(payload, "when") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.CALENDAR_PARTICIPANT_ADDED,
+    category: "calendar",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `${text(payload, "actorName", "Someone")} added you to ${recordName(payload, "an event")}`,
+    body: (payload) => text(payload, "when") || null,
+    dedupe: (event, memberId) => `CALENDAR_PARTICIPANT_ADDED:${event.entityId}:${memberId}:${event.id}`,
+  },
+  {
+    eventType: NotificationEvent.CALENDAR_REMINDER,
+    category: "calendar",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `Reminder: ${recordName(payload, "an event")}`,
+    body: (payload) => text(payload, "when") || null,
+    // One per reminder per occurrence per person (PRD #39 §110).
+    dedupe: (event, memberId, payload) =>
+      `CALENDAR_REMINDER:${event.entityId}:${text(payload, "reminderId")}:${text(payload, "occurrenceStartsAt")}:${memberId}`,
+    email: {
+      templateKey: "calendar.reminder",
+      defaultOn: false,
+      variables: (payload, link) => ({ title: recordName(payload, "an event"), when: text(payload, "when", "soon"), link }),
+    },
   },
 ];
 

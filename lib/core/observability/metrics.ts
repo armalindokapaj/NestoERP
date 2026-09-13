@@ -27,6 +27,15 @@ export const Metric = {
   WORKER_JOB_SUCCESS: "worker_job_success_count",
   WORKER_JOB_FAILURE: "worker_job_failure_count",
   SEARCH_FAILURE: "search_provider_failure_count",
+  // Calendar (PRD #39 §197)
+  CALENDAR_QUERY: "calendar_query_count",
+  CALENDAR_QUERY_DURATION_MS: "calendar_query_duration_ms_total",
+  CALENDAR_PROVIDER_DURATION_MS: "calendar_provider_duration_ms_total",
+  CALENDAR_PROVIDER_FAILURE: "calendar_provider_failure_count",
+  CALENDAR_EVENTS_RETURNED: "calendar_events_returned_total",
+  CALENDAR_REMINDER_SENT: "calendar_reminder_sent_count",
+  CALENDAR_REMINDER_FAILURE: "calendar_reminder_failure_count",
+  CALENDAR_AVAILABILITY_DURATION_MS: "calendar_availability_duration_ms_total",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

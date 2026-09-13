@@ -34,6 +34,13 @@ import { documentReviewable } from "./version.service";
 export const requestReviewSchema = z.object({
   reviewerMemberId: z.string().trim().min(1).max(64),
   note: z.string().trim().max(1000).optional(),
+  /** When a decision is needed by — a calendar date; it puts the review on the calendar (PRD #39 §61). */
+  dueDate: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date in the form YYYY-MM-DD.")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
 });
 
 export const decideReviewSchema = z.object({
@@ -125,6 +132,8 @@ export async function requestReview(
           reviewerMemberId: eligible,
           status: "PENDING",
           requestNote: input.note || null,
+          // Kept at midday UTC like every business date, so it is the same day in every zone.
+          dueAt: input.dueDate ? new Date(`${input.dueDate}T12:00:00.000Z`) : null,
           pendingKey: `${versionRow.id}:${eligible}`,
         },
         select: { id: true },

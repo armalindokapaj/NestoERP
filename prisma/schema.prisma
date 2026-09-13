@@ -910,6 +910,10 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  calendarEvents             CalendarEvent[]
+  calendarEventParticipants  CalendarEventParticipant[]
+  calendarReminders          CalendarReminder[]
+  calendarReminderDeliveries CalendarReminderDelivery[]
   @@index([status])
   @@index([name])
   @@map("companies")
@@ -940,6 +944,7 @@ model Department {
   updatedAt        DateTime          @updatedAt
   purchaseRequests PurchaseRequest[]
 
+  calendarEvents CalendarEvent[]
   @@unique([companyId, name])
   @@unique([companyId, key])
   @@index([companyId])
@@ -1159,6 +1164,9 @@ model CompanyMember {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  calendarEventsCreated      CalendarEvent[]            @relation("CalendarEventCreator")
+  calendarParticipations     CalendarEventParticipant[] @relation("CalendarParticipant")
+  calendarReminders          CalendarReminder[]         @relation("CalendarReminderMember")
   @@unique([companyId, userId])
   @@index([companyId])
   @@index([companyId, status])
@@ -1247,6 +1255,7 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  calendarEvents CalendarEvent[]
   @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, status])
@@ -1674,6 +1683,9 @@ model DocumentReview {
   /// per reviewer per version, enforced by the database rather than a race
   /// (PRD #38 §154, §155).
   pendingKey          String?              @unique
+  /// When the requester needs a decision by — a business date, kept at midday
+  /// UTC. It puts the review on the calendar (PRD #39 §61).
+  dueAt               DateTime?
 
   version DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
 
@@ -1682,6 +1694,7 @@ model DocumentReview {
   updatedAt   DateTime  @updatedAt
 
   @@index([companyId, reviewerMemberId, status])
+  @@index([companyId, status, dueAt])
   @@index([documentVersionId])
   @@index([companyId, documentId])
   @@map("document_reviews")
@@ -4387,6 +4400,14 @@ model CompanySettings {
   defaultPaymentTermsDays Int      @default(30)
   defaultTaxRate          Decimal? @db.Decimal(9, 4)
 
+  /// The working day and week the calendar shades against (PRD #39 §91, §92).
+  /// Local wall-clock times in `timezone`, "HH:MM".
+  workingDayStart     String @default("08:00")
+  workingDayEnd       String @default("17:00")
+  /// ISO weekdays: 1 = Monday … 7 = Sunday.
+  workingDays         Int[]  @default([1, 2, 3, 4, 5])
+  defaultCalendarView String @default("week")
+
   updatedByMemberId String?
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
@@ -4487,6 +4508,8 @@ enum AuditCategory {
   SYSTEM
   /// Comments, mentions and watchers on business records (PRD #38 §35).
   COLLABORATION
+  /// Calendar-owned events, participants and visibility (PRD #39 §112).
+  CALENDAR
 }
 
 enum AuditSeverity {
@@ -6771,4 +6794,160 @@ model WorkerHeartbeat {
   updatedAt DateTime @updatedAt
 
   @@map("worker_heartbeats")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Calendar (PRD #39)                                                          */
+/* -------------------------------------------------------------------------- */
+
+/// What a Calendar-owned event is (PRD #39 §9, §37). Never a stand-in for a
+/// module record: task dates, contract expiries and inspections stay with their
+/// modules and reach the calendar through providers.
+enum CalendarEventType {
+  COMPANY_EVENT
+  COMPANY_HOLIDAY
+  OFFICE_CLOSURE
+  TRAINING
+  INTERNAL_DEADLINE
+  PERSONAL_EVENT
+  TEAM_EVENT
+}
+
+/// Who may see a Calendar-owned event (PRD #39 §38, §49-§53).
+enum CalendarVisibility {
+  PRIVATE
+  SELECTED_MEMBERS
+  PROJECT
+  DEPARTMENT
+  COMPANY
+}
+
+enum CalendarParticipantStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+enum CalendarReminderChannel {
+  IN_APP
+  EMAIL
+}
+
+/// A Calendar-owned event (PRD #39 §36). Times are UTC; an all-day event is
+/// stored as the UTC instants of local midnight in `timezone`, so it never
+/// slides a day between zones (PRD #39 §72, §73, §185).
+model CalendarEvent {
+  id                String @id @default(cuid())
+  companyId         String
+  createdByMemberId String
+
+  title       String
+  description String?
+  location    String?
+  eventType   CalendarEventType
+
+  startsAt DateTime
+  endsAt   DateTime?
+  allDay   Boolean   @default(false)
+  /// The company zone the event was planned in. Recurrence repeats in local
+  /// wall-clock time here, which is what keeps a 09:00 series at 09:00 across
+  /// a daylight-saving change (PRD #39 §74).
+  timezone String
+
+  projectId    String?
+  departmentId String?
+  visibility   CalendarVisibility
+
+  /// RRULE subset: FREQ=DAILY|WEEKLY|MONTHLY|YEARLY, INTERVAL, BYDAY, COUNT, UNTIL (PRD #39 §76, §77).
+  recurrenceRule   String?
+  /// The last instant the series can produce, precomputed so range queries stay indexed.
+  recurrenceEndsAt DateTime?
+
+  updatedByMemberId  String?
+  archivedAt         DateTime?
+  archivedByMemberId String?
+
+  company    Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  createdBy  CompanyMember @relation("CalendarEventCreator", fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  project    Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  department Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  participants CalendarEventParticipant[]
+  reminders    CalendarReminder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, startsAt])
+  @@index([companyId, projectId, startsAt])
+  @@index([companyId, departmentId, startsAt])
+  @@index([companyId, visibility, startsAt])
+  @@index([companyId, createdByMemberId, startsAt])
+  @@index([companyId, archivedAt])
+  @@index([companyId, recurrenceEndsAt])
+  @@map("calendar_events")
+}
+
+model CalendarEventParticipant {
+  eventId   String
+  memberId  String
+  companyId String
+
+  status          CalendarParticipantStatus @default(INVITED)
+  respondedAt     DateTime?
+  addedByMemberId String?
+
+  event   CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  member  CompanyMember @relation("CalendarParticipant", fields: [memberId], references: [id], onDelete: Restrict)
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([eventId, memberId])
+  @@index([companyId, memberId])
+  @@index([memberId])
+  @@map("calendar_event_participants")
+}
+
+/// A member's reminder on an event (PRD #39 §41, §42). At most three per member
+/// per event, enforced by the service.
+model CalendarReminder {
+  id            String                  @id @default(cuid())
+  companyId     String
+  eventId       String
+  memberId      String
+  minutesBefore Int
+  channel       CalendarReminderChannel @default(IN_APP)
+
+  event      CalendarEvent              @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  member     CompanyMember              @relation("CalendarReminderMember", fields: [memberId], references: [id], onDelete: Restrict)
+  company    Company                    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  deliveries CalendarReminderDelivery[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, memberId, minutesBefore, channel])
+  @@index([companyId, eventId])
+  @@index([memberId])
+  @@map("calendar_reminders")
+}
+
+/// One reminder fired for one occurrence (PRD #39 §109, §110). The unique key is
+/// the idempotency key: a retried or concurrent worker run cannot fire twice.
+model CalendarReminderDelivery {
+  id                 String   @id @default(cuid())
+  companyId          String
+  reminderId         String
+  occurrenceStartsAt DateTime
+  dueAt              DateTime
+  sentAt             DateTime @default(now())
+
+  reminder CalendarReminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  company  Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([reminderId, occurrenceStartsAt])
+  @@index([companyId, sentAt])
+  @@map("calendar_reminder_deliveries")
 }

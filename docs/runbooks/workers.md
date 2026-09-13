@@ -11,6 +11,7 @@ they scale with traffic, and a job must not multiply with them (§94, §95).
 | Job | Group | Due every | What it does |
 |---|---|---|---|
 | `notifications.dispatch` | notifications | 10 s | Drains the notification outbox (leased batches), writes notifications, sends eligible email |
+| `calendar.reminders` | notifications | 60 s | Fires due calendar reminders once per occurrence (a unique delivery row), and queues them for the dispatcher |
 | `documents.scan` | documents | 15 s | Scans files waiting on the malware scanner; no-op when `STORAGE_SCANNER=none` |
 | `storage.cleanup` | documents | 15 min | Expires abandoned upload sessions and removes their never-completed objects |
 | `storage.orphans` | documents | daily | Reports available documents whose object is missing (read-only — an orphan is a restore incident) |
