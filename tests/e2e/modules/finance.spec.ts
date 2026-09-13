@@ -8,7 +8,22 @@ import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures
  */
 const PREFIX = "E2E-FIN";
 
+/**
+ * Invoices raised by this suite, by id.
+ *
+ * They cannot be found by number any more: the company's scheme has
+ * finance/invoice on AUTO, so the number is allocated by the server and a test
+ * cannot choose a recognisable one (PRD #24 §114).
+ */
+const raisedInvoiceIds: string[] = [];
+
 test.afterAll(async () => {
+  if (raisedInvoiceIds.length > 0) {
+    await db.invoiceLineItem.deleteMany({ where: { invoiceId: { in: raisedInvoiceIds } } });
+    await db.activity.deleteMany({ where: { entityId: { in: raisedInvoiceIds } } });
+    await db.auditEvent.deleteMany({ where: { entityId: { in: raisedInvoiceIds } } });
+    await db.invoice.deleteMany({ where: { id: { in: raisedInvoiceIds } } });
+  }
   await removeTestFinanceRecords(PREFIX);
   await resetFinanceFixtures();
   await db.$disconnect();
@@ -22,8 +37,13 @@ test.describe("Finance role (PRD #15 §372)", () => {
   test("raises an invoice, and the server calculates the totals", async ({ page }) => {
     await page.goto("/finance/invoices/new");
 
-    const number = `${PREFIX}-001`;
-    await page.locator("#invoiceNumber").fill(number);
+    /*
+     * No invoice number is typed. The company numbers invoices automatically,
+     * so the form does not offer the field and the server allocates under a
+     * row lock (PRD #24 §102, §114).
+     */
+    await expect(page.locator("#invoiceNumber")).toHaveCount(0);
+
     await page.locator("#clientId").selectOption({ label: "ACME Developments" });
     await page.locator("#dueDate").fill("2027-01-31");
 
@@ -34,15 +54,22 @@ test.describe("Finance role (PRD #15 §372)", () => {
 
     await page.getByRole("button", { name: "Create invoice" }).click();
 
-    await page.waitForURL(/\/finance\/invoices\/[^/]+$/);
-    await expect(page.getByRole("heading", { name: number })).toBeVisible();
+    // Excluding /new explicitly: it matches "a single segment" too, so a
+    // looser pattern returns before the form has navigated anywhere.
+    await page.waitForURL(/\/finance\/invoices\/(?!new$)[^/]+$/);
+    const invoiceId = page.url().split("/").pop()!;
+    raisedInvoiceIds.push(invoiceId);
 
     // 2 × 1500 = 3000, +20 % tax = 3600. Calculated server-side (PRD #15 §52).
-    const row = await db.invoice.findFirstOrThrow({ where: { invoiceNumber: number } });
+    const row = await db.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
     expect(row.subtotal.toFixed(2)).toBe("3000.00");
     expect(row.taxAmount.toFixed(2)).toBe("600.00");
     expect(row.totalAmount.toFixed(2)).toBe("3600.00");
     expect(row.status).toBe("DRAFT");
+
+    // And the number it was given follows the company's configured scheme.
+    expect(row.invoiceNumber).toMatch(/^INV-\d{4}-\d+$/);
+    await expect(page.getByRole("heading", { name: row.invoiceNumber })).toBeVisible();
   });
 
   test("cannot approve its own submission — approval is somebody else's job", async ({

@@ -424,15 +424,18 @@ the snapshot being quietly edited to look better than it was.
 | 6.2 | Nothing produced a notification | **Closed** — producers, dispatcher, read routes | `9c5eb9d` |
 | 6.3 | Five search providers absent | **Closed** — plus the `/search` page, which was also missing | `3a84bf9` |
 | 6.5 | Integration engine unused | **Closed** — handoffs now write links and attempts | `1f685ec` |
-| 6.4 | Thirteen unreachable server actions | Open | — |
-| 6.6 | Numbering schemes govern nothing | Open | — |
-| 6.7 | Reporting metric registry unused | Open | — |
-| 6.8 | Caching layer never used | Open | — |
-| 6.9 | Contract attention computed over one page | Open | — |
-| 6.10 | Session purge, company config bootstrap | Open | — |
+| 6.4 | Thirteen unreachable server actions | **Closed** — every one now has an interface | `11a781c` |
+| 6.6 | Numbering schemes govern nothing | **Closed** — invoices and expenses allocate through the scheme | `8ab0235` |
+| 6.9 | Contract attention computed over one page | **Closed** — asked of the database | `6ae19b8` |
+| 6.10 | Session purge, company config bootstrap | **Closed** — one was a duplicate and is deleted; the other is documented scaffolding | `6ae19b8` |
+| 6.7 | Reporting metric registry unused | Open — P2 | — |
+| 6.8 | Caching layer never used | Open — P2 | — |
 
-**Both P0s are closed.** `REPORT_EXPORTED_XLSX` remains deliberately silent and
-is now an enforced exemption in `tests/unit/audit/audit-coverage.test.ts`.
+**Both P0s and every P1 are closed.** Two P2s remain, both "implemented but not
+wired" rather than anything incorrect, and both are carried into the release
+record's known-limitations registry (`docs/release-readiness.md` §8).
+`REPORT_EXPORTED_XLSX` remains deliberately silent and is an enforced exemption
+in `tests/unit/audit/audit-coverage.test.ts`.
 
 ### Found while fixing, not in the original audit
 
@@ -457,4 +460,9 @@ is now an enforced exemption in `tests/unit/audit/audit-coverage.test.ts`.
 - `tests/api/integrations/integration-links.test.ts` holds the
   one-link-per-handoff guarantee.
 
-Test count over this work: **1 368 → 1 394**, all passing, lint 0 errors.
+Test count over this work: **1 368 → 1 440**, all passing, lint 0 errors.
+
+The release review that followed (PRD #35) found two more things this audit had
+not: Workflow K was implemented but entirely untested, and Workflow L — Sales
+quote to invoice — did not exist at all. Both are recorded in
+`docs/release-readiness.md` §2.
