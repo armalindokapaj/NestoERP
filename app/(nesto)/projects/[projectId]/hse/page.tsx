@@ -109,6 +109,7 @@ export default async function ProjectHsePage({ params }: Params) {
         active="hse"
         show={{
           tasks: projectActions.canViewTasks,
+          calendar: projectActions.canViewCalendar,
           team: projectActions.canViewMembers,
           finance: projectActions.canViewFinance,
           contracts: projectActions.canViewContracts,

@@ -87,6 +87,26 @@
   --nesto-info-strong: light-dark(#3f53e8, #94a1ff);
   --nesto-info-soft: light-dark(#eef0ff, #1c2140);
 
+  /* ---- Calendar categories (PRD #39 §18) ----------------------------- */
+  /*
+   * Restrained hues, never a rainbow: each is used as a 3px rail, a dot and a
+   * very light tint (mixed into the surface), never as a saturated block. HSE
+   * stays neutral — severity, not category, is what earns warning or danger.
+   */
+  --nesto-cal-task: light-dark(#5563d6, #8d97f0);
+  --nesto-cal-meeting: light-dark(#7a62b8, #a996dc);
+  --nesto-cal-project: light-dark(#59606b, #9aa1ab);
+  --nesto-cal-milestone: light-dark(#2f5ea8, #7ea2de);
+  --nesto-cal-hr: light-dark(#3f8f8a, #6fbdb6);
+  --nesto-cal-finance: light-dark(#2f8a5e, #5fbf8f);
+  --nesto-cal-legal: light-dark(#9a7446, #c9a574);
+  --nesto-cal-procurement: light-dark(#b27a1f, #d9a552);
+  --nesto-cal-qaqc: light-dark(#2d8aa6, #62b8d1);
+  --nesto-cal-hse: light-dark(#6b7079, #9ca1aa);
+  --nesto-cal-document: light-dark(#5f7187, #97a8bd);
+  --nesto-cal-company: light-dark(#3b3f46, #c2c5cb);
+  --nesto-cal-personal: light-dark(#9a7fbf, #bea6df);
+
   /* ---- Shadows (§10) ------------------------------------------------- */
   /*
    * light-dark() takes colours, not whole shadow values, so the geometry is

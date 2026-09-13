@@ -619,7 +619,50 @@ const hseProvider: GlobalSearchProvider = {
   },
 };
 
+/**
+ * Calendar-owned events that have not ended (PRD #39 §115). The series is one
+ * result, never one per occurrence; private detail is never searched — only
+ * titles, and only of events this reader can already see.
+ */
+const calendarProvider: GlobalSearchProvider = {
+  moduleKey: "calendar",
+  entityTypes: ["calendar_event"],
+  async search(context, query) {
+    if (!available(context, "calendar", "calendar.view")) return [];
+    const { readableEventWhere } = await import("@/lib/modules/calendar/calendar.visibility");
+    const now = new Date();
+    const rows = await prisma.calendarEvent.findMany({
+      where: {
+        AND: [
+          readableEventWhere(context),
+          { archivedAt: null, title: { contains: query.text, mode: "insensitive" } },
+          {
+            OR: [
+              { recurrenceRule: null, OR: [{ endsAt: { gte: now } }, { endsAt: null, startsAt: { gte: now } }] },
+              { recurrenceRule: { not: null }, OR: [{ recurrenceEndsAt: null }, { recurrenceEndsAt: { gte: now } }] },
+            ],
+          },
+        ],
+      },
+      orderBy: { startsAt: "asc" },
+      select: { id: true, title: true, startsAt: true, eventType: true, recurrenceRule: true },
+      take: query.limitPerProvider,
+    });
+    return rows.map((row) => ({
+      moduleKey: "calendar",
+      entityType: "calendar_event",
+      entityId: row.id,
+      title: row.title,
+      subtitle: row.recurrenceRule ? "Repeating event" : row.startsAt.toISOString().slice(0, 10),
+      href: `/calendar?event=${row.id}`,
+      score: scoreMatch(query.text, row.title),
+      status: row.eventType,
+    }));
+  },
+};
+
 export const searchProviders: GlobalSearchProvider[] = [
+  calendarProvider,
   projectProvider,
   taskProvider,
   clientProvider,

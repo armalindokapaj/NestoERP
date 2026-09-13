@@ -2,7 +2,7 @@ import { Prisma, type ProjectStatus } from "@prisma/client";
 
 import { roleLabel, isRoleKey } from "@/config/roles";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
-import { can, isModuleEnabled } from "@/lib/access/can";
+import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -774,6 +774,8 @@ export function projectActions(context: UserContext) {
     canManageMembers: can(context, "project.member.add"),
     canViewMembers: can(context, "project.member.view"),
     canViewTasks: can(context, "project.task.view") && can(context, "task.view"),
+    // The project's schedule is read through the calendar, never a copy of it (PRD #39 §103, §159).
+    canViewCalendar: canAccessModule(context, "calendar") && can(context, "calendar.view"),
     canViewDocuments: can(context, "project.document.view") && can(context, "document.view"),
     canViewActivity: can(context, "project.activity.view"),
     /**

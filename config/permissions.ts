@@ -29,6 +29,21 @@ export const PERMISSIONS = [
   "collaboration.comment.archive_own",
   "collaboration.watch",
 
+  /* Calendar ------------------------------------------------------------- */
+  /**
+   * The shared scheduling layer (PRD #39 §43). These govern Calendar-owned
+   * events only. A task due date or a contract expiry on the calendar is seen
+   * through its own module's permissions and scope, never through these.
+   */
+  "calendar.view",
+  "calendar.event.create",
+  "calendar.event.edit",
+  "calendar.event.archive",
+  "calendar.company_event.manage",
+  "calendar.private_event.manage",
+  "calendar.reminder.manage",
+  "calendar.availability.view",
+
   /* Projects ------------------------------------------------------------- */
   "project.view",
   "project.create",
@@ -860,6 +875,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   // Collaboration is part of the shell every role has, not a switchable module:
   // a company that turns Tasks off still discusses its invoices (PRD #38 §22).
   collaboration: "dashboard",
+  calendar: "calendar",
   project: "projects",
   task: "tasks",
   client: "clients",
@@ -963,6 +979,8 @@ const MUTATING_ACTIONS = new Set([
   "edit_own",
   "archive_own",
   "request",
+  // Calendar (PRD #39 §43).
+  "edit",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

@@ -14,6 +14,7 @@ import { PrismaClient } from "@prisma/client";
 import { seedAccessConfiguration } from "./seed/access";
 import { seedActivities } from "./seed/activities";
 import { seedBusinessRecords } from "./seed/business";
+import { seedCalendarRecords } from "./seed/calendar";
 import { seedCompanies } from "./seed/companies";
 import { seedContractRecords } from "./seed/contracts";
 import { seedFinanceRecords } from "./seed/finance";
@@ -68,6 +69,7 @@ async function main() {
   const qaqc = await seedQaqcRecords(prisma, members);
   const hse = await seedHseRecords(prisma, members);
   await seedModuleRecords(prisma, members);
+  const calendar = await seedCalendarRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
   await seedAuditEvents(prisma, { companyA, companyB });
 
@@ -102,6 +104,7 @@ async function main() {
   console.log(`✓ Tasks: ${counts.tasks}`);
   console.log(`✓ Documents: ${counts.documents}`);
   console.log(`✓ Company members: ${counts.members} (invitations: ${invitations})`);
+  console.log(`✓ Calendar: ${calendar.events} company, project, team and personal events`);
   console.log(
     `✓ Finance: ${finance.invoices} invoices, ${finance.expenses} expenses, ` +
       `${finance.payments} payments, ${finance.budgets} budgets, ${finance.commitments} commitments`,

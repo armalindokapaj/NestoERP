@@ -86,6 +86,7 @@ export default async function ProjectFinancePage({ params }: Params) {
         active="finance"
         show={{
           tasks: actions.canViewTasks,
+          calendar: actions.canViewCalendar,
           team: actions.canViewMembers,
           finance: true,
           contracts: actions.canViewContracts,

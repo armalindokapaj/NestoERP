@@ -61,6 +61,7 @@ const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
   work_permit: { model: "hseWorkPermit" },
   environmental_observation: { model: "environmentalObservation" },
   stop_work: { model: "stopWorkRecord" },
+  calendar_event: { model: "calendarEvent" },
 };
 
 let owner: UserContext;

@@ -14,6 +14,7 @@ import type { Permission } from "./permissions";
 
 export const MODULE_KEYS = [
   "dashboard",
+  "calendar",
   "projects",
   "tasks",
   "clients",
@@ -33,6 +34,13 @@ export const MODULE_KEYS = [
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
+
+/**
+ * Modules that are part of the product rather than switchable: a company cannot
+ * turn them off, and every company has them from the moment it exists — the
+ * access sync creates the switch for companies that predate a new one.
+ */
+export const CORE_MODULE_KEYS = ["dashboard", "calendar", "team", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
 
 /** Sidebar groups, in render order (PRD #3 §8). */
 export const MODULE_GROUPS = ["primary", "work", "department", "company"] as const;
@@ -96,6 +104,17 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     icon: "LayoutDashboard",
     group: "primary",
     permission: "dashboard.view",
+    sections: [],
+  },
+  calendar: {
+    key: "calendar",
+    label: "Calendar",
+    description: "Deadlines, events and schedules across the company.",
+    route: "/calendar",
+    icon: "CalendarDays",
+    group: "primary",
+    permission: "calendar.view",
+    writePermission: "calendar.event.create",
     sections: [],
   },
   projects: {

@@ -35,6 +35,7 @@ const HOUR = 60 * MINUTE;
 
 export const JOBS: JobSchedule[] = [
   { key: "notifications.dispatch", group: "notifications", intervalSeconds: 10, leaseSeconds: 5 * MINUTE, staleAfterSeconds: 10 * MINUTE },
+  { key: "calendar.reminders", group: "notifications", intervalSeconds: 60, leaseSeconds: 5 * MINUTE, staleAfterSeconds: 10 * MINUTE },
   { key: "notifications.due", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
   { key: "attention.reconcile", group: "scheduled", intervalSeconds: 5 * MINUTE, leaseSeconds: 30 * MINUTE, staleAfterSeconds: 30 * MINUTE },
   { key: "documents.scan", group: "documents", intervalSeconds: 15, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 15 * MINUTE },
