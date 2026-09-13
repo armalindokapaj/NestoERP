@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DocumentActions } from "@/components/inventory/document-actions";
 import { AdjustmentLinesTable } from "@/components/inventory/document-lines-table";
 import { InventoryActivityFeed } from "@/components/inventory/record-activity";
@@ -141,6 +142,8 @@ export default async function AdjustmentPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="stock_adjustment" parentId={adjustmentId} />
     </div>
   );
 }

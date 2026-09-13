@@ -6,6 +6,8 @@ import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { logger } from "@/lib/core/observability/logger";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import {
   assertDeclaredFileAllowed,
   assertTransition,
@@ -23,6 +25,7 @@ import {
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { canAttachToDocumentParent, resolveDocumentParent } from "../document.parent-access";
 import * as quota from "./quota.service";
+import { promoteVersion } from "./version.promote";
 import { runScanForDocument } from "./scan.service";
 import type { CompleteDocumentUploadInput, CreateDocumentUploadInput } from "./storage.schema";
 import type { CreateUploadResponse } from "./storage.types";
@@ -156,10 +159,35 @@ export async function createUploadSession(
       },
     });
 
+    // Version 1 exists from the first byte, so the history is never missing
+    // its beginning (PRD #38 §56, §57).
+    const version = await tx.documentVersion.create({
+      data: {
+        companyId: context.companyId,
+        documentId: newDocumentId,
+        versionNumber: 1,
+        storageProvider: provider.key,
+        storageBucket: provider.bucket,
+        storageKey: key,
+        originalFileName: input.fileName,
+        fileName: name.displayName,
+        extension: name.extension,
+        mimeTypeDeclared: normaliseMime(input.mimeType) || fileType.declaredMimeTypes[0],
+        sizeBytes: BigInt(input.sizeBytes),
+        uploadedByMemberId: context.membershipId,
+      },
+      select: { id: true },
+    });
+    await tx.document.update({
+      where: { id: newDocumentId },
+      data: { currentVersionId: version.id, latestVersionNumber: 1 },
+    });
+
     const session = await tx.documentUploadSession.create({
       data: {
         companyId: context.companyId,
         documentId: newDocumentId,
+        documentVersionId: version.id,
         memberId: context.membershipId,
         storageKey: key,
         expectedFileName: input.fileName,
@@ -221,7 +249,6 @@ export async function completeUpload(
   input: CompleteDocumentUploadInput = {},
 ): Promise<{ documentId: string; status: string }> {
   assertModule(context, MODULE);
-  assertPermission(context, "document.create");
 
   const session = await prisma.documentUploadSession.findFirst({
     // Scoped to the company *and* the member: another company's session id is
@@ -230,6 +257,18 @@ export async function completeUpload(
     include: { document: true },
   });
   if (!session) throw new StorageError("UPLOAD_SESSION_NOT_FOUND");
+
+  // A later version of an existing document goes through its own path: the
+  // document stays available on its current version until the new one is
+  // verified (PRD #38 §57, §58).
+  const version = session.documentVersionId
+    ? await prisma.documentVersion.findUnique({ where: { id: session.documentVersionId } })
+    : null;
+  if (version && session.document.currentVersionId !== version.id) {
+    assertPermission(context, "document.update");
+    return completeVersionUpload(context, session, version, input);
+  }
+  assertPermission(context, "document.create");
 
   // Already done: return the current state rather than reprocessing
   // (PRD #29 §81, §263).
@@ -293,6 +332,22 @@ export async function completeUpload(
           updatedBy: context.userId,
         },
       });
+
+      if (version) {
+        await tx.documentVersion.update({
+          where: { id: version.id },
+          data: {
+            storageStatus: scanNeeded ? "SCANNING" : "AVAILABLE",
+            mimeTypeDetected: verified.detectedMimeType,
+            checksumSha256: verified.checksum,
+            sizeBytes: BigInt(metadata.sizeBytes),
+            scanStatus: scanNeeded ? "PENDING" : "NOT_REQUIRED",
+            previewStatus: verified.previewable ? "READY" : "NOT_REQUIRED",
+            previewMimeType: verified.previewable ? verified.contentType : null,
+            availableAt: scanNeeded ? null : new Date(),
+          },
+        });
+      }
 
       await tx.documentUploadSession.update({
         where: { id: sessionId },
@@ -467,6 +522,13 @@ export async function abortUpload(context: UserContext, sessionId: string): Prom
       where: { id: sessionId },
       data: { status: "ABORTED", reservedBytes: BigInt(0) },
     });
+    // A new version that never arrived leaves no version behind; the document
+    // itself is untouched. A first upload removes its placeholder entirely.
+    if (session.documentVersionId) {
+      await tx.documentVersion.deleteMany({
+        where: { id: session.documentVersionId, storageStatus: "PENDING_UPLOAD", document: { currentVersionId: { not: session.documentVersionId } } },
+      });
+    }
     await tx.document.deleteMany({
       where: { id: session.documentId, storageStatus: "PENDING_UPLOAD" },
     });
@@ -497,6 +559,10 @@ async function rejectUpload(
         rejectionReason: input.reason,
         updatedBy: context.userId,
       },
+    });
+    await tx.documentVersion.updateMany({
+      where: { storageKey: input.storageKey, storageStatus: { in: ["VERIFYING", "UPLOADED", "PENDING_UPLOAD"] } },
+      data: { storageStatus: "REJECTED", rejectionReason: input.reason },
     });
     await tx.documentUploadSession.update({
       where: { id: input.sessionId },
@@ -551,6 +617,254 @@ async function transition(
 /** Ids are generated here so the storage key can contain one (PRD #29 §19, §93). */
 function generateDocumentId(): string {
   return `doc_${randomUUID().replace(/-/g, "")}`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* New versions (PRD #38 §56-§58, §67)                                         */
+/* -------------------------------------------------------------------------- */
+
+export type CreateVersionUploadInput = {
+  fileName: string;
+  mimeType?: string;
+  sizeBytes: number;
+  changeNote?: string;
+};
+
+/**
+ * Authorises a new binary for an existing document.
+ *
+ * The same authority as filing a document against that parent, plus
+ * `document.update`. The new version gets its own storage key: nothing about
+ * the current version's object, key or checksum is ever touched, and the
+ * document keeps serving it until the new one is verified (PRD #38 §58).
+ */
+export async function createVersionUploadSession(
+  context: UserContext,
+  documentId: string,
+  input: CreateVersionUploadInput,
+  options: { idempotencyKey?: string } = {},
+): Promise<CreateUploadResponse & { documentVersionId: string; versionNumber: number }> {
+  assertModule(context, MODULE);
+  assertPermission(context, "document.update");
+
+  const { findDocumentInScope } = await import("../document.repository");
+  const document = await findDocumentInScope(context, documentId);
+  if (!document) throw new AccessError("NOT_FOUND");
+  if (document.status === "ARCHIVED" || document.archivedAt) {
+    throw new AccessError("CONFLICT", "Restore this document before adding a version.");
+  }
+  if (document.storageStatus !== "AVAILABLE") {
+    throw new AccessError("CONFLICT", "The current version is still being processed.");
+  }
+  if (!(await canAttachToDocumentParent(context, document))) {
+    throw new AccessError("FORBIDDEN", "You cannot add files to that record.");
+  }
+
+  const name = checkFileName(input.fileName);
+  if (!name.ok) throw new StorageError("INVALID_FILE_NAME", name.reason);
+
+  const maxBytes = await quota.maxSingleFileBytes(context.companyId);
+  const fileType = assertDeclaredFileAllowed({
+    fileName: input.fileName,
+    mimeType: input.mimeType ?? null,
+    sizeBytes: input.sizeBytes,
+    maxBytes,
+  });
+
+  const provider = storageProvider();
+  const expiresAt = new Date(Date.now() + UPLOAD_SESSION_TTL_MS);
+
+  const opened = await prisma.$transaction(async (tx) => {
+    if (options.idempotencyKey) {
+      const existing = await tx.documentUploadSession.findFirst({
+        where: { companyId: context.companyId, memberId: context.membershipId, idempotencyKey: options.idempotencyKey },
+        include: { document: { select: { id: true } } },
+      });
+      if (existing && existing.documentVersionId && (existing.status === "CREATED" || existing.status === "UPLOADING")) {
+        const version = await tx.documentVersion.findUniqueOrThrow({ where: { id: existing.documentVersionId }, select: { versionNumber: true } });
+        return { sessionId: existing.id, storageKey: existing.storageKey, versionId: existing.documentVersionId, versionNumber: version.versionNumber };
+      }
+    }
+
+    await quota.assertQuotaAllows(tx, context.companyId, input.sizeBytes);
+
+    // The increment locks the document row: two concurrent uploads get
+    // consecutive numbers, never the same one (PRD #38 §154).
+    const allocated = await tx.document.update({
+      where: { id: documentId },
+      data: { latestVersionNumber: { increment: 1 } },
+      select: { latestVersionNumber: true },
+    });
+
+    const key = buildStorageKey({ companyId: context.companyId, documentId, extension: name.extension });
+    const version = await tx.documentVersion.create({
+      data: {
+        companyId: context.companyId,
+        documentId,
+        versionNumber: allocated.latestVersionNumber,
+        storageProvider: provider.key,
+        storageBucket: provider.bucket,
+        storageKey: key,
+        originalFileName: input.fileName,
+        fileName: name.displayName,
+        extension: name.extension,
+        mimeTypeDeclared: normaliseMime(input.mimeType) || fileType.declaredMimeTypes[0],
+        sizeBytes: BigInt(input.sizeBytes),
+        changeNote: input.changeNote?.trim() || null,
+        uploadedByMemberId: context.membershipId,
+      },
+      select: { id: true, versionNumber: true },
+    });
+
+    const session = await tx.documentUploadSession.create({
+      data: {
+        companyId: context.companyId,
+        documentId,
+        documentVersionId: version.id,
+        memberId: context.membershipId,
+        storageKey: key,
+        expectedFileName: input.fileName,
+        expectedMimeType: normaliseMime(input.mimeType) || null,
+        expectedSizeBytes: BigInt(input.sizeBytes),
+        reservedBytes: BigInt(input.sizeBytes),
+        status: "CREATED",
+        expiresAt,
+        idempotencyKey: options.idempotencyKey ?? null,
+      },
+    });
+
+    return { sessionId: session.id, storageKey: key, versionId: version.id, versionNumber: version.versionNumber };
+  });
+
+  const upload = await provider.createUploadUrl({
+    storageKey: opened.storageKey,
+    contentType: normaliseMime(input.mimeType) || fileType.declaredMimeTypes[0],
+    maxBytes,
+    expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
+  });
+
+  logger.info("storage.version_upload.authorized", { documentId, versionNumber: opened.versionNumber, sizeBytes: input.sizeBytes });
+
+  return {
+    documentId,
+    documentVersionId: opened.versionId,
+    versionNumber: opened.versionNumber,
+    uploadSessionId: opened.sessionId,
+    upload: { method: upload.method, url: upload.url, headers: upload.headers, expiresAt: upload.expiresAt.toISOString() },
+  };
+}
+
+type SessionWithDocument = Prisma.DocumentUploadSessionGetPayload<{ include: { document: true } }>;
+type VersionRow = Prisma.DocumentVersionGetPayload<object>;
+
+async function transitionVersion(versionId: string, from: DocumentStorageStatus, to: DocumentStorageStatus): Promise<void> {
+  assertTransition(from, to);
+  const result = await prisma.documentVersion.updateMany({ where: { id: versionId, storageStatus: from }, data: { storageStatus: to } });
+  if (result.count === 0) {
+    const current = await prisma.documentVersion.findUnique({ where: { id: versionId }, select: { storageStatus: true } });
+    if (current?.storageStatus !== to) throw new StorageError("INVALID_DOCUMENT_STORAGE_STATE");
+  }
+}
+
+async function completeVersionUpload(
+  context: UserContext,
+  session: SessionWithDocument,
+  version: VersionRow,
+  input: CompleteDocumentUploadInput,
+): Promise<{ documentId: string; status: string }> {
+  if (session.status === "COMPLETED") return { documentId: session.documentId, status: version.storageStatus };
+  if (session.status === "ABORTED") throw new StorageError("UPLOAD_ABORTED");
+  if (session.status === "EXPIRED" || session.expiresAt.getTime() < Date.now()) {
+    await expireSession(session.id);
+    throw new StorageError("UPLOAD_SESSION_EXPIRED");
+  }
+
+  const provider = storageProvider();
+  const metadata = await provider.headObject(session.storageKey);
+  if (!metadata) throw new StorageError("STORAGE_OBJECT_MISSING");
+
+  await transitionVersion(version.id, "PENDING_UPLOAD", "UPLOADED");
+  await transitionVersion(version.id, "UPLOADED", "VERIFYING");
+
+  try {
+    const verified = await verifyStoredObject({
+      companyId: context.companyId,
+      documentId: session.documentId,
+      storageKey: session.storageKey,
+      extension: version.extension,
+      expectedSizeBytes: Number(session.expectedSizeBytes),
+      actualSizeBytes: metadata.sizeBytes,
+      providerChecksum: metadata.checksumSha256,
+      declaredChecksum: input.checksumSha256 ?? null,
+      maxBytes: await quota.maxSingleFileBytes(context.companyId),
+    });
+    const scanNeeded = verified.scanRequired && scannerEnabled();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.documentVersion.update({
+        where: { id: version.id },
+        data: {
+          storageStatus: scanNeeded ? "SCANNING" : "AVAILABLE",
+          mimeTypeDetected: verified.detectedMimeType,
+          checksumSha256: verified.checksum,
+          sizeBytes: BigInt(metadata.sizeBytes),
+          scanStatus: scanNeeded ? "PENDING" : "NOT_REQUIRED",
+          previewStatus: verified.previewable ? "READY" : "NOT_REQUIRED",
+          previewMimeType: verified.previewable ? verified.contentType : null,
+          availableAt: scanNeeded ? null : new Date(),
+        },
+      });
+      await tx.documentUploadSession.update({
+        where: { id: session.id },
+        data: { status: "COMPLETED", completedAt: new Date(), reservedBytes: BigInt(0) },
+      });
+      await quota.addUsage(tx, context.companyId, metadata.sizeBytes);
+      if (!scanNeeded) await promoteVersion(tx, version.id);
+
+      await recordActivity(tx, context, {
+        module: MODULE,
+        entityType: ENTITY,
+        entityId: session.documentId,
+        action: "DOCUMENT_VERSION_UPLOADED",
+        message: `uploaded version ${version.versionNumber}`,
+        metadata: { documentId: session.documentId, versionNumber: version.versionNumber } as Prisma.InputJsonValue,
+      });
+      await recordUserAction(
+        context,
+        {
+          actionKey: AuditAction.DOCUMENT_VERSION_CREATED,
+          entity: { type: ENTITY, id: session.documentId, label: session.document.name },
+          after: { versionNumber: version.versionNumber, sizeBytes: metadata.sizeBytes, checksumSha256: verified.checksum },
+        },
+        { tx },
+      );
+    });
+
+    if (scanNeeded) {
+      const { runScanForVersion } = await import("./scan.service");
+      await runScanForVersion(version.id).catch((error) => {
+        logger.warn("storage.scan.inline_failed", { documentId: session.documentId, error: error instanceof Error ? error.message : "unknown" });
+      });
+    }
+
+    const final = await prisma.documentVersion.findUnique({ where: { id: version.id }, select: { storageStatus: true } });
+    return { documentId: session.documentId, status: final?.storageStatus ?? "VERIFYING" };
+  } catch (error) {
+    const reason = error instanceof StorageError ? error.storageCode : "STORAGE_PROVIDER_ERROR";
+    await provider.deleteObject(session.storageKey).catch(() => undefined);
+    await prisma.$transaction(async (tx) => {
+      await tx.documentVersion.updateMany({
+        where: { id: version.id, storageStatus: { in: ["VERIFYING", "UPLOADED", "PENDING_UPLOAD"] } },
+        data: { storageStatus: "REJECTED", rejectionReason: reason },
+      });
+      await tx.documentUploadSession.update({
+        where: { id: session.id },
+        data: { status: "FAILED", failureReason: reason, reservedBytes: BigInt(0) },
+      });
+    });
+    logger.warn("storage.version_upload.rejected", { documentId: session.documentId, versionNumber: version.versionNumber, reason });
+    throw error;
+  }
 }
 
 /* -------------------------------------------------------------------------- */

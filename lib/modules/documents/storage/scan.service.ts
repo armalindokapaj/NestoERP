@@ -8,6 +8,29 @@ import {
   buildQuarantineKey,
 } from "@/lib/core/storage";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
+import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
+import { promoteVersion } from "./version.promote";
+
+/** The current version mirrors its document's scan verdict (PRD #38 §56). */
+async function syncCurrentVersion(documentId: string): Promise<void> {
+  const document = await prisma.document.findUnique({
+    where: { id: documentId },
+    select: { currentVersionId: true, storageStatus: true, scanStatus: true, scanProvider: true, scanCompletedAt: true, availableAt: true, rejectionReason: true, previewStatus: true },
+  });
+  if (!document?.currentVersionId) return;
+  await prisma.documentVersion.updateMany({
+    where: { id: document.currentVersionId },
+    data: {
+      storageStatus: document.storageStatus,
+      scanStatus: document.scanStatus,
+      scanProvider: document.scanProvider,
+      scanCompletedAt: document.scanCompletedAt,
+      availableAt: document.availableAt,
+      rejectionReason: document.rejectionReason,
+      previewStatus: document.previewStatus,
+    },
+  });
+}
 
 /**
  * Malware scanning (PRD #29 §54-§63, §328).
@@ -28,6 +51,11 @@ import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
  * the same object twice (PRD #29 §274).
  */
 export async function runScanForDocument(documentId: string): Promise<void> {
+  await scanDocument(documentId);
+  await syncCurrentVersion(documentId);
+}
+
+async function scanDocument(documentId: string): Promise<void> {
   const scanner = activeScanner();
   if (!scanner) return;
 
@@ -68,6 +96,7 @@ export async function runScanForDocument(documentId: string): Promise<void> {
       documentId,
       error: error instanceof Error ? error.message : "unknown",
     });
+    incrementCounter(Metric.SCAN_FAILURE, { reason: "scanner_threw" });
     await prisma.document.updateMany({
       where: { id: documentId, scanStatus: "SCANNING" },
       data: { scanStatus: "PENDING" },
@@ -172,8 +201,105 @@ async function quarantine(
  * one status and one index, a worker asks for PENDING rows and claims them one
  * at a time. A job runner can replace this without the states changing.
  */
+/**
+ * Scans a later version of a document (PRD #38 §58, §100).
+ *
+ * Same gate, same direction: a version the scanner cannot vouch for never
+ * becomes the one the document serves. Clean promotes it; infected removes the
+ * object and rejects the version while the document keeps its current file.
+ */
+export async function runScanForVersion(versionId: string): Promise<void> {
+  const scanner = activeScanner();
+  if (!scanner) return;
+
+  const claimed = await prisma.documentVersion.updateMany({
+    where: { id: versionId, storageStatus: "SCANNING", scanStatus: "PENDING" },
+    data: { scanStatus: "SCANNING", scanProvider: scanner.provider },
+  });
+  if (claimed.count === 0) return;
+
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: versionId },
+    select: { id: true, companyId: true, documentId: true, storageKey: true, sizeBytes: true, originalFileName: true, versionNumber: true },
+  });
+  if (!version) return;
+  const provider = storageProvider();
+
+  let result;
+  try {
+    result = await scanner.scan({
+      storageKey: version.storageKey,
+      fileName: version.originalFileName ?? `version-${version.versionNumber}`,
+      sizeBytes: Number(version.sizeBytes ?? BigInt(0)),
+      read: () => provider.getObject(version.storageKey),
+    });
+  } catch (error) {
+    logger.error("storage.scan.failed", { documentVersionId: versionId, error: error instanceof Error ? error.message : "unknown" });
+    incrementCounter(Metric.SCAN_FAILURE, { reason: "scanner_threw" });
+    await prisma.documentVersion.updateMany({ where: { id: versionId, scanStatus: "SCANNING" }, data: { scanStatus: "PENDING" } });
+    return;
+  }
+
+  if (result.verdict === "CLEAN") {
+    assertTransition("SCANNING", "AVAILABLE");
+    await prisma.$transaction(async (tx) => {
+      const settled = await tx.documentVersion.updateMany({
+        where: { id: versionId, storageStatus: "SCANNING" },
+        data: { storageStatus: "AVAILABLE", scanStatus: "CLEAN", scanCompletedAt: new Date(), availableAt: new Date() },
+      });
+      if (settled.count > 0) await promoteVersion(tx, versionId);
+    });
+    return;
+  }
+
+  if (result.verdict === "ERROR") {
+    await prisma.documentVersion.updateMany({
+      where: { id: versionId, scanStatus: "SCANNING" },
+      data: { scanStatus: "ERROR", scanCompletedAt: new Date() },
+    });
+    incrementCounter(Metric.SCAN_FAILURE, { reason: "verdict_error" });
+    return;
+  }
+
+  const quarantineKey = buildQuarantineKey({ companyId: version.companyId, documentId: `${version.documentId}-v${version.versionNumber}` });
+  try {
+    if (provider.copyObject) await provider.copyObject({ fromKey: version.storageKey, toKey: quarantineKey });
+    await provider.deleteObject(version.storageKey);
+  } catch (error) {
+    logger.error("storage.quarantine.failed", { documentVersionId: versionId, error: error instanceof Error ? error.message : "unknown" });
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.documentVersion.updateMany({
+      where: { id: versionId, storageStatus: "SCANNING" },
+      data: { storageStatus: "REJECTED", scanStatus: "INFECTED", scanCompletedAt: new Date(), rejectionReason: "FILE_REJECTED_MALWARE", previewStatus: "NOT_REQUIRED" },
+    });
+    await recordSystemAction(
+      version.companyId,
+      {
+        actionKey: AuditAction.DOCUMENT_REJECTED_MALWARE,
+        entity: { type: "Document", id: version.documentId },
+        metadata: { detection: result.detail ?? null, versionNumber: version.versionNumber },
+      },
+      { tx },
+    );
+  });
+}
+
 export async function runPendingScans(limit = 25): Promise<{ scanned: number }> {
   if (!activeScanner()) return { scanned: 0 };
+
+  // Later versions waiting on a verdict: the ones that are not their document's
+  // current version, which the document sweep below already covers.
+  const versions = await prisma.documentVersion.findMany({
+    where: { storageStatus: "SCANNING", scanStatus: { in: ["PENDING", "ERROR"] } },
+    select: { id: true, document: { select: { currentVersionId: true } } },
+    orderBy: { updatedAt: "asc" },
+    take: limit,
+  });
+  for (const row of versions.filter((version) => version.document.currentVersionId !== version.id)) {
+    await prisma.documentVersion.updateMany({ where: { id: row.id, scanStatus: "ERROR" }, data: { scanStatus: "PENDING" } });
+    await runScanForVersion(row.id);
+  }
 
   const pending = await prisma.document.findMany({
     where: { storageStatus: "SCANNING", scanStatus: { in: ["PENDING", "ERROR"] } },

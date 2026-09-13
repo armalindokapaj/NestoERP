@@ -9,7 +9,10 @@ import {
   assertModule,
   assertPermission,
 } from "@/lib/access/guards";
+import { buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -352,6 +355,17 @@ export async function createAction(
       message: `raised action ${action.actionNumber}`,
     });
 
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.HSE_ACTION_ASSIGNED,
+      moduleKey: MODULE,
+      entityType: "hse_action",
+      entityId: action.id,
+      actorMemberId: context.membershipId,
+      projectId: input.projectId ?? parent.projectId ?? null,
+      payload: { assigneeMemberId: input.assignedToMemberId, actionNumber: action.actionNumber, title: input.title, assignmentVersion: new Date().toISOString() },
+    });
+
     return action.id;
   });
 
@@ -394,6 +408,19 @@ export async function updateAction(
       },
     });
 
+    if (input.assignedToMemberId !== existing.assignedToMemberId) {
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.HSE_ACTION_ASSIGNED,
+        moduleKey: MODULE,
+        entityType: "hse_action",
+        entityId: actionId,
+        actorMemberId: context.membershipId,
+        projectId: input.projectId ?? null,
+        payload: { assigneeMemberId: input.assignedToMemberId, actionNumber: existing.actionNumber, title: input.title, assignmentVersion: new Date().toISOString() },
+      });
+    }
+
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -433,6 +460,18 @@ export async function assignAction(
         updatedByMemberId: context.membershipId,
       },
     });
+
+    if (member.id !== existing.assignedToMemberId) {
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.HSE_ACTION_ASSIGNED,
+        moduleKey: MODULE,
+        entityType: "hse_action",
+        entityId: actionId,
+        actorMemberId: context.membershipId,
+        payload: { assigneeMemberId: member.id, actionNumber: existing.actionNumber, title: null, assignmentVersion: new Date().toISOString() },
+      });
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -745,7 +784,7 @@ async function requireAction(context: UserContext, actionId: string) {
   return assertFound(
     await prisma.hseAction.findFirst({
       where: { AND: [buildActionScopeWhere(context), { id: actionId }] },
-      select: { id: true, actionNumber: true, status: true, updatedAt: true },
+      select: { id: true, actionNumber: true, status: true, assignedToMemberId: true, updatedAt: true },
     }),
   );
 }
@@ -877,6 +916,9 @@ async function linkedTasks(context: UserContext, actionId: string) {
 
   const rows = await prisma.task.findMany({
     where: {
+      // The reader's own task scope: seeing the action is not seeing every task
+      // somebody raised from it (PRD #38 §48).
+      AND: [buildTaskScopeWhere(context), { archivedAt: null }],
       companyId: context.companyId,
       module: MODULE,
       entityType: "hse_action",

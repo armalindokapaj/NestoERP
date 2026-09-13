@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DocumentActions } from "@/components/inventory/document-actions";
 import { DocumentLinesTable } from "@/components/inventory/document-lines-table";
 import { InventoryActivityFeed } from "@/components/inventory/record-activity";
@@ -151,6 +152,8 @@ export default async function IssuePage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="stock_issue" parentId={issueId} />
     </div>
   );
 }

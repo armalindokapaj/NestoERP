@@ -54,6 +54,7 @@ export function TaskForm({
   cancelHref,
   versionUpdatedAt,
   action,
+  parent,
 }: {
   mode: "create" | "edit";
   initial: TaskFormValues;
@@ -65,6 +66,12 @@ export function TaskForm({
   cancelHref: string;
   versionUpdatedAt?: string;
   action: (formData: FormData) => Promise<FormActionResult>;
+  /**
+   * The record this task is raised from (PRD #38 §45-§47). Either locked — the
+   * page was opened from that record — or chosen from records the server
+   * offered. Submitted as `type:id`; the server re-reads it either way.
+   */
+  parent?: { locked: { value: string; label: string } } | { options: SelectOption[]; label: string };
 }) {
   return (
     <RecordForm
@@ -75,6 +82,31 @@ export function TaskForm({
       pendingLabel={mode === "create" ? "Creating…" : "Saving…"}
     >
       <FormSection title="Task details">
+        {parent && "locked" in parent ? (
+          <div className="sm:col-span-2">
+            <input type="hidden" name="parent" value={parent.locked.value} />
+            <p className="rounded-md bg-surface-muted px-3 py-2 text-table text-fg" data-testid="task-parent-locked">
+              <span className="text-fg-muted">Raised from </span>
+              {parent.locked.label}
+            </p>
+          </div>
+        ) : null}
+        {parent && "options" in parent ? (
+          <div className="sm:col-span-2">
+            <Field label={parent.label} name="parent" required>
+              <select id="parent" name="parent" defaultValue="" required className={selectClass}>
+                <option value="" disabled>
+                  Choose a record
+                </option>
+                {parent.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        ) : null}
         <div className="sm:col-span-2">
           <Field label="Title" name="title" required>
             <TitleInput defaultValue={initial.title} />
@@ -95,7 +127,8 @@ export function TaskForm({
 
         <Field label="Status" name="status" required>
           <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
-            {statuses.map((option) => (
+            {/* Blocked is set by Mark blocked, which asks why (PRD #38 §44). */}
+            {statuses.filter((option) => option.value !== "BLOCKED" || initial.status === "BLOCKED").map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { optionalId, optionalText } from "@/lib/modules/shared/fields";
-import { DOCUMENT_CONTEXTS, DOCUMENT_RECORD_TYPES } from "../document.schema";
+import { DOCUMENT_CONTEXTS, recordTypeField } from "../document.schema";
 
 /**
  * Upload validation (PRD #29 §212-§224).
@@ -35,10 +35,7 @@ export const createDocumentUploadSchema = z
     context: z.enum(DOCUMENT_CONTEXTS),
     projectId: optionalId,
     clientId: optionalId,
-    entityType: z
-      .union([z.enum(DOCUMENT_RECORD_TYPES), z.literal("")])
-      .optional()
-      .transform((value) => (value === "" || value === undefined ? undefined : value)),
+    entityType: recordTypeField,
     entityId: optionalId,
 
     fileName,

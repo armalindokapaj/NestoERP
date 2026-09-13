@@ -3,6 +3,10 @@ import { Prisma, type ProcurementApprovalRecordType } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { notifyApprovalDecided, notifyApprovalRequested } from "@/lib/core/notifications/approval-notifications";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import type { RecordType } from "@/lib/core/records/record.types";
+import type { Permission } from "@/config/permissions";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import { toAmountString, toMemberRef, toSupplierRef } from "../procurement.dto";
@@ -98,6 +102,12 @@ export function assertNotSelfApproval(context: UserContext, submittedByMemberId:
 
 type Tx = Prisma.TransactionClient;
 
+/** How each approval record type is named to the record registry (PRD #38 §74). */
+const APPROVAL_RECORD: Record<ProcurementApprovalRecordType, { recordType: RecordType; noun: string; approve: Permission }> = {
+  PURCHASE_REQUEST: { recordType: "purchase_request", noun: "Purchase request", approve: "procurement.request.approve" },
+  PURCHASE_ORDER: { recordType: "purchase_order", noun: "Purchase order", approve: "procurement.order.approve" },
+};
+
 /** Opens a cycle, refusing a second one while the first is still open (§213). */
 export async function openApproval(
   tx: Tx,
@@ -128,6 +138,16 @@ export async function openApproval(
       submittedAt: new Date(),
     },
     select: { id: true },
+  });
+
+  await notifyApprovalRequested(tx, context, {
+    moduleKey: MODULE,
+    recordId,
+    recordType: APPROVAL_RECORD[type].recordType,
+    noun: APPROVAL_RECORD[type].noun,
+    approvePermissions: [APPROVAL_RECORD[type].approve],
+    // A purchase order has its own event: it commits money to a supplier.
+    eventType: type === "PURCHASE_ORDER" ? NotificationEvent.PO_APPROVAL_REQUIRED : undefined,
   });
 
   return approval.id;
@@ -176,6 +196,22 @@ export async function decideApproval(
   if (result.count === 0) {
     throw new AccessError("CONFLICT", "That decision has already been made.", {
       code: "APPROVAL_DECIDED",
+    });
+  }
+
+  const approval = await tx.procurementApproval.findUnique({
+    where: { id: approvalId },
+    select: { recordType: true, recordId: true, submittedByMemberId: true },
+  });
+  if (approval) {
+    await notifyApprovalDecided(tx, context, {
+      moduleKey: MODULE,
+      recordId: approval.recordId,
+      recordType: APPROVAL_RECORD[approval.recordType].recordType,
+      noun: APPROVAL_RECORD[approval.recordType].noun,
+      decision: status,
+      note,
+      submittedByMemberId: approval.submittedByMemberId,
     });
   }
 }

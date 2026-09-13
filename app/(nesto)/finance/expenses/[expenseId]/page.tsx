@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { ApprovalHistory } from "@/components/finance/approval-history";
 import { ExpenseActions } from "@/components/finance/expense-actions";
 import { Money } from "@/components/finance/money";
@@ -157,6 +158,8 @@ export default async function ExpenseDetailPage({ params }: Params) {
           </div>
         )}
       </section>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="expense" parentId={expenseId} />
     </div>
   );
 }

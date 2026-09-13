@@ -165,7 +165,7 @@ const documentProvider: GlobalSearchProvider = {
     const rows = await prisma.document.findMany({
       where: {
         AND: [
-          buildDocumentAccessWhere(context),
+          await buildDocumentAccessWhere(context),
           { archivedAt: null },
           // A placeholder whose upload never completed is not a document yet
           // (PRD #29 §162, §233).

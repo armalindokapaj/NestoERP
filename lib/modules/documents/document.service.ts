@@ -12,6 +12,8 @@ import { fileTypeLabel, storageStatusMessage } from "@/lib/core/storage";
 import { attachDocumentFromBytes } from "./storage/upload.service";
 import { readDocumentBytes } from "./storage/download.service";
 import * as repository from "./document.repository";
+import { classifyDocumentParent, loadDocumentParentRecord } from "./document.parent-access";
+import { recordPath } from "@/lib/core/records/record.registry";
 import type {
   CreateDocumentInput,
   DocumentListQuery,
@@ -76,7 +78,16 @@ export async function getDocument(
    * file been verified?" — and cost a storage round trip to do it. The
    * lifecycle column carries the answer now.
    */
-  return toDetailDTO(context, document, document.storageStatus === "AVAILABLE");
+  const detail = toDetailDTO(context, document, document.storageStatus === "AVAILABLE");
+
+  // The detail page names the record the file belongs to, read through the
+  // registry in this reader's scope — so the link is exact even for a record
+  // whose page sits under another one.
+  const parent = await loadDocumentParentRecord(context, document);
+  if (parent && detail.context.entityType && detail.context.entityType !== "project" && detail.context.entityType !== "client") {
+    detail.context = { ...detail.context, relatedRecordName: parent.label, relatedRecordHref: parent.href };
+  }
+  return detail;
 }
 
 export async function getDocumentOverview(
@@ -360,43 +371,35 @@ function isArchived(row: { status: string; archivedAt: Date | null }): boolean {
 /* -------------------------------------------------------------------------- */
 
 function contextDTO(row: repository.DocumentSummaryRow): DocumentContextDTO {
-  if (row.project) {
-    return {
-      module: row.module,
-      entityType: row.entityType,
-      entityId: row.entityId,
-      label: "Project",
-      relatedRecordName: row.project.name,
-      relatedRecordHref: `/projects/${row.project.id}`,
-    };
-  }
-
-  if (row.client) {
-    return {
-      module: row.module,
-      entityType: row.entityType,
-      entityId: row.entityId,
-      label: "Client",
-      relatedRecordName: row.client.name,
-      relatedRecordHref: `/clients/${row.client.id}`,
-    };
-  }
-
-  if (row.entityType === "task" && row.entityId) {
-    return {
-      module: row.module,
-      entityType: row.entityType,
-      entityId: row.entityId,
-      label: "Task",
-      relatedRecordName: null,
-      relatedRecordHref: `/tasks/${row.entityId}`,
-    };
-  }
-
-  return {
+  const parent = classifyDocumentParent({
+    projectId: row.project?.id ?? null,
+    clientId: row.client?.id ?? null,
     module: row.module,
     entityType: row.entityType,
     entityId: row.entityId,
+  });
+  const base = { module: row.module, entityType: row.entityType, entityId: row.entityId };
+
+  // A module record first: it is what the file is actually reachable through.
+  if (parent.kind === "record") {
+    return {
+      ...base,
+      label: parent.definition.noun,
+      relatedRecordName: null,
+      relatedRecordHref: recordPath(parent.type, parent.id),
+    };
+  }
+
+  if (parent.kind === "project" && row.project) {
+    return { ...base, label: "Project", relatedRecordName: row.project.name, relatedRecordHref: `/projects/${row.project.id}` };
+  }
+
+  if (parent.kind === "client" && row.client) {
+    return { ...base, label: "Client", relatedRecordName: row.client.name, relatedRecordHref: `/clients/${row.client.id}` };
+  }
+
+  return {
+    ...base,
     label: row.module ? moduleLabel(row.module) : "Company",
     relatedRecordName: null,
     relatedRecordHref: null,

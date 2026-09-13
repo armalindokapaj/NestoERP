@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -159,6 +161,8 @@ export async function recordReceipt(
         status: true,
         supplierId: true,
         projectId: true,
+        createdByMemberId: true,
+        purchaseRequest: { select: { ownerMemberId: true, requestedByMemberId: true } },
         items: {
           select: {
             id: true,
@@ -269,6 +273,25 @@ export async function recordReceipt(
       action: "PROCUREMENT_RECEIPT_RECORDED",
       message: `recorded delivery ${receipt.receiptNumber} against order ${order.poNumber}`,
       metadata: { receiptId: receipt.id, lines: input.items.length } as Prisma.InputJsonValue,
+    });
+
+    // The people waiting on the goods: whoever raised the order and the request
+    // behind it (PRD #38 §74).
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.GOODS_RECEIPT_RECORDED,
+      moduleKey: MODULE,
+      entityType: "goods_receipt",
+      entityId: receipt.id,
+      actorMemberId: context.membershipId,
+      projectId: order.projectId,
+      payload: {
+        poNumber: order.poNumber,
+        receiptNumber: receipt.receiptNumber,
+        orderCreatedByMemberId: order.createdByMemberId,
+        requestOwnerMemberId: order.purchaseRequest?.ownerMemberId ?? null,
+        requestedByMemberId: order.purchaseRequest?.requestedByMemberId ?? null,
+      },
     });
 
     return receipt.id;

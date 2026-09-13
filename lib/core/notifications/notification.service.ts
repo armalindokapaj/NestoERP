@@ -4,6 +4,8 @@ import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { currentRequestContext } from "@/lib/core/observability/request-context";
+import { loadRecord } from "@/lib/core/records/record.registry";
+import { normaliseEntityType } from "./notification.dispatch";
 
 /**
  * Notifications (PRD #25 §145-§158).
@@ -24,7 +26,9 @@ export type NotificationListItemDTO = {
   readState: string;
   createdAt: string;
   readAt: string | null;
-  entity: { entityType: string; entityId: string; href: string | null } | null;
+  category: string | null;
+  /** The re-authorising open route, never the record URL itself. */
+  href: string | null;
 };
 
 export type UnreadCountDTO = {
@@ -68,84 +72,54 @@ export async function enqueueNotificationEvent(
   });
 }
 
+export type NotificationPage = {
+  data: NotificationListItemDTO[];
+  /** Pass as `before` to load the next, older page. */
+  nextBefore: string | null;
+};
+
 /**
- * Creates a notification for one recipient, idempotently.
+ * The reader's own notifications, newest first, by cursor (PRD #38 §72, §152).
  *
- * The dedupe key is what makes outbox retries safe: processing the same event
- * twice produces one notification (PRD #25 §230).
+ * Every link goes through `/notifications/:id/open`, which re-authorises the
+ * record at the moment it is followed: a notification is a message about the
+ * past, never a key to the present (PRD #38 §82).
  */
-export async function createNotification(
-  tx: Prisma.TransactionClient,
-  input: {
-    companyId: string;
-    recipientMemberId: string;
-    eventType: string;
-    moduleKey: string;
-    title: string;
-    body?: string | null;
-    priority?: "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
-    entityType?: string | null;
-    entityId?: string | null;
-    projectId?: string | null;
-    actorMemberId?: string | null;
-    dedupeKey: string;
-    correlationId?: string | null;
-  },
-): Promise<void> {
-  const existing = await tx.notification.findFirst({
-    where: { companyId: input.companyId, dedupeKey: input.dedupeKey },
-    select: { id: true },
-  });
-  if (existing) return;
-
-  await tx.notification.create({
-    data: {
-      companyId: input.companyId,
-      recipientMemberId: input.recipientMemberId,
-      eventType: input.eventType,
-      moduleKey: input.moduleKey,
-      title: input.title,
-      body: input.body ?? null,
-      priority: input.priority ?? "NORMAL",
-      entityType: input.entityType ?? null,
-      entityId: input.entityId ?? null,
-      projectId: input.projectId ?? null,
-      actorMemberId: input.actorMemberId ?? null,
-      dedupeKey: input.dedupeKey,
-      correlationId: input.correlationId ?? null,
-    },
-  });
-}
-
 export async function listNotifications(
   context: UserContext,
-  options: { readState?: "UNREAD" | "READ"; page?: number; limit?: number } = {},
-) {
-  const limit = Math.min(options.limit ?? 25, 100);
-  const page = Math.max(options.page ?? 1, 1);
+  options: { readState?: "UNREAD" | "READ"; before?: string; limit?: number } = {},
+): Promise<NotificationPage> {
+  const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
 
-  const where: Prisma.NotificationWhereInput = {
-    // Both, always: a notification belongs to one member in one company.
-    companyId: context.companyId,
-    recipientMemberId: context.membershipId,
-    ...(options.readState ? { readState: options.readState } : {}),
-  };
+  let anchor: { createdAt: Date; id: string } | null = null;
+  if (options.before) {
+    anchor = await prisma.notification.findFirst({
+      where: { id: options.before, companyId: context.companyId, recipientMemberId: context.membershipId },
+      select: { createdAt: true, id: true },
+    });
+  }
 
-  const [rows, total] = await Promise.all([
-    prisma.notification.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.notification.count({ where }),
-  ]);
+  const rows = await prisma.notification.findMany({
+    where: {
+      // Both, always: a notification belongs to one member in one company.
+      companyId: context.companyId,
+      recipientMemberId: context.membershipId,
+      ...(options.readState ? { readState: options.readState } : {}),
+      ...(anchor
+        ? { OR: [{ createdAt: { lt: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { lt: anchor.id } }] }
+        : {}),
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
+  });
 
+  const page = rows.slice(0, limit);
   return {
-    data: rows.map(
+    data: page.map(
       (row): NotificationListItemDTO => ({
         id: row.id,
         eventType: row.eventType,
+        category: row.category,
         moduleKey: row.moduleKey,
         title: row.title,
         body: row.body,
@@ -153,41 +127,37 @@ export async function listNotifications(
         readState: row.readState,
         createdAt: row.createdAt.toISOString(),
         readAt: row.readAt?.toISOString() ?? null,
-        entity:
-          row.entityType && row.entityId
-            ? {
-                entityType: row.entityType,
-                entityId: row.entityId,
-                // Resolved at read time: permissions may have changed since the
-                // notification was written (PRD #25 §46, §47).
-                href: resolveHref(context, row.moduleKey, row.entityType, row.entityId),
-              }
-            : null,
+        href: row.entityType && row.entityId ? `/notifications/${row.id}/open` : null,
       }),
     ),
-    pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+    nextBefore: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
 }
 
-/** A link only exists while the module is on and the reader still has access. */
-function resolveHref(
-  context: UserContext,
-  moduleKey: string,
-  entityType: string,
-  entityId: string,
-): string | null {
-  const access = context.moduleAccess[moduleKey as keyof typeof context.moduleAccess];
-  if (!access?.enabled) return null;
+export type OpenedNotification = { href: string } | { unavailable: true };
 
-  const routes: Record<string, string> = {
-    task: `/tasks/${entityId}`,
-    project: `/projects/${entityId}`,
-    client: `/clients/${entityId}`,
-    invoice: `/finance/invoices/${entityId}`,
-    expense: `/finance/expenses/${entityId}`,
-    document: `/documents/${entityId}`,
-  };
-  return routes[entityType] ?? null;
+/**
+ * Follows a notification's link (PRD #38 §82).
+ *
+ * The notification must be the reader's own — another member's id is simply
+ * not found — and the record behind it is read again, now, through the record
+ * registry. If access has gone, the answer is "unavailable" and nothing about
+ * the record is revealed, not even its name.
+ */
+export async function openNotification(context: UserContext, id: string): Promise<OpenedNotification> {
+  const notification = await prisma.notification.findFirst({
+    where: { id, companyId: context.companyId, recipientMemberId: context.membershipId },
+    select: { id: true, entityType: true, entityId: true, readState: true },
+  });
+  if (!notification) throw new AccessError("NOT_FOUND");
+
+  if (notification.readState === "UNREAD") {
+    await prisma.notification.update({ where: { id: notification.id }, data: { readState: "READ", readAt: new Date() } });
+  }
+
+  if (!notification.entityType || !notification.entityId) return { unavailable: true };
+  const record = await loadRecord(context, normaliseEntityType(notification.entityType), notification.entityId);
+  return record ? { href: record.href } : { unavailable: true };
 }
 
 export async function getUnreadCount(context: UserContext): Promise<UnreadCountDTO> {

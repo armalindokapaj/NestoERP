@@ -8,6 +8,7 @@ import {
   assertPermission,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { notifyCriticalSafety } from "@/lib/core/notifications/safety-notifications";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -369,6 +370,10 @@ export async function createHazard(
       message: `reported hazard ${hazard.hazardNumber} at ${risk.riskLevel.toLowerCase()} risk`,
     });
 
+    if (risk.riskLevel === "CRITICAL") {
+      await notifyCriticalSafety(tx, context, { recordType: "hazard", recordId: hazard.id, projectId: input.projectId ?? null, noun: "Critical hazard" });
+    }
+
     return hazard.id;
   });
 
@@ -419,6 +424,11 @@ export async function updateHazard(
         updatedByMemberId: context.membershipId,
       },
     });
+
+    // Raised to critical by this edit: the same alert a new critical hazard gets.
+    if (risk.riskLevel === "CRITICAL" && existing.riskLevel !== "CRITICAL") {
+      await notifyCriticalSafety(tx, context, { recordType: "hazard", recordId: hazardId, projectId: input.projectId ?? null, noun: "Critical hazard" });
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -739,7 +749,7 @@ async function requireHazard(context: UserContext, hazardId: string) {
   return assertFound(
     await prisma.hseHazard.findFirst({
       where: { AND: [buildHazardScopeWhere(context), { id: hazardId }] },
-      select: { id: true, hazardNumber: true, status: true, updatedAt: true },
+      select: { id: true, hazardNumber: true, status: true, riskLevel: true, updatedAt: true },
     }),
   );
 }

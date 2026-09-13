@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { RequestActions } from "@/components/procurement/request-actions";
 import { ProcurementApprovalHistory } from "@/components/procurement/approval-history";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/modules/procurement/procurement.status";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
 import { dueLabel, formatAmount } from "@/components/procurement/procurement-format";
+import { RecordTasks } from "@/components/tasks/record-tasks";
 
 type Params = { params: Promise<{ requestId: string }> };
 
@@ -229,6 +231,10 @@ export default async function RequestDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
+      {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
+      <RecordTasks context={context} parentType="purchase_request" parentId={requestId} />
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="purchase_request" parentId={requestId} />
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
+import { notifyApprovalDecided, notifyApprovalRequested } from "@/lib/core/notifications/approval-notifications";
+import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import { commercialDTO, toMemberRef } from "../contract.dto";
@@ -76,6 +78,12 @@ export function assertNotSelfApproval(context: UserContext, submittedByMemberId:
 /* Writes, used inside the calling service's transaction                       */
 /* -------------------------------------------------------------------------- */
 
+/** How each approval record type is named to the record registry (PRD #38 §74). */
+const APPROVAL_RECORD: Record<ContractApprovalRecordType, { recordType: RecordType; noun: string }> = {
+  CONTRACT: { recordType: "contract", noun: "Contract" },
+  AMENDMENT: { recordType: "amendment", noun: "Amendment" },
+};
+
 /**
  * Opens an approval cycle.
  *
@@ -105,6 +113,14 @@ export async function openApproval(
       submittedAt: new Date(),
     },
     select: { id: true },
+  });
+
+  await notifyApprovalRequested(tx, context, {
+    moduleKey: "contracts",
+    recordId,
+    recordType: APPROVAL_RECORD[type].recordType,
+    noun: APPROVAL_RECORD[type].noun,
+    approvePermissions: ["legal.approval.decide", APPROVE_PERMISSION[type]],
   });
 
   return approval.id;
@@ -154,6 +170,22 @@ export async function decideApproval(
 
   if (result.count === 0) {
     throw new AccessError("CONFLICT", "This record has already been decided.");
+  }
+
+  const approval = await tx.contractApproval.findUnique({
+    where: { id: approvalId },
+    select: { recordType: true, recordId: true, submittedByMemberId: true },
+  });
+  if (approval) {
+    await notifyApprovalDecided(tx, context, {
+      moduleKey: "contracts",
+      recordId: approval.recordId,
+      recordType: APPROVAL_RECORD[approval.recordType].recordType,
+      noun: APPROVAL_RECORD[approval.recordType].noun,
+      decision,
+      note,
+      submittedByMemberId: approval.submittedByMemberId,
+    });
   }
 }
 

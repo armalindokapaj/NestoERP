@@ -44,6 +44,16 @@ deployment built with `NODE_ENV=development` still refuses the role switcher.
 | `MAIL_ALLOWED_RECIPIENTS` | optional | required | ignored |
 | `APP_URL` | optional | required | required |
 | `METRICS_TOKEN` | optional | required | required |
+| `CLAMAV_HOST` / `CLAMAV_PORT` | — | required with `clamav` | required with `clamav` |
+| `NOTIFICATION_BATCH_SIZE`, `SCAN_BATCH_SIZE` | optional | optional | optional |
+| `WORKER_RETENTION_APPLY` | — | optional | `true` once retention is signed off |
+
+## Workers
+
+Every environment beyond a laptop runs the worker (`pnpm worker`, see
+`runbooks/workers.md`) against its own database. Staging and production each have
+their own workers; a worker never points at another environment's database, bucket,
+scanner or mail provider (PRD #38 §103).
 
 `APP_URL` is the origin every emailed link is built from — invitations, reset
 links, notification emails. It is configuration, never a request header, so a

@@ -129,7 +129,9 @@ export async function openApproval(
     companyId: context.companyId,
     eventType: NotificationEvent.APPROVAL_REQUESTED,
     moduleKey: "finance",
-    entityType: type,
+    // The record registry's type, so the dispatcher can re-read the record for
+    // each recipient (PRD #38 §82).
+    entityType: type.toLowerCase(),
     entityId: recordId,
     actorMemberId: context.membershipId,
     payload: {
@@ -207,7 +209,7 @@ export async function decideApproval(
       companyId: context.companyId,
       eventType: NotificationEvent.APPROVAL_DECIDED,
       moduleKey: "finance",
-      entityType: approval.recordType,
+      entityType: approval.recordType.toLowerCase(),
       entityId: approval.recordId,
       actorMemberId: context.membershipId,
       payload: {

@@ -1,9 +1,12 @@
+import { ClamAvFileScanner, clamAvOptionsFromEnv } from "./clamav-scanner";
+
 /**
  * The malware scanner seam (PRD #29 §54, §57, §58).
  *
- * NESTO V0.1 ships no antivirus engine, and this file does not pretend
- * otherwise. What it provides is the contract a deployment plugs one into, and
- * the two behaviours that matter whether or not an engine is present:
+ * NESTO does not bundle an antivirus engine. What it provides is the contract a
+ * deployment plugs one into — ClamAV over clamd's INSTREAM protocol ships with
+ * it (clamav-scanner.ts) — and the two behaviours that matter whether or not an
+ * engine is present:
  *
  *   with no scanner configured a file records NOT_REQUIRED — deliberately not
  *   CLEAN, because nothing looked at it (§56)
@@ -77,6 +80,10 @@ export class EicarFileScanner implements FileScanner {
 export function fileScanner(): FileScanner | null {
   const configured = (process.env.STORAGE_SCANNER ?? "none").toLowerCase();
   if (configured === "eicar") return new EicarFileScanner();
+  // A production engine (PRD #38 §99). Named but unconfigured still returns a
+  // scanner — one whose every verdict is ERROR — so a missing host holds files
+  // back instead of quietly skipping the scan.
+  if (configured === "clamav") return new ClamAvFileScanner(clamAvOptionsFromEnv());
   return null;
 }
 

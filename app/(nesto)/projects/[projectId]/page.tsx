@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PriorityBadge } from "@/components/modules/status-badge";
 import { ProjectActions } from "@/components/projects/project-actions";
@@ -326,6 +327,8 @@ export default async function ProjectOverviewPage({ params }: Params) {
           </ul>
         </section>
       ) : null}
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="project" parentId={projectId} />
     </div>
   );
 }

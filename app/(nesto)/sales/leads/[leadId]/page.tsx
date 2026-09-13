@@ -6,6 +6,8 @@ import { RecordHeader } from "@/components/modules/record-header";
 import { LeadActions } from "@/components/sales/lead-actions";
 import { SalesRecordDocuments } from "@/components/sales/record-documents";
 import { SalesActivityFeed } from "@/components/sales/sales-activity";
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
+import { RecordTasks } from "@/components/tasks/record-tasks";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { leadSourceLabels } from "@/lib/modules/sales/leads/lead.status";
 import { formatAmount } from "@/components/sales/sales-format";
@@ -114,6 +116,12 @@ export default async function LeadPage({ params }: Params) {
           </div>
         </section>
       </div>
+
+      <Suspense fallback={<SkeletonTable rows={2} />}>
+        <RecordTasks context={context} parentType="lead" parentId={lead.id} title="Follow-up tasks" />
+      </Suspense>
+
+      <CollaborationPanel parentType="lead" parentId={lead.id} />
 
       {lead.capabilities.canViewActivity ? (
         <section className="space-y-3">

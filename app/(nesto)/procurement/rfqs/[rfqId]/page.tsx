@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { InviteSupplierControl } from "@/components/procurement/invite-supplier-control";
 import { RfqActions } from "@/components/procurement/rfq-actions";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
@@ -227,6 +228,8 @@ export default async function RfqDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="rfq" parentId={rfqId} />
     </div>
   );
 }

@@ -46,6 +46,14 @@ export type TaskDetailDTO = {
   };
   /** Generic parent context for module-linked work (PRD #11 §171). */
   context: { module: string | null; entityType: string | null; entityId: string | null };
+  /**
+   * The record the task was raised from, as this reader sees it (PRD #38 §45).
+   * Null when there is none, or when the reader cannot open it — the task does
+   * not become a way to learn a record's name.
+   */
+  parent: { type: string; noun: string; label: string; href: string } | null;
+  /** Why the task cannot move, while it is BLOCKED (PRD #38 §44). */
+  blocked: { reason: string | null; since: string | null; byMemberId: string | null } | null;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;

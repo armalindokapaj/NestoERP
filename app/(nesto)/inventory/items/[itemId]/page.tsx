@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid } from "@/components/modules/record-header";
 import { StockTable } from "@/components/inventory/stock-table";
 import { formatQuantity } from "@/components/inventory/inventory-format";
@@ -108,6 +109,9 @@ export default async function ItemPage({ params }: Params) {
           </section>
         </div>
       </div>
+
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="inventory_item" parentId={itemId} className="mt-4" />
     </ItemPageShell>
   );
 }

@@ -175,6 +175,31 @@ enum DocumentUploadSessionStatus {
   FAILED
 }
 
+/// Where one version of a document stands in review (PRD #38 §59).
+enum DocumentReviewState {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+/// One reviewer's decision on one version (PRD #38 §60).
+enum DocumentReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Why somebody is watching a record's discussion (PRD #38 §33).
+enum SubscriptionSource {
+  AUTHOR
+  MENTION
+  STAKEHOLDER
+  MANUAL
+}
+
 enum AuthEventType {
   LOGIN_SUCCESS
   LOGIN_FAILED
@@ -1074,6 +1099,11 @@ model CompanyMember {
   assignedTasks Task[] @relation("TaskAssignee")
   createdTasks  Task[] @relation("TaskCreatorMember")
 
+  // Collaboration (PRD #38 §23-§27)
+  authoredComments           Comment[]      @relation("CommentAuthor")
+  mentions                   Mention[]      @relation("MentionedMember")
+  collaborationSubscriptions Subscription[] @relation("SubscriptionMember")
+
   activityActions Activity[] @relation("ActivityActorMember")
 
   employeeProfile         EmployeeProfile?  @relation("EmployeeProfileMember")
@@ -1366,6 +1396,11 @@ model Task {
   startDate         DateTime?
   dueDate           DateTime?
   completedAt       DateTime?
+  /// Why the task cannot move, set by the block action and cleared by the
+  /// next transition out of BLOCKED (PRD #38 §44). Never set by a status edit.
+  blockedAt         DateTime?
+  blockedReason     String?
+  blockedByMemberId String?
 
   /// Generic parent context, so a later module can hang work off its own record
   /// without inventing a second task table (PRD #11 §171, §252).
@@ -1408,30 +1443,37 @@ model Task {
 /// File metadata plus the business context that governs who may see it.
 /// A document is reachable only through its parent's permissions (PRD #8 §43).
 model Document {
-  id               String  @id @default(cuid())
-  companyId        String
-  name             String
-  description      String?
+  id                  String  @id @default(cuid())
+  companyId           String
+  name                String
+  description         String?
   /// The name the file was uploaded under, kept for display. The storage key
   /// is sanitised separately and never derived from it (PRD #13 §23, §154).
-  originalFileName String?
-  fileName         String?
-  extension        String?
-  storageProvider  String?
+  originalFileName    String?
+  fileName            String?
+  extension           String?
+  storageProvider     String?
   /// Deployment metadata only, kept so a bucket rename is a migration rather
   /// than an archaeology exercise. The key stays provider-neutral and the
   /// live bucket comes from configuration (PRD #29 §354, §356, §358).
-  storageBucket    String?
-  storageKey       String?
-  mimeType         String?
+  storageBucket       String?
+  storageKey          String?
+  mimeType            String?
   /// What the bytes actually are, read from the object's leading magic bytes
   /// after upload. The browser's declared type is advisory; this is not
   /// (PRD #29 §29, §31, §270).
-  detectedMimeType String?
-  sizeBytes        BigInt?
+  detectedMimeType    String?
+  sizeBytes           BigInt?
   /// SHA-256 of the stored object. Integrity and duplicate diagnostics only —
   /// never authorisation (PRD #13 §32, PRD #29 §88).
-  checksum         String?
+  checksum            String?
+  /// The version downloads and previews serve (PRD #38 §57). The file
+  /// columns on this row mirror that version, so every existing read path
+  /// keeps working; the version rows are the immutable history.
+  currentVersionId    String? @unique
+  /// Allocated by an atomic increment, so two concurrent uploads of a new
+  /// version cannot both become version 3 (PRD #38 §154).
+  latestVersionNumber Int     @default(0)
 
   /// The storage lifecycle, separate from `status`, which is the *business*
   /// visibility state. A document can be ACTIVE and still not downloadable
@@ -1479,6 +1521,7 @@ model Document {
   uploadedBy CompanyMember? @relation("DocumentUploadedBy", fields: [uploadedByMemberId], references: [id], onDelete: SetNull)
 
   uploadSessions DocumentUploadSession[]
+  versions       DocumentVersion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1512,10 +1555,13 @@ model Document {
 /// it rather than against whatever the browser claims afterwards
 /// (PRD #29 §65, §77, §80).
 model DocumentUploadSession {
-  id         String @id @default(cuid())
-  companyId  String
-  documentId String
-  memberId   String
+  id                String  @id @default(cuid())
+  companyId         String
+  documentId        String
+  /// The version this upload creates. Every session has one: the first
+  /// upload creates version 1 (PRD #38 §56).
+  documentVersionId String?
+  memberId          String
 
   storageKey        String
   expectedFileName  String
@@ -1557,6 +1603,88 @@ model DocumentUploadSession {
   @@index([memberId])
   @@index([status, expiresAt])
   @@map("document_upload_sessions")
+}
+
+/// An immutable file revision (PRD #38 §56, §58).
+///
+/// Once a version is AVAILABLE its storage key, checksum and binary metadata
+/// never change. A new binary is a new version, with its own key; the old
+/// object stays where it is, reachable from its history.
+model DocumentVersion {
+  id            String @id @default(cuid())
+  companyId     String
+  documentId    String
+  versionNumber Int
+
+  storageProvider  String?
+  storageBucket    String?
+  storageKey       String  @unique
+  originalFileName String?
+  fileName         String?
+  extension        String?
+  mimeTypeDeclared String?
+  mimeTypeDetected String?
+  sizeBytes        BigInt?
+  checksumSha256   String?
+
+  storageStatus   DocumentStorageStatus @default(PENDING_UPLOAD)
+  scanStatus      DocumentScanStatus    @default(NOT_REQUIRED)
+  scanProvider    String?
+  scanCompletedAt DateTime?
+  previewStatus   DocumentPreviewStatus @default(NOT_REQUIRED)
+  previewMimeType String?
+  rejectionReason String?
+
+  reviewState  DocumentReviewState @default(DRAFT)
+  changeNote   String?
+  supersededAt DateTime?
+
+  uploadedByMemberId String
+
+  document Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  reviews  DocumentReview[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  availableAt DateTime?
+
+  @@unique([documentId, versionNumber])
+  @@index([companyId, documentId, versionNumber])
+  @@index([storageStatus, scanStatus])
+  @@map("document_versions")
+}
+
+/// A request for one member to approve or reject one version (PRD #38 §60-§64).
+///
+/// Approving a document approves the document and nothing else: no invoice,
+/// contract, order or safety record changes state because a file on it was
+/// approved (PRD #38 §64).
+model DocumentReview {
+  id                  String               @id @default(cuid())
+  companyId           String
+  documentId          String
+  documentVersionId   String
+  requestedByMemberId String
+  reviewerMemberId    String
+  status              DocumentReviewStatus @default(PENDING)
+  requestNote         String?
+  decisionNote        String?
+  decidedByMemberId   String?
+  /// `versionId:reviewerId` while PENDING, null once decided: one open request
+  /// per reviewer per version, enforced by the database rather than a race
+  /// (PRD #38 §154, §155).
+  pendingKey          String?              @unique
+
+  version DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+
+  requestedAt DateTime  @default(now())
+  decidedAt   DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@index([companyId, reviewerMemberId, status])
+  @@index([documentVersionId])
+  @@index([companyId, documentId])
+  @@map("document_reviews")
 }
 
 /// What a company is allowed to store (PRD #29 §142, §144).
@@ -4357,6 +4485,8 @@ enum AuditCategory {
   DOCUMENT
   REPORTING
   SYSTEM
+  /// Comments, mentions and watchers on business records (PRD #38 §35).
+  COLLABORATION
 }
 
 enum AuditSeverity {
@@ -4589,6 +4719,10 @@ model Notification {
 
   /// One notification per event per recipient (PRD #25 §60-§62).
   dedupeKey String
+  /// The registry category, for preferences and filtering (PRD #38 §75, §78).
+  category  String?
+  /// Set once the email copy of this notification was handed to the mail service.
+  emailedAt DateTime?
 
   readAt DateTime?
 
@@ -4601,6 +4735,7 @@ model Notification {
 
   createdAt DateTime @default(now())
 
+  @@unique([companyId, recipientMemberId, dedupeKey])
   @@index([companyId])
   @@index([recipientMemberId, readState, createdAt])
   @@index([recipientMemberId, createdAt])
@@ -4667,8 +4802,13 @@ model NotificationPreference {
   companyId String
   memberId  String
 
-  moduleKey  String
-  eventGroup NotificationEventGroup
+  /// Superseded by `category` (PRD #38 §78). Kept, nullable, because dropping
+  /// a column is not an additive migration; nothing reads or writes it.
+  moduleKey  String?
+  eventGroup NotificationEventGroup?
+  /// A notification category from the event registry: tasks, mentions,
+  /// approvals, documents, qa_qc, hse, hr, contracts, procurement, …
+  category   String?
 
   inAppEnabled Boolean @default(true)
   emailEnabled Boolean @default(false)
@@ -4677,6 +4817,7 @@ model NotificationPreference {
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, memberId, moduleKey, eventGroup])
+  @@unique([companyId, memberId, category])
   @@index([memberId])
   @@index([companyId])
   @@index([moduleKey])
@@ -4701,11 +4842,17 @@ model NotificationEventOutbox {
   payloadJson   Json
   correlationId String?
 
-  status        NotificationOutboxStatus @default(PENDING)
-  attemptCount  Int                      @default(0)
-  nextAttemptAt DateTime?
-  processedAt   DateTime?
-  lastError     String?
+  status         NotificationOutboxStatus @default(PENDING)
+  /// Lease: a worker claims a batch with FOR UPDATE SKIP LOCKED and holds it
+  /// until `leaseExpiresAt`. A worker that dies mid-batch leaves a lease that
+  /// expires and is claimed again (PRD #38 §80, §96).
+  lockedAt       DateTime?
+  lockedBy       String?
+  leaseExpiresAt DateTime?
+  attemptCount   Int                      @default(0)
+  nextAttemptAt  DateTime?
+  processedAt    DateTime?
+  lastError      String?
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
@@ -4713,6 +4860,7 @@ model NotificationEventOutbox {
   updatedAt DateTime @updatedAt
 
   @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
   @@index([companyId])
   @@index([eventType])
   @@index([createdAt])
@@ -6496,4 +6644,131 @@ model HseApproval {
   @@index([decidedByMemberId])
   @@index([submittedAt])
   @@map("hse_approvals")
+}
+
+// ---------------------------------------------------------------------------
+// Collaboration (PRD #38 M2)
+// ---------------------------------------------------------------------------
+//
+// Discussion lives on the business record it is about. There is no chat module
+// and no thread without a parent: a CollaborationThread is the one discussion
+// of one record, created the first time somebody comments or watches.
+//
+// Nothing here grants access. A comment, a mention and a subscription are all
+// read back through the parent record's own authorisation, every time
+// (PRD #38 §30-§32).
+
+model CollaborationThread {
+  id         String @id @default(cuid())
+  companyId  String
+  /// A record registry type (`lib/core/records`): task, invoice, hazard, …
+  parentType String
+  parentId   String
+
+  commentCount  Int       @default(0)
+  lastCommentAt DateTime?
+
+  comments      Comment[]
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, parentType, parentId])
+  @@index([companyId, lastCommentAt])
+  @@map("collaboration_threads")
+}
+
+/// Plain text only. Never HTML, never copied into audit (PRD #38 §34, §36).
+model Comment {
+  id                 String    @id @default(cuid())
+  companyId          String
+  threadId           String
+  authorMemberId     String
+  body               String
+  /// The comment this one replies to, when it is a reply.
+  replyToId          String?
+  editedAt           DateTime?
+  /// Deletion is archival: the row stays, the body is withheld (PRD #38 §34).
+  archivedAt         DateTime?
+  archivedByMemberId String?
+
+  thread   CollaborationThread @relation(fields: [threadId], references: [id], onDelete: Restrict)
+  author   CompanyMember       @relation("CommentAuthor", fields: [authorMemberId], references: [id], onDelete: Restrict)
+  mentions Mention[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, threadId, createdAt])
+  @@index([companyId, authorMemberId, createdAt])
+  @@map("comments")
+}
+
+model Mention {
+  id                String @id @default(cuid())
+  companyId         String
+  commentId         String
+  mentionedMemberId String
+
+  comment Comment       @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  member  CompanyMember @relation("MentionedMember", fields: [mentionedMemberId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, mentionedMemberId])
+  @@index([companyId, mentionedMemberId, createdAt])
+  @@map("mentions")
+}
+
+/// A watcher. Not ownership, not access (PRD #38 §27, §32).
+model Subscription {
+  id        String             @id @default(cuid())
+  companyId String
+  threadId  String
+  memberId  String
+  source    SubscriptionSource
+  active    Boolean            @default(true)
+
+  thread CollaborationThread @relation(fields: [threadId], references: [id], onDelete: Restrict)
+  member CompanyMember       @relation("SubscriptionMember", fields: [memberId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threadId, memberId])
+  @@index([companyId, memberId, active])
+  @@map("collaboration_subscriptions")
+}
+
+// ---------------------------------------------------------------------------
+// Workers (PRD #38 M5)
+// ---------------------------------------------------------------------------
+
+/// The last thing each background job did, written by the job itself
+/// (PRD #38 §97). Health and metrics read it; nothing else does.
+model WorkerHeartbeat {
+  /// A job key: notifications.dispatch, documents.scan, attention.reconcile, …
+  job            String    @id
+  lastRunAt      DateTime?
+  lastSuccessAt  DateTime?
+  lastFailureAt  DateTime?
+  lastError      String?
+  lastDurationMs Int?
+  /// The job's own count of what it handled on its last run.
+  lastProcessed  Int       @default(0)
+  runs           Int       @default(0)
+  failures       Int       @default(0)
+  /// Which process ran it last — host and pid, never a secret.
+  instance       String?
+  /// The lease: one worker runs a scheduled job at a time, and a crashed
+  /// worker's claim expires on its own (PRD #38 §96).
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  /// Not due again before this.
+  nextRunAt      DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("worker_heartbeats")
 }

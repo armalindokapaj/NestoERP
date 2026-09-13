@@ -57,5 +57,22 @@ export async function operationalGauges(now: Date = new Date()): Promise<GaugeSa
     { name: "upload_rejected_last_hour", value: uploadsFailedHour, help: "Uploads rejected or failed in the last hour" },
   ];
 
+  // Per job, from the heartbeat rows the worker writes (PRD #38 §97).
+  const { jobHealth } = await import("@/lib/core/jobs/job.health");
+  for (const job of await jobHealth(now)) {
+    gauges.push({
+      name: "worker_last_success_age_seconds",
+      labels: { job: job.job },
+      value: job.lastSuccessAgeSeconds ?? -1,
+      help: "Seconds since the job last succeeded (-1: never)",
+    });
+    gauges.push({
+      name: "worker_job_healthy",
+      labels: { job: job.job },
+      value: job.state === "ok" ? 1 : 0,
+      help: "1 when the job's last run succeeded within its expected interval",
+    });
+  }
+
   return gauges;
 }

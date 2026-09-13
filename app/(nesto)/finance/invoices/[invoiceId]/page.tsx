@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { Money } from "@/components/finance/money";
 import { ApprovalHistory } from "@/components/finance/approval-history";
 import { InvoiceActions } from "@/components/finance/invoice-actions";
@@ -241,6 +242,8 @@ export default async function InvoiceDetailPage({ params }: Params) {
           </div>
         )}
       </section>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="invoice" parentId={invoiceId} />
     </div>
   );
 }

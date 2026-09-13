@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { PermitClock, PermitStatusBadge } from "@/components/hse/hse-format";
 import { ActionTable } from "@/components/hse/hse-tables";
 import { PermitActions } from "@/components/hse/record-actions";
@@ -199,6 +200,8 @@ export default async function PermitPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="work_permit" parentId={permitId} />
     </div>
   );
 }

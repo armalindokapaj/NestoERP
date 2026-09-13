@@ -39,8 +39,20 @@ import { ROLE_KEYS, roles, type RoleKey } from "./roles";
 type ModuleLadder = Partial<Record<Exclude<AccessLevel, "NONE">, Permission[]>>;
 
 const LADDERS: Record<ModuleKey, ModuleLadder> = {
+  /**
+   * Every role holds the dashboard, and collaboration rides on it (PRD #38 §38).
+   * The Viewer keeps `collaboration.watch` — following a record changes nobody's
+   * data — and the read-only filter removes the three that write comments
+   * (PRD #38 §127).
+   */
   dashboard: {
-    VIEW: ["dashboard.view"],
+    VIEW: [
+      "dashboard.view",
+      "collaboration.comment.create",
+      "collaboration.comment.edit_own",
+      "collaboration.comment.archive_own",
+      "collaboration.watch",
+    ],
   },
   projects: {
     VIEW: [
@@ -83,7 +95,10 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
   },
   documents: {
     VIEW: ["document.view", "document.download", "document.activity.view"],
-    CONTRIBUTE: ["document.create", "document.update"],
+    // Review is a contributor's job, not a manager's: the Legal, QA/QC and HSE
+    // people who review files in their own domain hold CONTRIBUTE here, and
+    // what narrows them is the parent record (PRD #38 §61, §62).
+    CONTRIBUTE: ["document.create", "document.update", "document.review.request", "document.review.decide"],
     MANAGE: ["document.archive", "document.restore"],
   },
   /**

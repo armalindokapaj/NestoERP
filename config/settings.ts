@@ -20,6 +20,7 @@ export const SETTINGS_SLUGS = [
   "storage",
   "audit",
   "appearance",
+  "notifications",
 ] as const;
 
 export type SettingsSlug = (typeof SETTINGS_SLUGS)[number];
@@ -97,6 +98,13 @@ export const settingsSections: SettingsSection[] = [
   {
     slug: "appearance",
     icon: "Settings",
+    permission: "settings.view",
+    personal: true,
+  },
+  {
+    // What NESTO tells this person about, and where (PRD #38 §78).
+    slug: "notifications",
+    icon: "BellRing",
     permission: "settings.view",
     personal: true,
   },

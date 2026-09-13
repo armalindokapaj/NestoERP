@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { ClosureGaps, NcrActions } from "@/components/qaqc/record-actions";
 import { CorrectiveActionTable } from "@/components/qaqc/qaqc-tables";
 import { SeverityBadge } from "@/components/qaqc/qaqc-format";
@@ -9,6 +10,7 @@ import { QaqcActivityFeed } from "@/components/qaqc/record-activity";
 import { QaqcRecordDocuments } from "@/components/qaqc/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { RecordTasks } from "@/components/tasks/record-tasks";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
@@ -229,6 +231,10 @@ export default async function NcrPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
+      <RecordTasks context={context} parentType="non_conformance_report" parentId={ncrId} />
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="non_conformance_report" parentId={ncrId} />
     </div>
   );
 }

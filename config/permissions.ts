@@ -18,6 +18,17 @@ export const PERMISSIONS = [
   /* Dashboard ------------------------------------------------------------ */
   "dashboard.view",
 
+  /* Collaboration --------------------------------------------------------- */
+  /**
+   * Discussion on business records (PRD #38 §38). Never sufficient alone:
+   * every one of these is checked together with read access to the record
+   * the thread belongs to, so holding them opens nothing by itself.
+   */
+  "collaboration.comment.create",
+  "collaboration.comment.edit_own",
+  "collaboration.comment.archive_own",
+  "collaboration.watch",
+
   /* Projects ------------------------------------------------------------- */
   "project.view",
   "project.create",
@@ -73,6 +84,12 @@ export const PERMISSIONS = [
   // governed by its own grant (PRD #13 §39, §47).
   "document.company.view",
   "document.company.create",
+  /**
+   * Document review (PRD #38 §61). Both still require the parent record, and
+   * a reviewer is only ever assigned a version they could open.
+   */
+  "document.review.request",
+  "document.review.decide",
 
   /* Finance -------------------------------------------------------------- */
   "finance.view",
@@ -840,6 +857,9 @@ export function isPermission(value: string): value is Permission {
  */
 const PERMISSION_MODULE: Record<string, ModuleKey> = {
   dashboard: "dashboard",
+  // Collaboration is part of the shell every role has, not a switchable module:
+  // a company that turns Tasks off still discusses its invoices (PRD #38 §22).
+  collaboration: "dashboard",
   project: "projects",
   task: "tasks",
   client: "clients",
@@ -939,6 +959,10 @@ const MUTATING_ACTIONS = new Set([
   "control",
   "assess",
   "investigate",
+  // Collaboration and review verbs: each one writes (PRD #38 §38, §61).
+  "edit_own",
+  "archive_own",
+  "request",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

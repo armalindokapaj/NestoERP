@@ -4,6 +4,7 @@ import { dashboardForRole } from "@/config/dashboards";
 import { kpis } from "@/config/kpis";
 import { quickActions } from "@/config/quick-actions";
 import { widgets } from "@/config/widgets";
+import { listReadableAttention } from "@/lib/core/notifications/attention.service";
 import { can } from "@/lib/access/can";
 import {
   buildClientScopeWhere,
@@ -173,7 +174,7 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
     case "documentCount":
       return String(
         await prisma.document.count({
-          where: { AND: [buildDocumentAccessWhere(context), { status: "ACTIVE" }] },
+          where: { AND: [await buildDocumentAccessWhere(context), { status: "ACTIVE" }] },
         }),
       );
 
@@ -1126,7 +1127,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
 
     case "recentDocuments": {
       const rows = await prisma.document.findMany({
-        where: { AND: [buildDocumentAccessWhere(context), { status: "ACTIVE" }] },
+        where: { AND: [await buildDocumentAccessWhere(context), { status: "ACTIVE" }] },
         orderBy: { createdAt: "desc" },
         take: 6,
         select: {
@@ -1193,7 +1194,18 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
  * Low-value noise is deliberately excluded.
  */
 async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
-  const alerts: WidgetAlert[] = [];
+  /*
+   * This person's own attention items first (PRD #38 §86): specific records
+   * waiting on them, each link resolved against their access now. The counts
+   * below stay as the company-wide picture their permissions allow.
+   */
+  const alerts: WidgetAlert[] = (await listReadableAttention(context, 5)).map((item) => ({
+    id: `attention-${item.id}`,
+    priority: item.priority === "CRITICAL" ? "CRITICAL" : item.priority === "HIGH" ? "WARNING" : "INFO",
+    title: item.title,
+    detail: item.body ?? "Waiting on you.",
+    href: item.href,
+  }));
 
   if (can(context, "task.view")) {
     const overdue = await prisma.task.count({

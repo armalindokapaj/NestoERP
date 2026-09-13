@@ -30,6 +30,7 @@
     "storage:maintenance": "tsx scripts/storage-maintenance.ts",
     "storage:maintenance:apply": "tsx scripts/storage-maintenance.ts --apply",
     "notifications:dispatch": "tsx scripts/notifications.ts",
+    "worker": "tsx scripts/worker.ts",
     "access:sync": "tsx scripts/access-sync.ts",
     "company:bootstrap": "tsx scripts/company-bootstrap.ts"
   },

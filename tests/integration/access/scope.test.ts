@@ -200,7 +200,7 @@ describe("document scope (PRD #9 §173, PRD #8 §43)", () => {
     const context = await loginAs("ARCHITECT");
     const rows = await prisma.document.findMany({
       where: {
-        AND: [buildDocumentAccessWhere(context), { name: "Company Financial Summary.pdf" }],
+        AND: [await buildDocumentAccessWhere(context), { name: "Company Financial Summary.pdf" }],
       },
     });
     expect(rows).toHaveLength(0);
@@ -209,7 +209,7 @@ describe("document scope (PRD #9 §173, PRD #8 §43)", () => {
   it("hides an HR-context document from the Project Manager", async () => {
     const context = await loginAs("PROJECT_MANAGER");
     const rows = await prisma.document.findMany({
-      where: { AND: [buildDocumentAccessWhere(context), { name: "Employee HR Record.pdf" }] },
+      where: { AND: [await buildDocumentAccessWhere(context), { name: "Employee HR Record.pdf" }] },
     });
     expect(rows).toHaveLength(0);
   });
@@ -218,7 +218,7 @@ describe("document scope (PRD #9 §173, PRD #8 §43)", () => {
     const context = await loginAs("FINANCE");
     const rows = await prisma.document.findMany({
       where: {
-        AND: [buildDocumentAccessWhere(context), { name: "Company Financial Summary.pdf" }],
+        AND: [await buildDocumentAccessWhere(context), { name: "Company Financial Summary.pdf" }],
       },
     });
     expect(rows).toHaveLength(1);
@@ -227,7 +227,7 @@ describe("document scope (PRD #9 §173, PRD #8 §43)", () => {
   it("keeps a project document behind that project's access", async () => {
     const context = await loginAs("VIEWER");
     const rows = await prisma.document.findMany({
-      where: { AND: [buildDocumentAccessWhere(context), { projectId: PROJECT.c }] },
+      where: { AND: [await buildDocumentAccessWhere(context), { projectId: PROJECT.c }] },
     });
     expect(rows).toHaveLength(0);
   });
@@ -235,7 +235,7 @@ describe("document scope (PRD #9 §173, PRD #8 §43)", () => {
   it("never returns a Company B document to a Company A user", async () => {
     const context = await loginAs("OWNER");
     const rows = await prisma.document.findMany({
-      where: { AND: [buildDocumentAccessWhere(context), { companyId: "company_demo_b" }] },
+      where: { AND: [await buildDocumentAccessWhere(context), { companyId: "company_demo_b" }] },
     });
     expect(rows).toHaveLength(0);
   });

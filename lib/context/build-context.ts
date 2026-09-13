@@ -1,3 +1,5 @@
+import type { Prisma, User } from "@prisma/client";
+
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
 import { permissionsForRole, roleModuleAccess } from "@/config/role-defaults";
@@ -71,6 +73,39 @@ export async function resolveContextForSession(
   const role = isDevMode ? resolveRole(actualRole, options.roleOverride) : actualRole;
 
   const enabledModules = await resolveEnabledModules(record.membership.companyId);
+
+  const context = assembleContext({
+    user: record.user,
+    membership: record.membership,
+    sessionId: record.id,
+    role,
+    actualRole,
+    enabledModules,
+  });
+
+  return { ok: true, context };
+}
+
+type MembershipForContext = Prisma.CompanyMemberGetPayload<{
+  include: { company: true; department: true };
+}>;
+
+/**
+ * The one place a `UserContext` is assembled.
+ *
+ * The session resolver and `buildMemberContext` both come through here, so "what
+ * may this member do?" has one answer whether they are signed in or are being
+ * notified, mentioned or checked as a reviewer (PRD #38 §31, §76).
+ */
+export function assembleContext(input: {
+  user: User;
+  membership: MembershipForContext;
+  sessionId: string;
+  role: RoleKey;
+  actualRole: RoleKey;
+  enabledModules: ModuleKey[];
+}): UserContext {
+  const { user, membership, role, actualRole, enabledModules } = input;
   const moduleAccess = buildModuleAccess(role, enabledModules);
 
   // A permission for a module the company has switched off is not held at all,
@@ -81,14 +116,13 @@ export async function resolveContextForSession(
     ),
   );
 
-  const company = record.membership.company;
-  const user = record.user;
+  const company = membership.company;
 
-  const context: UserContext = {
+  return {
     userId: user.id,
     companyId: company.id,
-    membershipId: record.membershipId,
-    sessionId: record.id,
+    membershipId: membership.id,
+    sessionId: input.sessionId,
 
     firstName: user.firstName,
     lastName: user.lastName,
@@ -96,7 +130,7 @@ export async function resolveContextForSession(
     email: user.email,
     phone: user.phone,
     avatarUrl: user.avatarUrl,
-    jobTitle: record.membership.jobTitle,
+    jobTitle: membership.jobTitle,
 
     company: {
       id: company.id,
@@ -111,12 +145,8 @@ export async function resolveContextForSession(
       phone: company.phone,
       website: company.website,
     },
-    department: record.membership.department
-      ? {
-          id: record.membership.department.id,
-          key: record.membership.department.key,
-          name: record.membership.department.name,
-        }
+    department: membership.department
+      ? { id: membership.department.id, key: membership.department.key, name: membership.department.name }
       : null,
 
     role,
@@ -128,8 +158,6 @@ export async function resolveContextForSession(
     actualRole,
     roleIsOverridden: role !== actualRole,
   };
-
-  return { ok: true, context };
 }
 
 /** Company-level module activation (PRD #7 §59). */

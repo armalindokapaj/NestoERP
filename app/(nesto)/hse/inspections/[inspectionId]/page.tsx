@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { AssignControl } from "@/components/hse/assign-control";
 import { ChecklistExecutor } from "@/components/hse/checklist-executor";
 import { ActionTable, HazardTable } from "@/components/hse/hse-tables";
@@ -199,6 +200,8 @@ export default async function InspectionPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="hse_inspection" parentId={inspectionId} />
     </div>
   );
 }

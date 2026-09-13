@@ -17,6 +17,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -44,6 +54,9 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
   const [confirming, setConfirming] = React.useState(false);
+  const [blocking, setBlocking] = React.useState(false);
+  const [blockReason, setBlockReason] = React.useState("");
+  const [blockError, setBlockError] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
 
   const { capabilities: may, status } = task;
@@ -52,9 +65,10 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   function run(
     action: "start" | "block" | "complete" | "reopen",
     successMessage: string,
+    reason = "",
   ) {
     startTransition(async () => {
-      const result = await setTaskStatusAction(task.id, action);
+      const result = await setTaskStatusAction(task.id, action, "TODO", reason);
       if (result.ok) {
         toast({ title: successMessage });
         router.refresh();
@@ -148,7 +162,9 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
               <DropdownMenuItem
                 onSelect={(event) => {
                   event.preventDefault();
-                  run("block", "Task marked blocked.");
+                  setBlockReason("");
+                  setBlockError(null);
+                  setBlocking(true);
                 }}
               >
                 <Ban />
@@ -169,6 +185,56 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
+
+      <Dialog open={blocking} onOpenChange={setBlocking}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>Mark this task blocked</DialogTitle>
+          <DialogDescription>
+            Say what is stopping the work. Everyone watching the task is told, with your reason.
+          </DialogDescription>
+          <form
+            className="space-y-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (blockReason.trim().length < 3) {
+                setBlockError("Say why the task is blocked.");
+                return;
+              }
+              setBlocking(false);
+              run("block", "Task marked blocked.", blockReason.trim());
+            }}
+          >
+            <Label htmlFor="block-reason">Reason</Label>
+            <Textarea
+              id="block-reason"
+              value={blockReason}
+              maxLength={1000}
+              autoFocus
+              aria-invalid={Boolean(blockError)}
+              aria-describedby={blockError ? "block-reason-error" : undefined}
+              onChange={(event) => {
+                setBlockReason(event.target.value);
+                setBlockError(null);
+              }}
+            />
+            {blockError ? (
+              <p id="block-reason-error" role="alert" className="text-meta text-danger-strong">
+                {blockError}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={pending}>
+                Mark blocked
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={confirming}

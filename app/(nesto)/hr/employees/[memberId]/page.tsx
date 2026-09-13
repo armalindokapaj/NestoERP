@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { EmployeeActions } from "@/components/hr/employee-actions";
 import { EmployeeTabs } from "@/components/hr/employee-tabs";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
@@ -173,6 +174,8 @@ export default async function EmployeeDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="employee" parentId={memberId} />
     </div>
   );
 }

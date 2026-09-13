@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { AssignControl } from "@/components/hse/assign-control";
 import { HseActionActions } from "@/components/hse/record-actions";
 import { HseActivityFeed } from "@/components/hse/record-activity";
@@ -211,6 +212,8 @@ export default async function HseActionPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="hse_action" parentId={actionId} />
     </div>
   );
 }

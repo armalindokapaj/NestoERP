@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { SalesContractHandoff } from "@/components/contracts/sales-handoff";
 import { ProposalInvoiceHandoff } from "@/components/finance/proposal-invoice-handoff";
 import { RecordHeader } from "@/components/modules/record-header";
@@ -193,6 +194,8 @@ export default async function ProposalPage({ params }: Params) {
           </Suspense>
         </section>
       ) : null}
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="proposal" parentId={proposalId} />
     </div>
   );
 }

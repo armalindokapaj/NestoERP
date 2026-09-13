@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { optionalDate, optionalId, optionalText } from "@/lib/modules/shared/fields";
+import { isRecordType, type RecordType } from "@/lib/core/records/record.types";
 import { FILE_TYPE_GROUPS } from "./document.files";
 
 /**
@@ -16,23 +17,23 @@ export const DOCUMENT_CONTEXTS = ["company", "project", "client", "record"] as c
 export type DocumentContextKind = (typeof DOCUMENT_CONTEXTS)[number];
 
 /**
- * Record contexts a module has registered a parent resolver for
- * (PRD #13 §44, PRD #15 §187).
+ * A record a document can be filed against (PRD #13 §44, PRD #38 §52).
  *
- * An entity type absent from this list cannot be filed against at all — the
- * same fail-closed rule the read path applies, stated where a write enters.
+ * Not a list kept here: whether a record type takes files, and who may add
+ * them, is its entry in the record registry. The schema only checks the shape;
+ * `resolveDocumentParent` refuses a type the registry does not accept, and the
+ * upload authoriser reads the same entry.
  */
-export const DOCUMENT_RECORD_TYPES = [
-  "task",
-  "invoice",
-  "expense",
-  "budget",
-  "commitment",
-  "employee",
-  "leave_request",
-] as const;
+export type DocumentRecordType = RecordType;
 
-export type DocumentRecordType = (typeof DOCUMENT_RECORD_TYPES)[number];
+export const recordTypeField = z
+  .string()
+  .trim()
+  .max(40)
+  .optional()
+  .transform((value) => (value === "" || value === undefined ? undefined : value))
+  .refine((value) => value === undefined || isRecordType(value), { message: "That record does not take documents." })
+  .transform((value) => value as DocumentRecordType | undefined);
 
 export const createDocumentSchema = z
   .object({
@@ -45,12 +46,7 @@ export const createDocumentSchema = z
     context: z.enum(DOCUMENT_CONTEXTS),
     projectId: optionalId,
     clientId: optionalId,
-    entityType: z
-      .union([z.enum(DOCUMENT_RECORD_TYPES), z.literal("")])
-      .optional()
-      .transform((value) =>
-        value === "" || value === undefined ? undefined : (value as DocumentRecordType),
-      ),
+    entityType: recordTypeField,
     entityId: optionalId,
   })
   .refine((value) => value.context !== "project" || Boolean(value.projectId), {
@@ -102,7 +98,7 @@ export type DocumentSortKey = (typeof DOCUMENT_SORT_KEYS)[number];
 const FILE_GROUPS = Object.keys(FILE_TYPE_GROUPS) as [string, ...string[]];
 
 /** Context values offered by the list filter (PRD #13 §72, §79). */
-export const DOCUMENT_CONTEXT_FILTERS = ["project", "client", "task", "company"] as const;
+export const DOCUMENT_CONTEXT_FILTERS = ["project", "client", "task", "record", "company"] as const;
 
 export const documentListQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),

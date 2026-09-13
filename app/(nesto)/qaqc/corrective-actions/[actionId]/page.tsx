@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { CorrectiveActionActions } from "@/components/qaqc/record-actions";
 import { QaqcActivityFeed } from "@/components/qaqc/record-activity";
 import { QaqcRecordDocuments } from "@/components/qaqc/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { RecordTasks } from "@/components/tasks/record-tasks";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as actions from "@/lib/modules/qaqc/corrective-actions/action.service";
@@ -177,6 +179,10 @@ export default async function CorrectiveActionPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
+      <RecordTasks context={context} parentType="corrective_action" parentId={actionId} />
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="corrective_action" parentId={actionId} />
     </div>
   );
 }
