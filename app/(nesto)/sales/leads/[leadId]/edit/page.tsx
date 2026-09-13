@@ -39,6 +39,7 @@ export default async function EditLeadPage({ params }: Params) {
       />
 
       <LeadForm
+        excludeLeadId={lead.id}
         action={action}
         owners={owners}
         values={{

@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { InviteSupplierControl } from "@/components/procurement/invite-supplier-control";
 import { RfqActions } from "@/components/procurement/rfq-actions";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
+import { selectableSuppliers } from "@/lib/modules/procurement/suppliers/supplier.service";
 import { rfqSupplierStatusLabels } from "@/lib/modules/procurement/procurement.status";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 
@@ -36,6 +38,12 @@ export default async function RfqDetailPage({ params }: Params) {
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   }
+
+  // Only fetched for somebody who may actually invite: a list of every
+  // supplier is procurement data in its own right.
+  const suppliers = rfq.capabilities.canManageSuppliers
+    ? await selectableSuppliers(context)
+    : [];
 
   return (
     <div className="space-y-5">
@@ -98,16 +106,25 @@ export default async function RfqDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-card font-semibold text-fg">Suppliers asked</h2>
-              {rfq.capabilities.canViewQuotes ? (
-                <Link
-                  href={`/procurement/rfqs/${rfq.id}/comparison`}
-                  className="text-table font-medium text-accent-strong"
-                >
-                  Compare answers
-                </Link>
-              ) : null}
+              <div className="flex items-center gap-3">
+                {rfq.capabilities.canViewQuotes ? (
+                  <Link
+                    href={`/procurement/rfqs/${rfq.id}/comparison`}
+                    className="text-table font-medium text-accent-strong"
+                  >
+                    Compare answers
+                  </Link>
+                ) : null}
+                {rfq.capabilities.canManageSuppliers ? (
+                  <InviteSupplierControl
+                    rfqId={rfq.id}
+                    suppliers={suppliers}
+                    invitedSupplierIds={rfq.suppliers.map((entry) => entry.supplier.id)}
+                  />
+                ) : null}
+              </div>
             </div>
 
             <ul className="mt-4 divide-y divide-line border-t border-line">

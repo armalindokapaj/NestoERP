@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { Archive, ArrowRightLeft, CheckCircle2, PenLine, PhoneCall, RotateCcw, XCircle } from "lucide-react";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
+import { AssignMemberControl } from "@/components/modules/assign-member-control";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import {
+  assignLeadAction,
   disqualifyLeadAction,
   leadLifecycleAction,
   type LeadLifecycleAction,
@@ -53,6 +55,20 @@ export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
             Edit
           </Link>
         </Button>
+      ) : null}
+
+      {may.canAssign ? (
+        <AssignMemberControl
+          endpoint="/api/sales/assignable"
+          currentMemberId={lead.owner?.memberId ?? null}
+          triggerLabel="Reassign"
+          title="Assign this lead"
+          description="The owner is who follows it up, and whose pipeline it counts towards."
+          onAssign={async (memberId) => {
+            const result = await assignLeadAction(lead.id, memberId);
+            return { ok: result.ok, message: result.ok ? "Lead reassigned." : result.error };
+          }}
+        />
       ) : null}
 
       {may.canMarkContacted ? (

@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { AssignMemberControl } from "@/components/modules/assign-member-control";
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -25,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import {
+  assignContractOwnerAction,
   activateContractAction,
   cancelContractAction,
   contractLifecycleAction,
@@ -83,6 +85,20 @@ export function ContractActions({ contract }: { contract: ContractDetailDTO }) {
             Edit
           </Link>
         </Button>
+      ) : null}
+
+      {may.canAssignOwner ? (
+        <AssignMemberControl
+          endpoint="/api/contracts/assignable"
+          currentMemberId={contract.owner?.memberId ?? null}
+          triggerLabel="Change owner"
+          title="Assign this contract"
+          description="The owner answers for its obligations and renewal dates."
+          onAssign={async (memberId) => {
+            const result = await assignContractOwnerAction(contract.id, memberId);
+            return { ok: result.ok, message: result.ok ? "Owner changed." : result.error };
+          }}
+        />
       ) : null}
 
       {may.canSubmitReview ? (

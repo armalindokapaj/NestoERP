@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { Money } from "@/components/finance/money";
+import { VoidPaymentButton } from "@/components/finance/void-payment-button";
 import { Badge } from "@/components/ui/badge";
 import type { PaymentSummaryDTO } from "@/lib/modules/finance/finance.types";
 import { formatDate, orDash } from "@/lib/utils/format";
@@ -83,6 +84,20 @@ export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
           {payment.status === "VOIDED" ? "Voided" : "Recorded"}
         </Badge>
       ),
+    },
+    {
+      key: "actions",
+      label: "",
+      align: "right",
+      render: (payment) =>
+        // The capability is a hint; voidPayment re-checks the permission and
+        // refuses a payment that is already voided (PRD #15 §86).
+        payment.capabilities.canVoid && payment.status !== "VOIDED" ? (
+          <VoidPaymentButton
+            paymentId={payment.id}
+            reference={payment.relatedRecord?.reference ?? "this payment"}
+          />
+        ) : null,
     },
   ];
 

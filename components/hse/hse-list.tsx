@@ -497,7 +497,7 @@ export async function HseListSection({
         label: "Result",
         options: options(PPE_RESULTS, ppeResultLabels),
       });
-      rendered = <PpeTable checks={result.data} />;
+      rendered = <PpeTable checks={result.data} canEdit={can(context, "hse.ppe.update")} />;
       pagination = result.pagination;
       break;
     }

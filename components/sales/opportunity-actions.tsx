@@ -5,10 +5,12 @@ import Link from "next/link";
 import { Archive, PenLine, RotateCcw, Trophy, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { AssignMemberControl } from "@/components/modules/assign-member-control";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import {
+  assignOpportunityAction,
   opportunityLifecycleAction,
   type OpportunityLifecycleAction,
 } from "@/lib/actions/sales";
@@ -53,6 +55,23 @@ export function OpportunityActions({ opportunity }: { opportunity: OpportunityDe
             Edit
           </Link>
         </Button>
+      ) : null}
+
+      {may.canAssign ? (
+        <AssignMemberControl
+          endpoint="/api/sales/assignable"
+          currentMemberId={opportunity.owner?.memberId ?? null}
+          triggerLabel="Reassign"
+          title="Assign this opportunity"
+          description="The owner is who carries the deal, and whose pipeline it counts towards."
+          onAssign={async (memberId) => {
+            const result = await assignOpportunityAction(opportunity.id, memberId);
+            return {
+              ok: result.ok,
+              message: result.ok ? "Opportunity reassigned." : result.error,
+            };
+          }}
+        />
       ) : null}
 
       {may.canMarkWon ? (
