@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -26,6 +27,7 @@ export function MobileNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const t = useTranslations("shell");
 
   // Close the drawer whenever navigation actually happens.
   useEffect(() => {
@@ -37,20 +39,20 @@ export function MobileNav({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Open navigation"
+        aria-label={t("openNavigation")}
         className="grid size-9 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg lg:hidden"
       >
         <Menu className="size-[18px]" />
       </button>
 
       <DrawerContent side="left">
-        <DrawerTitle className="sr-only">NESTO navigation</DrawerTitle>
+        <DrawerTitle className="sr-only">{t("navigationTitle")}</DrawerTitle>
         <div className="flex shrink-0 items-start justify-between gap-3 px-4 pb-4 pt-5">
           <NestoLogo showMark={false} size="lg" tagline={brand.tagline} />
           <button
             type="button"
             onClick={() => setOpen(false)}
-            aria-label="Close navigation"
+            aria-label={t("closeNavigation")}
             className="-mr-1 grid size-8 shrink-0 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg"
           >
             <X className="size-4" />

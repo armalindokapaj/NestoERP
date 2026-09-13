@@ -14,31 +14,34 @@ import {
 } from "@/components/ui/table";
 import { requireSettingsSection } from "../settings-access";
 import { getTeamMembers } from "@/lib/database/queries";
+import { getTranslations } from "@/lib/i18n/server";
 import { fullName } from "@/lib/utils/format";
 
-export const metadata: Metadata = {
-  title: "Users",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("settings");
+  return { title: t("sections.users.label") };
+}
 
 export default async function UsersSettingsPage() {
   const context = await requireSettingsSection("users");
   const members = await getTeamMembers(context.companyId);
+  const t = await getTranslations("settings");
 
   return (
     <div className="space-y-5">
       <SettingsPageHeader
-        title="Users"
-        description="Accounts, invitations and access status."
+        title={t("sections.users.label")}
+        description={t("sections.users.description")}
       />
 
       <div className="nesto-card overflow-hidden">
         <Table>
           <TableHead>
             <tr>
-              <TableHeaderCell>User</TableHeaderCell>
-              <TableHeaderCell className="hidden md:table-cell">Email</TableHeaderCell>
-              <TableHeaderCell>Role</TableHeaderCell>
-              <TableHeaderCell>Account</TableHeaderCell>
+              <TableHeaderCell>{t("users.user")}</TableHeaderCell>
+              <TableHeaderCell className="hidden md:table-cell">{t("users.email")}</TableHeaderCell>
+              <TableHeaderCell>{t("users.role")}</TableHeaderCell>
+              <TableHeaderCell>{t("users.account")}</TableHeaderCell>
             </tr>
           </TableHead>
           <TableBody>
@@ -71,9 +74,7 @@ export default async function UsersSettingsPage() {
         </Table>
       </div>
 
-      <p className="text-meta text-fg-subtle">
-        Inviting, editing and deactivating users arrives with the settings module.
-      </p>
+      <p className="text-meta text-fg-subtle">{t("users.manageLater")}</p>
     </div>
   );
 }

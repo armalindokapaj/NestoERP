@@ -6,15 +6,18 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TriangleAlert } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signInAction } from "@/lib/actions/auth";
 import { credentialsSchema, type CredentialsInput } from "@/lib/auth/schema";
+import { translateAuthError } from "@/lib/i18n/auth-errors";
 
 export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const t = useTranslations("auth");
 
   const {
     register,
@@ -42,28 +45,30 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
           className="flex items-start gap-2 rounded-md border border-danger/25 bg-danger-soft px-3 py-2.5 text-table text-danger-strong"
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-          <span>{formError}</span>
+          <span>{translateAuthError(t, formError)}</span>
         </div>
       ) : null}
 
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">{t("email")}</Label>
         <Input
           id="email"
           type="email"
           autoComplete="email"
           autoFocus
-          placeholder="you@company.com"
+          placeholder={t("emailPlaceholder")}
           aria-invalid={Boolean(errors.email)}
           {...register("email")}
         />
         {errors.email ? (
-          <p className="text-meta text-danger-strong">{errors.email.message}</p>
+          <p className="text-meta text-danger-strong">
+            {translateAuthError(t, errors.email.message ?? "")}
+          </p>
         ) : null}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">{t("login.password")}</Label>
         <Input
           id="password"
           type="password"
@@ -73,12 +78,14 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
           {...register("password")}
         />
         {errors.password ? (
-          <p className="text-meta text-danger-strong">{errors.password.message}</p>
+          <p className="text-meta text-danger-strong">
+            {translateAuthError(t, errors.password.message ?? "")}
+          </p>
         ) : null}
       </div>
 
       <Button type="submit" size="lg" className="w-full" disabled={isPending}>
-        {isPending ? "Signing in…" : "Sign In"}
+        {isPending ? t("login.submitting") : t("login.submit")}
       </Button>
 
       <div className="text-center">
@@ -86,7 +93,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
           href="/forgot-password"
           className="text-table text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
         >
-          Forgot password?
+          {t("login.forgotPassword")}
         </Link>
       </div>
     </form>

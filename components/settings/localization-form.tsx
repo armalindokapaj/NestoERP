@@ -4,16 +4,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { Field, FormSection, selectClass } from "@/components/forms/record-form";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { updateCompanySettingsAction } from "@/lib/actions/settings";
 import type { CompanySettingsDTO } from "@/lib/modules/settings/company-settings.service";
-
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
 
 const TIMEZONES = [
   "UTC", "Europe/Tirane", "Europe/Berlin", "Europe/London", "Europe/Paris",
@@ -21,13 +17,21 @@ const TIMEZONES = [
   "America/New_York", "America/Chicago", "America/Los_Angeles", "Asia/Dubai",
 ];
 
-const LOCALES = [
-  { value: "en", label: "English" },
-  { value: "en-US", label: "English (United States)" },
-  { value: "de-DE", label: "German (Germany)" },
-  { value: "sq-AL", label: "Albanian (Albania)" },
-  { value: "it-IT", label: "Italian (Italy)" },
-];
+const COMPANY_LOCALES = [
+  { value: "en", key: "en" },
+  { value: "en-US", key: "enUS" },
+  { value: "de-DE", key: "deDE" },
+  { value: "sq-AL", key: "sqAL" },
+  { value: "it-IT", key: "itIT" },
+] as const;
+
+/*
+ * Month names come from the dictionary, not Intl.DateTimeFormat: the server's
+ * and the browser's ICU data do not always agree on a language (a headless
+ * Chromium answers "January" where Node answers "janar"), and a disagreement
+ * here is a hydration mismatch.
+ */
+const MONTHS = ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12"] as const;
 
 const CURRENCIES = ["EUR", "USD", "GBP", "ALL", "CHF"];
 
@@ -36,6 +40,11 @@ const CURRENCIES = ["EUR", "USD", "GBP", "ALL", "CHF"];
  *
  * Base currency is disabled once money exists: without an FX engine, changing it
  * would silently reinterpret every amount already recorded (PRD #24 §186, §226).
+ *
+ * The locale here is the company's, not the language anybody reads NESTO in —
+ * that is each person's own choice on the Settings page, and the hint says so,
+ * because two controls both called "Language" would leave an administrator
+ * wondering which one did nothing.
  */
 export function LocalizationForm({
   settings,
@@ -49,6 +58,7 @@ export function LocalizationForm({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
+  const t = useTranslations("settings");
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,7 +66,7 @@ export function LocalizationForm({
     startTransition(async () => {
       const result = await updateCompanySettingsAction(formData);
       if (result.ok) {
-        toast({ title: "Company settings updated.", tone: "success" });
+        toast({ title: t("localization.updated"), tone: "success" });
         router.refresh();
       } else {
         toast({ title: result.message, tone: "danger" });
@@ -66,16 +76,19 @@ export function LocalizationForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <FormSection title="Localization" description="How dates, numbers and language appear across NESTO.">
-        <Field label="Language" name="locale">
+      <FormSection
+        title={t("localization.sectionTitle")}
+        description={t("localization.sectionDescription")}
+      >
+        <Field label={t("localization.locale")} name="locale" hint={t("localization.localeHint")}>
           <select id="locale" name="locale" defaultValue={settings.locale} className={selectClass} disabled={!canUpdate}>
-            {LOCALES.map((l) => (
-              <option key={l.value} value={l.value}>{l.label}</option>
+            {COMPANY_LOCALES.map((l) => (
+              <option key={l.value} value={l.value}>{t(`localization.locales.${l.key}`)}</option>
             ))}
           </select>
         </Field>
 
-        <Field label="Timezone" name="timezone" hint="Business dates and due states resolve in this zone. Timestamps stay UTC.">
+        <Field label={t("localization.timezone")} name="timezone" hint={t("localization.timezoneHint")}>
           <select id="timezone" name="timezone" defaultValue={settings.timezone} className={selectClass} disabled={!canUpdate}>
             {TIMEZONES.map((tz) => (
               <option key={tz} value={tz}>{tz}</option>
@@ -83,7 +96,7 @@ export function LocalizationForm({
           </select>
         </Field>
 
-        <Field label="Date format" name="dateFormat">
+        <Field label={t("localization.dateFormat")} name="dateFormat">
           <select id="dateFormat" name="dateFormat" defaultValue={settings.dateFormat} className={selectClass} disabled={!canUpdate}>
             {["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"].map((f) => (
               <option key={f} value={f}>{f}</option>
@@ -92,13 +105,14 @@ export function LocalizationForm({
         </Field>
       </FormSection>
 
-      <FormSection title="Finance defaults" description="Company-wide defaults every module reads.">
+      <FormSection
+        title={t("localization.financeTitle")}
+        description={t("localization.financeDescription")}
+      >
         <Field
-          label="Base currency"
+          label={t("localization.baseCurrency")}
           name="baseCurrency"
-          hint={currencyLocked
-            ? "Locked: financial records already exist, and NESTO does not convert between currencies."
-            : "Amounts are never converted between currencies."}
+          hint={currencyLocked ? t("localization.currencyLocked") : t("localization.currencyHint")}
         >
           <select
             id="baseCurrency"
@@ -116,7 +130,7 @@ export function LocalizationForm({
           ) : null}
         </Field>
 
-        <Field label="Fiscal year starts" name="fiscalYearStartMonth">
+        <Field label={t("localization.fiscalYearStart")} name="fiscalYearStartMonth">
           <select
             id="fiscalYearStartMonth"
             name="fiscalYearStartMonth"
@@ -125,12 +139,12 @@ export function LocalizationForm({
             disabled={!canUpdate}
           >
             {MONTHS.map((m, i) => (
-              <option key={m} value={String(i + 1)}>{m}</option>
+              <option key={m} value={String(i + 1)}>{t(`localization.months.${m}`)}</option>
             ))}
           </select>
         </Field>
 
-        <Field label="Default payment terms (days)" name="defaultPaymentTermsDays">
+        <Field label={t("localization.paymentTerms")} name="defaultPaymentTermsDays">
           <Input
             id="defaultPaymentTermsDays"
             name="defaultPaymentTermsDays"
@@ -142,7 +156,7 @@ export function LocalizationForm({
           />
         </Field>
 
-        <Field label="Default tax rate (%)" name="defaultTaxRate" hint="A form prefill only — not a tax engine.">
+        <Field label={t("localization.taxRate")} name="defaultTaxRate" hint={t("localization.taxRateHint")}>
           <Input
             id="defaultTaxRate"
             name="defaultTaxRate"
@@ -156,7 +170,7 @@ export function LocalizationForm({
       {canUpdate ? (
         <div className="flex justify-end">
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save settings"}
+            {pending ? t("saving") : t("localization.submit")}
           </Button>
         </div>
       ) : null}

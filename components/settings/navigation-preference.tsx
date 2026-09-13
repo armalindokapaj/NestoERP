@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { Switch } from "@/components/ui/switch";
 
@@ -15,24 +16,22 @@ import { Switch } from "@/components/ui/switch";
 export function NavigationPreference() {
   const { state, toggle } = useSidebar();
   const id = useId();
+  const t = useTranslations("settings");
   const collapsed = state === "collapsed";
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         <label htmlFor={id} className="text-card font-semibold text-fg">
-          Collapsed navigation
+          {t("appearance.collapsedNavigation")}
         </label>
-        <p className="mt-1 text-table text-fg-muted">
-          Show the sidebar as an icon rail. On tablet-sized screens the rail is
-          always used, whatever this is set to.
-        </p>
+        <p className="mt-1 text-table text-fg-muted">{t("appearance.collapsedNavigationHint")}</p>
       </div>
       <Switch
         id={id}
         checked={collapsed}
         onCheckedChange={toggle}
-        aria-label="Collapsed navigation"
+        aria-label={t("appearance.collapsedNavigation")}
       />
     </div>
   );

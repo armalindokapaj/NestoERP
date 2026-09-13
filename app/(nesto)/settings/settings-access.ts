@@ -9,8 +9,8 @@ import type { UserContext } from "@/lib/context/types";
  * Settings authorisation (PRD #5 §39).
  *
  * Profile and Appearance belong to the person, not the company, so they open
- * for every authenticated user — the top-bar user menu offers Profile and
- * Settings to everyone, whatever the role's Settings access. Every other
+ * for every authenticated user — the top-bar user menu offers Settings to
+ * everyone, whatever the role's Settings access, and both open from there. Every other
  * section needs real Settings access, checked here as well as in navigation.
  */
 export async function requireSettingsSection(slug: string): Promise<UserContext> {

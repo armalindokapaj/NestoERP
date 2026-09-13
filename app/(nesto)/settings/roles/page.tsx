@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Badge } from "@/components/ui/badge";
-import { accessLevelLabels, dataScopeLabels } from "@/config/access";
-import { MODULE_KEYS, modules } from "@/config/modules";
+import { MODULE_KEYS } from "@/config/modules";
 import { roleModuleAccess } from "@/config/role-defaults";
 import { roleList } from "@/config/roles";
+import { getTranslations } from "@/lib/i18n/server";
 import { requireSettingsSection } from "../settings-access";
 
-export const metadata: Metadata = { title: "Roles" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("settings");
+  return { title: t("sections.roles.label") };
+}
 
 /**
  * The role × module access matrix, read straight from configuration
@@ -19,12 +22,18 @@ export const metadata: Metadata = { title: "Roles" };
  */
 export default async function RolesSettingsPage() {
   await requireSettingsSection("roles");
+  const [t, tRoles, tModules, tAccess] = await Promise.all([
+    getTranslations("settings"),
+    getTranslations("roles"),
+    getTranslations("modules"),
+    getTranslations("access"),
+  ]);
 
   return (
     <div className="space-y-5">
       <SettingsPageHeader
-        title="Roles"
-        description="The 16 NESTO roles, the access level each holds in every module, and the data scope that applies."
+        title={t("sections.roles.label")}
+        description={t("roles.description")}
       />
 
       <div className="space-y-4">
@@ -41,16 +50,19 @@ export default async function RolesSettingsPage() {
             <section key={role.key} className="nesto-card p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
-                  <h2 className="text-card font-semibold text-fg">{role.label}</h2>
-                  <p className="mt-0.5 text-table text-fg-muted">{role.description}</p>
+                  <h2 className="text-card font-semibold text-fg">{tRoles(`${role.key}.label`)}</h2>
+                  <p className="mt-0.5 text-table text-fg-muted">
+                    {tRoles(`${role.key}.description`)}
+                  </p>
                 </div>
                 <p className="text-meta tabular-nums text-fg-subtle">
-                  {granted.length} modules · {permissionCount} permissions
+                  {t("roles.modulesCount", { count: granted.length })} ·{" "}
+                  {t("roles.permissionsCount", { count: permissionCount })}
                 </p>
               </div>
 
               {granted.length === 0 ? (
-                <p className="mt-4 text-table text-fg-subtle">No module access.</p>
+                <p className="mt-4 text-table text-fg-subtle">{t("roles.noAccess")}</p>
               ) : (
                 <ul className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {granted.map((key) => (
@@ -58,13 +70,13 @@ export default async function RolesSettingsPage() {
                       key={key}
                       className="flex items-center justify-between gap-2 rounded-md border border-line px-3 py-2"
                     >
-                      <span className="truncate text-table text-fg">{modules[key].label}</span>
+                      <span className="truncate text-table text-fg">{tModules(`${key}.label`)}</span>
                       <span className="flex shrink-0 items-center gap-1.5">
                         <Badge tone="neutral">
-                          {accessLevelLabels[access[key].accessLevel]}
+                          {tAccess(`levels.${access[key].accessLevel}`)}
                         </Badge>
                         <span className="text-micro text-fg-subtle">
-                          {dataScopeLabels[access[key].scope]}
+                          {tAccess(`scopes.${access[key].scope}`)}
                         </span>
                       </span>
                     </li>

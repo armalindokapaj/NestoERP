@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -28,6 +29,13 @@ export function ModuleToggleList({ modules }: { modules: CompanyModuleDTO[] }) {
   const router = useRouter();
   const toast = useToast();
   const [pendingKey, setPendingKey] = React.useState<string | null>(null);
+  const t = useTranslations("settings");
+  const tModules = useTranslations("modules");
+
+  // The registry's modules are named in the reader's language; anything the
+  // service returns that the registry does not know keeps its stored name.
+  const nameOf = (module: CompanyModuleDTO) =>
+    isModuleKey(module.key) ? tModules(`${module.key}.label`) : module.name;
 
   async function toggle(module: CompanyModuleDTO, next: boolean) {
     setPendingKey(module.key);
@@ -35,8 +43,9 @@ export function ModuleToggleList({ modules }: { modules: CompanyModuleDTO[] }) {
     setPendingKey(null);
 
     if (result.ok) {
+      const values = { name: nameOf(module) };
       toast({
-        title: next ? `${module.name} enabled.` : `${module.name} disabled.`,
+        title: next ? t("modules.enabledToast", values) : t("modules.disabledToast", values),
         tone: "success",
       });
       // Navigation, dashboards and every module guard read from this, so the
@@ -52,6 +61,7 @@ export function ModuleToggleList({ modules }: { modules: CompanyModuleDTO[] }) {
       {modules.map((module) => {
         const definition = isModuleKey(module.key) ? moduleRegistry[module.key] : null;
         const Icon = getIcon(definition?.icon ?? "Boxes");
+        const name = nameOf(module);
 
         // Blockers explain why something cannot be turned *off*, so they never
         // stand in the way of turning one back on.
@@ -65,9 +75,9 @@ export function ModuleToggleList({ modules }: { modules: CompanyModuleDTO[] }) {
             </span>
 
             <div className="min-w-0 flex-1">
-              <p className="text-table font-medium text-fg">{module.name}</p>
+              <p className="text-table font-medium text-fg">{name}</p>
               <p className="truncate text-meta text-fg-subtle">
-                {definition?.description ?? module.key}
+                {definition ? tModules(`${definition.key}.description`) : module.key}
               </p>
               {blocker ? (
                 <p className="mt-1 flex items-start gap-1.5 text-meta text-warning">
@@ -82,11 +92,11 @@ export function ModuleToggleList({ modules }: { modules: CompanyModuleDTO[] }) {
                 checked={module.enabled}
                 disabled={disabled}
                 onCheckedChange={(next) => void toggle(module, next)}
-                aria-label={`${module.enabled ? "Disable" : "Enable"} ${module.name}`}
+                aria-label={t(module.enabled ? "modules.disable" : "modules.enable", { name })}
               />
             ) : (
               <Badge tone={module.enabled ? "success" : "default"}>
-                {module.enabled ? "Enabled" : "Disabled"}
+                {module.enabled ? t("modules.enabled") : t("modules.disabled")}
               </Badge>
             )}
           </div>

@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireSettingsSection } from "../settings-access";
 import { getCompany } from "@/lib/database/queries";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Company settings",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("settings");
+  return { title: t("company.metaTitle") };
+}
 
 export default async function CompanySettingsPage() {
   const user = await requireSettingsSection("company");
@@ -17,22 +19,24 @@ export default async function CompanySettingsPage() {
 
   if (!company) notFound();
 
+  const t = await getTranslations("settings");
+
   const fields = [
-    { id: "name", label: "Company name", value: company.name },
-    { id: "industry", label: "Industry", value: company.industry ?? "" },
-    { id: "country", label: "Country", value: company.country ?? "" },
-    { id: "address", label: "Address", value: company.address ?? "" },
-    { id: "email", label: "Email", value: company.email ?? "" },
-    { id: "phone", label: "Phone", value: company.phone ?? "" },
-    { id: "website", label: "Website", value: company.website ?? "" },
-    { id: "slug", label: "Workspace identifier", value: company.slug },
+    { id: "name", label: t("company.name"), value: company.name },
+    { id: "industry", label: t("company.industry"), value: company.industry ?? "" },
+    { id: "country", label: t("company.country"), value: company.country ?? "" },
+    { id: "address", label: t("company.address"), value: company.address ?? "" },
+    { id: "email", label: t("company.email"), value: company.email ?? "" },
+    { id: "phone", label: t("company.phone"), value: company.phone ?? "" },
+    { id: "website", label: t("company.website"), value: company.website ?? "" },
+    { id: "slug", label: t("company.slug"), value: company.slug },
   ];
 
   return (
     <div className="space-y-5">
       <SettingsPageHeader
-        title="Company"
-        description="Company identity, address and contact details."
+        title={t("sections.company.label")}
+        description={t("sections.company.description")}
       />
 
       <section className="nesto-card p-6">
@@ -44,10 +48,7 @@ export default async function CompanySettingsPage() {
             </div>
           ))}
         </div>
-        <p className="mt-4 text-meta text-fg-subtle">
-          Company details are read-only in V0.1. Editing arrives with the
-          settings module.
-        </p>
+        <p className="mt-4 text-meta text-fg-subtle">{t("company.readOnly")}</p>
       </section>
     </div>
   );

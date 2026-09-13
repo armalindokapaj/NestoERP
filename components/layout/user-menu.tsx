@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { ChevronDown, LogOut, Settings, User } from "lucide-react";
+import { ChevronDown, LogOut, Settings } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -29,16 +30,17 @@ export type UserMenuUser = {
 
 /**
  * Top-bar user menu (PRD #3 §20): name, role and company are always visible,
- * then the profile actions.
+ * then Settings and Logout.
  */
 export function UserMenu({ user }: { user: UserMenuUser }) {
   const [isPending, startTransition] = useTransition();
+  const t = useTranslations("shell");
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className="flex items-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover"
-        aria-label="Open user menu"
+        aria-label={t("openUserMenu")}
       >
         <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatarUrl} size="md" />
         <span className="hidden min-w-0 text-left lg:block">
@@ -63,12 +65,6 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem asChild>
-          <Link href="/settings/profile">
-            <User />
-            Profile
-          </Link>
-        </DropdownMenuItem>
         {/*
          * Offered to everyone, not just roles with Settings module access
          * (PRD #5 §39). Profile and Appearance are personal — they belong to
@@ -77,11 +73,14 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
          * still lands on a page with something on it. Gating this link on the
          * module was how twelve of the sixteen roles ended up with no way to
          * reach their own theme preferences.
+         *
+         * There is no separate Profile entry: Profile is the first card on
+         * /settings, so a second way to the same page only lengthened the menu.
          */}
         <DropdownMenuItem asChild>
           <Link href="/settings">
             <Settings />
-            Settings
+            {t("settings")}
           </Link>
         </DropdownMenuItem>
 
@@ -97,7 +96,7 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
           }}
         >
           <LogOut />
-          {isPending ? "Signing out…" : "Logout"}
+          {isPending ? t("signingOut") : t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

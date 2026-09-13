@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { NestoLogo } from "@/components/layout/nesto-logo";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * Architectural brand visual for the authentication pages (design spec §83).
@@ -9,7 +10,9 @@ import { NestoLogo } from "@/components/layout/nesto-logo";
  * "architectural minimalism" direction (§3) with no image asset to ship, no
  * layout shift, and no stock photography to license.
  */
-export function BrandPanel({ tagline = "People. Projects. Progress." }: { tagline?: string }) {
+export async function BrandPanel({ tagline = "People. Projects. Progress." }: { tagline?: string }) {
+  const [tAuth, tShell] = await Promise.all([getTranslations("auth"), getTranslations("shell")]);
+
   return (
     <div className="relative hidden overflow-hidden bg-graphite lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-between lg:p-12">
       <svg
@@ -31,13 +34,13 @@ export function BrandPanel({ tagline = "People. Projects. Progress." }: { taglin
       </svg>
 
       <div className="relative">
-        <Link href="/" aria-label="NESTO home" className="inline-flex">
+        <Link href="/" aria-label={tShell("homeLink")} className="inline-flex">
           <NestoLogo tone="inverse" />
         </Link>
       </div>
 
       <div className="relative max-w-sm">
-        <p className="font-serif text-display text-graphite-fg">One platform to run your company.</p>
+        <p className="font-serif text-display text-graphite-fg">{tAuth("brandHeadline")}</p>
         <p className="mt-4 text-body text-graphite-fg/60">{tagline}</p>
       </div>
     </div>

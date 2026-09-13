@@ -1,0 +1,402 @@
+import type { Messages } from "./en";
+
+/**
+ * Albanian (Shqip).
+ *
+ * Typed against the English dictionary, so it cannot drift from it: a missing
+ * or misspelt key fails the type check.
+ *
+ * Product names stay as they are — NESTO, QA/QC, HSE, CSV — because that is how
+ * the industry says them in Albania too.
+ */
+export const sq: Messages = {
+  shell: {
+    mainNavigation: "Navigimi kryesor",
+    navigationTitle: "Navigimi i NESTO",
+    openNavigation: "Hap navigimin",
+    closeNavigation: "Mbyll navigimin",
+    dashboardLink: "Paneli i NESTO",
+    homeLink: "Faqja kryesore e NESTO",
+    expandSidebar: "Zgjero shiritin anësor",
+    collapseSidebar: "Ngushto shiritin anësor",
+    notifications: "Njoftimet",
+    noNotifications: "Nuk keni njoftime.",
+    notificationsLater: "Njoftimet vijnë me motorin e aktivitetit në një version të mëvonshëm.",
+    openUserMenu: "Hap menunë e përdoruesit",
+    settings: "Cilësimet",
+    logout: "Dil",
+    signingOut: "Duke dalë…",
+    groups: {
+      work: "Puna",
+      department: "Departamenti",
+      company: "Kompania",
+    },
+  },
+
+  search: {
+    placeholder: "Kërkoni projekte, detyra, persona ose dokumente…",
+    dialogTitle: "Kërko në NESTO",
+    later: "Kërkimi vjen në një version të mëvonshëm",
+    notIndexed: "Ende pa indeksuar",
+    categories: {
+      projects: "Projektet",
+      tasks: "Detyrat",
+      clients: "Klientët",
+      documents: "Dokumentet",
+      people: "Personat",
+    },
+  },
+
+  modules: {
+    dashboard: { label: "Paneli", description: "Pasqyra e rolit tuaj në të gjithë kompaninë." },
+    projects: { label: "Projektet", description: "Menaxhoni projektet e kompanisë dhe aktivitetin e tyre." },
+    tasks: { label: "Detyrat", description: "Puna e caktuar në projekte dhe departamente." },
+    clients: { label: "Klientët", description: "Kompanitë dhe personat me të cilët punon kompania juaj." },
+    documents: { label: "Dokumentet", description: "Dokumentacioni i kompanisë, projekteve dhe klientëve." },
+    finance: { label: "Financa", description: "Të ardhurat, kostot dhe kontrolli financiar i kompanisë." },
+    hr: { label: "Burimet njerëzore", description: "Operacionet e personelit, dosjet dhe rekrutimi." },
+    sales: { label: "Shitjet", description: "Kontaktet e mundshme, portofoli, ofertat dhe aktiviteti tregtar." },
+    contracts: { label: "Ligjore", description: "Kontratat, miratimet dhe dokumentet ligjore." },
+    procurement: { label: "Prokurimi", description: "Blerjet, furnitorët dhe menaxhimi i porosive." },
+    inventory: { label: "Inventari", description: "Materialet, nivelet e stokut dhe lëvizjet." },
+    qaqc: { label: "QA/QC", description: "Inspektimet, mospërputhjet dhe kontrolli i cilësisë." },
+    hse: { label: "HSE", description: "Performanca e shëndetit, sigurisë dhe mjedisit." },
+    team: { label: "Ekipi", description: "Të gjithë ata që punojnë në hapësirën e punës së kompanisë suaj." },
+    company: { label: "Kompania", description: "Identiteti i kompanisë dhe të dhënat e organizimit." },
+    settings: { label: "Cilësimet", description: "Profili juaj dhe konfigurimi i kompanisë." },
+    support: { label: "Mbështetja", description: "Kërkesat e brendshme për mbështetje dhe ndihmë për platformën." },
+  },
+
+  roles: {
+    OWNER: { label: "Pronar", description: "Pamje e plotë në çdo fushë të kompanisë." },
+    ADMIN: { label: "Administrator", description: "Menaxhon përdoruesit, konfigurimin e kompanisë dhe ngritjen e platformës." },
+    COMPANY_IT: { label: "IT e kompanisë", description: "Mirëmban llogaritë, aksesin, pajisjet dhe mbështetjen e brendshme." },
+    HR: { label: "Burime njerëzore", description: "Drejton operacionet e personelit, dosjet dhe rekrutimin." },
+    CEO: { label: "CEO / Drejtor", description: "Performanca e kompanisë, miratimet dhe mbikëqyrja strategjike." },
+    PROJECT_MANAGER: { label: "Menaxher projekti", description: "Drejton projektet, detyrat, ekipet dhe dorëzimin te klientët." },
+    ARCHITECT: { label: "Arkitekt", description: "Projektimi, vizatimet, rishikimet dhe dokumentacioni i projektit." },
+    ENGINEER: { label: "Inxhinier", description: "Realizimi teknik, inspektimet dhe detyrat inxhinierike." },
+    FINANCE: { label: "Financa", description: "Të ardhurat, kostot, faturimi dhe kontrolli financiar." },
+    LEGAL: { label: "Ligjore", description: "Kontratat, miratimet, njoftimet dhe dokumentet ligjore." },
+    SALES: { label: "Shitje", description: "Portofoli i shitjeve, mundësitë, ofertat dhe rritja e klientëve." },
+    PROCUREMENT: { label: "Prokurim", description: "Blerjet, furnitorët, kërkesat për ofertë dhe porositë." },
+    INVENTORY: { label: "Magazina / Inventari", description: "Materialet, nivelet e stokut dhe lëvizjet." },
+    QAQC: { label: "QA/QC", description: "Inspektimet, mospërputhjet dhe kontrolli i cilësisë." },
+    HSE: { label: "HSE", description: "Performanca e sigurisë, incidentet, lejet dhe veprimet." },
+    VIEWER: { label: "Vëzhgues", description: "Akses vetëm për lexim në informacionin e kompanisë." },
+  },
+
+  access: {
+    levels: {
+      NONE: "Pa akses",
+      VIEW: "Shikim",
+      CONTRIBUTE: "Kontribut",
+      APPROVE: "Miratim",
+      MANAGE: "Menaxhim",
+    },
+    scopes: {
+      SELF: "Të dhënat e veta",
+      ASSIGNED: "Të dhënat e caktuara",
+      PROJECT: "Të dhënat e projektit",
+      DEPARTMENT: "Të dhënat e departamentit",
+      COMPANY: "Në gjithë kompaninë",
+      SYSTEM: "Sistemi",
+    },
+  },
+
+  settings: {
+    title: "Cilësimet",
+    description: "Profili juaj dhe konfigurimi i kompanisë.",
+    save: "Ruaj",
+    saving: "Duke ruajtur…",
+
+    language: {
+      title: "Gjuha",
+      description: "Gjuha në të cilën ju shfaqet NESTO. Të tjerët ruajnë zgjedhjen e tyre.",
+      partial:
+        "Menutë, cilësimet dhe hyrja janë në shqip. Faqet e moduleve janë ende në anglisht dhe po përkthehen.",
+    },
+
+    sections: {
+      profile: { label: "Profili", description: "Të dhënat tuaja personale dhe të kontaktit." },
+      company: { label: "Kompania", description: "Identiteti, adresa dhe të dhënat e kontaktit të kompanisë." },
+      users: { label: "Përdoruesit", description: "Llogaritë, ftesat dhe statusi i aksesit." },
+      roles: { label: "Rolet", description: "16 rolet e NESTO dhe lejet që ka secili prej tyre." },
+      modules: { label: "Modulet", description: "Cilat module të NESTO janë aktive për kompaninë tuaj." },
+      localization: {
+        label: "Lokalizimi",
+        description: "Rajoni i kompanisë, zona kohore, formati i datës dhe parazgjedhjet financiare.",
+      },
+      integrations: {
+        label: "Integrimet",
+        description: "Lidhjet ndërmjet moduleve, si kontrolli i cilësisë dhe angazhimet financiare.",
+      },
+      numbering: { label: "Numërimi", description: "Si gjenerohen numrat e faturave, porosive dhe regjistrimeve." },
+      storage: {
+        label: "Hapësira e skedarëve",
+        description: "Sa hapësirë skedarësh përdor kompania juaj dhe kufijtë e saj.",
+      },
+      audit: {
+        label: "Auditimi",
+        description: "Evidencë e pandryshueshme e veprimeve të rëndësishme të biznesit dhe të sigurisë.",
+      },
+      appearance: { label: "Pamja", description: "Tema dhe preferencat e shfaqjes." },
+    },
+
+    appearance: {
+      collapsedNavigation: "Navigim i ngushtuar",
+      collapsedNavigationHint:
+        "Shfaq shiritin anësor vetëm me ikona. Në ekranet me madhësi tableti përdoret gjithmonë ky variant, pavarësisht këtij cilësimi.",
+      colourScheme: "Skema e ngjyrave",
+      colourSchemeHint: "Ndiqni sistemin operativ ose fiksoni NESTO në të çelët ose të errët.",
+      themes: { system: "Sistemi", light: "E çelët", dark: "E errët" },
+      density: "Dendësia",
+      densityHint: "Hapësira komode, e përshtatur për seanca të gjata pune.",
+      densityLater: "Zgjedhja e dendësisë vjen me modulin e cilësimeve.",
+    },
+
+    profile: {
+      details: "Detajet",
+      firstName: "Emri",
+      lastName: "Mbiemri",
+      email: "Email",
+      position: "Pozicioni",
+      department: "Departamenti",
+      company: "Kompania",
+      devOverride: "Rol zhvillimi — roli i vërtetë {role}",
+      editingLater: "Redaktimi i profilit dhe ngarkimi i fotos vijnë me modulin e cilësimeve.",
+    },
+
+    company: {
+      metaTitle: "Cilësimet e kompanisë",
+      name: "Emri i kompanisë",
+      industry: "Industria",
+      country: "Shteti",
+      address: "Adresa",
+      email: "Email",
+      phone: "Telefoni",
+      website: "Faqja e internetit",
+      slug: "Identifikuesi i hapësirës së punës",
+      readOnly:
+        "Të dhënat e kompanisë janë vetëm për lexim në V0.1. Redaktimi vjen me modulin e cilësimeve.",
+    },
+
+    users: {
+      user: "Përdoruesi",
+      email: "Email",
+      role: "Roli",
+      account: "Llogaria",
+      manageLater: "Ftesa, redaktimi dhe çaktivizimi i përdoruesve vijnë me modulin e cilësimeve.",
+    },
+
+    roles: {
+      description:
+        "16 rolet e NESTO, niveli i aksesit që ka secili në çdo modul dhe fusha e të dhënave që zbatohet.",
+      modulesCount_one: "{count} modul",
+      modulesCount_other: "{count} module",
+      permissionsCount_one: "{count} leje",
+      permissionsCount_other: "{count} leje",
+      noAccess: "Pa akses në module.",
+    },
+
+    modules: {
+      note:
+        "Çaktivizimi i një moduli e fsheh atë për të gjithë dhe bllokon menjëherë faqet e tij. Regjistrimet e krijuara ruhen, nuk fshihen, dhe rishfaqen nëse moduli aktivizohet sërish.",
+      enabledToast: "{name} u aktivizua.",
+      disabledToast: "{name} u çaktivizua.",
+      enable: "Aktivizo {name}",
+      disable: "Çaktivizo {name}",
+      enabled: "Aktiv",
+      disabled: "Joaktiv",
+    },
+
+    localization: {
+      description:
+        "Rajoni i kompanisë, zona kohore, formati i datës dhe parazgjedhjet financiare që lexon çdo modul.",
+      sectionTitle: "Lokalizimi",
+      sectionDescription: "Si shfaqen datat dhe numrat në NESTO për kompaninë tuaj.",
+      locale: "Rajoni i kompanisë",
+      localeHint:
+        "Parazgjedhje për gjithë kompaninë. Secili person zgjedh gjuhën e NESTO-s te Cilësimet.",
+      locales: {
+        en: "Anglisht",
+        enUS: "Anglisht (Shtetet e Bashkuara)",
+        deDE: "Gjermanisht (Gjermani)",
+        sqAL: "Shqip (Shqipëri)",
+        itIT: "Italisht (Itali)",
+      },
+      timezone: "Zona kohore",
+      timezoneHint:
+        "Datat e biznesit dhe afatet llogariten në këtë zonë. Vulat kohore mbeten në UTC.",
+      dateFormat: "Formati i datës",
+      financeTitle: "Parazgjedhjet financiare",
+      financeDescription: "Parazgjedhje për gjithë kompaninë që lexon çdo modul.",
+      baseCurrency: "Monedha bazë",
+      currencyLocked:
+        "E kyçur: ekzistojnë tashmë regjistrime financiare dhe NESTO nuk konverton ndërmjet monedhave.",
+      currencyHint: "Shumat nuk konvertohen kurrë ndërmjet monedhave.",
+      fiscalYearStart: "Viti fiskal fillon",
+      months: {
+        m1: "Janar",
+        m2: "Shkurt",
+        m3: "Mars",
+        m4: "Prill",
+        m5: "Maj",
+        m6: "Qershor",
+        m7: "Korrik",
+        m8: "Gusht",
+        m9: "Shtator",
+        m10: "Tetor",
+        m11: "Nëntor",
+        m12: "Dhjetor",
+      },
+      paymentTerms: "Afati i parazgjedhur i pagesës (ditë)",
+      taxRate: "Norma e parazgjedhur e tatimit (%)",
+      taxRateHint: "Vetëm plotëson formularin paraprakisht — nuk llogarit tatime.",
+      submit: "Ruaj cilësimet",
+      updated: "Cilësimet e kompanisë u përditësuan.",
+    },
+
+    integrations: {
+      description:
+        "Lidhje ndërmjet moduleve të përcaktuara nga produkti. Çaktivizimi i njërës ndikon vetëm punën e ardhshme — regjistrimet e krijuara mbeten siç janë.",
+      qualityGate: "Kontroll cilësie përpara pranimit në inventar",
+      qualityGateHint:
+        "Mallrat duhet të kalojnë një inspektim QA dhe të lirohen përpara se çdo sasi të regjistrohet në stok.",
+      commitment: "Krijo një angazhim financiar kur miratohet një porosi blerjeje",
+      commitmentHint:
+        "Miratimi i një porosie blerjeje hap një angazhim përkatës, që shpenzimi të duket përpara se të mbërrijë fatura.",
+      submit: "Ruaj integrimet",
+      updated: "Cilësimet e integrimeve u përditësuan.",
+    },
+
+    numbering: {
+      description:
+        "Si gjenerohen numrat e lexueshëm të regjistrimeve. Ndryshimet zbatohen vetëm për regjistrimet e ardhshme.",
+      mode: "Mënyra",
+      automatic: "Automatike",
+      manual: "Manuale",
+      prefix: "Parashtesa",
+      separator: "Ndarësi",
+      year: "Viti",
+      noYear: "Asnjë",
+      digits: "Shifrat",
+      resetYearly: "Rinis sekuencën çdo vit",
+      manualPreview: "Shkruhet nga kushdo që krijon regjistrimin",
+      updated: "Numërimi për {label} u përditësua.",
+    },
+
+    storage: {
+      description: "Sa hapësirë skedarësh përdor kompania juaj.",
+      used: "Të përdorura",
+      files: "Skedarë",
+      largestAllowed: "Maksimumi për skedar",
+      allowance: "Kuota",
+      noLimit:
+        "Për kompaninë tuaj nuk është konfiguruar kufi hapësire, prandaj ngarkimet kufizohen vetëm nga maksimumi prej {size} për skedar. Përdorimi matet dhe shfaqet gjithsesi këtu.",
+      storageUsed: "Hapësira e përdorur",
+      usage: "{used} nga {total} të përdorura ({percent}%).",
+      reserved: "{size} janë të rezervuara për ngarkime në proces.",
+      largestFiles: "Skedarët më të mëdhenj",
+      emptyTitle: "Ende nuk ka skedarë të ruajtur",
+      emptyDescription: "Dokumentet e ngarkuara do të shfaqen këtu, nga më i madhi.",
+      added: "Shtuar më {date}",
+    },
+
+    audit: {
+      description:
+        "Kush bëri çfarë, kur dhe çfarë ndryshoi. Vetëm shtim: asgjë këtu nuk mund të redaktohet ose të hiqet.",
+      exportCsv: "Eksporto CSV",
+      emptyTitle: "Asnjë ngjarje auditimi nuk përputhet me këto filtra.",
+      emptyDescription: "Veprimet e audituara nga 30 ditët e fundit shfaqen këtu.",
+      when: "Kur",
+      actor: "Aktori",
+      action: "Veprimi",
+      record: "Regjistrimi",
+      severity: "Rëndësia",
+      severities: { INFO: "Info", IMPORTANT: "E rëndësishme", CRITICAL: "Kritike" },
+    },
+  },
+
+  auth: {
+    brandHeadline: "Një platformë për të drejtuar kompaninë tuaj.",
+    backToHome: "Kthehu në faqen kryesore",
+    backToLogin: "Kthehu te hyrja",
+    email: "Email",
+    emailPlaceholder: "ju@kompania.com",
+
+    login: {
+      metaTitle: "Hyr",
+      title: "Mirë se u kthyet",
+      description: "Hyni për të vazhduar në hapësirën tuaj të punës.",
+      sessionExpired: "Seanca juaj skadoi. Ju lutemi hyni përsëri.",
+      accountUnavailable:
+        "Llogaria juaj nuk është e disponueshme për momentin. Kontaktoni administratorin tuaj.",
+      password: "Fjalëkalimi",
+      submit: "Hyr",
+      submitting: "Duke hyrë…",
+      forgotPassword: "Keni harruar fjalëkalimin?",
+    },
+
+    forgot: {
+      metaTitle: "Rivendos fjalëkalimin",
+      title: "Rivendosni fjalëkalimin",
+      description: "Shkruani emailin tuaj dhe do t'ju dërgojmë një lidhje rivendosjeje.",
+      submit: "Dërgo lidhjen e rivendosjes",
+      sentTitle: "Kontrolloni emailin",
+      sentDescription: "Nëse ekziston një llogari për këtë adresë, lidhja e rivendosjes është rrugës.",
+      noMailProvider:
+        "Në V0.1 nuk është konfiguruar asnjë ofrues emaili — lidhja shkruhet në regjistrin e serverit në vend që të dërgohet.",
+    },
+
+    reset: {
+      metaTitle: "Vendosni një fjalëkalim të ri",
+      title: "Vendosni një fjalëkalim të ri",
+      description: "Zgjidhni një fjalëkalim që nuk e përdorni askund tjetër.",
+      expired: "Kjo lidhje ka skaduar.",
+      invalid: "Kjo lidhje nuk është e vlefshme.",
+      linkRules: "Lidhjet e rivendosjes përdoren vetëm një herë dhe skadojnë pas një ore.",
+      requestNewLink: "Kërkoni një lidhje të re",
+      newPassword: "Fjalëkalimi i ri",
+      passwordHint: "Të paktën 10 karaktere.",
+      confirmPassword: "Konfirmo fjalëkalimin",
+      submit: "Rivendos fjalëkalimin",
+      submitting: "Duke përditësuar…",
+      doneTitle: "Fjalëkalimi u përditësua me sukses.",
+      doneDescription: "Të gjitha seancat e tjera janë mbyllur.",
+      signIn: "Hyr",
+    },
+
+    errors: {
+      emailRequired: "Emaili është i detyrueshëm",
+      emailInvalid: "Shkruani një adresë emaili të vlefshme",
+      passwordRequired: "Fjalëkalimi është i detyrueshëm",
+      incorrectCredentials: "Email ose fjalëkalim i pasaktë.",
+      passwordTooShort: "Përdorni të paktën 10 karaktere",
+      passwordTooLong: "Ky fjalëkalim është shumë i gjatë",
+      confirmRequired: "Konfirmoni fjalëkalimin e ri",
+      passwordsMismatch: "Të dy fjalëkalimet duhet të përputhen",
+      reviewForm: "Ju lutemi kontrolloni formularin dhe provoni përsëri.",
+      linkExpired: "Kjo lidhje rivendosjeje ka skaduar. Kërkoni një të re.",
+      linkInvalid: "Kjo lidhje rivendosjeje nuk është më e vlefshme. Kërkoni një të re.",
+    },
+  },
+
+  system: {
+    returnToDashboard: "Kthehu te Paneli",
+    notFound: {
+      title: "Faqja nuk u gjet.",
+      description: "Faqja që kërkoni nuk ekziston.",
+      home: "Shko në faqen kryesore",
+    },
+    accessDenied: {
+      metaTitle: "Akses i ndaluar",
+      title: "Nuk keni akses në këtë zonë.",
+      description: "Nëse ju duhet akses, kontaktoni administratorin e kompanisë suaj.",
+    },
+    moduleUnavailable: {
+      title: "Moduli nuk është i disponueshëm",
+      description: "Ky modul nuk është aktivizuar për kompaninë tuaj.",
+    },
+  },
+};

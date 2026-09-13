@@ -4,6 +4,7 @@ import { NestoLogo } from "@/components/layout/nesto-logo";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { brand } from "@/config/brand";
 import type { NavigationGroup } from "@/config/navigation";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * Persistent navigation (design spec §11, §12, §14, §44).
@@ -19,11 +20,13 @@ import type { NavigationGroup } from "@/config/navigation";
  * decided in CSS, so the server renders the right one and nothing swaps after
  * hydration.
  */
-export function Sidebar({ navigation }: { navigation: NavigationGroup[] }) {
+export async function Sidebar({ navigation }: { navigation: NavigationGroup[] }) {
+  const t = await getTranslations("shell");
+
   return (
     <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-line bg-sidebar transition-[width] lg:flex">
       <div className="flex h-16 shrink-0 items-center justify-center px-3 xl:justify-start xl:px-5">
-        <Link href="/dashboard" aria-label="NESTO dashboard" className="min-w-0">
+        <Link href="/dashboard" aria-label={t("dashboardLink")} className="min-w-0">
           <span className="nesto-rail-only">
             <NestoLogo showWordmark={false} />
           </span>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Download } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
  */
 export function AuditExportLink() {
   const searchParams = useSearchParams();
+  const t = useTranslations("settings");
 
   const params = new URLSearchParams(searchParams.toString());
   params.delete("page");
@@ -24,7 +26,7 @@ export function AuditExportLink() {
     <Button asChild variant="secondary" size="sm">
       <Link href={`/api/audit/export?${params.toString()}`} prefetch={false} download>
         <Download aria-hidden="true" />
-        Export CSV
+        {t("audit.exportCsv")}
       </Link>
     </Button>
   );
