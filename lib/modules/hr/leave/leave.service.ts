@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import {
   businessDateString,
@@ -431,6 +433,21 @@ export async function approveLeave(
       message: `approved ${existing.days.toFixed(2)} days of leave`,
       metadata: { memberId: existing.companyMemberId } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.HR_LEAVE_REQUEST_APPROVED,
+        entity: { type: ENTITY, id: leaveId },
+        before: { status: existing.status },
+        after: {
+          status: "APPROVED",
+          startDate: businessDateString(existing.startDate),
+          endDate: businessDateString(existing.endDate),
+        },
+      },
+      { tx },
+    );
   });
 }
 
@@ -464,6 +481,18 @@ export async function rejectLeave(
       message: "rejected a leave request",
       metadata: { memberId: existing.companyMemberId, note } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.HR_LEAVE_REQUEST_REJECTED,
+        entity: { type: ENTITY, id: leaveId },
+        before: { status: existing.status },
+        after: { status: "REJECTED" },
+        reason: note,
+      },
+      { tx },
+    );
   });
 }
 

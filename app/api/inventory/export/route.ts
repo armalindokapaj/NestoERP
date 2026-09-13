@@ -1,4 +1,6 @@
 import { withContext } from "@/lib/api/respond";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import {
   exportInventory,
   type InventoryExportType,
@@ -91,6 +93,17 @@ export async function GET(request: Request) {
         projectId: shared.projectId,
         inventoryItemId: shared.inventoryItemId,
       }),
+    });
+
+    /*
+     * Who took a copy of company data, and which one (PRD #28 §130). The row
+     * counts and the filter values are not recorded — the evidence is that an
+     * export happened, not a second copy of what left.
+     */
+    await recordUserAction(context, {
+      actionKey: AuditAction.REPORT_EXPORTED_CSV,
+      entity: { type: "export", id: "inventory", label: filename },
+      metadata: { module: "inventory" },
     });
 
     return new Response(csv, {

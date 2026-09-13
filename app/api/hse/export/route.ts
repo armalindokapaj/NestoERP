@@ -1,4 +1,6 @@
 import { withContext } from "@/lib/api/respond";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { exportHse, type HseExportKind } from "@/lib/modules/hse/hse.export";
 import {
   actionListSchema,
@@ -100,6 +102,17 @@ export async function GET(request: Request) {
         category: list(params, "category"),
         severity: list(params, "severity"),
       }),
+    });
+
+    /*
+     * Who took a copy of company data, and which one (PRD #28 §130). The row
+     * counts and the filter values are not recorded — the evidence is that an
+     * export happened, not a second copy of what left.
+     */
+    await recordUserAction(context, {
+      actionKey: AuditAction.REPORT_EXPORTED_CSV,
+      entity: { type: "export", id: "hse", label: filename },
+      metadata: { module: "hse" },
     });
 
     return new Response(csv, {

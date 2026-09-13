@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 
 import { assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
@@ -98,6 +100,29 @@ export async function updateNumberingScheme(
   const row = await prisma.companyNumberingScheme.update({
     where: { id: existing.id },
     data: { ...input, updatedByMemberId: context.membershipId },
+  });
+
+  // A numbering scheme decides how every future record in that module is
+  // identified, so the change is evidence (PRD #28 §98).
+  await recordUserAction(context, {
+    actionKey: AuditAction.COMPANY_NUMBERING_CHANGED,
+    entity: { type: "company_numbering_scheme", id: row.id, label: `${moduleKey}.${entityType}` },
+    before: {
+      moduleKey: existing.moduleKey,
+      entityType: existing.entityType,
+      mode: existing.mode,
+      prefix: existing.prefix,
+      yearMode: existing.yearMode,
+      padding: existing.padding,
+    },
+    after: {
+      moduleKey: row.moduleKey,
+      entityType: row.entityType,
+      mode: row.mode,
+      prefix: row.prefix,
+      yearMode: row.yearMode,
+      padding: row.padding,
+    },
   });
 
   return toDTO(row, true);

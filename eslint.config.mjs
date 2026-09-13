@@ -14,7 +14,9 @@ const eslintConfig = [
   {
     ignores: [
       "node_modules/**",
-      ".next/**",
+      // Any Next build directory, including the isolated one a production E2E
+      // run writes to (NEXT_DIST_DIR in next.config.ts).
+      ".next*/**",
       "out/**",
       "build/**",
       "next-env.d.ts",

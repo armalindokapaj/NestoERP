@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { businessDateString } from "@/lib/modules/finance/finance.fields";
 import { toAmountString, toRateString } from "@/lib/modules/finance/finance.money";
@@ -424,6 +426,23 @@ export async function acceptProposal(context: UserContext, proposalId: string): 
         totalAmount: toAmountString(existing.totalAmount),
       } as Prisma.InputJsonValue,
     });
+
+    // `required`: an accepted proposal is the commercial commitment the
+    // contract and the invoice both descend from (PRD #28 §106, §136).
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.SALES_PROPOSAL_ACCEPTED,
+        entity: { type: ENTITY, id: proposalId, label: existing.proposalNumber },
+        before: { status: existing.status },
+        after: {
+          status: "ACCEPTED",
+          totalAmount: toAmountString(existing.totalAmount),
+          currency: existing.currency,
+        },
+      },
+      { tx },
+    );
   });
 }
 

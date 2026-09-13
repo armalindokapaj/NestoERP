@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import { businessDateString } from "../finance.fields";
@@ -237,6 +239,24 @@ export async function createCommitment(
       } as Prisma.InputJsonValue,
     });
 
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_COMMITMENT_CREATED,
+        entity: {
+          type: ENTITY,
+          id: commitment.id,
+          label: input.reference ?? input.description,
+        },
+        after: {
+          amount: String(input.amount),
+          currency: input.currency,
+          status: "DRAFT",
+        },
+      },
+      { tx },
+    );
+
     return commitment.id;
   });
 
@@ -453,6 +473,17 @@ export async function cancelCommitment(
       action: "FINANCE_COMMITMENT_CANCELLED",
       message: `cancelled commitment ${label(existing)}`,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_COMMITMENT_CANCELLED,
+        entity: { type: ENTITY, id: commitmentId, label: label(existing) },
+        before: { status: existing.status },
+        after: { status: "CANCELLED" },
+      },
+      { tx },
+    );
   });
 }
 

@@ -6,6 +6,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import { businessDateString } from "../finance.fields";
@@ -346,6 +348,24 @@ export async function approveInvoice(
       action: "FINANCE_INVOICE_APPROVED",
       message: `approved invoice ${existing.invoiceNumber}`,
     });
+
+    // FINANCIAL policies are `required`: the evidence commits with the
+    // approval or the approval does not happen (PRD #28 §102, §136).
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_INVOICE_APPROVED,
+        entity: { type: ENTITY, id: invoiceId, label: existing.invoiceNumber },
+        before: { status: existing.status },
+        after: {
+          status: "APPROVED",
+          totalAmount: existing.totalAmount.toString(),
+          currency: existing.currency,
+        },
+        reason: note,
+      },
+      { tx },
+    );
   });
 }
 
@@ -374,6 +394,18 @@ export async function rejectInvoice(
       message: `rejected invoice ${existing.invoiceNumber}`,
       metadata: { reason } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_INVOICE_REJECTED,
+        entity: { type: ENTITY, id: invoiceId, label: existing.invoiceNumber },
+        before: { status: existing.status },
+        after: { status: "REJECTED" },
+        reason,
+      },
+      { tx },
+    );
   });
 }
 
@@ -437,6 +469,25 @@ export async function cancelInvoice(context: UserContext, invoiceId: string): Pr
       action: "FINANCE_INVOICE_CANCELLED",
       message: `cancelled invoice ${existing.invoiceNumber}`,
     });
+
+    /*
+     * Cancelling is how an invoice is voided in V0.1 — there is no separate
+     * void — so this is the VOIDED evidence (PRD #28 §102).
+     */
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_INVOICE_VOIDED,
+        entity: { type: ENTITY, id: invoiceId, label: existing.invoiceNumber },
+        before: {
+          status: existing.status,
+          totalAmount: existing.totalAmount.toString(),
+          currency: existing.currency,
+        },
+        after: { status: "CANCELLED" },
+      },
+      { tx },
+    );
   });
 }
 

@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { businessDateString } from "@/lib/modules/finance/finance.fields";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
@@ -444,6 +446,22 @@ export async function markWon(
       } as Prisma.InputJsonValue,
     });
 
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.SALES_OPPORTUNITY_WON,
+        entity: { type: ENTITY, id: opportunityId, label: existing.name },
+        projectId,
+        before: { stage: existing.stage },
+        after: {
+          stage: "WON",
+          expectedValue: toAmountString(input.finalValue),
+          currency: existing.currency,
+        },
+      },
+      { tx },
+    );
+
     if (projectId && input.projectMode === "NEW") {
       await recordActivity(tx, context, {
         module: MODULE,
@@ -499,6 +517,18 @@ export async function markLost(
       message: `marked ${existing.name} as lost`,
       metadata: { reason: input.lostReason } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.SALES_OPPORTUNITY_LOST,
+        entity: { type: ENTITY, id: opportunityId, label: existing.name },
+        before: { stage: existing.stage },
+        after: { stage: "LOST" },
+        reason: input.lostReason,
+      },
+      { tx },
+    );
   });
 }
 

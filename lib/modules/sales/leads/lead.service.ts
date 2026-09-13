@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
 import { createClientRecord } from "@/lib/modules/clients/client.service";
@@ -383,6 +385,16 @@ export async function convertLead(
         clientMode: input.clientMode,
       } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.SALES_LEAD_CONVERTED,
+        entity: { type: ENTITY, id: leadId, label: existing.name },
+        after: { opportunityId: opportunity.id, clientId },
+      },
+      { tx },
+    );
 
     await recordActivity(tx, context, {
       module: MODULE,

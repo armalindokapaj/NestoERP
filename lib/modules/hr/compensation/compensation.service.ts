@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
 import { businessDateString, toBusinessDate } from "../hr.date";
 import { buildEmployeeScopeWhere } from "../hr.scope";
@@ -179,6 +181,25 @@ export async function recordCompensation(
         payType: input.payType,
       } as Prisma.InputJsonValue,
     });
+
+    /*
+     * The audit policy for this action lists `amount` in redactFields, so the
+     * writer stores the fact that pay changed and the effective date while
+     * dropping the figure itself (PRD #28 §124, PRD #16 §270).
+     */
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.HR_COMPENSATION_CHANGED,
+        entity: { type: ENTITY, id: memberId },
+        after: {
+          amount: String(input.baseAmount),
+          currency: input.currency,
+          effectiveFrom: businessDateString(effectiveFrom),
+        },
+      },
+      { tx },
+    );
   });
 }
 

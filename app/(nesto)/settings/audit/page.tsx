@@ -3,9 +3,11 @@ import { ScrollText } from "lucide-react";
 
 import { Pagination } from "@/components/data/pagination";
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
+import { AuditExportLink } from "@/components/settings/audit-export-link";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { auditQuerySchema, listAuditEvents } from "@/lib/core/audit/audit-query.service";
+import { can } from "@/lib/access/can";
 import { formatDateTime } from "@/lib/utils/format";
 import { requireSettingsSection } from "../settings-access";
 
@@ -46,10 +48,15 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
 
   return (
     <div className="space-y-5">
-      <SettingsPageHeader
-        title="Audit"
-        description="Who did what, when, and what changed. Append-only: nothing here can be edited or removed."
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SettingsPageHeader
+          title="Audit"
+          description="Who did what, when, and what changed. Append-only: nothing here can be edited or removed."
+        />
+        {/* Taking a copy of the evidence is its own decision, and its own
+            permission (PRD #28 §170). */}
+        {can(context, "audit.export") ? <AuditExportLink /> : null}
+      </div>
 
       {data.length === 0 ? (
         <EmptyState

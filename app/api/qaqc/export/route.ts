@@ -1,4 +1,6 @@
 import { withContext } from "@/lib/api/respond";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { exportQaqc, type QaqcExportType } from "@/lib/modules/qaqc/qaqc.export";
 import {
   correctiveActionListQuerySchema,
@@ -74,6 +76,17 @@ export async function GET(request: Request) {
         status: list(params, "status"),
         ncrId: params.get("ncrId") ?? undefined,
       }),
+    });
+
+    /*
+     * Who took a copy of company data, and which one (PRD #28 §130). The row
+     * counts and the filter values are not recorded — the evidence is that an
+     * export happened, not a second copy of what left.
+     */
+    await recordUserAction(context, {
+      actionKey: AuditAction.REPORT_EXPORTED_CSV,
+      entity: { type: "export", id: "qaqc", label: filename },
+      metadata: { module: "qaqc" },
     });
 
     return new Response(csv, {
