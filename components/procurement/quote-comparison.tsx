@@ -8,7 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { disqualifyQuoteAction, selectQuoteAction } from "@/lib/actions/procurement";
+import {
+  disqualifyQuoteAction,
+  orderFromQuoteAction,
+  selectQuoteAction,
+} from "@/lib/actions/procurement";
 import type { QuoteComparisonDTO } from "@/lib/modules/procurement/procurement.types";
 import { quoteStatusLabels } from "@/lib/modules/procurement/procurement.status";
 import { formatAmount } from "./procurement-format";
@@ -41,6 +45,18 @@ export function QuoteComparison({
   const [disqualifying, setDisqualifying] = React.useState<string | null>(null);
 
   const { rfq, items, rows, canCompare } = comparison;
+
+  function draft(quoteId: string) {
+    startTransition(async () => {
+      const result = await orderFromQuoteAction(quoteId);
+      if (result.ok) {
+        toast({ title: "Draft order created from the quote.", tone: "success" });
+        router.refresh();
+      } else {
+        toast({ title: result.error, tone: "danger" });
+      }
+    });
+  }
 
   function select(quoteId: string) {
     startTransition(async () => {
@@ -172,6 +188,17 @@ export function QuoteComparison({
                             onClick={() => setSelecting(row.quoteId)}
                           >
                             Select
+                          </Button>
+                        ) : null}
+                        {/*
+                          * The selected quote is the one that becomes an
+                          * order. Drafting it here carries the supplier, the
+                          * prices and the lines across rather than asking
+                          * somebody to retype what was quoted (PRD #19 §98).
+                          */}
+                        {canSelect && row.status === "SELECTED" ? (
+                          <Button size="sm" disabled={pending} onClick={() => draft(row.quoteId)}>
+                            Draft order
                           </Button>
                         ) : null}
                       </div>

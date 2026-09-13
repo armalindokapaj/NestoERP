@@ -642,20 +642,34 @@ export function PermitTable({
 /* PPE                                                                         */
 /* -------------------------------------------------------------------------- */
 
-export function PpeTable({ checks }: { checks: PpeCheckDTO[] }) {
+export function PpeTable({
+  checks,
+  canEdit = false,
+}: {
+  checks: PpeCheckDTO[];
+  canEdit?: boolean;
+}) {
   const columns: TableColumn<PpeCheckDTO>[] = [
     {
       key: "checkNumber",
       label: "Check",
       primary: true,
-      render: (row) => (
-        <span className="flex flex-col">
-          <span className="font-medium text-fg">{row.checkNumber}</span>
-          <span className="text-meta text-fg-subtle">
-            {row.subject?.fullName ?? row.externalSubjectName ?? "Area spot check"}
+      render: (row) =>
+        canEdit ? (
+          <Link href={`/hse/ppe/${row.id}/edit`} className="flex flex-col hover:text-accent">
+            <span className="font-medium text-fg">{row.checkNumber}</span>
+            <span className="text-meta text-fg-subtle">
+              {row.subject?.fullName ?? row.externalSubjectName ?? "Area spot check"}
+            </span>
+          </Link>
+        ) : (
+          <span className="flex flex-col">
+            <span className="font-medium text-fg">{row.checkNumber}</span>
+            <span className="text-meta text-fg-subtle">
+              {row.subject?.fullName ?? row.externalSubjectName ?? "Area spot check"}
+            </span>
           </span>
-        </span>
-      ),
+        ),
     },
     {
       key: "project",

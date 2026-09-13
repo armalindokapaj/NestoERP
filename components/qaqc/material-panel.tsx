@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import {
   recordMaterialDecisionAction,
+  removeMaterialDecisionAction,
   releaseMaterialAction,
   revokeReleaseAction,
 } from "@/lib/actions/qaqc";
@@ -106,6 +107,18 @@ export function MaterialPanel({
     });
   }
 
+  function removeDecision(goodsReceiptItemId: string) {
+    startTransition(async () => {
+      const result = await removeMaterialDecisionAction(inspectionId, goodsReceiptItemId);
+      if (result.ok) {
+        toast({ title: result.message ?? "Decision removed.", tone: "success" });
+        router.refresh();
+      } else {
+        toast({ title: result.error, tone: "danger" });
+      }
+    });
+  }
+
   function runRevoke(reason: string) {
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {
@@ -136,6 +149,7 @@ export function MaterialPanel({
                 <th scope="col" className="px-4 py-2 text-right font-medium">Accepted</th>
                 <th scope="col" className="px-4 py-2 text-right font-medium">Rejected</th>
                 <th scope="col" className="px-4 py-2 text-right font-medium">Conditional</th>
+                {canDecide && !release ? <th scope="col" className="px-4 py-2" /> : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -158,6 +172,23 @@ export function MaterialPanel({
                   <td className="px-4 py-2.5 text-right tabular-nums text-warning-strong">
                     {decision.conditionalQuantity}
                   </td>
+                  {/*
+                    * Only before release. Once material has been released to
+                    * stock the decision is what stock was posted against, and
+                    * removing it would leave the posting unexplained (§236).
+                    */}
+                  {canDecide && !release ? (
+                    <td className="px-4 py-2.5 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => removeDecision(decision.goodsReceiptItemId)}
+                      >
+                        Remove
+                      </Button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

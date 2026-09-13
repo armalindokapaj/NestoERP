@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { checkLeadDuplicatesAction } from "@/lib/actions/sales";
 
 import {
   Field,
@@ -44,6 +45,7 @@ export function LeadForm({
   values,
   versionUpdatedAt,
   duplicates,
+  excludeLeadId,
   cancelHref,
   submitLabel,
   pendingLabel,
@@ -53,15 +55,57 @@ export function LeadForm({
   values?: LeadFormValues;
   versionUpdatedAt?: string;
   duplicates?: LeadDuplicateMatch[];
+  /** On edit, so the lead being edited is not reported against itself. */
+  excludeLeadId?: string;
   cancelHref: string;
   submitLabel: string;
   pendingLabel: string;
 }) {
   const [warned, setWarned] = React.useState(false);
+  /**
+   * Matches found while typing, before anything is submitted (PRD #17 §44).
+   *
+   * A courtesy, not a gate: the same check runs again on the server, and the
+   * action swallows its own failures, so a slow or failed lookup can never be
+   * the reason somebody cannot record a lead.
+   */
+  const [liveMatches, setLiveMatches] = React.useState<LeadDuplicateMatch[]>([]);
 
   React.useEffect(() => {
     if (duplicates && duplicates.length > 0) setWarned(true);
   }, [duplicates]);
+
+  const [name, setName] = React.useState(values?.name ?? "");
+  const [companyName, setCompanyName] = React.useState(values?.companyName ?? "");
+
+  React.useEffect(() => {
+    const term = `${name} ${companyName}`.trim();
+    if (term.length < 3) {
+      setLiveMatches([]);
+      return;
+    }
+
+    // Debounced: a lookup on every keystroke would ask the database about half
+    // a word, repeatedly, and answer about none of them usefully.
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void checkLeadDuplicatesAction({
+        name: name || undefined,
+        companyName: companyName || undefined,
+        excludeLeadId,
+      }).then((matches) => {
+        if (!cancelled) setLiveMatches(matches);
+      });
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [name, companyName, excludeLeadId]);
+
+  // What came back from a rejected submit wins: it is the authoritative answer.
+  const shownDuplicates = duplicates && duplicates.length > 0 ? duplicates : liveMatches;
 
   return (
     <RecordForm
@@ -71,7 +115,7 @@ export function LeadForm({
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
-      {duplicates && duplicates.length > 0 ? (
+      {shownDuplicates.length > 0 ? (
         <section
           role="alert"
           className="rounded-md border border-warning/40 bg-warning-soft px-4 py-3"
@@ -80,29 +124,41 @@ export function LeadForm({
             This may already be in NESTO
           </h2>
           <ul className="mt-2 space-y-1 text-meta text-fg-muted">
-            {duplicates.map((match) => (
+            {shownDuplicates.map((match) => (
               <li key={`${match.kind}-${match.id}`}>
                 <span className="font-medium text-fg">{match.label}</span> — {match.reason}
               </li>
             ))}
           </ul>
-          <label className="mt-3 flex items-center gap-2 text-table text-fg">
-            <input type="checkbox" name="acceptDuplicate" value="on" defaultChecked={warned} />
-            Save it anyway
-          </label>
+          {/* Only offered once the server has actually refused: a live match
+              is a hint, and there is nothing yet to override. */}
+          {duplicates && duplicates.length > 0 ? (
+            <label className="mt-3 flex items-center gap-2 text-table text-fg">
+              <input type="checkbox" name="acceptDuplicate" value="on" defaultChecked={warned} />
+              Save it anyway
+            </label>
+          ) : null}
         </section>
       ) : null}
 
       <FormSection title="Lead" description="Who got in touch, and what it might be worth.">
         <Field label="Name" name="name" required>
-          <Input id="name" name="name" defaultValue={values?.name ?? ""} required maxLength={200} />
+          <Input
+            id="name"
+            name="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+            maxLength={200}
+          />
         </Field>
 
         <Field label="Company" name="companyName" hint="Leave empty for an individual.">
           <Input
             id="companyName"
             name="companyName"
-            defaultValue={values?.companyName ?? ""}
+            value={companyName}
+            onChange={(event) => setCompanyName(event.target.value)}
             maxLength={200}
           />
         </Field>
