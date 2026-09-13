@@ -10,7 +10,7 @@ export const brand = {
   name: "NESTO",
   /** Under the wordmark wherever the lockup has room to breathe. */
   tagline: "People · Projects · Progress",
-  /** One-line descriptor for the desktop sidebar header. */
+  /** One-line descriptor at the foot of the navigation drawer. */
   descriptor: "ERP for a brighter tomorrow",
   /** Foot of the navigation, stacked one word per line. */
   signoff: ["Build", "Manage", "Grow together"],

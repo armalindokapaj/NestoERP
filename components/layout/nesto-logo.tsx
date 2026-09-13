@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils/cn";
  * Uppercase, wide letter spacing, refined serif, graphite. No gradients.
  *
  * Three assemblies cover every placement: mark plus wordmark (compact headers),
- * wordmark plus tagline (sidebar and drawer), and the mark on its own (the 72px
- * rail). `tone="inverse"` is for dark grounds such as the authentication brand
- * panel, where the default graphite-on-light treatment would disappear.
+ * wordmark plus tagline (the navigation drawer), and the wordmark or the mark on
+ * its own (the desktop sidebar and its 72px rail, where a second line would
+ * overrun the width). `tone="inverse"` is for dark grounds such as the
+ * authentication brand panel, where graphite-on-light would disappear.
  */
 const wordmarkSizes = {
   sm: "text-body tracking-[0.2em]",

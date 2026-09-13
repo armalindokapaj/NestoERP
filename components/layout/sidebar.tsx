@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
-import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { brand } from "@/config/brand";
 import type { NavigationGroup } from "@/config/navigation";
 
@@ -13,8 +12,12 @@ import type { NavigationGroup } from "@/config/navigation";
  * sidebar and the content offset can never disagree. Hidden below 1024px,
  * where navigation moves into the drawer.
  *
- * Header and foot swap assemblies with the width: full wordmark and brand
- * signoff when expanded, the mark alone once the rail takes over.
+ * Header and foot swap assemblies with the width: wordmark and brand signoff
+ * when expanded, the mark alone once the rail takes over. Both are links home
+ * and nothing else — the collapse control sits in the top bar, where it does
+ * not have to share the one slot the rail header has. Which assembly shows is
+ * decided in CSS, so the server renders the right one and nothing swaps after
+ * hydration.
  */
 export function Sidebar({ navigation }: { navigation: NavigationGroup[] }) {
   return (
@@ -25,7 +28,7 @@ export function Sidebar({ navigation }: { navigation: NavigationGroup[] }) {
             <NestoLogo showWordmark={false} />
           </span>
           <span className="nesto-nav-label">
-            <NestoLogo showMark={false} size="lg" tagline={brand.descriptor} />
+            <NestoLogo showMark={false} size="lg" />
           </span>
         </Link>
       </div>
@@ -34,16 +37,13 @@ export function Sidebar({ navigation }: { navigation: NavigationGroup[] }) {
         <SidebarNav navigation={navigation} />
       </div>
 
-      <div className="nesto-sidebar-footer shrink-0 items-end justify-center gap-2 px-5 pb-5 pt-4">
-        <div className="nesto-nav-label min-w-0 flex-1">
-          <div aria-hidden="true" className="mb-3 h-px w-6 bg-line-strong" />
-          {brand.signoff.map((word) => (
-            <p key={word} className="nesto-eyebrow truncate text-fg-subtle">
-              {word}
-            </p>
-          ))}
-        </div>
-        <SidebarToggle />
+      <div className="nesto-sidebar-footer shrink-0 px-5 pb-5 pt-4">
+        <div aria-hidden="true" className="mb-3 h-px w-6 bg-line-strong" />
+        {brand.signoff.map((word) => (
+          <p key={word} className="nesto-eyebrow truncate text-fg-subtle">
+            {word}
+          </p>
+        ))}
       </div>
     </aside>
   );

@@ -72,6 +72,15 @@ export default async function LoginPage({
 
             <LoginForm callbackUrl={callbackUrl} />
 
+            <div className="mt-6 text-center">
+              <Link
+                href="/"
+                className="text-table text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
+              >
+                Back to home
+              </Link>
+            </div>
+
             {isDevMode ? (
               <DemoAccounts
                 accounts={demoAccountsInRoleOrder.map((account) => ({
