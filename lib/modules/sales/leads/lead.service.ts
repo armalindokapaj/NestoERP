@@ -1,4 +1,6 @@
 import { Prisma, type LeadStatus } from "@prisma/client";
+import { IntegrationType } from "@/lib/core/integrations/integration.registry";
+import { linkIntegration } from "@/lib/core/integrations/integration.service";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
@@ -338,6 +340,14 @@ export async function convertLead(
       // writes a customer table of its own (PRD #17 §54, §154).
       const client = await createClientRecord(tx, context, clientFromLead(existing, input));
       clientId = client.id;
+
+      // Which lead this client came from, recorded where every handoff is
+      // recorded rather than only in Sales' own column (PRD #23 §21).
+      await linkIntegration(tx, context, {
+        integrationType: IntegrationType.SALES_LEAD_CLIENT,
+        source: { id: leadId },
+        target: { id: client.id },
+      });
     }
 
     const opportunity = await tx.opportunity.create({

@@ -228,3 +228,91 @@ export async function listIntegrationLinks(
     href: moduleEnabled(context, link.targetModule) ? null : null,
   }));
 }
+
+/**
+ * Records a handoff that a module performed itself (PRD #23 §21, §44, §94).
+ *
+ * `runIntegration` owns its transaction, which suits a handoff that starts
+ * fresh. Several of NESTO's handoffs do not: approving a purchase order writes
+ * the order, its status history and the finance commitment in one transaction,
+ * and the commitment cannot be moved out of it without losing the atomicity
+ * PRD #23 §41 requires. Those flows call this instead.
+ *
+ * It writes the same link and the same attempt, from the same registry, with
+ * the same idempotency key — so the trace does not depend on which entry point
+ * a handoff used. What it deliberately does not do is decide whether the
+ * handoff should happen: the caller already did that, inside its own
+ * transaction, with its own rules.
+ *
+ * Safe to call repeatedly. The unique constraint on
+ * (companyId, integrationType, idempotencyKey) is what makes a retry produce
+ * one link rather than two, so this upserts rather than pre-checking.
+ */
+export async function linkIntegration(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  params: {
+    integrationType: string;
+    source: { id: string };
+    target: { id: string };
+  },
+): Promise<string | null> {
+  const definition = findIntegration(params.integrationType);
+  if (!definition) return null;
+
+  const correlationId = currentRequestContext()?.correlationId ?? newCorrelationId();
+  const idempotencyKey = buildIdempotencyKey(
+    context.companyId,
+    definition.id,
+    params.source.id,
+  );
+
+  const link = await tx.integrationLink.upsert({
+    where: {
+      companyId_integrationType_idempotencyKey: {
+        companyId: context.companyId,
+        integrationType: definition.id,
+        idempotencyKey,
+      },
+    },
+    // A synchronise re-run points at the same target; re-pointing it is how a
+    // SYNCHRONIZE handoff stays true after the target is replaced.
+    update: { targetEntityId: params.target.id, status: "ACTIVE" },
+    create: {
+      companyId: context.companyId,
+      integrationType: definition.id,
+      mode: definition.mode,
+      sourceModule: definition.sourceModule,
+      sourceEntityType: definition.sourceEntityType,
+      sourceEntityId: params.source.id,
+      targetModule: definition.targetModule,
+      targetEntityType: definition.targetEntityType,
+      targetEntityId: params.target.id,
+      idempotencyKey,
+      correlationId,
+      createdByMemberId: context.membershipId,
+    },
+    select: { id: true },
+  });
+
+  const previous = await tx.integrationAttempt.count({
+    where: { companyId: context.companyId, integrationType: definition.id, idempotencyKey },
+  });
+
+  await tx.integrationAttempt.create({
+    data: {
+      companyId: context.companyId,
+      integrationType: definition.id,
+      sourceModule: definition.sourceModule,
+      sourceEntityType: definition.sourceEntityType,
+      sourceEntityId: params.source.id,
+      idempotencyKey,
+      correlationId,
+      status: "SUCCEEDED",
+      attemptNumber: previous + 1,
+      completedAt: new Date(),
+    },
+  });
+
+  return link.id;
+}

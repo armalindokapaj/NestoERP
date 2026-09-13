@@ -1,4 +1,6 @@
 import { Prisma, type CorrectiveActionStatus } from "@prisma/client";
+import { IntegrationType } from "@/lib/core/integrations/integration.registry";
+import { linkIntegration } from "@/lib/core/integrations/integration.service";
 
 import { can } from "@/lib/access/can";
 import {
@@ -654,6 +656,15 @@ export async function createActionTask(
       action: "QAQC_ACTION_TASK_CREATED",
       message: `raised a task on ${action.actionNumber}`,
       metadata: { taskId: task.id } as Prisma.InputJsonValue,
+    });
+
+    // The task is the canonical Task, owned by the Tasks module; this records
+    // which corrective action it came from, so completing the task never looks
+    // like the action verifying itself (PRD #23 §21, §94).
+    await linkIntegration(tx, context, {
+      integrationType: IntegrationType.QA_ACTION_TASK,
+      source: { id: actionId },
+      target: { id: task.id },
     });
   });
 
