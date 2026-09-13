@@ -109,6 +109,30 @@ function scalarValues(formData: FormData): Record<string, unknown> {
 
 const INVOICE_LINE_FIELDS = ["description", "quantity", "unitPrice", "taxRate"];
 
+/**
+ * Raising an invoice from an accepted proposal (PRD #35 §180).
+ *
+ * No form: everything comes from the proposal, which is the point — the
+ * figures are snapshotted from what the client accepted rather than retyped.
+ * The invoice opens as a draft, so anything that does need changing is changed
+ * before it is submitted.
+ */
+export async function invoiceFromProposalAction(
+  proposalId: string,
+): Promise<FinanceActionResult> {
+  const context = await requireUserContext();
+
+  let id: string;
+  try {
+    id = (await invoices.createInvoiceFromProposal(context, proposalId)).id;
+  } catch (error) {
+    return toResult(error);
+  }
+
+  revalidateFinance();
+  redirect(`/finance/invoices/${id}`);
+}
+
 export async function createInvoiceAction(formData: FormData): Promise<FinanceActionResult> {
   const context = await requireUserContext();
 

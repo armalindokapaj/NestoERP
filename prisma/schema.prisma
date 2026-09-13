@@ -1769,6 +1769,11 @@ model Invoice {
   clientId      String
   projectId     String?
 
+  /// The accepted proposal this invoice was drawn from, when it came from
+  /// Sales (PRD #35 §180). Nullable and SetNull: an invoice outlives the
+  /// proposal that prompted it, and most invoices have no proposal at all.
+  sourceProposalId String?
+
   issueDate DateTime
   dueDate   DateTime
   currency  String   @db.VarChar(3)
@@ -1792,6 +1797,8 @@ model Invoice {
   client  Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
+  sourceProposal Proposal? @relation("InvoiceSourceProposal", fields: [sourceProposalId], references: [id], onDelete: SetNull)
+
   lineItems InvoiceLineItem[]
   payments  Payment[]
 
@@ -1808,6 +1815,7 @@ model Invoice {
   @@index([dueDate])
   @@index([currency])
   @@index([updatedAt])
+  @@index([sourceProposalId])
   @@map("invoices")
 }
 
@@ -2446,6 +2454,7 @@ model Proposal {
 
   lineItems ProposalLineItem[]
   contracts Contract[]         @relation("ContractSourceProposal")
+  invoices  Invoice[]          @relation("InvoiceSourceProposal")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
