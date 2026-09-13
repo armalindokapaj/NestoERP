@@ -22,11 +22,11 @@ excluded). Total active weight **118**.
 | Measure | Result |
 |---|---|
 | Strict — `DONE` only, as §235 defines it | **77 / 118 = 65.3 %** |
-| Weighted by evidenced completion | **107.5 / 118 = 91.1 %** |
+| Weighted by evidenced completion | **108.0 / 118 = 91.5 %** |
 
 | Priority | PRDs | Strict | Weighted |
 |---|---|---|---|
-| P0 | 8 | 75.0 % | 89.4 % |
+| P0 | 8 | 75.0 % | 90.6 % |
 | P1 | 24 | 62.5 % | 93.4 % |
 | P2 | 3 | 33.3 % | 75.0 % |
 
@@ -61,7 +61,7 @@ rather than cosmetic.
 | Team | ✅ | ✅ | ✅ | ✅ | ✅ | search ✅ | ✅ |
 
 ⚠️ in **UI** means one or more server actions exist with no interface reaching
-them (§6.3). ⚠️ in **Prod Ready** follows §237: a module is not production-ready
+them (§6.4). ⚠️ in **Prod Ready** follows §237: a module is not production-ready
 while a documented capability has no route to it.
 
 Scale at this SHA: 117 models, 138 enums, 20 migrations, 564 permissions,
@@ -91,7 +91,7 @@ across 52 files, 320 Playwright, 870 role-walk checks, 12 production guards.
 | #15 | Finance | P1 | PARTIAL | `voidPaymentAction` unreachable |
 | #16 | HR | P1 | DONE | |
 | #17 | Sales | P1 | PARTIAL | 3 assignment/duplicate actions unreachable |
-| #18 | Legal | P1 | PARTIAL | owner assignment unreachable; attention list paged (§6.4) |
+| #18 | Legal | P1 | PARTIAL | owner assignment unreachable; attention list paged (§6.9) |
 | #19 | Procurement | P1 | PARTIAL | 2 actions unreachable |
 | #20 | Inventory | P1 | DONE | |
 | #21 | QA/QC | P1 | PARTIAL | 1 action unreachable |
@@ -101,7 +101,7 @@ across 52 files, 320 Playwright, 870 role-walk checks, 12 production guards.
 | #25 | Notifications | P1 | PARTIAL | nothing produces a notification (§6.2) |
 | #26 | Global Search | P1 | PARTIAL | 5 required providers absent (§6.3) |
 | #27 | Reporting | P2 | PARTIAL | metric registry unused (§6.7) |
-| #28 | Audit Log | P0 | PARTIAL | log never written (§6.1) |
+| #28 | Audit Log | P0 | PARTIAL | 9 of 52 actions recorded (§6.1) |
 | #29 | File Storage | P0 | DONE | deferrals documented in code |
 | #30 | Production Security | P0 | DONE | 12 guards |
 | #31 | Performance & Caching | P2 | PARTIAL | cache never used (§6.8) |
@@ -116,11 +116,9 @@ across 52 files, 320 Playwright, 870 role-walk checks, 12 production guards.
 
 One, at P0:
 
-**The audit log is never written.** PRD #28 is a compliance PRD. `AuditEvent`
-rows exist only because `prisma/seed/audit.ts` inserts them. In a real
-deployment the audit log would be permanently empty while appearing to work,
-which is worse than not shipping it — the page renders, the API answers, and
-the emptiness reads as "nothing happened" rather than "nothing is recorded".
+**The audit log records 9 of its 52 registered actions**, and 30-odd of the
+missing ones are declared `required: true` — meaning the codebase itself states
+they must not be allowed to happen unaudited. Detail in §6.1.
 
 Nothing else blocks release on correctness grounds. The remaining findings are
 absent features and dead infrastructure, not wrong behaviour.
@@ -166,15 +164,46 @@ inspected and was fine, which it should have to show.
 
 ## 6. Architecture violations and gaps
 
-### 6.1 The audit log has no writer — P0, #28
+### 6.1 The audit log covers 9 of 52 registered actions — P0, #28
 
-`recordAuditEvent` is the only function that writes `AuditEvent`. It is
-reachable solely from `recordIntegrationAction`, which nothing calls. The read
-half — `listAuditEvents`, `/api/audit`, the settings page — is fully wired.
+The writer works. `recordUserAction` and `recordSystemAction` are called from
+six services — the three settings services and the three document-storage
+services — and the read half (`listAuditEvents`, `/api/audit`, the settings
+page) is fully wired. Redaction, the policy registry and the required-policy
+transaction rule are all implemented and correct.
 
-Status **PARTIAL**. Complexity **M**: the writer exists and is correct; what is
-missing is the call at each auditable moment, plus the decision about which
-moments those are.
+What is missing is call sites. `audit-policy.registry.ts` registers **52**
+actions. Exactly **9** are emitted:
+
+```
+COMPANY_BASE_CURRENCY_CHANGED   COMPANY_INTEGRATION_SETTING_CHANGED
+COMPANY_MODULE_ENABLED          COMPANY_MODULE_DISABLED
+COMPANY_SETTINGS_UPDATED        COMPANY_TIMEZONE_CHANGED
+DOCUMENT_DOWNLOAD_GRANTED       DOCUMENT_PREVIEW_GRANTED
+DOCUMENT_REJECTED_MALWARE
+```
+
+The other 43 are registered, given a category, a severity, a snapshot mode and
+a redaction list — and never recorded. They include every `FINANCIAL` action
+(invoice approved/rejected/voided, payment recorded/reversed, expense approved,
+budget approved, commitment created/cancelled), every `ACCESS_CONTROL` action
+(member invited, role changed, suspended, deactivated, reactivated, department
+changed), `HR_COMPENSATION_CHANGED` and `HR_EMPLOYMENT_STATUS_CHANGED`, the
+`AUTHENTICATION` family, `SALES_PROPOSAL_ACCEPTED`, the project lifecycle and
+the report-export actions.
+
+Most of those carry `required: true`, which `audit.service.ts` defines as
+writing inside the caller's transaction so that a failed audit rolls the
+business mutation back — "an action that must be auditable is not allowed to
+happen unaudited". The declaration is in the tree; the enforcement is not.
+
+So the gap is not that nothing is recorded. It is that what a compliance
+reviewer would ask for first — who approved this invoice, who changed this
+salary, who was given this role — is exactly what is absent, while settings
+changes and document downloads are captured faithfully.
+
+Status **PARTIAL**. Complexity **M**: mechanical but broad, and the
+`required: true` ones must be passed the caller's `tx`.
 
 ### 6.2 Notifications are never produced — P1, #25
 
@@ -327,7 +356,7 @@ Ranked by what the absence would let through.
 | Area | Gap | Priority |
 |---|---|---|
 | Notifications #25 | No test of any kind. Appears in one unrelated retention test. | P1 |
-| Audit #28 | Write path untested — consistent with there being no writer. | P0 |
+| Audit #28 | The 43 unwired actions have no test asserting they record. | P0 |
 | Caching #31 | Unit tests only, and they test code no request executes. | P2 |
 | Integrations #23 | `runIntegration` idempotency and retry untested. | P1 |
 | Numbering #24 | `allocateNumber` untested and uncalled. | P2 |
@@ -347,7 +376,7 @@ In dependency order. Complexity per §7 of the tracker.
 
 | # | Task | PRD | Pri | Cx |
 |---|---|---|---|---|
-| 1 | Call `recordAuditEvent` at every auditable moment; decide the set | #28 | P0 | M |
+| 1 | Emit the 43 registered-but-silent audit actions, `tx` where required | #28 | P0 | M |
 | 2 | Produce notifications and attention items from module events | #25 | P1 | L |
 | 3 | Routes/actions for `markRead`, `markAllRead`, `dismissAttention` | #25 | P1 | S |
 | 4 | Search providers: legal, procurement, inventory, QA/QC, HSE | #26 | P1 | M |
