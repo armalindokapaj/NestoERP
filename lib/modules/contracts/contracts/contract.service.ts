@@ -229,6 +229,42 @@ export async function listForSalesSource(
   return rows.map((row) => toSummaryDTO(context, row, today, overdue));
 }
 
+/**
+ * Contracts whose renewal notice has fallen due (PRD #18 §194, §339).
+ *
+ * The candidate set comes from the database — active, expiring within a year —
+ * and the exact rule is applied here, because it compares two columns against
+ * each other and a Prisma filter cannot. Bounded by the calendar rather than
+ * by a page of results.
+ */
+export async function listRenewalNoticeDue(
+  context: UserContext,
+  limit: number,
+): Promise<ContractSummaryDTO[]> {
+  if (!can(context, "legal.contract.view")) return [];
+
+  const today = new Date();
+  const candidates = await repository.renewalNoticeCandidates(context, today);
+  const due = candidates.filter((row) => isRenewalNoticeDue(row, today)).slice(0, limit);
+  const overdue = await overdueObligationCounts(due.map((row) => row.id), today);
+
+  return due.map((row) => toSummaryDTO(context, row, today, overdue));
+}
+
+/** Active contracts whose owner is no longer active (PRD #18 §339). */
+export async function listInactiveOwnerContracts(
+  context: UserContext,
+  limit: number,
+): Promise<ContractSummaryDTO[]> {
+  if (!can(context, "legal.contract.view")) return [];
+
+  const today = new Date();
+  const rows = await repository.contractsWithInactiveOwner(context, limit);
+  const overdue = await overdueObligationCounts(rows.map((row) => row.id), today);
+
+  return rows.map((row) => toSummaryDTO(context, row, today, overdue));
+}
+
 /* -------------------------------------------------------------------------- */
 /* Create and edit                                                             */
 /* -------------------------------------------------------------------------- */
