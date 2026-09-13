@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SalesContractHandoff } from "@/components/contracts/sales-handoff";
+import { ProposalInvoiceHandoff } from "@/components/finance/proposal-invoice-handoff";
 import { RecordHeader } from "@/components/modules/record-header";
 import { ApprovalHistory } from "@/components/sales/approval-history";
 import { ProposalActions } from "@/components/sales/proposal-actions";
@@ -146,6 +147,17 @@ export default async function ProposalPage({ params }: Params) {
           }}
         />
       ) : null}
+
+      {/*
+        * Billing what was accepted (PRD #35 §180). Rendered whatever the
+        * proposal's status, because invoices already raised stay worth showing
+        * even after the proposal moves on.
+        */}
+      <ProposalInvoiceHandoff
+        context={context}
+        proposalId={proposal.id}
+        proposalStatus={proposal.status}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="space-y-3">

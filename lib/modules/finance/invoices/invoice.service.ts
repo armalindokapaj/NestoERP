@@ -1,5 +1,7 @@
 import { Prisma, type InvoiceStatus } from "@prisma/client";
 import { allocateNumber } from "@/lib/core/numbering/numbering.service";
+import { IntegrationType } from "@/lib/core/integrations/integration.registry";
+import { linkIntegration } from "@/lib/core/integrations/integration.service";
 
 import { can } from "@/lib/access/can";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
@@ -13,6 +15,8 @@ import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import { businessDateString } from "../finance.fields";
 import { toAmountString, toRateString } from "../finance.money";
+import { buildInvoiceScopeWhere } from "../finance.scope";
+import { resolveFinanceSettings } from "../finance.settings";
 import { paidByInvoice, settlementFor } from "../finance.settlement";
 import type { InvoiceDetailDTO, InvoiceSummaryDTO, RecordCapabilities } from "../finance.types";
 import { calculateInvoice } from "./invoice.calculation";
@@ -234,6 +238,167 @@ export async function createInvoice(
   });
 
   return getInvoice(context, invoiceId);
+}
+
+/**
+ * Raising an invoice from an accepted proposal (PRD #35 §180, PRD #23 §43).
+ *
+ * The commercial figures are snapshotted, not referenced. Once an invoice
+ * exists it is what the client owes, and a later edit to the proposal must not
+ * silently change it — the proposal is a quote, the invoice is a demand.
+ *
+ * Deliberately not one-invoice-per-proposal. Staged billing against a single
+ * accepted quote is ordinary, so this follows the same rule Legal already
+ * applies to contracts: a second invoice is allowed, and the handoff shows the
+ * ones already drawn so a second click meets the first rather than making a
+ * duplicate by accident (PRD #18 §213).
+ */
+export async function createInvoiceFromProposal(
+  context: UserContext,
+  proposalId: string,
+): Promise<InvoiceDetailDTO> {
+  assertModule(context, MODULE);
+  assertPermission(context, "finance.invoice.create");
+
+  const proposal = assertFound(
+    await prisma.proposal.findFirst({
+      where: { id: proposalId, companyId: context.companyId, archivedAt: null },
+      select: {
+        id: true,
+        proposalNumber: true,
+        title: true,
+        status: true,
+        currency: true,
+        clientId: true,
+        opportunity: { select: { convertedProjectId: true } },
+        lineItems: {
+          orderBy: { sortOrder: "asc" },
+          select: {
+            description: true,
+            quantity: true,
+            unitPrice: true,
+            taxRate: true,
+            sortOrder: true,
+          },
+        },
+      },
+    }),
+  );
+
+  // Only an accepted quote becomes a demand for money (PRD #35 §180).
+  if (proposal.status !== "ACCEPTED") {
+    throw new AccessError(
+      "CONFLICT",
+      "Only an accepted proposal can be invoiced. Record the client's acceptance first.",
+    );
+  }
+
+  if (proposal.lineItems.length === 0) {
+    throw new AccessError("VALIDATION_ERROR", "That proposal has no lines to invoice.");
+  }
+
+  const settings = await resolveFinanceSettings(context.companyId);
+  const issueDate = new Date();
+  const dueDate = new Date(
+    issueDate.getTime() + settings.defaultPaymentTermsDays * 24 * 60 * 60 * 1000,
+  );
+
+  const totals = calculateInvoice(
+    proposal.lineItems.map((line) => ({
+      description: line.description,
+      quantity: line.quantity.toString(),
+      unitPrice: line.unitPrice.toString(),
+      taxRate: line.taxRate.toString(),
+    })),
+  );
+
+  const invoiceId = await prisma.$transaction(async (tx) => {
+    const allocated = await allocateNumber(
+      { companyId: context.companyId, moduleKey: MODULE, entityType: "invoice" },
+      { tx, occurredAt: issueDate },
+    );
+    // With manual numbering there is nobody to ask at this point, so the
+    // proposal's own number carries across as the obvious candidate.
+    const invoiceNumber = allocated ?? `INV-${proposal.proposalNumber}`;
+
+    await assertNumberIsFree(tx, context, invoiceNumber, null);
+
+    const invoice = await tx.invoice.create({
+      data: {
+        companyId: context.companyId,
+        invoiceNumber,
+        clientId: proposal.clientId,
+        // The delivery project, when the opportunity was handed over to one.
+        projectId: proposal.opportunity?.convertedProjectId ?? null,
+        sourceProposalId: proposal.id,
+        issueDate,
+        dueDate,
+        currency: proposal.currency,
+        subtotal: totals.subtotal,
+        taxAmount: totals.taxAmount,
+        totalAmount: totals.totalAmount,
+        status: "DRAFT",
+        notes: `Raised from proposal ${proposal.proposalNumber} — ${proposal.title}`,
+        createdByMemberId: context.membershipId,
+        lineItems: {
+          create: totals.lines.map((line) => ({
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            taxRate: line.taxRate,
+            subtotal: line.subtotal,
+            taxAmount: line.taxAmount,
+            totalAmount: line.totalAmount,
+            sortOrder: line.sortOrder,
+          })),
+        },
+      },
+      select: { id: true },
+    });
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: invoice.id,
+      action: "FINANCE_INVOICE_CREATED",
+      message: `raised invoice ${invoiceNumber} from proposal ${proposal.proposalNumber}`,
+      metadata: {
+        invoiceNumber,
+        proposalId: proposal.id,
+        currency: proposal.currency,
+        totalAmount: toAmountString(totals.totalAmount),
+      } as Prisma.InputJsonValue,
+    });
+
+    await linkIntegration(tx, context, {
+      integrationType: IntegrationType.SALES_PROPOSAL_FINANCE_INVOICE,
+      source: { id: proposal.id },
+      target: { id: invoice.id },
+    });
+
+    return invoice.id;
+  });
+
+  return getInvoice(context, invoiceId);
+}
+
+/** Invoices already drawn from one proposal, so a second click meets the first. */
+export async function listInvoicesForProposal(
+  context: UserContext,
+  proposalId: string,
+): Promise<InvoiceSummaryDTO[]> {
+  if (!can(context, "finance.invoice.view")) return [];
+
+  const rows = await prisma.invoice.findMany({
+    where: {
+      AND: [buildInvoiceScopeWhere(context), { sourceProposalId: proposalId }],
+    },
+    orderBy: { createdAt: "desc" },
+    select: repository.SUMMARY_SELECT,
+  });
+
+  const paid = await paidByInvoice(rows.map((row) => row.id));
+  return rows.map((row) => toSummaryDTO(row, paid.get(row.id)));
 }
 
 export async function updateInvoice(
