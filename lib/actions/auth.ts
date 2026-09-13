@@ -1,14 +1,18 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { headers } from "next/headers";
+import { after } from "next/server";
 
 import { signIn, signOut } from "@/lib/auth";
+import { SignInRateLimited } from "@/lib/auth/errors";
 import { recordAuthEvent } from "@/lib/auth/events";
 import { credentialsSchema, forgotPasswordSchema } from "@/lib/auth/schema";
 import { requestPasswordReset, resetPassword } from "@/lib/auth/password-reset";
 import { resetPasswordSchema } from "@/lib/auth/schema";
 import { revokeSession } from "@/lib/auth/session-store";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
+import { clientAddress, hitThrottle, userAgentOf } from "@/lib/core/security/throttle";
 
 export type SignInResult = { error: string } | undefined;
 
@@ -39,12 +43,21 @@ export async function signInAction(input: {
       redirectTo: callbackUrl,
     });
   } catch (error) {
+    // Too many recent failures: waiting is the fix, so say so (PRD #38 §17).
+    if (error instanceof SignInRateLimited || (error instanceof AuthError && readCode(error) === "rate_limited")) {
+      return { error: "Too many sign-in attempts. Wait a few minutes and try again." };
+    }
     if (error instanceof AuthError) {
       return { error: "Incorrect email or password." };
     }
     // Re-thrown so Next.js can act on the NEXT_REDIRECT signal signIn raises.
     throw error;
   }
+}
+
+function readCode(error: AuthError): string | undefined {
+  const code = (error as AuthError & { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
 }
 
 /**
@@ -78,10 +91,21 @@ export async function signOutAction(): Promise<void> {
  */
 export async function requestPasswordResetAction(email: string): Promise<{ ok: true }> {
   const parsed = forgotPasswordSchema.safeParse({ email });
+  if (!parsed.success) return { ok: true };
 
-  if (parsed.success) {
-    await requestPasswordReset(parsed.data.email);
-  }
+  const requestHeaders = await headers();
+  const ipAddress = clientAddress(requestHeaders);
+  const userAgent = userAgentOf(requestHeaders);
+
+  // Counted per address and per account, whether or not the account exists
+  // (PRD #38 §17, §18). A throttled request gets the same answer as any other.
+  const allowance = await hitThrottle("AUTH_RESET_REQUEST", { account: parsed.data.email, ip: ipAddress });
+  if (!allowance.allowed) return { ok: true };
+
+  // After the response: looking the account up and sending the message take
+  // measurably longer when the account exists, and the response time must not
+  // say which (PRD #38 §16).
+  after(() => requestPasswordReset(parsed.data.email, { ipAddress, userAgent }));
 
   return { ok: true };
 }
@@ -103,6 +127,15 @@ export async function resetPasswordAction(input: {
       ok: false,
       error: parsed.error.issues[0]?.message ?? "Please review the form and try again.",
     };
+  }
+
+  const requestHeaders = await headers();
+  const allowance = await hitThrottle("AUTH_RESET_SUBMIT", {
+    token: parsed.data.token,
+    ip: clientAddress(requestHeaders),
+  });
+  if (!allowance.allowed) {
+    return { ok: false, error: "Too many attempts. Wait a few minutes and try again." };
   }
 
   const result = await resetPassword(parsed.data.token, parsed.data.password);

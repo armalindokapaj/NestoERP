@@ -4,10 +4,11 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
-import { sendMail } from "@/lib/mail/transport";
+import { sendMail } from "@/lib/mail";
+import { hitThrottle, retryAfterMinutes } from "@/lib/core/security/throttle";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
-import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { recordAuditEvent, recordUserAction } from "@/lib/core/audit/audit.service";
 import type { InviteMemberInput } from "../team.schema";
 import type { InvitationDTO } from "../team.types";
 import {
@@ -36,6 +37,8 @@ export type InviteResult = {
   email: string;
   /** False when the invitation exists but the message could not be sent. */
   delivered: boolean;
+  /** Where the message got to: SUPPRESSED is a staging address outside the allowlist. */
+  deliveryStatus: "SENT" | "FAILED" | "SUPPRESSED";
   /** Development only, so the flow can be walked without a mail provider. */
   inviteUrl?: string;
 };
@@ -57,7 +60,7 @@ export async function listInvitations(
     take: 200,
   });
 
-  const [roles, departments, inviters] = await Promise.all([
+  const [roles, departments, inviters, deliveries] = await Promise.all([
     prisma.role.findMany({ select: { id: true, name: true } }),
     prisma.department.findMany({
       where: { companyId: context.companyId },
@@ -67,7 +70,20 @@ export async function listInvitations(
       where: { companyId: context.companyId },
       select: { id: true, user: { select: { firstName: true, lastName: true } } },
     }),
+    // Newest first, so the first one seen per invitation is its latest message.
+    prisma.mailDelivery.findMany({
+      where: { entityType: "CompanyInvite", entityId: { in: rows.map((row) => row.id) } },
+      orderBy: { createdAt: "desc" },
+      select: { entityId: true, status: true, errorCode: true, createdAt: true },
+    }),
   ]);
+
+  const deliveryByInvite = new Map<string, (typeof deliveries)[number]>();
+  for (const delivery of deliveries) {
+    if (delivery.entityId && !deliveryByInvite.has(delivery.entityId)) {
+      deliveryByInvite.set(delivery.entityId, delivery);
+    }
+  }
 
   const roleById = new Map(roles.map((role) => [role.id, role]));
   const departmentById = new Map(departments.map((department) => [department.id, department]));
@@ -90,6 +106,12 @@ export async function listInvitations(
     // Derived, so a row nobody has swept still reads as expired (PRD #14 §236).
     status:
       row.status === "PENDING" && isInviteExpired(row.expiresAt, now) ? "EXPIRED" : row.status,
+    delivery: (() => {
+      const delivery = deliveryByInvite.get(row.id);
+      return delivery
+        ? { status: delivery.status, errorCode: delivery.errorCode, at: delivery.createdAt.toISOString() }
+        : null;
+    })(),
   }));
 }
 
@@ -254,7 +276,12 @@ export async function inviteMember(
     return invite;
   });
 
-  return deliverInvite(created.id, email, token, context.company.name, context.fullName);
+  return deliverInvite(context, {
+    inviteId: created.id,
+    email,
+    token,
+    templateKey: "team.invitation",
+  });
 }
 
 export async function resendInvitation(
@@ -276,6 +303,16 @@ export async function resendInvitation(
   }
   if (invite.status === "CANCELLED") {
     throw new AccessError("CONFLICT", "That invitation was cancelled.");
+  }
+
+  // Per invitation and per sender: a resend is an email to a real person, and
+  // a button pressed in a loop must not become a way to flood one (PRD #38 §15).
+  const allowance = await hitThrottle("INVITE_RESEND", { invite: inviteId, member: context.membershipId });
+  if (!allowance.allowed) {
+    throw new AccessError(
+      "CONFLICT",
+      `That invitation has been resent too often. Try again in ${retryAfterMinutes(allowance)} minutes.`,
+    );
   }
 
   const token = generateInviteToken();
@@ -303,7 +340,20 @@ export async function resendInvitation(
     });
   });
 
-  return deliverInvite(inviteId, invite.email, token, context.company.name, context.fullName);
+  const result = await deliverInvite(context, {
+    inviteId,
+    email: invite.email,
+    token,
+    templateKey: "team.invitation_resend",
+  });
+
+  await recordUserAction(context, {
+    actionKey: AuditAction.TEAM_INVITATION_RESENT,
+    entity: { type: "CompanyInvite", id: inviteId, label: invite.email },
+    after: { email: invite.email, deliveryStatus: result.deliveryStatus },
+  });
+
+  return result;
 }
 
 export async function cancelInvitation(context: UserContext, inviteId: string): Promise<void> {
@@ -344,6 +394,17 @@ export async function cancelInvitation(context: UserContext, inviteId: string): 
       message: `cancelled the invitation to ${invite.email}`,
       metadata: { email: invite.email } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.TEAM_INVITATION_CANCELLED,
+        entity: { type: "CompanyInvite", id: inviteId, label: invite.email },
+        before: { status: invite.status },
+        after: { email: invite.email, status: "CANCELLED" },
+      },
+      { tx },
+    );
   });
 }
 
@@ -543,6 +604,28 @@ export async function acceptInvite(
       },
     });
 
+    // Access granted is required evidence, and it commits with the membership
+    // it describes (PRD #28 §95).
+    await recordAuditEvent(
+      {
+        companyId: invite.companyId,
+        actor: {
+          type: "USER",
+          userId: user.id,
+          memberId: membership.id,
+          displayNameSnapshot: `${user.firstName} ${user.lastName}`,
+        },
+      },
+      {
+        actionKey: AuditAction.TEAM_MEMBER_ACTIVATED,
+        entity: { type: "CompanyMember", id: membership.id, label: invite.email },
+        before: { status: "INVITED" },
+        after: { status: "ACTIVE" },
+        metadata: { via: "invitation" },
+      },
+      { tx },
+    );
+
     return {
       userId: user.id,
       membershipId: membership.id,
@@ -560,45 +643,54 @@ export async function acceptInvite(
  * Sends the message, and reports failure rather than throwing.
  *
  * The invitation is already committed by the time this runs, so a provider
- * outage leaves something a manager can resend (PRD #14 §71, §72).
+ * outage leaves something a manager can resend (PRD #14 §71, §72). The outcome
+ * is recorded as a `MailDelivery` against the invitation, which is what the
+ * invitation list shows (PRD #38 §14, §21).
  */
 async function deliverInvite(
-  inviteId: string,
-  email: string,
-  token: string,
-  companyName: string,
-  inviterName: string,
+  context: UserContext,
+  input: {
+    inviteId: string;
+    email: string;
+    token: string;
+    templateKey: "team.invitation" | "team.invitation_resend";
+  },
 ): Promise<InviteResult> {
-  const url = inviteUrl(token);
+  const url = inviteUrl(input.token);
   const isDevelopment = process.env.NODE_ENV !== "production";
+  const expiresInDays = Math.round((inviteExpiry().getTime() - Date.now()) / 86_400_000);
 
+  let deliveryStatus: InviteResult["deliveryStatus"] = "FAILED";
   try {
-    await sendMail({
-      to: email,
-      subject: `${inviterName} invited you to ${companyName} on NESTO`,
-      body: [
-        `${inviterName} has invited you to join ${companyName} on NESTO.`,
-        "",
-        `Accept the invitation: ${url}`,
-        "",
-        "If you were not expecting this, you can ignore this message.",
-      ].join("\n"),
+    const outcome = await sendMail({
+      to: input.email,
+      templateKey: input.templateKey,
+      variables: {
+        inviterName: context.fullName,
+        companyName: context.company.name,
+        acceptUrl: url,
+        expiresInDays: String(expiresInDays),
+      },
+      // One key per issued token: a retried request never mails the same link
+      // twice, and a resend — a new token — always mails (PRD #38 §155).
+      idempotencyKey: `invite:${input.inviteId}:${hashInviteToken(input.token).slice(0, 16)}`,
+      companyId: context.companyId,
+      entity: { type: "CompanyInvite", id: input.inviteId },
     });
-
-    return {
-      inviteId,
-      email,
-      delivered: true,
-      ...(isDevelopment ? { inviteUrl: url } : {}),
-    };
+    deliveryStatus = outcome.status;
   } catch (error) {
     // Log the failure, never the token (PRD #14 §313).
-    console.error("[team] invitation email failed", { inviteId, error });
-    return {
-      inviteId,
-      email,
-      delivered: false,
-      ...(isDevelopment ? { inviteUrl: url } : {}),
-    };
+    console.error("[team] invitation email failed", {
+      inviteId: input.inviteId,
+      error: error instanceof Error ? error.message : "unknown",
+    });
   }
+
+  return {
+    inviteId: input.inviteId,
+    email: input.email,
+    delivered: deliveryStatus === "SENT",
+    deliveryStatus,
+    ...(isDevelopment ? { inviteUrl: url } : {}),
+  };
 }

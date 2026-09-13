@@ -99,6 +99,8 @@ export type InvitationDTO = {
   expiresAt: string;
   /** Derived, so an unswept row still reads as expired (PRD #14 §236). */
   status: CompanyInviteStatus;
+  /** The latest message sent for it, so a failed email is visible (PRD #38 §21). */
+  delivery: { status: "QUEUED" | "SENT" | "FAILED" | "SUPPRESSED"; errorCode: string | null; at: string } | null;
 };
 
 export type DepartmentSummaryDTO = {

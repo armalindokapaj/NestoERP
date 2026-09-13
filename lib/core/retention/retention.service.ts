@@ -74,6 +74,20 @@ async function countAndDelete(
       const { count } = await prisma.notificationEventOutbox.deleteMany({ where });
       return { candidates, deleted: count };
     }
+    case "mail-deliveries.settled": {
+      const where = { createdAt: { lt: cutoff }, status: { not: "QUEUED" as const } };
+      const candidates = await prisma.mailDelivery.count({ where });
+      if (dryRun) return { candidates, deleted: 0 };
+      const { count } = await prisma.mailDelivery.deleteMany({ where });
+      return { candidates, deleted: count };
+    }
+    case "rate-limit-buckets.expired": {
+      const where = { windowEndsAt: { lt: cutoff } };
+      const candidates = await prisma.rateLimitBucket.count({ where });
+      if (dryRun) return { candidates, deleted: 0 };
+      const { count } = await prisma.rateLimitBucket.deleteMany({ where });
+      return { candidates, deleted: count };
+    }
     default:
       return { candidates: 0, deleted: 0 };
   }

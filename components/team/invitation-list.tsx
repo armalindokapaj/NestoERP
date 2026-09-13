@@ -13,6 +13,34 @@ import type { InvitationDTO } from "@/lib/modules/team/team.types";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 /**
+ * Whether the latest email for an open invitation arrived at the provider.
+ * A failure is shown where the person who can fix it — by resending — will see
+ * it (PRD #38 §21).
+ */
+function DeliveryNote({ delivery }: { delivery: InvitationDTO["delivery"] }) {
+  if (!delivery) return null;
+  if (delivery.status === "FAILED") {
+    return (
+      <p className="mt-0.5 flex items-center gap-1 text-meta text-danger-strong">
+        <MailWarning aria-hidden="true" className="size-3.5" />
+        The email could not be delivered. Resend to try again.
+      </p>
+    );
+  }
+  if (delivery.status === "SUPPRESSED") {
+    return (
+      <p className="mt-0.5 text-meta text-warning-strong">
+        Not sent: this environment only mails allowlisted addresses.
+      </p>
+    );
+  }
+  if (delivery.status === "SENT") {
+    return <p className="mt-0.5 text-meta text-fg-subtle">Email sent {formatDate(delivery.at)}</p>;
+  }
+  return null;
+}
+
+/**
  * Pending and settled invitations (PRD #14 §68, §69, §70).
  *
  * Resend and cancel are only ever offered on an invitation that is still open:
@@ -97,6 +125,7 @@ export function InvitationList({
                   Invited {formatDate(invite.invitedAt)} by {orDash(invite.invitedBy)} ·{" "}
                   {expired ? "Expired" : "Expires"} {formatDate(invite.expiresAt)}
                 </p>
+                {open || expired ? <DeliveryNote delivery={invite.delivery} /> : null}
               </div>
 
               <div className="flex shrink-0 items-center gap-2">

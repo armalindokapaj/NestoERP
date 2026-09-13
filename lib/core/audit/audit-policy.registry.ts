@@ -15,9 +15,15 @@ export const AuditAction = {
   AUTH_LOGOUT: "AUTH_LOGOUT",
   AUTH_PASSWORD_RESET_REQUESTED: "AUTH_PASSWORD_RESET_REQUESTED",
   AUTH_PASSWORD_RESET_COMPLETED: "AUTH_PASSWORD_RESET_COMPLETED",
+  // Account basics (PRD #38 §20, §156)
+  AUTH_PASSWORD_CHANGED: "AUTH_PASSWORD_CHANGED",
+  AUTH_SESSIONS_REVOKED: "AUTH_SESSIONS_REVOKED",
+  USER_PROFILE_UPDATED: "USER_PROFILE_UPDATED",
 
   // Access control (PRD #28 §95)
   TEAM_MEMBER_INVITED: "TEAM_MEMBER_INVITED",
+  TEAM_INVITATION_RESENT: "TEAM_INVITATION_RESENT",
+  TEAM_INVITATION_CANCELLED: "TEAM_INVITATION_CANCELLED",
   TEAM_MEMBER_ACTIVATED: "TEAM_MEMBER_ACTIVATED",
   TEAM_MEMBER_DEACTIVATED: "TEAM_MEMBER_DEACTIVATED",
   TEAM_MEMBER_SUSPENDED: "TEAM_MEMBER_SUSPENDED",
@@ -25,6 +31,8 @@ export const AuditAction = {
   TEAM_MEMBER_DEPARTMENT_CHANGED: "TEAM_MEMBER_DEPARTMENT_CHANGED",
 
   // Configuration (PRD #28 §98)
+  /** A company provisioned by the bootstrap CLI rather than a seed (PRD #38 §19). */
+  COMPANY_CREATED: "COMPANY_CREATED",
   COMPANY_SETTINGS_UPDATED: "COMPANY_SETTINGS_UPDATED",
   COMPANY_MODULE_ENABLED: "COMPANY_MODULE_ENABLED",
   COMPANY_MODULE_DISABLED: "COMPANY_MODULE_DISABLED",
@@ -91,9 +99,16 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.AUTH_LOGOUT, moduleKey: "settings", category: "AUTHENTICATION", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },
   { actionKey: AuditAction.AUTH_PASSWORD_RESET_REQUESTED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: false },
   { actionKey: AuditAction.AUTH_PASSWORD_RESET_COMPLETED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: true },
+  // Never the password, old or new — that it changed is the whole record (PRD #38 §156).
+  { actionKey: AuditAction.AUTH_PASSWORD_CHANGED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: true },
+  { actionKey: AuditAction.AUTH_SESSIONS_REVOKED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["scope", "revoked"], required: false },
+  { actionKey: AuditAction.USER_PROFILE_UPDATED, moduleKey: "settings", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["firstName", "lastName", "phone", "jobTitle"], required: false },
 
   /* Access control ------------------------------------------------------- */
   { actionKey: AuditAction.TEAM_MEMBER_INVITED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["email", "roleKey"], required: true },
+  // A resend issues a new credential and retires the old one (PRD #38 §15).
+  { actionKey: AuditAction.TEAM_INVITATION_RESENT, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["email", "deliveryStatus"], required: false },
+  { actionKey: AuditAction.TEAM_INVITATION_CANCELLED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["email", "status"], required: false },
   { actionKey: AuditAction.TEAM_MEMBER_ACTIVATED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.TEAM_MEMBER_DEACTIVATED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.TEAM_MEMBER_SUSPENDED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
@@ -102,6 +117,7 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.TEAM_MEMBER_DEPARTMENT_CHANGED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["departmentId", "departmentName"], required: false },
 
   /* Configuration -------------------------------------------------------- */
+  { actionKey: AuditAction.COMPANY_CREATED, moduleKey: "settings", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["name", "slug", "ownerEmail", "modules"], required: true },
   { actionKey: AuditAction.COMPANY_SETTINGS_UPDATED, moduleKey: "settings", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["locale", "timezone", "dateFormat", "fiscalYearStartMonth", "defaultPaymentTermsDays", "defaultTaxRate"], required: false },
   { actionKey: AuditAction.COMPANY_MODULE_ENABLED, moduleKey: "settings", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["moduleKey", "enabled"], required: true },
   { actionKey: AuditAction.COMPANY_MODULE_DISABLED, moduleKey: "settings", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["moduleKey", "enabled"], required: true },

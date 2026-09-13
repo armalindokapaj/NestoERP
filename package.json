@@ -29,7 +29,9 @@
     "retention:dry-run": "tsx scripts/retention.ts --dry-run",
     "storage:maintenance": "tsx scripts/storage-maintenance.ts",
     "storage:maintenance:apply": "tsx scripts/storage-maintenance.ts --apply",
-    "notifications:dispatch": "tsx scripts/notifications.ts"
+    "notifications:dispatch": "tsx scripts/notifications.ts",
+    "access:sync": "tsx scripts/access-sync.ts",
+    "company:bootstrap": "tsx scripts/company-bootstrap.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

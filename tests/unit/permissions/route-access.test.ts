@@ -104,3 +104,23 @@ describe("isContextlessRoute", () => {
     expect(isContextlessRoute("/dashboard")).toBe(false);
   });
 });
+
+describe("token-authenticated machine routes (PRD #38 §105)", () => {
+  it("lets the metrics endpoint past the session gate, where its handler demands a token", async () => {
+    const { TOKEN_AUTHENTICATED_ROUTES } = await import("@/lib/permissions/route-access");
+    for (const path of TOKEN_AUTHENTICATED_ROUTES) expect(isPublicRoute(path), path).toBe(true);
+    expect(isPublicRoute("/api/internal/health")).toBe(false);
+  });
+
+  it("refuses a request without the exact bearer token, and everything when none is configured", async () => {
+    const { machineRequestAllowed } = await import("@/lib/core/observability/machine-auth");
+    const token = "a".repeat(32);
+    const withToken = (value: string) => new Request("http://x/api/internal/metrics", { headers: { authorization: value } });
+
+    expect(machineRequestAllowed(withToken(`Bearer ${token}`), token)).toBe(true);
+    expect(machineRequestAllowed(withToken(`Bearer ${token}x`), token)).toBe(false);
+    expect(machineRequestAllowed(withToken(token), token)).toBe(false);
+    expect(machineRequestAllowed(withToken(`Bearer ${token}`), undefined)).toBe(false);
+    expect(machineRequestAllowed(withToken("Bearer short"), "short")).toBe(false);
+  });
+});

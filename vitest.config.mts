@@ -24,5 +24,13 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    server: {
+      deps: {
+        // next-auth imports `next/server` without an extension, which Node's
+        // ESM resolver refuses; letting Vite resolve it makes the auth modules
+        // importable from a test.
+        inline: ["next-auth"],
+      },
+    },
   },
 });

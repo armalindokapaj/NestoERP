@@ -27,8 +27,20 @@ const schema = z
 
     STORAGE_DRIVER: z.enum(["local", "s3"]).optional(),
     STORAGE_BUCKET: z.string().optional(),
+    STORAGE_SCANNER: z.enum(["none", "eicar", "clamav"]).optional(),
+    STORAGE_SCANNER_REQUIRED: z.enum(["true", "false"]).optional(),
     REDIS_URL: z.string().optional(),
     MAINTENANCE_MODE: z.enum(["true", "false"]).optional(),
+
+    // Mail (PRD #38 §10, §12, §171)
+    MAIL_PROVIDER: z.enum(["memory", "console", "resend", "postmark"]).optional(),
+    MAIL_FROM: z.string().optional(),
+    MAIL_API_KEY: z.string().optional(),
+    MAIL_ALLOWED_RECIPIENTS: z.string().optional(),
+    APP_URL: z.string().url().optional(),
+
+    // Metrics scraping (PRD #38 §105)
+    METRICS_TOKEN: z.string().min(24, "METRICS_TOKEN must be at least 24 characters").optional(),
   })
   .superRefine((value, ctx) => {
     const appEnv = value.APP_ENV ?? value.NODE_ENV;
@@ -45,6 +57,37 @@ const schema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Local filesystem storage is not permitted in production",
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
+    // Only an explicit APP_ENV makes these strict: a local production build
+    // (`pnpm test:e2e:prod`) sets NODE_ENV alone and runs on the memory sink.
+    const deployed = value.APP_ENV === "production" || value.APP_ENV === "staging";
+    if (!deployed) return;
+
+    const realProvider = value.MAIL_PROVIDER === "resend" || value.MAIL_PROVIDER === "postmark";
+    if (value.APP_ENV === "production" && !realProvider) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "MAIL_PROVIDER must be a real transactional provider in production",
+      });
+    }
+    if (realProvider && (!value.MAIL_FROM || !value.MAIL_API_KEY)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "MAIL_FROM and MAIL_API_KEY are required" });
+    }
+    // Staging never mails a real customer (PRD #38 §12).
+    if (value.APP_ENV === "staging" && realProvider && !value.MAIL_ALLOWED_RECIPIENTS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "MAIL_ALLOWED_RECIPIENTS is required for a real mail provider in staging",
+      });
+    }
+    // A deployed environment scans what it stores (PRD #38 §99, §100).
+    if (value.STORAGE_SCANNER_REQUIRED !== "false" && (!value.STORAGE_SCANNER || value.STORAGE_SCANNER === "none")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "STORAGE_SCANNER must name a scanner in staging and production",
       });
     }
   });

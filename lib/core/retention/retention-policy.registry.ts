@@ -84,6 +84,24 @@ const POLICIES: RetentionPolicy[] = [
     batchSize: 1000,
     description: "Processed outbox rows once delivery is settled.",
   },
+  {
+    key: "mail-deliveries.settled",
+    resourceType: "MailDelivery",
+    retentionDays: 180,
+    deleteMode: "HARD_DELETE",
+    legalHoldAware: false,
+    batchSize: 1000,
+    description: "Mail delivery metadata after six months; bodies are never stored (PRD #38 §164).",
+  },
+  {
+    key: "rate-limit-buckets.expired",
+    resourceType: "RateLimitBucket",
+    retentionDays: 1,
+    deleteMode: "HARD_DELETE",
+    legalHoldAware: false,
+    batchSize: 5000,
+    description: "Throttle windows a day after they closed (PRD #38 §17).",
+  },
   // Everything below is explicitly never purged automatically (PRD #33 §49, §52).
   {
     key: "audit-events",

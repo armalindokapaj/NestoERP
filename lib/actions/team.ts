@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/lib/auth";
 import { AccessError } from "@/lib/access/guards";
 import { requireUserContext } from "@/lib/context/current-user";
+import { clientAddress, hitThrottle } from "@/lib/core/security/throttle";
 import * as departments from "@/lib/modules/team/departments/department.service";
 import * as invitations from "@/lib/modules/team/invitations/invite.service";
 import {
@@ -32,6 +34,21 @@ function revalidateTeam(memberId?: string) {
 export type TeamActionResult =
   | { ok: true; message?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/**
+ * Invitation acceptance is throttled per token and per address (PRD #38 §17):
+ * a token is unguessable, but a form that answers instantly forever is still
+ * an oracle worth closing.
+ */
+async function acceptAllowed(token: string): Promise<TeamActionResult | null> {
+  const allowance = await hitThrottle("INVITE_ACCEPT", {
+    token,
+    ip: clientAddress(await headers()),
+  });
+  return allowance.allowed
+    ? null
+    : { ok: false, error: "Too many attempts. Wait a few minutes and try again." };
+}
 
 function toResult(error: unknown): TeamActionResult {
   if (error instanceof AccessError) return { ok: false, error: error.message };
@@ -174,6 +191,9 @@ export async function acceptInviteAction(formData: FormData): Promise<TeamAction
     };
   }
 
+  const refused = await acceptAllowed(parsed.data.token);
+  if (refused) return refused;
+
   let email: string;
   try {
     // The address comes back from the acceptance itself: by this point the
@@ -208,6 +228,9 @@ export async function acceptInviteAsCurrentUserAction(token: string): Promise<Te
   if (!userId) {
     return { ok: false, error: "Sign in to accept this invitation." };
   }
+
+  const refused = await acceptAllowed(token);
+  if (refused) return refused;
 
   try {
     await invitations.acceptInvite({ token }, { authenticatedUserId: userId });

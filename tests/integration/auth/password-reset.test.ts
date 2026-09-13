@@ -6,7 +6,7 @@ import {
   resetPassword,
 } from "@/lib/auth/password-reset";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { clearOutbox, readOutbox } from "@/lib/mail/transport";
+import { clearOutbox, readOutbox } from "@/lib/mail";
 import { cleanupSessions, createRawSession, prisma } from "../../helpers";
 
 /**
@@ -20,7 +20,7 @@ const EMAIL = "architect@nesto.test";
 function linkToken(): string {
   const message = readOutbox().at(-1);
   if (!message) throw new Error("No reset message was captured.");
-  const match = message.body.match(/token=([a-f0-9]+)/);
+  const match = message.text.match(/token=([a-f0-9]+)/);
   if (!match) throw new Error("No token in the reset message.");
   return match[1];
 }
@@ -36,6 +36,7 @@ afterAll(async () => {
     where: { email: EMAIL },
     data: { passwordHash: await hashPassword("nesto1234") },
   });
+  await prisma.mailDelivery.deleteMany({ where: { recipient: EMAIL, templateKey: "auth.password_reset" } });
   await prisma.passwordResetToken.deleteMany({ where: { user: { email: EMAIL } } });
   await cleanupSessions();
   await prisma.$disconnect();
@@ -53,6 +54,24 @@ describe("requesting a reset", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].tokenHash).not.toBe(token);
     expect(rows[0].tokenHash).toHaveLength(64);
+  });
+
+  it("records the delivery without the link or the token (PRD #38 §13, §16)", async () => {
+    await requestPasswordReset(EMAIL);
+    const token = linkToken();
+    const row = await prisma.passwordResetToken.findFirstOrThrow({ where: { user: { email: EMAIL } } });
+
+    const delivery = await prisma.mailDelivery.findFirstOrThrow({
+      where: { entityType: "PasswordResetToken", entityId: row.id },
+    });
+    expect(delivery.status).toBe("SENT");
+    expect(delivery.templateKey).toBe("auth.password_reset");
+    expect(delivery.recipient).toBe(EMAIL);
+    expect(JSON.stringify(delivery)).not.toContain(token);
+
+    const message = readOutbox().at(-1)!;
+    expect(message.html).toContain("reset-password?token=");
+    expect(message.subject).toBe("Reset your NESTO password");
   });
 
   it("says nothing about an unknown address (PRD #6 §55)", async () => {

@@ -198,6 +198,39 @@ const checks: Check[] = [
     },
   },
   {
+    // PRD #38 §10, §12: a production deployment on a mail sink would silently
+    // swallow every invitation and reset link.
+    name: "production refuses a mail sink",
+    run: () => {
+      const service = readFileSync("lib/mail/mail.service.ts", "utf8");
+      const env = readFileSync("lib/config/env.ts", "utf8");
+      if (!/environment === "production"[\s\S]{0,200}UnconfiguredMailProvider/.test(service)) {
+        return "lib/mail/mail.service.ts no longer refuses memory/console in production";
+      }
+      if (!/MAIL_PROVIDER must be a real transactional provider in production/.test(env)) {
+        return "lib/config/env.ts no longer requires a real mail provider in production";
+      }
+      return null;
+    },
+  },
+  {
+    // PRD #38 §17: every account flow is throttled through the shared store.
+    name: "account flows are throttled",
+    run: () => {
+      const expectations: Array<[string, RegExp]> = [
+        ["lib/auth/credentials.ts", /peekThrottle\("AUTH_LOGIN"/],
+        ["lib/actions/auth.ts", /hitThrottle\("AUTH_RESET_REQUEST"/],
+        ["lib/actions/auth.ts", /hitThrottle\("AUTH_RESET_SUBMIT"/],
+        ["lib/modules/team/invitations/invite.service.ts", /hitThrottle\("INVITE_RESEND"/],
+        ["lib/actions/team.ts", /hitThrottle\("INVITE_ACCEPT"/],
+      ];
+      const missing = expectations
+        .filter(([path, pattern]) => !pattern.test(readFileSync(path, "utf8")))
+        .map(([path, pattern]) => `${path} ${pattern.source}`);
+      return missing.length > 0 ? `unthrottled: ${missing.join("; ")}` : null;
+    },
+  },
+  {
     name: "production source maps stay private",
     run: () => {
       const source = readFileSync("next.config.ts", "utf8");
