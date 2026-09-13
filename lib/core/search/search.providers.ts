@@ -3,6 +3,21 @@ import { buildClientScopeWhere, buildProjectScopeWhere, buildTaskScopeWhere } fr
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
+import { buildContractScopeWhere } from "@/lib/modules/contracts/contract.scope";
+import {
+  buildOrderScopeWhere,
+  buildRequestScopeWhere,
+  buildSupplierWhere,
+} from "@/lib/modules/procurement/procurement.scope";
+import { buildItemScopeWhere } from "@/lib/modules/inventory/inventory.scope";
+import {
+  buildInspectionScopeWhere as buildQaqcInspectionScopeWhere,
+  buildNcrScopeWhere,
+} from "@/lib/modules/qaqc/qaqc.scope";
+import {
+  buildIncidentScopeWhere,
+  buildPermitScopeWhere,
+} from "@/lib/modules/hse/hse.scope";
 import { SCORE, scoreMatch, type GlobalSearchProvider, type GlobalSearchQuery, type GlobalSearchResultDTO } from "./search.types";
 
 /**
@@ -285,6 +300,325 @@ const opportunityProvider: GlobalSearchProvider = {
   },
 };
 
+
+/* -------------------------------------------------------------------------- */
+/* Department modules                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The five providers below cover the modules PRD #26 §70-§100 names and the
+ * 2026-09-13 gap audit found missing. Each one searches the record's number and
+ * its title and nothing else: a purchase order's internal notes, an NCR's
+ * findings and an incident's investigation narrative are exactly the free text
+ * §58, §89 and §100 keep out of an index that spans the whole company.
+ *
+ * Every provider re-uses the module's own scope helper, so a record that would
+ * not appear on the module's list screen cannot appear here either.
+ */
+
+const contractProvider: GlobalSearchProvider = {
+  moduleKey: "contracts",
+  entityTypes: ["contract"],
+  async search(context, query) {
+    if (!available(context, "contracts", "legal.contract.view")) return [];
+
+    const rows = await prisma.contract.findMany({
+      where: {
+        AND: [
+          buildContractScopeWhere(context),
+          {
+            archivedAt: null,
+            OR: [
+              { contractNumber: { contains: query.text, mode: "insensitive" } },
+              { title: { contains: query.text, mode: "insensitive" } },
+            ],
+          },
+        ],
+      },
+      select: { id: true, title: true, contractNumber: true, status: true },
+      take: query.limitPerProvider,
+    });
+
+    return rows.map((row) => ({
+      moduleKey: "contracts",
+      entityType: "contract",
+      entityId: row.id,
+      title: row.title,
+      subtitle: row.contractNumber,
+      href: `/contracts/${row.id}`,
+      score: scoreMatch(query.text, row.title, row.contractNumber),
+      status: row.status,
+    }));
+  },
+};
+
+const procurementProvider: GlobalSearchProvider = {
+  moduleKey: "procurement",
+  entityTypes: ["purchase_order", "purchase_request", "supplier"],
+  async search(context, query) {
+    if (!canAccessModule(context, "procurement")) return [];
+
+    const [orders, requests, suppliers] = await Promise.all([
+      can(context, "procurement.order.view")
+        ? prisma.purchaseOrder.findMany({
+            where: {
+              AND: [
+                buildOrderScopeWhere(context),
+                { archivedAt: null, poNumber: { contains: query.text, mode: "insensitive" } },
+              ],
+            },
+            select: { id: true, poNumber: true, status: true, supplier: { select: { name: true } } },
+            take: query.limitPerProvider,
+          })
+        : [],
+      can(context, "procurement.request.view")
+        ? prisma.purchaseRequest.findMany({
+            where: {
+              AND: [
+                buildRequestScopeWhere(context),
+                {
+                  archivedAt: null,
+                  OR: [
+                    { requestNumber: { contains: query.text, mode: "insensitive" } },
+                    { title: { contains: query.text, mode: "insensitive" } },
+                  ],
+                },
+              ],
+            },
+            select: { id: true, requestNumber: true, title: true, status: true },
+            take: query.limitPerProvider,
+          })
+        : [],
+      can(context, "procurement.supplier.view")
+        ? prisma.supplier.findMany({
+            where: {
+              AND: [
+                buildSupplierWhere(context),
+                {
+                  archivedAt: null,
+                  OR: [
+                    { name: { contains: query.text, mode: "insensitive" } },
+                    { code: { contains: query.text, mode: "insensitive" } },
+                  ],
+                },
+              ],
+            },
+            select: { id: true, name: true, code: true, status: true },
+            take: query.limitPerProvider,
+          })
+        : [],
+    ]);
+
+    return [
+      ...orders.map((row) => ({
+        moduleKey: "procurement",
+        entityType: "purchase_order",
+        entityId: row.id,
+        title: row.poNumber,
+        subtitle: row.supplier?.name ?? null,
+        href: `/procurement/orders/${row.id}`,
+        score: scoreMatch(query.text, row.poNumber),
+        status: row.status,
+      })),
+      ...requests.map((row) => ({
+        moduleKey: "procurement",
+        entityType: "purchase_request",
+        entityId: row.id,
+        title: row.title,
+        subtitle: row.requestNumber,
+        href: `/procurement/requests/${row.id}`,
+        score: scoreMatch(query.text, row.title, row.requestNumber),
+        status: row.status,
+      })),
+      ...suppliers.map((row) => ({
+        moduleKey: "procurement",
+        entityType: "supplier",
+        entityId: row.id,
+        title: row.name,
+        subtitle: row.code,
+        href: `/procurement/suppliers/${row.id}`,
+        score: scoreMatch(query.text, row.name, row.code ?? undefined),
+        status: row.status,
+      })),
+    ];
+  },
+};
+
+const inventoryProvider: GlobalSearchProvider = {
+  moduleKey: "inventory",
+  entityTypes: ["inventory_item"],
+  async search(context, query) {
+    if (!available(context, "inventory", "inventory.item.view")) return [];
+
+    const rows = await prisma.inventoryItem.findMany({
+      where: {
+        AND: [
+          buildItemScopeWhere(context),
+          {
+            archivedAt: null,
+            OR: [
+              { sku: { contains: query.text, mode: "insensitive" } },
+              { name: { contains: query.text, mode: "insensitive" } },
+            ],
+          },
+        ],
+      },
+      // Stock figures are a separate permission and are deliberately not part
+      // of a search result (PRD #20 §31).
+      select: { id: true, sku: true, name: true, status: true },
+      take: query.limitPerProvider,
+    });
+
+    return rows.map((row) => ({
+      moduleKey: "inventory",
+      entityType: "inventory_item",
+      entityId: row.id,
+      title: row.name,
+      subtitle: row.sku,
+      href: `/inventory/items/${row.id}`,
+      score: scoreMatch(query.text, row.name, row.sku),
+      status: row.status,
+    }));
+  },
+};
+
+const qaqcProvider: GlobalSearchProvider = {
+  moduleKey: "qaqc",
+  entityTypes: ["quality_inspection", "ncr"],
+  async search(context, query) {
+    if (!canAccessModule(context, "qaqc")) return [];
+
+    const [inspections, ncrs] = await Promise.all([
+      can(context, "qaqc.inspection.view")
+        ? prisma.qualityInspection.findMany({
+            where: {
+              AND: [
+                buildQaqcInspectionScopeWhere(context),
+                { inspectionNumber: { contains: query.text, mode: "insensitive" } },
+              ],
+            },
+            select: { id: true, inspectionNumber: true, status: true, result: true },
+            take: query.limitPerProvider,
+          })
+        : [],
+      can(context, "qaqc.ncr.view")
+        ? prisma.nonConformanceReport.findMany({
+            where: {
+              AND: [
+                buildNcrScopeWhere(context),
+                {
+                  OR: [
+                    { ncrNumber: { contains: query.text, mode: "insensitive" } },
+                    { title: { contains: query.text, mode: "insensitive" } },
+                  ],
+                },
+              ],
+            },
+            select: { id: true, ncrNumber: true, title: true, status: true },
+            take: query.limitPerProvider,
+          })
+        : [],
+    ]);
+
+    return [
+      ...inspections.map((row) => ({
+        moduleKey: "qaqc",
+        entityType: "quality_inspection",
+        entityId: row.id,
+        title: row.inspectionNumber,
+        subtitle: row.result,
+        href: `/qaqc/inspections/${row.id}`,
+        score: scoreMatch(query.text, row.inspectionNumber),
+        status: row.status,
+      })),
+      ...ncrs.map((row) => ({
+        moduleKey: "qaqc",
+        entityType: "ncr",
+        entityId: row.id,
+        title: row.title,
+        subtitle: row.ncrNumber,
+        href: `/qaqc/ncrs/${row.id}`,
+        score: scoreMatch(query.text, row.title, row.ncrNumber),
+        status: row.status,
+      })),
+    ];
+  },
+};
+
+const hseProvider: GlobalSearchProvider = {
+  moduleKey: "hse",
+  entityTypes: ["hse_incident", "hse_permit"],
+  async search(context, query) {
+    if (!canAccessModule(context, "hse")) return [];
+
+    const [incidents, permits] = await Promise.all([
+      can(context, "hse.incident.view")
+        ? prisma.hseIncident.findMany({
+            where: {
+              AND: [
+                buildIncidentScopeWhere(context),
+                {
+                  OR: [
+                    { incidentNumber: { contains: query.text, mode: "insensitive" } },
+                    { title: { contains: query.text, mode: "insensitive" } },
+                  ],
+                },
+              ],
+            },
+            /*
+             * Number, title and status only. The description, the injury
+             * detail and the investigation findings are the sensitive half of
+             * an incident and are behind their own permissions — a search
+             * result must not become the way around them (PRD #26 §89).
+             */
+            select: { id: true, incidentNumber: true, title: true, status: true },
+            take: query.limitPerProvider,
+          })
+        : [],
+      can(context, "hse.permit.view")
+        ? prisma.hseWorkPermit.findMany({
+            where: {
+              AND: [
+                buildPermitScopeWhere(context),
+                {
+                  OR: [
+                    { permitNumber: { contains: query.text, mode: "insensitive" } },
+                    { title: { contains: query.text, mode: "insensitive" } },
+                  ],
+                },
+              ],
+            },
+            select: { id: true, permitNumber: true, title: true, status: true },
+            take: query.limitPerProvider,
+          })
+        : [],
+    ]);
+
+    return [
+      ...incidents.map((row) => ({
+        moduleKey: "hse",
+        entityType: "hse_incident",
+        entityId: row.id,
+        title: row.title,
+        subtitle: row.incidentNumber,
+        href: `/hse/incidents/${row.id}`,
+        score: scoreMatch(query.text, row.title, row.incidentNumber),
+        status: row.status,
+      })),
+      ...permits.map((row) => ({
+        moduleKey: "hse",
+        entityType: "hse_permit",
+        entityId: row.id,
+        title: row.title,
+        subtitle: row.permitNumber,
+        href: `/hse/permits/${row.id}`,
+        score: scoreMatch(query.text, row.title, row.permitNumber),
+        status: row.status,
+      })),
+    ];
+  },
+};
+
 export const searchProviders: GlobalSearchProvider[] = [
   projectProvider,
   taskProvider,
@@ -293,6 +627,11 @@ export const searchProviders: GlobalSearchProvider[] = [
   teamProvider,
   invoiceProvider,
   opportunityProvider,
+  contractProvider,
+  procurementProvider,
+  inventoryProvider,
+  qaqcProvider,
+  hseProvider,
 ];
 
 export { SCORE };

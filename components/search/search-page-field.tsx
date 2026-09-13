@@ -1,0 +1,43 @@
+"use client";
+
+import * as React from "react";
+import { useRouter } from "next/navigation";
+
+import { SearchField } from "@/components/ui/search-field";
+
+/**
+ * The search box on /search (PRD #26 §12, §166).
+ *
+ * Submits through the URL rather than fetching, so the page stays a server
+ * component and a search is a link somebody can bookmark, share or reload. It
+ * is a form: pressing Enter searches, which is what the keyboard expects, and
+ * it works with JavaScript disabled.
+ */
+export function SearchPageField({ defaultValue }: { defaultValue: string }) {
+  const router = useRouter();
+  const [value, setValue] = React.useState(defaultValue);
+
+  // A new query from elsewhere (a link, the back button) has to win over what
+  // this field is holding.
+  React.useEffect(() => setValue(defaultValue), [defaultValue]);
+
+  return (
+    <form
+      action="/search"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const term = value.trim();
+        router.push(term ? `/search?q=${encodeURIComponent(term)}` : "/search");
+      }}
+    >
+      <SearchField
+        name="q"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder="Search projects, contracts, orders, stock, people…"
+        aria-label="Search"
+        autoFocus
+      />
+    </form>
+  );
+}
