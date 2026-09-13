@@ -6,6 +6,8 @@ import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { sendMail } from "@/lib/mail/transport";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import type { InviteMemberInput } from "../team.schema";
 import type { InvitationDTO } from "../team.types";
 import {
@@ -232,6 +234,22 @@ export async function inviteMember(
         departmentId: department?.id ?? null,
       } as Prisma.InputJsonValue,
     });
+
+    /*
+     * An invitation is the moment access is granted to somebody new, so the
+     * policy is `required` and the evidence commits with the invite itself
+     * (PRD #28 §95, §136). The token never appears here — the allowFields list
+     * is email and roleKey (PRD #14 §171).
+     */
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.TEAM_MEMBER_INVITED,
+        entity: { type: "CompanyInvite", id: invite.id, label: email },
+        after: { email, roleKey: role.key },
+      },
+      { tx },
+    );
 
     return invite;
   });

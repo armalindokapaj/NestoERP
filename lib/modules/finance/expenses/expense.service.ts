@@ -6,6 +6,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import { businessDateString } from "../finance.fields";
@@ -307,6 +309,23 @@ export async function approveExpense(
       action: "FINANCE_EXPENSE_APPROVED",
       message: `approved expense ${existing.description}`,
     });
+
+    // `required` policy: the evidence commits with the approval (PRD #28 §136).
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_EXPENSE_APPROVED,
+        entity: { type: ENTITY, id: expenseId, label: existing.expenseNumber },
+        before: { status: existing.status },
+        after: {
+          status: "APPROVED",
+          amount: existing.totalAmount.toString(),
+          currency: existing.currency,
+        },
+        reason: note,
+      },
+      { tx },
+    );
   });
 }
 
@@ -335,6 +354,18 @@ export async function rejectExpense(
       message: `rejected expense ${existing.description}`,
       metadata: { reason } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_EXPENSE_REJECTED,
+        entity: { type: ENTITY, id: expenseId, label: existing.expenseNumber },
+        before: { status: existing.status },
+        after: { status: "REJECTED" },
+        reason,
+      },
+      { tx },
+    );
   });
 }
 

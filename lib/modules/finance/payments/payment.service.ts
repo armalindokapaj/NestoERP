@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import { businessDateString } from "../finance.fields";
 import { money, toAmountString } from "../finance.money";
@@ -215,6 +217,23 @@ async function recordReceipt(
     metadata: { invoiceId: invoice.id, direction: "RECEIPT" } as Prisma.InputJsonValue,
   });
 
+  // Money moving is `required` evidence, recorded on the caller's transaction
+  // so a payment cannot exist unaudited (PRD #28 §102, §136).
+  await recordUserAction(
+    context,
+    {
+      actionKey: AuditAction.FINANCE_PAYMENT_RECORDED,
+      entity: { type: ENTITY, id: payment.id, label: invoice.invoiceNumber },
+      after: {
+        amount: amount.toString(),
+        currency: invoice.currency,
+        direction: "RECEIPT",
+        status: "RECORDED",
+      },
+    },
+    { tx },
+  );
+
   return payment.id;
 }
 
@@ -277,6 +296,25 @@ async function recordDisbursement(
     metadata: { expenseId: expense.id, direction: "DISBURSEMENT" } as Prisma.InputJsonValue,
   });
 
+  await recordUserAction(
+    context,
+    {
+      actionKey: AuditAction.FINANCE_PAYMENT_RECORDED,
+      entity: {
+        type: ENTITY,
+        id: payment.id,
+        label: expense.expenseNumber ?? expense.description,
+      },
+      after: {
+        amount: amount.toString(),
+        currency: expense.currency,
+        direction: "DISBURSEMENT",
+        status: "RECORDED",
+      },
+    },
+    { tx },
+  );
+
   return payment.id;
 }
 
@@ -335,6 +373,23 @@ export async function voidPayment(
       message: `voided ${toAmountString(payment.amount)} ${payment.currency} against ${target}`,
       metadata: { reason } as Prisma.InputJsonValue,
     });
+
+    // Reversing money is the CRITICAL one in this module (PRD #28 §102).
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_PAYMENT_REVERSED,
+        entity: { type: ENTITY, id: paymentId, label: target },
+        before: {
+          amount: payment.amount.toString(),
+          currency: payment.currency,
+          status: "RECORDED",
+        },
+        after: { status: "VOIDED" },
+        reason,
+      },
+      { tx },
+    );
   });
 }
 

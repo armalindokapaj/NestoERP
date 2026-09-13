@@ -6,6 +6,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import { toAmountString } from "../finance.money";
@@ -424,6 +426,29 @@ export async function approveBudget(
         totalAmount: toAmountString(existing.totalAmount),
       } as Prisma.InputJsonValue,
     });
+
+    // `required`: an approved budget is what every later commitment is checked
+    // against, so it may not become approved unaudited (PRD #28 §102, §136).
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.FINANCE_BUDGET_APPROVED,
+        entity: {
+          type: ENTITY,
+          id: budgetId,
+          label: `v${existing.version} — ${existing.project.name}`,
+        },
+        projectId: existing.projectId,
+        before: { status: existing.status },
+        after: {
+          status: "APPROVED",
+          amount: toAmountString(existing.totalAmount),
+          currency: existing.currency,
+        },
+        reason: note,
+      },
+      { tx },
+    );
   });
 }
 

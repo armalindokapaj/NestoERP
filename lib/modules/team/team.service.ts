@@ -5,6 +5,8 @@ import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as repository from "./team.repository";
 import { canTransitionMembershipStatus } from "./membership.status";
@@ -258,6 +260,46 @@ export async function updateMember(
         metadata: { memberId } as Prisma.InputJsonValue,
       });
     }
+
+    /*
+     * A role change is what decides what somebody may do, so its policy is
+     * CRITICAL and `required` — the evidence commits with the change
+     * (PRD #28 §95, §136). The department move is recorded too, at INFO: it
+     * shifts departmental scope, which is quieter but still an access change.
+     */
+    const label = `${existing.user.firstName} ${existing.user.lastName}`.trim();
+
+    if (roleChanged) {
+      await recordUserAction(
+        context,
+        {
+          actionKey: AuditAction.TEAM_MEMBER_ROLE_CHANGED,
+          entity: { type: ENTITY, id: memberId, label },
+          before: { roleKey: existing.role.key, roleName: existing.role.name },
+          after: { roleKey: nextRole.key, roleName: nextRole.name },
+        },
+        { tx },
+      );
+    }
+
+    if (departmentChanged) {
+      await recordUserAction(
+        context,
+        {
+          actionKey: AuditAction.TEAM_MEMBER_DEPARTMENT_CHANGED,
+          entity: { type: ENTITY, id: memberId, label },
+          before: {
+            departmentId: existing.department?.id ?? null,
+            departmentName: existing.department?.name ?? null,
+          },
+          after: {
+            departmentId: nextDepartment?.id ?? null,
+            departmentName: nextDepartment?.name ?? null,
+          },
+        },
+        { tx },
+      );
+    }
   });
 
   return getMember(context, memberId);
@@ -306,10 +348,17 @@ type StatusChangeOptions = {
   requireProjectHandover?: boolean;
 };
 
+/**
+ * The statuses this path may move a membership to. `INVITED` is deliberately
+ * excluded: it is where a membership starts, not somewhere it can be sent back
+ * to, and the audit map below would otherwise need an entry that cannot occur.
+ */
+type ReachableMembershipStatus = Exclude<MembershipStatus, "INVITED">;
+
 async function changeMembershipStatus(
   context: UserContext,
   memberId: string,
-  next: MembershipStatus,
+  next: ReachableMembershipStatus,
   options: StatusChangeOptions,
 ): Promise<void> {
   assertModule(context, MODULE);
@@ -384,8 +433,39 @@ async function changeMembershipStatus(
         ...(changeMetadata({ status: { from: existing.status, to: next } }) as object),
       } as Prisma.InputJsonValue,
     });
+
+    /*
+     * Access control is the category a compliance reviewer reads first, and
+     * these three policies are `required` — so the evidence commits inside the
+     * same transaction as the status change, or neither happens
+     * (PRD #28 §95, §136).
+     */
+    await recordUserAction(
+      context,
+      {
+        actionKey: STATUS_AUDIT_ACTION[next],
+        entity: {
+          type: ENTITY,
+          id: memberId,
+          label: `${existing.user.firstName} ${existing.user.lastName}`.trim(),
+        },
+        before: { status: existing.status },
+        after: { status: next },
+      },
+      { tx },
+    );
   });
 }
+
+/** Which audit action a membership transition records (PRD #28 §95). */
+const STATUS_AUDIT_ACTION: Record<
+  ReachableMembershipStatus,
+  (typeof AuditAction)[keyof typeof AuditAction]
+> = {
+  ACTIVE: AuditAction.TEAM_MEMBER_ACTIVATED,
+  INACTIVE: AuditAction.TEAM_MEMBER_DEACTIVATED,
+  SUSPENDED: AuditAction.TEAM_MEMBER_SUSPENDED,
+};
 
 /* -------------------------------------------------------------------------- */
 /* Internals                                                                   */

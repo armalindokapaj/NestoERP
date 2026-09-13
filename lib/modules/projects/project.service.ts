@@ -6,6 +6,8 @@ import { can, isModuleEnabled } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as repository from "./project.repository";
 import type {
@@ -220,6 +222,17 @@ export async function createProjectRecord(
     metadata: { projectId: created.id } as Prisma.InputJsonValue,
   });
 
+  await recordUserAction(
+    context,
+    {
+      actionKey: AuditAction.PROJECT_CREATED,
+      entity: { type: "Project", id: created.id, label: created.name },
+      projectId: created.id,
+      after: { code: created.code, name: created.name },
+    },
+    { tx },
+  );
+
   return created;
 }
 
@@ -312,6 +325,18 @@ export async function updateProject(
             ...(changeMetadata({ status: { from: existing.status, to: nextStatus } }) as object),
           } as Prisma.InputJsonValue,
         });
+
+        await recordUserAction(
+          context,
+          {
+            actionKey: AuditAction.PROJECT_STATUS_CHANGED,
+            entity: { type: "Project", id: projectId, label: existing.name },
+            projectId,
+            before: { status: existing.status },
+            after: { status: nextStatus },
+          },
+          { tx },
+        );
       }
 
       if (managerChanged) {
@@ -323,6 +348,18 @@ export async function updateProject(
           message: "changed the project manager",
           metadata: { projectId } as Prisma.InputJsonValue,
         });
+
+        await recordUserAction(
+          context,
+          {
+            actionKey: AuditAction.PROJECT_MANAGER_CHANGED,
+            entity: { type: "Project", id: projectId, label: existing.name },
+            projectId,
+            before: { projectManagerMemberId: existing.projectManagerMemberId },
+            after: { projectManagerMemberId: input.projectManagerMemberId ?? null },
+          },
+          { tx },
+        );
       }
     })
     .catch(translateWriteError);
@@ -359,6 +396,18 @@ export async function archiveProject(context: UserContext, projectId: string): P
       message: "archived the project",
       metadata: { projectId } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.PROJECT_ARCHIVED,
+        entity: { type: "Project", id: projectId, label: existing.name },
+        projectId,
+        before: { status: existing.status, archivedAt: null },
+        after: { status: "ARCHIVED" },
+      },
+      { tx },
+    );
   });
 
   // Tasks, documents, members and activity are deliberately untouched
@@ -392,6 +441,18 @@ export async function restoreProject(context: UserContext, projectId: string): P
       message: "restored the project",
       metadata: { projectId } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.PROJECT_RESTORED,
+        entity: { type: "Project", id: projectId, label: existing.name },
+        projectId,
+        before: { status: "ARCHIVED" },
+        after: { status: existing.preArchiveStatus ?? "PLANNING", archivedAt: null },
+      },
+      { tx },
+    );
   });
 }
 

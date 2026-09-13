@@ -5,6 +5,8 @@ import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { fileTypeLabel, storageStatusMessage } from "@/lib/core/storage";
 import { attachDocumentFromBytes } from "./storage/upload.service";
@@ -285,6 +287,17 @@ export async function archiveDocument(context: UserContext, documentId: string):
       message: `archived ${existing.name}`,
       metadata: { documentId } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.DOCUMENT_ARCHIVED,
+        entity: { type: ENTITY, id: documentId, label: existing.name },
+        before: { status: existing.status, archivedAt: null },
+        after: { status: "ARCHIVED" },
+      },
+      { tx },
+    );
   });
 }
 
@@ -320,6 +333,17 @@ export async function restoreDocument(context: UserContext, documentId: string):
       message: `restored ${existing.name}`,
       metadata: { documentId } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.DOCUMENT_RESTORED,
+        entity: { type: ENTITY, id: documentId, label: existing.name },
+        before: { status: "ARCHIVED" },
+        after: { status: "ACTIVE", archivedAt: null },
+      },
+      { tx },
+    );
   });
 }
 

@@ -5,6 +5,8 @@ import { can, isModuleEnabled } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as repository from "./client.repository";
 import {
@@ -367,6 +369,17 @@ export async function archiveClient(context: UserContext, clientId: string): Pro
       message: "archived the client",
       metadata: { clientId, preArchiveStatus: existing.status } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.CLIENT_ARCHIVED,
+        entity: { type: CLIENT_ENTITY, id: clientId, label: existing.name },
+        before: { status: existing.status, archivedAt: null },
+        after: { status: "ARCHIVED" },
+      },
+      { tx },
+    );
   });
 }
 
@@ -401,6 +414,17 @@ export async function restoreClient(context: UserContext, clientId: string): Pro
       message: "restored the client",
       metadata: { clientId, status: restored } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.CLIENT_RESTORED,
+        entity: { type: CLIENT_ENTITY, id: clientId, label: existing.name },
+        before: { status: "ARCHIVED" },
+        after: { status: restored, archivedAt: null },
+      },
+      { tx },
+    );
   });
 }
 

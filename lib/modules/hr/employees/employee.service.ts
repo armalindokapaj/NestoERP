@@ -5,6 +5,8 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { businessDateString, toBusinessDate } from "../hr.date";
 import { buildHrMemberScopeWhere, isSelf } from "../hr.scope";
@@ -307,6 +309,24 @@ export async function changeEmploymentStatus(
         }) as object),
       } as Prisma.InputJsonValue,
     });
+
+    // Employment status decides pay, leave and access downstream, so its
+    // policy is `required` (PRD #28 §124, §136).
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.HR_EMPLOYMENT_STATUS_CHANGED,
+        entity: {
+          type: ENTITY,
+          id: memberId,
+          label: managerName(existing.companyMember),
+        },
+        before: { employmentStatus: existing.employmentStatus },
+        after: { employmentStatus: next },
+        reason: input.note ?? null,
+      },
+      { tx },
+    );
   });
 }
 
