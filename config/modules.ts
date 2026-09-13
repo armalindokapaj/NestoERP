@@ -462,13 +462,6 @@ export function isModuleKey(value: string): value is ModuleKey {
   return (MODULE_KEYS as readonly string[]).includes(value);
 }
 
-/** Resolves a pathname such as /projects/abc/edit to its owning module. */
-export function moduleForPath(pathname: string): ModuleDefinition | null {
-  const segment = pathname.split("/").filter(Boolean)[0];
-  if (!segment) return null;
-  return isModuleKey(segment) ? modules[segment] : null;
-}
-
 /** The route for a module section: `/projects/all`. */
 export function sectionRoute(moduleKey: ModuleKey, sectionKey: string): string {
   const definition = modules[moduleKey];
