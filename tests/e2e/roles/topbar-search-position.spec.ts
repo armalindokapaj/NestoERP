@@ -5,11 +5,12 @@ import { signIn, signOut, type DemoRole } from "../fixtures";
 /**
  * The search bar holds one position for everyone (PRD #3 §18).
  *
- * The top bar's outer zones share the leftover width equally, so where the
- * search bar lands depends on the viewport and nothing else. Sized to their
- * content instead — the fault this locks out — the zones moved with the length
- * of the signed-in person's name, their role label and the landing module's
- * title, and six roles put the bar in six different places.
+ * The search bar leads the top bar's left zone, after nothing but the
+ * navigation controls, so where it lands depends on the viewport and nothing
+ * else. The fault this locks out is anything role-dependent creeping in ahead
+ * of it or squeezing it: sized to their content, the zones once moved with the
+ * length of the signed-in person's name, their role label and the landing
+ * module's title, and six roles put the bar in six different places.
  *
  * Roles chosen for the spread of cluster widths: a short name and a short role
  * label against a long one of each.
