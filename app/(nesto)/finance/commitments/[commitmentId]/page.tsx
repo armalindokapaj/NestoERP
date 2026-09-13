@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { ApprovalHistory } from "@/components/finance/approval-history";
 import { CommitmentActions } from "@/components/finance/commitment-actions";
 import { Money } from "@/components/finance/money";
@@ -135,6 +136,8 @@ export default async function CommitmentDetailPage({ params }: Params) {
           <ApprovalHistory approvals={commitment.approvals} />
         </section>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="commitment" parentId={commitmentId} />
     </div>
   );
 }

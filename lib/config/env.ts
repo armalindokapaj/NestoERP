@@ -29,6 +29,9 @@ const schema = z
     STORAGE_BUCKET: z.string().optional(),
     STORAGE_SCANNER: z.enum(["none", "eicar", "clamav"]).optional(),
     STORAGE_SCANNER_REQUIRED: z.enum(["true", "false"]).optional(),
+    CLAMAV_HOST: z.string().optional(),
+    CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    CLAMAV_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
     REDIS_URL: z.string().optional(),
     MAINTENANCE_MODE: z.enum(["true", "false"]).optional(),
 
@@ -89,6 +92,13 @@ const schema = z
         code: z.ZodIssueCode.custom,
         message: "STORAGE_SCANNER must name a scanner in staging and production",
       });
+    }
+    // The EICAR scanner recognises one test string; it is not an engine.
+    if (value.APP_ENV === "production" && value.STORAGE_SCANNER === "eicar") {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "STORAGE_SCANNER=eicar is a test scanner and cannot run in production" });
+    }
+    if (value.STORAGE_SCANNER === "clamav" && !value.CLAMAV_HOST) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "STORAGE_SCANNER=clamav needs CLAMAV_HOST" });
     }
   });
 

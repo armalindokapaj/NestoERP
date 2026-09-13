@@ -14,8 +14,8 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { lostReasonLabels } from "@/lib/modules/sales/proposals/proposal.status";
 import * as proposals from "@/lib/modules/sales/proposals/proposal.service";
-import { taskListQuerySchema } from "@/lib/modules/tasks/task.schema";
-import * as tasks from "@/lib/modules/tasks/task.service";
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
+import { RecordTasks } from "@/components/tasks/record-tasks";
 import { formatAmount } from "@/components/sales/sales-format";
 import { formatDate } from "@/lib/utils/format";
 import { opportunityContext } from "./opportunity-context";
@@ -29,22 +29,7 @@ export default async function OpportunityPage({ params }: Params) {
   const { opportunityId } = await params;
   const { context, opportunity } = await opportunityContext(opportunityId);
 
-  const [relatedProposals, relatedTasks] = await Promise.all([
-    proposals.listForOpportunity(context, opportunityId),
-    // Canonical Tasks, filtered to this record — there is no sales task table
-    // (PRD #17 §134, §139).
-    opportunity.capabilities.canViewTasks
-      ? tasks.listTasks(
-          context,
-          taskListQuerySchema.parse({
-            moduleKey: "sales",
-            entityType: "opportunity",
-            entityId: opportunityId,
-            limit: 25,
-          }),
-        )
-      : null,
-  ]);
+  const relatedProposals = await proposals.listForOpportunity(context, opportunityId);
 
   return (
     <div className="space-y-5">
@@ -235,31 +220,13 @@ export default async function OpportunityPage({ params }: Params) {
         </section>
       ) : null}
 
-      {relatedTasks && relatedTasks.data.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-card font-semibold text-fg">Tasks</h2>
-            <Link
-              href={`/sales/tasks?entityId=${opportunityId}`}
-              className="text-table font-medium text-accent-strong"
-            >
-              All tasks
-            </Link>
-          </div>
-          <ul className="nesto-card divide-y divide-line">
-            {relatedTasks.data.map((task) => (
-              <li key={task.id} className="flex items-center justify-between gap-3 p-4">
-                <Link href={`/tasks/${task.id}`} className="min-w-0 truncate text-table text-fg">
-                  {task.title}
-                </Link>
-                <span className="shrink-0 text-meta text-fg-subtle">
-                  {task.dueDate ? formatDate(task.dueDate) : "No due date"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {opportunity.capabilities.canViewTasks ? (
+        <Suspense fallback={<SkeletonTable rows={2} />}>
+          <RecordTasks context={context} parentType="opportunity" parentId={opportunity.id} title="Follow-up tasks" />
+        </Suspense>
       ) : null}
+
+      <CollaborationPanel parentType="opportunity" parentId={opportunity.id} />
 
       {opportunity.capabilities.canViewActivity ? (
         <section className="space-y-3">

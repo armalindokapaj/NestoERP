@@ -140,6 +140,42 @@ export async function runStorageCleanup(
     }
   }
 
+  /*
+   * A later version whose upload never completed (PRD #38 §58). The document
+   * keeps serving its current version; the unfinished one is marked FAILED —
+   * its number stays spent, so version numbers never get reused — and its
+   * object, if any, goes.
+   */
+  const abandonedVersions = await prisma.documentUploadSession.findMany({
+    where: {
+      status: { in: ["EXPIRED", "ABORTED", "FAILED"] },
+      expiresAt: { lt: cutoff },
+      documentVersionId: { not: null },
+      document: { storageStatus: "AVAILABLE" },
+    },
+    select: { id: true, storageKey: true, documentVersionId: true, document: { select: { currentVersionId: true } } },
+  });
+
+  for (const session of abandonedVersions) {
+    if (!session.documentVersionId || session.document.currentVersionId === session.documentVersionId) continue;
+    const version = await prisma.documentVersion.findUnique({
+      where: { id: session.documentVersionId },
+      select: { storageStatus: true },
+    });
+    if (!version || !["PENDING_UPLOAD", "UPLOADED", "VERIFYING"].includes(version.storageStatus)) continue;
+
+    if (await provider.headObject(session.storageKey)) {
+      result.objectsDeleted += 1;
+      if (!dryRun) await provider.deleteObject(session.storageKey).catch(() => undefined);
+    }
+    result.documentsFailed += 1;
+    if (dryRun) continue;
+    await prisma.documentVersion.updateMany({
+      where: { id: session.documentVersionId, storageStatus: { in: ["PENDING_UPLOAD", "UPLOADED", "VERIFYING"] } },
+      data: { storageStatus: "FAILED", rejectionReason: "UPLOAD_NOT_COMPLETED" },
+    });
+  }
+
   if (!dryRun && (result.objectsDeleted > 0 || result.documentsRemoved > 0)) {
     logger.info("storage.cleanup.completed", { ...result });
   }

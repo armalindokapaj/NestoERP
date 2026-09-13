@@ -84,6 +84,16 @@ export const AuditAction = {
   /** A file a scanner refused. Worth evidence in its own right (PRD #29 §63). */
   DOCUMENT_REJECTED_MALWARE: "DOCUMENT_REJECTED_MALWARE",
 
+  // Document versions and review (PRD #38 §156)
+  DOCUMENT_VERSION_CREATED: "DOCUMENT_VERSION_CREATED",
+  DOCUMENT_REVIEW_REQUESTED: "DOCUMENT_REVIEW_REQUESTED",
+  DOCUMENT_REVIEW_DECIDED: "DOCUMENT_REVIEW_DECIDED",
+
+  // Collaboration (PRD #38 §35, §156) — metadata only, never the comment text
+  COMMENT_CREATED: "COMMENT_CREATED",
+  COMMENT_EDITED: "COMMENT_EDITED",
+  COMMENT_ARCHIVED: "COMMENT_ARCHIVED",
+
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
   REPORT_EXPORTED_XLSX: "REPORT_EXPORTED_XLSX",
@@ -172,6 +182,19 @@ const POLICIES: AuditPolicy[] = [
   // Required: a file refused for malware is evidence, and a refusal nobody can
   // later find is not much of a control (PRD #28 §49, PRD #29 §63).
   { actionKey: AuditAction.DOCUMENT_REJECTED_MALWARE, moduleKey: "documents", category: "DOCUMENT", severity: "CRITICAL", snapshotMode: "NONE", allowFields: [], required: true },
+
+  /* Document versions and review ---------------------------------------- */
+  { actionKey: AuditAction.DOCUMENT_VERSION_CREATED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["versionNumber", "sizeBytes", "checksumSha256"], required: false },
+  { actionKey: AuditAction.DOCUMENT_REVIEW_REQUESTED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["versionNumber", "reviewerMemberId"], required: false },
+  // A decision is evidence someone checked a file, so it commits with the decision.
+  { actionKey: AuditAction.DOCUMENT_REVIEW_DECIDED, moduleKey: "documents", category: "DOCUMENT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "versionNumber"], required: true },
+
+  /* Collaboration -------------------------------------------------------- */
+  // The body is deliberately absent from allowFields: audit proves that a
+  // comment existed and who wrote it, not what it said (PRD #38 §34, §156).
+  { actionKey: AuditAction.COMMENT_CREATED, moduleKey: "collaboration", category: "COLLABORATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["parentType", "parentId", "mentionCount", "length"], required: false },
+  { actionKey: AuditAction.COMMENT_EDITED, moduleKey: "collaboration", category: "COLLABORATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["parentType", "parentId", "length"], required: false },
+  { actionKey: AuditAction.COMMENT_ARCHIVED, moduleKey: "collaboration", category: "COLLABORATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["parentType", "parentId", "archivedAt"], required: false },
 
   /* Reporting ------------------------------------------------------------ */
   { actionKey: AuditAction.REPORT_EXPORTED_CSV, moduleKey: "settings", category: "REPORTING", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: false },

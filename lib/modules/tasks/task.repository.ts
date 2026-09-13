@@ -61,6 +61,9 @@ const DETAIL_SELECT = {
   projectId: true,
   assigneeMemberId: true,
   createdByMemberId: true,
+  blockedAt: true,
+  blockedReason: true,
+  blockedByMemberId: true,
   creator: { select: PERSON_SELECT },
 } satisfies Prisma.TaskSelect;
 

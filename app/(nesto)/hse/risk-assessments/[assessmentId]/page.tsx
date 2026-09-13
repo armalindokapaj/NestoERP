@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { RiskBadge } from "@/components/hse/hse-format";
 import { ActionTable } from "@/components/hse/hse-tables";
 import { RiskAssessmentActions } from "@/components/hse/record-actions";
@@ -231,6 +232,8 @@ export default async function RiskAssessmentPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="risk_assessment" parentId={assessmentId} />
     </div>
   );
 }

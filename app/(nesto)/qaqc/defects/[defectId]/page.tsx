@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DefectActions } from "@/components/qaqc/record-actions";
 import { CorrectiveActionTable, NcrTable } from "@/components/qaqc/qaqc-tables";
 import { SeverityBadge } from "@/components/qaqc/qaqc-format";
@@ -192,6 +193,8 @@ export default async function DefectPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="quality_defect" parentId={defectId} />
     </div>
   );
 }

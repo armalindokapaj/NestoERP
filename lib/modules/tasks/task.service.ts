@@ -7,7 +7,11 @@ import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
+import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
+import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
+import type { Permission } from "@/config/permissions";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as repository from "./task.repository";
 import type { CreateTaskInput, TaskListQuery, UpdateTaskInput } from "./task.schema";
@@ -36,6 +40,16 @@ import type {
 
 const MODULE = "tasks" as const;
 const ENTITY = "Task";
+/** The record registry type: what notifications, comments and documents call a task. */
+const RECORD = "task";
+
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  TODO: "To Do",
+  IN_PROGRESS: "In Progress",
+  BLOCKED: "Blocked",
+  COMPLETED: "Completed",
+  ARCHIVED: "Archived",
+};
 
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                       */
@@ -60,7 +74,16 @@ export async function getTask(context: UserContext, taskId: string): Promise<Tas
   // Outside scope answers "not found", so the response cannot confirm that a
   // task the user may not see exists (PRD #11 §120).
   const task = assertFound(await repository.findTaskInScope(context, taskId));
-  return toDetailDTO(context, task);
+  const detail = toDetailDTO(context, task);
+
+  if (task.entityType && task.entityId) {
+    const definition = recordDefinition(task.entityType);
+    const record = definition ? await loadRecord(context, definition.type, task.entityId) : null;
+    if (definition && record) {
+      detail.parent = { type: definition.type, noun: definition.noun, label: record.label, href: record.href };
+    }
+  }
+  return detail;
 }
 
 export async function getTaskOverview(context: UserContext): Promise<TaskOverviewStats> {
@@ -119,6 +142,63 @@ export type TaskParentContext = {
   entityId: string;
 };
 
+/**
+ * The task grant each module requires on top of `task.create` before its
+ * records can raise work (PRD #38 §45, §46).
+ */
+const PARENT_TASK_GRANT: Partial<Record<string, Permission>> = {
+  sales: "sales.task.create",
+  contracts: "legal.task.create",
+  procurement: "procurement.task.create",
+  inventory: "inventory.task.create",
+  qaqc: "qaqc.task.create",
+  hse: "hse.task.create",
+};
+
+/**
+ * The trusted parent of a task raised from another module (PRD #38 §45-§47).
+ *
+ * The record is read through the record registry in the caller's own scope,
+ * so a task can only be filed against a record the person could open, in
+ * their company — never against an id somebody typed. The stored context is
+ * the registry's type and module, not whatever the caller passed.
+ */
+async function resolveTaskParent(
+  context: UserContext,
+  parent: TaskParentContext | undefined,
+): Promise<{ moduleKey: string; entityType: string; entityId: string; projectId: string | null } | null> {
+  if (!parent) return null;
+  const definition = recordDefinition(parent.entityType);
+  if (!definition || definition.type === "task") {
+    throw new AccessError("VALIDATION_ERROR", "A task cannot be raised from that record.");
+  }
+  const grant = PARENT_TASK_GRANT[definition.moduleKey];
+  if (grant) assertPermission(context, grant);
+
+  const record = await loadRecord(context, definition.type, parent.entityId);
+  if (!record) throw new AccessError("VALIDATION_ERROR", "That record does not exist.");
+  if (record.archived) throw new AccessError("CONFLICT", "That record is archived.");
+
+  return { moduleKey: definition.moduleKey, entityType: definition.type, entityId: record.id, projectId: record.projectId };
+}
+
+/**
+ * `TaskService.createFromContext` (PRD #38 §46): one trusted path for every
+ * module that raises work from one of its records.
+ */
+export async function createTaskFromContext(
+  context: UserContext,
+  input: CreateTaskInput & { parentType: string; parentId: string },
+): Promise<TaskDetailDTO> {
+  const { parentType, parentId, ...task } = input;
+  const definition = recordDefinition(parentType);
+  return createTask(context, task, {
+    moduleKey: definition?.moduleKey ?? "",
+    entityType: parentType,
+    entityId: parentId,
+  });
+}
+
 export async function createTask(
   context: UserContext,
   input: CreateTaskInput,
@@ -127,10 +207,15 @@ export async function createTask(
   assertModule(context, MODULE);
   assertPermission(context, "task.create");
 
+  const trustedParent = await resolveTaskParent(context, parent);
   const projectId = await validateProject(context, input.projectId);
   const assigneeMemberId = await resolveAssignee(context, input.assigneeMemberId, projectId, null);
 
   const status = input.status as TaskStatus;
+  // Blocked is reached through the block action, which records why (PRD #38 §44).
+  if (status === "BLOCKED") {
+    throw new AccessError("VALIDATION_ERROR", "Create the task, then mark it blocked with a reason.");
+  }
 
   const created = await prisma
     .$transaction(async (tx) => {
@@ -150,9 +235,9 @@ export async function createTask(
           // (PRD #11 §50, §117).
           completedAt: status === "COMPLETED" ? new Date() : null,
           createdBy: context.userId,
-          module: parent?.moduleKey ?? null,
-          entityType: parent?.entityType ?? null,
-          entityId: parent?.entityId ?? null,
+          module: trustedParent?.moduleKey ?? null,
+          entityType: trustedParent?.entityType ?? null,
+          entityId: trustedParent?.entityId ?? null,
         },
         select: { id: true },
       });
@@ -182,17 +267,26 @@ export async function createTask(
           companyId: context.companyId,
           eventType: NotificationEvent.TASK_ASSIGNED,
           moduleKey: "tasks",
-          entityType: ENTITY,
+          entityType: RECORD,
           entityId: task.id,
           actorMemberId: context.membershipId,
           projectId,
-          payload: { assigneeMemberId, title: input.title },
+          payload: { assigneeMemberId, title: input.title, assignmentVersion: new Date().toISOString() },
         });
       }
 
       return task;
     })
     .catch(translateWriteError);
+
+  // The one accountable assignee and the creator watch the task's discussion
+  // from the start (PRD #38 §33, §42).
+  await subscribeStakeholders({
+    companyId: context.companyId,
+    parentType: RECORD,
+    parentId: created.id,
+    memberIds: [context.membershipId, ...(assigneeMemberId ? [assigneeMemberId] : [])],
+  });
 
   return getTask(context, created.id);
 }
@@ -227,6 +321,9 @@ export async function updateTask(
     );
   }
   if (existing.status !== nextStatus) assertPermission(context, "task.status.update");
+  if (nextStatus === "BLOCKED" && existing.status !== "BLOCKED") {
+    throw new AccessError("VALIDATION_ERROR", "Use Mark blocked, which records why the task cannot move.");
+  }
 
   const projectId = await validateProject(context, input.projectId);
   const projectChanged = projectId !== existing.projectId;
@@ -262,6 +359,7 @@ export async function updateTask(
           startDate: input.startDate ?? null,
           dueDate: input.dueDate ?? null,
           completedAt: completionStamp(existing.status, nextStatus, existing.completedAt),
+          ...(existing.status === "BLOCKED" && nextStatus !== "BLOCKED" ? UNBLOCKED : {}),
           updatedBy: context.userId,
         },
       });
@@ -287,6 +385,15 @@ export async function updateTask(
             ...(changeMetadata({ status: { from: existing.status, to: nextStatus } }) as object),
           } as Prisma.InputJsonValue,
         });
+
+        await enqueueStatusEvent(tx, context, {
+          taskId,
+          title: input.title ?? existing.title,
+          next: nextStatus,
+          projectId,
+          creatorMemberId: existing.createdByMemberId,
+          assigneeMemberId,
+        });
       }
 
       if (assigneeChanged) {
@@ -311,11 +418,15 @@ export async function updateTask(
             companyId: context.companyId,
             eventType: NotificationEvent.TASK_ASSIGNED,
             moduleKey: "tasks",
-            entityType: ENTITY,
+            entityType: RECORD,
             entityId: taskId,
             actorMemberId: context.membershipId,
             projectId,
-            payload: { assigneeMemberId, title: input.title ?? existing.title },
+            payload: {
+              assigneeMemberId,
+              title: input.title ?? existing.title,
+              assignmentVersion: new Date().toISOString(),
+            },
           });
         }
       }
@@ -336,6 +447,10 @@ export async function updateTask(
     })
     .catch(translateWriteError);
 
+  if (assigneeChanged && assigneeMemberId) {
+    await subscribeStakeholders({ companyId: context.companyId, parentType: RECORD, parentId: taskId, memberIds: [assigneeMemberId] });
+  }
+
   return getTask(context, taskId);
 }
 
@@ -348,12 +463,21 @@ export async function startTask(context: UserContext, taskId: string): Promise<T
   });
 }
 
-/** `TODO / IN_PROGRESS → BLOCKED` (PRD #11 §67). */
-export async function blockTask(context: UserContext, taskId: string): Promise<TaskDetailDTO> {
+/**
+ * `TODO / IN_PROGRESS → BLOCKED` with the reason it cannot move
+ * (PRD #11 §67, PRD #38 §44). A blocked task without a reason is a status
+ * nobody can act on, so the reason is required.
+ */
+export async function blockTask(context: UserContext, taskId: string, reason: string): Promise<TaskDetailDTO> {
+  const trimmed = (reason ?? "").trim();
+  if (trimmed.length < 3) throw new AccessError("VALIDATION_ERROR", "Say why the task is blocked.");
+  if (trimmed.length > 1000) throw new AccessError("VALIDATION_ERROR", "Keep the reason under 1,000 characters.");
+
   return transition(context, taskId, "BLOCKED", {
     permission: "task.status.update",
     action: "TASK_BLOCKED",
     message: "marked the task blocked",
+    blockedReason: trimmed,
   });
 }
 
@@ -461,7 +585,62 @@ type TransitionOptions = {
   message: string;
   /** Restricts the statuses the action may be invoked from. */
   from?: TaskStatus[];
+  /** Required when moving to BLOCKED. */
+  blockedReason?: string;
 };
+
+/** Leaving BLOCKED clears why it was blocked; the activity trail keeps the history. */
+const UNBLOCKED = { blockedAt: null, blockedReason: null, blockedByMemberId: null } as const;
+
+/**
+ * The notification a status change produces (PRD #38 §50): blocked and
+ * completed are their own events, anything else is a status update. The actor
+ * is dropped by the dispatcher.
+ */
+async function enqueueStatusEvent(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: {
+    taskId: string;
+    title: string;
+    next: TaskStatus;
+    projectId: string | null;
+    creatorMemberId: string;
+    assigneeMemberId: string | null;
+    reason?: string;
+  },
+): Promise<void> {
+  const eventType =
+    input.next === "BLOCKED"
+      ? NotificationEvent.TASK_BLOCKED
+      : input.next === "COMPLETED"
+        ? NotificationEvent.TASK_COMPLETED
+        : NotificationEvent.TASK_STATUS_CHANGED;
+
+  const projectManagerMemberId = input.projectId
+    ? ((await tx.project.findUnique({ where: { id: input.projectId }, select: { projectManagerMemberId: true } }))
+        ?.projectManagerMemberId ?? null)
+    : null;
+
+  await enqueueNotificationEvent(tx, {
+    companyId: context.companyId,
+    eventType,
+    moduleKey: MODULE,
+    entityType: RECORD,
+    entityId: input.taskId,
+    actorMemberId: context.membershipId,
+    projectId: input.projectId,
+    payload: {
+      title: input.title,
+      statusLabel: STATUS_LABELS[input.next],
+      creatorMemberId: input.creatorMemberId,
+      assigneeMemberId: input.assigneeMemberId,
+      projectManagerMemberId,
+      actorName: context.fullName,
+      reason: input.reason ?? null,
+    },
+  });
+}
 
 /**
  * The shared body of every dedicated status action.
@@ -503,6 +682,9 @@ async function transition(
       data: {
         status: next,
         completedAt: completionStamp(existing.status, next, existing.completedAt),
+        ...(next === "BLOCKED"
+          ? { blockedAt: new Date(), blockedReason: options.blockedReason ?? null, blockedByMemberId: context.membershipId }
+          : UNBLOCKED),
         updatedBy: context.userId,
       },
     });
@@ -512,12 +694,27 @@ async function transition(
       entityType: ENTITY,
       entityId: taskId,
       action: options.action,
-      message: options.message,
+      message: options.blockedReason ? `${options.message}: ${options.blockedReason.slice(0, 200)}` : options.message,
       metadata: {
         taskId,
         ...(changeMetadata({ status: { from: existing.status, to: next } }) as object),
       } as Prisma.InputJsonValue,
     });
+
+    await enqueueStatusEvent(tx, context, {
+      taskId,
+      title: existing.title,
+      next,
+      projectId: existing.projectId,
+      creatorMemberId: existing.createdByMemberId,
+      assigneeMemberId: existing.assigneeMemberId,
+      reason: options.blockedReason,
+    });
+
+    // Finished work is not overdue work (PRD #38 §85).
+    if (next === "COMPLETED") {
+      await resolveAttentionForRecord(tx, context.companyId, RECORD, taskId, ["OVERDUE_TASK"]);
+    }
   });
 
   return getTask(context, taskId);
@@ -685,6 +882,11 @@ function toDetailDTO(context: UserContext, row: repository.TaskDetailRow): TaskD
       isOverdue: isTaskOverdue(row),
     },
     context: { module: row.module, entityType: row.entityType, entityId: row.entityId },
+    parent: null,
+    blocked:
+      row.status === "BLOCKED"
+        ? { reason: row.blockedReason, since: row.blockedAt?.toISOString() ?? null, byMemberId: row.blockedByMemberId }
+        : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     archivedAt: row.archivedAt?.toISOString() ?? null,

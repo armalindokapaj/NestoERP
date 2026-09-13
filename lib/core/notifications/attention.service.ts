@@ -149,3 +149,46 @@ export async function suppressModuleAttention(companyId: string, moduleKey: stri
   });
   return result.count;
 }
+
+export type ReadableAttentionDTO = AttentionItemDTO & { href: string };
+
+/**
+ * Active attention the reader can still act on, each with a link resolved now
+ * (PRD #38 §82, §86).
+ *
+ * An item is a note written when the condition was detected; the record behind
+ * it is read again through the record registry before a link is offered. An
+ * item whose record this person can no longer open is left out entirely —
+ * title included — until reconciliation resolves it.
+ */
+export async function listReadableAttention(context: UserContext, limit = 25): Promise<ReadableAttentionDTO[]> {
+  const { loadRecord } = await import("@/lib/core/records/record.registry");
+  const { normaliseEntityType } = await import("./notification.dispatch");
+  const { findAttentionCondition } = await import("./attention.conditions");
+
+  const now = new Date();
+  const items = await listActiveAttention(context, Math.min(limit * 2, 100));
+  const readable: ReadableAttentionDTO[] = [];
+  const ended: string[] = [];
+  for (const item of items) {
+    const type = normaliseEntityType(item.entity.entityType);
+    // The condition is asked again first: a task completed a minute ago is not
+    // shown as overdue while the scheduler catches up (PRD #38 §85).
+    const condition = findAttentionCondition(item.conditionKey);
+    if (condition && !(await condition.holds(context.companyId, type, item.entity.entityId, now))) {
+      ended.push(item.id);
+      continue;
+    }
+    const record = await loadRecord(context, type, item.entity.entityId);
+    if (!record || record.archived) continue;
+    readable.push({ ...item, href: record.href });
+    if (readable.length >= limit) break;
+  }
+  if (ended.length > 0) {
+    await prisma.attentionItem.updateMany({
+      where: { id: { in: ended }, companyId: context.companyId, recipientMemberId: context.membershipId, status: "ACTIVE" },
+      data: { status: "RESOLVED", resolvedAt: now },
+    });
+  }
+  return readable;
+}

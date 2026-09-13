@@ -60,10 +60,20 @@ export async function createTaskAction(formData: FormData): Promise<ActionResult
     };
   }
 
+  // The record the task is raised from, as `type:id`. Not trusted: the service
+  // reads it through the record registry in this person's scope (PRD #38 §47).
+  const parentValue = formData.get("parent");
+  const parent =
+    typeof parentValue === "string" && parentValue.includes(":")
+      ? { parentType: parentValue.slice(0, parentValue.indexOf(":")), parentId: parentValue.slice(parentValue.indexOf(":") + 1) }
+      : null;
+
   let taskId: string;
   let projectId: string | null;
   try {
-    const task = await tasks.createTask(context, parsed.data);
+    const task = parent
+      ? await tasks.createTaskFromContext(context, { ...parsed.data, ...parent })
+      : await tasks.createTask(context, parsed.data);
     taskId = task.id;
     projectId = task.project?.id ?? null;
   } catch (error) {
@@ -106,12 +116,13 @@ export async function setTaskStatusAction(
   taskId: string,
   action: "start" | "block" | "complete" | "reopen",
   reopenTo: TaskStatus = "TODO",
+  blockedReason = "",
 ): Promise<ActionResult> {
   const context = await requireUserContext();
 
   try {
     if (action === "start") await tasks.startTask(context, taskId);
-    else if (action === "block") await tasks.blockTask(context, taskId);
+    else if (action === "block") await tasks.blockTask(context, taskId, blockedReason);
     else if (action === "complete") await tasks.completeTask(context, taskId);
     else await tasks.reopenTask(context, taskId, reopenTo);
   } catch (error) {

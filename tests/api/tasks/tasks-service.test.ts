@@ -26,6 +26,10 @@ async function track<T extends { id: string }>(task: Promise<T>): Promise<T> {
 
 afterEach(async () => {
   if (created.length === 0) return;
+  await prisma.notificationEventOutbox.deleteMany({ where: { entityId: { in: created } } });
+  const threads = await prisma.collaborationThread.findMany({ where: { parentType: "task", parentId: { in: created } }, select: { id: true } });
+  await prisma.subscription.deleteMany({ where: { threadId: { in: threads.map((row) => row.id) } } });
+  await prisma.collaborationThread.deleteMany({ where: { id: { in: threads.map((row) => row.id) } } });
   await prisma.activity.deleteMany({ where: { entityId: { in: created } } });
   await prisma.task.deleteMany({ where: { id: { in: created } } });
   created.length = 0;
@@ -305,10 +309,32 @@ describe("status lifecycle (PRD #11 §209–§214)", () => {
     await expectError(tasks.completeTask(context, task.id), "CONFLICT");
   });
 
-  it("blocks and unblocks", async () => {
+  it("blocks with a reason and unblocks, clearing it (PRD #38 §44)", async () => {
     const { context, task } = await newTask();
-    expect((await tasks.blockTask(context, task.id)).status).toBe("BLOCKED");
-    expect((await tasks.startTask(context, task.id)).status).toBe("IN_PROGRESS");
+    await expectError(tasks.blockTask(context, task.id, "  "), "VALIDATION_ERROR");
+
+    const blocked = await tasks.blockTask(context, task.id, "Waiting for the structural drawings");
+    expect(blocked.status).toBe("BLOCKED");
+    expect(blocked.blocked).toMatchObject({ reason: "Waiting for the structural drawings", byMemberId: context.membershipId });
+
+    const started = await tasks.startTask(context, task.id);
+    expect(started.status).toBe("IN_PROGRESS");
+    expect(started.blocked).toBeNull();
+    const row = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(row.blockedReason).toBeNull();
+  });
+
+  it("does not let the edit form move a task into BLOCKED without a reason", async () => {
+    const { context, task } = await newTask();
+    const current = await tasks.getTask(context, task.id);
+    await expectError(
+      tasks.updateTask(context, task.id, {
+        title: current.title,
+        status: "BLOCKED",
+        priority: current.priority,
+      } as Parameters<typeof tasks.updateTask>[2]),
+      "VALIDATION_ERROR",
+    );
   });
 
   it("refuses a Viewer every status action", async () => {
@@ -402,5 +428,73 @@ describe("activity (PRD #11 §219)", () => {
       tasks.listActivity(architect, hidden!.id, { page: 1, limit: 25 }),
       "NOT_FOUND",
     );
+  });
+});
+
+describe("tasks raised from another module's record (PRD #38 §45-§47, §137)", () => {
+  it("keeps a Sales task's trusted parent: listed under the opportunity, linked back from the task", async () => {
+    const sales = await loginAs("SALES");
+    const opportunity = await prisma.opportunity.findFirstOrThrow({
+      where: { companyId: sales.companyId, archivedAt: null, ownerMemberId: sales.membershipId },
+      select: { id: true, name: true },
+    });
+
+    const task = await track(
+      tasks.createTaskFromContext(sales, {
+        ...createInput({ title: "Send the revised quote" }),
+        parentType: "opportunity",
+        parentId: opportunity.id,
+      }),
+    );
+
+    const row = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(row).toMatchObject({ module: "sales", entityType: "opportunity", entityId: opportunity.id });
+
+    const listed = await tasks.listTasks(
+      sales,
+      taskListQuerySchema.parse({ moduleKey: "sales", entityType: "opportunity", entityId: opportunity.id, limit: 100 }),
+    );
+    expect(listed.data.map((item) => item.id)).toContain(task.id);
+
+    const detail = await tasks.getTask(sales, task.id);
+    expect(detail.parent).toMatchObject({ type: "opportunity", href: `/sales/opportunities/${opportunity.id}` });
+  });
+
+  it("refuses a parent the creator cannot open, or one from another company", async () => {
+    const engineer = await loginAs("ENGINEER");
+    const sales = await loginAs("SALES");
+    const opportunity = await prisma.opportunity.findFirstOrThrow({ where: { companyId: sales.companyId } });
+    const foreign = await prisma.opportunity.findFirst({ where: { companyId: { not: sales.companyId } } });
+
+    // No Sales access at all: the module's task grant is missing.
+    await expectError(
+      tasks.createTaskFromContext(engineer, { ...createInput(), parentType: "opportunity", parentId: opportunity.id }),
+      "FORBIDDEN",
+    );
+    if (foreign) {
+      await expectError(
+        tasks.createTaskFromContext(sales, { ...createInput(), parentType: "opportunity", parentId: foreign.id }),
+        "VALIDATION_ERROR",
+      );
+    }
+    await expectError(
+      tasks.createTaskFromContext(sales, { ...createInput(), parentType: "not_a_record", parentId: "x" }),
+      "VALIDATION_ERROR",
+    );
+  });
+
+  it("hides the parent's name from a reader of the task who cannot open the parent", async () => {
+    const owner = await loginAs("OWNER");
+    const opportunity = await prisma.opportunity.findFirstOrThrow({ where: { companyId: owner.companyId, archivedAt: null } });
+    const engineer = await loginAs("ENGINEER");
+    const task = await track(
+      tasks.createTaskFromContext(owner, {
+        ...createInput({ title: "Parent visibility", assigneeMemberId: engineer.membershipId }),
+        parentType: "opportunity",
+        parentId: opportunity.id,
+      }),
+    );
+    const seenByEngineer = await tasks.getTask(engineer, task.id);
+    expect(seenByEngineer.parent).toBeNull();
   });
 });

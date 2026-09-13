@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
+import { RecordDocuments } from "@/components/documents/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PriorityBadge } from "@/components/modules/status-badge";
 import { TaskActions } from "@/components/tasks/task-actions";
 import { Badge } from "@/components/ui/badge";
-import { can } from "@/lib/access/can";
+import { can, canAccessModule } from "@/lib/access/can";
 import * as tasks from "@/lib/modules/tasks/task.service";
 import { taskStatusLabels } from "@/lib/modules/tasks/task.status";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
@@ -35,6 +37,7 @@ export default async function TaskDetailPage({ params }: Params) {
   const { context, task } = await loadTask(taskId);
 
   const archived = task.archivedAt !== null || task.status === "ARCHIVED";
+  const showDocuments = canAccessModule(context, "documents") && can(context, "document.view");
   const activity = can(context, "task.activity.view")
     ? await tasks.listActivity(context, taskId, { page: 1, limit: 5 })
     : null;
@@ -95,14 +98,38 @@ export default async function TaskDetailPage({ params }: Params) {
             label: "Due",
             value: task.schedule.dueDate ? formatDate(task.schedule.dueDate) : "No due date",
           },
+          // The record this work came from, when the reader can open it
+          // (PRD #38 §45, §47).
+          ...(task.parent
+            ? [
+                {
+                  label: `Raised from ${task.parent.noun.toLowerCase()}`,
+                  value: (
+                    <Link href={task.parent.href} className="text-fg transition-colors hover:text-accent" data-testid="task-parent-link">
+                      {task.parent.label}
+                    </Link>
+                  ),
+                },
+              ]
+            : []),
         ]}
         actions={<TaskActions task={task} />}
       />
 
       {archived ? (
-        <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
+        <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
           This task is archived and read-only. Restore it to make changes.
         </p>
+      ) : null}
+
+      {task.blocked ? (
+        <div role="note" className="rounded-md border border-warning bg-warning-soft px-4 py-3" data-testid="task-blocked-reason">
+          <p className="text-table font-semibold text-warning-strong">Blocked</p>
+          <p className="mt-1 whitespace-pre-wrap text-table text-fg">{task.blocked.reason ?? "No reason was recorded."}</p>
+          {task.blocked.since ? (
+            <p className="mt-1 text-meta text-fg-subtle">Since {formatDateTime(task.blocked.since)}</p>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -134,7 +161,32 @@ export default async function TaskDetailPage({ params }: Params) {
           </div>
         </section>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:col-span-2 lg:row-start-2">
+          {showDocuments ? (
+            <section className="nesto-card p-5" aria-labelledby="task-documents-heading">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 id="task-documents-heading" className="text-card font-semibold text-fg">
+                  Attachments
+                </h2>
+                <Link href={`/tasks/${task.id}/documents`} className="text-table font-medium text-accent-strong">
+                  View all
+                </Link>
+              </div>
+              <RecordDocuments
+                context={context}
+                entityType="task"
+                entityId={task.id}
+                canAttach={!archived}
+                emptyTitle="No evidence attached."
+                emptyDescription="Photographs, drawings and files attached to this task appear here."
+              />
+            </section>
+          ) : null}
+
+          <CollaborationPanel parentType="task" parentId={task.id} />
+        </div>
+
+        <div className="space-y-4 lg:col-start-3 lg:row-start-1">
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Details</h2>
             <dl className="mt-4 space-y-3">

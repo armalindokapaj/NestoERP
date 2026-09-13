@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/database/prisma";
+import { jobHealth } from "@/lib/core/jobs/job.health";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 
@@ -34,7 +35,22 @@ export async function GET() {
 
     if (!storage.ok) logger.error("health.storage.unreachable", {});
 
-    return NextResponse.json({ status: "ok", storage: storage.ok ? "ok" : "degraded" });
+    /*
+     * Background work is reported, not required (PRD #38 §104): a web instance
+     * can serve requests while the worker is down, but notifications, scans and
+     * attention stop moving, and that has to be visible. One word only — which
+     * job is behind is for the metrics endpoint, not a public probe.
+     */
+    const jobs = await jobHealth().catch(() => null);
+    const workers = !jobs
+      ? "unknown"
+      : jobs.every((job) => job.state === "never_run")
+        ? "not_running"
+        : jobs.some((job) => job.state === "failing" || job.state === "stale")
+          ? "degraded"
+          : "ok";
+
+    return NextResponse.json({ status: "ok", storage: storage.ok ? "ok" : "degraded", workers });
   } catch (error) {
     logger.error("health.ready.failed", serialiseError(error));
     return NextResponse.json({ status: "unavailable" }, { status: 503 });

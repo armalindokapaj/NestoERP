@@ -41,7 +41,7 @@ export function DocumentFilePanel({ document }: { document: DocumentDetailDTO })
       ) : file.available ? (
         // Not a failure — most business formats simply have no safe inline
         // rendering, and saying so beats an empty box (PRD #29 §53, §281).
-        <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
+        <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
           {file.typeLabel} files cannot be previewed in the browser. Download the file to open it.
         </p>
       ) : null}
@@ -118,7 +118,7 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
     // A preview that cannot be produced never blocks the original
     // (PRD #29 §235, §281).
     return (
-      <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
+      <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
         Preview unavailable. Download the file instead.
       </p>
     );
@@ -126,14 +126,14 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
 
   if (!grant) {
     return (
-      <div className="flex h-[28rem] items-center justify-center rounded-md border border-line bg-surface-2">
+      <div className="flex h-[28rem] items-center justify-center rounded-md border border-line bg-surface-muted">
         <p className="text-table text-fg-muted">Preparing preview…</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-surface-2">
+    <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
       <object
         data={grant.url}
         type={grant.mimeType}
@@ -151,7 +151,7 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
 /** Still being verified or scanned. No download control (PRD #29 §163). */
 function ProcessingState({ message }: { message: string | null }) {
   return (
-    <div className="flex items-start gap-3 rounded-md border border-line bg-surface-2 px-4 py-3.5">
+    <div className="flex items-start gap-3 rounded-md border border-line bg-surface-muted px-4 py-3.5">
       <Loader2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 animate-spin text-fg-muted" />
       <div>
         <p className="text-table font-medium text-fg">{message ?? "Processing…"}</p>

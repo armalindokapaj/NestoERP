@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { ApprovalHistory } from "@/components/finance/approval-history";
 import { BudgetActions } from "@/components/finance/budget-actions";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
@@ -189,6 +190,8 @@ export default async function BudgetDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="budget" parentId={budgetId} />
     </div>
   );
 }

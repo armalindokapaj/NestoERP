@@ -4,6 +4,8 @@ import Link from "next/link";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { DocumentActions } from "@/components/documents/document-actions";
 import { DocumentFilePanel } from "@/components/documents/document-file-panel";
+import { DocumentVersions } from "@/components/documents/document-versions";
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { Badge } from "@/components/ui/badge";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import * as documents from "@/lib/modules/documents/document.service";
@@ -73,7 +75,7 @@ export default async function DocumentDetailPage({ params }: Params) {
       />
 
       {archived ? (
-        <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
+        <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
           This document is archived and read-only. The file itself is kept — restore it to make
           changes.
         </p>
@@ -101,7 +103,14 @@ export default async function DocumentDetailPage({ params }: Params) {
           </div>
         </section>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:col-span-2 lg:row-start-2">
+          {/* Earlier files stay downloadable and reviewable; the current one is
+              what the panel above serves (PRD #38 §56-§63). */}
+          <DocumentVersions documentId={document.id} />
+          <CollaborationPanel parentType="document" parentId={document.id} />
+        </div>
+
+        <div className="space-y-4 lg:col-start-3 lg:row-span-2 lg:row-start-1">
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">File</h2>
             <DetailGrid

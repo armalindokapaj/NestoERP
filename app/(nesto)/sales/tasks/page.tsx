@@ -70,7 +70,7 @@ async function SalesTaskList({
   const query = { ...parseTaskListQuery(searchParams), moduleKey: "sales" };
   const result = await tasks.listTasks(context, query);
 
-  const hasFilters = Boolean(query.search || query.status?.length || query.priority?.length);
+  const hasFilters = Boolean(query.search || query.status?.length || query.priority?.length || query.entityId);
 
   function buildHref(page: number) {
     const params = new URLSearchParams();

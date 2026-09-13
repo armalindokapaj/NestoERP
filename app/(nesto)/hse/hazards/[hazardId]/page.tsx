@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { AssignControl } from "@/components/hse/assign-control";
 import { BlockedList, RiskBadge } from "@/components/hse/hse-format";
 import { ActionTable, StopWorkTable } from "@/components/hse/hse-tables";
@@ -10,6 +11,7 @@ import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { RecordTasks } from "@/components/tasks/record-tasks";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
@@ -238,6 +240,10 @@ export default async function HazardPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
+      <RecordTasks context={context} parentType="hazard" parentId={hazardId} />
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="hazard" parentId={hazardId} />
     </div>
   );
 }

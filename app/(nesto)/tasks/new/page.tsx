@@ -7,6 +7,9 @@ import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createTaskAction } from "@/lib/actions/tasks";
 import { taskFormOptions } from "@/lib/modules/tasks/task.options";
+import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
+import { buildLeadScopeWhere, buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
+import { prisma } from "@/lib/database/prisma";
 
 export const metadata: Metadata = { title: "New Task" };
 
@@ -28,6 +31,44 @@ export default async function NewTaskPage({
 
   const params = await searchParams;
   const requestedProjectId = typeof params.projectId === "string" ? params.projectId : "";
+  const parentType = typeof params.parentType === "string" ? params.parentType : "";
+  const parentId = typeof params.parentId === "string" ? params.parentId : "";
+
+  /*
+   * A task raised from a record (PRD #38 §45-§47). The record is read here only
+   * to label the form; the action sends `type:id` back and the service reads
+   * it again, in scope, before anything is written. A record this person
+   * cannot open is a 404, not an unlocked form.
+   */
+  let parent: Parameters<typeof TaskForm>[0]["parent"];
+  let cancelHref = "/tasks/all";
+  if (parentType && parentId) {
+    const definition = recordDefinition(parentType);
+    const record = definition ? await loadRecord(context, parentType, parentId) : null;
+    if (!definition || !record || record.archived) notFound();
+    parent = { locked: { value: `${definition.type}:${record.id}`, label: `${definition.noun} · ${record.label}` } };
+    cancelHref = record.href;
+  } else if (params.module === "sales") {
+    // Sales tasks always belong to a lead or an opportunity, so the form asks
+    // which — a sales task with no sales record would vanish from Sales.
+    if (!can(context, "sales.task.create")) notFound();
+    const [leads, opportunities] = await Promise.all([
+      can(context, "sales.lead.view")
+        ? prisma.lead.findMany({ where: { AND: [buildLeadScopeWhere(context), { archivedAt: null }] }, select: { id: true, name: true }, orderBy: { updatedAt: "desc" }, take: 100 })
+        : [],
+      can(context, "sales.opportunity.view")
+        ? prisma.opportunity.findMany({ where: { AND: [buildOpportunityScopeWhere(context), { archivedAt: null }] }, select: { id: true, name: true }, orderBy: { updatedAt: "desc" }, take: 100 })
+        : [],
+    ]);
+    parent = {
+      label: "Lead or opportunity",
+      options: [
+        ...opportunities.map((row) => ({ value: `opportunity:${row.id}`, label: `Opportunity · ${row.name}` })),
+        ...leads.map((row) => ({ value: `lead:${row.id}`, label: `Lead · ${row.name}` })),
+      ],
+    };
+    cancelHref = "/sales/tasks";
+  }
 
   const options = await taskFormOptions(context, requestedProjectId || null);
   // Only offer a project the picker itself can list, so the preselection can
@@ -54,7 +95,8 @@ export default async function NewTaskPage({
 
       <TaskForm
         mode="create"
-        cancelHref="/tasks/all"
+        cancelHref={cancelHref}
+        parent={parent}
         projects={options.projects}
         assignees={options.assignees}
         mayAssignOthers={options.mayAssignOthers}

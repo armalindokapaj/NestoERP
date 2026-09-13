@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { ClientActions } from "@/components/clients/client-actions";
 import { Badge } from "@/components/ui/badge";
@@ -248,6 +249,8 @@ export default async function ClientOverviewPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="client" parentId={clientId} />
     </div>
   );
 }

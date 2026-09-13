@@ -3,25 +3,35 @@ import type { Prisma } from "@prisma/client";
 import { AccessError } from "@/lib/access/guards";
 import { can, getModuleScope } from "@/lib/access/can";
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
-import type { Permission } from "@/config/permissions";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
-import type { CreateDocumentInput, DocumentRecordType } from "./document.schema";
+import {
+  loadRecord,
+  moduleAndPermissions,
+  recordDefinition,
+  recordDefinitions,
+} from "@/lib/core/records/record.registry";
+import { isRecordType, type RecordDefinition, type RecordSummary, type RecordType } from "@/lib/core/records/record.types";
+import type { CreateDocumentInput } from "./document.schema";
 
 /**
- * The parent-access registry (PRD #13 §42–§45).
+ * Document parent access (PRD #13 §42–§45, PRD #38 §52, §53, §66).
  *
  * A generic `document.view` is never enough. Every document is reachable only
- * through its parent's permissions:
+ * through its parent:
  *
- *   document.view + company + parent module permission + parent record access
+ *   document permission + parent module permission + parent record access
+ *   + company isolation (+ safe storage state, enforced by the storage layer)
  *
- * Each parent shape registers a resolver here rather than every Documents
- * endpoint re-implementing the rule. An unregistered shape **fails closed**: a
- * document filed under a module whose resolver does not exist yet is excluded
- * from lists and refused on detail, rather than quietly assumed safe
- * (PRD #13 §45, §136, §243).
+ * The parent is decided by the record registry in `lib/core/records` — the
+ * same definitions collaboration and notification links use. There is no
+ * separate list of readable types here, none of uploadable types, and no
+ * per-type resolver: read, upload, list, search, labels and return routes all
+ * come from one entry, so they cannot drift apart again (PRD #38 §52).
+ *
+ * An unregistered parent **fails closed**: excluded from lists, refused on
+ * detail, refused on upload.
  */
 
 export type DocumentParentRef = {
@@ -31,6 +41,40 @@ export type DocumentParentRef = {
   entityType: string | null;
   entityId: string | null;
 };
+
+export type DocumentParentKind =
+  | { kind: "project"; projectId: string }
+  | { kind: "client"; clientId: string }
+  | { kind: "record"; type: RecordType; id: string; definition: RecordDefinition }
+  | { kind: "company"; module: string | null }
+  | { kind: "unregistered" };
+
+/**
+ * What a document hangs off.
+ *
+ * A module record wins over a project id: a hazard photo filed with the
+ * hazard's project attached is reachable through the hazard — its HSE
+ * permissions and its scope — not through project membership alone. Deciding
+ * the other way round is how an incident photograph used to be readable by
+ * anyone on the project who could open the HSE module at all.
+ */
+export function classifyDocumentParent(ref: DocumentParentRef): DocumentParentKind {
+  const entityType = ref.entityType;
+
+  if (entityType && entityType !== "project" && entityType !== "client") {
+    const definition = recordDefinition(entityType);
+    if (!definition?.documents || !ref.entityId || !isRecordType(entityType)) return { kind: "unregistered" };
+    return { kind: "record", type: entityType, id: ref.entityId, definition };
+  }
+
+  if (ref.projectId) return { kind: "project", projectId: ref.projectId };
+  if (entityType === "project" && ref.entityId) return { kind: "project", projectId: ref.entityId };
+  if (ref.clientId) return { kind: "client", clientId: ref.clientId };
+  if (entityType === "client" && ref.entityId) return { kind: "client", clientId: ref.entityId };
+  if (entityType) return { kind: "unregistered" };
+
+  return { kind: "company", module: ref.module };
+}
 
 /* -------------------------------------------------------------------------- */
 /* Module gate                                                                 */
@@ -63,10 +107,6 @@ function companyLevelModules(context: UserContext): ModuleKey[] {
   });
 }
 
-/**
- * A document filed under a module the caller cannot reach is invisible whatever
- * its parent record says.
- */
 function moduleAllowed(context: UserContext, moduleName: string | null): boolean {
   if (moduleName === null) return true;
   if (!isModuleKey(moduleName)) return false; // fail closed on an unknown module
@@ -74,448 +114,37 @@ function moduleAllowed(context: UserContext, moduleName: string | null): boolean
 }
 
 /* -------------------------------------------------------------------------- */
-/* Entity resolvers                                                            */
+/* Single parent                                                               */
 /* -------------------------------------------------------------------------- */
 
-type EntityResolver = (context: UserContext, entityId: string) => Promise<boolean>;
+/** The record's own permissions plus its document-read permissions. */
+function recordDocumentReadHeld(context: UserContext, definition: RecordDefinition): boolean {
+  const documents = definition.documents;
+  if (!documents) return false;
+  return moduleAndPermissions(context, definition.moduleKey, [...definition.viewPermissions, ...documents.view]);
+}
 
-/**
- * Registered `entityType` resolvers.
- *
- * `task` is here because Tasks is a real module now; anything not listed is
- * refused until its module registers one (PRD #13 §44, §199, §289).
- */
-const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
-  async project(context, entityId) {
-    const found = await prisma.project.findFirst({
-      where: { AND: [buildProjectScopeWhere(context), { id: entityId }] },
+/** The self-service door: somebody's own record, reached without a grant over anybody else. */
+async function selfDoorOpen(context: UserContext, definition: RecordDefinition, id: string): Promise<boolean> {
+  const self = definition.documents?.self;
+  if (!self || !self.isSelf(context, id) || !can(context, self.permission)) return false;
+  const access = context.moduleAccess[definition.moduleKey];
+  if (!access?.enabled) return false;
+  if (definition.type === "employee") {
+    const profile = await prisma.employeeProfile.findFirst({
+      where: { companyId: context.companyId, companyMemberId: id },
       select: { id: true },
     });
-    return Boolean(found);
-  },
-
-  async client(context, entityId) {
-    const found = await prisma.client.findFirst({
-      where: { AND: [buildClientScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async task(context, entityId) {
-    if (!can(context, "task.view")) return false;
-    const { buildTaskScopeWhere } = await import("@/lib/access/scope");
-    const found = await prisma.task.findFirst({
-      where: { AND: [buildTaskScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  /*
-   * Finance parents (PRD #15 §187, §188).
-   *
-   * Each finance record answers with its own scope clause and its own view
-   * permission, so an invoice PDF is exactly as reachable as the invoice —
-   * never more (PRD #15 §189–§192).
-   */
-  async invoice(context, entityId) {
-    if (!can(context, "finance.invoice.view")) return false;
-    const { buildInvoiceScopeWhere } = await import("@/lib/modules/finance/finance.scope");
-    const found = await prisma.invoice.findFirst({
-      where: { AND: [buildInvoiceScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async expense(context, entityId) {
-    if (!can(context, "finance.expense.view")) return false;
-    const { buildExpenseScopeWhere } = await import("@/lib/modules/finance/finance.scope");
-    const found = await prisma.expense.findFirst({
-      where: { AND: [buildExpenseScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async budget(context, entityId) {
-    if (!can(context, "finance.budget.view")) return false;
-    const { buildBudgetScopeWhere } = await import("@/lib/modules/finance/finance.scope");
-    const found = await prisma.projectBudget.findFirst({
-      where: { AND: [buildBudgetScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async commitment(context, entityId) {
-    if (!can(context, "finance.commitment.view")) return false;
-    const { buildCommitmentScopeWhere } = await import("@/lib/modules/finance/finance.scope");
-    const found = await prisma.commitment.findFirst({
-      where: { AND: [buildCommitmentScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  /*
-   * HR parents (PRD #16 §129, §204, §205).
-   *
-   * `employee` is addressed by membership id, the way every HR route is. Both
-   * resolvers allow the self-service door: somebody reaches the files on their
-   * own employment record and their own leave without holding an HR grant over
-   * anybody else (PRD #16 §133, §135).
-   */
-  async employee(context, entityId) {
-    const { buildEmployeeScopeWhere, isSelf } = await import("@/lib/modules/hr/hr.scope");
-
-    // Either the pair of HR grants, or this is the reader's own record
-    // (PRD #16 §133, §135).
-    const byGrant = can(context, "hr.document.view") && can(context, "hr.employee.view");
-    const byOwnership = isSelf(context, entityId) && can(context, "hr.self.documents");
-    if (!byGrant && !byOwnership) return false;
-
-    const found = await prisma.employeeProfile.findFirst({
-      where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  /*
-   * Sales parents (PRD #17 §141–§144, §265, §335).
-   *
-   * Each record answers with its own scope clause and its own view permission,
-   * so a proposal PDF is exactly as reachable as the proposal — never more. An
-   * Architect holding generic `document.view` gets nothing here, which is the
-   * release-critical case (PRD #17 §335).
-   */
-  async lead(context, entityId) {
-    if (!can(context, "sales.document.view") || !can(context, "sales.lead.view")) return false;
-    const { buildLeadScopeWhere } = await import("@/lib/modules/sales/sales.scope");
-    const found = await prisma.lead.findFirst({
-      where: { AND: [buildLeadScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async opportunity(context, entityId) {
-    if (!can(context, "sales.document.view") || !can(context, "sales.opportunity.view")) {
-      return false;
-    }
-    const { buildOpportunityScopeWhere } = await import("@/lib/modules/sales/sales.scope");
-    const found = await prisma.opportunity.findFirst({
-      where: { AND: [buildOpportunityScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async proposal(context, entityId) {
-    if (!can(context, "sales.document.view") || !can(context, "sales.proposal.view")) return false;
-    const { buildProposalScopeWhere } = await import("@/lib/modules/sales/sales.scope");
-    const found = await prisma.proposal.findFirst({
-      where: { AND: [buildProposalScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  /*
-   * Legal parents (PRD #18 §199–§201, §437).
-   *
-   * An amendment and an obligation are exactly as reachable as the contract
-   * they belong to — they carry no scope of their own, so there is one answer
-   * to "may this person see this agreement?" and the document resolver is not a
-   * second one. Release-critical: a generic `document.view` must never open a
-   * signed contract (PRD #18 §437).
-   */
-  async contract(context, entityId) {
-    if (!can(context, "legal.document.view") || !can(context, "legal.contract.view")) return false;
-    const { buildContractScopeWhere } = await import("@/lib/modules/contracts/contract.scope");
-    const found = await prisma.contract.findFirst({
-      where: { AND: [buildContractScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async amendment(context, entityId) {
-    if (!can(context, "legal.document.view") || !can(context, "legal.amendment.view")) return false;
-    const { buildAmendmentScopeWhere } = await import("@/lib/modules/contracts/contract.scope");
-    const found = await prisma.contractAmendment.findFirst({
-      where: { AND: [buildAmendmentScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async obligation(context, entityId) {
-    if (!can(context, "legal.document.view") || !can(context, "legal.obligation.view")) {
-      return false;
-    }
-    const { buildObligationScopeWhere } = await import("@/lib/modules/contracts/contract.scope");
-    const found = await prisma.contractObligation.findFirst({
-      where: { AND: [buildObligationScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  /*
-   * Inventory parents (PRD #20 §189–§196).
-   *
-   * Each stock record answers with its own scope clause and its own view
-   * permission, so a delivery photo is exactly as reachable as the receipt it
-   * is filed against. A generic `document.view` opens nothing here, which is
-   * the release-critical case: a project user must not reach central-warehouse
-   * paperwork by way of the Documents module (PRD #20 §191, §302).
-   */
-  async inventory_item(context, entityId) {
-    if (!can(context, "inventory.document.view") || !can(context, "inventory.item.view")) {
-      return false;
-    }
-    const { buildItemScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
-    const found = await prisma.inventoryItem.findFirst({
-      where: { AND: [buildItemScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async warehouse(context, entityId) {
-    if (!can(context, "inventory.document.view") || !can(context, "inventory.warehouse.view")) {
-      return false;
-    }
-    const { buildWarehouseScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
-    const found = await prisma.warehouse.findFirst({
-      where: { AND: [buildWarehouseScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async inventory_receipt(context, entityId) {
-    if (!can(context, "inventory.document.view") || !can(context, "inventory.receipt.view")) {
-      return false;
-    }
-    const { buildReceiptScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
-    const found = await prisma.inventoryReceipt.findFirst({
-      where: { AND: [buildReceiptScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async stock_issue(context, entityId) {
-    if (!can(context, "inventory.document.view") || !can(context, "inventory.issue.view")) {
-      return false;
-    }
-    const { buildIssueScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
-    const found = await prisma.stockIssue.findFirst({
-      where: { AND: [buildIssueScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async stock_adjustment(context, entityId) {
-    if (!can(context, "inventory.document.view") || !can(context, "inventory.adjustment.view")) {
-      return false;
-    }
-    const { buildAdjustmentScopeWhere } = await import("@/lib/modules/inventory/inventory.scope");
-    const found = await prisma.stockAdjustment.findFirst({
-      where: { AND: [buildAdjustmentScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  /*
-   * QA/QC parents (PRD #21 §175–§183).
-   *
-   * Each quality record answers with its own scope clause and its own view
-   * permission, so a photograph of a failed check is exactly as reachable as
-   * the inspection it hangs off. A generic `document.view` opens nothing here:
-   * quality evidence is often the record of somebody's mistake, and it is not
-   * everybody's to read (PRD #21 §177, §187).
-   */
-  async quality_inspection(context, entityId) {
-    if (!can(context, "qaqc.document.view") || !can(context, "qaqc.inspection.view")) {
-      return false;
-    }
-    const { buildInspectionScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
-    const found = await prisma.qualityInspection.findFirst({
-      where: { AND: [buildInspectionScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async quality_defect(context, entityId) {
-    if (!can(context, "qaqc.document.view") || !can(context, "qaqc.defect.view")) return false;
-    const { buildDefectScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
-    const found = await prisma.qualityDefect.findFirst({
-      where: { AND: [buildDefectScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async non_conformance_report(context, entityId) {
-    if (!can(context, "qaqc.document.view") || !can(context, "qaqc.ncr.view")) return false;
-    const { buildNcrScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
-    const found = await prisma.nonConformanceReport.findFirst({
-      where: { AND: [buildNcrScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async corrective_action(context, entityId) {
-    if (
-      !can(context, "qaqc.document.view") ||
-      !can(context, "qaqc.corrective_action.view")
-    ) {
-      return false;
-    }
-    const { buildCorrectiveActionScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
-    const found = await prisma.correctiveAction.findFirst({
-      where: { AND: [buildCorrectiveActionScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  /*
-   * HSE parents (PRD #22 §185–§193).
-   *
-   * Each safety record answers with its own scope clause and its own view
-   * permission, so a photograph of an unguarded edge is exactly as reachable as
-   * the hazard it hangs off. A generic `document.view` opens nothing here: an
-   * incident's supporting files may show somebody being hurt, and they are not
-   * everybody's to read (PRD #22 §21, §187).
-   */
-  async hse_inspection(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.inspection.view")) {
-      return false;
-    }
-    const { buildInspectionScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.hseInspection.findFirst({
-      where: { AND: [buildInspectionScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async hazard(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.hazard.view")) return false;
-    const { buildHazardScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.hseHazard.findFirst({
-      where: { AND: [buildHazardScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async incident(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.incident.view")) return false;
-    const { buildIncidentScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.hseIncident.findFirst({
-      where: { AND: [buildIncidentScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async risk_assessment(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.risk.view")) return false;
-    const { buildRiskAssessmentScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.hseRiskAssessment.findFirst({
-      where: { AND: [buildRiskAssessmentScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async hse_action(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.action.view")) return false;
-    const { buildActionScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.hseAction.findFirst({
-      where: { AND: [buildActionScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async toolbox_talk(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.toolbox.view")) return false;
-    const { buildToolboxScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.toolboxTalk.findFirst({
-      where: { AND: [buildToolboxScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async work_permit(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.permit.view")) return false;
-    const { buildPermitScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.hseWorkPermit.findFirst({
-      where: { AND: [buildPermitScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async environmental_observation(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.environment.view")) {
-      return false;
-    }
-    const { buildObservationScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.environmentalObservation.findFirst({
-      where: { AND: [buildObservationScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async stop_work(context, entityId) {
-    if (!can(context, "hse.document.view") || !can(context, "hse.stop_work.view")) return false;
-    const { buildStopWorkScopeWhere } = await import("@/lib/modules/hse/hse.scope");
-    const found = await prisma.stopWorkRecord.findFirst({
-      where: { AND: [buildStopWorkScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-
-  async leave_request(context, entityId) {
-    // No self-service door: a supporting file on a leave request may be a
-    // medical certificate, which is what `hr.leave.view` protects
-    // (PRD #16 §132).
-    if (!can(context, "hr.document.view") || !can(context, "hr.leave.view")) return false;
-
-    const { buildLeaveScopeWhere } = await import("@/lib/modules/hr/hr.scope");
-    const found = await prisma.leaveRequest.findFirst({
-      where: { AND: [buildLeaveScopeWhere(context), { id: entityId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  },
-};
-
-/* -------------------------------------------------------------------------- */
-/* Access decision                                                             */
-/* -------------------------------------------------------------------------- */
+    return Boolean(profile);
+  }
+  return false;
+}
 
 /**
  * Can this caller reach the record a document hangs off?
  *
- * The order matters: company isolation is applied by the caller, then the
- * module gate, then the parent record itself.
+ * Company isolation is applied by the caller (every document query carries the
+ * company), then the filing module, then the parent itself.
  */
 export async function canReachDocumentParent(
   context: UserContext,
@@ -523,82 +152,121 @@ export async function canReachDocumentParent(
 ): Promise<boolean> {
   if (!moduleAllowed(context, ref.module)) return false;
 
-  if (ref.projectId) {
-    const found = await prisma.project.findFirst({
-      where: { AND: [buildProjectScopeWhere(context), { id: ref.projectId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
+  const parent = classifyDocumentParent(ref);
+  switch (parent.kind) {
+    case "project":
+      return (await loadRecord(context, "project", parent.projectId)) !== null;
+    case "client":
+      return (await loadRecord(context, "client", parent.clientId)) !== null;
+    case "record": {
+      if (await selfDoorOpen(context, parent.definition, parent.id)) return true;
+      if (!recordDocumentReadHeld(context, parent.definition)) return false;
+      return (await parent.definition.find(context, parent.id)) !== null;
+    }
+    case "company":
+      if (parent.module === null) return can(context, "document.company.view");
+      return isModuleKey(parent.module) && companyLevelModules(context).includes(parent.module);
+    case "unregistered":
+      return false;
   }
-
-  if (ref.clientId) {
-    if (!can(context, "client.view")) return false;
-    const found = await prisma.client.findFirst({
-      where: { AND: [buildClientScopeWhere(context), { id: ref.clientId }] },
-      select: { id: true },
-    });
-    return Boolean(found);
-  }
-
-  if (ref.entityType && ref.entityId) {
-    const resolver = ENTITY_RESOLVERS[ref.entityType];
-    // Fail closed: an entity type nobody has registered is not reachable.
-    if (!resolver) return false;
-    return resolver(context, ref.entityId);
-  }
-
-  // A company-level document: no narrowing parent, so it needs company-level
-  // access to its filing module.
-  if (ref.module === null) return can(context, "document.company.view");
-  return isModuleKey(ref.module) && companyLevelModules(context).includes(ref.module);
 }
 
-/**
- * Modules that require their own upload grant on top of `document.create`
- * before a document may be filed against one of their records.
- *
- * Finance is the case this exists for: reading an invoice is not the same
- * permission as attaching a file to it (PRD #15 §189–§192).
- */
-const MODULE_UPLOAD_GRANT: Record<string, Permission> = {
-  finance: "finance.document.create",
-  // Self-service covers *reading* your own HR file, never adding one: an
-  // employee putting a document onto their own record is still an HR filing
-  // decision (PRD #16 §134, §135).
-  hr: "hr.document.create",
-  // Reading a proposal is not the same permission as attaching a file to it
-  // (PRD #17 §143).
-  sales: "sales.document.create",
-  // Nor is reading a contract the same permission as filing against it
-  // (PRD #18 §203).
-  contracts: "legal.document.create",
-  // Reading a delivery note is not the same permission as filing one
-  // (PRD #20 §189).
-  inventory: "inventory.document.create",
-  // Nor is reading an inspection the same permission as attaching evidence to
-  // it (PRD #21 §175).
-  qaqc: "qaqc.document.create",
-  // Nor is reading a hazard the same permission as filing evidence against it
-  // (PRD #22 §185, §187).
-  hse: "hse.document.create",
-};
+/** The parent record as this caller sees it, or null — for labels and return routes. */
+export async function loadDocumentParentRecord(
+  context: UserContext,
+  ref: DocumentParentRef,
+): Promise<RecordSummary | null> {
+  const parent = classifyDocumentParent(ref);
+  if (parent.kind === "project") return loadRecord(context, "project", parent.projectId);
+  if (parent.kind === "client") return loadRecord(context, "client", parent.clientId);
+  if (parent.kind === "record") {
+    if (!(await canReachDocumentParent(context, ref))) return null;
+    // The self door reads the record without the reader's HR grant, so the
+    // summary is built from the definition's own lookup only when that holds.
+    return (await parent.definition.find(context, parent.id)) ?? selfSummary(context, parent);
+  }
+  return null;
+}
 
-/** May this caller file a *new* document against that parent (PRD #13 §43, §91)? */
+async function selfSummary(
+  context: UserContext,
+  parent: Extract<DocumentParentKind, { kind: "record" }>,
+): Promise<RecordSummary | null> {
+  if (parent.type !== "employee") return null;
+  return {
+    type: "employee",
+    id: parent.id,
+    companyId: context.companyId,
+    label: context.fullName,
+    href: `/hr/employees/${parent.id}`,
+    projectId: null,
+    archived: false,
+    stakeholderMemberIds: [],
+  };
+}
+
+/** May this caller file a *new* document against that parent (PRD #13 §43, §91, PRD #38 §55)? */
 export async function canAttachToDocumentParent(
   context: UserContext,
   ref: DocumentParentRef,
 ): Promise<boolean> {
   if (!can(context, "document.create")) return false;
-  if (ref.projectId === null && ref.clientId === null && ref.entityId === null) {
-    // A general company document needs the company-document grant on top
-    // (PRD #13 §92).
-    return can(context, "document.company.create");
+
+  const parent = classifyDocumentParent(ref);
+  switch (parent.kind) {
+    case "company":
+      // A general company document needs the company-document grant on top
+      // (PRD #13 §92).
+      return parent.module === null && can(context, "document.company.create");
+    case "unregistered":
+      return false;
+    case "record": {
+      const upload = parent.definition.documents?.upload;
+      // A record type that takes no uploads takes none, whoever is asking.
+      if (upload === null || upload === undefined) return false;
+      if (!upload.every((permission) => can(context, permission))) return false;
+      if (!recordDocumentReadHeld(context, parent.definition)) return false;
+      const record = await parent.definition.find(context, parent.id);
+      return record !== null && !record.archived;
+    }
+    case "project":
+    case "client":
+      return canReachDocumentParent(context, ref);
   }
+}
 
-  const grant = ref.module ? MODULE_UPLOAD_GRANT[ref.module] : undefined;
-  if (grant && !can(context, grant)) return false;
+/* -------------------------------------------------------------------------- */
+/* Readable document                                                           */
+/* -------------------------------------------------------------------------- */
 
-  return canReachDocumentParent(context, ref);
+const READABLE_SELECT = {
+  id: true,
+  companyId: true,
+  name: true,
+  status: true,
+  storageStatus: true,
+  projectId: true,
+  clientId: true,
+  module: true,
+  entityType: true,
+  entityId: true,
+  uploadedByMemberId: true,
+} satisfies Prisma.DocumentSelect;
+
+export type ReadableDocument = Prisma.DocumentGetPayload<{ select: typeof READABLE_SELECT }>;
+
+/**
+ * A document this caller may read right now, or null. Another company's id, an
+ * unreachable parent and a missing row all answer the same way.
+ */
+export async function findReadableDocument(context: UserContext, documentId: string): Promise<ReadableDocument | null> {
+  if (!moduleAndPermissions(context, "documents", ["document.view"])) return null;
+  const document = await prisma.document.findFirst({
+    where: { id: documentId, companyId: context.companyId },
+    select: READABLE_SELECT,
+  });
+  if (!document) return null;
+  return (await canReachDocumentParent(context, document)) ? document : null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -606,55 +274,16 @@ export async function canAttachToDocumentParent(
 /* -------------------------------------------------------------------------- */
 
 /**
- * The authorised `where` for a document list (PRD #13 §134, §135).
+ * The authorised `where` for a document list (PRD #13 §134, §135, PRD #38 §66).
  *
- * Built as a set of OR branches rather than by loading every company document
- * and filtering in memory — which would be both slow and one refactor away
- * from a leak.
+ * Built as OR branches rather than by loading every document and filtering in
+ * memory. Record branches are exact: for each record type the reader holds the
+ * permissions for, the records that actually carry documents are narrowed by
+ * that type's own scope in one query, and only those ids enter the clause — so
+ * an opportunity brief on somebody else's opportunity stays out of the list,
+ * the search results and the counts, not merely off the detail page.
  */
-/**
- * The view permission behind each record-document branch.
- *
- * Deliberately a table rather than a chain of ifs: adding a record type means
- * adding a line here and a resolver above, and forgetting either one leaves the
- * documents invisible rather than exposed.
- */
-const RECORD_DOCUMENT_GRANTS: Record<string, Permission[]> = {
-  task: ["task.view"],
-  invoice: ["finance.invoice.view"],
-  expense: ["finance.expense.view"],
-  budget: ["finance.budget.view"],
-  commitment: ["finance.commitment.view"],
-  // HR needs both the document grant and access to the kind of record it hangs
-  // off: an employee file is not reachable through leave access, or the other
-  // way round (PRD #16 §132, §133).
-  employee: ["hr.document.view", "hr.employee.view"],
-  leave_request: ["hr.document.view", "hr.leave.view"],
-  // Sales needs the document grant and access to the kind of record it hangs
-  // off: an opportunity brief is not reachable through proposal access, or the
-  // other way round (PRD #17 §143).
-  lead: ["sales.document.view", "sales.lead.view"],
-  opportunity: ["sales.document.view", "sales.opportunity.view"],
-  proposal: ["sales.document.view", "sales.proposal.view"],
-  // Legal is the same shape: a signed contract is reachable through contract
-  // access, an amendment through amendment access (PRD #18 §200, §201).
-  contract: ["legal.document.view", "legal.contract.view"],
-  amendment: ["legal.document.view", "legal.amendment.view"],
-  obligation: ["legal.document.view", "legal.obligation.view"],
-};
-
-/**
- * The one self-service branch (PRD #16 §135).
- *
- * `hr.self.documents` reaches documents parented to the reader's *own*
- * employment record and nothing else. Leave documents are deliberately absent:
- * a supporting file on a leave request requires `hr.leave.view`, because
- * medical certificates are exactly what that permission is protecting
- * (PRD #16 §132).
- */
-const SELF_RECORD_DOCUMENT_GRANT: Permission = "hr.self.documents";
-
-export function buildDocumentAccessWhere(context: UserContext): Prisma.DocumentWhereInput {
+export async function buildDocumentAccessWhere(context: UserContext): Promise<Prisma.DocumentWhereInput> {
   const reachable = reachableModules(context);
   const companyLevel = companyLevelModules(context);
 
@@ -662,84 +291,84 @@ export function buildDocumentAccessWhere(context: UserContext): Prisma.DocumentW
     OR: [{ module: null }, { module: { in: allowed } }],
   });
 
-  const branches: Prisma.DocumentWhereInput[] = [
-    // A project document follows project access.
-    {
-      AND: [
-        { projectId: { not: null } },
-        { project: buildProjectScopeWhere(context) },
-        moduleGate(reachable),
-      ],
-    },
-  ];
+  const notARecord: Prisma.DocumentWhereInput = {
+    OR: [{ entityType: null }, { entityType: { in: ["project", "client"] } }],
+  };
 
-  // A client document follows client access.
-  if (can(context, "client.view")) {
+  const branches: Prisma.DocumentWhereInput[] = [];
+
+  if (moduleAndPermissions(context, "projects", ["project.view"])) {
     branches.push({
-      AND: [
-        { projectId: null, clientId: { not: null } },
-        { client: buildClientScopeWhere(context) },
-        moduleGate(reachable),
-      ],
+      AND: [notARecord, { projectId: { not: null } }, { project: buildProjectScopeWhere(context) }, moduleGate(reachable)],
     });
   }
 
-  // A record document follows its own record's access. Each entity type is
-  // gated by the permission that governs reading the record itself, which is
-  // what keeps an invoice PDF exactly as reachable as its invoice — never more
-  // (PRD #13 §44, PRD #15 §189–§192).
-  for (const [entityType, permissions] of Object.entries(RECORD_DOCUMENT_GRANTS)) {
-    if (permissions.every((permission) => can(context, permission))) {
-      branches.push({
-        AND: [{ projectId: null, clientId: null, entityType }, moduleGate(reachable)],
-      });
+  if (moduleAndPermissions(context, "clients", ["client.view"])) {
+    branches.push({
+      AND: [notARecord, { projectId: null, clientId: { not: null } }, { client: buildClientScopeWhere(context) }, moduleGate(reachable)],
+    });
+  }
+
+  const recordDefinitionsWithDocuments = recordDefinitions().filter(
+    (definition) => definition.documents && definition.type !== "project" && definition.type !== "client",
+  );
+  const readableTypes = recordDefinitionsWithDocuments.filter((definition) => recordDocumentReadHeld(context, definition));
+
+  if (readableTypes.length > 0) {
+    const candidates = await prisma.document.groupBy({
+      by: ["entityType", "entityId"],
+      where: {
+        companyId: context.companyId,
+        entityType: { in: readableTypes.map((definition) => definition.type) },
+        entityId: { not: null },
+      },
+    });
+
+    const idsByType = new Map<string, string[]>();
+    for (const row of candidates) {
+      if (!row.entityType || !row.entityId) continue;
+      idsByType.set(row.entityType, [...(idsByType.get(row.entityType) ?? []), row.entityId]);
+    }
+
+    const reachableByType = await Promise.all(
+      readableTypes.map(async (definition) => ({
+        type: definition.type,
+        ids: await definition.reachable(context, idsByType.get(definition.type) ?? []),
+      })),
+    );
+
+    for (const { type, ids } of reachableByType) {
+      if (ids.length === 0) continue;
+      branches.push({ AND: [{ entityType: type, entityId: { in: ids } }, moduleGate(reachable)] });
     }
   }
 
-  // Somebody's own employment file, reachable without any HR grant over anybody
-  // else. Narrowed to their own membership, which is what "own" means here
-  // (PRD #16 §135).
-  if (can(context, SELF_RECORD_DOCUMENT_GRANT)) {
-    branches.push({
-      AND: [
-        { projectId: null, clientId: null, entityType: "employee" },
-        { entityId: context.membershipId },
-        moduleGate(reachable),
-      ],
-    });
+  // Self-service: a record whose id is the reader's own membership, reached
+  // without any grant over anybody else (PRD #16 §135).
+  for (const definition of recordDefinitionsWithDocuments) {
+    const self = definition.documents?.self;
+    if (!self || !can(context, self.permission) || !self.isSelf(context, context.membershipId)) continue;
+    if (!context.moduleAccess[definition.moduleKey]?.enabled) continue;
+    branches.push({ AND: [{ entityType: definition.type, entityId: context.membershipId }, moduleGate(reachable)] });
   }
 
   // A company document needs company-level access to its filing module, or the
   // dedicated company-document grant when it has no module at all.
   if (can(context, "document.company.view")) {
-    branches.push({
-      AND: [{ projectId: null, clientId: null, entityType: null, module: null }],
-    });
+    branches.push({ projectId: null, clientId: null, entityType: null, module: null });
   }
   if (companyLevel.length > 0) {
-    branches.push({
-      AND: [
-        { projectId: null, clientId: null, entityType: null },
-        { module: { in: companyLevel } },
-      ],
-    });
+    branches.push({ AND: [{ projectId: null, clientId: null, entityType: null }, { module: { in: companyLevel } }] });
   }
 
-  return { companyId: context.companyId, OR: branches };
+  // No branch at all is a real answer — nothing — not an unfiltered query.
+  return { companyId: context.companyId, OR: branches.length > 0 ? branches : [{ id: { in: [] } }] };
 }
 
 /* -------------------------------------------------------------------------- */
 /* Parent resolution                                                           */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Turns a create request into a parent reference, validating the record it
- * names belongs to this company.
- *
- * The context chosen in the form is not trusted: a project id from another
- * company, or one this caller cannot open, is refused here rather than being
- * written and hidden later (PRD #13 §91, §236).
- */
 /**
  * Just the fields that name a parent.
  *
@@ -751,10 +380,18 @@ export type DocumentParentInput = {
   context: CreateDocumentInput["context"];
   projectId?: string;
   clientId?: string;
-  entityType?: DocumentRecordType;
+  entityType?: string;
   entityId?: string;
 };
 
+/**
+ * Turns a create request into a parent reference, validating the record it
+ * names belongs to this company.
+ *
+ * The context chosen in the form is not trusted: a project id from another
+ * company, or one this caller cannot open, is refused here rather than being
+ * written and hidden later (PRD #13 §91, §236).
+ */
 export async function resolveDocumentParent(
   context: UserContext,
   input: DocumentParentInput,
@@ -762,64 +399,56 @@ export async function resolveDocumentParent(
   if (input.context === "project") {
     // Looked up inside the caller's own scope, so a project they cannot reach
     // reads as "does not exist" rather than being confirmed to them.
-    const project = await prisma.project.findFirst({
-      where: { AND: [buildProjectScopeWhere(context), { id: input.projectId! }] },
-      select: { id: true, clientId: true },
-    });
+    const project = await loadRecord(context, "project", input.projectId ?? "");
     if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.");
-    return {
-      projectId: project.id,
-      clientId: null,
-      module: "projects",
-      entityType: "project",
-      entityId: project.id,
-    };
+    return { projectId: project.id, clientId: null, module: "projects", entityType: "project", entityId: project.id };
   }
 
   if (input.context === "client") {
-    const client = await prisma.client.findFirst({
-      where: { AND: [buildClientScopeWhere(context), { id: input.clientId! }] },
-      select: { id: true },
-    });
+    const client = await loadRecord(context, "client", input.clientId ?? "");
     if (!client) throw new AccessError("VALIDATION_ERROR", "That client does not exist.");
-    return {
-      projectId: null,
-      clientId: client.id,
-      module: "clients",
-      entityType: "client",
-      entityId: client.id,
-    };
+    return { projectId: null, clientId: client.id, module: "clients", entityType: "client", entityId: client.id };
   }
 
   if (input.context === "record") {
+    const definition = input.entityType ? recordDefinition(input.entityType) : null;
+    if (!definition?.documents || definition.type === "project" || definition.type === "client" || !input.entityId) {
+      throw new AccessError("VALIDATION_ERROR", "That record does not take documents.");
+    }
     /*
-     * A document filed against a module's own record (PRD #15 §187).
-     *
-     * The parent is not looked up here: `canAttachToDocumentParent` runs the
-     * registered resolver for this entity type, which reads the record through
-     * *its* module's scope. One place decides reachability, so a record type
-     * added later cannot quietly acquire a second interpretation.
+     * The record is not looked up here: `canAttachToDocumentParent` reads it
+     * through its registry definition, inside the caller's scope. One place
+     * decides reachability.
      */
     return {
       projectId: null,
       clientId: null,
-      module: MODULE_FOR_RECORD[input.entityType!],
-      entityType: input.entityType!,
-      entityId: input.entityId!,
+      module: definition.moduleKey,
+      entityType: definition.type,
+      entityId: input.entityId,
     };
   }
 
   return { projectId: null, clientId: null, module: null, entityType: null, entityId: null };
 }
 
-/** Which module owns each record type a document can be filed against. */
-const MODULE_FOR_RECORD: Record<DocumentRecordType, string> = {
-  task: "tasks",
-  invoice: "finance",
-  expense: "finance",
-  budget: "finance",
-  commitment: "finance",
-  employee: "hr",
-  leave_request: "hr",
-};
+/** Record types a file can be uploaded against from a record page. */
+export function uploadableRecordTypes(): RecordType[] {
+  return recordDefinitions()
+    .filter((definition) => definition.documents?.upload != null && definition.type !== "project" && definition.type !== "client")
+    .map((definition) => definition.type);
+}
 
+/**
+ * Where a record's files are listed — the return route after an upload or a
+ * cancel (PRD #38 §49, §55). Null for anything the caller cannot reach.
+ */
+export async function documentReturnRoute(context: UserContext, ref: DocumentParentRef): Promise<string | null> {
+  const parent = classifyDocumentParent(ref);
+  const record = await loadDocumentParentRecord(context, ref);
+  if (!record) return null;
+  if (parent.kind === "project") return `/projects/${record.id}/documents`;
+  if (parent.kind === "client") return `/clients/${record.id}/documents`;
+  if (parent.kind === "record") return parent.definition.documents?.tabHref(record) ?? null;
+  return null;
+}

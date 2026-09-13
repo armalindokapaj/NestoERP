@@ -10,6 +10,8 @@ import {
   assertPermission,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -309,6 +311,17 @@ export async function createAction(
       message: `raised corrective action ${action.actionNumber}`,
     });
 
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.QA_ACTION_ASSIGNED,
+      moduleKey: MODULE,
+      entityType: "corrective_action",
+      entityId: action.id,
+      actorMemberId: context.membershipId,
+      projectId: input.projectId ?? parent.projectId,
+      payload: { assigneeMemberId: assignee.id, actionNumber: action.actionNumber, title: input.title, assignmentVersion: new Date().toISOString() },
+    });
+
     return action.id;
   });
 
@@ -352,6 +365,18 @@ export async function updateAction(
       },
     });
 
+    if (assignee.id !== existing.assignedToMemberId) {
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.QA_ACTION_ASSIGNED,
+        moduleKey: MODULE,
+        entityType: "corrective_action",
+        entityId: actionId,
+        actorMemberId: context.membershipId,
+        payload: { assigneeMemberId: assignee.id, actionNumber: existing.actionNumber, title: null, assignmentVersion: new Date().toISOString() },
+      });
+    }
+
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -391,6 +416,18 @@ export async function assignAction(
         updatedByMemberId: context.membershipId,
       },
     });
+
+    if (member.id !== existing.assignedToMemberId) {
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.QA_ACTION_ASSIGNED,
+        moduleKey: MODULE,
+        entityType: "corrective_action",
+        entityId: actionId,
+        actorMemberId: context.membershipId,
+        payload: { assigneeMemberId: member.id, actionNumber: existing.actionNumber, title: null, assignmentVersion: new Date().toISOString() },
+      });
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -684,7 +721,7 @@ async function requireAction(context: UserContext, actionId: string) {
   return assertFound(
     await prisma.correctiveAction.findFirst({
       where: { AND: [buildCorrectiveActionScopeWhere(context), { id: actionId }] },
-      select: { id: true, actionNumber: true, status: true, updatedAt: true, ncrId: true },
+      select: { id: true, actionNumber: true, status: true, assignedToMemberId: true, updatedAt: true, ncrId: true },
     }),
   );
 }

@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { ContractActions } from "@/components/contracts/contract-actions";
 import { ContractApprovalHistory } from "@/components/contracts/approval-history";
 import { commercialLabel, expiryLabel } from "@/components/contracts/contract-format";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { RecordTasks } from "@/components/tasks/record-tasks";
 import {
   contractTypeLabels,
 } from "@/lib/modules/contracts/contracts/contract.schema";
@@ -37,7 +39,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  */
 export default async function ContractOverviewPage({ params }: Params) {
   const { contractId } = await params;
-  const { contract } = await contractContext(contractId);
+  const { context, contract } = await contractContext(contractId);
 
   const may = contract.capabilities;
   const value = commercialLabel(contract.commercial);
@@ -362,6 +364,10 @@ export default async function ContractOverviewPage({ params }: Params) {
           </section>
         </div>
       </div>
+      {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
+      <RecordTasks context={context} parentType="contract" parentId={contractId} />
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="contract" parentId={contractId} />
     </div>
   );
 }

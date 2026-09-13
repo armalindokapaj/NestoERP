@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { MaterialPanel } from "@/components/qaqc/material-panel";
 import {
   CorrectiveActionTable,
@@ -234,6 +235,9 @@ export default async function InspectionPage({ params }: Params) {
           </section>
         </div>
       </div>
+
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="quality_inspection" parentId={inspectionId} className="mt-4" />
     </InspectionPageShell>
   );
 }

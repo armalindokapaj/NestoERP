@@ -8,6 +8,8 @@ import {
   assertPermission,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -503,6 +505,22 @@ export async function createInspection(
       message: `created inspection ${inspection.inspectionNumber}`,
     });
 
+    // The inspector hears it is theirs (PRD #38 §74).
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.QA_INSPECTION_REQUIRED,
+      moduleKey: MODULE,
+      entityType: "quality_inspection",
+      entityId: inspection.id,
+      actorMemberId: context.membershipId,
+      projectId: projectId,
+      payload: {
+        inspectorMemberId: inspector.id,
+        inspectionNumber: inspection.inspectionNumber,
+        scheduledDate: input.inspectionDate ? new Date(input.inspectionDate).toISOString().slice(0, 10) : null,
+      },
+    });
+
     return inspection.id;
   });
 
@@ -554,6 +572,19 @@ export async function updateInspection(
       },
     });
 
+    if (inspector.id !== existing.assignedInspectorMemberId) {
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.QA_INSPECTION_REQUIRED,
+        moduleKey: MODULE,
+        entityType: "quality_inspection",
+        entityId: inspectionId,
+        actorMemberId: context.membershipId,
+        projectId,
+        payload: { inspectorMemberId: inspector.id, inspectionNumber: existing.inspectionNumber },
+      });
+    }
+
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -593,6 +624,18 @@ export async function assignInspection(
         updatedByMemberId: context.membershipId,
       },
     });
+
+    if (member.id !== existing.assignedInspectorMemberId) {
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.QA_INSPECTION_REQUIRED,
+        moduleKey: MODULE,
+        entityType: "quality_inspection",
+        entityId: inspectionId,
+        actorMemberId: context.membershipId,
+        payload: { inspectorMemberId: member.id, inspectionNumber: existing.inspectionNumber },
+      });
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -1217,6 +1260,22 @@ export async function createReinspection(
       metadata: { parentInspectionId: parent.id } as Prisma.InputJsonValue,
     });
 
+    // The inspector hears it is theirs (PRD #38 §74).
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.QA_INSPECTION_REQUIRED,
+      moduleKey: MODULE,
+      entityType: "quality_inspection",
+      entityId: created.id,
+      actorMemberId: context.membershipId,
+      projectId: parent.projectId,
+      payload: {
+        inspectorMemberId: inspector.id,
+        inspectionNumber: created.inspectionNumber,
+        scheduledDate: input.inspectionDate ? new Date(input.inspectionDate).toISOString().slice(0, 10) : null,
+      },
+    });
+
     return created.id;
   });
 
@@ -1253,6 +1312,7 @@ async function requireInspection(context: UserContext, inspectionId: string) {
         status: true,
         result: true,
         requestId: true,
+        assignedInspectorMemberId: true,
         updatedAt: true,
       },
     }),

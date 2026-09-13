@@ -8,6 +8,7 @@ import {
   assertPermission,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { notifyCriticalSafety } from "@/lib/core/notifications/safety-notifications";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -350,6 +351,10 @@ export async function createIncident(
       // — the flags live on the record, behind the permission (PRD #22 §197).
       message: `reported ${input.incidentType === "NEAR_MISS" ? "near miss" : "incident"} ${incident.incidentNumber}`,
     });
+
+    if (input.severity === "CRITICAL") {
+      await notifyCriticalSafety(tx, context, { recordType: "incident", recordId: incident.id, projectId: input.projectId ?? null, noun: "Critical incident" });
+    }
 
     return incident.id;
   });

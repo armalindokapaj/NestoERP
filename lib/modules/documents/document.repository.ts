@@ -4,7 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import { extensionsForGroups, type FileTypeGroup } from "./document.files";
-import { buildDocumentAccessWhere } from "./document.parent-access";
+import { buildDocumentAccessWhere, findReadableDocument } from "./document.parent-access";
 import type { DocumentListQuery, DocumentSortKey } from "./document.schema";
 
 /**
@@ -85,11 +85,11 @@ export type DocumentDetailRow = Prisma.DocumentGetPayload<{ select: typeof DETAI
  * Order: company + parent access → archive state → search → filters
  * (PRD #13 §133).
  */
-export function buildDocumentListWhere(
+export async function buildDocumentListWhere(
   context: UserContext,
   query: DocumentListQuery,
-): Prisma.DocumentWhereInput {
-  const filters: Prisma.DocumentWhereInput[] = [buildDocumentAccessWhere(context)];
+): Promise<Prisma.DocumentWhereInput> {
+  const filters: Prisma.DocumentWhereInput[] = [await buildDocumentAccessWhere(context)];
 
   filters.push(
     query.archived
@@ -124,6 +124,7 @@ export function buildDocumentListWhere(
       if (kind === "project") branches.push({ projectId: { not: null } });
       if (kind === "client") branches.push({ projectId: null, clientId: { not: null } });
       if (kind === "task") branches.push({ entityType: "task" });
+      if (kind === "record") branches.push({ entityType: { notIn: ["project", "client"] }, entityId: { not: null } });
       if (kind === "company") {
         branches.push({ projectId: null, clientId: null, entityType: null });
       }
@@ -147,7 +148,7 @@ export function buildDocumentListWhere(
 }
 
 export async function listDocuments(context: UserContext, query: DocumentListQuery) {
-  const where = buildDocumentListWhere(context, query);
+  const where = await buildDocumentListWhere(context, query);
 
   const [rows, total] = await Promise.all([
     prisma.document.findMany({
@@ -164,18 +165,21 @@ export async function listDocuments(context: UserContext, query: DocumentListQue
 }
 
 /**
- * A single document, already narrowed by the same access clause the list uses.
+ * A single document, if its parent is reachable right now.
  *
- * The clause covers project, client, task and company shapes; anything with an
- * unregistered parent falls outside it and answers "not found", which is the
- * fail-closed behaviour the registry promises (PRD #13 §45, §149).
+ * Decided by the record registry for that one parent rather than by building
+ * the whole list clause: an unregistered parent answers "not found", which is
+ * the fail-closed behaviour the registry promises (PRD #13 §45, §149,
+ * PRD #38 §66).
  */
 export async function findDocumentInScope(
   context: UserContext,
   documentId: string,
 ): Promise<DocumentDetailRow | null> {
+  const readable = await findReadableDocument(context, documentId);
+  if (!readable) return null;
   return prisma.document.findFirst({
-    where: { AND: [buildDocumentAccessWhere(context), { id: documentId }] },
+    where: { id: readable.id, companyId: context.companyId },
     select: DETAIL_SELECT,
   });
 }
@@ -213,7 +217,7 @@ export async function listDocumentActivity(
 
 /** The overview counters, all counted in the database under access (PRD #13 §167). */
 export async function documentOverviewStats(context: UserContext) {
-  const access = buildDocumentAccessWhere(context);
+  const access = await buildDocumentAccessWhere(context);
   const live: Prisma.DocumentWhereInput = {
     AND: [access, { archivedAt: null, status: { not: "ARCHIVED" } }],
   };
@@ -237,7 +241,7 @@ export async function documentOverviewStats(context: UserContext) {
 export async function recentDocuments(context: UserContext, take = 6) {
   return prisma.document.findMany({
     where: {
-      AND: [buildDocumentAccessWhere(context), { archivedAt: null, status: { not: "ARCHIVED" } }],
+      AND: [await buildDocumentAccessWhere(context), { archivedAt: null, status: { not: "ARCHIVED" } }],
     },
     select: SUMMARY_SELECT,
     orderBy: { updatedAt: "desc" },
@@ -249,7 +253,7 @@ export async function myRecentUploads(context: UserContext, take = 6) {
   return prisma.document.findMany({
     where: {
       AND: [
-        buildDocumentAccessWhere(context),
+        await buildDocumentAccessWhere(context),
         { archivedAt: null, status: { not: "ARCHIVED" } },
         { uploadedByMemberId: context.membershipId },
       ],
@@ -262,7 +266,7 @@ export async function myRecentUploads(context: UserContext, take = 6) {
 
 /** Filter dropdown values, derived from documents the caller can already see. */
 export async function documentFilterOptions(context: UserContext) {
-  const access = buildDocumentAccessWhere(context);
+  const access = await buildDocumentAccessWhere(context);
 
   const [projects, clients, uploaders] = await Promise.all([
     prisma.project.findMany({

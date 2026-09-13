@@ -8,6 +8,7 @@ import {
   assertPermission,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { notifyCriticalSafety } from "@/lib/core/notifications/safety-notifications";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -274,6 +275,10 @@ export async function createStopWork(
       // The reason stays on the record, behind its permission (PRD #22 §197).
       message: `issued stop-work ${record.stopWorkNumber}`,
     });
+
+    // People are being sent off a job right now; nobody responsible should learn
+    // it from the dashboard (PRD #22 §361, PRD #38 §74).
+    await notifyCriticalSafety(tx, context, { recordType: "stop_work", recordId: record.id, projectId: input.projectId, noun: "Stop-work order" });
 
     return record.id;
   });

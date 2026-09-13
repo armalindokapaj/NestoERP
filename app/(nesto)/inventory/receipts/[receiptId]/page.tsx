@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DocumentActions } from "@/components/inventory/document-actions";
 import { DocumentLinesTable } from "@/components/inventory/document-lines-table";
 import { SourceLink } from "@/components/inventory/document-tables";
@@ -142,6 +143,8 @@ export default async function ReceiptPage({ params }: Params) {
           ) : null}
         </div>
       </div>
+      {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
+      <CollaborationPanel parentType="inventory_receipt" parentId={receiptId} />
     </div>
   );
 }

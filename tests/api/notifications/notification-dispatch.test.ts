@@ -160,7 +160,8 @@ describe("the read side (PRD #25 §157, §165)", () => {
     expect(before.unread).toBeGreaterThan(0);
 
     const { data } = await listNotifications(engineer, { readState: "UNREAD" });
-    const mine = data.find((row) => row.entity?.entityId === task.id);
+    const ids = (await prisma.notification.findMany({ where: { entityId: task.id }, select: { id: true } })).map((row) => row.id);
+    const mine = data.find((row) => ids.includes(row.id));
     expect(mine).toBeDefined();
 
     await markRead(engineer, mine!.id, true);
