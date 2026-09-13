@@ -38,6 +38,7 @@ export function InvoiceForm({
   clients,
   projects,
   values,
+  autoNumbered,
   defaultTaxRate,
   defaultPaymentTermsDays,
   versionUpdatedAt,
@@ -49,6 +50,8 @@ export function InvoiceForm({
   clients: SelectOption[];
   projects: { value: string; label: string; clientId: string | null }[];
   values?: InvoiceFormValues;
+  /** True when the company's scheme numbers invoices itself (PRD #24 §114). */
+  autoNumbered: boolean;
   defaultTaxRate: string | null;
   defaultPaymentTermsDays: number;
   versionUpdatedAt?: string;
@@ -79,16 +82,30 @@ export function InvoiceForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection title="Invoice details" description="Who is being billed, and for what.">
-        <Field label="Invoice number" name="invoiceNumber" required>
-          <Input
-            id="invoiceNumber"
-            name="invoiceNumber"
-            required
-            maxLength={60}
-            defaultValue={values?.invoiceNumber ?? ""}
-            placeholder="INV-2026-015"
-          />
-        </Field>
+        {/*
+          * Not asked for when the company numbers invoices automatically: the
+          * service allocates under a row lock and would discard anything typed
+          * here, and a field whose value is thrown away is worse than no field
+          * (PRD #24 §114).
+          */}
+        {autoNumbered ? (
+          <Field label="Invoice number" name="invoiceNumber">
+            <p className="text-body text-fg-muted">
+              {values?.invoiceNumber ?? "Allocated automatically when the invoice is saved."}
+            </p>
+          </Field>
+        ) : (
+          <Field label="Invoice number" name="invoiceNumber" required>
+            <Input
+              id="invoiceNumber"
+              name="invoiceNumber"
+              required
+              maxLength={60}
+              defaultValue={values?.invoiceNumber ?? ""}
+              placeholder="INV-2026-015"
+            />
+          </Field>
+        )}
 
         <Field label="Currency" name="currency" required>
           <select

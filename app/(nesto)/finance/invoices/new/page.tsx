@@ -6,6 +6,7 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { can } from "@/lib/access/can";
 import { createInvoiceAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
+import { isAutoNumbered } from "@/lib/core/numbering/numbering.service";
 import { resolveFinanceSettings } from "@/lib/modules/finance/finance.settings";
 import { invoiceFormOptions } from "@/lib/modules/finance/invoices/invoice.repository";
 
@@ -20,9 +21,10 @@ export default async function NewInvoicePage({
 
   if (!can(context, "finance.invoice.create")) redirect("/access-denied");
 
-  const [options, settings] = await Promise.all([
+  const [options, settings, autoNumbered] = await Promise.all([
     invoiceFormOptions(context),
     resolveFinanceSettings(context.companyId),
+    isAutoNumbered({ companyId: context.companyId, moduleKey: "finance", entityType: "invoice" }),
   ]);
   const params = await searchParams;
 
@@ -44,6 +46,7 @@ export default async function NewInvoicePage({
       />
 
       <InvoiceForm
+        autoNumbered={autoNumbered}
         action={action}
         clients={options.clients.map((client) => ({ value: client.id, label: client.name }))}
         projects={options.projects.map((project) => ({

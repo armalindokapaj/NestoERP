@@ -1,4 +1,5 @@
 import { Prisma, type InvoiceStatus } from "@prisma/client";
+import { allocateNumber } from "@/lib/core/numbering/numbering.service";
 
 import { can } from "@/lib/access/can";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
@@ -161,12 +162,34 @@ export async function createInvoice(
   const totals = calculateInvoice(input.lineItems);
 
   const invoiceId = await prisma.$transaction(async (tx) => {
-    await assertNumberIsFree(tx, context, input.invoiceNumber, null);
+    /*
+     * The configured scheme decides the number (PRD #24 §102, §114).
+     *
+     * `allocateNumber` returns null when the company has set this record type
+     * to MANUAL, and only then does what somebody typed apply. Under AUTO the
+     * sequence is allocated under a row lock, so two invoices raised at the
+     * same moment cannot take the same number — which is the whole reason the
+     * setting exists rather than trusting a typed value to be unique.
+     */
+    const allocated = await allocateNumber(
+      { companyId: context.companyId, moduleKey: MODULE, entityType: "invoice" },
+      { tx, occurredAt: input.issueDate },
+    );
+    const invoiceNumber = allocated ?? input.invoiceNumber;
+
+    if (!invoiceNumber) {
+      throw new AccessError(
+        "VALIDATION_ERROR",
+        "This company numbers invoices manually, so an invoice number is required.",
+      );
+    }
+
+    await assertNumberIsFree(tx, context, invoiceNumber, null);
 
     const invoice = await tx.invoice.create({
       data: {
         companyId: context.companyId,
-        invoiceNumber: input.invoiceNumber,
+        invoiceNumber,
         clientId: client.id,
         projectId: project?.id ?? null,
         issueDate: input.issueDate,
@@ -199,9 +222,9 @@ export async function createInvoice(
       entityType: ENTITY,
       entityId: invoice.id,
       action: "FINANCE_INVOICE_CREATED",
-      message: `raised invoice ${input.invoiceNumber} for ${client.name}`,
+      message: `raised invoice ${invoiceNumber} for ${client.name}`,
       metadata: {
-        invoiceNumber: input.invoiceNumber,
+        invoiceNumber,
         currency: input.currency,
         totalAmount: toAmountString(totals.totalAmount),
       } as Prisma.InputJsonValue,
@@ -243,8 +266,12 @@ export async function updateInvoice(
   const { client, project } = await validateRelationships(context, input);
   const totals = calculateInvoice(input.lineItems);
 
+  // An auto-numbered invoice keeps the number it was allocated: the form does
+  // not offer the field, so nothing is submitted for it (PRD #24 §111, §117).
+  const invoiceNumber = input.invoiceNumber ?? existing.invoiceNumber;
+
   await prisma.$transaction(async (tx) => {
-    await assertNumberIsFree(tx, context, input.invoiceNumber, invoiceId);
+    await assertNumberIsFree(tx, context, invoiceNumber, invoiceId);
 
     // Lines are replaced rather than diffed: an invoice's lines are one
     // document, and a partial update is how a total stops matching its parts.
@@ -253,7 +280,7 @@ export async function updateInvoice(
     await tx.invoice.update({
       where: { id: invoiceId },
       data: {
-        invoiceNumber: input.invoiceNumber,
+        invoiceNumber,
         clientId: client.id,
         projectId: project?.id ?? null,
         issueDate: input.issueDate,

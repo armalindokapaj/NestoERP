@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { InvoiceForm } from "@/components/finance/invoice-form";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { updateInvoiceAction } from "@/lib/actions/finance";
+import { isAutoNumbered } from "@/lib/core/numbering/numbering.service";
 import { resolveFinanceSettings } from "@/lib/modules/finance/finance.settings";
 import { invoiceFormOptions } from "@/lib/modules/finance/invoices/invoice.repository";
 import { invoiceBreadcrumbs, loadInvoice } from "../invoice-context";
@@ -24,9 +25,10 @@ export default async function EditInvoicePage({ params }: Params) {
 
   if (!invoice.capabilities.canEdit) redirect(`/finance/invoices/${invoiceId}`);
 
-  const [options, settings] = await Promise.all([
+  const [options, settings, autoNumbered] = await Promise.all([
     invoiceFormOptions(context),
     resolveFinanceSettings(context.companyId),
+    isAutoNumbered({ companyId: context.companyId, moduleKey: "finance", entityType: "invoice" }),
   ]);
 
   async function action(formData: FormData) {
@@ -44,6 +46,7 @@ export default async function EditInvoicePage({ params }: Params) {
       />
 
       <InvoiceForm
+        autoNumbered={autoNumbered}
         action={action}
         clients={options.clients.map((client) => ({ value: client.id, label: client.name }))}
         projects={options.projects.map((project) => ({

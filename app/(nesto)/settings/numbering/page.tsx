@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
-import { Badge } from "@/components/ui/badge";
+import { NumberingSchemeForm } from "@/components/settings/numbering-scheme-form";
 import { modules as registry, isModuleKey } from "@/config/modules";
 import { listNumberingSchemes } from "@/lib/modules/settings/numbering.service";
 import { requireSettingsSection } from "../settings-access";
@@ -46,30 +46,15 @@ export default async function NumberingSettingsPage() {
               {isModuleKey(moduleKey) ? registry[moduleKey].label : moduleKey}
             </h2>
           </header>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-line text-meta text-fg-subtle">
-                <th scope="col" className="px-5 py-2 text-left font-medium">Record type</th>
-                <th scope="col" className="px-5 py-2 text-left font-medium">Mode</th>
-                <th scope="col" className="px-5 py-2 text-left font-medium">Next number</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {list.map((scheme) => (
-                <tr key={`${scheme.moduleKey}:${scheme.entityType}`}>
-                  <td className="px-5 py-3 text-table text-fg">{entityLabel(scheme.entityType)}</td>
-                  <td className="px-5 py-3">
-                    <Badge tone={scheme.mode === "AUTO" ? "success" : "default"}>
-                      {scheme.mode === "AUTO" ? "Automatic" : "Manual"}
-                    </Badge>
-                  </td>
-                  <td className="px-5 py-3 font-mono text-meta text-fg-muted">
-                    {scheme.mode === "AUTO" ? scheme.preview : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="divide-y divide-line">
+            {list.map((scheme) => (
+              <NumberingSchemeForm
+                key={`${scheme.moduleKey}:${scheme.entityType}`}
+                scheme={scheme}
+                label={entityLabel(scheme.entityType)}
+              />
+            ))}
+          </div>
         </section>
       ))}
     </div>

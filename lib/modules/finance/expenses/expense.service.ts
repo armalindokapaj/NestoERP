@@ -1,4 +1,5 @@
 import { Prisma, type ExpenseStatus } from "@prisma/client";
+import { allocateNumber } from "@/lib/core/numbering/numbering.service";
 
 import { can } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
@@ -147,14 +148,22 @@ export async function createExpense(
   const totals = calculateExpenseTotal(input.netAmount, input.taxAmount);
 
   const expenseId = await prisma.$transaction(async (tx) => {
-    if (input.expenseNumber) {
-      await assertNumberIsFree(tx, context, input.expenseNumber, null);
+    // Null when the company has set expenses to MANUAL, in which case whatever
+    // was typed applies — including nothing at all (PRD #24 §102, §114).
+    const allocated = await allocateNumber(
+      { companyId: context.companyId, moduleKey: MODULE, entityType: "expense" },
+      { tx, occurredAt: input.expenseDate },
+    );
+    const expenseNumber = allocated ?? input.expenseNumber ?? null;
+
+    if (expenseNumber) {
+      await assertNumberIsFree(tx, context, expenseNumber, null);
     }
 
     const expense = await tx.expense.create({
       data: {
         companyId: context.companyId,
-        expenseNumber: input.expenseNumber ?? null,
+        expenseNumber,
         projectId: project?.id ?? null,
         expenseDate: input.expenseDate,
         category: input.category,
