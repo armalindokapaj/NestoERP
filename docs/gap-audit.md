@@ -409,3 +409,52 @@ code that defers it.
   why: V0.1 has no hold UI, and the signature exists so adding one later means
   implementing one function rather than revisiting every policy. Two policies
   already declare `legalHoldAware: true`.
+
+---
+
+## 10. Addendum — what has been closed since
+
+The audit above stays as it was written, pinned to `43d4886`. This section
+records what changed afterwards, so the two can be read together rather than
+the snapshot being quietly edited to look better than it was.
+
+| § | Finding | Status | Commit |
+|---|---|---|---|
+| 6.1 | Audit log recorded 9 of 52 actions | **Closed** — 50 of 51 emitted | `a43d612` |
+| 6.2 | Nothing produced a notification | **Closed** — producers, dispatcher, read routes | `9c5eb9d` |
+| 6.3 | Five search providers absent | **Closed** — plus the `/search` page, which was also missing | `3a84bf9` |
+| 6.5 | Integration engine unused | **Closed** — handoffs now write links and attempts | `1f685ec` |
+| 6.4 | Thirteen unreachable server actions | Open | — |
+| 6.6 | Numbering schemes govern nothing | Open | — |
+| 6.7 | Reporting metric registry unused | Open | — |
+| 6.8 | Caching layer never used | Open | — |
+| 6.9 | Contract attention computed over one page | Open | — |
+| 6.10 | Session purge, company config bootstrap | Open | — |
+
+**Both P0s are closed.** `REPORT_EXPORTED_XLSX` remains deliberately silent and
+is now an enforced exemption in `tests/unit/audit/audit-coverage.test.ts`.
+
+### Found while fixing, not in the original audit
+
+- **The topbar command palette is a placeholder.** `Cmd+K` opens a panel that
+  never calls `/api/search`; its own comment says the search "is not built in
+  V0.1". So #26's UI half was unwired, not only its providers. The file is
+  `components/layout/global-search.tsx`, which a concurrent session owns, so it
+  was left alone and the `/search` page built instead.
+- **The `/search` page did not exist at all**, though §12 requires it.
+- **`.next-e2e` was not in the eslint ignore list**, a consequence of the
+  isolated build directory added in `43d4886`. Fixed in `a43d612`.
+
+### Guards added against regression
+
+- `tests/unit/audit/audit-coverage.test.ts` fails if any registered audit
+  policy has no call site, and separately if any `required` one does. This is
+  the test that would have caught §6.1 on the day it appeared.
+- `tests/api/search/search-providers.test.ts` fails if any module PRD #26 names
+  has no registered provider.
+- `tests/api/notifications/notification-dispatch.test.ts` follows a real
+  assignment from producer to recipient, including the suspended-recipient case.
+- `tests/api/integrations/integration-links.test.ts` holds the
+  one-link-per-handoff guarantee.
+
+Test count over this work: **1 368 → 1 394**, all passing, lint 0 errors.
