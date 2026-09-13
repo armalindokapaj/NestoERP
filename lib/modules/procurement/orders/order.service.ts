@@ -1,4 +1,6 @@
 import { Prisma, type PurchaseOrderStatus } from "@prisma/client";
+import { IntegrationType } from "@/lib/core/integrations/integration.registry";
+import { linkIntegration } from "@/lib/core/integrations/integration.service";
 
 import { can, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
@@ -1087,6 +1089,16 @@ async function syncCommitment(
   await tx.purchaseOrder.update({
     where: { id: orderId },
     data: { financeCommitmentId: commitment.id },
+  });
+
+  // The handoff is already idempotent through financeCommitmentId; this is the
+  // durable trace of it, so "where did this commitment come from?" has an
+  // answer that does not depend on reading procurement's own columns
+  // (PRD #23 §21, §94).
+  await linkIntegration(tx, context, {
+    integrationType: IntegrationType.PROCUREMENT_PO_FINANCE_COMMITMENT,
+    source: { id: order.id },
+    target: { id: commitment.id },
   });
 }
 

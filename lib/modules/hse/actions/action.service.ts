@@ -1,4 +1,6 @@
 import { Prisma } from "@prisma/client";
+import { IntegrationType } from "@/lib/core/integrations/integration.registry";
+import { linkIntegration } from "@/lib/core/integrations/integration.service";
 
 import { can } from "@/lib/access/can";
 import {
@@ -699,6 +701,14 @@ export async function createTaskForAction(
     },
     { moduleKey: MODULE, entityType: "hse_action", entityId: actionId },
   );
+
+  await prisma.$transaction(async (tx) => {
+    await linkIntegration(tx, context, {
+      integrationType: IntegrationType.HSE_ACTION_TASK,
+      source: { id: actionId },
+      target: { id: task.id },
+    });
+  });
 
   return { id: task.id };
 }
