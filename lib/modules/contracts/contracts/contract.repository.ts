@@ -393,3 +393,58 @@ export function contractFacts(context: UserContext, where: Prisma.ContractWhereI
     },
   });
 }
+
+/**
+ * Contracts that need somebody's attention, found in the database (PRD #18 §339).
+ *
+ * The attention lists used to be derived by filtering a page of results in
+ * memory. For "expiring soonest" that happened to work, because the page was
+ * sorted by expiry. For "the owner has left" it did not: an inactive owner on a
+ * contract expiring in two years sorts nowhere near the top, so it was
+ * invisible no matter how much it needed attention — and an attention surface
+ * that silently under-reports is worse than none, because people stop checking
+ * by hand.
+ */
+export function contractsWithInactiveOwner(context: UserContext, take: number) {
+  return prisma.contract.findMany({
+    where: {
+      AND: [
+        buildContractScopeWhere(context),
+        { archivedAt: null, status: "ACTIVE", owner: { status: { not: "ACTIVE" } } },
+      ],
+    },
+    orderBy: [{ expiryDate: "asc" }, { contractNumber: "asc" }],
+    take,
+    select: SUMMARY_SELECT,
+  });
+}
+
+/**
+ * Candidates for a renewal notice falling due.
+ *
+ * The exact rule compares `expiryDate - renewalNoticeDays` against today, which
+ * is arithmetic between two columns and not expressible in a Prisma filter. So
+ * the database narrows to active contracts expiring within a year — any notice
+ * period longer than that is not a notice period — and the caller applies the
+ * precise test. The candidate set is bounded by the calendar rather than by a
+ * page, which is the part that was wrong.
+ */
+export function renewalNoticeCandidates(context: UserContext, today: Date) {
+  const horizon = new Date(today.getTime() + 366 * 24 * 60 * 60 * 1000);
+
+  return prisma.contract.findMany({
+    where: {
+      AND: [
+        buildContractScopeWhere(context),
+        {
+          archivedAt: null,
+          status: "ACTIVE",
+          renewalNoticeDays: { not: null },
+          expiryDate: { gte: today, lte: horizon },
+        },
+      ],
+    },
+    orderBy: [{ expiryDate: "asc" }],
+    select: SUMMARY_SELECT,
+  });
+}

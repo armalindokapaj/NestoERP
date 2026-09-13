@@ -99,6 +99,16 @@ export async function invalidateCompanyConfig(companyId: string): Promise<void> 
  * Creates the configuration a new company needs, idempotently, so a retried
  * onboarding does not produce duplicates (PRD #24 §309, §310).
  */
+/**
+ * Configuration for a newly created company.
+ *
+ * Not called in V0.1, and deliberately so: there is no company-creation flow —
+ * companies come from the seed, which builds Company A and Company B with
+ * *different* settings on purpose so cross-company tests have something to
+ * tell apart. This is the function a real creation flow would call, kept
+ * because writing it at that point would mean rediscovering which three things
+ * a company cannot function without.
+ */
 export async function bootstrapCompanyConfiguration(companyId: string): Promise<void> {
   const { NUMBERING_DEFAULTS } = await import("@/lib/core/numbering/numbering.service");
 

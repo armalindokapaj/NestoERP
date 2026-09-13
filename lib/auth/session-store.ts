@@ -48,10 +48,3 @@ export async function revokeSessionsForUser(
     where: { userId, ...(options.except ? { id: { not: options.except } } : {}) },
   });
 }
-
-export async function purgeExpiredSessions(): Promise<number> {
-  const result = await prisma.session.deleteMany({
-    where: { expiresAt: { lte: new Date() } },
-  });
-  return result.count;
-}

@@ -162,11 +162,18 @@ export async function contractAttention(
   assertModule(context, "contracts");
   assertPermission(context, "legal.contract.view");
 
-  const [expiring, awaitingSignature, signed, active, overdue] = await Promise.all([
-    contracts.listContracts(context, listQuery({ view: "expiring", limit: 5 })),
-    contracts.listContracts(context, listQuery({ status: ["SENT"], limit: 5 })),
-    contracts.listContracts(context, listQuery({ status: ["SIGNED"], limit: 10 })),
-    contracts.listContracts(context, listQuery({ status: ["ACTIVE"], limit: 50 })),
+  const [expiring, awaitingSignature, signed, renewalNoticeDue, inactiveOwners, overdue] =
+    await Promise.all([
+      contracts.listContracts(context, listQuery({ view: "expiring", limit: 5 })),
+      contracts.listContracts(context, listQuery({ status: ["SENT"], limit: 5 })),
+      contracts.listContracts(context, listQuery({ status: ["SIGNED"], limit: 10 })),
+      /*
+       * Asked of the database rather than filtered out of a page. These two
+       * used to be derived from the first 50 active contracts sorted by expiry,
+       * which quietly hid every inactive owner on a contract expiring later.
+       */
+      contracts.listRenewalNoticeDue(context, 5),
+      contracts.listInactiveOwnerContracts(context, 5),
     can(context, "legal.obligation.view")
       ? obligations.listObligations(context, {
           overdueOnly: true,
@@ -182,11 +189,13 @@ export async function contractAttention(
 
   return {
     expiring: expiring.data,
-    renewalNoticeDue: active.data.filter((row) => row.attention.renewalNoticeDue).slice(0, 5),
+    renewalNoticeDue,
+    // Signed contracts are few and already fully fetched, so filtering the
+    // page here is the whole set rather than a slice of it.
     readyToActivate: signed.data.filter((row) => row.attention.readyToActivate).slice(0, 5),
     awaitingSignature: awaitingSignature.data,
     overdueObligations: overdue.data,
-    inactiveOwners: active.data.filter((row) => row.attention.ownerInactive).slice(0, 5),
+    inactiveOwners,
   };
 }
 
