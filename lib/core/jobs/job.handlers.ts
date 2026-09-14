@@ -55,6 +55,18 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await runAcknowledgmentReminders(now);
     return { processed: result.reminded, detail: result };
   },
+  "engineering.reminders": async ({ now }) => {
+    // RFI and submittal review due-soon and overdue notices, once per due date (PRD #46 §94, §106, §196).
+    const { runEngineeringReminders } = await import("@/lib/modules/engineering/engineering.attention");
+    const result = await runEngineeringReminders(now);
+    return { processed: result.rfiDueSoon + result.rfiOverdue + result.submittalDueSoon + result.submittalOverdue, detail: result };
+  },
+  "contractors.compliance": async ({ now }) => {
+    // Compliance items into EXPIRING and EXPIRED, and the people responsible told once per expiry date (PRD #46 §44-§46).
+    const { runComplianceExpiry } = await import("@/lib/modules/contractors/contractor.compliance");
+    const result = await runComplianceExpiry(now);
+    return { processed: result.expiring + result.expired, detail: result };
+  },
   "recentwork.prune": async ({ now }) => {
     // Older than the company's retention, or past the hundred newest per member (PRD #45 §104, §105).
     const { pruneRecentWork } = await import("@/lib/modules/productivity/recent-work.service");

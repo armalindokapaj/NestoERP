@@ -131,6 +131,13 @@ export const RECORD_TYPES = [
   "project_milestone",
   "announcement",
   "approval_delegation",
+  "contractor",
+  "work_package",
+  "contractor_compliance",
+  "engineering_document",
+  "rfi",
+  "technical_submittal",
+  "transmittal",
 ] as const;
 
 export type RecordType = (typeof RECORD_TYPES)[number];

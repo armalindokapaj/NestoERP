@@ -17,7 +17,7 @@ import {
  * same, and what goes to the server is exactly what the schema expects.
  */
 
-export type OptionSource = "suppliers" | "purchaseOrders" | "goodsReceipts" | "inventoryReceipts" | "tasks" | "members";
+export type OptionSource = "suppliers" | "contractors" | "workPackages" | "purchaseOrders" | "goodsReceipts" | "inventoryReceipts" | "tasks" | "members";
 
 export type FieldDef = {
   name: string;
@@ -50,6 +50,8 @@ export const SECTION_FIELDS: Record<SectionKey, FieldDef[]> = {
   workforce: [
     { name: "organizationName", label: "Company or crew", type: "text", required: true, placeholder: "Alba Concrete", wide: true },
     { name: "supplierId", label: "Known supplier", type: "option", source: "suppliers", hint: "Link the supplier record when there is one." },
+    { name: "contractorId", label: "Contractor", type: "option", source: "contractors", hint: "The contractor assigned to this project, when the crew is theirs." },
+    { name: "workPackageId", label: "Work package", type: "option", source: "workPackages" },
     { name: "trade", label: "Trade", type: "text", placeholder: "Concrete" },
     { name: "crewName", label: "Crew", type: "text" },
     { name: "headcount", label: "Headcount", type: "integer", required: true, min: 1, max: 10000 },
@@ -114,6 +116,8 @@ export const SECTION_FIELDS: Record<SectionKey, FieldDef[]> = {
     { name: "issuedTime", label: "Issued at", type: "time" },
     { name: "requiresAction", label: "Requires action", type: "checkbox" },
     { name: "linkedTaskId", label: "Task", type: "option", source: "tasks", wide: true },
+    { name: "contractorId", label: "Contractor", type: "option", source: "contractors" },
+    { name: "workPackageId", label: "Work package", type: "option", source: "workPackages" },
   ],
 };
 
@@ -138,10 +142,11 @@ export function valuesFromEntry(section: SectionKey, entry: Entry): Record<strin
     case "weather":
       return { ...entry, observedTime: entry.observedAt };
     case "workforce":
+      return { ...entry, supplierId: ref("supplier"), contractorId: ref("contractor"), workPackageId: ref("workPackage") };
     case "equipment":
       return { ...entry, supplierId: ref("supplier") };
     case "activities":
-      return { ...entry, linkedTaskId: ref("task") };
+      return { ...entry, linkedTaskId: ref("task"), contractorId: ref("contractor"), workPackageId: ref("workPackage") };
     case "deliveries":
       return { ...entry, supplierId: ref("supplier"), purchaseOrderId: ref("purchaseOrder"), goodsReceiptId: ref("goodsReceipt"), inventoryReceiptId: ref("inventoryReceipt"), deliveredTime: entry.deliveredTime ?? "", deliveredDate: entry.outsideWorkDate ? (entry.deliveredDate ?? "") : "" };
     case "visitors":

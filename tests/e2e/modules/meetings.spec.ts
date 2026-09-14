@@ -150,8 +150,10 @@ test("lists upcoming meetings with filters and shows the seeded minutes as a for
   await signIn(page, "ENGINEER", { to: "/meetings" });
   await expect(mainRegion(page).getByTestId("meeting-row").filter({ hasText: "Riverside weekly coordination" }).first()).toBeVisible();
 
+  // Last week's occurrence holds the seeded minutes. Not `.first()`: after 10:30 today's occurrence
+  // of the same weekly meeting is past too, and it lists above it.
   await page.goto("/meetings/past");
-  await mainRegion(page).getByTestId("meeting-row").filter({ hasText: "Riverside weekly coordination" }).first().click();
+  await mainRegion(page).locator('[data-testid="meeting-row"][href="/meetings/meeting_riverside_000"]').click();
   await page.getByRole("tab", { name: /Minutes/ }).click();
   await expect(page.getByTestId("minutes-record")).toContainText("Level 3 slab pour confirmed");
   await expect(page.getByTestId("decision-card").first()).toContainText("D-01");

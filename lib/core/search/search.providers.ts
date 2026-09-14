@@ -843,8 +843,101 @@ const announcementProvider: GlobalSearchProvider = {
   },
 };
 
+/**
+ * Contractors and work packages (PRD #46 §203-§205): legal name, trading name,
+ * registration and VAT number inside the directory's scope; work package code
+ * and name inside the reader's project door.
+ */
+const contractorProvider: GlobalSearchProvider = {
+  moduleKey: "contractors",
+  entityTypes: ["contractor", "work_package"],
+  async search(context, query) {
+    const { contractorDirectoryWhere, contractorsOpen, readableWorkPackageWhere } = await import("@/lib/modules/contractors/contractor.permissions");
+    const { CONTRACTOR_STATUS_LABELS, WORK_PACKAGE_STATUS_LABELS } = await import("@/lib/modules/contractors/contractor.types");
+    if (!contractorsOpen(context)) return [];
+    const term = { contains: query.text, mode: "insensitive" as const };
+    const [contractors, packages] = await Promise.all([
+      prisma.contractorProfile.findMany({
+        where: { AND: [contractorDirectoryWhere(context), { status: { not: "ARCHIVED" }, OR: [{ legalName: term }, { tradingName: term }, { registrationNumber: term }, { vatNumber: term }] }] },
+        orderBy: { legalName: "asc" },
+        take: query.limitPerProvider,
+        select: { id: true, legalName: true, tradingName: true, status: true, city: true },
+      }),
+      contractorsOpen(context, "work_package.view")
+        ? prisma.workPackage.findMany({
+            where: { AND: [readableWorkPackageWhere(context), { archivedAt: null, OR: [{ code: term }, { name: term }, { contractor: { is: { legalName: term } } }] }] },
+            orderBy: { code: "asc" },
+            take: query.limitPerProvider,
+            select: { id: true, code: true, name: true, status: true, projectId: true, project: { select: { name: true } }, contractor: { select: { legalName: true } } },
+          })
+        : [],
+    ]);
+    return [
+      ...contractors.map((row) => ({
+        moduleKey: "contractors",
+        entityType: "contractor",
+        entityId: row.id,
+        title: row.legalName,
+        subtitle: ["Contractor", row.tradingName, row.city, CONTRACTOR_STATUS_LABELS[row.status]].filter(Boolean).join(" · "),
+        href: `/contractors/${row.id}`,
+        score: scoreMatch(query.text, row.legalName, row.tradingName ?? undefined),
+        status: row.status,
+      })),
+      ...packages.map((row) => ({
+        moduleKey: "contractors",
+        entityType: "work_package",
+        entityId: row.id,
+        title: `${row.code} · ${row.name}`,
+        subtitle: ["Work package", row.project.name, row.contractor?.legalName, WORK_PACKAGE_STATUS_LABELS[row.status]].filter(Boolean).join(" · "),
+        href: `/projects/${row.projectId}/work-packages/${row.id}`,
+        score: scoreMatch(query.text, row.code, row.name),
+        status: row.status,
+      })),
+    ];
+  },
+};
+
+/**
+ * Engineering records (PRD #46 §97, §109, §124, §203-§205): RFI number and
+ * subject, submittal number and title, document number and title, transmittal
+ * number — each through its own permission and the reader's project door.
+ */
+const engineeringProvider: GlobalSearchProvider = {
+  moduleKey: "engineering",
+  entityTypes: ["rfi", "technical_submittal", "engineering_document", "transmittal"],
+  async search(context, query) {
+    const permissions = await import("@/lib/modules/engineering/engineering.permissions");
+    const { REVIEW_STATUS_LABELS, RFI_STATUS_LABELS, SUBMITTAL_TYPE_LABELS, DOCUMENT_TYPE_LABELS, TRANSMITTAL_STATUS_LABELS } = await import("@/lib/modules/engineering/engineering.types");
+    if (!permissions.engineeringOpen(context, "rfi.view") && !permissions.engineeringOpen(context, "engineering_document.view")) return [];
+    const term = { contains: query.text, mode: "insensitive" as const };
+    const take = query.limitPerProvider;
+    const [rfis, submittals, documents, transmittals] = await Promise.all([
+      permissions.engineeringOpen(context, "rfi.view")
+        ? prisma.rfi.findMany({ where: { AND: [permissions.readableRfiWhere(context), { status: { not: "VOID" }, OR: [{ rfiNumber: term }, { subject: term }, { contractor: { is: { legalName: term } } }] }] }, orderBy: { rfiNumber: "asc" }, take, select: { id: true, rfiNumber: true, subject: true, status: true, projectId: true, project: { select: { name: true } } } })
+        : [],
+      permissions.engineeringOpen(context, "submittal.view")
+        ? prisma.technicalSubmittal.findMany({ where: { AND: [permissions.readableSubmittalWhere(context), { status: { not: "VOID" }, OR: [{ submittalNumber: term }, { title: term }, { contractor: { is: { legalName: term } } }] }] }, orderBy: { submittalNumber: "asc" }, take, select: { id: true, submittalNumber: true, title: true, status: true, submittalType: true, projectId: true, project: { select: { name: true } } } })
+        : [],
+      permissions.engineeringOpen(context, "engineering_document.view")
+        ? prisma.engineeringDocument.findMany({ where: { AND: [permissions.readableEngineeringDocumentWhere(context), { status: { not: "VOID" }, OR: [{ documentNumber: term }, { title: term }] }] }, orderBy: { documentNumber: "asc" }, take, select: { id: true, documentNumber: true, title: true, status: true, documentType: true, projectId: true, project: { select: { name: true } }, currentRevision: { select: { revisionCode: true } } } })
+        : [],
+      permissions.engineeringOpen(context, "transmittal.view")
+        ? prisma.documentTransmittal.findMany({ where: { AND: [permissions.readableTransmittalWhere(context), { OR: [{ transmittalNumber: term }, { subject: term }] }] }, orderBy: { transmittalNumber: "asc" }, take, select: { id: true, transmittalNumber: true, subject: true, status: true, projectId: true, project: { select: { name: true } } } })
+        : [],
+    ]);
+    return [
+      ...rfis.map((row) => ({ moduleKey: "engineering", entityType: "rfi", entityId: row.id, title: `${row.rfiNumber} · ${row.subject}`, subtitle: ["RFI", row.project.name, RFI_STATUS_LABELS[row.status]].join(" · "), href: `/projects/${row.projectId}/engineering/rfis/${row.id}`, score: scoreMatch(query.text, row.rfiNumber, row.subject), status: row.status })),
+      ...submittals.map((row) => ({ moduleKey: "engineering", entityType: "technical_submittal", entityId: row.id, title: `${row.submittalNumber} · ${row.title}`, subtitle: [SUBMITTAL_TYPE_LABELS[row.submittalType], row.project.name, REVIEW_STATUS_LABELS[row.status]].join(" · "), href: `/projects/${row.projectId}/engineering/submittals/${row.id}`, score: scoreMatch(query.text, row.submittalNumber, row.title), status: row.status })),
+      ...documents.map((row) => ({ moduleKey: "engineering", entityType: "engineering_document", entityId: row.id, title: `${row.documentNumber} · ${row.title}`, subtitle: [DOCUMENT_TYPE_LABELS[row.documentType], row.currentRevision ? `Rev ${row.currentRevision.revisionCode}` : null, row.project.name, REVIEW_STATUS_LABELS[row.status]].filter(Boolean).join(" · "), href: `/projects/${row.projectId}/engineering/documents/${row.id}`, score: scoreMatch(query.text, row.documentNumber, row.title), status: row.status })),
+      ...transmittals.map((row) => ({ moduleKey: "engineering", entityType: "transmittal", entityId: row.id, title: row.subject ? `${row.transmittalNumber} · ${row.subject}` : row.transmittalNumber, subtitle: ["Transmittal", row.project.name, TRANSMITTAL_STATUS_LABELS[row.status]].join(" · "), href: `/projects/${row.projectId}/engineering/transmittals/${row.id}`, score: scoreMatch(query.text, row.transmittalNumber, row.subject ?? undefined), status: row.status })),
+    ];
+  },
+};
+
 export const searchProviders: GlobalSearchProvider[] = [
   calendarProvider,
+  contractorProvider,
+  engineeringProvider,
   meetingProvider,
   dailyLogProvider,
   milestoneProvider,

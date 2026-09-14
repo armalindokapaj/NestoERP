@@ -264,6 +264,10 @@ export async function entryOptions(context: UserContext, dailyLogId: string) {
   const log = await findReadableLog(context, dailyLogId);
   const procurementOpen = canAccessModule(context, "procurement");
   const project = { projectId: log.projectId } satisfies Prisma.PurchaseOrderWhereInput;
+  const [contractors, packages] = await Promise.all([
+    prisma.projectContractorAssignment.findMany({ where: { companyId: context.companyId, projectId: log.projectId }, orderBy: { contractor: { legalName: "asc" } }, take: 200, select: { status: true, contractor: { select: { id: true, legalName: true } } } }),
+    prisma.workPackage.findMany({ where: { companyId: context.companyId, projectId: log.projectId, archivedAt: null }, orderBy: { code: "asc" }, take: 200, select: { id: true, code: true, name: true, contractorId: true } }),
+  ]);
   const [suppliers, orders, receipts, stock, tasks, members] = await Promise.all([
     prisma.supplier.findMany({ where: { companyId: context.companyId, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" }, take: 200, select: { id: true, name: true } }),
     procurementOpen && can(context, "procurement.order.view") ? prisma.purchaseOrder.findMany({ where: { AND: [buildOrderScopeWhere(context), project] }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, poNumber: true, supplierId: true } }) : [],
@@ -274,6 +278,9 @@ export async function entryOptions(context: UserContext, dailyLogId: string) {
   ]);
   return {
     suppliers: suppliers.map((row) => ({ id: row.id, label: row.name })),
+    // Contractors on this project and its work packages (PRD #46 §142, §143).
+    contractors: contractors.map((row) => ({ id: row.contractor.id, label: row.status === "TERMINATED" ? `${row.contractor.legalName} (terminated)` : row.contractor.legalName })),
+    workPackages: packages.map((row) => ({ id: row.id, label: `${row.code} · ${row.name}`, contractorId: row.contractorId })),
     purchaseOrders: orders.map((row) => ({ id: row.id, label: row.poNumber, supplierId: row.supplierId })),
     goodsReceipts: receipts.map((row) => ({ id: row.id, label: row.receiptNumber, purchaseOrderId: row.purchaseOrderId })),
     inventoryReceipts: stock.map((row) => ({ id: row.id, label: row.receiptNumber })),

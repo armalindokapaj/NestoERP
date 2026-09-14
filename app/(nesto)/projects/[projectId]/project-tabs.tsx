@@ -18,6 +18,8 @@ export function ProjectTabs({
   active: ProjectTabKey;
   show: {
     planning?: boolean;
+    contractors?: boolean;
+    engineering?: boolean;
     tasks: boolean;
     calendar?: boolean;
     meetings?: boolean;
@@ -39,6 +41,9 @@ export function ProjectTabs({
     { key: "calendar", label: "Calendar", href: `/projects/${projectId}/calendar`, visible: Boolean(show.calendar) },
     { key: "meetings", label: "Meetings", href: `/projects/${projectId}/meetings`, visible: Boolean(show.meetings) },
     { key: "dailyLogs", label: "Daily Logs", href: `/projects/${projectId}/daily-logs`, visible: Boolean(show.dailyLogs) },
+    // Who builds it and the technical record of it (PRD #46 §7, §9, §10).
+    { key: "contractors", label: "Contractors", href: `/projects/${projectId}/contractors`, visible: Boolean(show.contractors) },
+    { key: "engineering", label: "Engineering", href: `/projects/${projectId}/engineering`, visible: Boolean(show.engineering) },
     { key: "team", label: "Team", href: `/projects/${projectId}/team`, visible: show.team },
     {
       key: "finance",

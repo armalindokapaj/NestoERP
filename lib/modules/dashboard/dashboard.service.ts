@@ -613,6 +613,28 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       return { kind: "list", items: items.map((item) => ({ id: `${item.entityType}:${item.entityId}`, title: item.title, subtitle: item.subtitle, meta: relativeTime(item.lastAccessedAt), href: item.href })) };
     }
 
+    case "rfisAssignedToMe": {
+      // RFIs waiting for this reader's answer, through the RFI door (PRD #46 §278).
+      const { rfisAssignedToMeWidget } = await import("@/lib/modules/engineering/engineering.overview");
+      return { kind: "list", items: await rfisAssignedToMeWidget(context, 6) };
+    }
+
+    case "reviewsAwaitingMe": {
+      const { reviewsAwaitingMeWidget } = await import("@/lib/modules/engineering/engineering.overview");
+      return { kind: "list", items: await reviewsAwaitingMeWidget(context, 6) };
+    }
+
+    case "engineeringBottlenecks": {
+      // Late answers and late reviews across the reader's projects (PRD #46 §277).
+      const { engineeringBottlenecksWidget } = await import("@/lib/modules/engineering/engineering.overview");
+      return { kind: "list", items: await engineeringBottlenecksWidget(context, 6) };
+    }
+
+    case "contractorCompliance": {
+      const { contractorComplianceWidget } = await import("@/lib/modules/engineering/engineering.overview");
+      return { kind: "list", items: await contractorComplianceWidget(context, 6) };
+    }
+
     case "upcomingMilestones": {
       // Key dates on the reader's projects, read through the plan's own door (PRD #44 §169).
       const { upcomingMilestones } = await import("@/lib/modules/project-planning/planning.reports");

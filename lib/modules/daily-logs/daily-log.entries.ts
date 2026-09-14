@@ -56,6 +56,18 @@ export async function assertTask(context: UserContext, log: ReadableLog, taskId:
   if (task.projectId !== log.projectId) throw fail("DAILY_LOG_TASK_PROJECT_MISMATCH", "That task belongs to another project.", "VALIDATION_ERROR", { field: "linkedTaskId" });
 }
 
+/**
+ * A contractor assigned to this log's project and a work package on it
+ * (PRD #46 §140-§143). There is no separate contractor diary: the crew and the
+ * work sit in the same log. A terminated assignment still records the days it
+ * was on site.
+ */
+async function contractorContext(context: UserContext, log: ReadableLog, input: { contractorId: string | null; workPackageId: string | null }) {
+  if (!input.contractorId && !input.workPackageId) return { contractorId: null, workPackageId: null };
+  const { resolveProjectContext } = await import("@/lib/modules/engineering/engineering.shared");
+  return resolveProjectContext(context.companyId, log.projectId, input, { newWork: false });
+}
+
 /** Procurement and inventory documents of this company, on this project where they name one (§47, §48, §116, §117, §191). */
 async function assertDeliveryLinks(context: UserContext, log: ReadableLog, input: SectionInput<"deliveries">) {
   await assertSupplier(context, input.supplierId);
@@ -101,14 +113,16 @@ async function toData(context: UserContext, log: ReadableLog, section: SectionKe
     case "workforce": {
       const value = input as SectionInput<"workforce">;
       await assertSupplier(context, value.supplierId);
-      return { organizationName: value.organizationName, supplierId: value.supplierId, trade: value.trade, crewName: value.crewName, headcount: value.headcount, notes: value.notes };
+      const scope = await contractorContext(context, log, value);
+      return { organizationName: value.organizationName, supplierId: value.supplierId, ...scope, trade: value.trade, crewName: value.crewName, headcount: value.headcount, notes: value.notes };
     }
     case "activities": {
       const value = input as SectionInput<"activities">;
       await assertTask(context, log, value.linkedTaskId);
+      const scope = await contractorContext(context, log, value);
       return {
         title: value.title, description: value.description, projectArea: value.projectArea, floorZone: value.floorZone, trade: value.trade,
-        progressPercent: value.progressPercent === null ? null : new Prisma.Decimal(value.progressPercent), linkedTaskId: value.linkedTaskId,
+        progressPercent: value.progressPercent === null ? null : new Prisma.Decimal(value.progressPercent), linkedTaskId: value.linkedTaskId, ...scope,
       };
     }
     case "equipment": {

@@ -1,5 +1,6 @@
 import type { UserContext } from "@/lib/context/types";
 import { announcementCalendarProvider } from "@/lib/modules/announcements/announcement.calendar-provider";
+import { complianceCalendarProvider, rfiCalendarProvider, submittalCalendarProvider } from "@/lib/modules/engineering/engineering.calendar-provider";
 import { meetingCalendarProvider } from "@/lib/modules/meetings/meeting.calendar-provider";
 import { milestoneCalendarProvider } from "@/lib/modules/project-planning/planning.calendar-provider";
 import { timesheetDeadlineCalendarProvider } from "@/lib/modules/timesheets/timesheet.deadline";
@@ -61,6 +62,9 @@ for (const provider of [
   timesheetDeadlineCalendarProvider,
   milestoneCalendarProvider,
   announcementCalendarProvider,
+  rfiCalendarProvider,
+  submittalCalendarProvider,
+  complianceCalendarProvider,
 ]) {
   calendarProviders.register(provider);
 }

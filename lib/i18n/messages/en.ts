@@ -106,6 +106,8 @@ export const en = {
     meetings: { label: "Meetings", description: "Agendas, minutes, decisions and the actions that follow." },
     timesheets: { label: "Timesheets", description: "How working time is spent across projects, tasks and internal work." },
     dailyLogs: { label: "Daily Logs", description: "What happened on site each day: people, work, deliveries, delays and evidence." },
+    contractors: { label: "Contractors", description: "The organisations building with you: assignments, work packages, compliance and contracts." },
+    engineering: { label: "Engineering", description: "Drawings, revisions, RFIs, submittals and transmittals — the technical record of every project." },
     clients: { label: "Clients", description: "Companies and people your company works with." },
     documents: { label: "Documents", description: "Company, project and client documentation." },
     finance: { label: "Finance", description: "Company revenue, costs and financial control." },
@@ -224,6 +226,8 @@ export const en = {
         daily_logs: { label: "Daily logs", description: "Logs to review, logs returned to you, locks, corrections and missing logs." },
         project_planning: { label: "Project planning", description: "Milestones you own, due dates, overdue milestones, blockers and baseline changes." },
         announcements: { label: "Announcements", description: "Announcements addressed to you, critical notices and acknowledgment reminders." },
+        contractors: { label: "Contractors", description: "Contractors assigned to your projects, status changes and compliance expiring or expired." },
+        engineering: { label: "Engineering", description: "RFIs and submittals assigned to you, reviews due and overdue, decisions and issued transmittals." },
       },
     },
 

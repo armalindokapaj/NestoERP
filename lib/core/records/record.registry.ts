@@ -1467,6 +1467,216 @@ const DEFINITIONS: RecordDefinition[] = [
     collaboration: null,
   },
 
+  /* Contractors (PRD #46 §126, §127, §240-§247) ----------------------------- */
+  {
+    // Company master data, reached through the directory's scope. Its files are
+    // the contractor's own paperwork — prequalification, registration — added
+    // by whoever keeps the record; discussion is internal only (§5, §22).
+    type: "contractor",
+    moduleKey: "contractors",
+    noun: "Contractor",
+    activityEntityType: "ContractorProfile",
+    route: "/contractors",
+    viewPermissions: ["contractor.view"],
+    async find(context, id) {
+      const { contractorDirectoryWhere } = await import("@/lib/modules/contractors/contractor.permissions");
+      const row = await prisma.contractorProfile.findFirst({ where: { AND: [contractorDirectoryWhere(context), { id }] }, select: { id: true, companyId: true, legalName: true, status: true, createdByMemberId: true } });
+      return row && {
+        type: "contractor", id: row.id, companyId: row.companyId, label: row.legalName, href: `/contractors/${row.id}`,
+        projectId: null, archived: row.status === "ARCHIVED", stakeholderMemberIds: unique(row.createdByMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { contractorDirectoryWhere } = await import("@/lib/modules/contractors/contractor.permissions");
+      const rows = await prisma.contractorProfile.findMany({ where: { AND: [contractorDirectoryWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["contractor.edit"], tabHref: (summary) => `/contractors/${summary.id}/documents`, reviewable: true },
+    collaboration: { requires: [] },
+  },
+  {
+    // A project scope unit, reached through its project (§38, §246).
+    type: "work_package",
+    moduleKey: "contractors",
+    noun: "Work package",
+    activityEntityType: "WorkPackage",
+    viewPermissions: ["work_package.view"],
+    async find(context, id) {
+      const { readableWorkPackageWhere } = await import("@/lib/modules/contractors/contractor.permissions");
+      const row = await prisma.workPackage.findFirst({
+        where: { AND: [readableWorkPackageWhere(context), { id }] },
+        select: { id: true, companyId: true, projectId: true, code: true, name: true, status: true, archivedAt: true, responsibleMemberId: true, createdByMemberId: true, project: { select: { archivedAt: true, status: true, projectManagerMemberId: true } } },
+      });
+      return row && {
+        type: "work_package", id: row.id, companyId: row.companyId, label: numbered(row.code, row.name),
+        href: `/projects/${row.projectId}/work-packages/${row.id}`, projectId: row.projectId,
+        archived: Boolean(row.archivedAt) || Boolean(row.project.archivedAt) || row.project.status === "ARCHIVED",
+        stakeholderMemberIds: unique(row.responsibleMemberId, row.createdByMemberId, row.project.projectManagerMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableWorkPackageWhere } = await import("@/lib/modules/contractors/contractor.permissions");
+      const rows = await prisma.workPackage.findMany({ where: { AND: [readableWorkPackageWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["work_package.edit"], tabHref: (summary) => summary.href, reviewable: true },
+    collaboration: { requires: [] },
+  },
+  {
+    // Evidence that a contractor holds what it must — the certificate lives here
+    // as a Document (§47). No discussion: questions go on the contractor.
+    type: "contractor_compliance",
+    moduleKey: "contractors",
+    noun: "Compliance item",
+    activityEntityType: "ContractorComplianceItem",
+    viewPermissions: ["contractor_compliance.view"],
+    async find(context, id) {
+      const { readableComplianceWhere } = await import("@/lib/modules/contractors/contractor.permissions");
+      const row = await prisma.contractorComplianceItem.findFirst({ where: { AND: [readableComplianceWhere(context), { id }] }, select: { id: true, companyId: true, contractorId: true, title: true, status: true, archivedAt: true, createdByMemberId: true, contractor: { select: { legalName: true, status: true } } } });
+      return row && {
+        type: "contractor_compliance", id: row.id, companyId: row.companyId, label: `${row.title} · ${row.contractor.legalName}`,
+        href: `/contractors/${row.contractorId}/compliance?item=${row.id}`, projectId: null,
+        archived: Boolean(row.archivedAt) || row.contractor.status === "ARCHIVED",
+        stakeholderMemberIds: unique(row.createdByMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableComplianceWhere } = await import("@/lib/modules/contractors/contractor.permissions");
+      const rows = await prisma.contractorComplianceItem.findMany({ where: { AND: [readableComplianceWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["contractor_compliance.manage"], tabHref: (summary) => summary.href, reviewable: false },
+    collaboration: null,
+  },
+
+  /* Engineering (PRD #46 §59-§124, §126, §249, §253) ------------------------ */
+  {
+    // A register entry; each revision's file is uploaded here and frozen once
+    // submitted (§69). Reviews are the register's own workflow, never a
+    // document review (§75). A void or superseded document takes no new files.
+    type: "engineering_document",
+    moduleKey: "engineering",
+    noun: "Engineering document",
+    activityEntityType: "EngineeringDocument",
+    viewPermissions: ["engineering_document.view"],
+    async find(context, id) {
+      const { readableEngineeringDocumentWhere } = await import("@/lib/modules/engineering/engineering.permissions");
+      const row = await prisma.engineeringDocument.findFirst({
+        where: { AND: [readableEngineeringDocumentWhere(context), { id }] },
+        select: { id: true, companyId: true, projectId: true, documentNumber: true, title: true, status: true, responsibleMemberId: true, reviewerMemberId: true, createdByMemberId: true, project: { select: { archivedAt: true, status: true } } },
+      });
+      return row && {
+        type: "engineering_document", id: row.id, companyId: row.companyId, label: numbered(row.documentNumber, row.title),
+        href: `/projects/${row.projectId}/engineering/documents/${row.id}`, projectId: row.projectId,
+        archived: row.status === "VOID" || Boolean(row.project.archivedAt) || row.project.status === "ARCHIVED",
+        filesClosed: row.status === "SUPERSEDED",
+        stakeholderMemberIds: unique(row.responsibleMemberId, row.reviewerMemberId, row.createdByMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableEngineeringDocumentWhere } = await import("@/lib/modules/engineering/engineering.permissions");
+      const rows = await prisma.engineeringDocument.findMany({ where: { AND: [readableEngineeringDocumentWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["engineering_document.edit"], tabHref: (summary) => summary.href, reviewable: false },
+    collaboration: { requires: [] },
+  },
+  {
+    // Sketches and marked-up extracts travel with the question and its answers;
+    // a closed or void RFI keeps them and takes no more.
+    type: "rfi",
+    moduleKey: "engineering",
+    noun: "RFI",
+    activityEntityType: "Rfi",
+    viewPermissions: ["rfi.view"],
+    async find(context, id) {
+      const { readableRfiWhere } = await import("@/lib/modules/engineering/engineering.permissions");
+      const row = await prisma.rfi.findFirst({
+        where: { AND: [readableRfiWhere(context), { id }] },
+        select: { id: true, companyId: true, projectId: true, rfiNumber: true, subject: true, status: true, assignedToMemberId: true, raisedByMemberId: true, createdByMemberId: true, project: { select: { archivedAt: true, status: true } } },
+      });
+      return row && {
+        type: "rfi", id: row.id, companyId: row.companyId, label: numbered(row.rfiNumber, row.subject),
+        href: `/projects/${row.projectId}/engineering/rfis/${row.id}`, projectId: row.projectId,
+        archived: row.status === "VOID" || Boolean(row.project.archivedAt) || row.project.status === "ARCHIVED",
+        filesClosed: row.status === "CLOSED",
+        stakeholderMemberIds: unique(row.assignedToMemberId, row.raisedByMemberId, row.createdByMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableRfiWhere } = await import("@/lib/modules/engineering/engineering.permissions");
+      const rows = await prisma.rfi.findMany({ where: { AND: [readableRfiWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["rfi.respond"], tabHref: (summary) => summary.href, reviewable: false },
+    collaboration: { requires: [] },
+  },
+  {
+    type: "technical_submittal",
+    moduleKey: "engineering",
+    noun: "Submittal",
+    activityEntityType: "TechnicalSubmittal",
+    viewPermissions: ["submittal.view"],
+    async find(context, id) {
+      const { readableSubmittalWhere } = await import("@/lib/modules/engineering/engineering.permissions");
+      const row = await prisma.technicalSubmittal.findFirst({
+        where: { AND: [readableSubmittalWhere(context), { id }] },
+        select: { id: true, companyId: true, projectId: true, submittalNumber: true, title: true, status: true, assignedReviewerMemberId: true, createdByMemberId: true, project: { select: { archivedAt: true, status: true } } },
+      });
+      return row && {
+        type: "technical_submittal", id: row.id, companyId: row.companyId, label: numbered(row.submittalNumber, row.title),
+        href: `/projects/${row.projectId}/engineering/submittals/${row.id}`, projectId: row.projectId,
+        archived: row.status === "VOID" || Boolean(row.project.archivedAt) || row.project.status === "ARCHIVED",
+        filesClosed: row.status === "CLOSED",
+        stakeholderMemberIds: unique(row.assignedReviewerMemberId, row.createdByMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableSubmittalWhere } = await import("@/lib/modules/engineering/engineering.permissions");
+      const rows = await prisma.technicalSubmittal.findMany({ where: { AND: [readableSubmittalWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["submittal.edit"], tabHref: (summary) => summary.href, reviewable: false },
+    collaboration: { requires: [] },
+  },
+  {
+    // A cover letter can be attached while it is a draft; once issued, its
+    // contents — items and files — never change (§123).
+    type: "transmittal",
+    moduleKey: "engineering",
+    noun: "Transmittal",
+    activityEntityType: "DocumentTransmittal",
+    viewPermissions: ["transmittal.view"],
+    async find(context, id) {
+      const { readableTransmittalWhere } = await import("@/lib/modules/engineering/engineering.permissions");
+      const row = await prisma.documentTransmittal.findFirst({
+        where: { AND: [readableTransmittalWhere(context), { id }] },
+        select: { id: true, companyId: true, projectId: true, transmittalNumber: true, subject: true, status: true, createdByMemberId: true, issuedByMemberId: true, project: { select: { archivedAt: true, status: true } } },
+      });
+      return row && {
+        type: "transmittal", id: row.id, companyId: row.companyId, label: numbered(row.transmittalNumber, row.subject),
+        href: `/projects/${row.projectId}/engineering/transmittals/${row.id}`, projectId: row.projectId,
+        archived: row.status === "VOID" || Boolean(row.project.archivedAt) || row.project.status === "ARCHIVED",
+        filesClosed: row.status !== "DRAFT",
+        stakeholderMemberIds: unique(row.createdByMemberId, row.issuedByMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableTransmittalWhere } = await import("@/lib/modules/engineering/engineering.permissions");
+      const rows = await prisma.documentTransmittal.findMany({ where: { AND: [readableTransmittalWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["transmittal.create"], tabHref: (summary) => summary.href, reviewable: false },
+    collaboration: null,
+  },
+
   /* Approvals (PRD #41 §170) ----------------------------------------------- */
   {
     // A delegation is only ever the business of the two people in it, so it is

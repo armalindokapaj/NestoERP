@@ -136,7 +136,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
   const loadOptions = React.useCallback(async () => {
     if (options) return options;
-    const data = await dailyLogApi<{ suppliers: Array<{ id: string; label: string }>; purchaseOrders: Array<{ id: string; label: string }>; goodsReceipts: Array<{ id: string; label: string }>; inventoryReceipts: Array<{ id: string; label: string }>; tasks: Array<{ id: string; label: string }>; members: Array<{ id: string; label: string }> }>(`${base}/options`);
+    const data = await dailyLogApi<EntryOptions>(`${base}/options`);
     setOptions(data);
     return data;
   }, [base, options]);
@@ -266,7 +266,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     workforce: log.workforce.length ? (
       <ul className="divide-y divide-line">
         {log.workforce.map((entry) => (
-          <EntryLine key={entry.id} testId="workforce-entry" primary={entry.organizationName} secondary={joined(entry.trade, entry.crewName, entry.supplier ? `Supplier: ${entry.supplier.label}` : null, entry.notes)} meta={`${entry.headcount}`} onEdit={caps.sections.workforce ? () => void openEntry("workforce", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="workforce-entry" primary={entry.organizationName} secondary={joined(entry.trade, entry.crewName, entry.contractor ? `Contractor: ${entry.contractor.label}` : null, entry.workPackage?.label, entry.supplier ? `Supplier: ${entry.supplier.label}` : null, entry.notes)} meta={`${entry.headcount}`} onEdit={caps.sections.workforce ? () => void openEntry("workforce", entry.id) : undefined} />
         ))}
         <li className="flex justify-between pt-2.5 text-table font-medium text-fg">
           <span>On site</span>
@@ -277,7 +277,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     activities: log.activities.length ? (
       <ul className="divide-y divide-line">
         {log.activities.map((entry) => (
-          <EntryLine key={entry.id} testId="activity-entry" primary={entry.title} secondary={joined(entry.projectArea, entry.floorZone, entry.trade, entry.task ? `Task: ${entry.task.label}` : null, entry.description)} meta={entry.progressPercent !== null ? `${entry.progressPercent}%` : undefined} onEdit={caps.sections.activities ? () => void openEntry("activities", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="activity-entry" primary={entry.title} secondary={joined(entry.projectArea, entry.floorZone, entry.trade, entry.contractor ? `Contractor: ${entry.contractor.label}` : null, entry.workPackage?.label, entry.task ? `Task: ${entry.task.label}` : null, entry.description)} meta={entry.progressPercent !== null ? `${entry.progressPercent}%` : undefined} onEdit={caps.sections.activities ? () => void openEntry("activities", entry.id) : undefined} />
         ))}
       </ul>
     ) : empty("No work recorded."),

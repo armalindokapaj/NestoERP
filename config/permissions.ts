@@ -132,6 +132,62 @@ export const PERMISSIONS = [
   "daily_log.qaqc.manage",
   "daily_log.hse.manage",
 
+  /* Contractors ---------------------------------------------------------- */
+  /**
+   * External organisations the company engages, their people, their project
+   * assignments, work packages and compliance (PRD #46 §175). A contractor is
+   * never a member and signs in nowhere in V0.1; these grants are held by
+   * internal people only. Project records are still reached through the
+   * reader's project scope.
+   */
+  "contractor.view",
+  "contractor.create",
+  "contractor.edit",
+  "contractor.archive",
+  "contractor_contact.view",
+  "contractor_contact.manage",
+  "project_contractor.view",
+  "project_contractor.manage",
+  "work_package.view",
+  "work_package.create",
+  "work_package.edit",
+  "work_package.complete",
+  "contractor_compliance.view",
+  "contractor_compliance.manage",
+  "contractor_compliance.waive",
+
+  /* Engineering ---------------------------------------------------------- */
+  /**
+   * The technical coordination record of a project: the document and drawing
+   * register with its revisions, RFIs, submittals and transmittals (PRD #46
+   * §175). Reviewing and approving are separate grants from writing, and the
+   * service refuses a reviewer their own submission (§74, §251).
+   */
+  "engineering_document.view",
+  "engineering_document.create",
+  "engineering_document.edit",
+  "engineering_document.submit",
+  "engineering_document.review",
+  "engineering_document.approve",
+  "rfi.view",
+  "rfi.create",
+  "rfi.edit",
+  "rfi.open",
+  "rfi.respond",
+  "rfi.close",
+  "rfi.void",
+  "submittal.view",
+  "submittal.create",
+  "submittal.edit",
+  "submittal.submit",
+  "submittal.review",
+  "submittal.approve",
+  "transmittal.view",
+  "transmittal.create",
+  "transmittal.issue",
+  "transmittal.void",
+  "engineering.settings.manage",
+
   /* Approvals ------------------------------------------------------------ */
   /**
    * The Unified Approvals Center (PRD #41 §133, §134). These open the shared
@@ -1010,6 +1066,16 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   timesheet: "timesheets",
   daily_log: "dailyLogs",
   announcement: "announcements",
+  contractor: "contractors",
+  contractor_contact: "contractors",
+  project_contractor: "contractors",
+  work_package: "contractors",
+  contractor_compliance: "contractors",
+  engineering: "engineering",
+  engineering_document: "engineering",
+  rfi: "engineering",
+  submittal: "engineering",
+  transmittal: "engineering",
   project_planning: "projects",
   project: "projects",
   task: "tasks",
@@ -1137,6 +1203,10 @@ const MUTATING_ACTIONS = new Set([
   "manage_department",
   "manage_project",
   "manage_selected_members",
+  // Contractors and engineering (PRD #46 §175).
+  "open",
+  "respond",
+  "waive",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {
