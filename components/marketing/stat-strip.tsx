@@ -1,5 +1,6 @@
 import { gridColumns, hairlineCell, hairlineGrid } from "@/components/marketing/section";
 import { stats } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -9,16 +10,18 @@ import { cn } from "@/lib/utils/cn";
  * borrow, and inventing them would be the first dishonest thing on the page —
  * so the numbers describe what the platform is instead of who else uses it.
  */
-export function StatStrip({ className }: { className?: string }) {
+export async function StatStrip({ className }: { className?: string }) {
+  const copy = await getSiteCopy();
+
   return (
     <dl
       className={cn(hairlineGrid, "grid-cols-2", gridColumns(stats.length), className)}
     >
       {stats.map((stat) => (
-        <div key={stat.label} className={cn(hairlineCell, "p-5")}>
-          <dt className="nesto-eyebrow text-fg-subtle">{stat.label}</dt>
+        <div key={stat.key} className={cn(hairlineCell, "p-5")}>
+          <dt className="nesto-eyebrow text-fg-subtle">{copy.stats[stat.key].label}</dt>
           <dd className="mt-3 font-serif text-display leading-none text-fg">{stat.figure}</dd>
-          <p className="mt-3 text-table leading-relaxed text-fg-muted">{stat.note}</p>
+          <p className="mt-3 text-table leading-relaxed text-fg-muted">{copy.stats[stat.key].note}</p>
         </div>
       ))}
     </dl>

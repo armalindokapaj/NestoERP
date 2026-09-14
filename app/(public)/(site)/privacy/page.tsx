@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 
 import { LegalDocumentPage } from "@/components/marketing/legal-document";
-import { privacyDocument } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Privacy",
-  description: privacyDocument.lead,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { privacy } = (await getSiteCopy()).legal;
+  return { title: privacy.eyebrow, description: privacy.lead };
+}
 
-export default function PrivacyPage() {
-  return <LegalDocumentPage document={privacyDocument} />;
+export default async function PrivacyPage() {
+  const { privacy } = (await getSiteCopy()).legal;
+  return <LegalDocumentPage document={privacy} />;
 }

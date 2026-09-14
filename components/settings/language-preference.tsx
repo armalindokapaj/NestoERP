@@ -1,11 +1,9 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-
-import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { LocaleFlag } from "@/components/i18n/locale-flag";
-import { LOCALE_COOKIE, LOCALE_NAMES, LOCALES, type Locale } from "@/lib/i18n/config";
+import { useChangeLocale } from "@/components/i18n/use-change-locale";
+import { LOCALE_NAMES, LOCALES } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -20,19 +18,8 @@ import { cn } from "@/lib/utils/cn";
  * cannot read the language currently showing still finds theirs.
  */
 export function LanguagePreference() {
-  const router = useRouter();
-  const locale = useLocale();
   const t = useTranslations("settings");
-  const [choice, setChoice] = React.useState<Locale>(locale);
-  const [isPending, startTransition] = React.useTransition();
-
-  function select(next: Locale) {
-    if (next === choice) return;
-    setChoice(next);
-    document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-    document.documentElement.lang = next;
-    startTransition(() => router.refresh());
-  }
+  const { choice, change, isPending } = useChangeLocale();
 
   return (
     <div
@@ -51,7 +38,7 @@ export function LanguagePreference() {
             role="radio"
             aria-checked={active}
             lang={option}
-            onClick={() => select(option)}
+            onClick={() => change(option)}
             // The same selected treatment as ThemePreference (§97).
             className={cn(
               "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-table font-medium transition-colors",

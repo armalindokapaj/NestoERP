@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 
-import type { FaqItem } from "@/config/marketing";
+import type { FaqItem } from "@/lib/i18n/site";
 import { cn } from "@/lib/utils/cn";
 
 /**

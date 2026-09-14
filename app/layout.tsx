@@ -4,48 +4,53 @@ import { cookies } from "next/headers";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { brand } from "@/config/brand";
 import { geistMono, geistSans, instrumentSerif } from "@/lib/fonts";
-import { site } from "@/config/marketing";
 import {
   readThemeChoice,
   themeAttribute,
   THEME_COOKIE,
 } from "@/lib/layout/theme-state";
-import { getLocale } from "@/lib/i18n/server";
+import { getLocale, getSiteCopy } from "@/lib/i18n/server";
 import { messages } from "@/lib/i18n/messages";
 import { siteUrl } from "@/lib/marketing/site-url";
 import "../styles/globals.css";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "NESTO",
-    template: "%s · NESTO",
-  },
-  description: site.summary,
-  applicationName: brand.name,
-  keywords: [
-    "construction ERP",
-    "construction management software",
-    "project management",
-    "procurement",
-    "QA/QC",
-    "HSE",
-    "construction operating system",
-  ],
-  openGraph: {
-    type: "website",
-    siteName: brand.name,
-    title: `NESTO — ${site.category}`,
+/* In the reader's language, like the page. A crawler sends no language
+   cookie, so what is indexed is the English source. */
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteCopy();
+
+  return {
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: "NESTO",
+      template: "%s · NESTO",
+    },
     description: site.summary,
-    url: siteUrl,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `NESTO — ${site.category}`,
-    description: site.summary,
-  },
-  robots: { index: true, follow: true },
-};
+    applicationName: brand.name,
+    keywords: [
+      "construction ERP",
+      "construction management software",
+      "project management",
+      "procurement",
+      "QA/QC",
+      "HSE",
+      "construction operating system",
+    ],
+    openGraph: {
+      type: "website",
+      siteName: brand.name,
+      title: `NESTO — ${site.category}`,
+      description: site.summary,
+      url: siteUrl,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `NESTO — ${site.category}`,
+      description: site.summary,
+    },
+    robots: { index: true, follow: true },
+  };
+}
 
 export default async function RootLayout({
   children,

@@ -9,14 +9,14 @@ import {
   hairlineCell,
   hairlineGrid,
 } from "@/components/marketing/section";
-import { about, site } from "@/config/marketing";
 import { brand } from "@/config/brand";
+import { getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
-export const metadata: Metadata = {
-  title: "About",
-  description: about.lead,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { about } = await getSiteCopy();
+  return { title: about.eyebrow, description: about.lead };
+}
 
 /**
  * About (design spec §82).
@@ -24,8 +24,13 @@ export const metadata: Metadata = {
  * An editorial layout rather than a card grid: the section title sits in the
  * margin and the argument runs in a single measured column, which is how long
  * text is meant to be read. No stock photography of people in hard hats.
+ *
+ * The motto is quoted as the product sets it, in English: it is the line the
+ * dashboards carry, and the note beside it says so in the reader's language.
  */
-export default function AboutPage() {
+export default async function AboutPage() {
+  const { about, category } = await getSiteCopy();
+
   return (
     <>
       <PageIntro eyebrow={about.eyebrow} title={about.title} lead={about.lead} />
@@ -74,14 +79,11 @@ export default function AboutPage() {
         <BlueprintElevation className="absolute -right-20 bottom-0 hidden h-full w-[460px] text-line-strong opacity-60 lg:block" />
         <Container className="relative py-16 sm:py-20">
           <div className="max-w-xl">
-            <p className="nesto-eyebrow text-fg-subtle">{site.category}</p>
-            <p className="mt-6 font-serif text-page leading-tight text-fg sm:text-display">
+            <p className="nesto-eyebrow text-fg-subtle">{category}</p>
+            <p lang="en" className="mt-6 font-serif text-page leading-tight text-fg sm:text-display">
               {brand.motto.join(" ")}
             </p>
-            <p className="mt-5 text-body leading-relaxed text-fg-muted">
-              The same line sits beside the date on every dashboard in the product. It is not a
-              slogan we wrote for this page — it is what the software is trying to be.
-            </p>
+            <p className="mt-5 text-body leading-relaxed text-fg-muted">{about.mottoNote}</p>
           </div>
         </Container>
       </section>

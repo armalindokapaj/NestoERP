@@ -4,19 +4,19 @@ import { CtaBand } from "@/components/marketing/cta-band";
 import { FaqList } from "@/components/marketing/faq-list";
 import { PricingPlans } from "@/components/marketing/pricing-plans";
 import { PageIntro, Section, SectionHeader } from "@/components/marketing/section";
-import { faqGroups, pricing } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Pricing",
-  description:
-    "One price per company, with all seventeen modules included on every plan. No per-module upsell and no per-seat surprises.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return (await getSiteCopy()).meta.pricing;
+}
 
 /** Plans (design spec §82). Commercial questions answered on the same page. */
-export default function PricingPage() {
+export default async function PricingPage() {
+  const { pricing, faq } = await getSiteCopy();
+
   return (
     <>
-      <PageIntro eyebrow="Pricing" title={pricing.title} lead={pricing.lead} />
+      <PageIntro eyebrow={pricing.eyebrow} title={pricing.title} lead={pricing.lead} />
 
       <Section tone="canvas">
         <PricingPlans />
@@ -34,10 +34,10 @@ export default function PricingPage() {
       <Section tone="surface" bordered={false}>
         <SectionHeader
           step="01"
-          eyebrow="Commercial questions"
-          title="Before you ask us."
+          eyebrow={pricing.questions.eyebrow}
+          title={pricing.questions.title}
         />
-        <FaqList items={faqGroups[3].items} className="mt-12" />
+        <FaqList items={faq.groups.gettingStarted.items} className="mt-12" />
       </Section>
 
       <CtaBand />

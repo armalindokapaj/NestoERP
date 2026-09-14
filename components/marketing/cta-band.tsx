@@ -3,7 +3,7 @@ import Link from "next/link";
 import { BlueprintPlan } from "@/components/marketing/blueprint";
 import { Container, SectionMark } from "@/components/marketing/section";
 import { Button } from "@/components/ui/button";
-import { closingCta } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 
 /**
  * The graphite band that closes every public page (design spec §74, §82).
@@ -12,7 +12,9 @@ import { closingCta } from "@/config/marketing";
  * thing. A visitor who has scrolled a whole page should not have to hunt for
  * the way in.
  */
-export function CtaBand() {
+export async function CtaBand() {
+  const { closingCta } = await getSiteCopy();
+
   return (
     <section className="relative overflow-hidden border-t border-line bg-graphite">
       <BlueprintPlan className="absolute -right-16 top-0 hidden h-full w-[520px] text-graphite-fg/10 lg:block" />
@@ -39,7 +41,7 @@ export function CtaBand() {
               size="lg"
               className="bg-graphite-fg text-graphite hover:bg-graphite-fg/90"
             >
-              <Link href={closingCta.primary.href}>{closingCta.primary.label}</Link>
+              <Link href="/contact">{closingCta.primary}</Link>
             </Button>
             <Button
               asChild
@@ -47,7 +49,7 @@ export function CtaBand() {
               size="lg"
               className="text-graphite-fg/75 hover:bg-graphite-fg/10 hover:text-graphite-fg"
             >
-              <Link href={closingCta.secondary.href}>{closingCta.secondary.label}</Link>
+              <Link href="/platform">{closingCta.secondary}</Link>
             </Button>
           </div>
         </div>

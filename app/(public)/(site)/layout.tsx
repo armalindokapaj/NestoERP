@@ -1,5 +1,6 @@
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
+import { getSiteCopy } from "@/lib/i18n/server";
 
 /**
  * The public site shell (design spec §82).
@@ -8,14 +9,16 @@ import { SiteHeader } from "@/components/marketing/site-header";
  * footer while sign-in and password recovery stay bare — an authentication
  * screen with a marketing navigation is an invitation to wander off mid-task.
  *
- * The public site is written in English only, whatever language a visitor has
- * chosen for the application, so it says so to assistive technology rather
- * than inheriting the document's `lang`.
+ * The site is written in every interface language and reads the same cookie as
+ * the application, so it inherits the document's `lang` from the root layout. A
+ * visitor who picks a language in the header signs in to NESTO in it.
  */
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  const copy = await getSiteCopy();
+
   return (
-    <div lang="en" className="flex min-h-dvh flex-col bg-canvas">
-      <SiteHeader />
+    <div className="flex min-h-dvh flex-col bg-canvas">
+      <SiteHeader copy={copy.header} nav={copy.nav} category={copy.category} />
       <main className="flex-1">{children}</main>
       <SiteFooter />
     </div>
