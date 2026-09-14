@@ -38,6 +38,9 @@ export const ATTENTION_CONDITIONS = [
   "TIMESHEET_NOT_SUBMITTED",
   "TIMESHEET_RETURNED",
   "TIMESHEET_APPROVAL_OVERDUE",
+  "DAILY_LOG_MISSING",
+  "DAILY_LOG_RETURNED",
+  "DAILY_LOG_AWAITING_REVIEW",
 ] as const;
 
 export type AttentionConditionKey = (typeof ATTENTION_CONDITIONS)[number];
@@ -514,6 +517,74 @@ const timesheetApprovalOverdue: AttentionConditionDefinition = {
   },
 };
 
+/* Daily logs (PRD #43 §103-§109) -------------------------------------------- */
+
+/**
+ * No log for a required project's last working day. About the project, since
+ * there is no log to point at; one item per project per day, for its manager.
+ */
+const dailyLogMissing: AttentionConditionDefinition = {
+  key: "DAILY_LOG_MISSING",
+  moduleKey: "dailyLogs",
+  async collect(companyId, now) {
+    const { missingYesterday } = await import("@/lib/modules/daily-logs/daily-log.reports");
+    const { dateLabel } = await import("@/lib/modules/daily-logs/daily-log.time");
+    return (await missingYesterday(companyId, now)).map((row): AttentionCandidate => ({
+      entityType: "project", entityId: row.projectId, projectId: row.projectId,
+      title: `No daily log for ${row.projectName}`, body: dateLabel(row.date),
+      priority: "NORMAL", dismissible: true, episode: row.date, recipients: [row.projectManagerMemberId],
+    }));
+  },
+  async holds(companyId, type, id, now) {
+    if (type !== "project") return false;
+    const { missingYesterday } = await import("@/lib/modules/daily-logs/daily-log.reports");
+    return (await missingYesterday(companyId, now)).some((row) => row.projectId === id);
+  },
+};
+
+/** A log sent back to its authors, until they submit it again. */
+const dailyLogReturned: AttentionConditionDefinition = {
+  key: "DAILY_LOG_RETURNED",
+  moduleKey: "dailyLogs",
+  async collect(companyId) {
+    const rows = await prisma.dailyLog.findMany({
+      where: { companyId, status: "CORRECTION_REQUIRED" },
+      select: { id: true, projectId: true, workDate: true, returnedAt: true, createdByMemberId: true, submittedByMemberId: true, project: { select: { name: true } } },
+      take: LIMIT,
+    });
+    return rows.map((row): AttentionCandidate => ({
+      entityType: "daily_log", entityId: row.id, projectId: row.projectId,
+      title: `Daily log for ${row.project.name} needs correcting`, body: `Work date ${isoDate(row.workDate)}`,
+      priority: "HIGH", dismissible: true, episode: row.returnedAt?.toISOString() ?? "returned", recipients: [row.createdByMemberId, row.submittedByMemberId],
+    }));
+  },
+  async holds(companyId, type, id) {
+    return type === "daily_log" && (await prisma.dailyLog.count({ where: { companyId, id, status: "CORRECTION_REQUIRED" } })) > 0;
+  },
+};
+
+/** A submitted log waiting for its reviewer — never the person who submitted it. */
+const dailyLogAwaitingReview: AttentionConditionDefinition = {
+  key: "DAILY_LOG_AWAITING_REVIEW",
+  moduleKey: "dailyLogs",
+  async collect(companyId) {
+    const rows = await prisma.dailyLog.findMany({
+      where: { companyId, status: "SUBMITTED" },
+      select: { id: true, projectId: true, workDate: true, submittedAt: true, reviewerMemberId: true, submittedByMemberId: true, project: { select: { name: true, projectManagerMemberId: true } } },
+      take: LIMIT,
+    });
+    return rows.map((row): AttentionCandidate => ({
+      entityType: "daily_log", entityId: row.id, projectId: row.projectId,
+      title: `Review the daily log for ${row.project.name}`, body: `Work date ${isoDate(row.workDate)}`,
+      priority: "NORMAL", dismissible: true, episode: row.submittedAt?.toISOString() ?? "submitted",
+      recipients: [row.reviewerMemberId ?? row.project.projectManagerMemberId], exclude: row.submittedByMemberId ? [row.submittedByMemberId] : [],
+    }));
+  },
+  async holds(companyId, type, id) {
+    return type === "daily_log" && (await prisma.dailyLog.count({ where: { companyId, id, status: "SUBMITTED" } })) > 0;
+  },
+};
+
 /* Legal -------------------------------------------------------------------- */
 
 const EXPIRY_WINDOW_DAYS = 30;
@@ -849,6 +920,9 @@ const DEFINITIONS: AttentionConditionDefinition[] = [
   timesheetNotSubmitted,
   timesheetReturned,
   timesheetApprovalOverdue,
+  dailyLogMissing,
+  dailyLogReturned,
+  dailyLogAwaitingReview,
 ];
 
 const BY_KEY = new Map(DEFINITIONS.map((definition) => [definition.key, definition]));

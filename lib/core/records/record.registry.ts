@@ -1361,6 +1361,42 @@ const DEFINITIONS: RecordDefinition[] = [
     collaboration: { requires: [] },
   },
 
+  /* Daily logs (PRD #43 §74, §122-§125, §226-§228) ------------------------- */
+  {
+    // Reached through its project; files are the day's evidence, added while
+    // the log is still being written, and read by anybody who can open it.
+    type: "daily_log",
+    moduleKey: "dailyLogs",
+    noun: "Daily log",
+    activityEntityType: "DailyLog",
+    viewPermissions: ["daily_log.view"],
+    async find(context, id) {
+      const { readableDailyLogWhere } = await import("@/lib/modules/daily-logs/daily-log.permissions");
+      const { dateLabel } = await import("@/lib/modules/daily-logs/daily-log.time");
+      const row = await prisma.dailyLog.findFirst({
+        where: { AND: [readableDailyLogWhere(context), { id }] },
+        select: { id: true, companyId: true, projectId: true, workDate: true, status: true, createdByMemberId: true, submittedByMemberId: true, reviewerMemberId: true, project: { select: { name: true } } },
+      });
+      return row && {
+        type: "daily_log", id: row.id, companyId: row.companyId,
+        label: `Daily log · ${row.project.name} · ${dateLabel(row.workDate.toISOString().slice(0, 10))}`,
+        href: `/projects/${row.projectId}/daily-logs/${row.id}`,
+        projectId: row.projectId,
+        archived: row.status === "VOID",
+        filesClosed: row.status !== "DRAFT" && row.status !== "CORRECTION_REQUIRED",
+        stakeholderMemberIds: unique(row.createdByMemberId, row.submittedByMemberId, row.reviewerMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableDailyLogWhere } = await import("@/lib/modules/daily-logs/daily-log.permissions");
+      const rows = await prisma.dailyLog.findMany({ where: { AND: [readableDailyLogWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["daily_log.edit"], tabHref: (summary) => `${summary.href}#evidence`, reviewable: false },
+    collaboration: { requires: [] },
+  },
+
   /* Approvals (PRD #41 §170) ----------------------------------------------- */
   {
     // A delegation is only ever the business of the two people in it, so it is

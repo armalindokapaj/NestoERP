@@ -59,6 +59,7 @@ export default async function ProjectCalendarPage({ params }: Params) {
           tasks: actions.canViewTasks,
           calendar: actions.canViewCalendar,
           meetings: actions.canViewMeetings,
+          dailyLogs: actions.canViewDailyLogs,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
           contracts: actions.canViewContracts,

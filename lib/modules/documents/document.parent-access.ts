@@ -227,7 +227,7 @@ export async function canAttachToDocumentParent(
       if (!upload.every((permission) => can(context, permission))) return false;
       if (!recordDocumentReadHeld(context, parent.definition)) return false;
       const record = await parent.definition.find(context, parent.id);
-      return record !== null && !record.archived;
+      return record !== null && !record.archived && !record.filesClosed;
     }
     case "project":
     case "client":

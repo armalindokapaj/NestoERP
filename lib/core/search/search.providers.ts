@@ -732,9 +732,48 @@ const meetingProvider: GlobalSearchProvider = {
   },
 };
 
+/**
+ * Daily logs (PRD #43 §203, §204): the project, the day and the summary of logs
+ * this reader can open. Notes, visitors and entries are never searched.
+ */
+const dailyLogProvider: GlobalSearchProvider = {
+  moduleKey: "dailyLogs",
+  entityTypes: ["daily_log"],
+  async search(context, query) {
+    if (!available(context, "dailyLogs", "daily_log.view")) return [];
+    const { readableDailyLogWhere } = await import("@/lib/modules/daily-logs/daily-log.permissions");
+    const { dateLabel } = await import("@/lib/modules/daily-logs/daily-log.time");
+    const { DAILY_LOG_STATUS_LABELS } = await import("@/lib/modules/daily-logs/daily-log.types");
+    const term = { contains: query.text, mode: "insensitive" as const };
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(query.text.trim()) ? new Date(`${query.text.trim()}T12:00:00.000Z`) : null;
+    const rows = await prisma.dailyLog.findMany({
+      where: {
+        AND: [
+          readableDailyLogWhere(context),
+          { OR: [{ summary: term }, { project: { is: { OR: [{ name: term }, { code: term }] } } }, ...(date && !Number.isNaN(date.getTime()) ? [{ workDate: date }] : [])] },
+        ],
+      },
+      orderBy: { workDate: "desc" },
+      take: query.limitPerProvider,
+      select: { id: true, workDate: true, status: true, summary: true, projectId: true, project: { select: { name: true } } },
+    });
+    return rows.map((row) => ({
+      moduleKey: "dailyLogs",
+      entityType: "daily_log",
+      entityId: row.id,
+      title: `Daily log · ${row.project.name}`,
+      subtitle: [dateLabel(row.workDate.toISOString().slice(0, 10)), DAILY_LOG_STATUS_LABELS[row.status]].join(" · "),
+      href: `/projects/${row.projectId}/daily-logs/${row.id}`,
+      score: scoreMatch(query.text, `${row.project.name} ${row.summary ?? ""}`),
+      status: row.status,
+    }));
+  },
+};
+
 export const searchProviders: GlobalSearchProvider[] = [
   calendarProvider,
   meetingProvider,
+  dailyLogProvider,
   projectProvider,
   taskProvider,
   clientProvider,

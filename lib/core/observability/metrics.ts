@@ -60,6 +60,14 @@ export const Metric = {
   TIMESHEET_APPROVAL_SUCCESS: "timesheet_approval_success_count",
   TIMESHEET_RETURN: "timesheet_return_count",
   TIMESHEET_MISSING: "timesheet_missing_count",
+  // Daily logs (PRD #43 §275)
+  DAILY_LOG_CREATE_SUCCESS: "daily_log_create_success_count",
+  DAILY_LOG_SUBMIT_SUCCESS: "daily_log_submit_success_count",
+  DAILY_LOG_REVIEW_SUCCESS: "daily_log_review_success_count",
+  DAILY_LOG_LOCK_SUCCESS: "daily_log_lock_success_count",
+  DAILY_LOG_MISSING: "daily_log_missing_count",
+  DAILY_LOG_DETAIL_DURATION_MS: "daily_log_detail_duration_ms_total",
+  DAILY_LOG_MEDIA_COUNT: "daily_log_media_count",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

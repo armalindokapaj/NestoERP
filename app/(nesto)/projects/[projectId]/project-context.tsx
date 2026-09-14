@@ -32,6 +32,7 @@ export type ProjectTabKey =
   | "tasks"
   | "calendar"
   | "meetings"
+  | "dailyLogs"
   | "team"
   | "finance"
   | "contracts"

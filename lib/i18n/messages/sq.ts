@@ -92,6 +92,7 @@ export const sq: Messages = {
     tasks: { label: "Detyrat", description: "Puna e caktuar në projekte dhe departamente." },
     meetings: { label: "Takimet", description: "Rendet e ditës, procesverbalet, vendimet dhe veprimet që pasojnë." },
     timesheets: { label: "Fletët e orëve", description: "Si shpenzohet koha e punës në projekte, detyra dhe punë të brendshme." },
+    dailyLogs: { label: "Ditarët e kantierit", description: "Çfarë ndodhi në kantier çdo ditë: njerëzit, punimet, dorëzimet, vonesat dhe provat." },
     clients: { label: "Klientët", description: "Kompanitë dhe personat me të cilët punon kompania juaj." },
     documents: { label: "Dokumentet", description: "Dokumentacioni i kompanisë, projekteve dhe klientëve." },
     finance: { label: "Financa", description: "Të ardhurat, kostot dhe kontrolli financiar i kompanisë." },
@@ -208,6 +209,7 @@ export const sq: Messages = {
         calendar: { label: "Kalendari", description: "Kujtesat, ftesat dhe ndryshimet e ngjarjeve ku jeni pjesë." },
         meetings: { label: "Takimet", description: "Ftesat, ndryshimet, kujtesat, procesverbalet dhe veprimet nga takimet." },
         timesheets: { label: "Fletët e orëve", description: "Javët për t'u dorëzuar, dhe javët e miratuara, të kthyera ose që presin shqyrtimin tuaj." },
+        daily_logs: { label: "Ditarët e kantierit", description: "Ditarë për t'u shqyrtuar, ditarë të kthyer, kyçje, korrigjime dhe ditarë që mungojnë." },
       },
     },
 

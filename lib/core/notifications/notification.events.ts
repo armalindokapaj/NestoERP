@@ -47,6 +47,7 @@ export const NOTIFICATION_CATEGORIES = [
   "calendar",
   "meetings",
   "timesheets",
+  "daily_logs",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -176,6 +177,13 @@ export const NotificationEvent = {
   TIMESHEET_RETURNED: "TIMESHEET_RETURNED",
   TIMESHEET_REJECTED: "TIMESHEET_REJECTED",
   TIMESHEET_REMINDER: "TIMESHEET_REMINDER",
+  // Daily logs (PRD #43 §110, §111)
+  DAILY_LOG_SUBMITTED: "DAILY_LOG_SUBMITTED",
+  DAILY_LOG_RETURNED: "DAILY_LOG_RETURNED",
+  DAILY_LOG_REVIEWED: "DAILY_LOG_REVIEWED",
+  DAILY_LOG_LOCKED: "DAILY_LOG_LOCKED",
+  DAILY_LOG_CORRECTION_ADDED: "DAILY_LOG_CORRECTION_ADDED",
+  DAILY_LOG_MISSING_REMINDER: "DAILY_LOG_MISSING_REMINDER",
 } as const;
 
 const DEFINITIONS: NotificationEventDefinition[] = [
@@ -484,6 +492,76 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     body: (payload) => (payload.deadlineLabel ? `Due ${text(payload, "deadlineLabel")}` : null),
     // Once per week per person, however often the scheduler runs (§216).
     dedupe: (event, memberId) => `TIMESHEET_REMINDER:${event.entityId}:${memberId}`,
+  },
+
+  /* Daily logs ------------------------------------------------------------ */
+  {
+    eventType: NotificationEvent.DAILY_LOG_SUBMITTED,
+    category: "daily_logs",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "reviewerMemberId")];
+    },
+    permission: () => "daily_log.review",
+    title: (payload) => `${text(payload, "actorName", "Someone")} submitted the daily log for ${text(payload, "projectName", "a project")}, ${text(payload, "dateLabel", "a site day")}`,
+    body: () => "Waiting for your review",
+    dedupe: (event, memberId, payload) => `DAILY_LOG_SUBMITTED:${event.entityId}:${text(payload, "submissionCount")}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.DAILY_LOG_RETURNED,
+    category: "daily_logs",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `The daily log for ${text(payload, "projectName", "a project")}, ${text(payload, "dateLabel", "a site day")} needs correcting`,
+    body: (payload) => (payload.reason ? text(payload, "reason").slice(0, 300) : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.DAILY_LOG_REVIEWED,
+    category: "daily_logs",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `The daily log for ${text(payload, "projectName", "a project")}, ${text(payload, "dateLabel", "a site day")} was reviewed`,
+    body: (payload) => (payload.actorName ? `By ${text(payload, "actorName")}` : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.DAILY_LOG_LOCKED,
+    category: "daily_logs",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `The daily log for ${text(payload, "projectName", "a project")}, ${text(payload, "dateLabel", "a site day")} is locked as the record`,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.DAILY_LOG_CORRECTION_ADDED,
+    category: "daily_logs",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `An official correction was added to the daily log for ${text(payload, "projectName", "a project")}, ${text(payload, "dateLabel", "a site day")}`,
+    body: (payload) => (payload.reason ? text(payload, "reason").slice(0, 300) : null),
+    dedupe: perEvent,
+  },
+  {
+    // About the project: there is no log yet to point at.
+    eventType: NotificationEvent.DAILY_LOG_MISSING_REMINDER,
+    category: "daily_logs",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "daily_log.create",
+    title: (payload) => `No daily log yet for ${text(payload, "projectName", "a project")}, ${text(payload, "dateLabel", "the last working day")}`,
+    body: () => "Logs are required for this project's working days.",
+    dedupe: (event, memberId, payload) => `DAILY_LOG_MISSING_REMINDER:${event.entityId}:${text(payload, "workDate")}:${memberId}`,
   },
 
   /* Documents ------------------------------------------------------------- */

@@ -39,6 +39,11 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await runTimesheetReminders(now);
     return { processed: result.reminded, detail: result };
   },
+  "dailylogs.missing": async ({ now }) => {
+    const { remindMissingDailyLogs } = await import("@/lib/modules/daily-logs/daily-log.reports");
+    const result = await remindMissingDailyLogs(now);
+    return { processed: result.reminded, detail: result };
+  },
   "meetings.series": async ({ now }) => {
     const result = await extendMeetingSeries(now);
     return { processed: result.created, detail: result };

@@ -145,6 +145,20 @@ export const AuditAction = {
   TIMESHEET_APPROVER_CHANGED: "TIMESHEET_APPROVER_CHANGED",
   TIMESHEET_SETTINGS_UPDATED: "TIMESHEET_SETTINGS_UPDATED",
 
+  // Daily logs (PRD #43 §193, §194): state changes and the entries that matter later, never every edit.
+  DAILY_LOG_CREATED: "DAILY_LOG_CREATED",
+  DAILY_LOG_UPDATED: "DAILY_LOG_UPDATED",
+  DAILY_LOG_SUBMITTED: "DAILY_LOG_SUBMITTED",
+  DAILY_LOG_RETURNED: "DAILY_LOG_RETURNED",
+  DAILY_LOG_REVIEWED: "DAILY_LOG_REVIEWED",
+  DAILY_LOG_LOCKED: "DAILY_LOG_LOCKED",
+  DAILY_LOG_VOIDED: "DAILY_LOG_VOIDED",
+  DAILY_LOG_CORRECTION_ADDED: "DAILY_LOG_CORRECTION_ADDED",
+  DAILY_LOG_DELAY_ADDED: "DAILY_LOG_DELAY_ADDED",
+  DAILY_LOG_INSTRUCTION_ADDED: "DAILY_LOG_INSTRUCTION_ADDED",
+  DAILY_LOG_TASK_CREATED: "DAILY_LOG_TASK_CREATED",
+  DAILY_LOG_SETTINGS_UPDATED: "DAILY_LOG_SETTINGS_UPDATED",
+
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
   REPORT_EXPORTED_XLSX: "REPORT_EXPORTED_XLSX",
@@ -298,6 +312,20 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.TIMESHEET_REOPENED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.TIMESHEET_APPROVER_CHANGED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["memberId", "approverMemberId"], required: true },
   { actionKey: AuditAction.TIMESHEET_SETTINGS_UPDATED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["weekStartsOn", "standardDailyMinutes", "standardWeeklyMinutes", "incrementMinutes", "enforceIncrement", "backdateDays", "submitDay", "submitTime", "descriptionsRequired", "membersSetBillable"], required: true },
+  /* Daily logs ----------------------------------------------------------- */
+  { actionKey: AuditAction.DAILY_LOG_CREATED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["projectId", "workDate", "lateEntry"], required: false },
+  { actionKey: AuditAction.DAILY_LOG_UPDATED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["fields", "siteCondition"], required: false },
+  // Review, lock, void and correction are the record's standing as evidence: each commits with its audit.
+  { actionKey: AuditAction.DAILY_LOG_SUBMITTED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status", "reviewerMemberId", "submissionCount", "lateEntry"], required: true },
+  { actionKey: AuditAction.DAILY_LOG_RETURNED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "submissionCount"], required: true },
+  { actionKey: AuditAction.DAILY_LOG_REVIEWED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "submissionCount"], required: true },
+  { actionKey: AuditAction.DAILY_LOG_LOCKED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.DAILY_LOG_VOIDED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.DAILY_LOG_CORRECTION_ADDED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["correctionId", "status"], required: true },
+  { actionKey: AuditAction.DAILY_LOG_DELAY_ADDED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["entryId", "category", "impact", "durationMinutes"], required: false },
+  { actionKey: AuditAction.DAILY_LOG_INSTRUCTION_ADDED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["entryId", "requiresAction"], required: false },
+  { actionKey: AuditAction.DAILY_LOG_TASK_CREATED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["taskId", "linkType", "section", "entryId"], required: false },
+  { actionKey: AuditAction.DAILY_LOG_SETTINGS_UPDATED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["logsRequired", "backdateDays", "reviewerRequired", "reviewerMemberId", "workingDays"], required: true },
   { actionKey: AuditAction.APPROVAL_POLICY_UPDATED, moduleKey: "procurement", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["financeStepAbove", "executiveStepAbove", "executiveRoleKey", "currency"], required: true },
 
   /* Reporting ------------------------------------------------------------ */

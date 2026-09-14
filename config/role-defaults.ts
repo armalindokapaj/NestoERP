@@ -89,6 +89,31 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
    * project time, and the decision (as the week's designated approver); MANAGE
    * adds reopening an approved week and the company's rules.
    */
+  /**
+   * Daily logs (PRD #43 §126-§144). Field authors write the day; the project
+   * manager reviews and locks it; MANAGE adds voiding and the controlled
+   * correction of a locked record. Company rules are the Owner's alone — a
+   * project manager keeps their own project's rules through the project.
+   */
+  dailyLogs: {
+    VIEW: ["daily_log.view"],
+    CONTRIBUTE: [
+      "daily_log.create",
+      "daily_log.edit",
+      "daily_log.submit",
+      "daily_log.workforce.manage",
+      "daily_log.activity.manage",
+      "daily_log.equipment.manage",
+      "daily_log.delivery.manage",
+      "daily_log.visitor.manage",
+      "daily_log.delay.manage",
+      "daily_log.instruction.manage",
+      "daily_log.qaqc.manage",
+      "daily_log.hse.manage",
+    ],
+    APPROVE: ["daily_log.review", "daily_log.return", "daily_log.lock"],
+    MANAGE: ["daily_log.void", "daily_log.correct_locked"],
+  },
   timesheets: {
     VIEW: ["timesheet.view_own"],
     CONTRIBUTE: ["timesheet.edit_own", "timesheet.submit_own"],
@@ -895,7 +920,7 @@ type RoleMatrixRow = Partial<Record<ModuleKey, MatrixCell>>;
  */
 const MATRIX: Record<RoleKey, RoleMatrixRow> = {
   OWNER: {
-    calendar: "M/C", approvals: "M/C", meetings: "M/C", timesheets: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
+    calendar: "M/C", approvals: "M/C", meetings: "M/C", timesheets: "M/C", dailyLogs: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
     finance: "M/C", hr: "M/C", sales: "M/C", contracts: "M/C",
     procurement: "M/C", inventory: "M/C", qaqc: "M/C", hse: "M/C",
     team: "M/C", company: "M/C", settings: "M/C", support: "V/C",
@@ -914,24 +939,24 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "M/C", company: "V/C", settings: "V/S", support: "V/C",
   },
   CEO: {
-    calendar: "C/C", approvals: "A/C", meetings: "M/C", timesheets: "C/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
+    calendar: "C/C", approvals: "A/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
     finance: "A/C", hr: "V/C", sales: "A/C", contracts: "A/C",
     procurement: "A/C", inventory: "V/C", qaqc: "V/C", hse: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   PROJECT_MANAGER: {
-    calendar: "C/C", approvals: "A/P", meetings: "C/C", timesheets: "A/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
+    calendar: "C/C", approvals: "A/P", meetings: "C/C", timesheets: "A/P", dailyLogs: "M/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
     finance: "V/P", hr: "V/P", sales: "V/P", contracts: "V/P",
     procurement: "C/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   ARCHITECT: {
-    calendar: "C/C", approvals: "V/P", meetings: "C/C", timesheets: "C/S", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", approvals: "V/P", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/AS", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S", qaqc: "V/P", hse: "V/P",
     team: "V/P", support: "V/C",
   },
   ENGINEER: {
-    calendar: "C/C", approvals: "V/P", meetings: "C/C", timesheets: "C/S", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", approvals: "V/P", meetings: "C/C", timesheets: "C/S", dailyLogs: "C/AS", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S",
     procurement: "V/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", support: "V/C",
@@ -953,28 +978,28 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "V/C", company: "V/C", support: "V/C",
   },
   PROCUREMENT: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", documents: "C/C",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", projects: "V/C", tasks: "C/S", documents: "C/C",
     finance: "V/C", contracts: "V/C", procurement: "M/C", inventory: "V/C",
     qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   INVENTORY: {
-    calendar: "C/C", approvals: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/P", tasks: "C/S", documents: "C/C",
+    calendar: "C/C", approvals: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", projects: "V/P", tasks: "C/S", documents: "C/C",
     finance: "V/P", procurement: "C/C", inventory: "M/C", qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   QAQC: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "M/C", hse: "V/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   HSE: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "V/P", hse: "M/C",
     team: "V/P", company: "V/C", support: "V/C",
   },
   VIEWER: {
-    calendar: "V/C", meetings: "V/C", projects: "V/AS", tasks: "V/AS", clients: "V/AS", documents: "V/AS",
+    calendar: "V/C", meetings: "V/C", dailyLogs: "V/AS", projects: "V/AS", tasks: "V/AS", clients: "V/AS", documents: "V/AS",
     team: "V/AS", company: "V/C", support: "V/C",
   },
 };
@@ -990,6 +1015,8 @@ type Override = { extra?: Permission[]; deny?: Permission[] };
 
 const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> = {
   OWNER: {
+    // Company daily log rules are not a project manager's to change (PRD #43 §129, §248).
+    dailyLogs: { extra: ["daily_log.settings.manage"] },
     // Promoting somebody to Owner is the one company action an Admin must not
     // be able to take on their own (PRD #14 §95, §96).
     team: { extra: ["team.owner.assign"] },
@@ -1186,6 +1213,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   ARCHITECT: {
+    // Design-related work and instructions on their projects' logs (PRD #43 §135).
+    dailyLogs: { extra: ["daily_log.edit", "daily_log.activity.manage", "daily_log.instruction.manage"] },
     /**
      * Project budget summary only (PRD #5 §18, PRD #15 §184).
      *
@@ -1429,6 +1458,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   PROCUREMENT: {
+    // Delivery notes on the logs of the sites they buy for (PRD #43 §140).
+    dailyLogs: { extra: ["daily_log.edit", "daily_log.delivery.manage"] },
     /*
      * The quality outcome on its own deliveries, and nothing else
      * (PRD #21 §28).
@@ -1529,6 +1560,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   QAQC: {
+    // The QA/QC-linked part of a log, never its workforce or delays (PRD #43 §142).
+    dailyLogs: { extra: ["daily_log.edit", "daily_log.qaqc.manage"] },
     /*
      * The project HSE summary, and nothing that lets quality edit safety
      * (PRD #22 §29 — the `*` on the access matrix).
@@ -1553,6 +1586,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   HSE: {
+    // The HSE-linked part of a log (PRD #43 §143).
+    dailyLogs: { extra: ["daily_log.edit", "daily_log.hse.manage"] },
     /*
      * The quality position on a job, and nothing that lets safety edit it
      * (PRD #21 §29, reciprocal to the block above).

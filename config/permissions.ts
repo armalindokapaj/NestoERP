@@ -85,6 +85,33 @@ export const PERMISSIONS = [
   "timesheet.reopen",
   "timesheet.settings.manage",
 
+  /* Daily logs ----------------------------------------------------------- */
+  /**
+   * The project's daily site record (PRD #43 §126). A log is reached only
+   * through its project; each section is edited under its own grant, so field
+   * roles contribute what they own without rewriting the rest. Review, lock,
+   * void and corrections are separate steps with separate people.
+   */
+  "daily_log.view",
+  "daily_log.create",
+  "daily_log.edit",
+  "daily_log.submit",
+  "daily_log.review",
+  "daily_log.return",
+  "daily_log.lock",
+  "daily_log.void",
+  "daily_log.correct_locked",
+  "daily_log.settings.manage",
+  "daily_log.workforce.manage",
+  "daily_log.activity.manage",
+  "daily_log.equipment.manage",
+  "daily_log.delivery.manage",
+  "daily_log.visitor.manage",
+  "daily_log.delay.manage",
+  "daily_log.instruction.manage",
+  "daily_log.qaqc.manage",
+  "daily_log.hse.manage",
+
   /* Approvals ------------------------------------------------------------ */
   /**
    * The Unified Approvals Center (PRD #41 §133, §134). These open the shared
@@ -939,6 +966,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   meeting: "meetings",
   approvals: "approvals",
   timesheet: "timesheets",
+  daily_log: "dailyLogs",
   project: "projects",
   task: "tasks",
   client: "clients",
@@ -1054,6 +1082,9 @@ const MUTATING_ACTIONS = new Set([
   "edit_own",
   "submit_own",
   "return",
+  // Daily logs (PRD #43 §126).
+  "lock",
+  "correct_locked",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {
