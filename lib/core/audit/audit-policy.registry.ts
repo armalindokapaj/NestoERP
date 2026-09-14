@@ -132,6 +132,19 @@ export const AuditAction = {
   APPROVAL_DELEGATION_REVOKED: "APPROVAL_DELEGATION_REVOKED",
   APPROVAL_POLICY_UPDATED: "APPROVAL_POLICY_UPDATED",
 
+  // Timesheets (PRD #42 §112, §113, §223): persisted changes only, never entry text.
+  TIMESHEET_CREATED: "TIMESHEET_CREATED",
+  WORKLOG_CREATED: "WORKLOG_CREATED",
+  WORKLOG_UPDATED: "WORKLOG_UPDATED",
+  WORKLOG_ARCHIVED: "WORKLOG_ARCHIVED",
+  TIMESHEET_SUBMITTED: "TIMESHEET_SUBMITTED",
+  TIMESHEET_APPROVED: "TIMESHEET_APPROVED",
+  TIMESHEET_RETURNED: "TIMESHEET_RETURNED",
+  TIMESHEET_REJECTED: "TIMESHEET_REJECTED",
+  TIMESHEET_REOPENED: "TIMESHEET_REOPENED",
+  TIMESHEET_APPROVER_CHANGED: "TIMESHEET_APPROVER_CHANGED",
+  TIMESHEET_SETTINGS_UPDATED: "TIMESHEET_SETTINGS_UPDATED",
+
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
   REPORT_EXPORTED_XLSX: "REPORT_EXPORTED_XLSX",
@@ -272,6 +285,19 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.APPROVAL_REASSIGNED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "from", "to"], required: true },
   { actionKey: AuditAction.APPROVAL_DELEGATION_CREATED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["fromMemberId", "toMemberId", "providerKey", "startsAt", "endsAt", "hasReason"], required: true },
   { actionKey: AuditAction.APPROVAL_DELEGATION_REVOKED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["fromMemberId", "toMemberId", "providerKey", "revokedAt"], required: true },
+  /* Timesheets ----------------------------------------------------------- */
+  { actionKey: AuditAction.TIMESHEET_CREATED, moduleKey: "timesheets", category: "TIMESHEET", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["memberId", "periodStart"], required: false },
+  { actionKey: AuditAction.WORKLOG_CREATED, moduleKey: "timesheets", category: "TIMESHEET", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["timesheetId", "workDate", "minutes", "workType", "projectId", "taskId", "billable"], required: false },
+  { actionKey: AuditAction.WORKLOG_UPDATED, moduleKey: "timesheets", category: "TIMESHEET", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["workDate", "minutes", "workType", "projectId", "taskId", "billable", "overtimeFlag"], required: false },
+  { actionKey: AuditAction.WORKLOG_ARCHIVED, moduleKey: "timesheets", category: "TIMESHEET", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["timesheetId", "workDate", "minutes"], required: false },
+  { actionKey: AuditAction.TIMESHEET_SUBMITTED, moduleKey: "timesheets", category: "TIMESHEET", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["approvalId", "submissionVersion", "approverMemberId", "totalMinutes"], required: true },
+  // A decision on somebody's week is evidence: it commits with its audit or not at all.
+  { actionKey: AuditAction.TIMESHEET_APPROVED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "status", "submissionVersion", "onBehalfOfMemberId", "hasNote"], required: true },
+  { actionKey: AuditAction.TIMESHEET_RETURNED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "status", "submissionVersion", "onBehalfOfMemberId", "hasNote"], required: true },
+  { actionKey: AuditAction.TIMESHEET_REJECTED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "status", "submissionVersion", "onBehalfOfMemberId", "hasNote"], required: true },
+  { actionKey: AuditAction.TIMESHEET_REOPENED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.TIMESHEET_APPROVER_CHANGED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["memberId", "approverMemberId"], required: true },
+  { actionKey: AuditAction.TIMESHEET_SETTINGS_UPDATED, moduleKey: "timesheets", category: "TIMESHEET", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["weekStartsOn", "standardDailyMinutes", "standardWeeklyMinutes", "incrementMinutes", "enforceIncrement", "backdateDays", "submitDay", "submitTime", "descriptionsRequired", "membersSetBillable"], required: true },
   { actionKey: AuditAction.APPROVAL_POLICY_UPDATED, moduleKey: "procurement", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["financeStepAbove", "executiveStepAbove", "executiveRoleKey", "currency"], required: true },
 
   /* Reporting ------------------------------------------------------------ */

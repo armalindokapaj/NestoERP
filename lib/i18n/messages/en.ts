@@ -101,6 +101,7 @@ export const en = {
     projects: { label: "Projects", description: "Manage company projects and project activity." },
     tasks: { label: "Tasks", description: "Work assigned across projects and departments." },
     meetings: { label: "Meetings", description: "Agendas, minutes, decisions and the actions that follow." },
+    timesheets: { label: "Timesheets", description: "How working time is spent across projects, tasks and internal work." },
     clients: { label: "Clients", description: "Companies and people your company works with." },
     documents: { label: "Documents", description: "Company, project and client documentation." },
     finance: { label: "Finance", description: "Company revenue, costs and financial control." },
@@ -215,6 +216,7 @@ export const en = {
         procurement: { label: "Procurement", description: "Purchase orders to approve and goods received." },
         calendar: { label: "Calendar", description: "Reminders, invitations and changes to events you are on." },
         meetings: { label: "Meetings", description: "Invitations, changes, reminders, minutes and actions from meetings." },
+        timesheets: { label: "Timesheets", description: "Weeks to submit, and weeks approved, returned or waiting for your review." },
       },
     },
 

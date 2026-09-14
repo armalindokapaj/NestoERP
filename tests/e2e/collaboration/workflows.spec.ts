@@ -221,7 +221,7 @@ test("notification preferences save, and critical safety alerts stay on (§78)",
     const tasks = mainRegion(page).getByTestId("preference-tasks").getByRole("switch", { name: /Tasks — In the app/ });
     await expect(tasks).toBeChecked();
     await tasks.click();
-    await expect(page.getByText("Preference saved.")).toBeVisible();
+    await expect(page.getByText("Preference saved.", { exact: true })).toBeVisible();
     await expect(tasks).not.toBeChecked();
 
     const saved = await db.notificationPreference.findFirst({ where: { memberId: "member_engineer", category: "tasks" } });

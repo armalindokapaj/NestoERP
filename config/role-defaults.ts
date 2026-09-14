@@ -84,6 +84,18 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     APPROVE: ["approvals.history.view", "approvals.delegation.manage"],
   },
   /**
+   * Timesheets (PRD #42 §120, §128-§143). Everyone who works logs their own
+   * week; APPROVE is the reviewing manager's rung — other people's weeks,
+   * project time, and the decision (as the week's designated approver); MANAGE
+   * adds reopening an approved week and the company's rules.
+   */
+  timesheets: {
+    VIEW: ["timesheet.view_own"],
+    CONTRIBUTE: ["timesheet.edit_own", "timesheet.submit_own"],
+    APPROVE: ["timesheet.team.view", "timesheet.project.view", "timesheet.approve", "timesheet.return", "timesheet.reject"],
+    MANAGE: ["timesheet.reopen", "timesheet.settings.manage"],
+  },
+  /**
    * Meetings (PRD #40 §80, §138-§154).
    *
    * Contributors run their own meetings; what they may do on a given meeting
@@ -883,81 +895,81 @@ type RoleMatrixRow = Partial<Record<ModuleKey, MatrixCell>>;
  */
 const MATRIX: Record<RoleKey, RoleMatrixRow> = {
   OWNER: {
-    calendar: "M/C", approvals: "M/C", meetings: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
+    calendar: "M/C", approvals: "M/C", meetings: "M/C", timesheets: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
     finance: "M/C", hr: "M/C", sales: "M/C", contracts: "M/C",
     procurement: "M/C", inventory: "M/C", qaqc: "M/C", hse: "M/C",
     team: "M/C", company: "M/C", settings: "M/C", support: "V/C",
   },
   ADMIN: {
-    calendar: "M/C", approvals: "V/C", meetings: "M/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "M/C",
+    calendar: "M/C", approvals: "V/C", meetings: "M/C", timesheets: "C/S", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "M/C",
     hr: "V/C",
     team: "M/C", company: "M/C", settings: "M/SYS", support: "M/SYS",
   },
   COMPANY_IT: {
-    calendar: "C/C", approvals: "V/C", meetings: "C/C", tasks: "C/S", documents: "V/C", hr: "V/S",
+    calendar: "C/C", approvals: "V/C", meetings: "C/C", timesheets: "C/S", tasks: "C/S", documents: "V/C", hr: "V/S",
     team: "V/C", company: "V/C", settings: "M/SYS", support: "M/SYS",
   },
   HR: {
-    calendar: "M/C", approvals: "A/C", meetings: "C/C", projects: "V/C", tasks: "C/S", documents: "C/D", hr: "M/C",
+    calendar: "M/C", approvals: "A/C", meetings: "C/C", timesheets: "M/C", projects: "V/C", tasks: "C/S", documents: "C/D", hr: "M/C",
     team: "M/C", company: "V/C", settings: "V/S", support: "V/C",
   },
   CEO: {
-    calendar: "C/C", approvals: "A/C", meetings: "M/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
+    calendar: "C/C", approvals: "A/C", meetings: "M/C", timesheets: "C/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
     finance: "A/C", hr: "V/C", sales: "A/C", contracts: "A/C",
     procurement: "A/C", inventory: "V/C", qaqc: "V/C", hse: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   PROJECT_MANAGER: {
-    calendar: "C/C", approvals: "A/P", meetings: "C/C", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
+    calendar: "C/C", approvals: "A/P", meetings: "C/C", timesheets: "A/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
     finance: "V/P", hr: "V/P", sales: "V/P", contracts: "V/P",
     procurement: "C/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   ARCHITECT: {
-    calendar: "C/C", approvals: "V/P", meetings: "C/C", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", approvals: "V/P", meetings: "C/C", timesheets: "C/S", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S", qaqc: "V/P", hse: "V/P",
     team: "V/P", support: "V/C",
   },
   ENGINEER: {
-    calendar: "C/C", approvals: "V/P", meetings: "C/C", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", approvals: "V/P", meetings: "C/C", timesheets: "C/S", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S",
     procurement: "V/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", support: "V/C",
   },
   FINANCE: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
     finance: "M/C", hr: "V/S", sales: "V/C", contracts: "V/C",
     procurement: "V/C", inventory: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   LEGAL: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
     finance: "V/C", sales: "V/C", contracts: "M/C", procurement: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   SALES: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
     finance: "V/C", sales: "M/C", contracts: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   PROCUREMENT: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", projects: "V/C", tasks: "C/S", documents: "C/C",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", documents: "C/C",
     finance: "V/C", contracts: "V/C", procurement: "M/C", inventory: "V/C",
     qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   INVENTORY: {
-    calendar: "C/C", approvals: "V/C", meetings: "C/C", projects: "V/P", tasks: "C/S", documents: "C/C",
+    calendar: "C/C", approvals: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/P", tasks: "C/S", documents: "C/C",
     finance: "V/P", procurement: "C/C", inventory: "M/C", qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   QAQC: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "M/C", hse: "V/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   HSE: {
-    calendar: "C/C", approvals: "A/C", meetings: "C/C", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", approvals: "A/C", meetings: "C/C", timesheets: "C/S", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "V/P", hse: "M/C",
     team: "V/P", company: "V/C", support: "V/C",
   },
@@ -1017,6 +1029,11 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     company: { deny: ["company.finance_settings.view", "company.finance_settings.manage"] },
   },
   CEO: {
+    /**
+     * Time summaries by project, and the decision on the weeks they are the
+     * designated approver of — without everybody's entry text (PRD #42 §132).
+     */
+    timesheets: { extra: ["timesheet.project.view", "timesheet.approve", "timesheet.return", "timesheet.reject"] },
     // Executive visibility without the bookkeeping surface (PRD #5 §16,
     // PRD #15 §285): overview, approvals, reports and read access, with no
     // operational create/edit controls and no self-approval.
@@ -1288,6 +1305,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * its own invoices.
      */
     procurement: { extra: ["procurement.order.finance_approve"] },
+    /** Approved project hours for reporting, not who wrote what (PRD #42 §126, §136). */
+    timesheets: { extra: ["timesheet.project.view"] },
     /**
      * The operational finance workspace — and not the approver (PRD #15 §18,
      * §284).

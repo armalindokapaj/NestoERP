@@ -8,7 +8,7 @@ rules, thresholds, state transitions, approvers, self-approval policy and side
 effects.
 
 ```
-Finance · Procurement · HR · Sales · Legal · Documents · QA/QC · HSE
+Finance · Procurement · HR · Sales · Legal · Documents · QA/QC · HSE · Timesheets
         ↓ provider (module scope, module permissions, module service)
 ApprovalProviderRegistry  →  UnifiedApprovalService  →  /api/approvals  →  /approvals
 ```
@@ -40,6 +40,7 @@ ApprovalProviderRegistry  →  UnifiedApprovalService  →  /api/approvals  → 
 | `documents` | `DocumentReview` — one per reviewer | `decideReview` | No |
 | `qaqc` | `QualityApproval` — inspection, NCR | QA/QC inspection and NCR services | No |
 | `hse` | `HseApproval` — inspection, risk assessment, permit, incident closure | HSE services (incident closure approves only) | No |
+| `timesheets` | `TimesheetApproval` — a week (+ one `ApprovalStep` naming the approver) | `approve/return/rejectTimesheet` (PRD #42, see `docs/timesheets.md`) | Yes, editable again |
 
 QA/QC and HSE are included because both already own explicit approval records;
 verifying a corrective action stays their own work and never enters the Center.

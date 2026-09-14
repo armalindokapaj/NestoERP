@@ -131,6 +131,10 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Company A expired invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "PENDING", expiresAt: { lt: new Date() } } }), expected: 1, comparison: "gte" },
     { label: "Company A cancelled invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "CANCELLED" } }), expected: 1, comparison: "gte" },
     { label: "Company A accepted invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "ACCEPTED" } }), expected: 1, comparison: "gte" },
+    // PRD #42 §245: an approved, a submitted and a returned week.
+    { label: "Company A approved timesheets", actual: await prisma.timesheet.count({ where: { companyId: COMPANY_A, status: "APPROVED" } }), expected: 1, comparison: "gte" },
+    { label: "Company A submitted timesheets", actual: await prisma.timesheet.count({ where: { companyId: COMPANY_A, status: "SUBMITTED" } }), expected: 1, comparison: "gte" },
+    { label: "Company A returned timesheets", actual: await prisma.timesheet.count({ where: { companyId: COMPANY_A, status: "RETURNED" } }), expected: 1, comparison: "gte" },
     { label: "Company A departments with a manager", actual: await prisma.department.count({ where: { companyId: COMPANY_A, managerMemberId: { not: null } } }), expected: 5, comparison: "gte" },
   ];
 

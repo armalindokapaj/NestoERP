@@ -36,6 +36,7 @@ export const SOURCE_ICONS: Record<ApprovalProviderKey, LucideIcon> = {
   documents: FileCheck,
   qaqc: ClipboardCheck,
   hse: ShieldCheck,
+  timesheets: Clock,
 };
 
 export function SourceIcon({ provider, className }: { provider: ApprovalProviderKey; className?: string }) {

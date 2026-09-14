@@ -35,6 +35,9 @@ export const ATTENTION_CONDITIONS = [
   "PROCUREMENT_ACTION_REQUIRED",
   "MEETING_ACTION_OVERDUE",
   "APPROVAL_OVERDUE",
+  "TIMESHEET_NOT_SUBMITTED",
+  "TIMESHEET_RETURNED",
+  "TIMESHEET_APPROVAL_OVERDUE",
 ] as const;
 
 export type AttentionConditionKey = (typeof ATTENTION_CONDITIONS)[number];
@@ -237,7 +240,7 @@ async function approvalHolds(sources: ApprovalSource[], companyId: string, entit
  * decide leave in the employee's HR scope — never to the employee.
  */
 async function assignedApprovalCandidates(companyId: string): Promise<AttentionCandidate[]> {
-  const [reviews, leave] = await Promise.all([
+  const [reviews, leave, timesheets] = await Promise.all([
     prisma.documentReview.findMany({
       where: { companyId, status: "PENDING" },
       select: { id: true, documentId: true, reviewerMemberId: true, requestedByMemberId: true, version: { select: { versionNumber: true, document: { select: { name: true, projectId: true } } } } },
@@ -248,7 +251,20 @@ async function assignedApprovalCandidates(companyId: string): Promise<AttentionC
       select: { id: true, companyMemberId: true, submittedAt: true, startDate: true },
       take: LIMIT,
     }),
+    // A week goes to its one designated approver (PRD #42 §73).
+    prisma.timesheetApproval.findMany({
+      where: { companyId, status: "PENDING" },
+      select: { id: true, recordId: true, approverMemberId: true, submittedByMemberId: true },
+      take: LIMIT,
+    }),
   ]);
+  const weeks = timesheets.length
+    ? await prisma.timesheet.findMany({
+        where: { companyId, id: { in: timesheets.map((row) => row.recordId) } },
+        select: { id: true, periodStart: true, member: { select: { user: { select: { firstName: true, lastName: true } } } } },
+      })
+    : [];
+  const weekById = new Map(weeks.map((row) => [row.id, row]));
   return [
     ...reviews.map((row): AttentionCandidate => ({
       entityType: "document",
@@ -276,6 +292,22 @@ async function assignedApprovalCandidates(companyId: string): Promise<AttentionC
       holders: ["hr.leave.approve"],
       exclude: [row.companyMemberId],
     })),
+    ...timesheets.flatMap((row): AttentionCandidate[] => {
+      const week = weekById.get(row.recordId);
+      if (!week) return [];
+      return [{
+        entityType: "timesheet",
+        entityId: row.recordId,
+        projectId: null,
+        title: `Timesheet from ${week.member.user.firstName} ${week.member.user.lastName} waiting for your approval`,
+        body: `Week of ${isoDate(week.periodStart)}`,
+        priority: "NORMAL",
+        dismissible: true,
+        episode: row.id,
+        recipients: [row.approverMemberId],
+        exclude: [row.submittedByMemberId],
+      }];
+    }),
   ];
 }
 
@@ -289,6 +321,7 @@ const pendingApproval: AttentionConditionDefinition = {
   async holds(companyId, type, id) {
     if (type === "document") return (await prisma.documentReview.count({ where: { companyId, documentId: id, status: "PENDING" } })) > 0;
     if (type === "leave_request") return (await prisma.leaveRequest.count({ where: { companyId, id, status: "PENDING" } })) > 0;
+    if (type === "timesheet") return (await prisma.timesheet.count({ where: { companyId, id, status: "SUBMITTED" } })) > 0;
     return approvalHolds(APPROVAL_SOURCES, companyId, type, id);
   },
 };
@@ -388,6 +421,96 @@ const approvalOverdue: AttentionConditionDefinition = {
     if (type === "proposal") return (await prisma.proposal.count({ where: { companyId, id, status: "PENDING_APPROVAL", validUntil: { lt: today } } })) > 0;
     if (type === "work_permit") return (await prisma.hseWorkPermit.count({ where: { companyId, id, status: "PENDING_APPROVAL", validFrom: { lt: today } } })) > 0;
     return false;
+  },
+};
+
+/* Timesheets (PRD #42 §103, §213, §214) ------------------------------------ */
+
+/** A week still undecided this long after it was submitted is overdue for its approver. */
+export const TIMESHEET_APPROVAL_OVERDUE_DAYS = 3;
+
+/**
+ * A week not submitted once its deadline has passed — only where the company
+ * set a deadline, and only the latest week due. The reminder job creates the
+ * empty week of anybody who logged nothing, so there is always a week to open.
+ */
+const timesheetNotSubmitted: AttentionConditionDefinition = {
+  key: "TIMESHEET_NOT_SUBMITTED",
+  moduleKey: "timesheets",
+  async collect(companyId, now) {
+    const { lastDueWeek } = await import("@/lib/modules/timesheets/timesheet.deadline");
+    const { resolveTimesheetSettings } = await import("@/lib/modules/timesheets/timesheet.settings");
+    const { businessInstant, weekLabel } = await import("@/lib/modules/timesheets/timesheet.time");
+    const settings = await resolveTimesheetSettings(companyId);
+    const week = lastDueWeek(now, settings);
+    if (!week) return [];
+    const rows = await prisma.timesheet.findMany({
+      where: { companyId, periodStart: businessInstant(week), status: "DRAFT", member: { status: "ACTIVE" } },
+      select: { id: true, memberId: true },
+      take: LIMIT,
+    });
+    return rows.map((row): AttentionCandidate => ({
+      entityType: "timesheet", entityId: row.id, projectId: null,
+      title: `Submit your timesheet for ${weekLabel(week)}`, body: "The submission deadline has passed.",
+      priority: "HIGH", dismissible: true, episode: week, recipients: [row.memberId],
+    }));
+  },
+  async holds(companyId, type, id, now) {
+    if (type !== "timesheet") return false;
+    const { lastDueWeek } = await import("@/lib/modules/timesheets/timesheet.deadline");
+    const { resolveTimesheetSettings } = await import("@/lib/modules/timesheets/timesheet.settings");
+    const { businessInstant } = await import("@/lib/modules/timesheets/timesheet.time");
+    const week = lastDueWeek(now, await resolveTimesheetSettings(companyId));
+    if (!week) return false;
+    return (await prisma.timesheet.count({ where: { companyId, id, status: "DRAFT", periodStart: { lte: businessInstant(week) } } })) > 0;
+  },
+};
+
+/** A week sent back to its member, until they submit it again (§64, §65, §214). */
+const timesheetReturned: AttentionConditionDefinition = {
+  key: "TIMESHEET_RETURNED",
+  moduleKey: "timesheets",
+  async collect(companyId) {
+    const rows = await prisma.timesheet.findMany({
+      where: { companyId, status: { in: ["RETURNED", "REJECTED"] }, member: { status: "ACTIVE" } },
+      select: { id: true, memberId: true, status: true, periodStart: true, returnedAt: true, rejectedAt: true, submissionVersion: true },
+      take: LIMIT,
+    });
+    return rows.map((row): AttentionCandidate => ({
+      entityType: "timesheet", entityId: row.id, projectId: null,
+      title: row.status === "REJECTED" ? "Your timesheet was rejected" : "Your timesheet was returned for correction",
+      body: `Week of ${isoDate(row.periodStart)}`,
+      priority: "HIGH", dismissible: true,
+      episode: `${row.status}:${(row.status === "REJECTED" ? row.rejectedAt : row.returnedAt)?.toISOString() ?? row.submissionVersion}`,
+      recipients: [row.memberId],
+    }));
+  },
+  async holds(companyId, type, id) {
+    return type === "timesheet" && (await prisma.timesheet.count({ where: { companyId, id, status: { in: ["RETURNED", "REJECTED"] } } })) > 0;
+  },
+};
+
+/** A submitted week its approver has not decided in time (§213). */
+const timesheetApprovalOverdue: AttentionConditionDefinition = {
+  key: "TIMESHEET_APPROVAL_OVERDUE",
+  moduleKey: "timesheets",
+  async collect(companyId, now) {
+    const before = new Date(now.getTime() - TIMESHEET_APPROVAL_OVERDUE_DAYS * DAY_MS);
+    const rows = await prisma.timesheetApproval.findMany({
+      where: { companyId, status: "PENDING", submittedAt: { lt: before } },
+      select: { id: true, recordId: true, approverMemberId: true, submittedByMemberId: true, submittedAt: true },
+      take: LIMIT,
+    });
+    return rows.map((row): AttentionCandidate => ({
+      entityType: "timesheet", entityId: row.recordId, projectId: null,
+      title: "A timesheet has waited for your decision for over three days", body: `Submitted ${isoDate(row.submittedAt)}`,
+      priority: "HIGH", dismissible: true, episode: row.id, recipients: [row.approverMemberId], exclude: [row.submittedByMemberId],
+    }));
+  },
+  async holds(companyId, type, id, now) {
+    if (type !== "timesheet") return false;
+    const before = new Date(now.getTime() - TIMESHEET_APPROVAL_OVERDUE_DAYS * DAY_MS);
+    return (await prisma.timesheetApproval.count({ where: { companyId, recordId: id, status: "PENDING", submittedAt: { lt: before } } })) > 0;
   },
 };
 
@@ -723,6 +846,9 @@ const DEFINITIONS: AttentionConditionDefinition[] = [
   procurementActionRequired,
   meetingActionOverdue,
   approvalOverdue,
+  timesheetNotSubmitted,
+  timesheetReturned,
+  timesheetApprovalOverdue,
 ];
 
 const BY_KEY = new Map(DEFINITIONS.map((definition) => [definition.key, definition]));

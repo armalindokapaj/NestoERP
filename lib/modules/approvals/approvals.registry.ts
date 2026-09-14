@@ -9,6 +9,7 @@ import { legalApprovalProvider } from "./providers/legal.provider";
 import { procurementApprovalProvider } from "./providers/procurement.provider";
 import { qaqcApprovalProvider } from "./providers/qaqc.provider";
 import { salesApprovalProvider } from "./providers/sales.provider";
+import { timesheetApprovalProvider } from "./providers/timesheets.provider";
 
 /**
  * The approval provider registry (PRD #41 §10, §240).
@@ -49,7 +50,7 @@ export function createApprovalRegistry(providers: ApprovalProvider[]): ApprovalP
   return registry;
 }
 
-/** V0.1 sources (§8): the six required, plus QA/QC and HSE, which own explicit approval records. */
+/** V0.1 sources (§8): the six required, plus QA/QC and HSE, which own explicit approval records, and Timesheets (PRD #42 §70). */
 export const approvalProviders = createApprovalRegistry([
   financeApprovalProvider,
   procurementApprovalProvider,
@@ -59,4 +60,5 @@ export const approvalProviders = createApprovalRegistry([
   documentReviewProvider,
   qaqcApprovalProvider,
   hseApprovalProvider,
+  timesheetApprovalProvider,
 ]);

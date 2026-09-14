@@ -1327,6 +1327,40 @@ const DEFINITIONS: RecordDefinition[] = [
     collaboration: { requires: [] },
   },
 
+  /* Timesheets (PRD #42 §107-§111, §221, §222, §240) ---------------------- */
+  {
+    // One discussion per week, for the approver and the member to clear up an
+    // entry; no documents (§111, §221). Work logs are not records of their own.
+    type: "timesheet",
+    moduleKey: "timesheets",
+    noun: "Timesheet",
+    activityEntityType: "Timesheet",
+    route: "/timesheets",
+    viewPermissions: ["timesheet.view_own"],
+    async find(context, id) {
+      const { readableTimesheetWhere } = await import("@/lib/modules/timesheets/timesheet.permissions");
+      const { dateOf, weekLabel } = await import("@/lib/modules/timesheets/timesheet.time");
+      const row = await prisma.timesheet.findFirst({
+        where: { AND: [await readableTimesheetWhere(context), { id }] },
+        select: { id: true, companyId: true, memberId: true, approverMemberId: true, periodStart: true, member: { select: { user: { select: { firstName: true, lastName: true } } } } },
+      });
+      return row && {
+        type: "timesheet", id: row.id, companyId: row.companyId,
+        label: `Timesheet · ${row.member.user.firstName} ${row.member.user.lastName} · ${weekLabel(dateOf(row.periodStart))}`,
+        href: `/timesheets/${row.id}`, projectId: null, archived: false,
+        stakeholderMemberIds: unique(row.memberId, row.approverMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableTimesheetWhere } = await import("@/lib/modules/timesheets/timesheet.permissions");
+      const rows = await prisma.timesheet.findMany({ where: { AND: [await readableTimesheetWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: null,
+    collaboration: { requires: [] },
+  },
+
   /* Approvals (PRD #41 §170) ----------------------------------------------- */
   {
     // A delegation is only ever the business of the two people in it, so it is

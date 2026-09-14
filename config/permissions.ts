@@ -67,6 +67,24 @@ export const PERMISSIONS = [
   "meeting.document.view",
   "meeting.document.create",
 
+  /* Timesheets ----------------------------------------------------------- */
+  /**
+   * Work allocation, not attendance, payroll or surveillance (PRD #42 §2,
+   * §120, §277). "Own" grants are about a person's own weeks; seeing other
+   * people's time is the team and project grants, narrowed by scope; deciding
+   * a week also needs to be its designated approver.
+   */
+  "timesheet.view_own",
+  "timesheet.edit_own",
+  "timesheet.submit_own",
+  "timesheet.team.view",
+  "timesheet.project.view",
+  "timesheet.approve",
+  "timesheet.return",
+  "timesheet.reject",
+  "timesheet.reopen",
+  "timesheet.settings.manage",
+
   /* Approvals ------------------------------------------------------------ */
   /**
    * The Unified Approvals Center (PRD #41 §133, §134). These open the shared
@@ -920,6 +938,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   calendar: "calendar",
   meeting: "meetings",
   approvals: "approvals",
+  timesheet: "timesheets",
   project: "projects",
   task: "tasks",
   client: "clients",
@@ -1031,6 +1050,10 @@ const MUTATING_ACTIONS = new Set([
   "convert_to_task",
   // Approvals Center (PRD #41 §27).
   "finance_approve",
+  // Timesheets (PRD #42 §120).
+  "edit_own",
+  "submit_own",
+  "return",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

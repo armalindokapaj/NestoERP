@@ -52,6 +52,14 @@ export const Metric = {
   APPROVAL_DECISION_FAILURE: "approval_decision_failure_count",
   APPROVAL_CONFLICT: "approval_conflict_count",
   APPROVAL_OVERDUE: "approval_overdue_count",
+  // Timesheets (PRD #42 §268)
+  TIMESHEET_LOAD_DURATION_MS: "timesheet_load_duration_ms_total",
+  WORKLOG_CREATE_SUCCESS: "worklog_create_success_count",
+  WORKLOG_CREATE_FAILURE: "worklog_create_failure_count",
+  TIMESHEET_SUBMIT_SUCCESS: "timesheet_submit_success_count",
+  TIMESHEET_APPROVAL_SUCCESS: "timesheet_approval_success_count",
+  TIMESHEET_RETURN: "timesheet_return_count",
+  TIMESHEET_MISSING: "timesheet_missing_count",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

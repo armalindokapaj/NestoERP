@@ -63,6 +63,7 @@ const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
   stop_work: { model: "stopWorkRecord" },
   calendar_event: { model: "calendarEvent" },
   meeting: { model: "meeting" },
+  timesheet: { model: "timesheet" },
   approval_delegation: { model: "approvalDelegation" },
 };
 

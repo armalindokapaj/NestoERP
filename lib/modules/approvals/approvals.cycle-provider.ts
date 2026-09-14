@@ -264,7 +264,9 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
                       ? "You decided an earlier step, so somebody else takes this one."
                       : verdict.reason === "RESERVED_FOR_LATER_STEP"
                         ? `You take a later step, so the ${step.label} decision goes to somebody else.`
-                      : `Waiting for the ${step.label} decision (step ${step.stepNumber} of ${steps.length}).`,
+                      : steps.length === 1
+                        ? "Waiting for the designated approver."
+                        : `Waiting for the ${step.label} decision (step ${step.stepNumber} of ${steps.length}).`,
               },
         );
         continue;
@@ -311,6 +313,8 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
       const verdict = eligibility.get(row.id);
       const able = pending && Boolean(verdict?.eligible);
       const inChain = steps.length > 0;
+      // A one-step chain is a named approver, not a sequence: no "step 1 of 1" (PRD #42 §73).
+      const sequence = steps.length > 1;
       items.push({
         id: `${config.key}:${row.id}`,
         providerKey: config.key,
@@ -330,9 +334,9 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
         dueAt: pending && fact.dueAt ? fact.dueAt.toISOString() : null,
         decidedAt: row.decidedAt?.toISOString() ?? null,
         decidedBy: row.decidedByMemberId ? personOrUnknown(names, row.decidedByMemberId) : null,
-        currentStep: inChain ? (current?.stepNumber ?? steps.length) : null,
-        totalSteps: inChain ? steps.length : null,
-        stepLabel: inChain ? (current?.label ?? null) : null,
+        currentStep: sequence ? (current?.stepNumber ?? steps.length) : null,
+        totalSteps: sequence ? steps.length : null,
+        stepLabel: sequence ? (current?.label ?? null) : null,
         href: fact.href,
         canApprove: able && (inChain || adapter.canApprove(context)),
         canReject: able && Boolean(adapter.reject) && (inChain || adapter.canReject(context)),
@@ -487,7 +491,8 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
 
     const history = cycleHistory(cycles, cycleSteps, names);
     const current = currentStepOf(steps);
-    const stepDTOs: ApprovalStepDTO[] = steps.map((step) => ({
+    const sequence = steps.length > 1;
+    const stepDTOs: ApprovalStepDTO[] = (sequence ? steps : []).map((step) => ({
       number: step.stepNumber,
       label: step.label,
       status: step.status === "PENDING" ? (current?.id === step.id ? "PENDING" : "WAITING") : step.status,
@@ -512,16 +517,16 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
       item,
       // The chain written when it was submitted is what it needs, whatever the policy says today.
       reason:
-        steps.length > 0
+        sequence
           ? `${fact.reason ?? adapter.reason} Decisions, in order: ${steps.map((step) => step.label).join(" → ")}.`
-          : adapter.reason,
+          : (fact.reason ?? adapter.reason),
       summary: fact.summary,
       description: fact.description ?? null,
       warnings,
       documents: documents.documents,
       documentsAvailable: documents.available,
       history,
-      chainMode: steps.length > 0 ? "SEQUENTIAL" : "SINGLE",
+      chainMode: sequence ? "SEQUENTIAL" : "SINGLE",
       completionRule: null,
       steps: stepDTOs,
       commentsEnabled: Boolean(discussion),
@@ -629,18 +634,22 @@ function cycleHistory(cycles: CycleRow[], chains: Map<string, StepRow[]>, names:
       tone: "info",
     });
     const steps = chains.get(cycle.id) ?? [];
+    // A one-step chain reads as a plain decision: the step line is the decision, with its note.
+    const single = steps.length === 1;
+    let decidedByStep = false;
     for (const step of steps) {
       if (step.status === "PENDING" || step.status === "CANCELLED" || step.status === "SKIPPED" || !step.decidedAt) continue;
       const verb = step.status === "APPROVED" ? "approved" : step.status === "REJECTED" ? "rejected" : "returned";
       const actor = personOrUnknown(names, step.decidedByMemberId).name;
+      decidedByStep = true;
       entries.push({
         id: `${step.id}:decided`,
-        action: `${step.label} ${verb}`,
+        action: single ? (step.status === "APPROVED" ? "Approved" : step.status === "REJECTED" ? "Rejected" : "Returned for revision") : `${step.label} ${verb}`,
         actorName: step.onBehalfOfMemberId ? `${actor}, for ${personOrUnknown(names, step.onBehalfOfMemberId).name}` : actor,
         actorRole: null,
         occurredAt: step.decidedAt.toISOString(),
         note: step.decisionNote,
-        step: step.stepNumber,
+        step: single ? null : step.stepNumber,
         tone: step.status === "APPROVED" ? "success" : step.status === "REJECTED" ? "danger" : "warning",
       });
     }
@@ -648,12 +657,12 @@ function cycleHistory(cycles: CycleRow[], chains: Map<string, StepRow[]>, names:
       const current = currentStepOf(steps);
       entries.push({
         id: `${cycle.id}:pending`,
-        action: current ? `${current.label} pending` : "Awaiting decision",
+        action: current && !single ? `${current.label} pending` : "Awaiting decision",
         actorName: null,
         actorRole: null,
         occurredAt: (steps.filter((step) => step.decidedAt).at(-1)?.decidedAt ?? cycle.submittedAt).toISOString(),
         note: null,
-        step: current?.stepNumber ?? null,
+        step: single ? null : (current?.stepNumber ?? null),
         tone: "neutral",
       });
       return;
@@ -664,6 +673,7 @@ function cycleHistory(cycles: CycleRow[], chains: Map<string, StepRow[]>, names:
       RETURNED: { action: "Returned for revision", tone: "warning" },
       CANCELLED: { action: "Withdrawn", tone: "neutral" },
     };
+    if (single && decidedByStep) return;
     // In a chain the step already carries the decider's note; the final line only closes the cycle.
     entries.push({
       id: `${cycle.id}:closed`,

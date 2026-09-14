@@ -103,6 +103,18 @@ export const widgets: Record<string, WidgetDefinition> = {
     href: "/meetings/actions",
     emptyMessage: "No open actions from meetings.",
   },
+  myTimesheet: {
+    key: "myTimesheet",
+    module: "timesheets",
+    permission: "timesheet.submit_own",
+    title: "My Timesheet",
+    description: "This week's logged time, and the weeks before it.",
+    kind: "list",
+    size: "MEDIUM",
+    priority: 4,
+    href: "/timesheets",
+    emptyMessage: "No time logged yet.",
+  },
   openTasks: {
     key: "openTasks",
     module: "tasks",

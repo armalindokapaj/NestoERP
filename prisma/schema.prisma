@@ -932,6 +932,11 @@ model Company {
   approvalSteps              ApprovalStep[]
   approvalDelegations        ApprovalDelegation[]
   approvalDecisionReceipts   ApprovalDecisionReceipt[]
+  timesheets                 Timesheet[]
+  workLogs                   WorkLog[]
+  timesheetApprovals         TimesheetApproval[]
+  timesheetSettings          TimesheetSettings?
+  timesheetApprovers         TimesheetApproverAssignment[]
   procurementApprovalPolicy  ProcurementApprovalPolicy?
 
   @@index([status])
@@ -1186,15 +1191,19 @@ model CompanyMember {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  calendarEventsCreated       CalendarEvent[]            @relation("CalendarEventCreator")
-  calendarParticipations      CalendarEventParticipant[] @relation("CalendarParticipant")
-  calendarReminders           CalendarReminder[]         @relation("CalendarReminderMember")
-  meetingsOrganized           Meeting[]                  @relation("MeetingOrganizer")
-  meetingParticipations       MeetingParticipant[]       @relation("MeetingParticipant")
-  meetingActionItemsOwned     MeetingActionItem[]        @relation("MeetingActionOwner")
-  meetingAgendaPresenting     MeetingAgendaItem[]        @relation("MeetingAgendaPresenter")
-  approvalDelegationsGiven    ApprovalDelegation[]       @relation("ApprovalDelegationFrom")
-  approvalDelegationsReceived ApprovalDelegation[]       @relation("ApprovalDelegationTo")
+  calendarEventsCreated       CalendarEvent[]               @relation("CalendarEventCreator")
+  calendarParticipations      CalendarEventParticipant[]    @relation("CalendarParticipant")
+  calendarReminders           CalendarReminder[]            @relation("CalendarReminderMember")
+  meetingsOrganized           Meeting[]                     @relation("MeetingOrganizer")
+  meetingParticipations       MeetingParticipant[]          @relation("MeetingParticipant")
+  meetingActionItemsOwned     MeetingActionItem[]           @relation("MeetingActionOwner")
+  meetingAgendaPresenting     MeetingAgendaItem[]           @relation("MeetingAgendaPresenter")
+  approvalDelegationsGiven    ApprovalDelegation[]          @relation("ApprovalDelegationFrom")
+  approvalDelegationsReceived ApprovalDelegation[]          @relation("ApprovalDelegationTo")
+  timesheets                  Timesheet[]                   @relation("TimesheetMember")
+  workLogs                    WorkLog[]                     @relation("WorkLogMember")
+  timesheetApproverFor        TimesheetApproverAssignment[] @relation("TimesheetApproverMember")
+  timesheetApprover           TimesheetApproverAssignment?  @relation("TimesheetApproverSubject")
 
   @@unique([companyId, userId])
   @@index([companyId])
@@ -1287,6 +1296,7 @@ model Project {
   calendarEvents CalendarEvent[]
   meetings       Meeting[]
   meetingSeries  MeetingSeries[]
+  workLogs       WorkLog[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1464,6 +1474,7 @@ model Task {
   updatedAt DateTime @updatedAt
 
   meetingActionItem MeetingActionItem?
+  workLogs          WorkLog[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -4548,6 +4559,8 @@ enum AuditCategory {
   MEETING
   /// Approval cycles, chain steps, delegations and reassignments (PRD #41 §56).
   APPROVAL
+  /// Work logs, weekly timesheets, their decisions and settings (PRD #42 §112).
+  TIMESHEET
 }
 
 enum AuditSeverity {
@@ -7476,4 +7489,215 @@ model ProcurementApprovalPolicy {
   updatedAt DateTime @updatedAt
 
   @@map("procurement_approval_policies")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Timesheets & Work Logs (PRD #42)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+/// Where a member's week stands (PRD #42 §9).
+enum TimesheetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  RETURNED
+  REJECTED
+  CANCELLED
+}
+
+/// What kind of work the time was spent on (PRD #42 §15).
+enum WorkLogType {
+  PROJECT_WORK
+  INTERNAL
+  ADMIN
+  TRAINING
+  TRAVEL
+  SUPPORT
+  OTHER
+}
+
+enum TimesheetApprovalRecordType {
+  TIMESHEET
+}
+
+enum TimesheetApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+}
+
+/// One member's week: how their working time was allocated (PRD #42 §4, §13).
+/// Not attendance, not payroll, not a cost ledger (§2).
+model Timesheet {
+  id        String @id @default(cuid())
+  companyId String
+  memberId  String
+
+  /// First and last day of the week, business dates kept at midday UTC.
+  periodStart DateTime
+  periodEnd   DateTime
+
+  status TimesheetStatus @default(DRAFT)
+
+  /// Resolved when the week is submitted (§72-§75), never chosen by the browser.
+  approverMemberId String?
+
+  submittedAt         DateTime?
+  submittedByMemberId String?
+  approvedAt          DateTime?
+  approvedByMemberId  String?
+  returnedAt          DateTime?
+  returnedByMemberId  String?
+  rejectedAt          DateTime?
+  rejectedByMemberId  String?
+  reopenedAt          DateTime?
+  reopenedByMemberId  String?
+  decisionNote        String?
+
+  /// Incremented on every submission, so each approval cycle is distinct (§85).
+  submissionVersion Int @default(0)
+  /// Optimistic concurrency for submit and decide (§162, §164).
+  version           Int @default(1)
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  member   CompanyMember @relation("TimesheetMember", fields: [memberId], references: [id], onDelete: Restrict)
+  workLogs WorkLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, memberId, periodStart])
+  @@index([companyId, memberId, status])
+  @@index([companyId, status, periodStart])
+  @@index([companyId, approverMemberId, status])
+  @@map("timesheets")
+}
+
+/// Time spent on one piece of work on one day, in whole minutes (PRD #42 §14, §16).
+model WorkLog {
+  id           String      @id @default(cuid())
+  companyId    String
+  timesheetId  String
+  memberId     String
+  /// A business date, midday UTC, in the company's time zone (§19, §20).
+  workDate     DateTime
+  projectId    String?
+  taskId       String?
+  workType     WorkLogType
+  minutes      Int
+  description  String?
+  billable     Boolean     @default(false)
+  overtimeFlag Boolean     @default(false)
+
+  createdByMemberId String
+
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  timesheet Timesheet     @relation(fields: [timesheetId], references: [id], onDelete: Restrict)
+  member    CompanyMember @relation("WorkLogMember", fields: [memberId], references: [id], onDelete: Restrict)
+  project   Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  task      Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, memberId, workDate])
+  @@index([companyId, projectId, workDate])
+  @@index([companyId, taskId, workDate])
+  @@index([timesheetId, workDate])
+  @@map("work_logs")
+}
+
+/// One submission of a week for approval (PRD #42 §70, §85, §86): the same
+/// cycle shape every module's approvals use, so the Approvals Center reads it
+/// as it reads the rest.
+model TimesheetApproval {
+  id        String @id @default(cuid())
+  companyId String
+
+  recordType TimesheetApprovalRecordType @default(TIMESHEET)
+  recordId   String
+
+  status TimesheetApprovalStatus @default(PENDING)
+
+  submissionVersion Int
+  approverMemberId  String
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("timesheet_approvals")
+}
+
+/// A company's timesheet rules (PRD #42 §12, §30, §35, §59, §101, §217).
+model TimesheetSettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  /// ISO weekday the week starts on: 1 = Monday.
+  weekStartsOn          Int     @default(1)
+  standardDailyMinutes  Int     @default(480)
+  standardWeeklyMinutes Int     @default(2400)
+  /// The step the entry controls snap to.
+  incrementMinutes      Int     @default(15)
+  /// Whether the server refuses durations off the increment.
+  enforceIncrement      Boolean @default(false)
+  backdateDays          Int     @default(14)
+  /// When last week is due: ISO weekday and local "HH:MM". Both null: no deadline.
+  submitDay             Int?
+  submitTime            String?
+  descriptionsRequired  Boolean @default(false)
+  /// Whether members may set billable on their own entries (§39).
+  membersSetBillable    Boolean @default(true)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("timesheet_settings")
+}
+
+/// The one designated approver for a member's weeks (PRD #42 §73, §74). With
+/// none, the member's department manager decides.
+model TimesheetApproverAssignment {
+  id               String @id @default(cuid())
+  companyId        String
+  memberId         String @unique
+  approverMemberId String
+
+  updatedByMemberId String?
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  member   CompanyMember @relation("TimesheetApproverSubject", fields: [memberId], references: [id], onDelete: Cascade)
+  approver CompanyMember @relation("TimesheetApproverMember", fields: [approverMemberId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, approverMemberId])
+  @@map("timesheet_approver_assignments")
 }

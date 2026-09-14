@@ -151,7 +151,7 @@ const has = (items: UnifiedApprovalItem[], approvalId: string) => items.some((it
 
 describe("registry (§10, §240)", () => {
   it("registers the eight sources and refuses any key it does not know", async () => {
-    expect(approvalProviders.all().map((provider) => provider.key).sort()).toEqual(["documents", "finance", "hr", "hse", "legal", "procurement", "qaqc", "sales"]);
+    expect(approvalProviders.all().map((provider) => provider.key).sort()).toEqual(["documents", "finance", "hr", "hse", "legal", "procurement", "qaqc", "sales", "timesheets"]);
     expect(() => approvalProviders.getProvider("../finance")).toThrow(AccessError);
     const owner = await loginAs("OWNER");
     await expectCode(getApprovalDetail(owner, "workflow", "anything"), "NOT_FOUND", "APPROVAL_PROVIDER_UNKNOWN");

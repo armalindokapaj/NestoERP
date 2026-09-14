@@ -145,9 +145,13 @@ export async function stepEligibility(
   );
   if (reservedLater) return { eligible: false, reason: "RESERVED_FOR_LATER_STEP" };
 
-  if (step.approverPermission) {
-    return can(context, step.approverPermission as Permission) ? { eligible: true, onBehalfOfMemberId: null } : { eligible: false, reason: "NOT_APPROVER" };
+  // A step may name a permission, a person or a role — or a person or role who
+  // must also hold the permission (a timesheet's designated approver, PRD #42 §74).
+  const permitted = !step.approverPermission || can(context, step.approverPermission as Permission);
+  if (!step.approverMemberId && !step.approverRoleKey) {
+    return permitted ? { eligible: true, onBehalfOfMemberId: null } : { eligible: false, reason: "NOT_APPROVER" };
   }
+  if (!permitted) return { eligible: false, reason: "NOT_APPROVER" };
 
   if (step.approverMemberId === me) return { eligible: true, onBehalfOfMemberId: null };
   if (step.approverRoleKey && context.role === step.approverRoleKey) return { eligible: true, onBehalfOfMemberId: null };
