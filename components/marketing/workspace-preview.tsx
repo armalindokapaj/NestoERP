@@ -4,7 +4,10 @@ import { ProgressBar } from "@/components/charts/progress-bar";
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { getIcon } from "@/components/layout/nav-icon";
 import { Badge } from "@/components/ui/badge";
-import { demoProjects, statusLabels, statusTones } from "@/lib/marketing/preview-data";
+import type { ModuleKey } from "@/config/modules";
+import { getSiteCopy, getTranslations } from "@/lib/i18n/server";
+import { fill, type SiteCopy } from "@/lib/i18n/site";
+import { demoProjects, statusTones } from "@/lib/marketing/preview-data";
 
 /**
  * The product, on the public page (design spec §81).
@@ -22,50 +25,41 @@ import { demoProjects, statusLabels, statusTones } from "@/lib/marketing/preview
  * dashboard KPI is added or renamed.
  */
 type PreviewKpi = {
-  key: string;
-  label: string;
+  key: keyof SiteCopy["preview"]["kpis"];
   value: string;
   icon: string;
-  hint?: string;
   series?: number[];
 };
 
 const previewKpis: PreviewKpi[] = [
   {
-    key: "active-projects",
-    label: "Active projects",
+    key: "activeProjects",
     value: "12",
     icon: "FolderKanban",
-    hint: "+2 this quarter",
     series: [6, 7, 7, 9, 10, 12],
   },
   {
-    key: "contract-value",
-    label: "Contracted value",
+    key: "contractValue",
     value: "€24.6M",
     icon: "Wallet",
-    hint: "+8.4% against plan",
     series: [14, 16, 18, 19, 22, 24.6],
   },
   {
-    key: "open-ncrs",
-    label: "Open NCRs",
+    key: "openNcrs",
     value: "3",
     icon: "ClipboardCheck",
-    hint: "−4 since last month",
     series: [9, 8, 7, 6, 4, 3],
   },
   {
-    key: "days-lost",
-    label: "Days without incident",
+    key: "daysWithoutIncident",
     value: "184",
     icon: "ShieldCheck",
-    hint: "Across every active site",
   },
 ];
 
-function PreviewKpiCard({ kpi }: { kpi: PreviewKpi }) {
+function PreviewKpiCard({ kpi, copy }: { kpi: PreviewKpi; copy: SiteCopy["preview"] }) {
   const Icon = getIcon(kpi.icon);
+  const { label, hint } = copy.kpis[kpi.key];
 
   return (
     <div className="nesto-card p-3.5">
@@ -76,53 +70,59 @@ function PreviewKpiCard({ kpi }: { kpi: PreviewKpi }) {
         >
           <Icon className="size-3.5" />
         </span>
-        <p className="min-w-0 truncate text-micro font-medium text-fg-muted">{kpi.label}</p>
+        <p className="min-w-0 truncate text-micro font-medium text-fg-muted">{label}</p>
       </div>
       <div className="mt-2.5 flex items-end justify-between gap-2">
         <p className="text-section font-semibold tabular-nums text-fg">{kpi.value}</p>
         {kpi.series ? (
           <span className="hidden w-14 shrink-0 xl:block">
-            <MiniBars points={kpi.series} caption={`${kpi.label} trend`} />
+            <MiniBars points={kpi.series} caption={fill(copy.trend, { label })} />
           </span>
         ) : null}
       </div>
-      {kpi.hint ? <p className="mt-1 text-micro text-fg-subtle">{kpi.hint}</p> : null}
+      <p className="mt-1 text-micro text-fg-subtle">{hint}</p>
     </div>
   );
 }
 
-const previewNav = [
-  { label: "Dashboard", icon: "LayoutDashboard", active: true },
-  { label: "Projects", icon: "FolderKanban" },
-  { label: "Tasks", icon: "CircleCheckBig" },
-  { label: "Clients", icon: "Building2" },
-  { label: "Documents", icon: "FileText" },
+const previewNav: { module: ModuleKey; icon: string; active?: boolean }[] = [
+  { module: "dashboard", icon: "LayoutDashboard", active: true },
+  { module: "projects", icon: "FolderKanban" },
+  { module: "tasks", icon: "CircleCheckBig" },
+  { module: "clients", icon: "Building2" },
+  { module: "documents", icon: "FileText" },
 ];
 
-const previewDepartmentNav = [
-  { label: "Finance", icon: "Wallet" },
-  { label: "Procurement", icon: "ShoppingCart" },
-  { label: "QA/QC", icon: "ClipboardCheck" },
-  { label: "HSE", icon: "ShieldCheck" },
+const previewDepartmentNav: { module: ModuleKey; icon: string }[] = [
+  { module: "finance", icon: "Wallet" },
+  { module: "procurement", icon: "ShoppingCart" },
+  { module: "qaqc", icon: "ClipboardCheck" },
+  { module: "hse", icon: "ShieldCheck" },
 ];
 
 const previewProjects = demoProjects.slice(0, 4);
 
-export function WorkspacePreview() {
+export async function WorkspacePreview() {
+  const [{ preview: copy }, modules, shell] = await Promise.all([
+    getSiteCopy(),
+    getTranslations("modules"),
+    getTranslations("shell"),
+  ]);
+
   return (
     <div
       role="img"
-      aria-label="The NESTO dashboard: role navigation on the left, four headline figures across the top, an active project table with progress against programme, and a breakdown of work by stage."
+      aria-label={copy.description}
       className="nesto-card overflow-hidden"
     >
       {/* Top bar */}
       <div className="flex h-12 items-center gap-3 border-b border-line bg-surface px-4">
         <NestoLogo size="sm" showWordmark={false} />
         <div className="hidden h-7 w-56 items-center rounded-md border border-line bg-canvas px-2.5 lg:flex">
-          <span className="text-micro text-fg-subtle">Search projects, people, documents</span>
+          <span className="text-micro text-fg-subtle">{copy.search}</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <span className="nesto-eyebrow hidden text-fg-subtle sm:block">CEO / Director</span>
+          <span className="nesto-eyebrow hidden text-fg-subtle sm:block">{copy.role}</span>
           <span
             aria-hidden="true"
             className="grid size-7 place-items-center rounded-full bg-graphite text-micro font-medium text-graphite-fg"
@@ -139,28 +139,30 @@ export function WorkspacePreview() {
             const ItemIcon = getIcon(item.icon);
             return (
               <span
-                key={item.label}
+                key={item.module}
                 className={[
                   "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-table",
                   item.active ? "bg-accent-soft font-medium text-accent-strong" : "text-fg-muted",
                 ].join(" ")}
               >
                 <ItemIcon className="size-4 shrink-0" />
-                {item.label}
+                {modules(`${item.module}.label`)}
               </span>
             );
           })}
 
-          <p className="nesto-eyebrow mt-4 px-2.5 pb-1 text-fg-subtle">Department</p>
+          <p className="nesto-eyebrow mt-4 px-2.5 pb-1 text-fg-subtle">
+            {shell("groups.department")}
+          </p>
           {previewDepartmentNav.map((item) => {
             const ItemIcon = getIcon(item.icon);
             return (
               <span
-                key={item.label}
+                key={item.module}
                 className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-table text-fg-muted"
               >
                 <ItemIcon className="size-4 shrink-0" />
-                {item.label}
+                {modules(`${item.module}.label`)}
               </span>
             );
           })}
@@ -170,23 +172,23 @@ export function WorkspacePreview() {
         <div className="bg-canvas p-4 sm:p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h3 className="font-serif text-section text-fg sm:text-page">Good morning, Sofia</h3>
-              <p className="mt-1 text-table text-fg-muted">Company performance across 12 sites.</p>
+              <h3 className="font-serif text-section text-fg sm:text-page">{copy.greeting}</h3>
+              <p className="mt-1 text-table text-fg-muted">{copy.subtitle}</p>
             </div>
-            <p className="nesto-eyebrow hidden text-fg-subtle sm:block">Monday · 14 Sep 2026</p>
+            <p className="nesto-eyebrow hidden text-fg-subtle sm:block">{copy.date}</p>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
             {previewKpis.map((kpi) => (
-              <PreviewKpiCard key={kpi.key} kpi={kpi} />
+              <PreviewKpiCard key={kpi.key} kpi={kpi} copy={copy} />
             ))}
           </div>
 
           <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
             <div className="nesto-card overflow-hidden">
               <div className="flex items-center justify-between gap-3 px-4 pb-2.5 pt-3.5">
-                <h4 className="text-table font-semibold text-fg">Active projects</h4>
-                <span className="nesto-eyebrow text-fg-subtle">Progress</span>
+                <h4 className="text-table font-semibold text-fg">{copy.activeProjects}</h4>
+                <span className="nesto-eyebrow text-fg-subtle">{copy.progress}</span>
               </div>
               <ul className="divide-y divide-line border-t border-line">
                 {previewProjects.map((project) => (
@@ -198,10 +200,13 @@ export function WorkspacePreview() {
                       </p>
                     </div>
                     <Badge tone={statusTones[project.status]} className="hidden sm:inline-flex">
-                      {statusLabels[project.status]}
+                      {copy.statuses[project.status]}
                     </Badge>
                     <div className="hidden w-24 shrink-0 items-center gap-2 sm:flex">
-                      <ProgressBar value={project.progress} label={`${project.name} progress`} />
+                      <ProgressBar
+                        value={project.progress}
+                        label={fill(copy.projectProgress, { name: project.name })}
+                      />
                       <span className="w-8 shrink-0 text-right text-micro tabular-nums text-fg-muted">
                         {project.progress}%
                       </span>
@@ -212,18 +217,18 @@ export function WorkspacePreview() {
             </div>
 
             <div className="nesto-card p-4">
-              <h4 className="text-table font-semibold text-fg">Work by stage</h4>
+              <h4 className="text-table font-semibold text-fg">{copy.workByStage}</h4>
               <div className="mt-4">
                 <Donut
                   slices={[
-                    { label: "Build", value: 6 },
-                    { label: "Mobilise", value: 3 },
-                    { label: "Tender", value: 2 },
-                    { label: "Handover", value: 1 },
+                    { label: copy.stages.build, value: 6 },
+                    { label: copy.stages.mobilise, value: 3 },
+                    { label: copy.stages.tender, value: 2 },
+                    { label: copy.stages.handover, value: 1 },
                   ]}
-                  caption="Projects by stage"
+                  caption={copy.projectsByStage}
                   centerValue="12"
-                  centerLabel="Projects"
+                  centerLabel={copy.projects}
                 />
               </div>
             </div>

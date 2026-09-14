@@ -1,6 +1,6 @@
 import { gridColumns, hairlineCell, hairlineGrid } from "@/components/marketing/section";
 import { lifecycle } from "@/config/marketing";
-import { modules } from "@/config/modules";
+import { getSiteCopy, getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -11,20 +11,26 @@ import { cn } from "@/lib/utils/cn";
  * runs through, so the promise is checkable against the module list rather than
  * being an abstraction.
  */
-export function Lifecycle({ className }: { className?: string }) {
+export async function Lifecycle({ className }: { className?: string }) {
+  const [copy, t] = await Promise.all([getSiteCopy(), getTranslations("modules")]);
+
   return (
     <ol
       className={cn(hairlineGrid, gridColumns(lifecycle.length), className)}
     >
-      {lifecycle.map((stage) => (
-        <li key={stage.step} className={cn(hairlineCell, "flex flex-col p-6")}>
+      {lifecycle.map((stage, index) => (
+        <li key={stage.key} className={cn(hairlineCell, "flex flex-col p-6")}>
           <div className="flex items-center gap-2.5">
-            <span className="text-micro tabular-nums text-fg-subtle">{stage.step}</span>
+            <span className="text-micro tabular-nums text-fg-subtle">
+              {String(index + 1).padStart(2, "0")}
+            </span>
             <span aria-hidden="true" className="h-px w-5 bg-line-strong" />
-            <h3 className="text-card font-semibold text-fg">{stage.title}</h3>
+            <h3 className="text-card font-semibold text-fg">{copy.lifecycle[stage.key].title}</h3>
           </div>
 
-          <p className="mt-3 flex-1 text-table leading-relaxed text-fg-muted">{stage.copy}</p>
+          <p className="mt-3 flex-1 text-table leading-relaxed text-fg-muted">
+            {copy.lifecycle[stage.key].copy}
+          </p>
 
           <ul className="mt-4 flex flex-wrap gap-1.5">
             {stage.modules.map((key) => (
@@ -32,7 +38,7 @@ export function Lifecycle({ className }: { className?: string }) {
                 key={key}
                 className="rounded-full border border-line bg-canvas px-2 py-0.5 text-micro text-fg-subtle"
               >
-                {modules[key].label}
+                {t(`${key}.label`)}
               </li>
             ))}
           </ul>

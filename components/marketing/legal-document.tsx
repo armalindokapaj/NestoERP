@@ -1,5 +1,6 @@
 import { Container, PageIntro } from "@/components/marketing/section";
-import type { LegalDocument } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
+import type { LegalDocument } from "@/lib/i18n/site";
 
 /**
  * A legal summary page.
@@ -8,11 +9,13 @@ import type { LegalDocument } from "@/config/marketing";
  * short numbered sections in a single column, with the caveat about what is and
  * is not binding kept at the top where it cannot be missed.
  */
-export function LegalDocumentPage({ document }: { document: LegalDocument }) {
+export async function LegalDocumentPage({ document }: { document: LegalDocument }) {
+  const copy = await getSiteCopy();
+
   return (
     <>
       <PageIntro eyebrow={document.eyebrow} title={document.title} lead={document.lead}>
-        <p className="nesto-eyebrow text-fg-subtle">Last updated · {document.updated}</p>
+        <p className="nesto-eyebrow text-fg-subtle">{copy.legal.lastUpdated} · {document.updated}</p>
       </PageIntro>
 
       <section className="bg-canvas">

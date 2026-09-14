@@ -176,13 +176,6 @@ export const demoDocuments: DemoDocument[] = [
   { id: "d-6", name: "HSE Site Induction Pack.pdf", type: "HSE", project: "Company", size: "2.8 MB", updatedBy: "Hannah Berg", updatedAt: "1 week ago", shared: true },
 ];
 
-export const statusLabels: Record<DemoStatus, string> = {
-  planning: "Planning",
-  "in-progress": "In progress",
-  handover: "Handover",
-  archived: "Archived",
-};
-
 export const statusTones: Record<DemoStatus, "default" | "info" | "warning" | "success"> = {
   planning: "default",
   "in-progress": "info",

@@ -1,6 +1,7 @@
 "use server";
 
-import { contactSchema, type ContactInput } from "@/lib/marketing/schema";
+import { getSiteCopy } from "@/lib/i18n/server";
+import { createContactSchema, type ContactInput } from "@/lib/marketing/schema";
 
 export type ContactResult = { ok: true } | { ok: false; error: string };
 
@@ -13,7 +14,7 @@ export type ContactResult = { ok: true } | { ok: false; error: string };
  * in `parsed.data`.
  *
  * To finish it, replace the log line with one of:
- *   • an email send (Resend, Postmark, SES) to config/marketing.ts → site.contact.sales
+ *   • an email send (Resend, Postmark, SES) to config/marketing.ts → siteContact.sales
  *   • a row in a `ContactEnquiry` table via lib/database/prisma.ts
  *   • a webhook into whatever CRM the company actually uses
  *
@@ -21,10 +22,11 @@ export type ContactResult = { ok: true } | { ok: false; error: string };
  * unsophisticated bots, not a determined one.
  */
 export async function submitContactAction(input: ContactInput): Promise<ContactResult> {
-  const parsed = contactSchema.safeParse(input);
+  const { errors } = (await getSiteCopy()).contact.form;
+  const parsed = createContactSchema(errors).safeParse(input);
 
   if (!parsed.success) {
-    return { ok: false, error: "Some details are missing. Check the form and try again." };
+    return { ok: false, error: errors.invalid };
   }
 
   // Filled honeypot: accepted, never delivered.
@@ -47,6 +49,6 @@ export async function submitContactAction(input: ContactInput): Promise<ContactR
 
     return { ok: true };
   } catch {
-    return { ok: false, error: "We could not send that. Please email us directly." };
+    return { ok: false, error: errors.failed };
   }
 }

@@ -19,22 +19,19 @@ import {
 import { StatStrip } from "@/components/marketing/stat-strip";
 import { WorkspacePreview } from "@/components/marketing/workspace-preview";
 import { Button } from "@/components/ui/button";
+import { featuredFaq, featuredRoles } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
-import {
-  featuredFaq,
-  featuredRoles,
-  hero,
-  pillars,
-  rolesSection,
-  security,
-  site,
-} from "@/config/marketing";
 
-export const metadata: Metadata = {
-  /* The home page states the category rather than repeating the brand name. */
-  title: { absolute: `NESTO — ${site.category}` },
-  description: site.summary,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = await getSiteCopy();
+
+  return {
+    /* The home page states the category rather than repeating the brand name. */
+    title: { absolute: `NESTO — ${copy.category}` },
+    description: copy.summary,
+  };
+}
 
 /**
  * The public home page (spec §6; design spec §81, §82).
@@ -48,7 +45,10 @@ export const metadata: Metadata = {
  * components, the drawings are inline hairlines, and the only JavaScript is the
  * navigation drawer — so the page is finished by the time it is painted.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const copy = await getSiteCopy();
+  const { hero, problem, platform, roles, build, principles, access, questions } = copy.home;
+
   return (
     <>
       {/* Hero */}
@@ -58,7 +58,7 @@ export default function HomePage() {
         <Container className="relative pb-16 pt-16 sm:pb-20 sm:pt-24 lg:pb-24 lg:pt-28">
           <div className="grid items-end gap-10 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-16">
             <div className="max-w-3xl">
-              <p className="nesto-rise nesto-eyebrow text-fg-subtle">{hero.eyebrow}</p>
+              <p className="nesto-rise nesto-eyebrow text-fg-subtle">{copy.category}</p>
 
               <h1 className="nesto-rise nesto-rise-2 mt-6 text-balance font-serif text-page leading-[1.05] text-fg sm:text-display lg:text-hero">
                 {hero.headline.map((line) => (
@@ -74,13 +74,13 @@ export default function HomePage() {
 
               <div className="nesto-rise nesto-rise-4 mt-9 flex flex-wrap items-center gap-3">
                 <Button asChild size="lg">
-                  <Link href={hero.primary.href}>
-                    {hero.primary.label}
+                  <Link href="/contact">
+                    {hero.primary}
                     <ArrowRight />
                   </Link>
                 </Button>
                 <Button asChild variant="secondary" size="lg">
-                  <Link href={hero.secondary.href}>{hero.secondary.label}</Link>
+                  <Link href="/login">{hero.secondary}</Link>
                 </Button>
               </div>
 
@@ -109,9 +109,9 @@ export default function HomePage() {
       <Section tone="surface">
         <SectionHeader
           step="01"
-          eyebrow="The problem"
-          title="Most construction companies run on eleven systems that never speak."
-          lead="Not one of them is wrong on its own. Together they are a reconciliation job that runs every month, forever, and quietly costs more than the software."
+          eyebrow={problem.eyebrow}
+          title={problem.title}
+          lead={problem.lead}
         />
         <ContrastList className="mt-12" />
       </Section>
@@ -120,13 +120,13 @@ export default function HomePage() {
       <Section id="platform" tone="canvas">
         <SectionHeader
           step="02"
-          eyebrow="The platform"
-          title="Seventeen modules. One workspace."
-          lead="Every department in the same system, on the same project record — with procurement, quality and safety treated as first-class work rather than add-ons."
+          eyebrow={platform.eyebrow}
+          title={platform.title}
+          lead={platform.lead}
           aside={
             <Button asChild variant="secondary" size="md">
               <Link href="/platform">
-                Explore the platform
+                {platform.cta}
                 <ArrowRight />
               </Link>
             </Button>
@@ -139,13 +139,13 @@ export default function HomePage() {
       <Section tone="surface">
         <SectionHeader
           step="03"
-          eyebrow={rolesSection.eyebrow}
-          title={rolesSection.title}
-          lead={rolesSection.lead}
+          eyebrow={copy.rolesSection.eyebrow}
+          title={copy.rolesSection.title}
+          lead={copy.rolesSection.lead}
           aside={
             <Button asChild variant="secondary" size="md">
               <Link href="/platform#roles">
-                See all 16 roles
+                {roles.cta}
                 <ArrowRight />
               </Link>
             </Button>
@@ -158,9 +158,9 @@ export default function HomePage() {
       <Section tone="canvas">
         <SectionHeader
           step="04"
-          eyebrow="End to end"
-          title="From the tender that wins it to the account that closes it."
-          lead="A project does not stop at handover and it does not start on site. NESTO follows the whole thing, and every stage writes to the same record."
+          eyebrow={build.eyebrow}
+          title={build.title}
+          lead={build.lead}
         />
         <Lifecycle className="mt-12" />
       </Section>
@@ -169,13 +169,13 @@ export default function HomePage() {
       <Section tone="surface">
         <SectionHeader
           step="05"
-          eyebrow="Why it feels different"
-          title="Premium is not decoration. It is what has been left out."
-          lead="A narrow palette, one type scale, one component library and no ornament that does not carry information."
+          eyebrow={principles.eyebrow}
+          title={principles.title}
+          lead={principles.lead}
         />
 
         <div className={cn(hairlineGrid, "mt-12 lg:grid-cols-3")}>
-          {pillars.map((pillar) => (
+          {copy.pillars.map((pillar) => (
             <article key={pillar.title} className={cn(hairlineCell, "flex flex-col p-6 lg:p-8")}>
               <h3 className="text-card font-semibold text-fg">{pillar.title}</h3>
               <p className="mt-3 text-table leading-relaxed text-fg-muted">{pillar.copy}</p>
@@ -195,13 +195,13 @@ export default function HomePage() {
       <Section tone="canvas">
         <SectionHeader
           step="06"
-          eyebrow="Access"
-          title={security.title}
-          lead={security.lead}
+          eyebrow={access.eyebrow}
+          title={copy.security.title}
+          lead={copy.security.lead}
           aside={
             <Button asChild variant="secondary" size="md">
               <Link href="/security">
-                How access works
+                {access.cta}
                 <ArrowRight />
               </Link>
             </Button>
@@ -209,7 +209,7 @@ export default function HomePage() {
         />
 
         <dl className={cn(hairlineGrid, "mt-12 lg:grid-cols-3")}>
-          {security.measures.slice(0, 3).map((measure) => (
+          {copy.security.measures.slice(0, 3).map((measure) => (
             <div key={measure.title} className={cn(hairlineCell, "p-6")}>
               <dt className="text-card font-semibold text-fg">{measure.title}</dt>
               <dd className="mt-2.5 text-table leading-relaxed text-fg-muted">{measure.copy}</dd>
@@ -222,18 +222,21 @@ export default function HomePage() {
       <Section tone="surface" bordered={false}>
         <SectionHeader
           step="07"
-          eyebrow="Questions"
-          title="The six things everyone asks first."
+          eyebrow={questions.eyebrow}
+          title={questions.title}
           aside={
             <Button asChild variant="secondary" size="md">
               <Link href="/faq">
-                All questions
+                {questions.cta}
                 <ArrowRight />
               </Link>
             </Button>
           }
         />
-        <FaqList items={featuredFaq} className="mt-12" />
+        <FaqList
+          items={featuredFaq.map(([group, index]) => copy.faq.groups[group].items[index])}
+          className="mt-12"
+        />
       </Section>
 
       <CtaBand />

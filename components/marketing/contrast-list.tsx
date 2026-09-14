@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 
-import { contrasts } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -10,7 +10,9 @@ import { cn } from "@/lib/utils/cn";
  * argument. Each row is one sentence per side, so the comparison can be read at
  * a glance rather than studied.
  */
-export function ContrastList({ className }: { className?: string }) {
+export async function ContrastList({ className }: { className?: string }) {
+  const { contrasts } = await getSiteCopy();
+
   return (
     <ul className={cn("divide-y divide-line border-y border-line", className)}>
       {contrasts.map((row) => (

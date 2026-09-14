@@ -16,14 +16,12 @@ import {
 import { StatStrip } from "@/components/marketing/stat-strip";
 import { WorkspacePreview } from "@/components/marketing/workspace-preview";
 import { Button } from "@/components/ui/button";
-import { pillars, rolesSection } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
-export const metadata: Metadata = {
-  title: "Platform",
-  description:
-    "Seventeen modules, sixteen role workspaces and one project record — the whole construction lifecycle in a single system.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return (await getSiteCopy()).meta.platform;
+}
 
 /**
  * The platform in full (design spec §82).
@@ -32,23 +30,21 @@ export const metadata: Metadata = {
  * are all rendered from the product's own configuration, so this page is a view
  * of NESTO rather than a description of it.
  */
-export default function PlatformPage() {
+export default async function PlatformPage() {
+  const { platform, rolesSection, pillars } = await getSiteCopy();
+
   return (
     <>
-      <PageIntro
-        eyebrow="Platform"
-        title="Everything a construction company runs, in one workspace."
-        lead="One database, one design system and one set of permissions behind every department — from the tender that wins the job to the account that closes it."
-      >
+      <PageIntro eyebrow={platform.eyebrow} title={platform.title} lead={platform.lead}>
         <div className="flex flex-wrap items-center gap-3">
           <Button asChild size="lg">
             <Link href="/contact">
-              Request access
+              {platform.requestAccess}
               <ArrowRight />
             </Link>
           </Button>
           <Button asChild variant="secondary" size="lg">
-            <Link href="/pricing">See pricing</Link>
+            <Link href="/pricing">{platform.seePricing}</Link>
           </Button>
         </div>
       </PageIntro>
@@ -61,9 +57,9 @@ export default function PlatformPage() {
       <Section id="modules" tone="surface">
         <SectionHeader
           step="01"
-          eyebrow="Modules"
-          title="Seventeen modules, and the sections inside them."
-          lead="Every module ships with its own route, header, navigation and dashboard. The tabs below are the ones your team will actually land on."
+          eyebrow={platform.modules.eyebrow}
+          title={platform.modules.title}
+          lead={platform.modules.lead}
         />
         <ModuleGrid zones={["primary", "work", "department", "company"]} showTabs className="mt-14" />
       </Section>
@@ -77,18 +73,16 @@ export default function PlatformPage() {
         />
         <RoleGrid className="mt-12" />
         <p className="mt-6 max-w-2xl text-table leading-relaxed text-fg-subtle">
-          A role is configuration, not a screen. Its navigation, dashboard and permissions are
-          declared once, and it then appears in the sidebar, the roles settings and the access
-          checks — so your own roles can be added without a line of interface being written.
+          {platform.rolesNote}
         </p>
       </Section>
 
       <Section id="lifecycle" tone="surface">
         <SectionHeader
           step="03"
-          eyebrow="The build"
-          title="Six stages, one record."
-          lead="Each stage names the modules it runs through, so the coverage can be checked rather than taken on trust."
+          eyebrow={platform.build.eyebrow}
+          title={platform.build.title}
+          lead={platform.build.lead}
         />
         <Lifecycle className="mt-12" />
       </Section>
@@ -96,8 +90,8 @@ export default function PlatformPage() {
       <Section tone="canvas" bordered={false}>
         <SectionHeader
           step="04"
-          eyebrow="How it is built"
-          title="The reasons it stays fast as it grows."
+          eyebrow={platform.howItIsBuilt.eyebrow}
+          title={platform.howItIsBuilt.title}
         />
         <div className={cn(hairlineGrid, "mt-12 lg:grid-cols-3")}>
           {pillars.map((pillar) => (

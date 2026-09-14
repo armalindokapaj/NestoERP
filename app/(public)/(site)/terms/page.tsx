@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 
 import { LegalDocumentPage } from "@/components/marketing/legal-document";
-import { termsDocument } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Terms",
-  description: termsDocument.lead,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { terms } = (await getSiteCopy()).legal;
+  return { title: terms.eyebrow, description: terms.lead };
+}
 
-export default function TermsPage() {
-  return <LegalDocumentPage document={termsDocument} />;
+export default async function TermsPage() {
+  const { terms } = (await getSiteCopy()).legal;
+  return <LegalDocumentPage document={terms} />;
 }

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { BlueprintSurvey } from "@/components/marketing/blueprint";
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { brand } from "@/config/brand";
-import { footerNav, site } from "@/config/marketing";
+import { footerNav } from "@/config/marketing";
+import { getSiteCopy } from "@/lib/i18n/server";
 
 /**
  * Public site footer (design spec §82).
@@ -12,7 +13,9 @@ import { footerNav, site } from "@/config/marketing";
  * exists. The survey line above it is the same drawing language as the rest of
  * the site, closing the page the way the hero opened it.
  */
-export function SiteFooter() {
+export async function SiteFooter() {
+  const copy = await getSiteCopy();
+
   return (
     <footer className="relative border-t border-line bg-surface">
       <BlueprintSurvey className="absolute inset-x-0 top-0 h-12 w-full text-line-strong opacity-60" />
@@ -21,22 +24,22 @@ export function SiteFooter() {
         <div className="grid gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.85fr)]">
           <div className="max-w-sm">
             <NestoLogo size="md" />
-            <p className="mt-5 text-body leading-relaxed text-fg-muted">{site.summary}</p>
-            <p className="nesto-eyebrow mt-6 text-fg-subtle">{site.category}</p>
+            <p className="mt-5 text-body leading-relaxed text-fg-muted">{copy.summary}</p>
+            <p className="nesto-eyebrow mt-6 text-fg-subtle">{copy.category}</p>
           </div>
 
           <div className="grid gap-8 sm:grid-cols-3">
             {footerNav.map((column) => (
-              <nav key={column.title} aria-label={column.title}>
-                <h2 className="nesto-eyebrow text-fg-subtle">{column.title}</h2>
+              <nav key={column.key} aria-label={copy.footer.columns[column.key]}>
+                <h2 className="nesto-eyebrow text-fg-subtle">{copy.footer.columns[column.key]}</h2>
                 <ul className="mt-4 space-y-2.5">
                   {column.links.map((link) => (
-                    <li key={link.label}>
+                    <li key={link.key}>
                       <Link
                         href={link.href}
                         className="text-table text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
                       >
-                        {link.label}
+                        {copy.footer.links[link.key]}
                       </Link>
                     </li>
                   ))}
