@@ -115,6 +115,7 @@ export type CalendarResponse = {
     canCreate: boolean;
     canCreateCompanyEvent: boolean;
     canViewAvailability: boolean;
+    canCreateMeeting: boolean;
   };
   workingHours: { start: string; end: string; days: number[] };
 };

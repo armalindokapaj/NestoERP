@@ -116,10 +116,18 @@ describe("reading the log (PRD #28 §151-§158)", () => {
 describe("exporting the log (PRD #28 §170-§174)", () => {
   it("audits the export, and the file never contains the record of itself", async () => {
     const owner = await loginAs("OWNER");
-    // An explicit window rather than the rolling 30-day default, so the two
-    // exports below are counting the same set of rows.
+    // An explicit window rather than the rolling 30-day default, and only
+    // export events, so the two exports below count the same set of rows —
+    // however large the log has grown, and whatever other suites write
+    // meanwhile. (The whole log passed the 5,000-row export cap in a
+    // long-lived development database, and then both exports read 5,000.)
     const query = () =>
-      auditQuerySchema.parse({ from: "2000-01-01T00:00:00.000Z", page: 1, pageSize: 100 });
+      auditQuerySchema.parse({
+        from: "2000-01-01T00:00:00.000Z",
+        actionKeys: [AuditAction.AUDIT_LOG_EXPORTED],
+        page: 1,
+        pageSize: 100,
+      });
 
     const first = await exportAuditEvents(owner, query());
 

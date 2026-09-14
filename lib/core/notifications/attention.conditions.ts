@@ -33,6 +33,7 @@ export const ATTENTION_CONDITIONS = [
   "OVERDUE_HSE_ACTION",
   "OVERDUE_INVOICE",
   "PROCUREMENT_ACTION_REQUIRED",
+  "MEETING_ACTION_OVERDUE",
 ] as const;
 
 export type AttentionConditionKey = (typeof ATTENTION_CONDITIONS)[number];
@@ -517,6 +518,49 @@ const overdueInvoice: AttentionConditionDefinition = {
   },
 };
 
+/* Meetings ----------------------------------------------------------------- */
+
+/**
+ * An action from a meeting past its due date (PRD #40 §79, §202), to its owner.
+ * An action handed off to a task is left to the task's own overdue item, so
+ * nobody is told twice about the same work.
+ */
+const meetingActionOverdue: AttentionConditionDefinition = {
+  key: "MEETING_ACTION_OVERDUE",
+  moduleKey: "meetings",
+  async collect(companyId, now) {
+    const rows = await prisma.meetingActionItem.findMany({
+      where: {
+        companyId,
+        status: { in: ["OPEN", "IN_PROGRESS"] },
+        linkedTaskId: null,
+        ownerMemberId: { not: null },
+        dueAt: { lt: startOfDay(now) },
+        meeting: { archivedAt: null, status: { not: "CANCELLED" } },
+      },
+      select: { id: true, title: true, dueAt: true, ownerMemberId: true, meeting: { select: { id: true, title: true, projectId: true } } },
+      take: LIMIT,
+    });
+    return rows.map((row) => ({
+      entityType: "meeting",
+      entityId: row.meeting.id,
+      projectId: row.meeting.projectId,
+      title: `Meeting action overdue: ${row.title}`,
+      body: `From ${row.meeting.title} · due ${isoDate(row.dueAt!)}`,
+      priority: "NORMAL",
+      dismissible: true,
+      episode: `${row.id}:${isoDate(row.dueAt!)}`,
+      recipients: [row.ownerMemberId],
+    }));
+  },
+  async holds(companyId, _type, id, now) {
+    const count = await prisma.meetingActionItem.count({
+      where: { companyId, meetingId: id, status: { in: ["OPEN", "IN_PROGRESS"] }, linkedTaskId: null, dueAt: { lt: startOfDay(now) } },
+    });
+    return count > 0;
+  },
+};
+
 /* Registry ----------------------------------------------------------------- */
 
 const DEFINITIONS: AttentionConditionDefinition[] = [
@@ -530,6 +574,7 @@ const DEFINITIONS: AttentionConditionDefinition[] = [
   overdueHseAction,
   overdueInvoice,
   procurementActionRequired,
+  meetingActionOverdue,
 ];
 
 const BY_KEY = new Map(DEFINITIONS.map((definition) => [definition.key, definition]));

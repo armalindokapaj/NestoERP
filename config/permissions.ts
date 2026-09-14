@@ -44,6 +44,29 @@ export const PERMISSIONS = [
   "calendar.reminder.manage",
   "calendar.availability.view",
 
+  /* Meetings ------------------------------------------------------------- */
+  /**
+   * Meetings, minutes, decisions and action items (PRD #40 §80). Every one is
+   * checked together with the meeting's visibility and the member's role on
+   * it: holding `meeting.minutes.edit` does not open anybody's minutes.
+   */
+  "meeting.view",
+  "meeting.create",
+  "meeting.edit",
+  "meeting.cancel",
+  "meeting.manage",
+  "meeting.manage_participants",
+  "meeting.agenda.manage",
+  "meeting.minutes.edit",
+  "meeting.minutes.finalize",
+  "meeting.minutes.reopen",
+  "meeting.decision.create",
+  "meeting.action.create",
+  "meeting.action.manage",
+  "meeting.action.convert_to_task",
+  "meeting.document.view",
+  "meeting.document.create",
+
   /* Projects ------------------------------------------------------------- */
   "project.view",
   "project.create",
@@ -876,6 +899,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   // a company that turns Tasks off still discusses its invoices (PRD #38 §22).
   collaboration: "dashboard",
   calendar: "calendar",
+  meeting: "meetings",
   project: "projects",
   task: "tasks",
   client: "clients",
@@ -981,6 +1005,10 @@ const MUTATING_ACTIONS = new Set([
   "request",
   // Calendar (PRD #39 §43).
   "edit",
+  // Meetings (PRD #40 §80).
+  "manage_participants",
+  "finalize",
+  "convert_to_task",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

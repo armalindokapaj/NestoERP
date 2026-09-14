@@ -152,7 +152,7 @@ test("topbar search finds a project with the keyboard alone (§87-§90)", async 
   await input.fill("Riverside");
 
   const results = page.getByRole("listbox", { name: "Search results" });
-  await expect(results.getByRole("option", { name: /Riverside Residences/ })).toBeVisible();
+  await expect(results.getByRole("option", { name: /^Riverside Residences/ })).toBeVisible();
   // Arrow to the project and open it.
   const options = results.getByRole("option");
   const count = await options.count();

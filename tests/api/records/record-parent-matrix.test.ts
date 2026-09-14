@@ -62,6 +62,7 @@ const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
   environmental_observation: { model: "environmentalObservation" },
   stop_work: { model: "stopWorkRecord" },
   calendar_event: { model: "calendarEvent" },
+  meeting: { model: "meeting" },
 };
 
 let owner: UserContext;

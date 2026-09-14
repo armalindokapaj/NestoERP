@@ -36,6 +36,13 @@ export const Metric = {
   CALENDAR_REMINDER_SENT: "calendar_reminder_sent_count",
   CALENDAR_REMINDER_FAILURE: "calendar_reminder_failure_count",
   CALENDAR_AVAILABILITY_DURATION_MS: "calendar_availability_duration_ms_total",
+  // Meetings (PRD #40 §303); provider duration is CALENDAR_PROVIDER_DURATION_MS{provider="meetings"}
+  MEETING_CREATE_SUCCESS: "meeting_create_success_count",
+  MEETING_CREATE_FAILURE: "meeting_create_failure_count",
+  MEETING_RSVP: "meeting_rsvp_count",
+  MEETING_MINUTES_FINALIZE: "meeting_minutes_finalize_count",
+  MEETING_ACTION_TASK_CREATE: "meeting_action_task_create_count",
+  MEETING_SERIES_GENERATED: "meeting_series_occurrences_generated_total",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

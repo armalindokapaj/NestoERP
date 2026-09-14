@@ -5,6 +5,7 @@ import { runAllRetentionPolicies } from "@/lib/core/retention/retention.service"
 import { purgeExpiredThrottles } from "@/lib/core/security/throttle";
 import { scannerEnabled } from "@/lib/core/storage";
 import { runCalendarReminders } from "@/lib/modules/calendar/calendar.reminders";
+import { extendMeetingSeries } from "@/lib/modules/meetings/meeting.series";
 import { findOrphanedDocuments, runStorageCleanup } from "@/lib/modules/documents/storage/cleanup.service";
 import { runPendingScans } from "@/lib/modules/documents/storage/scan.service";
 import type { JobHandler } from "./job.registry";
@@ -27,6 +28,10 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
   "calendar.reminders": async ({ now }) => {
     const result = await runCalendarReminders(now);
     return { processed: result.fired, detail: result };
+  },
+  "meetings.series": async ({ now }) => {
+    const result = await extendMeetingSeries(now);
+    return { processed: result.created, detail: result };
   },
   "notifications.due": async ({ now, lastSuccessAt }) => {
     const result = await enqueueDueNotifications({ now, since: lastSuccessAt });

@@ -11,6 +11,7 @@ import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.re
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
+import { syncActionFromTask } from "@/lib/modules/meetings/meeting.task-sync";
 import type { Permission } from "@/config/permissions";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as repository from "./task.repository";
@@ -147,6 +148,7 @@ export type TaskParentContext = {
  * records can raise work (PRD #38 §45, §46).
  */
 const PARENT_TASK_GRANT: Partial<Record<string, Permission>> = {
+  meetings: "meeting.action.convert_to_task",
   sales: "sales.task.create",
   contracts: "legal.task.create",
   procurement: "procurement.task.create",
@@ -431,6 +433,17 @@ export async function updateTask(
         }
       }
 
+      // A meeting action handed off to this task follows it (PRD #40 §59, §60).
+      if (existing.status !== nextStatus || assigneeChanged) {
+        await syncActionFromTask(tx, {
+          companyId: context.companyId,
+          taskId,
+          status: nextStatus,
+          actorMemberId: context.membershipId,
+          ...(assigneeChanged ? { assigneeMemberId } : {}),
+        });
+      }
+
       if (projectChanged) {
         await recordActivity(tx, context, {
           module: MODULE,
@@ -710,6 +723,8 @@ async function transition(
       assigneeMemberId: existing.assigneeMemberId,
       reason: options.blockedReason,
     });
+
+    await syncActionFromTask(tx, { companyId: context.companyId, taskId, status: next, actorMemberId: context.membershipId });
 
     // Finished work is not overdue work (PRD #38 §85).
     if (next === "COMPLETED") {

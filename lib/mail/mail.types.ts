@@ -16,6 +16,7 @@ export const MAIL_TEMPLATE_KEYS = [
   "document.review_requested",
   "hse.critical",
   "calendar.reminder",
+  "meeting.invitation",
 ] as const;
 
 export type MailTemplateKey = (typeof MAIL_TEMPLATE_KEYS)[number];

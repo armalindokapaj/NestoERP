@@ -21,8 +21,9 @@ module data ──► CalendarProvider (module's own permission + scope, range-b
 * A provider never returns what its module would not show the reader. A disabled
   module's provider is not called. A provider failing for an ordinary reason is
   named in `meta.partialFailureProviders`; an authorisation error is not swallowed.
-* Meetings (#40) and project milestones (#44) plug in with
-  `registerCalendarProvider()`; the calendar itself does not change.
+* A module keeps its provider in its own folder and is listed in the registry:
+  meetings (#40) live in `lib/modules/meetings/meeting.calendar-provider.ts`.
+  Project milestones (#44) follow the same pattern.
 
 ## Providers and the indexes they use
 
@@ -37,6 +38,7 @@ module data ──► CalendarProvider (module's own permission + scope, range-b
 | `qaqc` | inspections, corrective actions, NCRs | inspection date, due dates | `(companyId, status)`, `(projectId)` |
 | `hse` | inspections, toolbox talks, permits, risk assessments, actions | scheduled, talk date, valid until, review date, due | `(companyId, status)`, `(projectId)` |
 | `documents` | pending reviews with a due date | review due | `document_reviews(companyId, status, dueAt)` |
+| `meetings` | meetings the reader can open (not cancelled) | start–end | `meetings(companyId, startsAt)`, `(companyId, projectId, startsAt)` |
 
 Business dates are stored at midday UTC; providers query a range widened by a day
 and keep only dates whose local day overlaps the request.

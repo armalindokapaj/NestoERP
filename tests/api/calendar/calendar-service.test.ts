@@ -153,6 +153,7 @@ describe("isolation, permission and scope (§176-§179)", () => {
       leave_request: /^\/hr\/leave\/[^/]+$/,
       calendar_event: /^\/calendar\?event=[^&]+$/,
       document_review: /^\/documents\/[^/]+$/,
+      meeting: /^\/meetings\/[^/]+$/,
     };
     const events = (await getCalendar(owner, monthRange(), {})).events;
     for (const event of events) {

@@ -480,6 +480,46 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       };
     }
 
+    case "upcomingMeetings": {
+      // The meetings module's own list, so a widget never shows a meeting its list would hide (PRD #40 §201).
+      const { listMeetings } = await import("@/lib/modules/meetings/meeting.service");
+      const { meetingListQuerySchema } = await import("@/lib/modules/meetings/meeting.schema");
+      const result = await listMeetings(context, meetingListQuerySchema.parse({ section: "mine", limit: 5 }));
+      return {
+        kind: "list",
+        items: result.data.map((row) => ({
+          id: row.id,
+          title: row.title,
+          subtitle: [
+            new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: row.timezone }).format(new Date(row.startsAt)),
+            row.project?.name,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          meta: row.myResponse === "PENDING" ? "Reply needed" : row.locationText ?? undefined,
+          status: row.status === "SCHEDULED" ? undefined : row.status,
+          href: row.href,
+        })),
+      };
+    }
+
+    case "myMeetingActions": {
+      const { listActionItems } = await import("@/lib/modules/meetings/meeting.actions");
+      const { actionListQuerySchema } = await import("@/lib/modules/meetings/meeting.schema");
+      const result = await listActionItems(context, actionListQuerySchema.parse({ limit: 5 }));
+      return {
+        kind: "list",
+        items: result.data.map((row) => ({
+          id: row.id,
+          title: row.title,
+          subtitle: row.meeting.title,
+          meta: row.dueDate ? (row.overdue ? `Overdue · ${row.dueDate}` : `Due ${row.dueDate}`) : undefined,
+          status: row.status === "OPEN" ? undefined : row.status,
+          href: row.meeting.href,
+        })),
+      };
+    }
+
     case "upcomingDeadlines": {
       const rows = await prisma.project.findMany({
         where: {

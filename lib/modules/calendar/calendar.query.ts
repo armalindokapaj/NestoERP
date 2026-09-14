@@ -130,6 +130,8 @@ export async function getCalendar(context: UserContext, range: CalendarRange, fi
       canCreate: canAccessModule(context, "calendar") && can(context, "calendar.event.create"),
       canCreateCompanyEvent: can(context, "calendar.company_event.manage"),
       canViewAvailability: can(context, "calendar.availability.view"),
+      // Meetings are created in Meetings, with their own rules (PRD #40 §9).
+      canCreateMeeting: canAccessModule(context, "meetings") && can(context, "meeting.create"),
     },
     workingHours: { start: settings.workingDayStart, end: settings.workingDayEnd, days: settings.workingDays },
   };

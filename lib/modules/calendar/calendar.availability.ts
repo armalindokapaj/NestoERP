@@ -10,8 +10,8 @@ import type { ConflictDTO } from "./calendar.types";
  * Free/busy (PRD #39 §86-§90).
  *
  * Availability answers one question — when is this person busy? — and nothing
- * else. It is built from the events a member is on (created, or invited and not
- * declined) and from their approved leave, and it returns intervals only: no
+ * else. It is built from the events and meetings a member is on (created, or
+ * invited and not declined) and from their approved leave, and it returns intervals only: no
  * title, no project, no module, no leave type. Somebody planning a meeting
  * learns "busy 10:00–11:00", never why (PRD #39 §47, §88).
  */
@@ -23,7 +23,7 @@ export async function busyIntervals(
   companyId: string,
   memberIds: readonly string[],
   range: { from: Date; to: Date },
-  options: { excludeEventId?: string; timezone: string },
+  options: { excludeEventId?: string; excludeMeetingId?: string; timezone: string },
 ): Promise<Map<string, BusyInterval[]>> {
   const result = new Map<string, BusyInterval[]>(memberIds.map((id) => [id, []]));
   if (memberIds.length === 0) return result;
@@ -68,6 +68,28 @@ export async function busyIntervals(
       ? expandRecurrence(event, parseRecurrence(event.recurrenceRule), range, 200)
       : [{ startsAt: event.startsAt, endsAt: event.endsAt ?? new Date(event.startsAt.getTime() + 30 * 60_000) }];
     for (const memberId of who) result.get(memberId)!.push(...occurrences);
+  }
+
+  // A meeting keeps somebody busy unless they declined it (PRD #40 §27, §256).
+  const meetings = await prisma.meeting.findMany({
+    where: {
+      companyId,
+      archivedAt: null,
+      status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+      ...(options.excludeMeetingId ? { id: { not: options.excludeMeetingId } } : {}),
+      startsAt: { lt: range.to },
+      endsAt: { gt: range.from },
+      participants: { some: { memberId: { in: members }, response: { not: "DECLINED" } } },
+    },
+    select: {
+      startsAt: true,
+      endsAt: true,
+      participants: { where: { memberId: { in: members }, response: { not: "DECLINED" } }, select: { memberId: true } },
+    },
+    take: 2_000,
+  });
+  for (const meeting of meetings) {
+    for (const participant of meeting.participants) result.get(participant.memberId)?.push({ startsAt: meeting.startsAt, endsAt: meeting.endsAt });
   }
 
   const leave = await prisma.leaveRequest.findMany({
@@ -117,14 +139,14 @@ async function sameCompanyMembers(companyId: string, memberIds: readonly string[
 /** GET /api/calendar/availability — intervals only (PRD #39 §87). */
 export async function getAvailability(
   context: UserContext,
-  input: { memberIds: string[]; from: Date; to: Date; excludeEventId?: string },
+  input: { memberIds: string[]; from: Date; to: Date; excludeEventId?: string; excludeMeetingId?: string },
   timezone: string,
 ): Promise<ConflictDTO[]> {
   if (!canAccessModule(context, "calendar") || !can(context, "calendar.availability.view")) throw new AccessError("FORBIDDEN");
   const names = await sameCompanyMembers(context.companyId, input.memberIds);
   // A member of another company is simply absent from the answer.
   const known = input.memberIds.filter((id) => names.has(id));
-  const busy = await busyIntervals(context.companyId, known, { from: input.from, to: input.to }, { excludeEventId: input.excludeEventId, timezone });
+  const busy = await busyIntervals(context.companyId, known, { from: input.from, to: input.to }, { excludeEventId: input.excludeEventId, excludeMeetingId: input.excludeMeetingId, timezone });
   return known.map((memberId) => ({
     memberId,
     fullName: names.get(memberId)!,
@@ -137,7 +159,7 @@ export async function findConflicts(
   context: UserContext,
   memberIds: readonly string[],
   window: { startsAt: Date; endsAt: Date },
-  options: { excludeEventId?: string; timezone: string },
+  options: { excludeEventId?: string; excludeMeetingId?: string; timezone: string },
 ): Promise<ConflictDTO[]> {
   if (memberIds.length === 0 || !can(context, "calendar.availability.view")) return [];
   if (window.endsAt <= window.startsAt) return [];

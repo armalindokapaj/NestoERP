@@ -1,4 +1,5 @@
 import type { UserContext } from "@/lib/context/types";
+import { meetingCalendarProvider } from "@/lib/modules/meetings/meeting.calendar-provider";
 import type { CalendarProvider } from "./calendar.types";
 import { calendarOwnedProvider } from "./providers/calendar-owned.provider";
 import { documentProvider } from "./providers/document.provider";
@@ -14,9 +15,10 @@ import { taskProvider } from "./providers/task.provider";
  * The calendar provider registry (PRD #39 §12, §202).
  *
  * Code-defined: a provider is a module's own read of its own dates, registered
- * here at build time, never configuration loaded from the database. Meetings
- * (#40) and project milestones (#44) plug in by calling
- * `registerCalendarProvider` from their module — the calendar changes nothing.
+ * here at build time, never configuration loaded from the database. A module
+ * keeps its provider in its own folder — meetings (#40) in
+ * `lib/modules/meetings` — and is listed below, so registration never depends
+ * on some other import having run first.
  */
 class CalendarProviderRegistry {
   private readonly providers = new Map<string, CalendarProvider>();
@@ -52,6 +54,7 @@ for (const provider of [
   qaqcProvider,
   hseProvider,
   documentProvider,
+  meetingCalendarProvider,
 ]) {
   calendarProviders.register(provider);
 }
