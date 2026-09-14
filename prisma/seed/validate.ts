@@ -131,6 +131,12 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Company A expired invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "PENDING", expiresAt: { lt: new Date() } } }), expected: 1, comparison: "gte" },
     { label: "Company A cancelled invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "CANCELLED" } }), expected: 1, comparison: "gte" },
     { label: "Company A accepted invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "ACCEPTED" } }), expected: 1, comparison: "gte" },
+    // PRD #46 §308-§313: contractors on the demo project, a revised drawing, open RFIs and a submittal in review.
+    { label: "Company A active contractors", actual: await prisma.contractorProfile.count({ where: { companyId: COMPANY_A, status: "ACTIVE" } }), expected: 2, comparison: "gte" },
+    { label: "Company A work packages", actual: await prisma.workPackage.count({ where: { companyId: COMPANY_A } }), expected: 3, comparison: "gte" },
+    { label: "Company A drawing revisions", actual: await prisma.engineeringDocumentRevision.count({ where: { companyId: COMPANY_A, engineeringDocumentId: "engdoc_arc_sd_023" } }), expected: 3, comparison: "gte" },
+    { label: "Company A open RFIs", actual: await prisma.rfi.count({ where: { companyId: COMPANY_A, status: { in: ["OPEN", "ANSWERED", "CLARIFICATION_REQUIRED"] } } }), expected: 2, comparison: "gte" },
+    { label: "Company A submittals in review", actual: await prisma.technicalSubmittal.count({ where: { companyId: COMPANY_A, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }), expected: 1, comparison: "gte" },
     // PRD #45 §348: company, project and scheduled announcements, one asking for acknowledgment.
     { label: "Company A published announcements", actual: await prisma.announcement.count({ where: { companyId: COMPANY_A, status: "PUBLISHED" } }), expected: 3, comparison: "gte" },
     { label: "Company A scheduled announcements", actual: await prisma.announcement.count({ where: { companyId: COMPANY_A, status: "SCHEDULED" } }), expected: 1, comparison: "gte" },

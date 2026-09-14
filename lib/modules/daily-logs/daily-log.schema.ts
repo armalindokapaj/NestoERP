@@ -75,6 +75,9 @@ export const weatherSchema = z.object({
 export const workforceSchema = z.object({
   organizationName: text(TEXT_MAX, "Name the company or crew."),
   supplierId: optionalId,
+  /** The contractor and work package the crew worked for (PRD #46 §142). */
+  contractorId: optionalId,
+  workPackageId: optionalId,
   trade: optionalText(),
   crewName: optionalText(),
   headcount: z.number().int("Headcount is a whole number.").min(1, "Headcount is at least 1.").max(10_000, "Headcount is at most 10,000."),
@@ -90,6 +93,9 @@ export const activitySchema = z.object({
   trade: optionalText(),
   progressPercent: optionalNumber(0, 100, "Progress is between 0 and 100%."),
   linkedTaskId: optionalId,
+  /** Whose work it was, on which work package (PRD #46 §143). */
+  contractorId: optionalId,
+  workPackageId: optionalId,
   ...expected,
 });
 

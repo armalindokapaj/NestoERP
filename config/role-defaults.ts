@@ -126,6 +126,43 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     APPROVE: ["daily_log.review", "daily_log.return", "daily_log.lock"],
     MANAGE: ["daily_log.void", "daily_log.correct_locked"],
   },
+  /**
+   * Contractors (PRD #46 §175, §178-§193). VIEW reads the directory, contacts,
+   * assignments, work packages and compliance; CONTRIBUTE keeps contractor
+   * records and work packages; APPROVE puts a contractor on a project, completes
+   * work packages and maintains compliance; MANAGE archives and restores
+   * contractors and waives a compliance requirement.
+   */
+  contractors: {
+    VIEW: ["contractor.view", "contractor_contact.view", "project_contractor.view", "work_package.view", "contractor_compliance.view"],
+    CONTRIBUTE: ["contractor.create", "contractor.edit", "contractor_contact.manage", "work_package.create", "work_package.edit"],
+    APPROVE: ["project_contractor.manage", "work_package.complete", "contractor_compliance.manage"],
+    MANAGE: ["contractor.archive", "contractor_compliance.waive"],
+  },
+  /**
+   * Engineering (PRD #46 §175, §183-§193). CONTRIBUTE registers documents,
+   * raises and answers RFIs, prepares submittals and transmittals; APPROVE is
+   * the reviewer's rung — review decisions, approvals, closing RFIs and issuing
+   * transmittals; MANAGE voids and sets the company's defaults.
+   */
+  engineering: {
+    VIEW: ["engineering_document.view", "rfi.view", "submittal.view", "transmittal.view"],
+    CONTRIBUTE: [
+      "engineering_document.create",
+      "engineering_document.edit",
+      "engineering_document.submit",
+      "rfi.create",
+      "rfi.edit",
+      "rfi.open",
+      "rfi.respond",
+      "submittal.create",
+      "submittal.edit",
+      "submittal.submit",
+      "transmittal.create",
+    ],
+    APPROVE: ["engineering_document.review", "engineering_document.approve", "submittal.review", "submittal.approve", "rfi.close", "transmittal.issue"],
+    MANAGE: ["rfi.void", "transmittal.void", "engineering.settings.manage"],
+  },
   timesheets: {
     VIEW: ["timesheet.view_own"],
     CONTRIBUTE: ["timesheet.edit_own", "timesheet.submit_own"],
@@ -951,13 +988,13 @@ type RoleMatrixRow = Partial<Record<ModuleKey, MatrixCell>>;
  */
 const MATRIX: Record<RoleKey, RoleMatrixRow> = {
   OWNER: {
-    calendar: "M/C", approvals: "M/C", announcements: "M/C", meetings: "M/C", timesheets: "M/C", dailyLogs: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
+    calendar: "M/C", approvals: "M/C", announcements: "M/C", meetings: "M/C", timesheets: "M/C", dailyLogs: "M/C", contractors: "M/C", engineering: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
     finance: "M/C", hr: "M/C", sales: "M/C", contracts: "M/C",
     procurement: "M/C", inventory: "M/C", qaqc: "M/C", hse: "M/C",
     team: "M/C", company: "M/C", settings: "M/C", support: "V/C",
   },
   ADMIN: {
-    calendar: "M/C", approvals: "V/C", announcements: "M/C", meetings: "M/C", timesheets: "C/S", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "M/C",
+    calendar: "M/C", approvals: "V/C", announcements: "M/C", meetings: "M/C", timesheets: "C/S", contractors: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "M/C",
     hr: "V/C",
     team: "M/C", company: "M/C", settings: "M/SYS", support: "M/SYS",
   },
@@ -970,36 +1007,36 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "M/C", company: "V/C", settings: "V/S", support: "V/C",
   },
   CEO: {
-    calendar: "C/C", approvals: "A/C", announcements: "M/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
+    calendar: "C/C", approvals: "A/C", announcements: "M/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", contractors: "V/C", engineering: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
     finance: "A/C", hr: "V/C", sales: "A/C", contracts: "A/C",
     procurement: "A/C", inventory: "V/C", qaqc: "V/C", hse: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   PROJECT_MANAGER: {
-    calendar: "C/C", approvals: "A/P", announcements: "A/P", meetings: "C/C", timesheets: "A/P", dailyLogs: "M/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
+    calendar: "C/C", approvals: "A/P", announcements: "A/P", meetings: "C/C", timesheets: "A/P", dailyLogs: "M/P", contractors: "M/P", engineering: "A/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
     finance: "V/P", hr: "V/P", sales: "V/P", contracts: "V/P",
     procurement: "C/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   ARCHITECT: {
-    calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/AS", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/AS", contractors: "V/P", engineering: "A/P", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S", qaqc: "V/P", hse: "V/P",
     team: "V/P", support: "V/C",
   },
   ENGINEER: {
-    calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "C/AS", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "C/AS", contractors: "V/P", engineering: "A/P", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S",
     procurement: "V/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", support: "V/C",
   },
   FINANCE: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", contractors: "V/C", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
     finance: "M/C", hr: "V/S", sales: "V/C", contracts: "V/C",
     procurement: "V/C", inventory: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   LEGAL: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", contractors: "V/C", projects: "V/C", tasks: "C/S", clients: "V/C", documents: "C/C",
     finance: "V/C", sales: "V/C", contracts: "M/C", procurement: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
@@ -1009,28 +1046,28 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "V/C", company: "V/C", support: "V/C",
   },
   PROCUREMENT: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", projects: "V/C", tasks: "C/S", documents: "C/C",
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", contractors: "V/C", engineering: "V/C", projects: "V/C", tasks: "C/S", documents: "C/C",
     finance: "V/C", contracts: "V/C", procurement: "M/C", inventory: "V/C",
     qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   INVENTORY: {
-    calendar: "C/C", approvals: "V/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", projects: "V/P", tasks: "C/S", documents: "C/C",
+    calendar: "C/C", approvals: "V/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", engineering: "V/C", projects: "V/P", tasks: "C/S", documents: "C/C",
     finance: "V/P", procurement: "C/C", inventory: "M/C", qaqc: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
   },
   QAQC: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", contractors: "V/C", engineering: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "M/C", hse: "V/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   HSE: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", contractors: "V/C", engineering: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "V/P", hse: "M/C",
     team: "V/P", company: "V/C", support: "V/C",
   },
   VIEWER: {
-    calendar: "V/C", announcements: "V/C", meetings: "V/C", dailyLogs: "V/AS", projects: "V/AS", tasks: "V/AS", clients: "V/AS", documents: "V/AS",
+    calendar: "V/C", announcements: "V/C", meetings: "V/C", dailyLogs: "V/AS", contractors: "V/AS", engineering: "V/AS", projects: "V/AS", tasks: "V/AS", clients: "V/AS", documents: "V/AS",
     team: "V/AS", company: "V/C", support: "V/C",
   },
 };
@@ -1179,6 +1216,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     projects: { deny: ["project_planning.view"] },
   },
   PROJECT_MANAGER: {
+    // Void a mistaken RFI or transmittal on their own projects; company defaults stay the Owner's (PRD #46 §183).
+    engineering: { extra: ["rfi.void", "transmittal.void"], deny: ["engineering.settings.manage"] },
     // Notices to the projects they run and the people on them — not the whole company (PRD #45 §234).
     announcements: { extra: ["announcement.manage_project", "announcement.manage_selected_members"] },
     /**
@@ -1428,6 +1467,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * (PRD #18 §116).
      */
     contracts: { extra: ["legal.confidential_terms.view"] },
+    // Insurance, guarantees and licences are Legal's to keep and, with a reason, to waive (PRD #46 §187).
+    contractors: { extra: ["contractor_compliance.manage", "contractor_compliance.waive"] },
     /**
      * The commercial record a contract is drawn from (PRD #17 §269, §353).
      *
@@ -1603,6 +1644,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   QAQC: {
+    // Quality reviews submittals, method statements and technical documents it is assigned (PRD #46 §191).
+    engineering: { extra: ["submittal.review", "submittal.approve", "engineering_document.review"] },
     // The QA/QC-linked part of a log, never its workforce or delays (PRD #43 §142).
     dailyLogs: { extra: ["daily_log.edit", "daily_log.qaqc.manage"] },
     /*
@@ -1629,6 +1672,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   HSE: {
+    // Safety reviews method statements and the submittals it is assigned (PRD #46 §192).
+    engineering: { extra: ["submittal.review", "submittal.approve"] },
     // The HSE-linked part of a log (PRD #43 §143).
     dailyLogs: { extra: ["daily_log.edit", "daily_log.hse.manage"] },
     /*

@@ -947,6 +947,14 @@ model Company {
   userFavorites              UserFavorite[]
   recentItems                RecentItem[]
   productivitySettings       ProductivitySettings?
+  contractorProfiles         ContractorProfile[]
+  contractorAssignments      ProjectContractorAssignment[]
+  workPackages               WorkPackage[]
+  engineeringDocuments       EngineeringDocument[]
+  rfis                       Rfi[]
+  technicalSubmittals        TechnicalSubmittal[]
+  documentTransmittals       DocumentTransmittal[]
+  engineeringSettings        EngineeringSettings?
 
   @@index([status])
   @@index([name])
@@ -1318,6 +1326,13 @@ model Project {
   milestones       ProjectMilestone[]
   announcements    Announcement[]
 
+  contractorAssignments ProjectContractorAssignment[]
+  workPackages          WorkPackage[]
+  engineeringDocuments  EngineeringDocument[]
+  rfis                  Rfi[]
+  technicalSubmittals   TechnicalSubmittal[]
+  documentTransmittals  DocumentTransmittal[]
+
   @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, status])
@@ -1579,6 +1594,10 @@ model Document {
   /// other module uses (PRD #13 §114).
   preArchiveStatus DocumentStatus?
 
+  /// Metadata for a future contractor portal only — nothing is shared outside
+  /// the company in V0.1, whatever this says (PRD #46 §128-§132, §255).
+  sharingClassification DocumentSharingClassification @default(INTERNAL_ONLY)
+
   /// Who uploaded it. Records authorship, not ownership: access is decided by
   /// company, parent and permissions (PRD #13 §281).
   uploadedByMemberId String?
@@ -1596,6 +1615,11 @@ model Document {
 
   uploadSessions DocumentUploadSession[]
   versions       DocumentVersion[]
+
+  engineeringRevisions      EngineeringDocumentRevision[]
+  submittalRevisions        TechnicalSubmittalRevision[]
+  transmittalItems          DocumentTransmittalItem[]
+  contractorComplianceItems ContractorComplianceItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2888,6 +2912,9 @@ model Contract {
   updatedAt      DateTime        @updatedAt
   purchaseOrders PurchaseOrder[]
 
+  contractorAssignments ProjectContractorAssignment[]
+  workPackages          WorkPackage[]
+
   @@unique([companyId, contractNumber])
   @@index([companyId])
   @@index([companyId, status])
@@ -3148,6 +3175,9 @@ model Supplier {
   quotes         SupplierQuote[]
   purchaseOrders PurchaseOrder[]
   goodsReceipts  GoodsReceipt[]
+
+  contractorProfiles  ContractorProfile[]
+  technicalSubmittals TechnicalSubmittal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4585,6 +4615,10 @@ enum AuditCategory {
   DAILY_LOG
   /// Internal announcements: publishing, scheduling, pinning, expiry and archive (PRD #45 §54).
   ANNOUNCEMENT
+  /// Contractor organisations, project assignments, work packages and compliance (PRD #46 §229).
+  CONTRACTOR
+  /// Engineering documents, revisions and reviews, RFIs, submittals and transmittals (PRD #46 §229).
+  ENGINEERING
 }
 
 enum AuditSeverity {
@@ -7913,6 +7947,9 @@ model DailyLogWorkforceEntry {
 
   organizationName String
   supplierId       String?
+  /// The contractor crew and the scope it worked on (PRD #46 §142).
+  contractorId     String?
+  workPackageId    String?
   trade            String?
   crewName         String?
   headcount        Int
@@ -7925,6 +7962,8 @@ model DailyLogWorkforceEntry {
 
   @@index([companyId, dailyLogId])
   @@index([companyId, supplierId])
+  @@index([companyId, contractorId])
+  @@index([companyId, workPackageId])
   @@map("daily_log_workforce_entries")
 }
 
@@ -7940,6 +7979,9 @@ model DailyLogWorkActivity {
   trade           String?
   progressPercent Decimal? @db.Decimal(5, 2)
   linkedTaskId    String?
+  /// Whose work it was, on which work package (PRD #46 §143).
+  contractorId    String?
+  workPackageId   String?
 
   createdByMemberId String
 
@@ -7950,6 +7992,8 @@ model DailyLogWorkActivity {
 
   @@index([companyId, dailyLogId])
   @@index([companyId, linkedTaskId])
+  @@index([companyId, contractorId])
+  @@index([companyId, workPackageId])
   @@map("daily_log_work_activities")
 }
 
@@ -8620,3 +8664,823 @@ model ProductivitySettings {
   @@map("productivity_settings")
 }
 
+// ---------------------------------------------------------------------------
+// Contractors, engineering & legal integration (PRD #46)
+//
+// A contractor is an external business organisation the company engages — not
+// a CompanyMember, not a Supplier, and in V0.1 never somebody who signs in
+// (§3, §5, §14). Engineering records are the technical coordination truth on a
+// project; every file stays a canonical Document, and Legal keeps contracts
+// (§50, §125). Every record carries companyId, projectId, contractorId and
+// workPackageId where they apply, so a V0.2 portal can scope external access
+// without redesigning them (§261).
+// ---------------------------------------------------------------------------
+
+enum ContractorStatus {
+  PROSPECTIVE
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  OFFBOARDED
+  ARCHIVED
+}
+
+enum ContractorContactRole {
+  PROJECT_MANAGER
+  ENGINEER
+  SITE_ENGINEER
+  DOCUMENT_CONTROLLER
+  COMMERCIAL
+  LEGAL
+  HSE
+  QAQC
+  FINANCE
+  MANAGEMENT
+  OTHER
+}
+
+enum ProjectContractorStatus {
+  PLANNED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  SUSPENDED
+  TERMINATED
+}
+
+enum WorkPackageStatus {
+  PLANNED
+  ACTIVE
+  AT_RISK
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+/// One discipline vocabulary for work packages and engineering records (§35, §62).
+enum EngineeringDiscipline {
+  GENERAL
+  ARCHITECTURE
+  STRUCTURAL
+  CIVIL
+  MECHANICAL
+  ELECTRICAL
+  PLUMBING
+  FIRE_PROTECTION
+  FACADE
+  INTERIORS
+  LANDSCAPE
+  INFRASTRUCTURE
+  OTHER
+}
+
+enum ContractorComplianceType {
+  INSURANCE
+  LICENSE
+  CERTIFICATION
+  PERFORMANCE_GUARANTEE
+  ADVANCE_PAYMENT_GUARANTEE
+  BOND
+  TAX_DOCUMENT
+  HSE_CERTIFICATION
+  QA_CERTIFICATION
+  OTHER
+}
+
+enum ContractorComplianceStatus {
+  VALID
+  EXPIRING
+  EXPIRED
+  MISSING
+  WAIVED
+  ARCHIVED
+}
+
+enum EngineeringDocumentType {
+  DRAWING
+  SHOP_DRAWING
+  SPECIFICATION
+  CALCULATION
+  METHOD_STATEMENT
+  MATERIAL_SUBMITTAL
+  PRODUCT_DATA
+  AS_BUILT
+  TECHNICAL_REPORT
+  SAMPLE
+  OTHER
+}
+
+enum EngineeringDocumentStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  APPROVED_WITH_COMMENTS
+  REVISION_REQUIRED
+  REJECTED
+  SUPERSEDED
+  VOID
+}
+
+enum EngineeringRevisionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  FINALIZED
+  SUPERSEDED
+  VOID
+}
+
+enum EngineeringReviewDecision {
+  APPROVED
+  APPROVED_WITH_COMMENTS
+  REVISION_REQUIRED
+  REJECTED
+}
+
+enum RfiStatus {
+  DRAFT
+  OPEN
+  ANSWERED
+  CLARIFICATION_REQUIRED
+  CLOSED
+  VOID
+}
+
+enum RfiPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum RfiReferenceType {
+  ENGINEERING_DOCUMENT
+  DRAWING
+  SUBMITTAL
+  MEETING
+  DAILY_LOG
+  TASK
+  DOCUMENT
+  CONTRACT
+  OTHER
+}
+
+enum TechnicalSubmittalType {
+  SHOP_DRAWING
+  MATERIAL_SUBMITTAL
+  METHOD_STATEMENT
+  TECHNICAL_SUBMITTAL
+  SAMPLE
+  PRODUCT_DATA
+  CALCULATION
+  OTHER
+}
+
+enum TechnicalSubmittalStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  APPROVED_WITH_COMMENTS
+  REVISION_REQUIRED
+  REJECTED
+  CLOSED
+  VOID
+}
+
+enum SubmittalRevisionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  FINALIZED
+  SUPERSEDED
+  VOID
+}
+
+enum TransmittalDirection {
+  OUTGOING
+  INCOMING
+  INTERNAL
+}
+
+enum TransmittalPurpose {
+  FOR_INFORMATION
+  FOR_REVIEW
+  FOR_APPROVAL
+  FOR_CONSTRUCTION
+  AS_BUILT
+  OTHER
+}
+
+enum TransmittalStatus {
+  DRAFT
+  ISSUED
+  VOID
+}
+
+/// Preparation for a V0.2 portal only: nothing is shared outside the company in V0.1 (§128-§132).
+enum DocumentSharingClassification {
+  INTERNAL_ONLY
+  EXTERNAL_SHAREABLE
+  EXTERNAL_SHARED
+  CONTRACTOR_SUBMITTED
+}
+
+/// An external business organisation the company engages (§11-§19).
+model ContractorProfile {
+  id        String @id @default(cuid())
+  companyId String
+
+  legalName          String
+  tradingName        String?
+  registrationNumber String?
+  vatNumber          String?
+  email              String?
+  phone              String?
+  website            String?
+  addressLine1       String?
+  addressLine2       String?
+  city               String?
+  region             String?
+  postalCode         String?
+  countryCode        String? @db.VarChar(2)
+
+  status          ContractorStatus @default(PROSPECTIVE)
+  statusChangedAt DateTime?
+  statusReason    String?
+
+  /// The canonical Supplier when the contractor also trades through Procurement;
+  /// bank, tax and PO history stay there (§14, §15).
+  supplierId String?
+
+  primaryContactName  String?
+  primaryContactEmail String?
+  primaryContactPhone String?
+  notes               String?
+
+  /// Lower-cased, punctuation-stripped legal name, for duplicate warnings (§16).
+  normalizedName String?
+
+  createdByMemberId String
+  updatedByMemberId String?
+  archivedAt        DateTime?
+  version           Int       @default(1)
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  contacts             ContractorContact[]
+  projectAssignments   ProjectContractorAssignment[]
+  workPackages         WorkPackage[]
+  complianceItems      ContractorComplianceItem[]
+  engineeringDocuments EngineeringDocument[]
+  rfis                 Rfi[]
+  submittals           TechnicalSubmittal[]
+  transmittals         DocumentTransmittal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, legalName])
+  @@index([companyId, supplierId])
+  @@index([companyId, normalizedName])
+  @@index([companyId, registrationNumber])
+  @@index([companyId, vatNumber])
+  @@map("contractor_profiles")
+}
+
+/// A person at a contractor the company deals with — a contact record, never a login (§20-§23).
+model ContractorContact {
+  id           String @id @default(cuid())
+  companyId    String
+  contractorId String
+
+  name        String
+  roleTitle   String?
+  contactRole ContractorContactRole?
+  email       String?
+  phone       String?
+  active      Boolean                @default(true)
+  notes       String?
+
+  contractor            ContractorProfile             @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  primaryForAssignments ProjectContractorAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, contractorId, active])
+  @@map("contractor_contacts")
+}
+
+/// A contractor on one project; each assignment stands on its own (§25-§31).
+model ProjectContractorAssignment {
+  id           String @id @default(cuid())
+  companyId    String
+  projectId    String
+  contractorId String
+
+  status       ProjectContractorStatus @default(PLANNED)
+  scopeSummary String?
+
+  /// A contract in Legal — never a second contract engine (§28, §50).
+  contractId                 String?
+  internalManagerMemberId    String?
+  primaryContractorContactId String?
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  terminatedAt         DateTime?
+  terminationReason    String?
+  terminatedByMemberId String?
+
+  createdByMemberId String
+  version           Int    @default(1)
+
+  company        Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  contractor     ContractorProfile  @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  contract       Contract?          @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  primaryContact ContractorContact? @relation(fields: [primaryContractorContactId], references: [id], onDelete: SetNull)
+
+  workPackages WorkPackage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, contractorId])
+  @@index([companyId, projectId, status])
+  @@index([companyId, contractorId, status])
+  @@map("project_contractor_assignments")
+}
+
+/// The operational bridge between a project, a contractor, a contract and the work (§32-§40).
+model WorkPackage {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  contractorId                  String?
+  projectContractorAssignmentId String?
+
+  code        String
+  name        String
+  description String?
+  discipline  EngineeringDiscipline?
+  status      WorkPackageStatus      @default(PLANNED)
+
+  contractId          String?
+  responsibleMemberId String?
+
+  plannedStartDate   DateTime?
+  plannedFinishDate  DateTime?
+  forecastStartDate  DateTime?
+  forecastFinishDate DateTime?
+  actualStartDate    DateTime?
+  actualFinishDate   DateTime?
+
+  /// Context only: Finance and the contract stay authoritative (§36).
+  value    Decimal? @db.Decimal(18, 2)
+  currency String?  @db.VarChar(3)
+
+  completedAt         DateTime?
+  completedByMemberId String?
+  archivedAt          DateTime?
+
+  createdByMemberId String
+  version           Int    @default(1)
+
+  company    Company                      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project    Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  contractor ContractorProfile?           @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  assignment ProjectContractorAssignment? @relation(fields: [projectContractorAssignmentId], references: [id], onDelete: SetNull)
+  contract   Contract?                    @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  engineeringDocuments EngineeringDocument[]
+  rfis                 Rfi[]
+  submittals           TechnicalSubmittal[]
+  transmittals         DocumentTransmittal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, projectId, code])
+  @@index([companyId, projectId, status])
+  @@index([companyId, contractorId, status])
+  @@map("work_packages")
+}
+
+/// Insurance, licences, guarantees and certificates a contractor must hold (§41-§49).
+model ContractorComplianceItem {
+  id           String @id @default(cuid())
+  companyId    String
+  contractorId String
+
+  type   ContractorComplianceType
+  title  String
+  status ContractorComplianceStatus @default(VALID)
+
+  /// The evidence, through the canonical Document service (§47).
+  documentId String?
+
+  issuedAt        DateTime?
+  expiresAt       DateTime?
+  issuer          String?
+  referenceNumber String?
+  notes           String?
+
+  /// A waiver needs its own permission and a reason (§49).
+  waivedReason     String?
+  waivedAt         DateTime?
+  waivedByMemberId String?
+
+  statusChangedAt   DateTime?
+  archivedAt        DateTime?
+  createdByMemberId String
+
+  contractor ContractorProfile @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  document   Document?         @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, contractorId, status])
+  @@index([companyId, expiresAt])
+  @@map("contractor_compliance_items")
+}
+
+/// The controlled register entry for a technical document; the files are Documents (§59-§65).
+model EngineeringDocument {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  workPackageId String?
+  contractorId  String?
+
+  documentNumber String
+  title          String
+  documentType   EngineeringDocumentType
+  discipline     EngineeringDiscipline     @default(GENERAL)
+  status         EngineeringDocumentStatus @default(DRAFT)
+
+  currentRevisionId String? @unique
+
+  authorText          String?
+  responsibleMemberId String?
+  reviewerMemberId    String?
+  reviewDueAt         DateTime?
+
+  voidedAt   DateTime?
+  voidReason String?
+
+  createdByMemberId String
+  version           Int    @default(1)
+
+  company         Company                      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project         Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workPackage     WorkPackage?                 @relation(fields: [workPackageId], references: [id], onDelete: Restrict)
+  contractor      ContractorProfile?           @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  currentRevision EngineeringDocumentRevision? @relation("EngineeringDocumentCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
+
+  revisions        EngineeringDocumentRevision[] @relation("EngineeringDocumentRevisions")
+  transmittalItems DocumentTransmittalItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, projectId, documentNumber])
+  @@index([companyId, projectId, status])
+  @@index([companyId, contractorId, status])
+  @@index([companyId, workPackageId, status])
+  @@index([companyId, projectId, documentType])
+  @@index([companyId, reviewerMemberId, status])
+  @@map("engineering_documents")
+}
+
+/// One revision of an engineering document. Submitted, it is never overwritten (§66-§75).
+model EngineeringDocumentRevision {
+  id                    String @id @default(cuid())
+  companyId             String
+  engineeringDocumentId String
+
+  revisionCode   String
+  revisionNumber Int?
+
+  documentId        String
+  /// The exact file version that was submitted; a later upload never replaces it (§69).
+  documentVersionId String?
+  notes             String?
+
+  status EngineeringRevisionStatus @default(DRAFT)
+
+  submittedAt         DateTime?
+  submittedByMemberId String?
+  reviewStartedAt     DateTime?
+  reviewedAt          DateTime?
+  reviewedByMemberId  String?
+  reviewDecision      EngineeringReviewDecision?
+  reviewComment       String?
+  supersededAt        DateTime?
+  voidedAt            DateTime?
+
+  createdByMemberId String
+
+  engineeringDocument EngineeringDocument  @relation("EngineeringDocumentRevisions", fields: [engineeringDocumentId], references: [id], onDelete: Restrict)
+  currentFor          EngineeringDocument? @relation("EngineeringDocumentCurrentRevision")
+  document            Document             @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  transmittalItems DocumentTransmittalItem[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([engineeringDocumentId, revisionCode])
+  @@index([companyId, engineeringDocumentId])
+  @@index([companyId, status])
+  @@index([documentId])
+  @@map("engineering_document_revisions")
+}
+
+/// A formal request for information on a project (§82-§97).
+model Rfi {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  workPackageId String?
+  contractorId  String?
+
+  rfiNumber  String
+  subject    String
+  question   String
+  discipline EngineeringDiscipline?
+  status     RfiStatus              @default(DRAFT)
+  priority   RfiPriority            @default(NORMAL)
+
+  raisedByText       String?
+  raisedByMemberId   String?
+  assignedToMemberId String?
+
+  dueAt       DateTime?
+  openedAt    DateTime?
+  answeredAt  DateTime?
+  closedAt    DateTime?
+  closureNote String?
+  voidedAt    DateTime?
+  voidReason  String?
+
+  createdByMemberId String
+  version           Int    @default(1)
+
+  company     Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project     Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  workPackage WorkPackage?       @relation(fields: [workPackageId], references: [id], onDelete: Restrict)
+  contractor  ContractorProfile? @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+
+  responses  RfiResponse[]
+  references RfiReference[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, projectId, rfiNumber])
+  @@index([companyId, projectId, status])
+  @@index([companyId, assignedToMemberId, status])
+  @@index([companyId, dueAt, status])
+  @@index([companyId, contractorId, status])
+  @@map("rfis")
+}
+
+/// An answer, or a request for clarification, added and never edited (§89, §90).
+model RfiResponse {
+  id        String @id @default(cuid())
+  companyId String
+  rfiId     String
+
+  responseText         String
+  respondedByMemberId  String
+  respondedAt          DateTime @default(now())
+  finalResponse        Boolean  @default(false)
+  /// The asker's "this does not answer it" — the other half of the clarification loop (§86).
+  clarificationRequest Boolean  @default(false)
+
+  rfi Rfi @relation(fields: [rfiId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, rfiId])
+  @@map("rfi_responses")
+}
+
+model RfiReference {
+  id        String @id @default(cuid())
+  companyId String
+  rfiId     String
+
+  referenceType     RfiReferenceType
+  referenceId       String
+  note              String?
+  createdByMemberId String?
+
+  rfi Rfi @relation(fields: [rfiId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([rfiId, referenceType, referenceId])
+  @@index([companyId, rfiId])
+  @@index([companyId, referenceType, referenceId])
+  @@map("rfi_references")
+}
+
+/// A formal technical review package — shop drawings, materials, method statements (§98-§117).
+model TechnicalSubmittal {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  contractorId  String?
+  workPackageId String?
+
+  submittalNumber String
+  title           String
+  description     String?
+  submittalType   TechnicalSubmittalType
+  discipline      EngineeringDiscipline?
+  status          TechnicalSubmittalStatus @default(DRAFT)
+
+  assignedReviewerMemberId String?
+  dueAt                    DateTime?
+  currentRevisionId        String?   @unique
+
+  specificationReference String?
+  /// Material metadata (§115); the supplier stays Procurement's record (§116).
+  manufacturer           String?
+  productName            String?
+  modelNumber            String?
+  supplierId             String?
+  /// Method statement metadata (§111).
+  activity               String?
+  workArea               String?
+
+  closedAt   DateTime?
+  voidedAt   DateTime?
+  voidReason String?
+
+  createdByMemberId String
+  version           Int    @default(1)
+
+  company         Company                     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project         Project                     @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  contractor      ContractorProfile?          @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  workPackage     WorkPackage?                @relation(fields: [workPackageId], references: [id], onDelete: Restrict)
+  supplier        Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  currentRevision TechnicalSubmittalRevision? @relation("SubmittalCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
+
+  revisions TechnicalSubmittalRevision[] @relation("SubmittalRevisions")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, projectId, submittalNumber])
+  @@index([companyId, projectId, status])
+  @@index([companyId, contractorId, status])
+  @@index([companyId, dueAt, status])
+  @@index([companyId, assignedReviewerMemberId, status])
+  @@map("technical_submittals")
+}
+
+/// One revision of a submittal; submitted revisions are never overwritten (§102, §103).
+model TechnicalSubmittalRevision {
+  id          String @id @default(cuid())
+  companyId   String
+  submittalId String
+
+  revisionCode   String
+  revisionNumber Int?
+
+  documentId        String
+  documentVersionId String?
+  notes             String?
+
+  status SubmittalRevisionStatus @default(DRAFT)
+
+  submittedAt         DateTime?
+  submittedByMemberId String?
+  reviewStartedAt     DateTime?
+  reviewDecision      EngineeringReviewDecision?
+  reviewedByMemberId  String?
+  reviewedAt          DateTime?
+  reviewComment       String?
+  supersededAt        DateTime?
+  voidedAt            DateTime?
+
+  createdByMemberId String
+
+  submittal  TechnicalSubmittal  @relation("SubmittalRevisions", fields: [submittalId], references: [id], onDelete: Restrict)
+  currentFor TechnicalSubmittal? @relation("SubmittalCurrentRevision")
+  document   Document            @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([submittalId, revisionCode])
+  @@index([companyId, submittalId])
+  @@index([companyId, status])
+  @@index([documentId])
+  @@map("technical_submittal_revisions")
+}
+
+/// A formal batch issue of documents; once issued its contents never change (§118-§124).
+model DocumentTransmittal {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  transmittalNumber String
+  direction         TransmittalDirection
+  purpose           TransmittalPurpose
+  status            TransmittalStatus    @default(DRAFT)
+  subject           String?
+
+  contractorId  String?
+  workPackageId String?
+
+  senderText    String?
+  recipientText String?
+  notes         String?
+
+  issuedAt         DateTime?
+  issuedByMemberId String?
+  voidedAt         DateTime?
+  voidReason       String?
+  voidedByMemberId String?
+
+  createdByMemberId String
+
+  company     Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project     Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  contractor  ContractorProfile? @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  workPackage WorkPackage?       @relation(fields: [workPackageId], references: [id], onDelete: Restrict)
+
+  items DocumentTransmittalItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, projectId, transmittalNumber])
+  @@index([companyId, projectId, issuedAt])
+  @@index([companyId, projectId, status])
+  @@map("document_transmittals")
+}
+
+/// A document on a transmittal, with the version it carried (§122).
+model DocumentTransmittalItem {
+  id            String @id @default(cuid())
+  companyId     String
+  transmittalId String
+
+  engineeringDocumentId String?
+  engineeringRevisionId String?
+  documentId            String
+  documentVersionId     String?
+  remarks               String?
+  sortOrder             Int     @default(0)
+
+  transmittal         DocumentTransmittal          @relation(fields: [transmittalId], references: [id], onDelete: Cascade)
+  engineeringDocument EngineeringDocument?         @relation(fields: [engineeringDocumentId], references: [id], onDelete: SetNull)
+  engineeringRevision EngineeringDocumentRevision? @relation(fields: [engineeringRevisionId], references: [id], onDelete: SetNull)
+  document            Document                     @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([transmittalId, documentId])
+  @@index([companyId, transmittalId])
+  @@index([companyId, engineeringDocumentId])
+  @@map("document_transmittal_items")
+}
+
+/// Company defaults for contractor and engineering work (§279).
+model EngineeringSettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  rfiDefaultDueDays                Int     @default(7)
+  submittalDefaultReviewDays       Int     @default(14)
+  contractorComplianceReminderDays Int     @default(30)
+  /// How far ahead a due-soon reminder goes out, once per due date (§196).
+  dueSoonDays                      Int     @default(2)
+  /// Submitters reviewing their own revisions — off unless the company says so (§74, §251).
+  allowSelfReview                  Boolean @default(false)
+  requireSubmittalDueDate          Boolean @default(false)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("engineering_settings")
+}

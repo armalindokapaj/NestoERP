@@ -132,6 +132,12 @@ export const NUMBERING_DEFAULTS: Array<{
   { moduleKey: "hse", entityType: "incident", prefix: "INC" },
   { moduleKey: "hse", entityType: "permit", prefix: "PTW" },
   { moduleKey: "hse", entityType: "action", prefix: "HSA" },
+  // Contractors and engineering (PRD #46 §281). A manual scheme still numbers
+  // each project's own sequence — RFI-001 — when nobody types a number.
+  { moduleKey: "contractors", entityType: "work_package", prefix: "WP" },
+  { moduleKey: "engineering", entityType: "rfi", prefix: "RFI" },
+  { moduleKey: "engineering", entityType: "technical_submittal", prefix: "SUB" },
+  { moduleKey: "engineering", entityType: "transmittal", prefix: "TRN" },
 ];
 
 /**

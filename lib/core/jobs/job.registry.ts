@@ -43,6 +43,8 @@ export const JOBS: JobSchedule[] = [
   { key: "announcements.schedule", group: "scheduled", intervalSeconds: 60, leaseSeconds: 5 * MINUTE, staleAfterSeconds: 10 * MINUTE },
   { key: "announcements.reminders", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
   { key: "recentwork.prune", group: "scheduled", intervalSeconds: 24 * HOUR, leaseSeconds: 30 * MINUTE, staleAfterSeconds: 49 * HOUR },
+  { key: "engineering.reminders", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
+  { key: "contractors.compliance", group: "scheduled", intervalSeconds: 24 * HOUR, leaseSeconds: 30 * MINUTE, staleAfterSeconds: 49 * HOUR },
   { key: "approvals.overdue", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
   { key: "notifications.due", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
   { key: "attention.reconcile", group: "scheduled", intervalSeconds: 5 * MINUTE, leaseSeconds: 30 * MINUTE, staleAfterSeconds: 30 * MINUTE },

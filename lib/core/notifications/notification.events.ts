@@ -50,6 +50,8 @@ export const NOTIFICATION_CATEGORIES = [
   "daily_logs",
   "project_planning",
   "announcements",
+  "contractors",
+  "engineering",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -200,6 +202,29 @@ export const NotificationEvent = {
   ANNOUNCEMENT_CRITICAL: "ANNOUNCEMENT_CRITICAL",
   ANNOUNCEMENT_ACK_REQUIRED: "ANNOUNCEMENT_ACK_REQUIRED",
   ANNOUNCEMENT_REMINDER: "ANNOUNCEMENT_REMINDER",
+  // Contractors and engineering (PRD #46 §94, §106, §194-§196)
+  CONTRACTOR_ASSIGNED_TO_PROJECT: "CONTRACTOR_ASSIGNED_TO_PROJECT",
+  CONTRACTOR_STATUS_CHANGED: "CONTRACTOR_STATUS_CHANGED",
+  CONTRACTOR_COMPLIANCE_EXPIRING: "CONTRACTOR_COMPLIANCE_EXPIRING",
+  CONTRACTOR_COMPLIANCE_EXPIRED: "CONTRACTOR_COMPLIANCE_EXPIRED",
+  RFI_OPENED: "RFI_OPENED",
+  RFI_ASSIGNED: "RFI_ASSIGNED",
+  RFI_DUE_SOON: "RFI_DUE_SOON",
+  RFI_OVERDUE: "RFI_OVERDUE",
+  RFI_ANSWERED: "RFI_ANSWERED",
+  RFI_CLARIFICATION_REQUIRED: "RFI_CLARIFICATION_REQUIRED",
+  RFI_CLOSED: "RFI_CLOSED",
+  SUBMITTAL_SUBMITTED: "SUBMITTAL_SUBMITTED",
+  SUBMITTAL_REVIEW_ASSIGNED: "SUBMITTAL_REVIEW_ASSIGNED",
+  SUBMITTAL_DUE_SOON: "SUBMITTAL_DUE_SOON",
+  SUBMITTAL_OVERDUE: "SUBMITTAL_OVERDUE",
+  SUBMITTAL_APPROVED: "SUBMITTAL_APPROVED",
+  SUBMITTAL_REVISION_REQUIRED: "SUBMITTAL_REVISION_REQUIRED",
+  SUBMITTAL_REJECTED: "SUBMITTAL_REJECTED",
+  ENGINEERING_DOCUMENT_SUBMITTED: "ENGINEERING_DOCUMENT_SUBMITTED",
+  ENGINEERING_DOCUMENT_APPROVED: "ENGINEERING_DOCUMENT_APPROVED",
+  ENGINEERING_DOCUMENT_REVISION_REQUIRED: "ENGINEERING_DOCUMENT_REVISION_REQUIRED",
+  TRANSMITTAL_ISSUED: "TRANSMITTAL_ISSUED",
 } as const;
 
 const DEFINITIONS: NotificationEventDefinition[] = [
@@ -733,6 +758,274 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `Reminder: acknowledge “${text(payload, "title", "an announcement")}”`,
     body: () => "It is still waiting for your confirmation.",
     dedupe: (event, memberId, payload) => `ANNOUNCEMENT_REMINDER:${event.entityId}:${text(payload, "round")}:${memberId}`,
+  },
+
+  /* Contractors and engineering (PRD #46 §94, §106, §194-§196) ------------- */
+  {
+    eventType: NotificationEvent.CONTRACTOR_ASSIGNED_TO_PROJECT,
+    category: "contractors",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_contractor.view",
+    title: (payload) => `${text(payload, "contractorName", "A contractor")} was assigned to ${text(payload, "projectName", "a project")}`,
+    body: (payload) => text(payload, "scope") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.CONTRACTOR_STATUS_CHANGED,
+    category: "contractors",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "contractor.view",
+    title: (payload) => `${text(payload, "contractorName", "A contractor")} is now ${text(payload, "statusLabel", "changed")}`,
+    body: (payload) => text(payload, "reason") ? "A reason was recorded on the contractor." : null,
+    dedupe: (event, memberId, payload) => `CONTRACTOR_STATUS_CHANGED:${event.entityId}:${text(payload, "status", event.id)}:${text(payload, "changedAt", event.id)}:${memberId}`,
+  },
+  {
+    // One per item per expiry date: renewing the certificate starts a new one (§44, §196).
+    eventType: NotificationEvent.CONTRACTOR_COMPLIANCE_EXPIRING,
+    category: "contractors",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "contractor_compliance.view",
+    title: (payload) => `${text(payload, "title", "A compliance item")} for ${text(payload, "contractorName", "a contractor")} expires ${text(payload, "dateLabel", "soon")}`,
+    body: (payload) => text(payload, "typeLabel") || null,
+    dedupe: (event, memberId, payload) => `CONTRACTOR_COMPLIANCE_EXPIRING:${event.entityId}:${text(payload, "expiresAt", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.CONTRACTOR_COMPLIANCE_EXPIRED,
+    category: "contractors",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "contractor_compliance.view",
+    title: (payload) => `${text(payload, "title", "A compliance item")} for ${text(payload, "contractorName", "a contractor")} has expired`,
+    body: (payload) => (payload.dateLabel ? `Expired ${text(payload, "dateLabel")}` : null),
+    dedupe: (event, memberId, payload) => `CONTRACTOR_COMPLIANCE_EXPIRED:${event.entityId}:${text(payload, "expiresAt", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.RFI_OPENED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "rfi.view",
+    title: (payload) => `RFI ${text(payload, "number")} opened: ${text(payload, "subject", "a request for information")}`,
+    body: (payload) => text(payload, "projectName") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.RFI_ASSIGNED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "rfi.view",
+    title: (payload) => `RFI ${text(payload, "number")} is waiting for your response`,
+    body: (payload) => [text(payload, "subject"), payload.dateLabel ? `due ${text(payload, "dateLabel")}` : ""].filter(Boolean).join(" · ") || null,
+    // One per assignment: being given the same RFI again later is a new assignment.
+    dedupe: (event, memberId, payload) => `RFI_ASSIGNED:${event.entityId}:${text(payload, "assignment", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.RFI_DUE_SOON,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "rfi.view",
+    title: (payload) => `RFI ${text(payload, "number")} is due ${text(payload, "dateLabel", "soon")}`,
+    body: (payload) => text(payload, "subject") || null,
+    dedupe: (event, memberId, payload) => `RFI_DUE_SOON:${event.entityId}:${text(payload, "dueDate", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.RFI_OVERDUE,
+    category: "engineering",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "rfi.view",
+    title: (payload) => `RFI ${text(payload, "number")} is overdue`,
+    body: (payload) => [text(payload, "subject"), payload.dateLabel ? `was due ${text(payload, "dateLabel")}` : ""].filter(Boolean).join(" · ") || null,
+    dedupe: (event, memberId, payload) => `RFI_OVERDUE:${event.entityId}:${text(payload, "dueDate", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.RFI_ANSWERED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "rfi.view",
+    title: (payload) => `RFI ${text(payload, "number")} was answered`,
+    body: (payload) => [text(payload, "subject"), payload.actorName ? `by ${text(payload, "actorName")}` : ""].filter(Boolean).join(" · ") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.RFI_CLARIFICATION_REQUIRED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "rfi.view",
+    title: (payload) => `RFI ${text(payload, "number")} needs clarification`,
+    body: (payload) => text(payload, "subject") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.RFI_CLOSED,
+    category: "engineering",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "rfi.view",
+    title: (payload) => `RFI ${text(payload, "number")} was closed`,
+    body: (payload) => text(payload, "subject") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.SUBMITTAL_SUBMITTED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "submittal.view",
+    title: (payload) => `Submittal ${text(payload, "number")} Rev ${text(payload, "revisionCode")} was submitted for review`,
+    body: (payload) => [text(payload, "title"), payload.dateLabel ? `review due ${text(payload, "dateLabel")}` : ""].filter(Boolean).join(" · ") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.SUBMITTAL_REVIEW_ASSIGNED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "submittal.view",
+    title: (payload) => `You are reviewing submittal ${text(payload, "number")}`,
+    body: (payload) => text(payload, "title") || null,
+    dedupe: (event, memberId, payload) => `SUBMITTAL_REVIEW_ASSIGNED:${event.entityId}:${text(payload, "assignment", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.SUBMITTAL_DUE_SOON,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "submittal.view",
+    title: (payload) => `Review of submittal ${text(payload, "number")} is due ${text(payload, "dateLabel", "soon")}`,
+    body: (payload) => text(payload, "title") || null,
+    dedupe: (event, memberId, payload) => `SUBMITTAL_DUE_SOON:${event.entityId}:${text(payload, "dueDate", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.SUBMITTAL_OVERDUE,
+    category: "engineering",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "submittal.view",
+    title: (payload) => `Review of submittal ${text(payload, "number")} is overdue`,
+    body: (payload) => [text(payload, "title"), payload.dateLabel ? `was due ${text(payload, "dateLabel")}` : ""].filter(Boolean).join(" · ") || null,
+    dedupe: (event, memberId, payload) => `SUBMITTAL_OVERDUE:${event.entityId}:${text(payload, "dueDate", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.SUBMITTAL_APPROVED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "submittal.view",
+    title: (payload) => `Submittal ${text(payload, "number")} Rev ${text(payload, "revisionCode")}: ${text(payload, "decisionLabel", "approved")}`,
+    body: (payload) => text(payload, "title") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.SUBMITTAL_REVISION_REQUIRED,
+    category: "engineering",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "submittal.view",
+    title: (payload) => `Submittal ${text(payload, "number")} Rev ${text(payload, "revisionCode")} needs a new revision`,
+    body: (payload) => text(payload, "title") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.SUBMITTAL_REJECTED,
+    category: "engineering",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "submittal.view",
+    title: (payload) => `Submittal ${text(payload, "number")} Rev ${text(payload, "revisionCode")} was rejected`,
+    body: (payload) => text(payload, "title") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.ENGINEERING_DOCUMENT_SUBMITTED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "engineering_document.view",
+    title: (payload) => `${text(payload, "number", "A document")} Rev ${text(payload, "revisionCode")} is ready for review`,
+    body: (payload) => [text(payload, "title"), payload.dateLabel ? `review due ${text(payload, "dateLabel")}` : ""].filter(Boolean).join(" · ") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.ENGINEERING_DOCUMENT_APPROVED,
+    category: "engineering",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "engineering_document.view",
+    title: (payload) => `${text(payload, "number", "A document")} Rev ${text(payload, "revisionCode")}: ${text(payload, "decisionLabel", "approved")}`,
+    body: (payload) => text(payload, "title") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.ENGINEERING_DOCUMENT_REVISION_REQUIRED,
+    category: "engineering",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "engineering_document.view",
+    title: (payload) => `${text(payload, "number", "A document")} Rev ${text(payload, "revisionCode")}: ${text(payload, "decisionLabel", "revision required")}`,
+    body: (payload) => text(payload, "title") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.TRANSMITTAL_ISSUED,
+    category: "engineering",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "transmittal.view",
+    title: (payload) => `Transmittal ${text(payload, "number")} was issued`,
+    body: (payload) => [text(payload, "purposeLabel"), payload.count ? `${String(payload.count)} documents` : ""].filter(Boolean).join(" · ") || null,
+    dedupe: perEvent,
   },
 
   /* Documents ------------------------------------------------------------- */

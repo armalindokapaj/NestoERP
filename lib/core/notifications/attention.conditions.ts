@@ -45,6 +45,14 @@ export const ATTENTION_CONDITIONS = [
   "MILESTONE_AT_RISK",
   "CRITICAL_MILESTONE_BLOCKED",
   "ANNOUNCEMENT_ACK_REQUIRED",
+  "CONTRACTOR_COMPLIANCE_EXPIRING",
+  "CONTRACTOR_COMPLIANCE_EXPIRED",
+  "CONTRACTOR_COMPLIANCE_MISSING",
+  "RFI_OVERDUE",
+  "RFI_RESPONSE_REQUIRED",
+  "SUBMITTAL_REVIEW_OVERDUE",
+  "SUBMITTAL_REVISION_REQUIRED",
+  "ENGINEERING_REVIEW_OVERDUE",
 ] as const;
 
 export type AttentionConditionKey = (typeof ATTENTION_CONDITIONS)[number];
@@ -687,6 +695,154 @@ const announcementAckRequired: AttentionConditionDefinition = {
   },
 };
 
+/* Contractors and engineering (PRD #46 §45, §95, §107, §197-§199) ---------- */
+
+/**
+ * A compliance item expiring, expired or missing, for the people who keep
+ * compliance and the managers of the contractor's live projects. Expired
+ * cannot be waved away; renewing, waiving or archiving the item resolves it.
+ */
+function complianceCondition(key: "CONTRACTOR_COMPLIANCE_EXPIRING" | "CONTRACTOR_COMPLIANCE_EXPIRED" | "CONTRACTOR_COMPLIANCE_MISSING", status: "EXPIRING" | "EXPIRED" | "MISSING"): AttentionConditionDefinition {
+  return {
+    key,
+    moduleKey: "contractors",
+    async collect(companyId) {
+      const { complianceInStatus, complianceRecipients } = await import("@/lib/modules/contractors/contractor.compliance");
+      const { dateLabel } = await import("@/lib/modules/project-planning/planning.dates");
+      const rows = await complianceInStatus(companyId, status);
+      const recipientsByContractor = new Map<string, string[]>();
+      for (const contractorId of new Set(rows.map((row) => row.contractorId))) recipientsByContractor.set(contractorId, await complianceRecipients(prisma, companyId, contractorId));
+      return rows.map((row): AttentionCandidate => ({
+        entityType: "contractor_compliance", entityId: row.id, projectId: null,
+        title: status === "MISSING" ? `Missing: ${row.title}` : status === "EXPIRED" ? `Expired: ${row.title}` : `Expiring: ${row.title}`,
+        body: row.expiresAt ? `${row.contractorName} · ${status === "EXPIRED" ? "expired" : "expires"} ${dateLabel(row.expiresAt)}` : row.contractorName,
+        priority: status === "EXPIRED" ? "HIGH" : "NORMAL", dismissible: status !== "EXPIRED",
+        episode: row.expiresAt ?? (row.statusChangedAt ?? row.createdAt).toISOString(),
+        recipients: recipientsByContractor.get(row.contractorId) ?? [],
+      }));
+    },
+    async holds(companyId, type, id) {
+      if (type !== "contractor_compliance") return false;
+      const { complianceInStatus } = await import("@/lib/modules/contractors/contractor.compliance");
+      return (await complianceInStatus(companyId, status, id)).length > 0;
+    },
+  };
+}
+
+const complianceExpiring = complianceCondition("CONTRACTOR_COMPLIANCE_EXPIRING", "EXPIRING");
+const complianceExpired = complianceCondition("CONTRACTOR_COMPLIANCE_EXPIRED", "EXPIRED");
+const complianceMissing = complianceCondition("CONTRACTOR_COMPLIANCE_MISSING", "MISSING");
+
+/** An RFI past its due date without an answer, for its assignee and whoever raised it. */
+const rfiOverdue: AttentionConditionDefinition = {
+  key: "RFI_OVERDUE",
+  moduleKey: "engineering",
+  async collect(companyId, now) {
+    const { overdueRfis } = await import("@/lib/modules/engineering/engineering.attention");
+    const { dateLabel, dateOf } = await import("@/lib/modules/engineering/engineering.shared");
+    return (await overdueRfis(companyId, now)).map((row): AttentionCandidate => ({
+      entityType: "rfi", entityId: row.id, projectId: row.projectId,
+      title: `RFI overdue: ${row.rfiNumber}`, body: `${row.subject} · ${row.project.name} · due ${dateLabel(dateOf(row.dueAt))}`,
+      priority: row.priority === "CRITICAL" || row.priority === "HIGH" ? "HIGH" : "NORMAL", dismissible: true,
+      episode: dateOf(row.dueAt) ?? "overdue",
+      recipients: [row.assignedToMemberId, row.createdByMemberId],
+    }));
+  },
+  async holds(companyId, type, id, now) {
+    if (type !== "rfi") return false;
+    const { overdueRfis } = await import("@/lib/modules/engineering/engineering.attention");
+    return (await overdueRfis(companyId, now, id)).length > 0;
+  },
+};
+
+/** An open RFI waiting on its assignee's answer. */
+const rfiResponseRequired: AttentionConditionDefinition = {
+  key: "RFI_RESPONSE_REQUIRED",
+  moduleKey: "engineering",
+  async collect(companyId) {
+    const { rfisAwaitingResponse } = await import("@/lib/modules/engineering/engineering.attention");
+    const { dateLabel, dateOf } = await import("@/lib/modules/engineering/engineering.shared");
+    return (await rfisAwaitingResponse(companyId)).map((row): AttentionCandidate => ({
+      entityType: "rfi", entityId: row.id, projectId: row.projectId,
+      title: `${row.status === "CLARIFICATION_REQUIRED" ? "Clarify" : "Answer"} RFI ${row.rfiNumber}`, body: [row.subject, row.dueAt ? `due ${dateLabel(dateOf(row.dueAt))}` : null].filter(Boolean).join(" · "),
+      priority: row.priority === "CRITICAL" ? "HIGH" : "NORMAL", dismissible: true,
+      // A new assignee or a clarification is a new ask.
+      episode: `${row.assignedToMemberId}:${row.status}`,
+      recipients: [row.assignedToMemberId],
+    }));
+  },
+  async holds(companyId, type, id) {
+    if (type !== "rfi") return false;
+    const { rfisAwaitingResponse } = await import("@/lib/modules/engineering/engineering.attention");
+    return (await rfisAwaitingResponse(companyId, id)).length > 0;
+  },
+};
+
+/** A submittal review past its date, for the reviewer — or the project manager when nobody is assigned. */
+const submittalReviewOverdue: AttentionConditionDefinition = {
+  key: "SUBMITTAL_REVIEW_OVERDUE",
+  moduleKey: "engineering",
+  async collect(companyId, now) {
+    const { overdueSubmittalReviews } = await import("@/lib/modules/engineering/engineering.attention");
+    const { dateLabel, dateOf } = await import("@/lib/modules/engineering/engineering.shared");
+    return (await overdueSubmittalReviews(companyId, now)).map((row): AttentionCandidate => ({
+      entityType: "technical_submittal", entityId: row.id, projectId: row.projectId,
+      title: `Review overdue: submittal ${row.submittalNumber}`, body: `${row.title} · due ${dateLabel(dateOf(row.dueAt))}`,
+      priority: "HIGH", dismissible: true,
+      episode: `${row.currentRevision?.id ?? "none"}:${dateOf(row.dueAt)}`,
+      recipients: [row.assignedReviewerMemberId ?? row.project.projectManagerMemberId],
+    }));
+  },
+  async holds(companyId, type, id, now) {
+    if (type !== "technical_submittal") return false;
+    const { overdueSubmittalReviews } = await import("@/lib/modules/engineering/engineering.attention");
+    return (await overdueSubmittalReviews(companyId, now, id)).length > 0;
+  },
+};
+
+/** A submittal sent back for a new revision, for whoever registered and submitted it. */
+const submittalRevisionRequired: AttentionConditionDefinition = {
+  key: "SUBMITTAL_REVISION_REQUIRED",
+  moduleKey: "engineering",
+  async collect(companyId) {
+    const { submittalsNeedingRevision } = await import("@/lib/modules/engineering/engineering.attention");
+    return (await submittalsNeedingRevision(companyId)).map((row): AttentionCandidate => ({
+      entityType: "technical_submittal", entityId: row.id, projectId: row.projectId,
+      title: `Revision required: submittal ${row.submittalNumber}`, body: `${row.title} · ${row.project.name}`,
+      priority: "NORMAL", dismissible: true,
+      episode: row.currentRevision?.id ?? "revision",
+      recipients: [row.createdByMemberId, row.currentRevision?.submittedByMemberId],
+    }));
+  },
+  async holds(companyId, type, id) {
+    if (type !== "technical_submittal") return false;
+    const { submittalsNeedingRevision } = await import("@/lib/modules/engineering/engineering.attention");
+    return (await submittalsNeedingRevision(companyId, id)).length > 0;
+  },
+};
+
+/** A drawing or engineering document still under review past its review date. */
+const engineeringReviewOverdue: AttentionConditionDefinition = {
+  key: "ENGINEERING_REVIEW_OVERDUE",
+  moduleKey: "engineering",
+  async collect(companyId, now) {
+    const { overdueDocumentReviews } = await import("@/lib/modules/engineering/engineering.attention");
+    const { dateLabel, dateOf } = await import("@/lib/modules/engineering/engineering.shared");
+    return (await overdueDocumentReviews(companyId, now)).map((row): AttentionCandidate => ({
+      entityType: "engineering_document", entityId: row.id, projectId: row.projectId,
+      title: `Review overdue: ${row.documentNumber}${row.currentRevision ? ` Rev ${row.currentRevision.revisionCode}` : ""}`, body: `${row.title} · due ${dateLabel(dateOf(row.reviewDueAt))}`,
+      priority: "HIGH", dismissible: true,
+      episode: `${row.currentRevision?.id ?? "none"}:${dateOf(row.reviewDueAt)}`,
+      recipients: [row.reviewerMemberId ?? row.project.projectManagerMemberId],
+    }));
+  },
+  async holds(companyId, type, id, now) {
+    if (type !== "engineering_document") return false;
+    const { overdueDocumentReviews } = await import("@/lib/modules/engineering/engineering.attention");
+    return (await overdueDocumentReviews(companyId, now, id)).length > 0;
+  },
+};
+
 /* Legal -------------------------------------------------------------------- */
 
 const EXPIRY_WINDOW_DAYS = 30;
@@ -1029,6 +1185,14 @@ const DEFINITIONS: AttentionConditionDefinition[] = [
   milestoneAtRisk,
   criticalMilestoneBlocked,
   announcementAckRequired,
+  complianceExpiring,
+  complianceExpired,
+  complianceMissing,
+  rfiOverdue,
+  rfiResponseRequired,
+  submittalReviewOverdue,
+  submittalRevisionRequired,
+  engineeringReviewOverdue,
 ];
 
 const BY_KEY = new Map(DEFINITIONS.map((definition) => [definition.key, definition]));

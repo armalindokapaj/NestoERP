@@ -131,9 +131,33 @@ const TONES: Record<string, StatusTone> = {
   /* Planning (PRD #44 §122): at risk is amber, delayed is an error. */
   AT_RISK: "warning",
   DELAYED: "danger",
+
+  /*
+   * Contractors and engineering (PRD #46 §165-§172). A review decision reads as
+   * its verdict; a superseded revision is history, never a warning; a missing
+   * certificate is an error, a waived one is settled without a verdict.
+   */
+  UNDER_REVIEW: "info",
+  ANSWERED: "info",
+  CLARIFICATION_REQUIRED: "warning",
+  REVISION_REQUIRED: "warning",
+  APPROVED_WITH_COMMENTS: "success",
+  FINALIZED: "success",
+  SUPERSEDED: "default",
+  ISSUED: "success",
+  PROSPECTIVE: "neutral",
+  OFFBOARDED: "default",
+  TERMINATED: "danger",
+  VALID: "success",
+  MISSING: "danger",
+  WAIVED: "default",
 };
 
 const LABELS: Record<string, string> = {
+  UNDER_REVIEW: "Under review",
+  APPROVED_WITH_COMMENTS: "Approved with comments",
+  REVISION_REQUIRED: "Revision required",
+  CLARIFICATION_REQUIRED: "Clarification required",
   AT_RISK: "At risk",
   ON_HOLD: "On hold",
   ON_LEAVE: "On leave",

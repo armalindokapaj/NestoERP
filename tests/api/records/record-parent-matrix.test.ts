@@ -68,6 +68,13 @@ const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
   project_milestone: { model: "projectMilestone" },
   announcement: { model: "announcement" },
   approval_delegation: { model: "approvalDelegation" },
+  contractor: { model: "contractorProfile" },
+  work_package: { model: "workPackage" },
+  contractor_compliance: { model: "contractorComplianceItem" },
+  engineering_document: { model: "engineeringDocument" },
+  rfi: { model: "rfi" },
+  technical_submittal: { model: "technicalSubmittal" },
+  transmittal: { model: "documentTransmittal" },
 };
 
 let owner: UserContext;

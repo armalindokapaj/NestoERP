@@ -1,0 +1,341 @@
+import type { Prisma } from "@prisma/client";
+
+import { can, canAccessModule } from "@/lib/access/can";
+import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
+import type { UserContext } from "@/lib/context/types";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
+import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
+import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { prisma } from "@/lib/database/prisma";
+import { recordActivity } from "@/lib/modules/shared/activity";
+import { loadEngineeringProject, projectEngineeringOptions, type ProjectEngineeringOptions } from "./engineering.documents";
+import { linkableTypesFor, listLinks, tasksFromRecord } from "./engineering.links";
+import { notifyEngineering } from "./engineering.notify";
+import { engineeringOpen, filesOpen, filesWritable, LINK_TYPE, MODULE, readableRfiWhere, readableSubmittalWhere, SUBMITTAL_ACTIVITY, SUBMITTAL_RECORD } from "./engineering.permissions";
+import { loadRevisionParent, revisionCapabilities, revisionDTOs, revisionsOf } from "./engineering.revisions";
+import type { CreateSubmittalInput, SubmittalListQuery, UpdateSubmittalInput } from "./engineering.schema";
+import { companyToday, resolveEngineeringSettings } from "./engineering.settings";
+import {
+  assertProjectWritable,
+  assertResponsible,
+  at,
+  dateLabel,
+  dateOf,
+  fail,
+  isOverdue,
+  people,
+  personOf,
+  projectArchived,
+  projectNumber,
+  resolveProjectContext,
+  withNumber,
+} from "./engineering.shared";
+import {
+  LINKABLE_TYPES,
+  SUBMITTAL_IN_REVIEW,
+  type Discipline,
+  type Option,
+  type RevisionStatus,
+  type SubmittalDetailDTO,
+  type SubmittalRowDTO,
+  type SubmittalStatus,
+  type SubmittalType,
+} from "./engineering.types";
+
+/**
+ * Technical submittals — shop drawings, material submittals, method statements
+ * and the rest (PRD #46 §98-§117, §220, §227, §291).
+ *
+ * One model, one review workflow; the type decides which details matter —
+ * manufacturer and product for a material, activity and work area for a
+ * method statement. A material submittal may name the Supplier and link the
+ * purchase order, but approving it buys nothing, receives nothing and releases
+ * nothing: Procurement and Inventory stay authoritative (§116, §117, §153,
+ * §154). A method statement may link HSE and QA/QC records; approving it
+ * changes neither (§112, §113).
+ */
+
+const SUBMITTAL_SELECT = {
+  id: true,
+  companyId: true,
+  projectId: true,
+  submittalNumber: true,
+  title: true,
+  description: true,
+  submittalType: true,
+  discipline: true,
+  status: true,
+  assignedReviewerMemberId: true,
+  dueAt: true,
+  currentRevisionId: true,
+  specificationReference: true,
+  manufacturer: true,
+  productName: true,
+  modelNumber: true,
+  supplierId: true,
+  activity: true,
+  workArea: true,
+  voidReason: true,
+  contractorId: true,
+  workPackageId: true,
+  createdByMemberId: true,
+  version: true,
+  project: { select: { id: true, name: true, archivedAt: true, status: true, projectManagerMemberId: true } },
+  contractor: { select: { id: true, legalName: true } },
+  workPackage: { select: { id: true, code: true, name: true } },
+  supplier: { select: { id: true, name: true } },
+  currentRevision: { select: { revisionCode: true, status: true } },
+  _count: { select: { revisions: { where: { status: { not: "VOID" } } } } },
+} satisfies Prisma.TechnicalSubmittalSelect;
+
+type SubmittalRow = Prisma.TechnicalSubmittalGetPayload<{ select: typeof SUBMITTAL_SELECT }>;
+
+async function toRows(context: UserContext, rows: SubmittalRow[]): Promise<SubmittalRowDTO[]> {
+  const [names, { today }] = await Promise.all([people(context.companyId, rows.map((row) => row.assignedReviewerMemberId)), companyToday(context.companyId)]);
+  return rows.map((row) => ({
+    id: row.id,
+    projectId: row.projectId,
+    projectName: row.project.name,
+    submittalNumber: row.submittalNumber,
+    title: row.title,
+    submittalType: row.submittalType,
+    discipline: row.discipline as Discipline | null,
+    status: row.status,
+    contractor: row.contractor ? { id: row.contractor.id, label: row.contractor.legalName, href: `/contractors/${row.contractor.id}` } : null,
+    workPackage: row.workPackage ? { id: row.workPackage.id, label: `${row.workPackage.code} · ${row.workPackage.name}`, href: `/projects/${row.projectId}/work-packages/${row.workPackage.id}` } : null,
+    currentRevision: row.currentRevision ? { code: row.currentRevision.revisionCode, status: row.currentRevision.status as RevisionStatus } : null,
+    revisionCount: row._count.revisions,
+    reviewer: personOf(names, row.assignedReviewerMemberId),
+    dueAt: dateOf(row.dueAt),
+    overdue: SUBMITTAL_IN_REVIEW.includes(row.status) && isOverdue(row.dueAt, today),
+    href: `/projects/${row.projectId}/engineering/submittals/${row.id}`,
+  }));
+}
+
+export async function listSubmittals(context: UserContext, query: SubmittalListQuery): Promise<{ items: SubmittalRowDTO[]; total: number; page: number; pageSize: number }> {
+  assertModule(context, MODULE);
+  if (!engineeringOpen(context, "submittal.view")) throw new AccessError("FORBIDDEN", "You cannot open submittals.");
+  if (query.projectId) await loadEngineeringProject(context, query.projectId, "submittal.view");
+  const pageSize = 50;
+  const { today } = await companyToday(context.companyId);
+  const filters: Prisma.TechnicalSubmittalWhereInput[] = [readableSubmittalWhere(context)];
+  if (query.projectId) filters.push({ projectId: query.projectId });
+  if (query.status) filters.push({ status: query.status });
+  if (query.type) filters.push({ submittalType: query.type });
+  if (query.types?.length) filters.push({ submittalType: { in: query.types } });
+  if (query.discipline) filters.push({ discipline: query.discipline });
+  if (query.contractorId) filters.push({ contractorId: query.contractorId });
+  if (query.workPackageId) filters.push({ workPackageId: query.workPackageId });
+  if (query.reviewer === "me") filters.push({ assignedReviewerMemberId: context.membershipId });
+  if (query.inReview) filters.push({ status: { in: SUBMITTAL_IN_REVIEW } });
+  if (query.overdue) filters.push({ status: { in: SUBMITTAL_IN_REVIEW }, dueAt: { lt: new Date(`${today}T00:00:00.000Z`) } });
+  if (query.q) filters.push({ OR: [{ submittalNumber: { contains: query.q, mode: "insensitive" } }, { title: { contains: query.q, mode: "insensitive" } }, { manufacturer: { contains: query.q, mode: "insensitive" } }, { productName: { contains: query.q, mode: "insensitive" } }] });
+  const where = { AND: filters };
+  const [rows, total] = await Promise.all([
+    prisma.technicalSubmittal.findMany({ where, orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { submittalNumber: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: SUBMITTAL_SELECT }),
+    prisma.technicalSubmittal.count({ where }),
+  ]);
+  return { items: await toRows(context, rows), total, page: query.page, pageSize };
+}
+
+async function findReadableSubmittal(context: UserContext, id: string): Promise<SubmittalRow> {
+  assertModule(context, MODULE);
+  const row = await prisma.technicalSubmittal.findFirst({ where: { AND: [readableSubmittalWhere(context), { id }] }, select: SUBMITTAL_SELECT });
+  if (!row) throw fail("SUBMITTAL_NOT_FOUND", "That submittal could not be found.", "NOT_FOUND");
+  return row;
+}
+
+export async function getSubmittal(context: UserContext, id: string): Promise<SubmittalDetailDTO> {
+  const row = await findReadableSubmittal(context, id);
+  const parent = await loadRevisionParent(context, "submittal", row.id);
+  const [[base], revisions, settings, links, tasks, rfis] = await Promise.all([
+    toRows(context, [row]),
+    revisionsOf(prisma, "submittal", row.id),
+    resolveEngineeringSettings(context.companyId),
+    listLinks(context, SUBMITTAL_RECORD, row.id),
+    tasksFromRecord(context, SUBMITTAL_RECORD, row.id),
+    engineeringOpen(context, "rfi.view") ? prisma.rfi.findMany({ where: { AND: [readableRfiWhere(context), { references: { some: { referenceType: "SUBMITTAL", referenceId: row.id } } }] }, take: 50, select: { id: true, projectId: true, rfiNumber: true, subject: true } }) : [],
+  ]);
+  const live = !projectArchived(row.project) && row.status !== "VOID" && row.status !== "CLOSED";
+  const edit = live && can(context, "submittal.edit");
+  const supplierVisible = row.supplier && canAccessModule(context, "procurement") && can(context, "procurement.supplier.view");
+  return {
+    ...base,
+    description: row.description,
+    specificationReference: row.specificationReference,
+    manufacturer: row.manufacturer,
+    productName: row.productName,
+    modelNumber: row.modelNumber,
+    supplier: supplierVisible ? { id: row.supplier!.id, label: row.supplier!.name, href: `/procurement/suppliers/${row.supplier!.id}` } : null,
+    activity: row.activity,
+    workArea: row.workArea,
+    voidReason: row.voidReason,
+    revisions: await revisionDTOs(context, parent, revisions),
+    revisionCapabilities: Object.fromEntries(revisions.map((revision) => [revision.id, revisionCapabilities(context, parent, revision, settings)])),
+    links: [...links, ...tasks.map((task) => ({ linkId: "", type: "task" as const, typeLabel: "Task", id: task.id, label: task.label, href: task.href }))],
+    linkedRfis: rfis.map((rfi) => ({ id: rfi.id, label: `${rfi.rfiNumber} · ${rfi.subject}`, href: `/projects/${rfi.projectId}/engineering/rfis/${rfi.id}` })),
+    version: row.version,
+    capabilities: {
+      canEdit: edit,
+      canAddRevision: edit,
+      // A decided submittal is closed out by the people who decide them (§227).
+      canClose: live && ["APPROVED", "APPROVED_WITH_COMMENTS", "REJECTED"].includes(row.status) && can(context, "submittal.approve"),
+      canVoid: live && can(context, "submittal.edit") && can(context, "submittal.approve"),
+      canLink: edit && linkableTypesFor(context, LINKABLE_TYPES).length > 0,
+      canCreateTask: edit && can(context, "task.create"),
+      canViewFiles: filesOpen(context),
+      canUploadFiles: edit && filesWritable(context),
+    },
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Writes                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** The Supplier on a material submittal is Procurement's record, from this company (§116, §244). */
+async function assertSupplier(context: UserContext, supplierId: string | null, current: string | null = null) {
+  if (!supplierId || supplierId === current) return;
+  if (!canAccessModule(context, "procurement") || !can(context, "procurement.supplier.view")) throw fail("SUBMITTAL_SUPPLIER_FORBIDDEN", "You cannot link suppliers.", "FORBIDDEN", { field: "supplierId" });
+  const found = await prisma.supplier.count({ where: { id: supplierId, companyId: context.companyId, archivedAt: null } });
+  if (!found) throw fail("SUBMITTAL_SUPPLIER_INVALID", "That supplier could not be found.", "VALIDATION_ERROR", { field: "supplierId" });
+}
+
+function detailData(input: CreateSubmittalInput | UpdateSubmittalInput) {
+  return {
+    title: input.title,
+    description: input.description,
+    submittalType: input.submittalType as SubmittalType,
+    discipline: input.discipline,
+    assignedReviewerMemberId: input.assignedReviewerMemberId,
+    dueAt: at(input.dueAt),
+    specificationReference: input.specificationReference,
+    manufacturer: input.manufacturer,
+    productName: input.productName,
+    modelNumber: input.modelNumber,
+    supplierId: input.supplierId,
+    activity: input.activity,
+    workArea: input.workArea,
+  };
+}
+
+export async function createSubmittal(context: UserContext, projectId: string, input: CreateSubmittalInput): Promise<{ id: string; submittalNumber: string }> {
+  const project = await loadEngineeringProject(context, projectId, "submittal.view");
+  assertPermission(context, "submittal.create");
+  assertProjectWritable(project);
+  const settings = await resolveEngineeringSettings(context.companyId);
+  if (settings.requireSubmittalDueDate && !input.dueAt) throw fail("SUBMITTAL_DUE_REQUIRED", "Give the review a due date.", "VALIDATION_ERROR", { field: "dueAt" });
+  const [scope] = await Promise.all([
+    resolveProjectContext(context.companyId, project.id, input, { newWork: true }),
+    assertResponsible(context.companyId, project.id, input.assignedReviewerMemberId, "submittal.review", "assignedReviewerMemberId"),
+    assertSupplier(context, input.supplierId),
+  ]);
+  const created = await withNumber("submittalNumber", input.submittalNumber, { code: "SUBMITTAL_NUMBER_TAKEN", message: "That submittal number is already used on this project." }, () =>
+    prisma.$transaction(async (tx) => {
+      const submittalNumber = await projectNumber(tx, {
+        companyId: context.companyId,
+        moduleKey: MODULE,
+        entityType: SUBMITTAL_RECORD,
+        prefix: "SUB",
+        manual: input.submittalNumber,
+        count: () => tx.technicalSubmittal.count({ where: { companyId: context.companyId, projectId: project.id } }),
+        taken: async (candidate) => (await tx.technicalSubmittal.count({ where: { companyId: context.companyId, projectId: project.id, submittalNumber: candidate } })) > 0,
+      });
+      const row = await tx.technicalSubmittal.create({
+        data: { companyId: context.companyId, projectId: project.id, contractorId: scope.contractorId, workPackageId: scope.workPackageId, submittalNumber, ...detailData(input), createdByMemberId: context.membershipId },
+        select: { id: true, submittalNumber: true },
+      });
+      await recordActivity(tx, context, { module: MODULE, entityType: SUBMITTAL_ACTIVITY, entityId: row.id, action: "SUBMITTAL_CREATED", message: `registered submittal ${submittalNumber} ${input.title}` });
+      await recordUserAction(context, { actionKey: AuditAction.SUBMITTAL_CREATED, entity: { type: SUBMITTAL_RECORD, id: row.id, label: submittalNumber }, projectId: project.id, after: { submittalNumber, submittalType: input.submittalType, contractorId: scope.contractorId, workPackageId: scope.workPackageId, assignedReviewerMemberId: input.assignedReviewerMemberId, dueAt: input.dueAt, supplierId: input.supplierId } }, { tx });
+      if (input.assignedReviewerMemberId) {
+        await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.SUBMITTAL_REVIEW_ASSIGNED, entityType: SUBMITTAL_RECORD, entityId: row.id, projectId: project.id, actorMemberId: context.membershipId, memberIds: [input.assignedReviewerMemberId], payload: { number: submittalNumber, title: input.title, assignment: `${input.assignedReviewerMemberId}:1` } });
+      }
+      return row;
+    }),
+  );
+  await subscribeStakeholders({ companyId: context.companyId, parentType: SUBMITTAL_RECORD, parentId: created.id, memberIds: [context.membershipId, ...(input.assignedReviewerMemberId ? [input.assignedReviewerMemberId] : [])] });
+  return created;
+}
+
+async function findWritableSubmittal(context: UserContext, id: string) {
+  const row = await findReadableSubmittal(context, id);
+  assertPermission(context, "submittal.edit");
+  assertProjectWritable(row.project);
+  if (row.status === "VOID" || row.status === "CLOSED") throw fail("SUBMITTAL_CLOSED", `This submittal is ${row.status.toLowerCase()}; its record is read-only.`, "CONFLICT");
+  return row;
+}
+
+export async function updateSubmittal(context: UserContext, id: string, input: UpdateSubmittalInput): Promise<{ id: string; version: number }> {
+  const row = await findWritableSubmittal(context, id);
+  const reassigned = input.assignedReviewerMemberId !== row.assignedReviewerMemberId;
+  const [scope] = await Promise.all([
+    resolveProjectContext(context.companyId, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
+    reassigned ? assertResponsible(context.companyId, row.projectId, input.assignedReviewerMemberId, "submittal.review", "assignedReviewerMemberId") : undefined,
+    assertSupplier(context, input.supplierId, row.supplierId),
+  ]);
+  await prisma.$transaction(async (tx) => {
+    const moved = await tx.technicalSubmittal.updateMany({ where: { id: row.id, version: input.expectedVersion, status: { notIn: ["VOID", "CLOSED"] } }, data: { ...detailData(input), contractorId: scope.contractorId, workPackageId: scope.workPackageId, version: { increment: 1 } } });
+    if (!moved.count) throw fail("SUBMITTAL_STALE", "This submittal changed since you opened it. Reload to see the latest.", "CONFLICT");
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.SUBMITTAL_UPDATED,
+        entity: { type: SUBMITTAL_RECORD, id: row.id, label: row.submittalNumber },
+        projectId: row.projectId,
+        before: { title: row.title, submittalType: row.submittalType, discipline: row.discipline, contractorId: row.contractorId, workPackageId: row.workPackageId, assignedReviewerMemberId: row.assignedReviewerMemberId, dueAt: dateOf(row.dueAt), supplierId: row.supplierId, manufacturer: row.manufacturer, productName: row.productName, modelNumber: row.modelNumber },
+        after: { title: input.title, submittalType: input.submittalType, discipline: input.discipline, contractorId: scope.contractorId, workPackageId: scope.workPackageId, assignedReviewerMemberId: input.assignedReviewerMemberId, dueAt: input.dueAt, supplierId: input.supplierId, manufacturer: input.manufacturer, productName: input.productName, modelNumber: input.modelNumber },
+      },
+      { tx },
+    );
+    if (reassigned) {
+      await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.SUBMITTAL_REVIEW_ASSIGNED, entityType: SUBMITTAL_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId, memberIds: [input.assignedReviewerMemberId], payload: { number: row.submittalNumber, title: input.title, dueDate: input.dueAt, dateLabel: dateLabel(input.dueAt), assignment: `${input.assignedReviewerMemberId}:${input.expectedVersion + 1}` } });
+    }
+  });
+  if (reassigned || input.dueAt !== dateOf(row.dueAt)) await resolveAttentionForRecord(prisma, context.companyId, SUBMITTAL_RECORD, row.id, ["SUBMITTAL_REVIEW_OVERDUE"]);
+  if (reassigned && input.assignedReviewerMemberId) await subscribeStakeholders({ companyId: context.companyId, parentType: SUBMITTAL_RECORD, parentId: row.id, memberIds: [input.assignedReviewerMemberId] });
+  return { id: row.id, version: input.expectedVersion + 1 };
+}
+
+export async function closeSubmittal(context: UserContext, id: string): Promise<{ id: string }> {
+  const row = await findWritableSubmittal(context, id);
+  assertPermission(context, "submittal.approve");
+  if (!["APPROVED", "APPROVED_WITH_COMMENTS", "REJECTED"].includes(row.status)) throw fail("SUBMITTAL_NOT_DECIDED", "A submittal is closed once its review has a final decision.", "CONFLICT");
+  await prisma.$transaction(async (tx) => {
+    const moved = await tx.technicalSubmittal.updateMany({ where: { id: row.id, status: row.status as SubmittalStatus }, data: { status: "CLOSED", closedAt: new Date(), version: { increment: 1 } } });
+    if (!moved.count) throw fail("SUBMITTAL_STALE", "This submittal changed since you opened it. Reload to see the latest.", "CONFLICT");
+    await recordUserAction(context, { actionKey: AuditAction.SUBMITTAL_CLOSED, entity: { type: SUBMITTAL_RECORD, id: row.id, label: row.submittalNumber }, projectId: row.projectId, before: { status: row.status }, after: { status: "CLOSED" } }, { tx });
+    await recordActivity(tx, context, { module: MODULE, entityType: SUBMITTAL_ACTIVITY, entityId: row.id, action: "SUBMITTAL_CLOSED", message: `closed submittal ${row.submittalNumber}` });
+  });
+  await resolveAttentionForRecord(prisma, context.companyId, SUBMITTAL_RECORD, row.id, ["SUBMITTAL_REVIEW_OVERDUE", "SUBMITTAL_REVISION_REQUIRED"]);
+  return { id: row.id };
+}
+
+export async function voidSubmittal(context: UserContext, id: string, input: { reason: string }): Promise<{ id: string }> {
+  const row = await findWritableSubmittal(context, id);
+  assertPermission(context, "submittal.approve");
+  await prisma.$transaction(async (tx) => {
+    const moved = await tx.technicalSubmittal.updateMany({ where: { id: row.id, status: { notIn: ["VOID", "CLOSED"] } }, data: { status: "VOID", voidedAt: new Date(), voidReason: input.reason, version: { increment: 1 } } });
+    if (!moved.count) throw fail("SUBMITTAL_STALE", "This submittal changed since you opened it. Reload to see the latest.", "CONFLICT");
+    await tx.technicalSubmittalRevision.updateMany({ where: { submittalId: row.id, status: "DRAFT" }, data: { status: "VOID", voidedAt: new Date() } });
+    await recordUserAction(context, { actionKey: AuditAction.SUBMITTAL_VOIDED, entity: { type: SUBMITTAL_RECORD, id: row.id, label: row.submittalNumber }, projectId: row.projectId, before: { status: row.status }, after: { status: "VOID" }, reason: input.reason }, { tx });
+    await recordActivity(tx, context, { module: MODULE, entityType: SUBMITTAL_ACTIVITY, entityId: row.id, action: "SUBMITTAL_VOIDED", message: `voided submittal ${row.submittalNumber}` });
+  });
+  await resolveAttentionForRecord(prisma, context.companyId, SUBMITTAL_RECORD, row.id, ["SUBMITTAL_REVIEW_OVERDUE", "SUBMITTAL_REVISION_REQUIRED"]);
+  return { id: row.id };
+}
+
+export async function submittalOptions(context: UserContext, projectId: string): Promise<ProjectEngineeringOptions & { suppliers: Option[] }> {
+  const [base, suppliers] = await Promise.all([
+    projectEngineeringOptions(context, projectId, "submittal.review"),
+    canAccessModule(context, "procurement") && can(context, "procurement.supplier.view") ? prisma.supplier.findMany({ where: { companyId: context.companyId, archivedAt: null }, orderBy: { name: "asc" }, take: 300, select: { id: true, name: true } }) : [],
+  ]);
+  return { ...base, suppliers: suppliers.map((row) => ({ id: row.id, label: row.name })) };
+}
+
+/** Drawings and documents a submittal points at, through links, for the drawing register (§79). */
+export async function submittalIdsLinkedTo(companyId: string, documentId: string): Promise<string[]> {
+  const rows = await prisma.integrationLink.findMany({ where: { companyId, integrationType: LINK_TYPE, status: "ACTIVE", sourceEntityType: SUBMITTAL_RECORD, targetEntityType: "engineering_document", targetEntityId: documentId }, select: { sourceEntityId: true } });
+  return rows.map((row) => row.sourceEntityId);
+}

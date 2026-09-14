@@ -81,6 +81,18 @@ export const Metric = {
   ANNOUNCEMENT_PUBLISH_FAILURE: "announcement_publish_failure_count",
   ANNOUNCEMENT_EXPIRE_SUCCESS: "announcement_expire_success_count",
   ANNOUNCEMENT_ACK_REMINDER_SENT: "announcement_ack_reminder_sent_count",
+  // Contractors and engineering (PRD #46 §232).
+  CONTRACTOR_CREATE_SUCCESS: "contractor_create_success",
+  WORK_PACKAGE_CREATE_SUCCESS: "work_package_create_success",
+  RFI_OPENED: "rfi_open_count",
+  RFI_OVERDUE: "rfi_overdue_count",
+  RFI_RESPONSE_DURATION: "rfi_response_duration",
+  SUBMITTAL_SUBMITTED: "submittal_pending_review_count",
+  SUBMITTAL_OVERDUE: "submittal_overdue_count",
+  SUBMITTAL_REVISION_REQUIRED: "submittal_revision_required_count",
+  ENGINEERING_REVIEW_DURATION: "engineering_review_duration",
+  COMPLIANCE_EXPIRING: "contractor_compliance_expiring_count",
+  COMPLIANCE_EXPIRED: "contractor_compliance_expired_count",
   RECENT_WORK_PRUNED: "recent_work_pruned_count",
 } as const;
 

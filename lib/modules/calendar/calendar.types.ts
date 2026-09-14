@@ -25,6 +25,8 @@ export const CALENDAR_CATEGORIES = [
   "QA_QC",
   "HSE",
   "DOCUMENT",
+  /** RFI and submittal review due dates (PRD #46 §200). */
+  "ENGINEERING",
   "COMPANY",
   "PERSONAL",
 ] as const;

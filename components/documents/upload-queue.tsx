@@ -239,8 +239,10 @@ async function authorise(
     headers: {
       "Content-Type": "application/json",
       // A retried authorisation returns the session already open rather than
-      // opening a second one (PRD #29 §261).
-      "Idempotency-Key": `${file.name}:${file.size}:${file.lastModified}`,
+      // opening a second one (PRD #29 §261). The name is encoded: a header
+      // carries only Latin-1, and "Rev A — data.pdf" or "Çelësi.pdf" would
+      // otherwise make fetch throw before the request leaves the browser.
+      "Idempotency-Key": `${encodeURIComponent(file.name)}:${file.size}:${file.lastModified}`,
     },
     body: JSON.stringify({
       ...parent,

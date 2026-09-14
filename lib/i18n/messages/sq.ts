@@ -96,6 +96,8 @@ export const sq: Messages = {
     meetings: { label: "Takimet", description: "Rendet e ditës, procesverbalet, vendimet dhe veprimet që pasojnë." },
     timesheets: { label: "Fletët e orëve", description: "Si shpenzohet koha e punës në projekte, detyra dhe punë të brendshme." },
     dailyLogs: { label: "Ditarët e kantierit", description: "Çfarë ndodhi në kantier çdo ditë: njerëzit, punimet, dorëzimet, vonesat dhe provat." },
+    contractors: { label: "Kontraktorët", description: "Organizatat që ndërtojnë me ju: caktimet, paketat e punës, pajtueshmëria dhe kontratat." },
+    engineering: { label: "Inxhinieria", description: "Vizatimet, rishikimet, RFI-të, dorëzimet teknike dhe transmetimet — regjistri teknik i çdo projekti." },
     clients: { label: "Klientët", description: "Kompanitë dhe personat me të cilët punon kompania juaj." },
     documents: { label: "Dokumentet", description: "Dokumentacioni i kompanisë, projekteve dhe klientëve." },
     finance: { label: "Financa", description: "Të ardhurat, kostot dhe kontrolli financiar i kompanisë." },
@@ -215,6 +217,8 @@ export const sq: Messages = {
         daily_logs: { label: "Ditarët e kantierit", description: "Ditarë për t'u shqyrtuar, ditarë të kthyer, kyçje, korrigjime dhe ditarë që mungojnë." },
         project_planning: { label: "Planifikimi i projektit", description: "Pikat kyçe që keni në ngarkim, afatet, vonesat, pengesat dhe ndryshimet e bazës." },
         announcements: { label: "Njoftimet", description: "Njoftime drejtuar jush, njoftime kritike dhe kujtesa për konfirmim." },
+        contractors: { label: "Kontraktorët", description: "Kontraktorë të caktuar në projektet tuaja, ndryshime statusi dhe pajtueshmëri që skadon ose ka skaduar." },
+        engineering: { label: "Inxhinieria", description: "RFI dhe dorëzime teknike të caktuara për ju, shqyrtime në afat dhe me vonesë, vendime dhe transmetime të lëshuara." },
       },
     },
 

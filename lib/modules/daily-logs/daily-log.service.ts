@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { can, canAccessModule } from "@/lib/access/can";
+import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
@@ -275,6 +275,17 @@ async function referenceLabels(context: UserContext, row: DetailRow) {
   const stockIds = row.deliveryEntries.map((entry) => entry.inventoryReceiptId).filter((id): id is string => Boolean(id));
   const procurementOpen = canAccessModule(context, "procurement");
   const tasksOpen = canAccessModule(context, "tasks") && can(context, "task.view");
+  const contractorIds = [...row.workforce.map((entry) => entry.contractorId), ...row.workActivities.map((entry) => entry.contractorId)].filter((id): id is string => Boolean(id));
+  const packageIds = [...row.workforce.map((entry) => entry.workPackageId), ...row.workActivities.map((entry) => entry.workPackageId)].filter((id): id is string => Boolean(id));
+  const contractorsOpen = isModuleEnabled(context, "contractors") && canAccessModule(context, "contractors") && can(context, "contractor.view");
+
+  const [contractors, packages] = await Promise.all([
+    contractorIds.length ? prisma.contractorProfile.findMany({ where: { companyId: context.companyId, id: { in: [...new Set(contractorIds)] } }, select: { id: true, legalName: true } }) : [],
+    packageIds.length ? prisma.workPackage.findMany({ where: { companyId: context.companyId, id: { in: [...new Set(packageIds)] } }, select: { id: true, code: true, name: true, projectId: true } }) : [],
+  ]);
+  // The name is part of the site record; the link only for readers who can open contractors (PRD #46 §140).
+  const contractorRef = new Map(contractors.map((item) => [item.id, { id: item.id, label: item.legalName, href: contractorsOpen ? `/contractors/${item.id}` : null }]));
+  const packageRef = new Map(packages.map((item) => [item.id, { id: item.id, label: `${item.code} · ${item.name}`, href: contractorsOpen && can(context, "work_package.view") ? `/projects/${item.projectId}/work-packages/${item.id}` : null }]));
 
   const [suppliers, allTasks, visibleTasks, orders, receipts, stock] = await Promise.all([
     supplierIds.length ? prisma.supplier.findMany({ where: { companyId: context.companyId, id: { in: [...new Set(supplierIds)] } }, select: { id: true, name: true } }) : [],
@@ -299,6 +310,8 @@ async function referenceLabels(context: UserContext, row: DetailRow) {
   const restricted = (id: string | null, map: Map<string, Ref>, noun: string): Ref | null => (id ? (map.get(id) ?? { id, label: `${noun} you cannot open`, href: null }) : null);
   return {
     supplier: (id: string | null) => (id ? (supplierRef.get(id) ?? null) : null),
+    contractor: (id: string | null) => (id ? (contractorRef.get(id) ?? null) : null),
+    workPackage: (id: string | null) => (id ? (packageRef.get(id) ?? null) : null),
     task: taskRef,
     taskInfo,
     visibleTask: (id: string) => visible.has(id),
@@ -481,10 +494,10 @@ export async function getDailyLog(context: UserContext, dailyLogId: string): Pro
       notes: entry.notes,
       updatedAt: entry.updatedAt.toISOString(),
     })),
-    workforce: row.workforce.map((entry) => ({ id: entry.id, organizationName: entry.organizationName, supplier: refs.supplier(entry.supplierId), trade: entry.trade, crewName: entry.crewName, headcount: entry.headcount, notes: entry.notes, updatedAt: entry.updatedAt.toISOString() })),
+    workforce: row.workforce.map((entry) => ({ id: entry.id, organizationName: entry.organizationName, supplier: refs.supplier(entry.supplierId), contractor: refs.contractor(entry.contractorId), workPackage: refs.workPackage(entry.workPackageId), trade: entry.trade, crewName: entry.crewName, headcount: entry.headcount, notes: entry.notes, updatedAt: entry.updatedAt.toISOString() })),
     activities: row.workActivities.map((entry) => ({
       id: entry.id, title: entry.title, description: entry.description, projectArea: entry.projectArea, floorZone: entry.floorZone, trade: entry.trade,
-      progressPercent: decimal(entry.progressPercent), task: refs.task(entry.linkedTaskId), createdBy: person(entry.createdByMemberId), updatedAt: entry.updatedAt.toISOString(),
+      progressPercent: decimal(entry.progressPercent), task: refs.task(entry.linkedTaskId), contractor: refs.contractor(entry.contractorId), workPackage: refs.workPackage(entry.workPackageId), createdBy: person(entry.createdByMemberId), updatedAt: entry.updatedAt.toISOString(),
     })),
     equipment: row.equipmentEntries.map((entry) => ({ id: entry.id, equipmentName: entry.equipmentName, equipmentCode: entry.equipmentCode, supplier: refs.supplier(entry.supplierId), quantity: entry.quantity, hoursUsed: decimal(entry.hoursUsed), status: entry.status, notes: entry.notes, updatedAt: entry.updatedAt.toISOString() })),
     deliveries: row.deliveryEntries.map((entry) => ({

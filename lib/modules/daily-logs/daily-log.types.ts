@@ -136,6 +136,8 @@ export type WorkforceEntryDTO = {
   id: string;
   organizationName: string;
   supplier: Ref | null;
+  contractor: Ref | null;
+  workPackage: Ref | null;
   trade: string | null;
   crewName: string | null;
   headcount: number;
@@ -152,6 +154,8 @@ export type WorkActivityDTO = {
   trade: string | null;
   progressPercent: number | null;
   task: Ref | null;
+  contractor: Ref | null;
+  workPackage: Ref | null;
   createdBy: DailyLogPerson | null;
   updatedAt: string;
 };

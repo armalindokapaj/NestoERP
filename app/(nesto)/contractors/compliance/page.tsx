@@ -1,0 +1,39 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+
+import { CompliancePanel } from "@/components/contractors/contractor-panels";
+import { ListToolbar } from "@/components/data/list-toolbar";
+import { flat, type SearchParams } from "@/components/engineering/page-helpers";
+import { ModulePage } from "@/components/modules/module-page";
+import { resolveModuleExperience } from "@/lib/access/module-access";
+import { requireModule } from "@/lib/context/current-user";
+import { listCompliance } from "@/lib/modules/contractors/contractor.compliance";
+import { contractorsOpen } from "@/lib/modules/contractors/contractor.permissions";
+import { complianceListSchema } from "@/lib/modules/contractors/contractor.schema";
+import { COMPLIANCE_STATUSES, COMPLIANCE_STATUS_LABELS, COMPLIANCE_TYPES, COMPLIANCE_TYPE_LABELS } from "@/lib/modules/contractors/contractor.types";
+
+export const metadata: Metadata = { title: "Contractor compliance" };
+
+/** Every contractor's insurance, licences and guarantees, soonest expiry first (PRD #46 §41-§49, §207). */
+export default async function CompliancePage({ searchParams }: { searchParams: SearchParams }) {
+  const context = await requireModule("contractors");
+  if (!contractorsOpen(context, "contractor_compliance.view")) redirect("/access-denied");
+  const experience = resolveModuleExperience(context, "contractors");
+  const result = await listCompliance(context, complianceListSchema.parse(flat(await searchParams)));
+  return (
+    <ModulePage experience={experience} activeSection="compliance" description="Insurance, licences, guarantees and certificates across contractors — soonest expiry first.">
+      <div className="space-y-4">
+        <ListToolbar
+          searchPlaceholder="Search requirement, reference or contractor…"
+          searchParam="q"
+          filters={[
+            { param: "alerts", label: "Alerts", options: [{ value: "1", label: "Expiring, expired or missing" }] },
+            { param: "status", label: "Status", options: COMPLIANCE_STATUSES.map((value) => ({ value, label: COMPLIANCE_STATUS_LABELS[value] })) },
+            { param: "type", label: "Type", options: COMPLIANCE_TYPES.map((value) => ({ value, label: COMPLIANCE_TYPE_LABELS[value] })) },
+          ]}
+        />
+        <CompliancePanel contractorId={null} items={result.items} canManage={false} canUpload={false} showContractor />
+      </div>
+    </ModulePage>
+  );
+}

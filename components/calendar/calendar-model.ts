@@ -3,6 +3,7 @@ import {
   Building2,
   CalendarDays,
   CheckSquare,
+  DraftingCompass,
   FileText,
   Flag,
   FolderKanban,
@@ -38,12 +39,13 @@ export const CATEGORY_META: Record<CalendarCategory, { label: string; icon: Luci
   QA_QC: { label: "QA/QC", icon: BadgeCheck, token: "var(--nesto-cal-qaqc)" },
   HSE: { label: "HSE", icon: ShieldAlert, token: "var(--nesto-cal-hse)" },
   DOCUMENT: { label: "Documents", icon: FileText, token: "var(--nesto-cal-document)" },
+  ENGINEERING: { label: "Engineering", icon: DraftingCompass, token: "var(--nesto-cal-engineering)" },
   COMPANY: { label: "Company events", icon: Building2, token: "var(--nesto-cal-company)" },
   PERSONAL: { label: "Personal", icon: CalendarDays, token: "var(--nesto-cal-personal)" },
 };
 
 /** The categories a filter offers, in reading order. Meetings and milestones arrive with PRDs #40 and #44. */
-export const FILTER_CATEGORIES: CalendarCategory[] = ["TASK", "PROJECT", "COMPANY", "PERSONAL", "HR", "FINANCE", "LEGAL", "PROCUREMENT", "QA_QC", "HSE", "DOCUMENT"];
+export const FILTER_CATEGORIES: CalendarCategory[] = ["TASK", "PROJECT", "COMPANY", "PERSONAL", "HR", "FINANCE", "LEGAL", "PROCUREMENT", "QA_QC", "HSE", "DOCUMENT", "ENGINEERING"];
 
 export function isView(value: string | null | undefined): value is CalendarView {
   return value === "month" || value === "week" || value === "day" || value === "agenda";

@@ -659,6 +659,11 @@ export async function createVersionUploadSession(
   if (!(await canAttachToDocumentParent(context, document))) {
     throw new AccessError("FORBIDDEN", "You cannot add files to that record.");
   }
+  // A file carried by a submitted engineering revision or an issued transmittal
+  // is part of that record: a correction is a new revision (PRD #46 §69, §123).
+  const { frozenDocumentReason } = await import("@/lib/modules/engineering/engineering.revisions");
+  const frozen = await frozenDocumentReason(document.id);
+  if (frozen) throw new AccessError("CONFLICT", frozen, { code: "ENGINEERING_FILE_FROZEN" });
 
   const name = checkFileName(input.fileName);
   if (!name.ok) throw new StorageError("INVALID_FILE_NAME", name.reason);
