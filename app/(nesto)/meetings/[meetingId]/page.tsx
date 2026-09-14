@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { RecordDocuments } from "@/components/documents/record-documents";
 import { MeetingWorkspace } from "@/components/meetings/meeting-workspace";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { listMeetingActivity } from "@/lib/modules/meetings/meeting.service";
 import { loadMeeting } from "./meeting-context";
 
@@ -48,6 +49,7 @@ export default async function MeetingPage({ params }: Params) {
         ) : null
       }
       discussion={<CollaborationPanel key="discussion" parentType="meeting" parentId={meeting.id} />}
+      favorite={<RecordFavorite context={context} entityType="meeting" entityId={meeting.id} compact />}
     />
   );
 }

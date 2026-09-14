@@ -261,6 +261,8 @@ export type MilestoneDetailDTO = MilestoneSummaryDTO & {
   /** What the plan suggests, never applies (§43, §162). */
   suggestion: { forecastDate: string | null; atRisk: string[] };
   capabilities: MilestoneCapabilities;
+  /** Starred by this reader (PRD #45 §75). */
+  favorite: boolean;
 };
 
 export type PlanningSettingsDTO = {

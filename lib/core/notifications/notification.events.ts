@@ -49,6 +49,7 @@ export const NOTIFICATION_CATEGORIES = [
   "timesheets",
   "daily_logs",
   "project_planning",
+  "announcements",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -194,6 +195,11 @@ export const NotificationEvent = {
   MILESTONE_BLOCKER_ASSIGNED: "MILESTONE_BLOCKER_ASSIGNED",
   MILESTONE_BLOCKER_RESOLVED: "MILESTONE_BLOCKER_RESOLVED",
   BASELINE_CHANGED: "BASELINE_CHANGED",
+  // Announcements (PRD #45 §44-§46, §249)
+  ANNOUNCEMENT_PUBLISHED: "ANNOUNCEMENT_PUBLISHED",
+  ANNOUNCEMENT_CRITICAL: "ANNOUNCEMENT_CRITICAL",
+  ANNOUNCEMENT_ACK_REQUIRED: "ANNOUNCEMENT_ACK_REQUIRED",
+  ANNOUNCEMENT_REMINDER: "ANNOUNCEMENT_REMINDER",
 } as const;
 
 const DEFINITIONS: NotificationEventDefinition[] = [
@@ -672,6 +678,61 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `The baseline of “${text(payload, "milestoneName", "a milestone")}” on ${text(payload, "projectName", "a project")} moved`,
     body: (payload) => [text(payload, "change"), text(payload, "reason").slice(0, 200)].filter(Boolean).join(" — ") || null,
     dedupe: perEvent,
+  },
+
+  /* Announcements --------------------------------------------------------- */
+  {
+    // An important announcement — or an ordinary one when the company asks for it (§45).
+    eventType: NotificationEvent.ANNOUNCEMENT_PUBLISHED,
+    category: "announcements",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `Announcement: ${text(payload, "title", "a new announcement")}`,
+    body: (payload) => text(payload, "excerpt") || null,
+    dedupe: (event, memberId) => `ANNOUNCEMENT_PUBLISHED:${event.entityId}:${memberId}`,
+  },
+  {
+    // Critical notices reach everyone addressed in-app whatever their preferences, and by email by company policy (§27, §45, §249).
+    eventType: NotificationEvent.ANNOUNCEMENT_CRITICAL,
+    category: "announcements",
+    priority: "CRITICAL",
+    mandatory: true,
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `Critical announcement: ${text(payload, "title", "read now")}`,
+    body: (payload) => (payload.requiresAcknowledgment ? "Please read it and confirm you have." : text(payload, "excerpt") || null),
+    dedupe: (event, memberId) => `ANNOUNCEMENT_CRITICAL:${event.entityId}:${memberId}`,
+    email: {
+      templateKey: "announcement.critical",
+      defaultOn: true,
+      variables: (payload, link) => ({ title: text(payload, "title", "A critical announcement"), link }),
+    },
+  },
+  {
+    eventType: NotificationEvent.ANNOUNCEMENT_ACK_REQUIRED,
+    category: "announcements",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `Please read and acknowledge: ${text(payload, "title", "an announcement")}`,
+    body: (payload) => text(payload, "excerpt") || null,
+    dedupe: (event, memberId) => `ANNOUNCEMENT_ACK_REQUIRED:${event.entityId}:${memberId}`,
+  },
+  {
+    // Throttled by the job: one reminder round every few days, to those who have not acknowledged (§46).
+    eventType: NotificationEvent.ANNOUNCEMENT_REMINDER,
+    category: "announcements",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `Reminder: acknowledge “${text(payload, "title", "an announcement")}”`,
+    body: () => "It is still waiting for your confirmation.",
+    dedupe: (event, memberId, payload) => `ANNOUNCEMENT_REMINDER:${event.entityId}:${text(payload, "round")}:${memberId}`,
   },
 
   /* Documents ------------------------------------------------------------- */

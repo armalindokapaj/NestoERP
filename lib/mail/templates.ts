@@ -119,6 +119,15 @@ const TEMPLATES: Record<MailTemplateKey, TemplateDefinition> = {
     action: () => "Open in NESTO",
     footnote: () => "You are receiving this because email is on for calendar reminders in your notification settings.",
   },
+  "announcement.critical": {
+    variables: ["title", "link"],
+    linkVariable: "link",
+    subject: (v) => `Critical announcement: ${v.title}`,
+    heading: () => "Critical announcement",
+    paragraphs: (v) => [`“${v.title}”.`, "Open NESTO to read it and, where asked, confirm you have read it."],
+    action: () => "Read in NESTO",
+    footnote: () => "Critical announcements are sent to everyone they are addressed to, by company policy.",
+  },
   "meeting.invitation": {
     variables: ["title", "when", "link"],
     linkVariable: "link",

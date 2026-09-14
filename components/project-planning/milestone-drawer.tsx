@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, Check, FileText, Link2, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Upload, X } from "lucide-react";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
+import { FavoriteButton } from "@/components/productivity/favorite-button";
 import { useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -163,6 +164,8 @@ export function MilestoneDrawer({
     if (!milestoneId) return;
     void load(milestoneId).then((next) => {
       if (!next) return;
+      // Opening a milestone is returning to it later (PRD #45 §99).
+      void planningApi("/api/recent-work/access", { body: { entityType: "project_milestone", entityId: next.id } }).catch(() => undefined);
       const map: Record<Exclude<DrawerPanel, null>, Panel> = { status: null, forecast: null, blocker: "blocker", task: "task", complete: "complete" };
       if (initialPanel && map[initialPanel]) openPanel(map[initialPanel]);
       if (initialPanel === "status" || initialPanel === "forecast") setTimeout(() => quickRef.current?.querySelector<HTMLElement>(initialPanel === "status" ? "select" : "input[type=date]")?.focus(), 250);
@@ -243,6 +246,7 @@ export function MilestoneDrawer({
                     {detail.waitingOn ? <span className="text-meta text-fg-muted">Waiting on {detail.waitingOn}</span> : null}
                   </div>
                 </div>
+                <FavoriteButton key={`favorite-${detail.id}`} entityType="project_milestone" entityId={detail.id} initial={detail.favorite} compact />
                 {caps?.canEdit || caps?.canArchive ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

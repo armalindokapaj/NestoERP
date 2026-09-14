@@ -943,6 +943,10 @@ model Company {
   projectPhases              ProjectPhase[]
   projectMilestones          ProjectMilestone[]
   projectPlanningSettings    ProjectPlanningSettings?
+  announcements              Announcement[]
+  userFavorites              UserFavorite[]
+  recentItems                RecentItem[]
+  productivitySettings       ProductivitySettings?
 
   @@index([status])
   @@index([name])
@@ -965,8 +969,9 @@ model Department {
   archivedBy String?
   archivedAt DateTime?
 
-  company Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  members CompanyMember[] @relation("DepartmentMembers")
+  company       Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  members       CompanyMember[] @relation("DepartmentMembers")
+  announcements Announcement[]
 
   managerMember CompanyMember? @relation("DepartmentManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
 
@@ -1311,6 +1316,7 @@ model Project {
   dailyLogSettings ProjectDailyLogSettings?
   phases           ProjectPhase[]
   milestones       ProjectMilestone[]
+  announcements    Announcement[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -4577,6 +4583,8 @@ enum AuditCategory {
   TIMESHEET
   /// Daily site records, their review, locking, voids and corrections (PRD #43 §193).
   DAILY_LOG
+  /// Internal announcements: publishing, scheduling, pinning, expiry and archive (PRD #45 §54).
+  ANNOUNCEMENT
 }
 
 enum AuditSeverity {
@@ -8411,3 +8419,204 @@ model ProjectPlanningSettings {
 
   @@map("project_planning_settings")
 }
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Announcements, favorites and recent work (PRD #45)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  EXPIRED
+  ARCHIVED
+}
+
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  CRITICAL
+}
+
+enum AnnouncementAudienceType {
+  COMPANY
+  DEPARTMENT
+  PROJECT
+  SELECTED_MEMBERS
+}
+
+/// An intentionally published one-to-many internal bulletin (PRD #45 §6-§68).
+model Announcement {
+  id        String @id @default(cuid())
+  companyId String
+
+  title String
+  /// Safe rich text: a small markdown subset rendered as React nodes, never HTML (§17).
+  body  String
+
+  status       AnnouncementStatus       @default(DRAFT)
+  priority     AnnouncementPriority     @default(NORMAL)
+  audienceType AnnouncementAudienceType @default(COMPANY)
+  departmentId String?
+  projectId    String?
+
+  authorMemberId      String
+  publishedByMemberId String?
+
+  publishAt   DateTime?
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  expiredAt   DateTime?
+
+  pinned                 Boolean @default(false)
+  requiresAcknowledgment Boolean @default(false)
+
+  /// A real dated event: the only thing that puts an announcement on the calendar (§40-§43).
+  eventStartsAt DateTime?
+  eventEndsAt   DateTime?
+
+  /// Set when a published announcement's content is corrected (§145).
+  editedAt   DateTime?
+  archivedAt DateTime?
+  version    Int       @default(1)
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  selectedMembers AnnouncementAudienceMember[]
+  reads           AnnouncementRead[]
+  acknowledgments AnnouncementAcknowledgment[]
+  targets         AnnouncementTarget[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status, publishAt])
+  @@index([companyId, priority, publishedAt])
+  @@index([companyId, projectId, status])
+  @@index([companyId, departmentId, status])
+  @@index([companyId, status, expiresAt])
+  @@index([companyId, eventStartsAt])
+  @@map("announcements")
+}
+
+model AnnouncementAudienceMember {
+  announcementId String
+  memberId       String
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, memberId])
+  @@index([memberId])
+  @@map("announcement_audience_members")
+}
+
+/// Who opened it and when — personal state, never an audit event (§13, §55).
+model AnnouncementRead {
+  announcementId String
+  memberId       String
+  firstReadAt    DateTime
+  lastReadAt     DateTime
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, memberId])
+  @@index([memberId, lastReadAt])
+  @@map("announcement_reads")
+}
+
+/// "I have read this" — explicit, self-only, not a legal acceptance (§14-§16).
+model AnnouncementAcknowledgment {
+  announcementId String
+  memberId       String
+  acknowledgedAt DateTime
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, memberId])
+  @@index([memberId, acknowledgedAt])
+  @@map("announcement_acknowledgments")
+}
+
+/// Who was asked to acknowledge, as it stood at publication (§135-§140).
+model AnnouncementTarget {
+  announcementId String
+  memberId       String
+  targetedAt     DateTime
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, memberId])
+  @@index([memberId])
+  @@map("announcement_targets")
+}
+
+/// A personal shortcut to a record; grants nothing (§69-§93).
+model UserFavorite {
+  id         String @id @default(cuid())
+  companyId  String
+  memberId   String
+  /// A key of the code-defined navigable entity registry (§163).
+  entityType String
+  entityId   String
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([memberId, entityType, entityId])
+  @@index([companyId, memberId, createdAt])
+  @@map("user_favorites")
+}
+
+/// A record this member opened recently — not audit, not activity, prunable (§94-§115).
+model RecentItem {
+  id             String   @id @default(cuid())
+  companyId      String
+  memberId       String
+  entityType     String
+  entityId       String
+  lastAccessedAt DateTime
+  accessCount    Int      @default(1)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([memberId, entityType, entityId])
+  @@index([companyId, memberId, lastAccessedAt])
+  @@index([lastAccessedAt])
+  @@map("recent_items")
+}
+
+/// Company switches and retention for the shared productivity layer (§247).
+model ProductivitySettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  announcementsEnabled        Boolean @default(true)
+  favoritesEnabled            Boolean @default(true)
+  recentWorkEnabled           Boolean @default(true)
+  recentWorkRetentionDays     Int     @default(90)
+  announcementAckReminderDays Int     @default(3)
+  /// Ordinary announcements appear in the feed; this also sends them as notifications (§45).
+  notifyNormalAnnouncements   Boolean @default(false)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("productivity_settings")
+}
+

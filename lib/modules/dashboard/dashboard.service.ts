@@ -582,6 +582,37 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       };
     }
 
+    case "announcements": {
+      // Audience-safe at the query; critical and pinned first (PRD #45 §65, §66, §118).
+      const { dashboardAnnouncements } = await import("@/lib/modules/announcements/announcement.service");
+      const { PRIORITY_LABELS } = await import("@/lib/modules/announcements/announcement.types");
+      const items = await dashboardAnnouncements(context, 5);
+      return {
+        kind: "list",
+        items: items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          subtitle: [item.audience.label, item.requiresAcknowledgment && !item.acknowledgedAt ? "Acknowledgment required" : !item.read ? "Unread" : null].filter(Boolean).join(" · "),
+          meta: item.priority === "NORMAL" ? (item.pinned ? "Pinned" : undefined) : PRIORITY_LABELS[item.priority],
+          status: item.priority === "CRITICAL" ? "CRITICAL" : undefined,
+          href: item.href,
+        })),
+      };
+    }
+
+    case "favorites": {
+      // Re-resolved in the reader's context every time: a favorite never opens a door (PRD #45 §70, §86).
+      const { listFavorites } = await import("@/lib/modules/productivity/favorites.service");
+      const items = await listFavorites(context, { limit: 8 });
+      return { kind: "list", items: items.map((item) => ({ id: `${item.entityType}:${item.entityId}`, title: item.title, subtitle: item.subtitle, href: item.href })) };
+    }
+
+    case "recentWork": {
+      const { listRecentWork } = await import("@/lib/modules/productivity/recent-work.service");
+      const items = await listRecentWork(context, { limit: 8 });
+      return { kind: "list", items: items.map((item) => ({ id: `${item.entityType}:${item.entityId}`, title: item.title, subtitle: item.subtitle, meta: relativeTime(item.lastAccessedAt), href: item.href })) };
+    }
+
     case "upcomingMilestones": {
       // Key dates on the reader's projects, read through the plan's own door (PRD #44 §169).
       const { upcomingMilestones } = await import("@/lib/modules/project-planning/planning.reports");
@@ -1692,4 +1723,15 @@ async function countLowStock(context: UserContext): Promise<number> {
 function decimalToNumber(value: Prisma.Decimal | null | undefined): number {
   if (!value) return 0;
   return Number(value);
+}
+
+/** "3 min ago", "Yesterday" — spelled out on the server, so every browser agrees (PRD #45 §210). */
+function relativeTime(iso: string, now = new Date()): string {
+  const minutes = Math.round((now.getTime() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "Yesterday" : `${days} days ago`;
 }

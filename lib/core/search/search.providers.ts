@@ -812,11 +812,43 @@ const milestoneProvider: GlobalSearchProvider = {
   },
 };
 
+/**
+ * Announcements (PRD #45 §125, §126, §278, §285): title and body of published
+ * and expired announcements in this reader's audience, decided in the query.
+ */
+const announcementProvider: GlobalSearchProvider = {
+  moduleKey: "announcements",
+  entityTypes: ["announcement"],
+  async search(context, query) {
+    if (!available(context, "announcements", "announcement.view")) return [];
+    const { audienceWhere } = await import("@/lib/modules/announcements/announcement.permissions");
+    const { excerpt } = await import("@/lib/modules/announcements/announcement.body");
+    const term = { contains: query.text, mode: "insensitive" as const };
+    const rows = await prisma.announcement.findMany({
+      where: { companyId: context.companyId, status: { in: ["PUBLISHED", "EXPIRED"] }, AND: [audienceWhere(context), { OR: [{ title: term }, { body: term }, { project: { is: { name: term } } }, { department: { is: { name: term } } }] }] },
+      orderBy: { publishedAt: "desc" },
+      take: query.limitPerProvider,
+      select: { id: true, title: true, body: true, status: true, audienceType: true, publishedAt: true, project: { select: { name: true } }, department: { select: { name: true } } },
+    });
+    return rows.map((row) => ({
+      moduleKey: "announcements",
+      entityType: "announcement",
+      entityId: row.id,
+      title: row.title,
+      subtitle: [row.project ? `Project · ${row.project.name}` : row.department ? `Department · ${row.department.name}` : row.audienceType === "COMPANY" ? "Company" : "Selected members", excerpt(row.body, 80)].join(" · "),
+      href: `/announcements/${row.id}`,
+      score: scoreMatch(query.text, row.title),
+      status: row.status,
+    }));
+  },
+};
+
 export const searchProviders: GlobalSearchProvider[] = [
   calendarProvider,
   meetingProvider,
   dailyLogProvider,
   milestoneProvider,
+  announcementProvider,
   projectProvider,
   taskProvider,
   clientProvider,

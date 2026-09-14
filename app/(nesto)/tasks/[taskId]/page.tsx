@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { RecordDocuments } from "@/components/documents/record-documents";
@@ -113,7 +114,12 @@ export default async function TaskDetailPage({ params }: Params) {
               ]
             : []),
         ]}
-        actions={<TaskActions task={task} />}
+        actions={
+          <>
+            <RecordFavorite context={context} entityType="task" entityId={task.id} />
+            <TaskActions task={task} />
+          </>
+        }
       />
 
       {archived ? (

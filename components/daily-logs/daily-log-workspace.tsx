@@ -111,7 +111,7 @@ function EntryLine({ primary, secondary, meta, onEdit, testId }: { primary: Reac
 
 const joined = (...parts: Array<string | number | null | undefined | false>) => parts.filter((part) => part !== null && part !== undefined && part !== false && part !== "").join(" · ");
 
-export function DailyLogWorkspace({ initial, discussion, zone }: { initial: DailyLogDetailDTO; discussion: React.ReactNode; zone: string }) {
+export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { initial: DailyLogDetailDTO; discussion: React.ReactNode; zone: string; favorite?: React.ReactNode }) {
   const router = useRouter();
   const toast = useToast();
   const mobile = useMobile();
@@ -460,6 +460,7 @@ export function DailyLogWorkspace({ initial, discussion, zone }: { initial: Dail
             </DropdownMenu>
           ) : null}
           <div className="hidden items-center gap-2 md:flex">{primaryActions}</div>
+          {favorite}
           <Button asChild size="sm" variant="ghost">
             <Link href={`/projects/${log.project.id}/daily-logs/${log.id}/print`} aria-label="Print">
               <Printer aria-hidden="true" />

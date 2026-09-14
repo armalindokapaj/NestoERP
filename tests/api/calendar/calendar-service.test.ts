@@ -155,6 +155,7 @@ describe("isolation, permission and scope (§176-§179)", () => {
       document_review: /^\/documents\/[^/]+$/,
       meeting: /^\/meetings\/[^/]+$/,
       project_milestone: /^\/projects\/[^/]+\/planning\?milestone=[^&]+$/,
+      announcement: /^\/announcements\/[^/]+$/,
     };
     const events = (await getCalendar(owner, monthRange(), {})).events;
     for (const event of events) {

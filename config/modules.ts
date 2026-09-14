@@ -16,6 +16,7 @@ export const MODULE_KEYS = [
   "dashboard",
   "calendar",
   "approvals",
+  "announcements",
   "projects",
   "tasks",
   "meetings",
@@ -44,7 +45,7 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
  * turn them off, and every company has them from the moment it exists — the
  * access sync creates the switch for companies that predate a new one.
  */
-export const CORE_MODULE_KEYS = ["dashboard", "calendar", "approvals", "team", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
+export const CORE_MODULE_KEYS = ["dashboard", "calendar", "approvals", "announcements", "team", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
 
 /** Sidebar groups, in render order (PRD #3 §8). */
 export const MODULE_GROUPS = ["primary", "work", "department", "company"] as const;
@@ -134,6 +135,22 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     icon: "Stamp",
     group: "primary",
     permission: "approvals.view",
+    sections: [],
+  },
+  /**
+   * Intentional internal communication (PRD #45 §6, §58). Its tabs — For Me,
+   * Pinned, Unread, To Acknowledge, History and Manage — are URL state on the
+   * one route, like Approvals.
+   */
+  announcements: {
+    key: "announcements",
+    label: "Announcements",
+    description: "Company, department and project notices, with acknowledgment where it matters.",
+    route: "/announcements",
+    icon: "Megaphone",
+    group: "primary",
+    permission: "announcement.view",
+    writePermission: "announcement.create",
     sections: [],
   },
   projects: {

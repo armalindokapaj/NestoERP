@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DailyLogWorkspace } from "@/components/daily-logs/daily-log-workspace";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { getDailyLog } from "@/lib/modules/daily-logs/daily-log.service";
@@ -38,5 +39,5 @@ export default async function DailyLogPage({ params }: Params) {
   const { projectId, dailyLogId } = await params;
   const { context, log } = await load(projectId, dailyLogId);
   const settings = await resolveDailyLogSettings(context.companyId, log.project.id);
-  return <DailyLogWorkspace initial={log} zone={settings.timezone} discussion={<CollaborationPanel key="discussion" parentType="daily_log" parentId={log.id} />} />;
+  return <DailyLogWorkspace initial={log} zone={settings.timezone} discussion={<CollaborationPanel key="discussion" parentType="daily_log" parentId={log.id} />} favorite={<RecordFavorite context={context} entityType="daily_log" entityId={log.id} compact />} />;
 }

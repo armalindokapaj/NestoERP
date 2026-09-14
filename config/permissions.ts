@@ -67,6 +67,26 @@ export const PERMISSIONS = [
   "meeting.document.view",
   "meeting.document.create",
 
+  /* Announcements -------------------------------------------------------- */
+  /**
+   * Intentional one-to-many communication (PRD #45 §33, §34). Reading and
+   * acknowledging are everybody's; writing a draft is not publishing it; and
+   * each audience — the company, a department, a project, named people — is
+   * its own grant, so a project manager speaks to their projects and HR to the
+   * company without either reaching further.
+   */
+  "announcement.view",
+  "announcement.acknowledge",
+  "announcement.create",
+  "announcement.edit",
+  "announcement.publish",
+  "announcement.archive",
+  "announcement.pin",
+  "announcement.manage_company",
+  "announcement.manage_department",
+  "announcement.manage_project",
+  "announcement.manage_selected_members",
+
   /* Timesheets ----------------------------------------------------------- */
   /**
    * Work allocation, not attendance, payroll or surveillance (PRD #42 §2,
@@ -989,6 +1009,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   approvals: "approvals",
   timesheet: "timesheets",
   daily_log: "dailyLogs",
+  announcement: "announcements",
   project_planning: "projects",
   project: "projects",
   task: "tasks",
@@ -1108,6 +1129,14 @@ const MUTATING_ACTIONS = new Set([
   // Daily logs (PRD #43 §126).
   "lock",
   "correct_locked",
+  // Announcements (PRD #45 §33). Acknowledging is not here: it records only
+  // that a person read what was addressed to them, and the Viewer does it (§244).
+  "publish",
+  "pin",
+  "manage_company",
+  "manage_department",
+  "manage_project",
+  "manage_selected_members",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

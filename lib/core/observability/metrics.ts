@@ -76,6 +76,12 @@ export const Metric = {
   MILESTONE_COMPLETE_SUCCESS: "milestone_complete_success_count",
   MILESTONE_OVERDUE: "milestone_overdue_count",
   DEPENDENCY_CYCLE_REJECTION: "dependency_cycle_rejection_count",
+  // Announcements, favorites and recent work (PRD #45 §269)
+  ANNOUNCEMENT_PUBLISH_SUCCESS: "announcement_publish_success_count",
+  ANNOUNCEMENT_PUBLISH_FAILURE: "announcement_publish_failure_count",
+  ANNOUNCEMENT_EXPIRE_SUCCESS: "announcement_expire_success_count",
+  ANNOUNCEMENT_ACK_REMINDER_SENT: "announcement_ack_reminder_sent_count",
+  RECENT_WORK_PRUNED: "recent_work_pruned_count",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

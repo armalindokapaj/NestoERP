@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { Money } from "@/components/finance/money";
@@ -42,7 +43,7 @@ const SETTLEMENT_TONES = {
 
 export default async function InvoiceDetailPage({ params }: Params) {
   const { invoiceId } = await params;
-  const { invoice } = await loadInvoice(invoiceId);
+  const { context, invoice } = await loadInvoice(invoiceId);
 
   const may = invoice.capabilities;
 
@@ -72,11 +73,14 @@ export default async function InvoiceDetailPage({ params }: Params) {
           { label: "Due", value: formatDate(invoice.dueDate) },
         ]}
         actions={
-          <InvoiceActions
-            invoiceId={invoice.id}
-            invoiceNumber={invoice.invoiceNumber}
-            capabilities={may}
-          />
+          <>
+            <RecordFavorite context={context} entityType="invoice" entityId={invoice.id} />
+            <InvoiceActions
+              invoiceId={invoice.id}
+              invoiceNumber={invoice.invoiceNumber}
+              capabilities={may}
+            />
+          </>
         }
       />
 

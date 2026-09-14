@@ -73,6 +73,8 @@ export const sq: Messages = {
   },
 
   search: {
+    favorites: "Të preferuarat",
+    recent: "Së fundmi",
     placeholder: "Kërkoni projekte, detyra, persona ose dokumente…",
     dialogTitle: "Kërko në NESTO",
     hint: "Shkruani të paktën dy shkronja për të kërkuar regjistrat që mund të hapni.",
@@ -88,6 +90,7 @@ export const sq: Messages = {
     dashboard: { label: "Paneli", description: "Pasqyra e rolit tuaj në të gjithë kompaninë." },
     calendar: { label: "Kalendari", description: "Afatet, ngjarjet dhe oraret në të gjithë kompaninë." },
     approvals: { label: "Miratimet", description: "Çdo vendim që pret për ju, nga çdo modul, në një vend." },
+    announcements: { label: "Njoftimet", description: "Njoftime për kompaninë, departamentet dhe projektet, me konfirmim leximi kur ka rëndësi." },
     projects: { label: "Projektet", description: "Menaxhoni projektet e kompanisë dhe aktivitetin e tyre." },
     tasks: { label: "Detyrat", description: "Puna e caktuar në projekte dhe departamente." },
     meetings: { label: "Takimet", description: "Rendet e ditës, procesverbalet, vendimet dhe veprimet që pasojnë." },
@@ -211,6 +214,7 @@ export const sq: Messages = {
         timesheets: { label: "Fletët e orëve", description: "Javët për t'u dorëzuar, dhe javët e miratuara, të kthyera ose që presin shqyrtimin tuaj." },
         daily_logs: { label: "Ditarët e kantierit", description: "Ditarë për t'u shqyrtuar, ditarë të kthyer, kyçje, korrigjime dhe ditarë që mungojnë." },
         project_planning: { label: "Planifikimi i projektit", description: "Pikat kyçe që keni në ngarkim, afatet, vonesat, pengesat dhe ndryshimet e bazës." },
+        announcements: { label: "Njoftimet", description: "Njoftime drejtuar jush, njoftime kritike dhe kujtesa për konfirmim." },
       },
     },
 

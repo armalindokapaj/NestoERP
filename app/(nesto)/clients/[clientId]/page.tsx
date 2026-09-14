@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
@@ -79,6 +80,8 @@ export default async function ClientOverviewPage({ params }: Params) {
           { label: "Contacts", value: may.canViewContacts ? client.counts.activeContacts : "—" },
         ]}
         actions={
+          <>
+          <RecordFavorite context={context} entityType="client" entityId={client.id} />
           <ClientActions
             clientId={client.id}
             clientName={client.name}
@@ -88,6 +91,7 @@ export default async function ClientOverviewPage({ params }: Params) {
             canArchive={may.canArchive}
             canRestore={may.canRestore}
           />
+          </>
         }
       />
 

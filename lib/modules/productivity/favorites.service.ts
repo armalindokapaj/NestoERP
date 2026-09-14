@@ -1,0 +1,78 @@
+import { Prisma } from "@prisma/client";
+
+import { AccessError } from "@/lib/access/guards";
+import type { UserContext } from "@/lib/context/types";
+import { prisma } from "@/lib/database/prisma";
+import { canNavigate, resolveNavigable, type NavigableEntityDTO } from "./navigable.registry";
+import { resolveProductivitySettings } from "./productivity.settings";
+import type { EntityRef } from "./productivity.schema";
+
+/**
+ * Favorites (PRD #45 §69-§93, §161, §250, §253, §256).
+ *
+ * A personal shortcut for one company membership: added only to a record the
+ * member can open now, shown only while they still can, never a door of its
+ * own. Adding twice is one favorite; removing needs no confirmation; nobody
+ * else — no manager, no audit — sees them.
+ */
+
+export const FAVORITES_LIMIT = 100;
+
+export type FavoriteItemDTO = NavigableEntityDTO & { favoritedAt: string };
+
+function fail(code: string, message: string, status: "VALIDATION_ERROR" | "NOT_FOUND" | "CONFLICT" | "FORBIDDEN" = "VALIDATION_ERROR") {
+  return new AccessError(status, message, { code });
+}
+
+async function assertEnabled(companyId: string) {
+  if (!(await resolveProductivitySettings(companyId)).favoritesEnabled) throw fail("FAVORITES_DISABLED", "Favorites are switched off for this company.", "FORBIDDEN");
+}
+
+export async function listFavorites(context: UserContext, options: { limit?: number } = {}): Promise<FavoriteItemDTO[]> {
+  if (!(await resolveProductivitySettings(context.companyId)).favoritesEnabled) return [];
+  const rows = await prisma.userFavorite.findMany({
+    where: { companyId: context.companyId, memberId: context.membershipId },
+    orderBy: { createdAt: "desc" },
+    take: FAVORITES_LIMIT,
+    select: { entityType: true, entityId: true, createdAt: true },
+  });
+  const favoritedAt = new Map(rows.map((row) => [`${row.entityType}:${row.entityId}`, row.createdAt.toISOString()]));
+  const items = await resolveNavigable(context, rows);
+  return items.slice(0, options.limit ?? FAVORITES_LIMIT).map((item) => ({ ...item, favoritedAt: favoritedAt.get(`${item.entityType}:${item.entityId}`)! }));
+}
+
+/** Which of these records the member has starred — for stars on search results and headers. */
+export async function favoriteKeys(context: UserContext, refs?: EntityRef[]): Promise<Set<string>> {
+  const rows = await prisma.userFavorite.findMany({
+    where: { companyId: context.companyId, memberId: context.membershipId, ...(refs ? { OR: refs.map((ref) => ({ entityType: ref.entityType, entityId: ref.entityId })) } : {}) },
+    select: { entityType: true, entityId: true },
+  });
+  return new Set(rows.map((row) => `${row.entityType}:${row.entityId}`));
+}
+
+export async function isFavorite(context: UserContext, entityType: string, entityId: string): Promise<boolean> {
+  return (await prisma.userFavorite.count({ where: { companyId: context.companyId, memberId: context.membershipId, entityType, entityId } })) > 0;
+}
+
+export async function addFavorite(context: UserContext, ref: EntityRef): Promise<FavoriteItemDTO> {
+  await assertEnabled(context.companyId);
+  // The record must be one this member can open right now (§78, §161).
+  const item = await canNavigate(context, ref.entityType, ref.entityId);
+  if (!item) throw fail("FAVORITE_NOT_FOUND", "That record could not be found.", "NOT_FOUND");
+  const existing = await prisma.userFavorite.findUnique({ where: { memberId_entityType_entityId: { memberId: context.membershipId, entityType: ref.entityType, entityId: ref.entityId } }, select: { createdAt: true } });
+  if (existing) return { ...item, favoritedAt: existing.createdAt.toISOString() };
+  const count = await prisma.userFavorite.count({ where: { companyId: context.companyId, memberId: context.membershipId } });
+  if (count >= FAVORITES_LIMIT) throw fail("FAVORITES_LIMIT", `You can keep up to ${FAVORITES_LIMIT} favorites. Remove one first.`, "CONFLICT");
+  try {
+    const row = await prisma.userFavorite.create({ data: { companyId: context.companyId, memberId: context.membershipId, entityType: ref.entityType, entityId: ref.entityId }, select: { createdAt: true } });
+    return { ...item, favoritedAt: row.createdAt.toISOString() };
+  } catch (error) {
+    // A second click that raced the first is the same favorite (§85, §296).
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ...item, favoritedAt: new Date().toISOString() };
+    throw error;
+  }
+}
+
+export async function removeFavorite(context: UserContext, ref: EntityRef): Promise<void> {
+  await prisma.userFavorite.deleteMany({ where: { companyId: context.companyId, memberId: context.membershipId, entityType: ref.entityType, entityId: ref.entityId } });
+}
