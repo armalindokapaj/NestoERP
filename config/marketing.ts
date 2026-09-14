@@ -125,6 +125,7 @@ export const moduleCopy: Record<ModuleKey, string> = {
   tasks: "Daily work assigned across site and office, always against a project.",
   meetings: "Agendas, minutes, decisions and the actions that follow — each action able to become a task.",
   timesheets: "Weekly timesheets against projects and tasks — logged in minutes, approved by the right person, reported without surveillance.",
+  dailyLogs: "One site diary per project per day — workforce, work done, deliveries, delays and photos, reviewed and locked as the record.",
   clients: "Clients, contacts, and the history of every job you have delivered for them.",
   documents: "Drawings, method statements, certificates and contracts in one place.",
   finance: "Budgets, invoices, payments and cost against value — per project and company-wide.",

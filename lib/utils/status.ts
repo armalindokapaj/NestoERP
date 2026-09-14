@@ -121,6 +121,12 @@ const TONES: Record<string, StatusTone> = {
   ACTIONS_OPEN: "warning",
   PENDING_CLOSE: "warning",
   STOP_WORK_ACTIVE: "danger",
+
+  /* Daily logs (PRD #43 §7, §8): a locked log is the record, a returned one needs work. */
+  REVIEWED: "success",
+  LOCKED: "success",
+  CORRECTION_REQUIRED: "warning",
+  VOID: "default",
 };
 
 const LABELS: Record<string, string> = {

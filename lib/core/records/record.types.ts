@@ -25,6 +25,11 @@ export type RecordSummary = {
   /** Archived records stay readable, but take no new comments or files. */
   archived: boolean;
   /**
+   * Still open to discussion, but its evidence is fixed: a submitted, reviewed
+   * or locked daily log takes no new files (PRD #43 §192, §261).
+   */
+  filesClosed?: boolean;
+  /**
    * The people naturally responsible for it — owner, assignee, reporter,
    * creator — who are subscribed to its discussion automatically (PRD #38 §33).
    */
@@ -122,6 +127,7 @@ export const RECORD_TYPES = [
   "calendar_event",
   "meeting",
   "timesheet",
+  "daily_log",
   "approval_delegation",
 ] as const;
 

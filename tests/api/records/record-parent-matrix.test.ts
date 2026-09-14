@@ -64,6 +64,7 @@ const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
   calendar_event: { model: "calendarEvent" },
   meeting: { model: "meeting" },
   timesheet: { model: "timesheet" },
+  daily_log: { model: "dailyLog" },
   approval_delegation: { model: "approvalDelegation" },
 };
 
@@ -83,7 +84,7 @@ beforeAll(async () => {
     const rows = await delegate.findMany({ where: { companyId: COMPANY_A }, select: { [idField]: true }, take: 25 });
     for (const row of rows) {
       const record = await loadRecord(owner, definition.type, row[idField]);
-      if (record && !record.archived) {
+      if (record && !record.archived && !record.filesClosed) {
         sample.set(definition.type, row[idField]);
         break;
       }

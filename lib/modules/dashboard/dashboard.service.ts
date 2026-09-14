@@ -564,6 +564,24 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       };
     }
 
+    case "siteToday": {
+      // Each active project's latest site record, read through the log's own access (PRD #43 §201, §202).
+      const { siteToday } = await import("@/lib/modules/daily-logs/daily-log.reports");
+      const { dateLabel } = await import("@/lib/modules/daily-logs/daily-log.time");
+      const items = await siteToday(context, 5);
+      return {
+        kind: "list",
+        items: items.map((item) => ({
+          id: item.projectId,
+          title: item.projectName,
+          subtitle: item.logId ? `${dateLabel(item.date)} · ${item.workforce} on site · ${item.activities} activities${item.delays ? ` · ${item.delays} ${item.delays === 1 ? "delay" : "delays"}` : ""}` : "No log yet",
+          meta: item.photos ? `${item.photos} photos` : undefined,
+          status: item.status ?? undefined,
+          href: item.href,
+        })),
+      };
+    }
+
     case "upcomingDeadlines": {
       const rows = await prisma.project.findMany({
         where: {

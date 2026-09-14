@@ -20,6 +20,7 @@ export const MODULE_KEYS = [
   "tasks",
   "meetings",
   "timesheets",
+  "dailyLogs",
   "clients",
   "documents",
   "finance",
@@ -204,6 +205,24 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "team", label: "Team", permission: "timesheet.team.view" },
       { key: "projects", label: "Projects", permission: "timesheet.project.view" },
       { key: "settings", label: "Settings", permission: "timesheet.settings.manage" },
+    ],
+  },
+  /** The project's daily site record (PRD #43 §5, §6). Also a tab on every project. */
+  dailyLogs: {
+    key: "dailyLogs",
+    label: "Daily Logs",
+    description: "What happened on site each day: people, work, deliveries, delays and evidence.",
+    route: "/daily-logs",
+    icon: "NotebookPen",
+    group: "work",
+    permission: "daily_log.view",
+    writePermission: "daily_log.create",
+    defaultSection: "all",
+    sections: [
+      { key: "all", label: "All Logs" },
+      { key: "review", label: "To Review", permission: "daily_log.review" },
+      { key: "reports", label: "Reports", permission: "daily_log.review" },
+      { key: "settings", label: "Settings", permission: "daily_log.settings.manage" },
     ],
   },
   clients: {

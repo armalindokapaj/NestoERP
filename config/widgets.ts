@@ -115,6 +115,18 @@ export const widgets: Record<string, WidgetDefinition> = {
     href: "/timesheets",
     emptyMessage: "No time logged yet.",
   },
+  siteToday: {
+    key: "siteToday",
+    module: "dailyLogs",
+    permission: "daily_log.view",
+    title: "Site Today",
+    description: "The latest daily log on each active project.",
+    kind: "list",
+    size: "MEDIUM",
+    priority: 3,
+    href: "/daily-logs",
+    emptyMessage: "No active projects to log.",
+  },
   openTasks: {
     key: "openTasks",
     module: "tasks",

@@ -938,6 +938,8 @@ model Company {
   timesheetSettings          TimesheetSettings?
   timesheetApprovers         TimesheetApproverAssignment[]
   procurementApprovalPolicy  ProcurementApprovalPolicy?
+  dailyLogs                  DailyLog[]
+  dailyLogSettings           DailyLogSettings?
 
   @@index([status])
   @@index([name])
@@ -1293,10 +1295,12 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  calendarEvents CalendarEvent[]
-  meetings       Meeting[]
-  meetingSeries  MeetingSeries[]
-  workLogs       WorkLog[]
+  calendarEvents   CalendarEvent[]
+  meetings         Meeting[]
+  meetingSeries    MeetingSeries[]
+  workLogs         WorkLog[]
+  dailyLogs        DailyLog[]
+  dailyLogSettings ProjectDailyLogSettings?
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -4561,6 +4565,8 @@ enum AuditCategory {
   APPROVAL
   /// Work logs, weekly timesheets, their decisions and settings (PRD #42 §112).
   TIMESHEET
+  /// Daily site records, their review, locking, voids and corrections (PRD #43 §193).
+  DAILY_LOG
 }
 
 enum AuditSeverity {
@@ -7700,4 +7706,451 @@ model TimesheetApproverAssignment {
 
   @@index([companyId, approverMemberId])
   @@map("timesheet_approver_assignments")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Construction Daily Log / Site Diary (PRD #43)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+enum DailyLogStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+  LOCKED
+  CORRECTION_REQUIRED
+  VOID
+}
+
+enum DailyLogWeatherCondition {
+  CLEAR
+  PARTLY_CLOUDY
+  CLOUDY
+  RAIN
+  HEAVY_RAIN
+  SNOW
+  WINDY
+  FOG
+  EXTREME_HEAT
+  EXTREME_COLD
+  OTHER
+}
+
+enum DailyLogSiteCondition {
+  DRY
+  WET
+  MUDDY
+  FLOODED
+  RESTRICTED_ACCESS
+  HIGH_WIND
+  DUSTY
+  OTHER
+}
+
+enum DailyLogEquipmentStatus {
+  AVAILABLE
+  IN_USE
+  IDLE
+  OUT_OF_SERVICE
+  BREAKDOWN
+  OTHER
+}
+
+enum DailyLogDelayCategory {
+  WEATHER
+  LABOR
+  MATERIAL
+  EQUIPMENT
+  DESIGN
+  ACCESS
+  INSPECTION
+  CLIENT
+  SUBCONTRACTOR
+  UTILITY
+  SAFETY
+  QUALITY
+  OTHER
+}
+
+enum DailyLogDelayImpact {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DailyLogTaskLinkType {
+  RELATED
+  CREATED_FROM_LOG
+  FOLLOW_UP
+  DELAY_ACTION
+  INSTRUCTION_ACTION
+}
+
+enum DailyLogDocumentCategory {
+  PHOTO
+  DELIVERY_TICKET
+  SKETCH
+  REPORT
+  INSTRUCTION
+  OTHER
+}
+
+/// One project's canonical record of one site day (PRD #43 §10, §15).
+model DailyLog {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  /// The project's calendar day, kept at midday UTC (§16).
+  workDate DateTime
+
+  status DailyLogStatus @default(DRAFT)
+
+  createdByMemberId   String
+  submittedByMemberId String?
+  submittedAt         DateTime?
+  /// Resolved on the server when the log is submitted (§87-§89, §233).
+  reviewerMemberId    String?
+  reviewedByMemberId  String?
+  reviewedAt          DateTime?
+  lockedByMemberId    String?
+  lockedAt            DateTime?
+  returnedByMemberId  String?
+  returnedAt          DateTime?
+  returnReason        String?
+  voidedByMemberId    String?
+  voidedAt            DateTime?
+  voidReason          String?
+
+  summary            String?
+  generalNotes       String?
+  delaySummary       String?
+  instructionSummary String?
+  weatherSummary     String?
+  siteCondition      DailyLogSiteCondition?
+  siteConditionNotes String?
+
+  /// Created after its work date (§19).
+  lateEntry       Boolean @default(false)
+  submissionCount Int     @default(0)
+  version         Int     @default(1)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  weatherEntries     DailyLogWeatherEntry[]
+  workforce          DailyLogWorkforceEntry[]
+  workActivities     DailyLogWorkActivity[]
+  equipmentEntries   DailyLogEquipmentEntry[]
+  deliveryEntries    DailyLogDeliveryEntry[]
+  visitorEntries     DailyLogVisitorEntry[]
+  delayEntries       DailyLogDelayEntry[]
+  instructionEntries DailyLogInstructionEntry[]
+  taskLinks          DailyLogTaskLink[]
+  documentLinks      DailyLogDocumentLink[]
+  corrections        DailyLogCorrection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, projectId, workDate])
+  @@index([companyId, status, workDate])
+  @@index([companyId, reviewerMemberId, status])
+  @@index([companyId, workDate])
+  @@map("daily_logs")
+}
+
+model DailyLogWeatherEntry {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  observedAt      DateTime
+  temperatureC    Decimal?                  @db.Decimal(5, 2)
+  condition       DailyLogWeatherCondition?
+  precipitationMm Decimal?                  @db.Decimal(8, 2)
+  windKph         Decimal?                  @db.Decimal(8, 2)
+  humidityPct     Int?
+  notes           String?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, dailyLogId])
+  @@map("daily_log_weather_entries")
+}
+
+model DailyLogWorkforceEntry {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  organizationName String
+  supplierId       String?
+  trade            String?
+  crewName         String?
+  headcount        Int
+  notes            String?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, dailyLogId])
+  @@index([companyId, supplierId])
+  @@map("daily_log_workforce_entries")
+}
+
+model DailyLogWorkActivity {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  title           String
+  description     String?
+  projectArea     String?
+  floorZone       String?
+  trade           String?
+  progressPercent Decimal? @db.Decimal(5, 2)
+  linkedTaskId    String?
+
+  createdByMemberId String
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, dailyLogId])
+  @@index([companyId, linkedTaskId])
+  @@map("daily_log_work_activities")
+}
+
+model DailyLogEquipmentEntry {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  equipmentName String
+  equipmentCode String?
+  supplierId    String?
+  quantity      Int                      @default(1)
+  hoursUsed     Decimal?                 @db.Decimal(8, 2)
+  status        DailyLogEquipmentStatus?
+  notes         String?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, dailyLogId])
+  @@map("daily_log_equipment_entries")
+}
+
+model DailyLogDeliveryEntry {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  description        String
+  supplierId         String?
+  purchaseOrderId    String?
+  goodsReceiptId     String?
+  inventoryReceiptId String?
+  quantityText       String?
+  deliveredAt        DateTime?
+  conditionNote      String?
+  notes              String?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, dailyLogId])
+  @@index([companyId, purchaseOrderId])
+  @@index([companyId, goodsReceiptId])
+  @@map("daily_log_delivery_entries")
+}
+
+model DailyLogVisitorEntry {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  name               String
+  organization       String?
+  purpose            String?
+  arrivedAt          DateTime?
+  departedAt         DateTime?
+  escortedByMemberId String?
+  notes              String?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, dailyLogId])
+  @@map("daily_log_visitor_entries")
+}
+
+model DailyLogDelayEntry {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  category             DailyLogDelayCategory
+  title                String
+  description          String?
+  startedAt            DateTime?
+  endedAt              DateTime?
+  durationMinutes      Int?
+  responsiblePartyText String?
+  impact               DailyLogDelayImpact?
+  linkedTaskId         String?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, dailyLogId])
+  @@index([companyId, category])
+  @@map("daily_log_delay_entries")
+}
+
+model DailyLogInstructionEntry {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  title            String
+  description      String
+  issuedByText     String?
+  issuedByMemberId String?
+  recipientText    String?
+  issuedAt         DateTime?
+  requiresAction   Boolean   @default(false)
+  linkedTaskId     String?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, dailyLogId])
+  @@map("daily_log_instruction_entries")
+}
+
+model DailyLogTaskLink {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+  taskId     String
+
+  linkType          DailyLogTaskLinkType @default(RELATED)
+  createdByMemberId String
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([dailyLogId, taskId])
+  @@index([companyId, taskId])
+  @@map("daily_log_task_links")
+}
+
+/// How a document sits in the day's evidence: its category, caption and order (§77-§79).
+model DailyLogDocumentLink {
+  dailyLogId String
+  documentId String
+  companyId  String
+
+  category  DailyLogDocumentCategory @default(PHOTO)
+  caption   String?
+  takenAt   DateTime?
+  sortOrder Int?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([dailyLogId, documentId])
+  @@map("daily_log_document_links")
+}
+
+/// An official correction appended to a locked log, which itself never changes (§97-§102).
+model DailyLogCorrection {
+  id         String @id @default(cuid())
+  companyId  String
+  dailyLogId String
+
+  reason            String
+  correctionSummary String
+
+  createdByMemberId  String
+  approvedByMemberId String?
+  approvedAt         DateTime?
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, dailyLogId])
+  @@map("daily_log_corrections")
+}
+
+/// A company's daily log rules (§18, §248).
+model DailyLogSettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  /// Whether active projects need a log for every working day.
+  logsRequired     Boolean @default(false)
+  backdateDays     Int     @default(7)
+  reviewerRequired Boolean @default(true)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("daily_log_settings")
+}
+
+/// A project's own daily log rules, over the company's (§89, §104, §106, §248).
+model ProjectDailyLogSettings {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String @unique
+
+  /// Null follows the company.
+  logsRequired     Boolean?
+  reviewerMemberId String?
+  /// ISO weekdays the site works; empty follows the company's working days.
+  workingDays      Int[]
+
+  updatedByMemberId String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@map("project_daily_log_settings")
 }
