@@ -8,6 +8,7 @@ import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
   canSeeCommercial,
   commercialDTO,
@@ -531,6 +532,7 @@ export async function approveContract(
   context: UserContext,
   contractId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "CONTRACT");
@@ -538,7 +540,7 @@ export async function approveContract(
   const existing = assertFound(await repository.findContractInScope(context, contractId));
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId);
+    const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "APPROVED");
@@ -558,6 +560,7 @@ export async function rejectContract(
   context: UserContext,
   contractId: string,
   reason: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "CONTRACT");
@@ -565,7 +568,7 @@ export async function rejectContract(
   const existing = assertFound(await repository.findContractInScope(context, contractId));
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId);
+    const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     // Back to review rather than to draft: the reviewer's work is not undone by
@@ -579,6 +582,41 @@ export async function rejectContract(
       entityId: contractId,
       action: "LEGAL_CONTRACT_REJECTED",
       message: `rejected contract ${existing.contractNumber}`,
+      metadata: { reason } as Prisma.InputJsonValue,
+    });
+  });
+}
+
+/**
+ * Returns a contract for revision (PRD #41 §48). Unlike a rejection, which
+ * sends it back to review, this puts it back in draft with the approver's
+ * reason: the terms themselves need rewriting, and the revised draft goes
+ * through review again before a new approval cycle.
+ */
+export async function returnContractForRevision(
+  context: UserContext,
+  contractId: string,
+  reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  assertModule(context, MODULE);
+  approvals.assertCanReject(context, "CONTRACT");
+
+  const existing = assertFound(await repository.findContractInScope(context, contractId));
+
+  await prisma.$transaction(async (tx) => {
+    const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId, guard);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+
+    await moveStatus(tx, context, existing, "DRAFT");
+    await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: contractId,
+      action: "LEGAL_CONTRACT_RETURNED",
+      message: `returned contract ${existing.contractNumber} for revision`,
       metadata: { reason } as Prisma.InputJsonValue,
     });
   });

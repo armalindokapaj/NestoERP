@@ -13,6 +13,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { businessDateString } from "../finance.fields";
 import { toAmountString, toRateString } from "../finance.money";
 import { buildInvoiceScopeWhere } from "../finance.scope";
@@ -520,6 +521,7 @@ export async function approveInvoice(
   context: UserContext,
   invoiceId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "INVOICE");
@@ -527,7 +529,7 @@ export async function approveInvoice(
   const existing = assertFound(await repository.findInvoiceInScope(context, invoiceId));
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "INVOICE", invoiceId);
+    const approval = await approvals.requirePendingApproval(tx, context, "INVOICE", invoiceId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "APPROVED");
@@ -565,6 +567,7 @@ export async function rejectInvoice(
   context: UserContext,
   invoiceId: string,
   reason: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "INVOICE");
@@ -572,7 +575,7 @@ export async function rejectInvoice(
   const existing = assertFound(await repository.findInvoiceInScope(context, invoiceId));
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "INVOICE", invoiceId);
+    const approval = await approvals.requirePendingApproval(tx, context, "INVOICE", invoiceId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "REJECTED");
@@ -598,6 +601,40 @@ export async function rejectInvoice(
       },
       { tx },
     );
+  });
+}
+
+/**
+ * Returns the invoice for revision (PRD #41 §48): back to draft with the
+ * approver's reason, so the requester can correct it and submit it again as a
+ * new approval cycle. The decision history keeps the returned cycle.
+ */
+export async function returnInvoice(
+  context: UserContext,
+  invoiceId: string,
+  reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  assertModule(context, MODULE);
+  approvals.assertCanReject(context, "INVOICE");
+
+  const existing = assertFound(await repository.findInvoiceInScope(context, invoiceId));
+
+  await prisma.$transaction(async (tx) => {
+    const approval = await approvals.requirePendingApproval(tx, context, "INVOICE", invoiceId, guard);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+
+    await moveStatus(tx, context, existing, "DRAFT");
+    await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: invoiceId,
+      action: "FINANCE_INVOICE_RETURNED",
+      message: `returned invoice ${existing.invoiceNumber} for revision`,
+      metadata: { reason } as Prisma.InputJsonValue,
+    });
   });
 }
 

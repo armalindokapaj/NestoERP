@@ -15,6 +15,7 @@ import type { Permission } from "./permissions";
 export const MODULE_KEYS = [
   "dashboard",
   "calendar",
+  "approvals",
   "projects",
   "tasks",
   "meetings",
@@ -41,7 +42,7 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
  * turn them off, and every company has them from the moment it exists — the
  * access sync creates the switch for companies that predate a new one.
  */
-export const CORE_MODULE_KEYS = ["dashboard", "calendar", "team", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
+export const CORE_MODULE_KEYS = ["dashboard", "calendar", "approvals", "team", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
 
 /** Sidebar groups, in render order (PRD #3 §8). */
 export const MODULE_GROUPS = ["primary", "work", "department", "company"] as const;
@@ -116,6 +117,21 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     group: "primary",
     permission: "calendar.view",
     writePermission: "calendar.event.create",
+    sections: [],
+  },
+  /**
+   * One place for every decision (PRD #41 §6, §7). Its tabs are URL state on
+   * the one route rather than sections, so a filtered queue and an open review
+   * are a link somebody can share (§197).
+   */
+  approvals: {
+    key: "approvals",
+    label: "Approvals",
+    description: "Every decision waiting on you, from every module, in one place.",
+    route: "/approvals",
+    icon: "Stamp",
+    group: "primary",
+    permission: "approvals.view",
     sections: [],
   },
   projects: {

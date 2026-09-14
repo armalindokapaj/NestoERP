@@ -1326,6 +1326,38 @@ const DEFINITIONS: RecordDefinition[] = [
     documents: { view: ["meeting.document.view"], upload: ["meeting.document.create"], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
   },
+
+  /* Approvals (PRD #41 §170) ----------------------------------------------- */
+  {
+    // A delegation is only ever the business of the two people in it, so it is
+    // readable by them alone — which is who its notification goes to.
+    type: "approval_delegation",
+    moduleKey: "approvals",
+    noun: "Approval delegation",
+    activityEntityType: "ApprovalDelegation",
+    viewPermissions: ["approvals.view"],
+    async find(context, id) {
+      const row = await prisma.approvalDelegation.findFirst({
+        where: { id, companyId: context.companyId, OR: [{ fromMemberId: context.membershipId }, { toMemberId: context.membershipId }] },
+        select: { id: true, companyId: true, fromMemberId: true, toMemberId: true, revokedAt: true, endsAt: true },
+      });
+      return row && {
+        type: "approval_delegation", id: row.id, companyId: row.companyId, label: "Approval delegation",
+        href: "/approvals?panel=delegation", projectId: null, archived: row.revokedAt !== null || row.endsAt <= new Date(),
+        stakeholderMemberIds: unique(row.fromMemberId, row.toMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const rows = await prisma.approvalDelegation.findMany({
+        where: { id: { in: ids }, companyId: context.companyId, OR: [{ fromMemberId: context.membershipId }, { toMemberId: context.membershipId }] },
+        select: { id: true },
+      });
+      return rows.map((row) => row.id);
+    },
+    documents: null,
+    collaboration: null,
+  },
 ];
 
 const BY_TYPE = new Map<RecordType, RecordDefinition>();

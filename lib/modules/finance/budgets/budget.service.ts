@@ -10,6 +10,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { toAmountString } from "../finance.money";
 import { buildBudgetScopeWhere, buildFinanceProjectWhere } from "../finance.scope";
 import { baseCurrency } from "../finance.settings";
@@ -387,6 +388,7 @@ export async function approveBudget(
   context: UserContext,
   budgetId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "BUDGET");
@@ -394,7 +396,7 @@ export async function approveBudget(
   const existing = await requireBudget(context, budgetId);
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId);
+    const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "APPROVED");
@@ -456,6 +458,7 @@ export async function rejectBudget(
   context: UserContext,
   budgetId: string,
   reason: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "BUDGET");
@@ -463,7 +466,7 @@ export async function rejectBudget(
   const existing = await requireBudget(context, budgetId);
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId);
+    const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "REJECTED");
@@ -475,6 +478,40 @@ export async function rejectBudget(
       entityId: budgetId,
       action: "FINANCE_BUDGET_REJECTED",
       message: `rejected budget v${existing.version} for ${existing.project.name}`,
+      metadata: { reason } as Prisma.InputJsonValue,
+    });
+  });
+}
+
+/**
+ * Returns the budget for revision (PRD #41 §48): back to draft with the
+ * approver's reason, so the requester can correct it and submit it again as a
+ * new approval cycle. The decision history keeps the returned cycle.
+ */
+export async function returnBudget(
+  context: UserContext,
+  budgetId: string,
+  reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  assertModule(context, MODULE);
+  approvals.assertCanReject(context, "BUDGET");
+
+  const existing = await requireBudget(context, budgetId);
+
+  await prisma.$transaction(async (tx) => {
+    const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+
+    await moveStatus(tx, context, existing, "DRAFT");
+    await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: budgetId,
+      action: "FINANCE_BUDGET_RETURNED",
+      message: `returned budget v${existing.version} for ${existing.project.name} for revision`,
       metadata: { reason } as Prisma.InputJsonValue,
     });
   });

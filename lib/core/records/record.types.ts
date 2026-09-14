@@ -121,6 +121,7 @@ export const RECORD_TYPES = [
   "stop_work",
   "calendar_event",
   "meeting",
+  "approval_delegation",
 ] as const;
 
 export type RecordType = (typeof RECORD_TYPES)[number];

@@ -12,7 +12,8 @@ import type { ProposalStatus } from "@prisma/client";
  */
 const TRANSITIONS: Record<ProposalStatus, ProposalStatus[]> = {
   DRAFT: ["PENDING_APPROVAL", "CANCELLED"],
-  PENDING_APPROVAL: ["APPROVED", "REJECTED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT"],
   APPROVED: ["SENT", "CANCELLED"],
   REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"],
   SENT: ["ACCEPTED", "DECLINED", "CANCELLED"],

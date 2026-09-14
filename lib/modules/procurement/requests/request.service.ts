@@ -8,6 +8,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
   dateString,
   loadMemberRef,
@@ -576,6 +577,7 @@ export async function approveRequest(
   context: UserContext,
   requestId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "PURCHASE_REQUEST");
@@ -583,12 +585,7 @@ export async function approveRequest(
   const existing = await loadForWrite(context, requestId);
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "PURCHASE_REQUEST",
-      requestId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "APPROVED", {
@@ -614,6 +611,7 @@ export async function rejectRequest(
   context: UserContext,
   requestId: string,
   reason: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "PURCHASE_REQUEST");
@@ -621,12 +619,7 @@ export async function rejectRequest(
   const existing = await loadForWrite(context, requestId);
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "PURCHASE_REQUEST",
-      requestId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "REJECTED", {
@@ -642,6 +635,39 @@ export async function rejectRequest(
       entityId: requestId,
       action: "PROCUREMENT_REQUEST_REJECTED",
       message: `rejected request ${existing.requestNumber}`,
+      metadata: { reason } as Prisma.InputJsonValue,
+    });
+  });
+}
+
+/**
+ * Returns a request for revision (PRD #41 §48): back to draft with the
+ * approver's reason, to be corrected and submitted again as a new cycle.
+ */
+export async function returnRequest(
+  context: UserContext,
+  requestId: string,
+  reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  assertModule(context, MODULE);
+  approvals.assertCanReject(context, "PURCHASE_REQUEST");
+
+  const existing = await loadForWrite(context, requestId);
+
+  await prisma.$transaction(async (tx) => {
+    const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+
+    await moveStatus(tx, context, existing, "DRAFT", {});
+    await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: requestId,
+      action: "PROCUREMENT_REQUEST_RETURNED",
+      message: `returned request ${existing.requestNumber} for revision`,
       metadata: { reason } as Prisma.InputJsonValue,
     });
   });

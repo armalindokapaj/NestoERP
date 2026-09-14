@@ -87,6 +87,7 @@ export const sq: Messages = {
   modules: {
     dashboard: { label: "Paneli", description: "Pasqyra e rolit tuaj në të gjithë kompaninë." },
     calendar: { label: "Kalendari", description: "Afatet, ngjarjet dhe oraret në të gjithë kompaninë." },
+    approvals: { label: "Miratimet", description: "Çdo vendim që pret për ju, nga çdo modul, në një vend." },
     projects: { label: "Projektet", description: "Menaxhoni projektet e kompanisë dhe aktivitetin e tyre." },
     tasks: { label: "Detyrat", description: "Puna e caktuar në projekte dhe departamente." },
     meetings: { label: "Takimet", description: "Rendet e ditës, procesverbalet, vendimet dhe veprimet që pasojnë." },

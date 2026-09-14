@@ -118,6 +118,20 @@ export const AuditAction = {
   MEETING_ACTION_CREATED: "MEETING_ACTION_CREATED",
   MEETING_ACTION_TASK_CREATED: "MEETING_ACTION_TASK_CREATED",
 
+  // Approvals (PRD #41 §56, §57): the cycle itself, next to each module's own
+  // record transition — approval id, source, decision and actor, never the record.
+  APPROVAL_REQUEST_CREATED: "APPROVAL_REQUEST_CREATED",
+  APPROVAL_STEP_ASSIGNED: "APPROVAL_STEP_ASSIGNED",
+  APPROVAL_STEP_APPROVED: "APPROVAL_STEP_APPROVED",
+  APPROVAL_APPROVED: "APPROVAL_APPROVED",
+  APPROVAL_REJECTED: "APPROVAL_REJECTED",
+  APPROVAL_RETURNED: "APPROVAL_RETURNED",
+  APPROVAL_CANCELLED: "APPROVAL_CANCELLED",
+  APPROVAL_REASSIGNED: "APPROVAL_REASSIGNED",
+  APPROVAL_DELEGATION_CREATED: "APPROVAL_DELEGATION_CREATED",
+  APPROVAL_DELEGATION_REVOKED: "APPROVAL_DELEGATION_REVOKED",
+  APPROVAL_POLICY_UPDATED: "APPROVAL_POLICY_UPDATED",
+
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
   REPORT_EXPORTED_XLSX: "REPORT_EXPORTED_XLSX",
@@ -211,7 +225,7 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.DOCUMENT_VERSION_CREATED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["versionNumber", "sizeBytes", "checksumSha256"], required: false },
   { actionKey: AuditAction.DOCUMENT_REVIEW_REQUESTED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["versionNumber", "reviewerMemberId"], required: false },
   // A decision is evidence someone checked a file, so it commits with the decision.
-  { actionKey: AuditAction.DOCUMENT_REVIEW_DECIDED, moduleKey: "documents", category: "DOCUMENT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "versionNumber"], required: true },
+  { actionKey: AuditAction.DOCUMENT_REVIEW_DECIDED, moduleKey: "documents", category: "DOCUMENT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "versionNumber", "onBehalfOfMemberId"], required: true },
 
   /* Collaboration -------------------------------------------------------- */
   // The body is deliberately absent from allowFields: audit proves that a
@@ -245,6 +259,20 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.MEETING_DECISION_CREATED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["decisionNumber"], required: false },
   { actionKey: AuditAction.MEETING_ACTION_CREATED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["ownerMemberId", "hasDueDate"], required: false },
   { actionKey: AuditAction.MEETING_ACTION_TASK_CREATED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["actionId", "taskId"], required: false },
+
+  /* Approvals ------------------------------------------------------------ */
+  { actionKey: AuditAction.APPROVAL_REQUEST_CREATED, moduleKey: "approvals", category: "APPROVAL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "steps"], required: false },
+  { actionKey: AuditAction.APPROVAL_STEP_ASSIGNED, moduleKey: "approvals", category: "APPROVAL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "step", "stepLabel"], required: false },
+  // A decision is evidence: it commits with the decision or the decision does not happen (PRD #41 §248).
+  { actionKey: AuditAction.APPROVAL_STEP_APPROVED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "step", "stepLabel", "onBehalfOfMemberId", "hasNote"], required: true },
+  { actionKey: AuditAction.APPROVAL_APPROVED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "decision", "step", "onBehalfOfMemberId", "hasNote"], required: true },
+  { actionKey: AuditAction.APPROVAL_REJECTED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "decision", "step", "onBehalfOfMemberId", "hasNote"], required: true },
+  { actionKey: AuditAction.APPROVAL_RETURNED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "decision", "step", "onBehalfOfMemberId", "hasNote"], required: true },
+  { actionKey: AuditAction.APPROVAL_CANCELLED, moduleKey: "approvals", category: "APPROVAL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "count"], required: false },
+  { actionKey: AuditAction.APPROVAL_REASSIGNED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "from", "to"], required: true },
+  { actionKey: AuditAction.APPROVAL_DELEGATION_CREATED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["fromMemberId", "toMemberId", "providerKey", "startsAt", "endsAt", "hasReason"], required: true },
+  { actionKey: AuditAction.APPROVAL_DELEGATION_REVOKED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["fromMemberId", "toMemberId", "providerKey", "revokedAt"], required: true },
+  { actionKey: AuditAction.APPROVAL_POLICY_UPDATED, moduleKey: "procurement", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["financeStepAbove", "executiveStepAbove", "executiveRoleKey", "currency"], required: true },
 
   /* Reporting ------------------------------------------------------------ */
   { actionKey: AuditAction.REPORT_EXPORTED_CSV, moduleKey: "settings", category: "REPORTING", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: false },

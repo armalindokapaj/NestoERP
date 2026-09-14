@@ -26,6 +26,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "attention",
       "upcomingMeetings",
       "pendingApprovals",
+      "approvalBottlenecks",
       "activeProjects",
       "financeSummary",
       "salesPipeline",
@@ -82,6 +83,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "attention",
       "upcomingMeetings",
       "pendingApprovals",
+      "approvalBottlenecks",
       "activeProjects",
       "financeSummary",
       "salesPipeline",
@@ -102,6 +104,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "openTasks",
       "upcomingDeadlines",
       "projectBudgets",
+      "pendingApprovals",
       "purchaseRequests",
       "recentDocuments",
       "recentActivity",
@@ -145,6 +148,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     widgets: [
       "attention",
       "upcomingMeetings",
+      "pendingApprovals",
       "overdueInvoices",
       "financeSummary",
       "projectBudgets",
@@ -173,6 +177,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     widgets: [
       "attention",
       "upcomingMeetings",
+      "pendingApprovals",
       "salesPipeline",
       "openOpportunities",
       "openTasks",
@@ -212,6 +217,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     widgets: [
       "attention",
       "upcomingMeetings",
+      "pendingApprovals",
       "openNcrs",
       "qualityRecords",
       "openTasks",
@@ -226,6 +232,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     widgets: [
       "attention",
       "upcomingMeetings",
+      "pendingApprovals",
       "openIncidents",
       "hseHazardsByRisk",
       "openTasks",

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
@@ -147,7 +148,7 @@ export type OpenedNotification = { href: string } | { unavailable: true };
 export async function openNotification(context: UserContext, id: string): Promise<OpenedNotification> {
   const notification = await prisma.notification.findFirst({
     where: { id, companyId: context.companyId, recipientMemberId: context.membershipId },
-    select: { id: true, entityType: true, entityId: true, readState: true },
+    select: { id: true, entityType: true, entityId: true, readState: true, eventType: true },
   });
   if (!notification) throw new AccessError("NOT_FOUND");
 
@@ -157,7 +158,26 @@ export async function openNotification(context: UserContext, id: string): Promis
 
   if (!notification.entityType || !notification.entityId) return { unavailable: true };
   const record = await loadRecord(context, normaliseEntityType(notification.entityType), notification.entityId);
-  return record ? { href: record.href } : { unavailable: true };
+  if (!record) return { unavailable: true };
+  // An approval opens in the Approvals Center's review drawer first, with the
+  // record one link away (PRD #41 §42); the Center re-checks access itself.
+  if (APPROVAL_EVENTS.has(notification.eventType) && can(context, "approvals.view")) {
+    return { href: approvalLink(record.type, record.id) };
+  }
+  return { href: record.href };
+}
+
+/** Notifications about an approval, which open in the Approvals Center. */
+const APPROVAL_EVENTS = new Set<string>([
+  "APPROVAL_REQUESTED",
+  "APPROVAL_OVERDUE",
+  "APPROVAL_REASSIGNED",
+  "PO_APPROVAL_REQUIRED",
+  "DOCUMENT_REVIEW_REQUESTED",
+]);
+
+export function approvalLink(recordType: string, recordId: string): string {
+  return `/approvals?record=${encodeURIComponent(`${recordType}:${recordId}`)}`;
 }
 
 export async function getUnreadCount(context: UserContext): Promise<UnreadCountDTO> {

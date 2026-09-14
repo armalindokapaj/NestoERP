@@ -12,6 +12,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import { assessResidualRisk, assessRisk, residualRiskExceedsInitial } from "../hse.risk";
@@ -507,6 +508,7 @@ export async function approveRiskAssessment(
   context: UserContext,
   assessmentId: string,
   decisionNote: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "RISK_ASSESSMENT");
@@ -520,12 +522,7 @@ export async function approveRiskAssessment(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "RISK_ASSESSMENT",
-      assessmentId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "RISK_ASSESSMENT", assessmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
@@ -554,6 +551,7 @@ export async function rejectRiskAssessment(
   context: UserContext,
   assessmentId: string,
   decisionNote: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "RISK_ASSESSMENT");
@@ -567,12 +565,7 @@ export async function rejectRiskAssessment(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "RISK_ASSESSMENT",
-      assessmentId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "RISK_ASSESSMENT", assessmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);

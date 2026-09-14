@@ -13,7 +13,8 @@ import type { InvoiceStatus, Prisma } from "@prisma/client";
  */
 const TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
   DRAFT: ["PENDING_APPROVAL", "CANCELLED"],
-  PENDING_APPROVAL: ["APPROVED", "REJECTED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT"],
   APPROVED: ["SENT", "CANCELLED"],
   REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"],
   SENT: ["CANCELLED"],

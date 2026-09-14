@@ -115,7 +115,8 @@ export const categoryLabels: Record<ProcurementCategory, string> = {
 
 const REQUEST_TRANSITIONS: Record<PurchaseRequestStatus, PurchaseRequestStatus[]> = {
   DRAFT: ["PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  PENDING_APPROVAL: ["APPROVED", "REJECTED", "CANCELLED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT", "CANCELLED"],
   APPROVED: ["IN_SOURCING", "CANCELLED"],
   // A rejected request goes back to the desk it came from, and may be resubmitted.
   REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
@@ -272,7 +273,8 @@ export const orderStatusLabels: Record<PurchaseOrderStatus, string> = {
 
 const ORDER_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> = {
   DRAFT: ["PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  PENDING_APPROVAL: ["APPROVED", "REJECTED", "CANCELLED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT", "CANCELLED"],
   APPROVED: ["ISSUED", "CANCELLED"],
   REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
   ISSUED: ["PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"],

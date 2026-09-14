@@ -12,6 +12,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import {
@@ -678,6 +679,7 @@ export async function approveInspection(
   context: UserContext,
   inspectionId: string,
   decisionNote: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "INSPECTION");
@@ -691,12 +693,7 @@ export async function approveInspection(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "INSPECTION",
-      inspectionId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "INSPECTION", inspectionId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
@@ -726,6 +723,7 @@ export async function rejectInspection(
   context: UserContext,
   inspectionId: string,
   decisionNote: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "INSPECTION");
@@ -739,12 +737,7 @@ export async function rejectInspection(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "INSPECTION",
-      inspectionId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "INSPECTION", inspectionId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);

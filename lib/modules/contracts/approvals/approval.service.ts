@@ -4,7 +4,8 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
-import { notifyApprovalDecided, notifyApprovalRequested } from "@/lib/core/notifications/approval-notifications";
+import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled } from "@/lib/core/notifications/approval-notifications";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -116,6 +117,7 @@ export async function openApproval(
   });
 
   await notifyApprovalRequested(tx, context, {
+    approvalId: approval.id,
     moduleKey: "contracts",
     recordId,
     recordType: APPROVAL_RECORD[type].recordType,
@@ -131,6 +133,7 @@ export async function requirePendingApproval(
   context: UserContext,
   type: ContractApprovalRecordType,
   recordId: string,
+  guard?: ApprovalGuard,
 ) {
   const approval = await tx.contractApproval.findFirst({
     where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
@@ -141,6 +144,9 @@ export async function requirePendingApproval(
   if (!approval) {
     throw new AccessError("CONFLICT", "This record is not waiting for a decision.");
   }
+
+  // A resubmission since the review opened is a different cycle (PRD #41 §187).
+  assertApprovalGuard(guard, approval);
 
   return approval;
 }
@@ -155,7 +161,7 @@ export async function decideApproval(
   tx: Prisma.TransactionClient,
   context: UserContext,
   approvalId: string,
-  decision: "APPROVED" | "REJECTED",
+  decision: "APPROVED" | "REJECTED" | "RETURNED",
   note: string | null,
 ): Promise<void> {
   const result = await tx.contractApproval.updateMany({
@@ -178,6 +184,7 @@ export async function decideApproval(
   });
   if (approval) {
     await notifyApprovalDecided(tx, context, {
+      approvalId,
       moduleKey: "contracts",
       recordId: approval.recordId,
       recordType: APPROVAL_RECORD[approval.recordType].recordType,
@@ -195,10 +202,11 @@ export async function cancelPendingApprovals(
   type: ContractApprovalRecordType,
   recordId: string,
 ): Promise<void> {
-  await tx.contractApproval.updateMany({
+  const { count } = await tx.contractApproval.updateMany({
     where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
     data: { status: "CANCELLED", decidedAt: new Date(), decidedByMemberId: context.membershipId },
   });
+  await recordApprovalCancelled(tx, context, { moduleKey: MODULE, recordType: APPROVAL_RECORD[type].recordType, noun: APPROVAL_RECORD[type].noun, recordId, count });
 }
 
 /* -------------------------------------------------------------------------- */

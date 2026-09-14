@@ -1,8 +1,13 @@
 import { Prisma, type FinanceApprovalRecordType } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { NotificationEvent } from "@/lib/core/notifications/notification.events";
-import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
+import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import {
+  notifyApprovalDecided,
+  notifyApprovalRequested,
+  recordApprovalCancelled,
+} from "@/lib/core/notifications/approval-notifications";
+import type { RecordType } from "@/lib/core/records/record.types";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
@@ -123,25 +128,25 @@ export async function openApproval(
   /*
    * Every finance approval passes through here, so this is the one place that
    * needs to tell anybody. Enqueued on the caller's transaction: a submission
-   * that rolls back notifies nobody (PRD #25 §25).
+   * that rolls back notifies nobody (PRD #25 §25). No exact permissions: the
+   * module's approver permission is the floor, since either `approval.decide`
+   * or the record type's own grant decides it.
    */
-  await enqueueNotificationEvent(tx, {
-    companyId: context.companyId,
-    eventType: NotificationEvent.APPROVAL_REQUESTED,
-    moduleKey: "finance",
-    // The record registry's type, so the dispatcher can re-read the record for
-    // each recipient (PRD #38 §82).
-    entityType: type.toLowerCase(),
-    entityId: recordId,
-    actorMemberId: context.membershipId,
-    payload: {
-      recordLabel: recordTypeLabel(type),
-      submittedByName: context.fullName,
-      submittedByMemberId: context.membershipId,
-    },
+  await notifyApprovalRequested(tx, context, {
+    moduleKey: MODULE,
+    recordType: recordTypeFor(type),
+    recordId,
+    noun: recordTypeLabel(type),
+    approvalId: approval.id,
+    approvePermissions: [],
   });
 
   return approval.id;
+}
+
+/** The record registry's type, so the dispatcher can re-read the record for each recipient (PRD #38 §82). */
+function recordTypeFor(type: FinanceApprovalRecordType): RecordType {
+  return type.toLowerCase() as RecordType;
 }
 
 /** "INVOICE" reads as "An invoice" in a notification title. */
@@ -156,6 +161,7 @@ export async function requirePendingApproval(
   context: UserContext,
   type: FinanceApprovalRecordType,
   recordId: string,
+  guard?: ApprovalGuard,
 ) {
   const approval = await tx.financeApproval.findFirst({
     where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
@@ -164,8 +170,10 @@ export async function requirePendingApproval(
   });
 
   if (!approval) {
-    throw new AccessError("CONFLICT", "This record is not waiting for a decision.");
+    throw new AccessError("CONFLICT", "This record is not waiting for a decision.", { code: "APPROVAL_ALREADY_DECIDED" });
   }
+  // The Approvals Center reviewed one cycle; a resubmission since is a different one (PRD #41 §187).
+  assertApprovalGuard(guard, approval);
 
   return approval;
 }
@@ -181,7 +189,7 @@ export async function decideApproval(
   tx: Prisma.TransactionClient,
   context: UserContext,
   approvalId: string,
-  decision: "APPROVED" | "REJECTED",
+  decision: "APPROVED" | "REJECTED" | "RETURNED",
   note: string | null,
 ): Promise<void> {
   const result = await tx.financeApproval.updateMany({
@@ -195,7 +203,7 @@ export async function decideApproval(
   });
 
   if (result.count === 0) {
-    throw new AccessError("CONFLICT", "This record has already been decided.");
+    throw new AccessError("CONFLICT", "This record has already been decided.", { code: "APPROVAL_ALREADY_DECIDED" });
   }
 
   // Back to whoever submitted it — they are the person waiting (PRD #25 §32).
@@ -205,19 +213,15 @@ export async function decideApproval(
   });
 
   if (approval) {
-    await enqueueNotificationEvent(tx, {
-      companyId: context.companyId,
-      eventType: NotificationEvent.APPROVAL_DECIDED,
-      moduleKey: "finance",
-      entityType: approval.recordType.toLowerCase(),
-      entityId: approval.recordId,
-      actorMemberId: context.membershipId,
-      payload: {
-        recordLabel: recordTypeLabel(approval.recordType),
-        decision,
-        reason: note,
-        submittedByMemberId: approval.submittedByMemberId,
-      },
+    await notifyApprovalDecided(tx, context, {
+      moduleKey: MODULE,
+      recordType: recordTypeFor(approval.recordType),
+      recordId: approval.recordId,
+      noun: recordTypeLabel(approval.recordType),
+      approvalId,
+      decision,
+      note,
+      submittedByMemberId: approval.submittedByMemberId,
     });
   }
 }
@@ -229,10 +233,11 @@ export async function cancelPendingApprovals(
   type: FinanceApprovalRecordType,
   recordId: string,
 ): Promise<void> {
-  await tx.financeApproval.updateMany({
+  const { count } = await tx.financeApproval.updateMany({
     where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
     data: { status: "CANCELLED", decidedAt: new Date(), decidedByMemberId: context.membershipId },
   });
+  await recordApprovalCancelled(tx, context, { moduleKey: MODULE, recordType: recordTypeFor(type), recordId, noun: recordTypeLabel(type), count });
 }
 
 /* -------------------------------------------------------------------------- */

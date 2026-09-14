@@ -13,6 +13,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
   dateString,
   isOverdue,
@@ -596,6 +597,7 @@ export async function closeIncident(
   context: UserContext,
   incidentId: string,
   decisionNote: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "hse.incident.close");
@@ -624,12 +626,7 @@ export async function closeIncident(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "INCIDENT_CLOSE",
-      incidentId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "INCIDENT_CLOSE", incidentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);

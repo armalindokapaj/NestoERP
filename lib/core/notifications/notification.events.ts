@@ -136,7 +136,14 @@ export const NotificationEvent = {
   COMMENT_REPLY: "COMMENT_REPLY",
   COMMENT_ADDED: "COMMENT_ADDED",
   APPROVAL_REQUESTED: "APPROVAL_REQUESTED",
+  /** Superseded by the three outcome events below; kept so rows already in the outbox still dispatch. */
   APPROVAL_DECIDED: "APPROVAL_DECIDED",
+  APPROVAL_APPROVED: "APPROVAL_APPROVED",
+  APPROVAL_REJECTED: "APPROVAL_REJECTED",
+  APPROVAL_RETURNED: "APPROVAL_RETURNED",
+  APPROVAL_REASSIGNED: "APPROVAL_REASSIGNED",
+  APPROVAL_DELEGATED: "APPROVAL_DELEGATED",
+  APPROVAL_OVERDUE: "APPROVAL_OVERDUE",
   DOCUMENT_REVIEW_REQUESTED: "DOCUMENT_REVIEW_REQUESTED",
   DOCUMENT_APPROVED: "DOCUMENT_APPROVED",
   DOCUMENT_REJECTED: "DOCUMENT_REJECTED",
@@ -279,19 +286,29 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     eventType: NotificationEvent.APPROVAL_REQUESTED,
     category: "approvals",
     priority: "HIGH",
-    // Everybody is a candidate; the approver permission for the record's
-    // module decides who is actually told.
-    async recipients(tx, event) {
-      return activeMembers(tx, event.companyId);
+    // A chain step that belongs to a role or a person names its approvers;
+    // otherwise everybody is a candidate and the approver permission for the
+    // record's module decides who is actually told. The requester and anybody
+    // who already decided a step of the cycle are never asked (PRD #41 §41).
+    async recipients(tx, event, payload) {
+      const excluded = new Set(ids(payload, "excludeMemberIds"));
+      const named = ids(payload, "recipientMemberIds");
+      const candidates = named.length > 0 ? named : await activeMembers(tx, event.companyId);
+      return candidates.filter((memberId) => !excluded.has(memberId));
     },
     // The producer names what deciding this record type takes — the same
     // permissions its approval service checks. Without them, the module's
     // approver permission is the floor.
     permission: (event, payload) => {
       const exact = ids(payload, "approvePermissions").filter(isPermission);
-      return exact.length > 0 ? exact : (APPROVER_PERMISSION[event.moduleKey] ?? null);
+      if (exact.length > 0) return exact;
+      if (ids(payload, "recipientMemberIds").length > 0) return null;
+      return APPROVER_PERMISSION[event.moduleKey] ?? null;
     },
-    title: (payload) => `${recordName(payload, "A record")} needs your approval`,
+    title: (payload) =>
+      payload.stepLabel
+        ? `${recordName(payload, "A record")} needs your ${text(payload, "stepLabel")} approval`
+        : `${recordName(payload, "A record")} needs your approval`,
     body: (payload) => (payload.submittedByName ? `Submitted by ${text(payload, "submittedByName")}` : null),
     dedupe: perEvent,
     email: {
@@ -310,6 +327,83 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `${recordName(payload, "Your record")} was ${text(payload, "decision", "decided").toLowerCase()}`,
     body: (payload) => (payload.reason ? text(payload, "reason") : null),
     dedupe: perEvent,
+  },
+  // The outcome goes back to whoever asked (PRD #41 §40, §41).
+  {
+    eventType: NotificationEvent.APPROVAL_APPROVED,
+    category: "approvals",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "submittedByMemberId")];
+    },
+    title: (payload) => `${recordName(payload, "Your request")} was approved`,
+    body: (payload) => (payload.actorName ? `By ${text(payload, "actorName")}` : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.APPROVAL_REJECTED,
+    category: "approvals",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "submittedByMemberId")];
+    },
+    title: (payload) => `${recordName(payload, "Your request")} was rejected`,
+    body: (payload) => (payload.reason ? text(payload, "reason").slice(0, 300) : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.APPROVAL_RETURNED,
+    category: "approvals",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "submittedByMemberId")];
+    },
+    title: (payload) => `${recordName(payload, "Your request")} was returned for revision`,
+    body: (payload) => (payload.reason ? text(payload, "reason").slice(0, 300) : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.APPROVAL_REASSIGNED,
+    category: "approvals",
+    priority: "HIGH",
+    // The new approver has something to decide; the old one no longer does (PRD #41 §237).
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "toMemberId"), text(payload, "fromMemberId")];
+    },
+    title: (payload) => `${recordName(payload, "An approval")} was reassigned`,
+    body: (payload) => (payload.toName ? `Now with ${text(payload, "toName")}` : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.APPROVAL_DELEGATED,
+    category: "approvals",
+    priority: "NORMAL",
+    // The delegate is told; the delegator gets the confirmation when somebody
+    // else set it up for them (PRD #41 §170).
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "toMemberId"), text(payload, "fromMemberId")];
+    },
+    title: (payload) => `${text(payload, "fromName", "A colleague")} delegated approvals to ${text(payload, "toName", "a colleague")}`,
+    body: (payload) => (payload.window ? text(payload, "window") : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.APPROVAL_OVERDUE,
+    category: "approvals",
+    priority: "HIGH",
+    async recipients(tx, event, payload) {
+      const excluded = new Set(ids(payload, "excludeMemberIds"));
+      const named = ids(payload, "approverMemberIds");
+      return (named.length > 0 ? named : await activeMembers(tx, event.companyId)).filter((memberId) => !excluded.has(memberId));
+    },
+    permission: (_event, payload) => {
+      const exact = ids(payload, "approvePermissions").filter(isPermission);
+      return exact.length > 0 ? exact : null;
+    },
+    title: (payload) => `${recordName(payload, "An approval")} is overdue for a decision`,
+    body: (payload) => (payload.dueDate ? `It was due ${text(payload, "dueDate")}` : null),
+    // Once a day per approval, not once per scheduler run.
+    dedupe: (event, memberId, payload) => `APPROVAL_OVERDUE:${text(payload, "approvalKey", event.entityId)}:${memberId}:${text(payload, "day", text(payload, "dueDate"))}`,
   },
 
   /* Documents ------------------------------------------------------------- */

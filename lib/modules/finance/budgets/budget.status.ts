@@ -9,7 +9,8 @@ import type { BudgetStatus } from "@prisma/client";
  */
 const TRANSITIONS: Record<BudgetStatus, BudgetStatus[]> = {
   DRAFT: ["PENDING_APPROVAL"],
-  PENDING_APPROVAL: ["APPROVED", "REJECTED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT"],
   APPROVED: [],
   REJECTED: ["DRAFT", "PENDING_APPROVAL"],
   ARCHIVED: [],

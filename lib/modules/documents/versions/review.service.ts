@@ -5,6 +5,7 @@ import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
+import { delegationBetween } from "@/lib/core/approvals/approval-delegations";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
@@ -20,7 +21,10 @@ import { documentReviewable } from "./version.service";
  *
  * Deliberately small: a version is sent to named reviewers, each approves or
  * rejects it, and the version's state follows — all approved is APPROVED, any
- * rejection is REJECTED. No workflow engine, no stages, no delegation.
+ * rejection is REJECTED. That is a parallel approval whose completion rule is
+ * ALL (PRD #41 §22). No workflow engine and no stages. A reviewer away can
+ * lend the review to a delegate who could review the document themselves, and
+ * a review can be reassigned to somebody else explicitly (PRD #41 §33, §236).
  *
  * Three rules hold throughout:
  *
@@ -44,8 +48,41 @@ export const requestReviewSchema = z.object({
 });
 
 export const decideReviewSchema = z.object({
-  note: z.string().trim().max(1000).optional(),
+  note: z.string().trim().max(5000).optional(),
 });
+
+export const reassignReviewSchema = z.object({
+  reviewerMemberId: z.string().trim().min(1).max(64),
+  reason: z.string().trim().max(1000).optional(),
+});
+
+/** The attention items one review raised — per reviewer, keyed by the review (PRD #41 §227). */
+async function resolveReviewAttention(tx: Prisma.TransactionClient, companyId: string, reviewId: string): Promise<void> {
+  await tx.attentionItem.updateMany({
+    where: {
+      companyId,
+      conditionKey: { in: ["PENDING_APPROVAL", "APPROVAL_OVERDUE"] },
+      entityType: "document",
+      dedupeKey: { endsWith: `:${reviewId}` },
+      status: "ACTIVE",
+    },
+    data: { status: "RESOLVED", resolvedAt: new Date() },
+  });
+}
+
+/**
+ * Whether this person may decide a review assigned to someone else, because
+ * that reviewer delegated their approvals to them. The delegate must be able
+ * to review the document in their own right, and so must the reviewer still:
+ * a delegation lends authority, never access (PRD #41 §33, §34).
+ */
+async function reviewDelegation(context: UserContext, review: { reviewerMemberId: string; documentId: string }): Promise<string | null> {
+  if (review.reviewerMemberId === context.membershipId) return null;
+  const lent = await delegationBetween(context.companyId, review.reviewerMemberId, context.membershipId, "documents");
+  if (!lent) return null;
+  const [reviewerStill] = await eligibleReviewerIds(context.companyId, review.documentId, [review.reviewerMemberId]);
+  return reviewerStill ? review.reviewerMemberId : null;
+}
 
 export type EligibleReviewerDTO = { memberId: string; fullName: string; jobTitle: string | null };
 
@@ -201,7 +238,8 @@ export async function decideReview(
   const document = await requireDocument(context, review.documentId).catch(() => {
     throw new AccessError("NOT_FOUND");
   });
-  if (review.reviewerMemberId !== context.membershipId || !can(context, "document.review.decide")) {
+  const onBehalfOf = await reviewDelegation(context, review);
+  if ((review.reviewerMemberId !== context.membershipId && !onBehalfOf) || !can(context, "document.review.decide")) {
     throw new AccessError("FORBIDDEN", "This review is assigned to someone else.");
   }
   // Belt and braces: the request refused it, and a changed membership must not create it.
@@ -221,6 +259,7 @@ export async function decideReview(
       },
     });
     if (settled.count === 0) throw new AccessError("CONFLICT", "REVIEW_ALREADY_DECIDED");
+    await resolveReviewAttention(tx, context.companyId, review.id);
 
     const version = await tx.documentVersion.findUniqueOrThrow({
       where: { id: review.documentVersionId },
@@ -263,8 +302,8 @@ export async function decideReview(
       entityType: "Document",
       entityId: review.documentId,
       action: decision === "APPROVED" ? "DOCUMENT_REVIEW_APPROVED" : "DOCUMENT_REVIEW_REJECTED",
-      message: `${decision === "APPROVED" ? "approved" : "rejected"} version ${version.versionNumber}`,
-      metadata: { versionNumber: version.versionNumber } as Prisma.InputJsonValue,
+      message: `${decision === "APPROVED" ? "approved" : "rejected"} version ${version.versionNumber}${onBehalfOf ? " on behalf of the assigned reviewer" : ""}`,
+      metadata: { versionNumber: version.versionNumber, ...(onBehalfOf ? { onBehalfOfMemberId: onBehalfOf } : {}) } as Prisma.InputJsonValue,
     });
     await recordUserAction(
       context,
@@ -272,7 +311,7 @@ export async function decideReview(
         actionKey: AuditAction.DOCUMENT_REVIEW_DECIDED,
         entity: { type: "Document", id: review.documentId, label: document.name },
         projectId: document.projectId,
-        after: { status: decision, versionNumber: version.versionNumber },
+        after: { status: decision, versionNumber: version.versionNumber, ...(onBehalfOf ? { onBehalfOfMemberId: onBehalfOf } : {}) },
       },
       { tx },
     );
@@ -309,4 +348,92 @@ export async function decideReview(
 
     return { versionState };
   });
+}
+
+/**
+ * Hands a pending review to somebody else (PRD #41 §235-§237): the reviewer
+ * has left, is away for good, or was the wrong person. An explicit command —
+ * never a side effect of deactivating someone — taken by whoever asked for the
+ * review or anybody who may manage the document, audited, and told to both
+ * reviewers. The new reviewer must be eligible exactly as at request time.
+ */
+export async function reassignReview(
+  context: UserContext,
+  reviewId: string,
+  input: z.infer<typeof reassignReviewSchema>,
+): Promise<{ reviewId: string }> {
+  const review = await prisma.documentReview.findFirst({
+    where: { id: reviewId, companyId: context.companyId },
+    select: { id: true, documentId: true, documentVersionId: true, reviewerMemberId: true, requestedByMemberId: true, status: true },
+  });
+  if (!review) throw new AccessError("NOT_FOUND");
+  const document = await requireDocument(context, review.documentId).catch(() => {
+    throw new AccessError("NOT_FOUND");
+  });
+  const mayReassign = review.requestedByMemberId === context.membershipId ? can(context, "document.review.request") : can(context, "document.review.request") && can(context, "document.archive");
+  if (!mayReassign) throw new AccessError("FORBIDDEN", "Only whoever asked for this review, or a document manager, can reassign it.");
+  if (review.status !== "PENDING") throw new AccessError("CONFLICT", "REVIEW_ALREADY_DECIDED", { code: "APPROVAL_ALREADY_DECIDED" });
+
+  const target = input.reviewerMemberId;
+  if (target === review.reviewerMemberId) throw new AccessError("VALIDATION_ERROR", "REVIEWER_UNCHANGED");
+  if (target === review.requestedByMemberId) throw new AccessError("VALIDATION_ERROR", "SELF_REVIEW_NOT_ALLOWED");
+  const [eligible] = await eligibleReviewerIds(context.companyId, document.id, [target]);
+  if (!eligible) throw new AccessError("VALIDATION_ERROR", "REVIEWER_NOT_ALLOWED");
+
+  const names = await prisma.companyMember.findMany({
+    where: { id: { in: [review.reviewerMemberId, target] } },
+    select: { id: true, user: { select: { firstName: true, lastName: true } } },
+  });
+  const nameOf = (id: string) => {
+    const row = names.find((member) => member.id === id);
+    return row ? `${row.user.firstName} ${row.user.lastName}` : "a colleague";
+  };
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const moved = await tx.documentReview.updateMany({
+        where: { id: review.id, status: "PENDING", reviewerMemberId: review.reviewerMemberId },
+        data: { reviewerMemberId: target, pendingKey: `${review.documentVersionId}:${target}` },
+      });
+      if (moved.count === 0) throw new AccessError("CONFLICT", "REVIEW_ALREADY_DECIDED", { code: "APPROVAL_ALREADY_DECIDED" });
+      await resolveReviewAttention(tx, context.companyId, review.id);
+
+      await recordActivity(tx, context, {
+        module: "documents",
+        entityType: "Document",
+        entityId: document.id,
+        action: "DOCUMENT_REVIEW_REASSIGNED",
+        message: `reassigned a review from ${nameOf(review.reviewerMemberId)} to ${nameOf(target)}`,
+        metadata: { reviewId: review.id, fromMemberId: review.reviewerMemberId, toMemberId: target } as Prisma.InputJsonValue,
+      });
+      await recordUserAction(
+        context,
+        {
+          actionKey: AuditAction.APPROVAL_REASSIGNED,
+          entity: { type: "document", id: document.id, label: document.name },
+          projectId: document.projectId,
+          before: { from: review.reviewerMemberId },
+          after: { approvalId: review.id, providerKey: "documents", sourceType: "document", from: review.reviewerMemberId, to: target },
+          reason: input.reason || null,
+        },
+        { tx },
+      );
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.APPROVAL_REASSIGNED,
+        moduleKey: "documents",
+        entityType: "document",
+        entityId: document.id,
+        actorMemberId: context.membershipId,
+        projectId: document.projectId,
+        payload: { recordLabel: document.name, fromMemberId: review.reviewerMemberId, toMemberId: target, toName: nameOf(target), reviewId: review.id },
+      });
+      return { reviewId: review.id };
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new AccessError("CONFLICT", "REVIEW_ALREADY_PENDING");
+    }
+    throw error;
+  }
 }
