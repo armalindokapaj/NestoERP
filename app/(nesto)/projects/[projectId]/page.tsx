@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import * as projects from "@/lib/modules/projects/project.service";
+import { dateLabel } from "@/lib/modules/project-planning/planning.dates";
+import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import {
   daysRemaining,
@@ -56,6 +58,9 @@ export default async function ProjectOverviewPage({ params }: Params) {
   const remaining = daysRemaining(
     project.schedule.endDate ? new Date(project.schedule.endDate) : null,
   );
+
+  // Next milestone, delays, risk and progress by phase (PRD #44 §169).
+  const planning = actions.canViewPlanning ? await projectPlanningSummary(context, projectId) : null;
 
   const taskSummary = actions.canViewTasks
     ? await projects.getProjectTaskSummary(context, projectId)
@@ -179,6 +184,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
         projectId={project.id}
         active="overview"
         show={{
+          planning: actions.canViewPlanning,
           tasks: actions.canViewTasks,
           calendar: actions.canViewCalendar,
           meetings: actions.canViewMeetings,
@@ -195,7 +201,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section className="nesto-card p-5 lg:col-span-2">
+        <section className="nesto-card p-5 lg:col-span-2 lg:self-start">
           <h2 className="text-card font-semibold text-fg">Project summary</h2>
           {project.description ? (
             <p className="mt-3 text-body text-fg-muted">{project.description}</p>
@@ -227,6 +233,60 @@ export default async function ProjectOverviewPage({ params }: Params) {
         </section>
 
         <div className="space-y-4">
+          {planning ? (
+            <section className="nesto-card p-5" data-testid="project-planning-card">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-card font-semibold text-fg">Planning</h2>
+                <Link href={`/projects/${project.id}/planning`} className="text-table font-medium text-accent-strong">
+                  View plan
+                </Link>
+              </div>
+              {planning.metrics.total ? (
+                <>
+                  {planning.next ? (
+                    <Link href={`/projects/${project.id}/planning?milestone=${planning.next.id}`} className="mt-3 block rounded-md border border-line px-3 py-2 hover:border-line-strong">
+                      <span className="block text-meta text-fg-subtle">Next milestone</span>
+                      <span className="block truncate text-table font-medium text-fg">{planning.next.name}</span>
+                      <span className={planning.next.delayed ? "text-meta text-danger-strong" : "text-meta text-fg-muted"}>
+                        {planning.next.delayed ? "Delayed · " : ""}
+                        {dateLabel(planning.next.date)}
+                      </span>
+                    </Link>
+                  ) : null}
+                  <dl className="mt-3 grid grid-cols-3 gap-3">
+                    {[
+                      { label: "Complete", value: `${planning.metrics.completed}/${planning.metrics.total}` },
+                      { label: "Delayed", value: planning.metrics.delayed },
+                      { label: "At risk", value: planning.metrics.atRisk },
+                    ].map((entry) => (
+                      <div key={entry.label}>
+                        <dt className="text-meta text-fg-subtle">{entry.label}</dt>
+                        <dd className="text-section font-semibold tabular-nums text-fg">{entry.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {planning.phases.length ? (
+                    <ul className="mt-4 space-y-2">
+                      {planning.phases.slice(0, 6).map((phase) => (
+                        <li key={phase.id}>
+                          <div className="flex justify-between gap-2 text-meta">
+                            <span className="truncate text-fg">{phase.name}</span>
+                            <span className="tabular-nums text-fg-muted">{phase.progress ?? 0}%</span>
+                          </div>
+                          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line" aria-hidden="true">
+                            <div className="h-full rounded-full bg-accent" style={{ width: `${phase.progress ?? 0}%` }} />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </>
+              ) : (
+                <p className="mt-3 text-table text-fg-subtle">No plan yet.</p>
+              )}
+            </section>
+          ) : null}
+
           {taskSummary ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">

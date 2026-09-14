@@ -39,6 +39,7 @@ export const JOBS: JobSchedule[] = [
   { key: "meetings.series", group: "scheduled", intervalSeconds: 6 * HOUR, leaseSeconds: 30 * MINUTE, staleAfterSeconds: 25 * HOUR },
   { key: "timesheets.reminders", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
   { key: "dailylogs.missing", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
+  { key: "planning.milestones", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
   { key: "approvals.overdue", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
   { key: "notifications.due", group: "scheduled", intervalSeconds: HOUR, leaseSeconds: 15 * MINUTE, staleAfterSeconds: 3 * HOUR },
   { key: "attention.reconcile", group: "scheduled", intervalSeconds: 5 * MINUTE, leaseSeconds: 30 * MINUTE, staleAfterSeconds: 30 * MINUTE },

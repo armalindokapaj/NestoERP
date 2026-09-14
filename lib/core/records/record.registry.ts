@@ -1397,6 +1397,41 @@ const DEFINITIONS: RecordDefinition[] = [
     collaboration: { requires: [] },
   },
 
+  /* Project planning (PRD #44 §57, §59, §178-§182) -------------------------- */
+  {
+    // Reached through its project's plan. Files are the milestone's evidence —
+    // certificates, approvals, handover packs — added by whoever keeps it; its
+    // discussion is context, never the status of record (§179).
+    type: "project_milestone",
+    moduleKey: "projects",
+    noun: "Milestone",
+    activityEntityType: "ProjectMilestone",
+    viewPermissions: ["project.view", "project_planning.view"],
+    async find(context, id) {
+      const { readableMilestoneWhere } = await import("@/lib/modules/project-planning/planning.permissions");
+      const row = await prisma.projectMilestone.findFirst({
+        where: { AND: [readableMilestoneWhere(context), { id }] },
+        select: { id: true, companyId: true, projectId: true, name: true, archivedAt: true, ownerMemberId: true, createdByMemberId: true, project: { select: { name: true, archivedAt: true, status: true, projectManagerMemberId: true } } },
+      });
+      return row && {
+        type: "project_milestone", id: row.id, companyId: row.companyId,
+        label: `${row.name} · ${row.project.name}`,
+        href: `/projects/${row.projectId}/planning?milestone=${row.id}`,
+        projectId: row.projectId,
+        archived: Boolean(row.archivedAt) || Boolean(row.project.archivedAt) || row.project.status === "ARCHIVED",
+        stakeholderMemberIds: unique(row.ownerMemberId, row.createdByMemberId, row.project.projectManagerMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableMilestoneWhere } = await import("@/lib/modules/project-planning/planning.permissions");
+      const rows = await prisma.projectMilestone.findMany({ where: { AND: [readableMilestoneWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["project_planning.milestone.edit"], tabHref: (summary) => summary.href, reviewable: true },
+    collaboration: { requires: [] },
+  },
+
   /* Approvals (PRD #41 §170) ----------------------------------------------- */
   {
     // A delegation is only ever the business of the two people in it, so it is

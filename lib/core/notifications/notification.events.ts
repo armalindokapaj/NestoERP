@@ -48,6 +48,7 @@ export const NOTIFICATION_CATEGORIES = [
   "meetings",
   "timesheets",
   "daily_logs",
+  "project_planning",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -184,6 +185,15 @@ export const NotificationEvent = {
   DAILY_LOG_LOCKED: "DAILY_LOG_LOCKED",
   DAILY_LOG_CORRECTION_ADDED: "DAILY_LOG_CORRECTION_ADDED",
   DAILY_LOG_MISSING_REMINDER: "DAILY_LOG_MISSING_REMINDER",
+  // Project planning (PRD #44 §70, §164-§167, §250-§253)
+  MILESTONE_ASSIGNED: "MILESTONE_ASSIGNED",
+  MILESTONE_UPDATED: "MILESTONE_UPDATED",
+  MILESTONE_DUE_SOON: "MILESTONE_DUE_SOON",
+  MILESTONE_OVERDUE: "MILESTONE_OVERDUE",
+  MILESTONE_COMPLETED: "MILESTONE_COMPLETED",
+  MILESTONE_BLOCKER_ASSIGNED: "MILESTONE_BLOCKER_ASSIGNED",
+  MILESTONE_BLOCKER_RESOLVED: "MILESTONE_BLOCKER_RESOLVED",
+  BASELINE_CHANGED: "BASELINE_CHANGED",
 } as const;
 
 const DEFINITIONS: NotificationEventDefinition[] = [
@@ -562,6 +572,106 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `No daily log yet for ${text(payload, "projectName", "a project")}, ${text(payload, "dateLabel", "the last working day")}`,
     body: () => "Logs are required for this project's working days.",
     dedupe: (event, memberId, payload) => `DAILY_LOG_MISSING_REMINDER:${event.entityId}:${text(payload, "workDate")}:${memberId}`,
+  },
+
+  /* Project planning ------------------------------------------------------ */
+  {
+    eventType: NotificationEvent.MILESTONE_ASSIGNED,
+    category: "project_planning",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_planning.view",
+    title: (payload) => `You own the milestone “${text(payload, "milestoneName", "a milestone")}”`,
+    body: (payload) => `On ${text(payload, "projectName", "a project")}`,
+    // One per assignment: being given the same milestone again later is a new assignment.
+    dedupe: (event, memberId, payload) => `MILESTONE_ASSIGNED:${event.entityId}:${memberId}:${text(payload, "assignment", event.id)}`,
+  },
+  {
+    // A moved forecast, or a milestone now at risk, delayed, on hold, cancelled or reopened — never a progress nudge (§210).
+    eventType: NotificationEvent.MILESTONE_UPDATED,
+    category: "project_planning",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_planning.view",
+    title: (payload) => `“${text(payload, "milestoneName", "A milestone")}” on ${text(payload, "projectName", "a project")} changed`,
+    body: (payload) => [text(payload, "change"), payload.actorName ? `by ${text(payload, "actorName")}` : ""].filter(Boolean).join(" ") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.MILESTONE_DUE_SOON,
+    category: "project_planning",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_planning.view",
+    title: (payload) => `“${text(payload, "milestoneName", "A milestone")}” is due ${text(payload, "dateLabel", "soon")}`,
+    body: (payload) => `On ${text(payload, "projectName", "a project")}`,
+    dedupe: (event, memberId, payload) => `MILESTONE_DUE_SOON:${event.entityId}:${text(payload, "targetDate")}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.MILESTONE_OVERDUE,
+    category: "project_planning",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_planning.view",
+    title: (payload) => `“${text(payload, "milestoneName", "A milestone")}” is overdue`,
+    body: (payload) => `Due ${text(payload, "dateLabel", "earlier")} on ${text(payload, "projectName", "a project")}`,
+    dedupe: (event, memberId, payload) => `MILESTONE_OVERDUE:${event.entityId}:${text(payload, "targetDate")}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.MILESTONE_COMPLETED,
+    category: "project_planning",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_planning.view",
+    title: (payload) => `“${text(payload, "milestoneName", "A milestone")}” was completed`,
+    body: (payload) => `On ${text(payload, "projectName", "a project")}, ${text(payload, "dateLabel", "today")}`,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.MILESTONE_BLOCKER_ASSIGNED,
+    category: "project_planning",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_planning.view",
+    title: (payload) => `You own a blocker on “${text(payload, "milestoneName", "a milestone")}”`,
+    body: (payload) => text(payload, "blockerTitle").slice(0, 200) || null,
+    dedupe: (event, memberId, payload) => `MILESTONE_BLOCKER_ASSIGNED:${text(payload, "blockerId", event.id)}:${memberId}:${event.id}`,
+  },
+  {
+    eventType: NotificationEvent.MILESTONE_BLOCKER_RESOLVED,
+    category: "project_planning",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_planning.view",
+    title: (payload) => `A blocker on “${text(payload, "milestoneName", "a milestone")}” was resolved`,
+    body: (payload) => text(payload, "blockerTitle").slice(0, 200) || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.BASELINE_CHANGED,
+    category: "project_planning",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project_planning.view",
+    title: (payload) => `The baseline of “${text(payload, "milestoneName", "a milestone")}” on ${text(payload, "projectName", "a project")} moved`,
+    body: (payload) => [text(payload, "change"), text(payload, "reason").slice(0, 200)].filter(Boolean).join(" — ") || null,
+    dedupe: perEvent,
   },
 
   /* Documents ------------------------------------------------------------- */

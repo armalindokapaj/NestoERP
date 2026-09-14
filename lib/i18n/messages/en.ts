@@ -219,6 +219,7 @@ export const en = {
         meetings: { label: "Meetings", description: "Invitations, changes, reminders, minutes and actions from meetings." },
         timesheets: { label: "Timesheets", description: "Weeks to submit, and weeks approved, returned or waiting for your review." },
         daily_logs: { label: "Daily logs", description: "Logs to review, logs returned to you, locks, corrections and missing logs." },
+        project_planning: { label: "Project planning", description: "Milestones you own, due dates, overdue milestones, blockers and baseline changes." },
       },
     },
 

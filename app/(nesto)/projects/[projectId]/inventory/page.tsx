@@ -148,6 +148,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
         projectId={project.id}
         active="inventory"
         show={{
+          planning: actions.canViewPlanning,
           tasks: actions.canViewTasks,
           calendar: actions.canViewCalendar,
           meetings: actions.canViewMeetings,

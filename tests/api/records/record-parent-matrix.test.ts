@@ -65,6 +65,7 @@ const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
   meeting: { model: "meeting" },
   timesheet: { model: "timesheet" },
   daily_log: { model: "dailyLog" },
+  project_milestone: { model: "projectMilestone" },
   approval_delegation: { model: "approvalDelegation" },
 };
 

@@ -770,10 +770,53 @@ const dailyLogProvider: GlobalSearchProvider = {
   },
 };
 
+/**
+ * Milestones (PRD #44 §176, §177): name, project, phase and type, over the
+ * plans this reader can open. Descriptions and discussion are not searched.
+ */
+const milestoneProvider: GlobalSearchProvider = {
+  moduleKey: "projects",
+  entityTypes: ["project_milestone"],
+  async search(context, query) {
+    if (!available(context, "projects", "project_planning.view")) return [];
+    const { readableMilestoneWhere } = await import("@/lib/modules/project-planning/planning.permissions");
+    const { dateLabel, dateOf, displayDateOf } = await import("@/lib/modules/project-planning/planning.dates");
+    const { MILESTONE_TYPES, STATUS_LABELS, TYPE_LABELS } = await import("@/lib/modules/project-planning/planning.types");
+    const term = { contains: query.text, mode: "insensitive" as const };
+    const types = MILESTONE_TYPES.filter((type) => TYPE_LABELS[type].toLowerCase().includes(query.text.trim().toLowerCase()));
+    const rows = await prisma.projectMilestone.findMany({
+      where: {
+        AND: [
+          readableMilestoneWhere(context),
+          { archivedAt: null },
+          { OR: [{ name: term }, { project: { is: { OR: [{ name: term }, { code: term }] } } }, { phase: { is: { name: term } } }, ...(types.length ? [{ milestoneType: { in: types } }] : [])] },
+        ],
+      },
+      orderBy: [{ forecastDate: "asc" }],
+      take: query.limitPerProvider,
+      select: { id: true, name: true, status: true, projectId: true, baselineDate: true, plannedDate: true, forecastDate: true, actualDate: true, project: { select: { name: true } } },
+    });
+    return rows.map((row) => {
+      const date = displayDateOf({ status: row.status, baselineDate: dateOf(row.baselineDate), plannedDate: dateOf(row.plannedDate), forecastDate: dateOf(row.forecastDate), actualDate: dateOf(row.actualDate) });
+      return {
+        moduleKey: "projects",
+        entityType: "project_milestone",
+        entityId: row.id,
+        title: row.name,
+        subtitle: [`Milestone · ${row.project.name}`, date ? `${row.status === "COMPLETED" ? "Achieved" : "Forecast"} ${dateLabel(date)}` : null, STATUS_LABELS[row.status]].filter(Boolean).join(" · "),
+        href: `/projects/${row.projectId}/planning?milestone=${row.id}`,
+        score: scoreMatch(query.text, `${row.name} ${row.project.name}`),
+        status: row.status,
+      };
+    });
+  },
+};
+
 export const searchProviders: GlobalSearchProvider[] = [
   calendarProvider,
   meetingProvider,
   dailyLogProvider,
+  milestoneProvider,
   projectProvider,
   taskProvider,
   clientProvider,

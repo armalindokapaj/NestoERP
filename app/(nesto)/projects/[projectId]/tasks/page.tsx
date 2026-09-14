@@ -61,6 +61,7 @@ export default async function ProjectTasksPage({ params }: Params) {
         projectId={project.id}
         active="tasks"
         show={{
+          planning: actions.canViewPlanning,
           tasks: actions.canViewTasks,
           calendar: actions.canViewCalendar,
           meetings: actions.canViewMeetings,

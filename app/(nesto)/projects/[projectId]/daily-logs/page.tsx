@@ -61,6 +61,7 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
         projectId={project.id}
         active="dailyLogs"
         show={{
+          planning: actions.canViewPlanning,
           tasks: actions.canViewTasks,
           calendar: actions.canViewCalendar,
           meetings: actions.canViewMeetings,

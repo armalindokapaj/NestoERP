@@ -33,6 +33,7 @@ import { seedSalesRecords } from "./seed/sales";
 import { seedTeamRecords } from "./seed/team";
 import { seedTimesheetRecords } from "./seed/timesheets";
 import { seedDailyLogRecords } from "./seed/daily-logs";
+import { seedPlanningRecords } from "./seed/planning";
 import { validateSeed } from "./seed/validate";
 import { reconcileStorageUsage } from "../lib/modules/documents/storage/cleanup.service";
 import { seedStorageQuotas } from "./seed/storage";
@@ -78,6 +79,7 @@ async function main() {
   const approvals = await seedApprovalRecords(prisma, members);
   const timesheets = await seedTimesheetRecords(prisma, members);
   const dailyLogs = await seedDailyLogRecords(prisma, members);
+  const planning = await seedPlanningRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
   await seedAuditEvents(prisma, { companyA, companyB });
 
@@ -115,6 +117,7 @@ async function main() {
   console.log(`✓ Calendar: ${calendar.events} company, project, team and personal events`);
   console.log(`✓ Meetings: ${meetings.meetings} meetings, ${meetings.series} weekly series`);
   console.log(`✓ Daily logs: ${dailyLogs.logs} logs, ${dailyLogs.photos} site photos, ${dailyLogs.links} QA/QC and HSE links`);
+  console.log(`✓ Planning: ${planning.phases} phases, ${planning.milestones} milestones, ${planning.dependencies} dependencies, ${planning.blockers} blockers`);
   console.log(`✓ Timesheets: ${timesheets.weeks} weeks, ${timesheets.logs} work logs, ${timesheets.approvers} approver assignments`);
   console.log(`✓ Approvals: ${approvals.policies} purchase-order policy, ${approvals.chains} order in a chain, ${approvals.delegations} delegation`);
   console.log(

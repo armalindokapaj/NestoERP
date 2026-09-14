@@ -780,6 +780,8 @@ export function projectActions(context: UserContext) {
     canViewMeetings: canAccessModule(context, "meetings") && can(context, "meeting.view"),
     // The project's daily site record (PRD #43 §5, §6).
     canViewDailyLogs: isModuleEnabled(context, "dailyLogs") && canAccessModule(context, "dailyLogs") && can(context, "daily_log.view"),
+    // The project's plan: phases, milestones, timeline and dependencies (PRD #44 §6, §7).
+    canViewPlanning: can(context, "project_planning.view"),
     canViewDocuments: can(context, "project.document.view") && can(context, "document.view"),
     canViewActivity: can(context, "project.activity.view"),
     /**
