@@ -34,6 +34,11 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await remindOverdueApprovals(now);
     return { processed: result.enqueued, detail: result };
   },
+  "timesheets.reminders": async ({ now }) => {
+    const { runTimesheetReminders } = await import("@/lib/modules/timesheets/timesheet.deadline");
+    const result = await runTimesheetReminders(now);
+    return { processed: result.reminded, detail: result };
+  },
   "meetings.series": async ({ now }) => {
     const result = await extendMeetingSeries(now);
     return { processed: result.created, detail: result };

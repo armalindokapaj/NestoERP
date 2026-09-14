@@ -548,6 +548,22 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       };
     }
 
+    case "myTimesheet": {
+      // The member's own weeks, read the way the timesheet screen reads them (PRD #42 §183).
+      const { myRecentWeeks } = await import("@/lib/modules/timesheets/timesheet.service");
+      const weeks = await myRecentWeeks(context, 3);
+      return {
+        kind: "list",
+        items: weeks.map((week, index) => ({
+          id: week.periodStart,
+          title: index === 0 ? `This week · ${week.label}` : week.label,
+          subtitle: week.expectedMinutes > 0 ? `${week.totalLabel} of ${week.expectedLabel} logged` : `${week.totalLabel} logged`,
+          status: week.status === "DRAFT" && index === 0 ? undefined : week.status,
+          href: week.href,
+        })),
+      };
+    }
+
     case "upcomingDeadlines": {
       const rows = await prisma.project.findMany({
         where: {

@@ -19,6 +19,7 @@ export const MODULE_KEYS = [
   "projects",
   "tasks",
   "meetings",
+  "timesheets",
   "clients",
   "documents",
   "finance",
@@ -185,6 +186,24 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "mine", label: "My Meetings" },
       { key: "past", label: "Past" },
       { key: "actions", label: "Actions" },
+    ],
+  },
+  /** Weekly timesheets and work logs (PRD #42 §5-§7). */
+  timesheets: {
+    key: "timesheets",
+    label: "Timesheets",
+    description: "How working time is spent across projects, tasks and internal work.",
+    route: "/timesheets",
+    icon: "Clock",
+    group: "work",
+    permission: "timesheet.view_own",
+    writePermission: "timesheet.edit_own",
+    defaultSection: "me",
+    sections: [
+      { key: "me", label: "My Timesheet" },
+      { key: "team", label: "Team", permission: "timesheet.team.view" },
+      { key: "projects", label: "Projects", permission: "timesheet.project.view" },
+      { key: "settings", label: "Settings", permission: "timesheet.settings.manage" },
     ],
   },
   clients: {

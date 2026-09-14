@@ -46,6 +46,7 @@ export const NOTIFICATION_CATEGORIES = [
   "procurement",
   "calendar",
   "meetings",
+  "timesheets",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -169,6 +170,12 @@ export const NotificationEvent = {
   MEETING_MINUTES_FINALIZED: "MEETING_MINUTES_FINALIZED",
   MEETING_ACTION_ASSIGNED: "MEETING_ACTION_ASSIGNED",
   MEETING_ACTION_COMPLETED: "MEETING_ACTION_COMPLETED",
+  TIMESHEET_SUBMITTED: "TIMESHEET_SUBMITTED",
+  TIMESHEET_APPROVAL_ASSIGNED: "TIMESHEET_APPROVAL_ASSIGNED",
+  TIMESHEET_APPROVED: "TIMESHEET_APPROVED",
+  TIMESHEET_RETURNED: "TIMESHEET_RETURNED",
+  TIMESHEET_REJECTED: "TIMESHEET_REJECTED",
+  TIMESHEET_REMINDER: "TIMESHEET_REMINDER",
 } as const;
 
 const DEFINITIONS: NotificationEventDefinition[] = [
@@ -404,6 +411,79 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     body: (payload) => (payload.dueDate ? `It was due ${text(payload, "dueDate")}` : null),
     // Once a day per approval, not once per scheduler run.
     dedupe: (event, memberId, payload) => `APPROVAL_OVERDUE:${text(payload, "approvalKey", event.entityId)}:${memberId}:${text(payload, "day", text(payload, "dueDate"))}`,
+  },
+
+  /* Timesheets (PRD #42 §104-§106) --------------------------------------- */
+  {
+    eventType: NotificationEvent.TIMESHEET_SUBMITTED,
+    category: "timesheets",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "approverMemberId")];
+    },
+    permission: () => "timesheet.approve",
+    title: (payload) => `${text(payload, "memberName", "A colleague")} submitted their timesheet for ${text(payload, "weekLabel", "the week")}`,
+    body: (payload) => (payload.totalLabel ? `${text(payload, "totalLabel")} logged` : null),
+    dedupe: (event, memberId, payload) => `TIMESHEET_SUBMITTED:${event.entityId}:${text(payload, "submissionVersion")}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.TIMESHEET_APPROVAL_ASSIGNED,
+    category: "timesheets",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "approverMemberId")];
+    },
+    permission: () => "timesheet.approve",
+    title: () => "A timesheet was passed to you to approve",
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.TIMESHEET_APPROVED,
+    category: "timesheets",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `Your timesheet for ${text(payload, "weekLabel", "the week")} was approved`,
+    body: (payload) => (payload.actorName ? `By ${text(payload, "actorName")}` : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.TIMESHEET_RETURNED,
+    category: "timesheets",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) =>
+      payload.reopened
+        ? `Your approved timesheet for ${text(payload, "weekLabel", "the week")} was reopened`
+        : `Your timesheet for ${text(payload, "weekLabel", "the week")} was returned`,
+    body: (payload) => (payload.reason ? text(payload, "reason").slice(0, 300) : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.TIMESHEET_REJECTED,
+    category: "timesheets",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `Your timesheet for ${text(payload, "weekLabel", "the week")} was rejected`,
+    body: (payload) => (payload.reason ? text(payload, "reason").slice(0, 300) : null),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.TIMESHEET_REMINDER,
+    category: "timesheets",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `Your timesheet for ${text(payload, "weekLabel", "last week")} is due`,
+    body: (payload) => (payload.deadlineLabel ? `Due ${text(payload, "deadlineLabel")}` : null),
+    // Once per week per person, however often the scheduler runs (§216).
+    dedupe: (event, memberId) => `TIMESHEET_REMINDER:${event.entityId}:${memberId}`,
   },
 
   /* Documents ------------------------------------------------------------- */

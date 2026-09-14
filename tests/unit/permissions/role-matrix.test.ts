@@ -100,9 +100,10 @@ describe("permission ladders", () => {
       for (const moduleKey of MODULE_KEYS) {
         const access = roleModuleAccess[role][moduleKey];
         if (!accessAtLeast(access.accessLevel, "VIEW")) continue;
-        // Every module with access grants at least one view permission.
+        // Every module with access grants at least one view permission —
+        // Timesheets' is `timesheet.view_own`: everyone reads their own (PRD #42 §122).
         expect(
-          access.permissions.some((permission) => permission.endsWith(".view")),
+          access.permissions.some((permission) => permission.endsWith(".view") || permission.endsWith(".view_own")),
           `${role}/${moduleKey} has access but no view permission`,
         ).toBe(true);
       }
