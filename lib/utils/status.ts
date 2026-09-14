@@ -127,9 +127,14 @@ const TONES: Record<string, StatusTone> = {
   LOCKED: "success",
   CORRECTION_REQUIRED: "warning",
   VOID: "default",
+
+  /* Planning (PRD #44 §122): at risk is amber, delayed is an error. */
+  AT_RISK: "warning",
+  DELAYED: "danger",
 };
 
 const LABELS: Record<string, string> = {
+  AT_RISK: "At risk",
   ON_HOLD: "On hold",
   ON_LEAVE: "On leave",
   NOT_STARTED: "Not started",

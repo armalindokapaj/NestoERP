@@ -159,6 +159,25 @@ export const AuditAction = {
   DAILY_LOG_TASK_CREATED: "DAILY_LOG_TASK_CREATED",
   DAILY_LOG_SETTINGS_UPDATED: "DAILY_LOG_SETTINGS_UPDATED",
 
+  // Project planning (PRD #44 §23, §208, §209): structure, completion, the baseline and sequencing.
+  PROJECT_PHASE_CREATED: "PROJECT_PHASE_CREATED",
+  PROJECT_PHASE_UPDATED: "PROJECT_PHASE_UPDATED",
+  PROJECT_PHASE_ARCHIVED: "PROJECT_PHASE_ARCHIVED",
+  PROJECT_MILESTONE_CREATED: "PROJECT_MILESTONE_CREATED",
+  PROJECT_MILESTONE_UPDATED: "PROJECT_MILESTONE_UPDATED",
+  PROJECT_MILESTONE_COMPLETED: "PROJECT_MILESTONE_COMPLETED",
+  PROJECT_MILESTONE_REOPENED: "PROJECT_MILESTONE_REOPENED",
+  PROJECT_MILESTONE_ARCHIVED: "PROJECT_MILESTONE_ARCHIVED",
+  PROJECT_MILESTONE_BASELINE_CHANGED: "PROJECT_MILESTONE_BASELINE_CHANGED",
+  PROJECT_MILESTONE_DEPENDENCY_ADDED: "PROJECT_MILESTONE_DEPENDENCY_ADDED",
+  PROJECT_MILESTONE_DEPENDENCY_REMOVED: "PROJECT_MILESTONE_DEPENDENCY_REMOVED",
+  PROJECT_MILESTONE_BLOCKER_CREATED: "PROJECT_MILESTONE_BLOCKER_CREATED",
+  PROJECT_MILESTONE_BLOCKER_RESOLVED: "PROJECT_MILESTONE_BLOCKER_RESOLVED",
+  PROJECT_PLANNING_BASELINE_LOCK_CHANGED: "PROJECT_PLANNING_BASELINE_LOCK_CHANGED",
+  PROJECT_PLANNING_TEMPLATE_APPLIED: "PROJECT_PLANNING_TEMPLATE_APPLIED",
+  PROJECT_PLANNING_COPIED: "PROJECT_PLANNING_COPIED",
+  PROJECT_PLANNING_SETTINGS_UPDATED: "PROJECT_PLANNING_SETTINGS_UPDATED",
+
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
   REPORT_EXPORTED_XLSX: "REPORT_EXPORTED_XLSX",
@@ -326,6 +345,25 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.DAILY_LOG_INSTRUCTION_ADDED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["entryId", "requiresAction"], required: false },
   { actionKey: AuditAction.DAILY_LOG_TASK_CREATED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["taskId", "linkType", "section", "entryId"], required: false },
   { actionKey: AuditAction.DAILY_LOG_SETTINGS_UPDATED, moduleKey: "dailyLogs", category: "DAILY_LOG", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["logsRequired", "backdateDays", "reviewerRequired", "reviewerMemberId", "workingDays"], required: true },
+  /* Project planning ----------------------------------------------------- */
+  { actionKey: AuditAction.PROJECT_PHASE_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["phaseId", "name", "status"], required: false },
+  { actionKey: AuditAction.PROJECT_PHASE_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["phaseId", "name", "status", "progressPercent"], required: false },
+  { actionKey: AuditAction.PROJECT_PHASE_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["phaseId", "name"], required: true },
+  { actionKey: AuditAction.PROJECT_MILESTONE_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "phaseId", "milestoneType", "ownerMemberId", "baselineDate", "plannedDate", "forecastDate", "critical", "externallyCommitted"], required: false },
+  { actionKey: AuditAction.PROJECT_MILESTONE_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "status", "phaseId", "ownerMemberId", "plannedDate", "forecastDate", "actualDate", "progressPercent", "critical", "externallyCommitted", "taskId", "linkType", "linkedRecordType", "linkedRecordId"], required: false },
+  // Completion, reopening and the baseline are the plan's commitments: each commits with its audit (§207).
+  { actionKey: AuditAction.PROJECT_MILESTONE_COMPLETED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "actualDate"], required: true },
+  { actionKey: AuditAction.PROJECT_MILESTONE_REOPENED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "actualDate"], required: true },
+  { actionKey: AuditAction.PROJECT_MILESTONE_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.PROJECT_MILESTONE_BASELINE_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["baselineDate"], required: true },
+  { actionKey: AuditAction.PROJECT_MILESTONE_DEPENDENCY_ADDED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["dependencyId", "predecessorMilestoneId", "successorMilestoneId", "lagDays"], required: true },
+  { actionKey: AuditAction.PROJECT_MILESTONE_DEPENDENCY_REMOVED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["dependencyId", "predecessorMilestoneId", "successorMilestoneId", "lagDays"], required: true },
+  { actionKey: AuditAction.PROJECT_MILESTONE_BLOCKER_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["blockerId", "severity", "ownerMemberId", "dueDate", "taskId"], required: false },
+  { actionKey: AuditAction.PROJECT_MILESTONE_BLOCKER_RESOLVED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["blockerId", "severity", "resolved"], required: false },
+  { actionKey: AuditAction.PROJECT_PLANNING_BASELINE_LOCK_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["baselineLocked"], required: true },
+  { actionKey: AuditAction.PROJECT_PLANNING_TEMPLATE_APPLIED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["templateKey", "phases", "milestones"], required: false },
+  { actionKey: AuditAction.PROJECT_PLANNING_COPIED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["sourceProjectId", "phases", "milestones"], required: false },
+  { actionKey: AuditAction.PROJECT_PLANNING_SETTINGS_UPDATED, moduleKey: "projects", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["milestoneReminderDays", "baselineChangeReasonRequired", "notifyExecutivesOnCriticalChanges"], required: true },
   { actionKey: AuditAction.APPROVAL_POLICY_UPDATED, moduleKey: "procurement", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["financeStepAbove", "executiveStepAbove", "executiveRoleKey", "currency"], required: true },
 
   /* Reporting ------------------------------------------------------------ */

@@ -150,6 +150,8 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "overview", label: "Overview" },
       { key: "all", label: "All Projects" },
       { key: "my-projects", label: "My Projects" },
+      // Milestones across projects: delays, variance and the portfolio (PRD #44 §171-§175).
+      { key: "milestones", label: "Milestones", permission: "project_planning.view" },
       { key: "archived", label: "Archived" },
     ],
   },

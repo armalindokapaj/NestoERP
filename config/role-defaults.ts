@@ -153,6 +153,8 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project.task.view",
       "project.document.view",
       "project.activity.view",
+      // The plan is read by everybody who can open the project (PRD #44 §80-§95).
+      "project_planning.view",
     ],
     CONTRIBUTE: ["project.update"],
     MANAGE: [
@@ -164,6 +166,23 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project.member.add",
       "project.member.update",
       "project.member.remove",
+      /*
+       * Keeping the plan is the project manager's job (PRD #44 §85): phases,
+       * milestones and their dates, dependencies, blockers, completion and
+       * reopening, and the baseline. Contributors read it; a company that wants
+       * its engineers to update field milestones grants it to their role.
+       */
+      "project_planning.manage",
+      "project_planning.phase.create",
+      "project_planning.phase.edit",
+      "project_planning.phase.archive",
+      "project_planning.milestone.create",
+      "project_planning.milestone.edit",
+      "project_planning.milestone.complete",
+      "project_planning.milestone.reopen",
+      "project_planning.baseline.manage",
+      "project_planning.dependencies.manage",
+      "project_planning.blockers.manage",
     ],
   },
   tasks: {
@@ -1017,6 +1036,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
   OWNER: {
     // Company daily log rules are not a project manager's to change (PRD #43 §129, §248).
     dailyLogs: { extra: ["daily_log.settings.manage"] },
+    // The company's planning rules, and moving a locked baseline (PRD #44 §76, §309).
+    projects: { extra: ["project_planning.settings.manage"] },
     // Promoting somebody to Owner is the one company action an Admin must not
     // be able to take on their own (PRD #14 §95, §96).
     team: { extra: ["team.owner.assign"] },
@@ -1054,6 +1075,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * base currency, tax and payment terms stay with whoever holds Finance.
      */
     company: { deny: ["company.finance_settings.view", "company.finance_settings.manage"] },
+    // Administering the platform is not reading the construction plan (PRD #44 §81).
+    projects: { deny: ["project_planning.view"] },
   },
   CEO: {
     /**
@@ -1138,6 +1161,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     // The role the module exists for: everything on the ladder, plus pay
     // (PRD #16 §17).
     hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
+    // People operations see the project list, not its milestone plan (PRD #44 §83).
+    projects: { deny: ["project_planning.view"] },
   },
   PROJECT_MANAGER: {
     /**

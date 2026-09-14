@@ -940,6 +940,9 @@ model Company {
   procurementApprovalPolicy  ProcurementApprovalPolicy?
   dailyLogs                  DailyLog[]
   dailyLogSettings           DailyLogSettings?
+  projectPhases              ProjectPhase[]
+  projectMilestones          ProjectMilestone[]
+  projectPlanningSettings    ProjectPlanningSettings?
 
   @@index([status])
   @@index([name])
@@ -1242,6 +1245,11 @@ model Project {
   city                   String?
   country                String?
 
+  /// Planning (PRD #44 §76, §310): a locked baseline moves only with the company's planning authority.
+  planningBaselineLocked Boolean @default(false)
+  /// The planning template this project's plan was started from, if any.
+  planningTemplateKey    String?
+
   createdBy  String
   updatedBy  String?
   archivedBy String?
@@ -1301,6 +1309,8 @@ model Project {
   workLogs         WorkLog[]
   dailyLogs        DailyLog[]
   dailyLogSettings ProjectDailyLogSettings?
+  phases           ProjectPhase[]
+  milestones       ProjectMilestone[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -8153,4 +8163,251 @@ model ProjectDailyLogSettings {
 
   @@index([companyId])
   @@map("project_daily_log_settings")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Project planning: phases, milestones, dependencies, blockers (PRD #44)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+enum ProjectPhaseStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  AT_RISK
+  DELAYED
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum ProjectMilestoneType {
+  PROJECT_START
+  DESIGN
+  APPROVAL
+  PROCUREMENT
+  CONSTRUCTION
+  INSPECTION
+  COMMISSIONING
+  HANDOVER
+  PAYMENT
+  CONTRACTUAL
+  INTERNAL
+  OTHER
+}
+
+enum ProjectMilestoneStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  AT_RISK
+  DELAYED
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum MilestoneDependencyType {
+  FINISH_TO_START
+}
+
+enum MilestoneBlockerSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MilestoneTaskLinkType {
+  SUPPORTS
+  BLOCKS
+  DELIVERS
+  RELATED
+}
+
+/// A planning segment of a project (PRD #44 §9-§11, §26, §28).
+model ProjectPhase {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  name        String
+  description String?
+  sortOrder   Int
+
+  plannedStartDate  DateTime?
+  plannedEndDate    DateTime?
+  forecastStartDate DateTime?
+  forecastEndDate   DateTime?
+  actualStartDate   DateTime?
+  actualEndDate     DateTime?
+
+  status          ProjectPhaseStatus @default(NOT_STARTED)
+  progressPercent Decimal?           @db.Decimal(5, 2)
+  ownerMemberId   String?
+
+  archivedAt        DateTime?
+  createdByMemberId String
+  version           Int       @default(1)
+
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project    Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  milestones ProjectMilestone[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, projectId, sortOrder])
+  @@index([companyId, projectId, status])
+  @@map("project_phases")
+}
+
+/// A key achievement or date on a project (PRD #44 §12-§31).
+model ProjectMilestone {
+  id        String  @id @default(cuid())
+  companyId String
+  projectId String
+  phaseId   String?
+
+  name        String
+  description String?
+
+  milestoneType ProjectMilestoneType   @default(OTHER)
+  status        ProjectMilestoneStatus @default(NOT_STARTED)
+  ownerMemberId String?
+
+  /// Business dates at midday UTC. Baseline is the approved reference and only moves through a baseline change.
+  baselineDate DateTime?
+  plannedDate  DateTime?
+  forecastDate DateTime?
+  actualDate   DateTime?
+
+  progressPercent     Decimal? @db.Decimal(5, 2)
+  critical            Boolean  @default(false)
+  externallyCommitted Boolean  @default(false)
+  sortOrder           Int
+
+  /// When the status last changed: a new at-risk episode for Attention (PRD #44 §72, §73).
+  statusChangedAt     DateTime?
+  completionNote      String?
+  completedByMemberId String?
+  reopenedAt          DateTime?
+
+  archivedAt        DateTime?
+  createdByMemberId String
+  version           Int       @default(1)
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  phase   ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: Restrict)
+
+  predecessors ProjectMilestoneDependency[] @relation("MilestoneSuccessor")
+  successors   ProjectMilestoneDependency[] @relation("MilestonePredecessor")
+  taskLinks    ProjectMilestoneTaskLink[]
+  blockers     ProjectMilestoneBlocker[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, projectId, sortOrder])
+  @@index([companyId, projectId, status])
+  @@index([companyId, forecastDate])
+  @@index([companyId, ownerMemberId, status])
+  @@index([phaseId])
+  @@map("project_milestones")
+}
+
+/// Finish-to-start sequencing between two milestones of one project (PRD #44 §32-§39).
+model ProjectMilestoneDependency {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  predecessorMilestoneId String
+  successorMilestoneId   String
+  dependencyType         MilestoneDependencyType @default(FINISH_TO_START)
+  lagDays                Int                     @default(0)
+
+  createdByMemberId String
+
+  predecessor ProjectMilestone @relation("MilestonePredecessor", fields: [predecessorMilestoneId], references: [id], onDelete: Restrict)
+  successor   ProjectMilestone @relation("MilestoneSuccessor", fields: [successorMilestoneId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([predecessorMilestoneId, successorMilestoneId])
+  @@index([companyId, projectId])
+  @@index([successorMilestoneId])
+  @@map("project_milestone_dependencies")
+}
+
+/// An active known issue standing in a milestone's way (PRD #44 §40-§42, §153-§157).
+model ProjectMilestoneBlocker {
+  id          String @id @default(cuid())
+  companyId   String
+  milestoneId String
+
+  title       String
+  description String?
+  severity    MilestoneBlockerSeverity @default(MEDIUM)
+
+  ownerMemberId String?
+  dueDate       DateTime?
+
+  resolvedAt         DateTime?
+  resolvedByMemberId String?
+  resolutionNote     String?
+
+  linkedTaskId      String?
+  createdByMemberId String
+
+  milestone ProjectMilestone @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, milestoneId, resolvedAt])
+  @@index([companyId, severity, resolvedAt])
+  @@map("project_milestone_blockers")
+}
+
+model ProjectMilestoneTaskLink {
+  id          String @id @default(cuid())
+  companyId   String
+  milestoneId String
+  taskId      String
+
+  linkType          MilestoneTaskLinkType @default(SUPPORTS)
+  createdByMemberId String
+
+  milestone ProjectMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([milestoneId, taskId])
+  @@index([companyId, taskId])
+  @@map("project_milestone_task_links")
+}
+
+/// Company planning rules (PRD #44 §71, §309).
+model ProjectPlanningSettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  milestoneReminderDays             Int     @default(7)
+  baselineChangeReasonRequired      Boolean @default(true)
+  /// Tell the CEO and Owner when a critical, externally committed milestone's baseline moves or it falls overdue (PRD #44 §165, §253).
+  notifyExecutivesOnCriticalChanges Boolean @default(false)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("project_planning_settings")
 }

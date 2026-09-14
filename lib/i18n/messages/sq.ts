@@ -210,6 +210,7 @@ export const sq: Messages = {
         meetings: { label: "Takimet", description: "Ftesat, ndryshimet, kujtesat, procesverbalet dhe veprimet nga takimet." },
         timesheets: { label: "Fletët e orëve", description: "Javët për t'u dorëzuar, dhe javët e miratuara, të kthyera ose që presin shqyrtimin tuaj." },
         daily_logs: { label: "Ditarët e kantierit", description: "Ditarë për t'u shqyrtuar, ditarë të kthyer, kyçje, korrigjime dhe ditarë që mungojnë." },
+        project_planning: { label: "Planifikimi i projektit", description: "Pikat kyçe që keni në ngarkim, afatet, vonesat, pengesat dhe ndryshimet e bazës." },
       },
     },
 

@@ -41,6 +41,9 @@ export const ATTENTION_CONDITIONS = [
   "DAILY_LOG_MISSING",
   "DAILY_LOG_RETURNED",
   "DAILY_LOG_AWAITING_REVIEW",
+  "MILESTONE_OVERDUE",
+  "MILESTONE_AT_RISK",
+  "CRITICAL_MILESTONE_BLOCKED",
 ] as const;
 
 export type AttentionConditionKey = (typeof ATTENTION_CONDITIONS)[number];
@@ -585,6 +588,72 @@ const dailyLogAwaitingReview: AttentionConditionDefinition = {
   },
 };
 
+/* Project planning (PRD #44 §72-§74, §157, §215) ---------------------------- */
+
+/** An open milestone past its target date, for its owner and the project manager. */
+const milestoneOverdue: AttentionConditionDefinition = {
+  key: "MILESTONE_OVERDUE",
+  moduleKey: "projects",
+  async collect(companyId, now) {
+    const { overdueMilestones } = await import("@/lib/modules/project-planning/planning.attention");
+    const { dateLabel } = await import("@/lib/modules/project-planning/planning.dates");
+    return (await overdueMilestones(companyId, now)).map((row): AttentionCandidate => ({
+      entityType: "project_milestone", entityId: row.id, projectId: row.projectId,
+      title: `Milestone overdue: ${row.name}`, body: `${row.project.name} · due ${dateLabel(row.target)}`,
+      priority: row.critical ? "HIGH" : "NORMAL", dismissible: true,
+      // A new forecast is a new episode: dismissing one date never hides the next.
+      episode: row.target ?? "overdue",
+      recipients: [row.ownerMemberId, row.project.projectManagerMemberId],
+    }));
+  },
+  async holds(companyId, type, id, now) {
+    if (type !== "project_milestone") return false;
+    const { overdueMilestones } = await import("@/lib/modules/project-planning/planning.attention");
+    return (await overdueMilestones(companyId, now, id)).length > 0;
+  },
+};
+
+/** A milestone somebody marked at risk, until its status moves on. */
+const milestoneAtRisk: AttentionConditionDefinition = {
+  key: "MILESTONE_AT_RISK",
+  moduleKey: "projects",
+  async collect(companyId) {
+    const { atRiskMilestones } = await import("@/lib/modules/project-planning/planning.attention");
+    return (await atRiskMilestones(companyId)).map((row): AttentionCandidate => ({
+      entityType: "project_milestone", entityId: row.id, projectId: row.projectId,
+      title: `Milestone at risk: ${row.name}`, body: row.project.name,
+      priority: row.critical ? "HIGH" : "NORMAL", dismissible: true,
+      episode: (row.statusChangedAt ?? row.createdAt).toISOString(),
+      recipients: [row.ownerMemberId, row.project.projectManagerMemberId],
+    }));
+  },
+  async holds(companyId, type, id) {
+    if (type !== "project_milestone") return false;
+    const { atRiskMilestones } = await import("@/lib/modules/project-planning/planning.attention");
+    return (await atRiskMilestones(companyId, id)).length > 0;
+  },
+};
+
+/** An open critical blocker on a milestone still to be achieved. */
+const criticalMilestoneBlocked: AttentionConditionDefinition = {
+  key: "CRITICAL_MILESTONE_BLOCKED",
+  moduleKey: "projects",
+  async collect(companyId) {
+    const { criticallyBlockedMilestones } = await import("@/lib/modules/project-planning/planning.attention");
+    return (await criticallyBlockedMilestones(companyId)).map(({ milestone, first, owners, count }): AttentionCandidate => ({
+      entityType: "project_milestone", entityId: milestone.id, projectId: milestone.projectId,
+      title: `Critical blocker on ${milestone.name}`, body: count > 1 ? `${first.title} and ${count - 1} more · ${milestone.project.name}` : `${first.title} · ${milestone.project.name}`,
+      priority: "HIGH", dismissible: true, episode: first.id,
+      recipients: [milestone.ownerMemberId, milestone.project.projectManagerMemberId, ...owners],
+    }));
+  },
+  async holds(companyId, type, id) {
+    if (type !== "project_milestone") return false;
+    const { criticallyBlockedMilestones } = await import("@/lib/modules/project-planning/planning.attention");
+    return (await criticallyBlockedMilestones(companyId, id)).length > 0;
+  },
+};
+
 /* Legal -------------------------------------------------------------------- */
 
 const EXPIRY_WINDOW_DAYS = 30;
@@ -923,6 +992,9 @@ const DEFINITIONS: AttentionConditionDefinition[] = [
   dailyLogMissing,
   dailyLogReturned,
   dailyLogAwaitingReview,
+  milestoneOverdue,
+  milestoneAtRisk,
+  criticalMilestoneBlocked,
 ];
 
 const BY_KEY = new Map(DEFINITIONS.map((definition) => [definition.key, definition]));

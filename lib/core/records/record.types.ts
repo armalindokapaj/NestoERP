@@ -128,6 +128,7 @@ export const RECORD_TYPES = [
   "meeting",
   "timesheet",
   "daily_log",
+  "project_milestone",
   "approval_delegation",
 ] as const;
 

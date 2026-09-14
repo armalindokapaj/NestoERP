@@ -68,6 +68,14 @@ export const Metric = {
   DAILY_LOG_MISSING: "daily_log_missing_count",
   DAILY_LOG_DETAIL_DURATION_MS: "daily_log_detail_duration_ms_total",
   DAILY_LOG_MEDIA_COUNT: "daily_log_media_count",
+  // Project planning (PRD #44 §305)
+  PLANNING_OVERVIEW_DURATION_MS: "planning_overview_duration_ms_total",
+  PLANNING_TIMELINE_DURATION_MS: "planning_timeline_duration_ms_total",
+  MILESTONE_CREATE_SUCCESS: "milestone_create_success_count",
+  MILESTONE_UPDATE_SUCCESS: "milestone_update_success_count",
+  MILESTONE_COMPLETE_SUCCESS: "milestone_complete_success_count",
+  MILESTONE_OVERDUE: "milestone_overdue_count",
+  DEPENDENCY_CYCLE_REJECTION: "dependency_cycle_rejection_count",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

@@ -582,6 +582,42 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       };
     }
 
+    case "upcomingMilestones": {
+      // Key dates on the reader's projects, read through the plan's own door (PRD #44 §169).
+      const { upcomingMilestones } = await import("@/lib/modules/project-planning/planning.reports");
+      const { dateLabel, varianceLabel } = await import("@/lib/modules/project-planning/planning.dates");
+      const rows = await upcomingMilestones(context, 6);
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.name,
+          subtitle: `${row.projectName} · ${row.delayed ? `${row.overdueDays} ${row.overdueDays === 1 ? "day" : "days"} late` : dateLabel(row.displayDate)}`,
+          meta: row.varianceDays ? varianceLabel(row.varianceDays) : undefined,
+          status: row.delayed ? "DELAYED" : row.status,
+          href: row.href,
+        })),
+      };
+    }
+
+    case "criticalMilestones": {
+      // Critical milestones across projects that are late, at risk or critically blocked (PRD #44 §168, §170).
+      const { criticalMilestones } = await import("@/lib/modules/project-planning/planning.reports");
+      const { dateLabel, varianceLabel } = await import("@/lib/modules/project-planning/planning.dates");
+      const rows = await criticalMilestones(context, 6);
+      return {
+        kind: "list",
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.name,
+          subtitle: [row.projectName, row.delayed ? `${row.overdueDays} ${row.overdueDays === 1 ? "day" : "days"} late` : `Forecast ${dateLabel(row.displayDate)}`, row.blocked ? "Critical blocker" : null].filter(Boolean).join(" · "),
+          meta: row.varianceDays ? varianceLabel(row.varianceDays) : undefined,
+          status: row.delayed ? "DELAYED" : row.status,
+          href: row.href,
+        })),
+      };
+    }
+
     case "upcomingDeadlines": {
       const rows = await prisma.project.findMany({
         where: {

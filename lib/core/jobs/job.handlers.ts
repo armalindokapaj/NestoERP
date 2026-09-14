@@ -44,6 +44,12 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await remindMissingDailyLogs(now);
     return { processed: result.reminded, detail: result };
   },
+  "planning.milestones": async ({ now }) => {
+    // Due-soon and overdue reminders, once per milestone per target date (PRD #44 §74, §166, §167).
+    const { runMilestoneReminders } = await import("@/lib/modules/project-planning/planning.attention");
+    const result = await runMilestoneReminders(now);
+    return { processed: result.dueSoon + result.overdue, detail: result };
+  },
   "meetings.series": async ({ now }) => {
     const result = await extendMeetingSeries(now);
     return { processed: result.created, detail: result };

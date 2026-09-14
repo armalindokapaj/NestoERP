@@ -139,6 +139,28 @@ export const PERMISSIONS = [
   "project.document.view",
   "project.activity.view",
 
+  /* Project planning ------------------------------------------------------ */
+  /**
+   * Phases, milestones, baselines, dependencies and blockers (PRD #44 §77).
+   * Part of the Projects module and reached only through a project the reader
+   * can open. The baseline and reopening a completed milestone are separate
+   * grants; the company's planning rules — and moving a locked baseline — are
+   * the planning authority's alone.
+   */
+  "project_planning.view",
+  "project_planning.manage",
+  "project_planning.phase.create",
+  "project_planning.phase.edit",
+  "project_planning.phase.archive",
+  "project_planning.milestone.create",
+  "project_planning.milestone.edit",
+  "project_planning.milestone.complete",
+  "project_planning.milestone.reopen",
+  "project_planning.baseline.manage",
+  "project_planning.dependencies.manage",
+  "project_planning.blockers.manage",
+  "project_planning.settings.manage",
+
   /* Tasks ---------------------------------------------------------------- */
   "task.view",
   "task.create",
@@ -967,6 +989,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   approvals: "approvals",
   timesheet: "timesheets",
   daily_log: "dailyLogs",
+  project_planning: "projects",
   project: "projects",
   task: "tasks",
   client: "clients",
