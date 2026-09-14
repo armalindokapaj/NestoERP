@@ -914,6 +914,13 @@ model Company {
   calendarEventParticipants  CalendarEventParticipant[]
   calendarReminders          CalendarReminder[]
   calendarReminderDeliveries CalendarReminderDelivery[]
+  meetings                   Meeting[]
+  meetingSeries              MeetingSeries[]
+  meetingParticipants        MeetingParticipant[]
+  meetingAgendaItems         MeetingAgendaItem[]
+  meetingMinutesSections     MeetingMinutesSection[]
+  meetingDecisions           MeetingDecision[]
+  meetingActionItems         MeetingActionItem[]
   @@index([status])
   @@index([name])
   @@map("companies")
@@ -945,6 +952,7 @@ model Department {
   purchaseRequests PurchaseRequest[]
 
   calendarEvents CalendarEvent[]
+  meetings       Meeting[]
   @@unique([companyId, name])
   @@unique([companyId, key])
   @@index([companyId])
@@ -1167,6 +1175,10 @@ model CompanyMember {
   calendarEventsCreated      CalendarEvent[]            @relation("CalendarEventCreator")
   calendarParticipations     CalendarEventParticipant[] @relation("CalendarParticipant")
   calendarReminders          CalendarReminder[]         @relation("CalendarReminderMember")
+  meetingsOrganized          Meeting[]                 @relation("MeetingOrganizer")
+  meetingParticipations      MeetingParticipant[]      @relation("MeetingParticipant")
+  meetingActionItemsOwned    MeetingActionItem[]       @relation("MeetingActionOwner")
+  meetingAgendaPresenting    MeetingAgendaItem[]       @relation("MeetingAgendaPresenter")
   @@unique([companyId, userId])
   @@index([companyId])
   @@index([companyId, status])
@@ -1256,6 +1268,8 @@ model Project {
   updatedAt DateTime @updatedAt
 
   calendarEvents CalendarEvent[]
+  meetings       Meeting[]
+  meetingSeries  MeetingSeries[]
   @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, status])
@@ -1431,6 +1445,7 @@ model Task {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  meetingActionItem MeetingActionItem?
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, updatedAt])
@@ -4510,6 +4525,8 @@ enum AuditCategory {
   COLLABORATION
   /// Calendar-owned events, participants and visibility (PRD #39 §112).
   CALENDAR
+  /// Meetings, minutes, decisions and action items (PRD #40 §181).
+  MEETING
 }
 
 enum AuditSeverity {
@@ -6916,12 +6933,16 @@ model CalendarEventParticipant {
 model CalendarReminder {
   id            String                  @id @default(cuid())
   companyId     String
-  eventId       String
+  /// Exactly one of eventId and meetingId: meetings reuse the calendar's
+  /// reminders rather than keeping their own (PRD #40 §74, §188).
+  eventId       String?
+  meetingId     String?
   memberId      String
   minutesBefore Int
   channel       CalendarReminderChannel @default(IN_APP)
 
-  event      CalendarEvent              @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  event      CalendarEvent?             @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  meeting    Meeting?                   @relation(fields: [meetingId], references: [id], onDelete: Restrict)
   member     CompanyMember              @relation("CalendarReminderMember", fields: [memberId], references: [id], onDelete: Restrict)
   company    Company                    @relation(fields: [companyId], references: [id], onDelete: Restrict)
   deliveries CalendarReminderDelivery[]
@@ -6929,7 +6950,9 @@ model CalendarReminder {
   createdAt DateTime @default(now())
 
   @@unique([eventId, memberId, minutesBefore, channel])
+  @@unique([meetingId, memberId, minutesBefore, channel])
   @@index([companyId, eventId])
+  @@index([companyId, meetingId])
   @@index([memberId])
   @@map("calendar_reminders")
 }
@@ -6950,4 +6973,332 @@ model CalendarReminderDelivery {
   @@unique([reminderId, occurrenceStartsAt])
   @@index([companyId, sentAt])
   @@map("calendar_reminder_deliveries")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Meetings (PRD #40)                                                          */
+/* -------------------------------------------------------------------------- */
+
+/// Descriptive only: a meeting's type never grants anything (PRD #40 §6).
+enum MeetingType {
+  INTERNAL
+  PROJECT
+  SITE
+  CLIENT
+  COORDINATION
+  MANAGEMENT
+  DESIGN_REVIEW
+  TECHNICAL
+  PROCUREMENT
+  QA_QC
+  HSE
+  FINANCE
+  LEGAL
+  HR
+  OTHER
+}
+
+enum MeetingStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MinutesStatus {
+  DRAFT
+  FINAL
+}
+
+enum MeetingLocationType {
+  IN_PERSON
+  ONLINE
+  HYBRID
+  UNSPECIFIED
+}
+
+/// There is no PUBLIC (PRD #40 §17).
+enum MeetingVisibility {
+  PARTICIPANTS
+  PROJECT
+  DEPARTMENT
+  COMPANY
+}
+
+enum MeetingParticipantRole {
+  ORGANIZER
+  CHAIR
+  SECRETARY
+  ATTENDEE
+  OBSERVER
+}
+
+enum MeetingResponseStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+/// Actual attendance, distinct from the RSVP (PRD #40 §112, §257).
+enum MeetingAttendanceStatus {
+  UNKNOWN
+  PRESENT
+  ABSENT
+  EXCUSED
+}
+
+enum MeetingAgendaItemStatus {
+  PENDING
+  DISCUSSED
+  SKIPPED
+  DEFERRED
+}
+
+enum MeetingActionItemStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+/// A recurring meeting's template (PRD #40 §224-§229). Occurrences are real
+/// Meeting rows generated a bounded horizon ahead, because each one keeps its
+/// own minutes, decisions and actions.
+model MeetingSeries {
+  id                String @id @default(cuid())
+  companyId         String
+  createdByMemberId String
+
+  title       String
+  description String?
+  meetingType MeetingType
+  projectId   String?
+  departmentId String?
+  visibility  MeetingVisibility
+
+  locationType MeetingLocationType @default(UNSPECIFIED)
+  locationText String?
+  onlineUrl    String?
+
+  /// The first occurrence's start, and each occurrence's length.
+  firstStartsAt   DateTime
+  durationMinutes Int
+  timezone        String
+
+  recurrenceRule   String
+  recurrenceEndsAt DateTime?
+  /// Occurrences exist up to here; the series job moves it forward.
+  generatedUntil   DateTime
+  cancelledAt      DateTime?
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project  Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  meetings Meeting[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([cancelledAt, generatedUntil])
+  @@map("meeting_series")
+}
+
+model Meeting {
+  id                String @id @default(cuid())
+  companyId         String
+  projectId         String?
+  departmentId      String?
+  createdByMemberId String
+  /// Exactly one organizer at a time; transfer is an explicit, audited command (PRD #40 §21, §136).
+  organizerMemberId String
+
+  title       String
+  description String?
+  meetingType MeetingType
+  status      MeetingStatus @default(SCHEDULED)
+
+  startsAt DateTime
+  endsAt   DateTime
+  timezone String
+
+  locationType MeetingLocationType @default(UNSPECIFIED)
+  locationText String?
+  onlineUrl    String?
+
+  visibility MeetingVisibility
+
+  seriesId        String?
+  occurrenceIndex Int?
+
+  minutesStatus              MinutesStatus @default(DRAFT)
+  minutesFinalizedAt         DateTime?
+  minutesFinalizedByMemberId String?
+
+  startedAt           DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  cancelledByMemberId String?
+  cancelReason        String?
+
+  archivedAt DateTime?
+  /// Optimistic concurrency for edits (PRD #40 §178).
+  version    Int       @default(1)
+
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project    Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  department Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  organizer  CompanyMember  @relation("MeetingOrganizer", fields: [organizerMemberId], references: [id], onDelete: Restrict)
+  series     MeetingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+
+  participants    MeetingParticipant[]
+  agendaItems     MeetingAgendaItem[]
+  minutesSections MeetingMinutesSection[]
+  decisions       MeetingDecision[]
+  actionItems     MeetingActionItem[]
+  reminders       CalendarReminder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([seriesId, occurrenceIndex])
+  @@index([companyId, startsAt])
+  @@index([companyId, projectId, startsAt])
+  @@index([companyId, status, startsAt])
+  @@index([companyId, departmentId, startsAt])
+  @@index([companyId, organizerMemberId, startsAt])
+  @@index([companyId, archivedAt])
+  @@map("meetings")
+}
+
+model MeetingParticipant {
+  meetingId String
+  memberId  String
+  companyId String
+
+  role       MeetingParticipantRole  @default(ATTENDEE)
+  response   MeetingResponseStatus   @default(PENDING)
+  required   Boolean                 @default(true)
+  attendance MeetingAttendanceStatus @default(UNKNOWN)
+  /// The name as it was when the member was added, so a final record stays
+  /// readable after people leave (PRD #40 §111).
+  displayName String
+
+  invitedAt   DateTime?
+  respondedAt DateTime?
+
+  meeting Meeting       @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+  member  CompanyMember @relation("MeetingParticipant", fields: [memberId], references: [id], onDelete: Restrict)
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([meetingId, memberId])
+  @@index([memberId, response])
+  @@index([companyId, memberId])
+  @@map("meeting_participants")
+}
+
+model MeetingAgendaItem {
+  id        String @id @default(cuid())
+  companyId String
+  meetingId String
+  sortOrder Int
+
+  title             String
+  description       String?
+  presenterMemberId String?
+  plannedMinutes    Int?
+  status            MeetingAgendaItemStatus @default(PENDING)
+
+  meeting   Meeting        @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+  presenter CompanyMember? @relation("MeetingAgendaPresenter", fields: [presenterMemberId], references: [id], onDelete: SetNull)
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, meetingId, sortOrder])
+  @@map("meeting_agenda_items")
+}
+
+/// The formal record, section by section (PRD #40 §42-§49). Plain text: no HTML is stored or rendered.
+model MeetingMinutesSection {
+  id        String @id @default(cuid())
+  companyId String
+  meetingId String
+  sortOrder Int
+  title     String
+  body      String
+
+  createdByMemberId String
+  updatedByMemberId String?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, meetingId, sortOrder])
+  @@map("meeting_minutes_sections")
+}
+
+/// What was agreed (PRD #40 §50, §51). Never creates a task by itself.
+model MeetingDecision {
+  id        String @id @default(cuid())
+  companyId String
+  meetingId String
+
+  decisionNumber     Int
+  title              String
+  description        String?
+  decidedAt          DateTime
+  recordedByMemberId String
+  archivedAt         DateTime?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([meetingId, decisionNumber])
+  @@index([companyId, meetingId])
+  @@map("meeting_decisions")
+}
+
+/// What must happen next (PRD #40 §53-§62). May link to one canonical Task.
+model MeetingActionItem {
+  id        String @id @default(cuid())
+  companyId String
+  meetingId String
+
+  title       String
+  description String?
+
+  ownerMemberId     String?
+  /// A business date, midday UTC.
+  dueAt             DateTime?
+  status            MeetingActionItemStatus @default(OPEN)
+  completedAt       DateTime?
+  createdByMemberId String
+
+  /// Unique: one action item links to at most one Task (PRD #40 §58).
+  linkedTaskId String? @unique
+
+  meeting    Meeting        @relation(fields: [meetingId], references: [id], onDelete: Restrict)
+  owner      CompanyMember? @relation("MeetingActionOwner", fields: [ownerMemberId], references: [id], onDelete: SetNull)
+  linkedTask Task?          @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, meetingId, status])
+  @@index([companyId, ownerMemberId, status])
+  @@index([companyId, dueAt, status])
+  @@map("meeting_action_items")
 }

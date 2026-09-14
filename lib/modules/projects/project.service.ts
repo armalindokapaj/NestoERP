@@ -776,6 +776,8 @@ export function projectActions(context: UserContext) {
     canViewTasks: can(context, "project.task.view") && can(context, "task.view"),
     // The project's schedule is read through the calendar, never a copy of it (PRD #39 §103, §159).
     canViewCalendar: canAccessModule(context, "calendar") && can(context, "calendar.view"),
+    // The project's meetings, filtered from the meetings module (PRD #40 §7, §123).
+    canViewMeetings: canAccessModule(context, "meetings") && can(context, "meeting.view"),
     canViewDocuments: can(context, "project.document.view") && can(context, "document.view"),
     canViewActivity: can(context, "project.activity.view"),
     /**

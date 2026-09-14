@@ -216,7 +216,12 @@ export function CalendarShell({
             <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "COMPANY_HOLIDAY")}>Company holiday</DropdownMenuItem>
           </>
         ) : null}
-        {/* Tasks are created in Tasks, with their own rules (PRD #39 §35). */}
+        {/* Tasks and meetings are created in their own modules, with their own rules (PRD #39 §35, PRD #40 §9). */}
+        {response.capabilities.canCreateMeeting ? (
+          <DropdownMenuItem asChild>
+            <Link href={`/meetings/new?date=${date}`}>Meeting</Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem asChild>
           <Link href="/tasks/new">Task</Link>
         </DropdownMenuItem>

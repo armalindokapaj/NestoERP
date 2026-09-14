@@ -43,6 +43,7 @@ import {
   PenLine,
   PencilRuler,
   Plane,
+  Presentation,
   Plus,
   ReceiptText,
   RefreshCw,
@@ -90,6 +91,7 @@ import {
  * it explicit means the bundle only contains icons NESTO actually uses.
  */
 const registry: Record<string, LucideIcon> = {
+  Presentation,
   Wrench,
   CircleDot,
   ArchiveRestore,

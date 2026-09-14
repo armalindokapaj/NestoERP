@@ -89,6 +89,7 @@ export const sq: Messages = {
     calendar: { label: "Kalendari", description: "Afatet, ngjarjet dhe oraret në të gjithë kompaninë." },
     projects: { label: "Projektet", description: "Menaxhoni projektet e kompanisë dhe aktivitetin e tyre." },
     tasks: { label: "Detyrat", description: "Puna e caktuar në projekte dhe departamente." },
+    meetings: { label: "Takimet", description: "Rendet e ditës, procesverbalet, vendimet dhe veprimet që pasojnë." },
     clients: { label: "Klientët", description: "Kompanitë dhe personat me të cilët punon kompania juaj." },
     documents: { label: "Dokumentet", description: "Dokumentacioni i kompanisë, projekteve dhe klientëve." },
     finance: { label: "Financa", description: "Të ardhurat, kostot dhe kontrolli financiar i kompanisë." },
@@ -203,6 +204,7 @@ export const sq: Messages = {
         contracts: { label: "Ligjore", description: "Detyrimet kontraktuale që po afrohen." },
         procurement: { label: "Prokurimi", description: "Porositë për miratim dhe mallrat e pranuara." },
         calendar: { label: "Kalendari", description: "Kujtesat, ftesat dhe ndryshimet e ngjarjeve ku jeni pjesë." },
+        meetings: { label: "Takimet", description: "Ftesat, ndryshimet, kujtesat, procesverbalet dhe veprimet nga takimet." },
       },
     },
 

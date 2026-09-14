@@ -122,6 +122,7 @@ export const moduleCopy: Record<ModuleKey, string> = {
   calendar: "Deadlines, inspections, deliveries and company events in one permission-aware schedule.",
   projects: "Every project as one record: programme, team, budget, drawings and status.",
   tasks: "Daily work assigned across site and office, always against a project.",
+  meetings: "Agendas, minutes, decisions and the actions that follow — each action able to become a task.",
   clients: "Clients, contacts, and the history of every job you have delivered for them.",
   documents: "Drawings, method statements, certificates and contracts in one place.",
   finance: "Budgets, invoices, payments and cost against value — per project and company-wide.",

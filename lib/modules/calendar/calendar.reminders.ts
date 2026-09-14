@@ -40,6 +40,7 @@ export async function runCalendarReminders(now: Date = new Date()): Promise<Remi
 
   const reminders = await prisma.calendarReminder.findMany({
     where: {
+      eventId: { not: null },
       event: {
         archivedAt: null,
         company: { status: "ACTIVE" },
@@ -67,7 +68,7 @@ export async function runCalendarReminders(now: Date = new Date()): Promise<Remi
   let skipped = 0;
 
   for (const reminder of reminders) {
-    const { event } = reminder;
+    const event = reminder.event!;
     const lead = reminder.minutesBefore * 60_000;
     // Occurrences whose reminder moment falls between the lookback and now.
     const window = { from: new Date(earliest.getTime() + lead - START_GRACE_MS), to: new Date(now.getTime() + lead + 1) };
@@ -117,5 +118,64 @@ export async function runCalendarReminders(now: Date = new Date()): Promise<Remi
     }
   }
 
-  return { considered: reminders.length, fired, skipped };
+  // Meetings keep their reminders in the same table and fire through the same
+  // idempotent delivery row (PRD #40 §74, §188).
+  const meetingReminders = await prisma.calendarReminder.findMany({
+    where: {
+      meetingId: { not: null },
+      meeting: {
+        archivedAt: null,
+        status: "SCHEDULED",
+        company: { status: "ACTIVE" },
+        startsAt: { lte: horizon, gte: new Date(now.getTime() - START_GRACE_MS) },
+      },
+      member: { status: "ACTIVE" },
+    },
+    take: BATCH,
+    select: {
+      id: true,
+      companyId: true,
+      memberId: true,
+      minutesBefore: true,
+      meeting: { select: { id: true, projectId: true, startsAt: true, endsAt: true, timezone: true } },
+    },
+  });
+
+  for (const reminder of meetingReminders) {
+    const meeting = reminder.meeting!;
+    const dueAt = new Date(meeting.startsAt.getTime() - reminder.minutesBefore * 60_000);
+    if (dueAt > now || dueAt < earliest) continue;
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.calendarReminderDelivery.create({
+          data: { companyId: reminder.companyId, reminderId: reminder.id, occurrenceStartsAt: meeting.startsAt, dueAt },
+        });
+        await enqueueNotificationEvent(tx, {
+          companyId: reminder.companyId,
+          eventType: NotificationEvent.MEETING_REMINDER,
+          moduleKey: "meetings",
+          entityType: "meeting",
+          entityId: meeting.id,
+          projectId: meeting.projectId,
+          payload: {
+            memberId: reminder.memberId,
+            reminderId: reminder.id,
+            occurrenceStartsAt: meeting.startsAt.toISOString(),
+            when: describeWhen(meeting.startsAt, meeting.endsAt, false, meeting.timezone),
+          },
+        });
+      });
+      fired += 1;
+      incrementCounter(Metric.CALENDAR_REMINDER_SENT, { kind: "meeting" });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        skipped += 1;
+        continue;
+      }
+      incrementCounter(Metric.CALENDAR_REMINDER_FAILURE, { kind: "meeting" });
+      throw error;
+    }
+  }
+
+  return { considered: reminders.length + meetingReminders.length, fired, skipped };
 }

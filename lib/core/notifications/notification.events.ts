@@ -45,6 +45,7 @@ export const NOTIFICATION_CATEGORIES = [
   "contracts",
   "procurement",
   "calendar",
+  "meetings",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -153,6 +154,14 @@ export const NotificationEvent = {
   CALENDAR_EVENT_CANCELLED: "CALENDAR_EVENT_CANCELLED",
   CALENDAR_PARTICIPANT_ADDED: "CALENDAR_PARTICIPANT_ADDED",
   CALENDAR_REMINDER: "CALENDAR_REMINDER",
+  MEETING_INVITED: "MEETING_INVITED",
+  MEETING_UPDATED: "MEETING_UPDATED",
+  MEETING_CANCELLED: "MEETING_CANCELLED",
+  MEETING_REMINDER: "MEETING_REMINDER",
+  MEETING_RESPONSE_CHANGED: "MEETING_RESPONSE_CHANGED",
+  MEETING_MINUTES_FINALIZED: "MEETING_MINUTES_FINALIZED",
+  MEETING_ACTION_ASSIGNED: "MEETING_ACTION_ASSIGNED",
+  MEETING_ACTION_COMPLETED: "MEETING_ACTION_COMPLETED",
 } as const;
 
 const DEFINITIONS: NotificationEventDefinition[] = [
@@ -531,6 +540,101 @@ const DEFINITIONS: NotificationEventDefinition[] = [
       defaultOn: false,
       variables: (payload, link) => ({ title: recordName(payload, "an event"), when: text(payload, "when", "soon"), link }),
     },
+  },
+
+  /* Meetings (PRD #40 §73-§78, §185, §251) ------------------------------- */
+  {
+    eventType: NotificationEvent.MEETING_INVITED,
+    category: "meetings",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `${text(payload, "actorName", "Someone")} invited you to ${recordName(payload, "a meeting")}`,
+    body: (payload) => [text(payload, "when"), text(payload, "series")].filter(Boolean).join(" · ") || null,
+    dedupe: (event, memberId) => `MEETING_INVITED:${event.entityId}:${memberId}:${event.id}`,
+    email: {
+      templateKey: "meeting.invitation",
+      defaultOn: false,
+      variables: (payload, link) => ({ title: recordName(payload, "a meeting"), when: text(payload, "when", "soon"), link }),
+    },
+  },
+  {
+    eventType: NotificationEvent.MEETING_UPDATED,
+    category: "meetings",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "participantIds");
+    },
+    title: (payload) => `${recordName(payload, "A meeting")} was rescheduled or moved`,
+    body: (payload) => text(payload, "when") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.MEETING_CANCELLED,
+    category: "meetings",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "participantIds");
+    },
+    title: (payload) => `${recordName(payload, "A meeting")} was cancelled`,
+    body: (payload) => text(payload, "reason") || text(payload, "when") || null,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.MEETING_REMINDER,
+    category: "meetings",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `Coming up: ${recordName(payload, "a meeting")}`,
+    body: (payload) => text(payload, "when") || null,
+    dedupe: (event, memberId, payload) =>
+      `MEETING_REMINDER:${event.entityId}:${text(payload, "reminderId")}:${text(payload, "occurrenceStartsAt")}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.MEETING_RESPONSE_CHANGED,
+    category: "meetings",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "organizerMemberId")];
+    },
+    title: (payload) => `${text(payload, "responderName", "Someone")} ${text(payload, "verb", "replied to")} ${recordName(payload, "your meeting")}`,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.MEETING_MINUTES_FINALIZED,
+    category: "meetings",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "participantIds");
+    },
+    title: (payload) => `Minutes finalized — ${recordName(payload, "a meeting")}`,
+    body: () => "Review the meeting record.",
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.MEETING_ACTION_ASSIGNED,
+    category: "meetings",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "ownerMemberId")];
+    },
+    title: (payload) => `New action for you: ${text(payload, "actionTitle", "an action item")}`,
+    body: (payload) => recordName(payload, "") || null,
+    dedupe: (event, memberId, payload) => `MEETING_ACTION_ASSIGNED:${text(payload, "actionId")}:${memberId}:${event.id}`,
+  },
+  {
+    eventType: NotificationEvent.MEETING_ACTION_COMPLETED,
+    category: "meetings",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "organizerMemberId")];
+    },
+    title: (payload) => `Action done: ${text(payload, "actionTitle", "an action item")}`,
+    body: (payload) => recordName(payload, "") || null,
+    dedupe: perEvent,
   },
 ];
 

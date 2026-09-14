@@ -14,6 +14,7 @@ import {
   Loader2,
   type LucideIcon,
   Package,
+  Presentation,
   ReceiptText,
   Search,
   ShoppingCart,
@@ -44,6 +45,7 @@ const DEBOUNCE_MS = 200;
 
 const ENTITY_ICONS: Record<string, LucideIcon> = {
   calendar_event: CalendarDays,
+  meeting: Presentation,
   project: FolderKanban,
   task: SquareCheckBig,
   client: Building2,

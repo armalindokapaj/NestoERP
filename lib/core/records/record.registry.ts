@@ -1289,6 +1289,43 @@ const DEFINITIONS: RecordDefinition[] = [
     documents: null,
     collaboration: null,
   },
+
+  /* Meetings (PRD #40 §64, §68, §196, §197) -------------------------------- */
+  {
+    type: "meeting",
+    moduleKey: "meetings",
+    noun: "Meeting",
+    activityEntityType: "Meeting",
+    route: "/meetings",
+    viewPermissions: ["meeting.view"],
+    async find(context, id) {
+      const { readableMeetingWhere } = await import("@/lib/modules/meetings/meeting.permissions");
+      const row = await prisma.meeting.findFirst({
+        where: { AND: [readableMeetingWhere(context), { id }] },
+        select: {
+          id: true, companyId: true, title: true, projectId: true, archivedAt: true, status: true, organizerMemberId: true,
+          participants: { where: { role: { in: ["CHAIR", "SECRETARY"] } }, select: { memberId: true } },
+        },
+      });
+      return row && {
+        type: "meeting", id: row.id, companyId: row.companyId, label: row.title, href: `/meetings/${row.id}`,
+        projectId: row.projectId, archived: row.archivedAt !== null,
+        stakeholderMemberIds: unique(row.organizerMemberId, ...row.participants.map((participant) => participant.memberId)),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableMeetingWhere } = await import("@/lib/modules/meetings/meeting.permissions");
+      const rows = await prisma.meeting.findMany({
+        where: { AND: [readableMeetingWhere(context), { id: { in: ids } }] },
+        select: { id: true },
+      });
+      return rows.map((row) => row.id);
+    },
+    // Meeting files need the meeting's own document permissions on top of Documents (PRD #40 §196, §234).
+    documents: { view: ["meeting.document.view"], upload: ["meeting.document.create"], tabHref: recordDocumentsTab, reviewable: true },
+    collaboration: { requires: [] },
+  },
 ];
 
 const BY_TYPE = new Map<RecordType, RecordDefinition>();

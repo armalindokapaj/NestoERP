@@ -42,10 +42,10 @@ describe("resolveNavigation", () => {
   });
 
   it("drops a group once it has no visible modules (PRD #3 §91)", () => {
-    // Company IT has no Work-group modules beyond Tasks and Documents; with
-    // those two switched off the group must disappear entirely rather than
-    // render an empty heading.
-    const enabled = MODULE_KEYS.filter((key) => key !== "tasks" && key !== "documents");
+    // Company IT has no Work-group modules beyond Tasks, Meetings and
+    // Documents; with those switched off the group must disappear entirely
+    // rather than render an empty heading.
+    const enabled = MODULE_KEYS.filter((key) => key !== "tasks" && key !== "meetings" && key !== "documents");
     const groups = resolveNavigation({
       permissions: permissionsForRole("COMPANY_IT"),
       enabledModules: enabled,

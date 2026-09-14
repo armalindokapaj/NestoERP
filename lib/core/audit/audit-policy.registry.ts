@@ -102,6 +102,22 @@ export const AuditAction = {
   CALENDAR_PARTICIPANT_REMOVED: "CALENDAR_PARTICIPANT_REMOVED",
   CALENDAR_VISIBILITY_CHANGED: "CALENDAR_VISIBILITY_CHANGED",
 
+  // Meetings (PRD #40 §181, §182) — ids and safe metadata, never minutes text
+  MEETING_CREATED: "MEETING_CREATED",
+  MEETING_UPDATED: "MEETING_UPDATED",
+  MEETING_SCHEDULED: "MEETING_SCHEDULED",
+  MEETING_STARTED: "MEETING_STARTED",
+  MEETING_COMPLETED: "MEETING_COMPLETED",
+  MEETING_CANCELLED: "MEETING_CANCELLED",
+  MEETING_PARTICIPANT_ADDED: "MEETING_PARTICIPANT_ADDED",
+  MEETING_PARTICIPANT_REMOVED: "MEETING_PARTICIPANT_REMOVED",
+  MEETING_ORGANIZER_CHANGED: "MEETING_ORGANIZER_CHANGED",
+  MEETING_MINUTES_FINALIZED: "MEETING_MINUTES_FINALIZED",
+  MEETING_MINUTES_REOPENED: "MEETING_MINUTES_REOPENED",
+  MEETING_DECISION_CREATED: "MEETING_DECISION_CREATED",
+  MEETING_ACTION_CREATED: "MEETING_ACTION_CREATED",
+  MEETING_ACTION_TASK_CREATED: "MEETING_ACTION_TASK_CREATED",
+
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
   REPORT_EXPORTED_XLSX: "REPORT_EXPORTED_XLSX",
@@ -212,6 +228,23 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.CALENDAR_PARTICIPANT_REMOVED, moduleKey: "calendar", category: "CALENDAR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["memberId"], required: false },
   // Who can see an event is an access decision, so a change to it is recorded as one.
   { actionKey: AuditAction.CALENDAR_VISIBILITY_CHANGED, moduleKey: "calendar", category: "CALENDAR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["from", "to", "projectId", "departmentId"], required: true },
+
+  /* Meetings ------------------------------------------------------------- */
+  { actionKey: AuditAction.MEETING_CREATED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["meetingType", "visibility", "status", "projectId", "departmentId", "participantCount", "seriesId", "occurrences"], required: false },
+  { actionKey: AuditAction.MEETING_UPDATED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["fields", "scope", "occurrences", "afterCompletion"], required: false },
+  { actionKey: AuditAction.MEETING_SCHEDULED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["startsAt"], required: false },
+  { actionKey: AuditAction.MEETING_STARTED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["startedAt"], required: false },
+  { actionKey: AuditAction.MEETING_COMPLETED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["completedAt"], required: false },
+  { actionKey: AuditAction.MEETING_CANCELLED, moduleKey: "meetings", category: "MEETING", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["scope", "occurrences", "hadReason"], required: false },
+  { actionKey: AuditAction.MEETING_PARTICIPANT_ADDED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["memberIds", "count"], required: false },
+  { actionKey: AuditAction.MEETING_PARTICIPANT_REMOVED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["memberId"], required: false },
+  // Who runs a meeting decides who may change it, so a transfer is access evidence.
+  { actionKey: AuditAction.MEETING_ORGANIZER_CHANGED, moduleKey: "meetings", category: "MEETING", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["from", "to"], required: true },
+  { actionKey: AuditAction.MEETING_MINUTES_FINALIZED, moduleKey: "meetings", category: "MEETING", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["sections", "decisions", "actions"], required: true },
+  { actionKey: AuditAction.MEETING_MINUTES_REOPENED, moduleKey: "meetings", category: "MEETING", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["reason"], required: true },
+  { actionKey: AuditAction.MEETING_DECISION_CREATED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["decisionNumber"], required: false },
+  { actionKey: AuditAction.MEETING_ACTION_CREATED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["ownerMemberId", "hasDueDate"], required: false },
+  { actionKey: AuditAction.MEETING_ACTION_TASK_CREATED, moduleKey: "meetings", category: "MEETING", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["actionId", "taskId"], required: false },
 
   /* Reporting ------------------------------------------------------------ */
   { actionKey: AuditAction.REPORT_EXPORTED_CSV, moduleKey: "settings", category: "REPORTING", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: false },

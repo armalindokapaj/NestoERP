@@ -119,6 +119,15 @@ const TEMPLATES: Record<MailTemplateKey, TemplateDefinition> = {
     action: () => "Open in NESTO",
     footnote: () => "You are receiving this because email is on for calendar reminders in your notification settings.",
   },
+  "meeting.invitation": {
+    variables: ["title", "when", "link"],
+    linkVariable: "link",
+    subject: (v) => `Invitation: ${v.title}`,
+    heading: () => "You are invited to a meeting",
+    paragraphs: (v) => [`“${v.title}”, ${v.when}.`, "Open NESTO to see the agenda and reply."],
+    action: () => "Open the meeting",
+    footnote: () => "You are receiving this because email is on for meetings in your notification settings.",
+  },
 };
 
 export class MailTemplateError extends Error {}

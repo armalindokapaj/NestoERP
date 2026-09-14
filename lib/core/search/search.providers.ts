@@ -661,8 +661,80 @@ const calendarProvider: GlobalSearchProvider = {
   },
 };
 
+/**
+ * Meetings (PRD #40 §118, §119, §199): title, project, type and date of
+ * meetings this reader can open. Minutes, agenda and decisions are never
+ * searched.
+ */
+const meetingProvider: GlobalSearchProvider = {
+  moduleKey: "meetings",
+  entityTypes: ["meeting"],
+  async search(context, query) {
+    if (!available(context, "meetings", "meeting.view")) return [];
+    const { readableMeetingWhere } = await import("@/lib/modules/meetings/meeting.permissions");
+    const { MEETING_TYPE_LABELS } = await import("@/lib/modules/meetings/meeting.types");
+    const projectOpen = available(context, "projects", "project.view");
+    const term = { contains: query.text, mode: "insensitive" as const };
+    const rows = await prisma.meeting.findMany({
+      where: {
+        AND: [
+          readableMeetingWhere(context),
+          { archivedAt: null },
+          {
+            OR: [
+              { title: term },
+              ...(projectOpen ? [{ project: { is: { AND: [buildProjectScopeWhere(context), { OR: [{ name: term }, { code: term }] }] } } }] : []),
+            ],
+          },
+        ],
+      },
+      orderBy: { startsAt: "desc" },
+      select: { id: true, title: true, startsAt: true, meetingType: true, status: true, seriesId: true, projectId: true, project: { select: { id: true, name: true } } },
+      // A weekly series is up to a hundred rows with one title; read past them
+      // so a single series cannot fill the provider's whole allowance.
+      take: query.limitPerProvider * 20,
+    });
+    // One result per series — its next occurrence, or its latest if none is
+    // still to come — so searching a project name finds the meeting, not every
+    // Monday of it (PRD #40 §31).
+    const now = Date.now();
+    const rank = (startsAt: Date) => (startsAt.getTime() >= now ? startsAt.getTime() - now : Number.MAX_SAFE_INTEGER / 2 + (now - startsAt.getTime()));
+    const bySeries = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      if (!row.seriesId) continue;
+      const current = bySeries.get(row.seriesId);
+      if (!current || rank(row.startsAt) < rank(current.startsAt)) bySeries.set(row.seriesId, row);
+    }
+    const picked = rows.filter((row) => !row.seriesId || bySeries.get(row.seriesId) === row).slice(0, query.limitPerProvider);
+    const openProjects =
+      projectOpen && picked.some((row) => row.projectId)
+        ? new Set(
+            (
+              await prisma.project.findMany({
+                where: { AND: [buildProjectScopeWhere(context), { id: { in: picked.map((row) => row.projectId).filter((id): id is string => Boolean(id)) } }] },
+                select: { id: true },
+              })
+            ).map((row) => row.id),
+          )
+        : new Set<string>();
+    return picked.map((row) => ({
+      moduleKey: "meetings",
+      entityType: "meeting",
+      entityId: row.id,
+      title: row.title,
+      subtitle: [row.startsAt.toISOString().slice(0, 10), MEETING_TYPE_LABELS[row.meetingType], row.project && openProjects.has(row.project.id) ? row.project.name : null]
+        .filter(Boolean)
+        .join(" · "),
+      href: `/meetings/${row.id}`,
+      score: scoreMatch(query.text, row.title),
+      status: row.status,
+    }));
+  },
+};
+
 export const searchProviders: GlobalSearchProvider[] = [
   calendarProvider,
+  meetingProvider,
   projectProvider,
   taskProvider,
   clientProvider,

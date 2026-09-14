@@ -153,6 +153,7 @@ export const availabilityQuerySchema = z
     from: z.string().datetime({ offset: true }),
     to: z.string().datetime({ offset: true }),
     excludeEventId: id.optional(),
+    excludeMeetingId: id.optional(),
   })
   .superRefine((value, ctx) => {
     const from = new Date(value.from).getTime();
