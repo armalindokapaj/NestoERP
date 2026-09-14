@@ -7,6 +7,7 @@ import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { canSeeCommercial, dateString } from "../contract.dto";
 import { buildContractScopeWhere } from "../contract.scope";
 import type { ContractAmendmentDTO } from "../contract.types";
@@ -276,6 +277,7 @@ export async function approveAmendment(
   context: UserContext,
   amendmentId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "AMENDMENT");
@@ -283,7 +285,7 @@ export async function approveAmendment(
   const existing = assertFound(await findInScope(context, amendmentId));
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "AMENDMENT", amendmentId);
+    const approval = await approvals.requirePendingApproval(tx, context, "AMENDMENT", amendmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "APPROVED");
@@ -304,6 +306,7 @@ export async function rejectAmendment(
   context: UserContext,
   amendmentId: string,
   reason: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "AMENDMENT");
@@ -311,7 +314,7 @@ export async function rejectAmendment(
   const existing = assertFound(await findInScope(context, amendmentId));
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "AMENDMENT", amendmentId);
+    const approval = await approvals.requirePendingApproval(tx, context, "AMENDMENT", amendmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "REJECTED");
@@ -323,6 +326,40 @@ export async function rejectAmendment(
       entityId: existing.contractId,
       action: "LEGAL_AMENDMENT_REJECTED",
       message: `rejected amendment ${existing.amendmentNumber}`,
+      metadata: { amendmentId, reason } as Prisma.InputJsonValue,
+    });
+  });
+}
+
+/**
+ * Returns an amendment for revision (PRD #41 §48, §281): back to draft with
+ * the approver's reason; resubmitting it opens a new approval cycle and the
+ * returned one stays in its history.
+ */
+export async function returnAmendment(
+  context: UserContext,
+  amendmentId: string,
+  reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  assertModule(context, MODULE);
+  approvals.assertCanReject(context, "AMENDMENT");
+
+  const existing = assertFound(await findInScope(context, amendmentId));
+
+  await prisma.$transaction(async (tx) => {
+    const approval = await approvals.requirePendingApproval(tx, context, "AMENDMENT", amendmentId, guard);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+
+    await moveStatus(tx, context, existing, "DRAFT");
+    await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: existing.contractId,
+      action: "LEGAL_AMENDMENT_RETURNED",
+      message: `returned amendment ${existing.amendmentNumber} for revision`,
       metadata: { amendmentId, reason } as Prisma.InputJsonValue,
     });
   });

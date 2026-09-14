@@ -317,6 +317,8 @@ enum FinanceApprovalStatus {
   APPROVED
   REJECTED
   CANCELLED
+  /// Sent back to the requester for revision (PRD #41 §48); a resubmission opens a new cycle.
+  RETURNED
 }
 
 /// Employment, which is a different fact from company membership (PRD #16 §29).
@@ -454,6 +456,8 @@ enum SalesApprovalStatus {
   APPROVED
   REJECTED
   CANCELLED
+  /// Sent back to the requester for revision (PRD #41 §48); a resubmission opens a new cycle.
+  RETURNED
 }
 
 /// What kind of agreement this is (PRD #18 §38).
@@ -555,6 +559,8 @@ enum ContractApprovalStatus {
   APPROVED
   REJECTED
   CANCELLED
+  /// Sent back to the requester for revision (PRD #41 §48); a resubmission opens a new cycle.
+  RETURNED
 }
 
 enum PurchaseRequestStatus {
@@ -650,6 +656,8 @@ enum ProcurementApprovalStatus {
   APPROVED
   REJECTED
   CANCELLED
+  /// Sent back to the requester for revision (PRD #41 §48); a resubmission opens a new cycle.
+  RETURNED
 }
 
 enum InventoryItemCategory {
@@ -921,6 +929,11 @@ model Company {
   meetingMinutesSections     MeetingMinutesSection[]
   meetingDecisions           MeetingDecision[]
   meetingActionItems         MeetingActionItem[]
+  approvalSteps              ApprovalStep[]
+  approvalDelegations        ApprovalDelegation[]
+  approvalDecisionReceipts   ApprovalDecisionReceipt[]
+  procurementApprovalPolicy  ProcurementApprovalPolicy?
+
   @@index([status])
   @@index([name])
   @@map("companies")
@@ -953,6 +966,7 @@ model Department {
 
   calendarEvents CalendarEvent[]
   meetings       Meeting[]
+
   @@unique([companyId, name])
   @@unique([companyId, key])
   @@index([companyId])
@@ -1172,13 +1186,16 @@ model CompanyMember {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  calendarEventsCreated      CalendarEvent[]            @relation("CalendarEventCreator")
-  calendarParticipations     CalendarEventParticipant[] @relation("CalendarParticipant")
-  calendarReminders          CalendarReminder[]         @relation("CalendarReminderMember")
-  meetingsOrganized          Meeting[]                 @relation("MeetingOrganizer")
-  meetingParticipations      MeetingParticipant[]      @relation("MeetingParticipant")
-  meetingActionItemsOwned    MeetingActionItem[]       @relation("MeetingActionOwner")
-  meetingAgendaPresenting    MeetingAgendaItem[]       @relation("MeetingAgendaPresenter")
+  calendarEventsCreated       CalendarEvent[]            @relation("CalendarEventCreator")
+  calendarParticipations      CalendarEventParticipant[] @relation("CalendarParticipant")
+  calendarReminders           CalendarReminder[]         @relation("CalendarReminderMember")
+  meetingsOrganized           Meeting[]                  @relation("MeetingOrganizer")
+  meetingParticipations       MeetingParticipant[]       @relation("MeetingParticipant")
+  meetingActionItemsOwned     MeetingActionItem[]        @relation("MeetingActionOwner")
+  meetingAgendaPresenting     MeetingAgendaItem[]        @relation("MeetingAgendaPresenter")
+  approvalDelegationsGiven    ApprovalDelegation[]       @relation("ApprovalDelegationFrom")
+  approvalDelegationsReceived ApprovalDelegation[]       @relation("ApprovalDelegationTo")
+
   @@unique([companyId, userId])
   @@index([companyId])
   @@index([companyId, status])
@@ -1270,6 +1287,7 @@ model Project {
   calendarEvents CalendarEvent[]
   meetings       Meeting[]
   meetingSeries  MeetingSeries[]
+
   @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, status])
@@ -1446,6 +1464,7 @@ model Task {
   updatedAt DateTime @updatedAt
 
   meetingActionItem MeetingActionItem?
+
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, updatedAt])
@@ -4527,6 +4546,8 @@ enum AuditCategory {
   CALENDAR
   /// Meetings, minutes, decisions and action items (PRD #40 §181).
   MEETING
+  /// Approval cycles, chain steps, delegations and reassignments (PRD #41 §56).
+  APPROVAL
 }
 
 enum AuditSeverity {
@@ -6813,9 +6834,15 @@ model WorkerHeartbeat {
   @@map("worker_heartbeats")
 }
 
-/* -------------------------------------------------------------------------- */
-/* Calendar (PRD #39)                                                          */
-/* -------------------------------------------------------------------------- */
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Calendar (PRD #39)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
 
 /// What a Calendar-owned event is (PRD #39 §9, §37). Never a stand-in for a
 /// module record: task dates, contract expiries and inspections stay with their
@@ -6975,9 +7002,15 @@ model CalendarReminderDelivery {
   @@map("calendar_reminder_deliveries")
 }
 
-/* -------------------------------------------------------------------------- */
-/* Meetings (PRD #40)                                                          */
-/* -------------------------------------------------------------------------- */
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Meetings (PRD #40)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
 
 /// Descriptive only: a meeting's type never grants anything (PRD #40 §6).
 enum MeetingType {
@@ -7071,12 +7104,12 @@ model MeetingSeries {
   companyId         String
   createdByMemberId String
 
-  title       String
-  description String?
-  meetingType MeetingType
-  projectId   String?
+  title        String
+  description  String?
+  meetingType  MeetingType
+  projectId    String?
   departmentId String?
-  visibility  MeetingVisibility
+  visibility   MeetingVisibility
 
   locationType MeetingLocationType @default(UNSPECIFIED)
   locationText String?
@@ -7106,7 +7139,7 @@ model MeetingSeries {
 }
 
 model Meeting {
-  id                String @id @default(cuid())
+  id                String  @id @default(cuid())
   companyId         String
   projectId         String?
   departmentId      String?
@@ -7177,10 +7210,10 @@ model MeetingParticipant {
   memberId  String
   companyId String
 
-  role       MeetingParticipantRole  @default(ATTENDEE)
-  response   MeetingResponseStatus   @default(PENDING)
-  required   Boolean                 @default(true)
-  attendance MeetingAttendanceStatus @default(UNKNOWN)
+  role        MeetingParticipantRole  @default(ATTENDEE)
+  response    MeetingResponseStatus   @default(PENDING)
+  required    Boolean                 @default(true)
+  attendance  MeetingAttendanceStatus @default(UNKNOWN)
   /// The name as it was when the member was added, so a final record stays
   /// readable after people leave (PRD #40 §111).
   displayName String
@@ -7301,4 +7334,146 @@ model MeetingActionItem {
   @@index([companyId, ownerMemberId, status])
   @@index([companyId, dueAt, status])
   @@map("meeting_action_items")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Unified Approvals Center (PRD #41)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+/// Where a step of a module-owned approval chain stands (PRD #41 §24).
+enum ApprovalStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  /// Not needed after all, by the owning module's policy.
+  SKIPPED
+  /// Never reached: an earlier step ended the cycle, or the request was withdrawn.
+  CANCELLED
+}
+
+/// One step of a sequential approval chain a source module decided it needs
+/// (PRD #41 §20-§26). The cycle itself stays the module's own approval row; a
+/// step names who may act at that point — a permission, a role resolved at
+/// runtime, or one member — and records who did.
+model ApprovalStep {
+  id          String @id @default(cuid())
+  companyId   String
+  /// The approval provider that owns the cycle, e.g. "procurement".
+  providerKey String @db.VarChar(40)
+  /// The module's own approval row this step belongs to.
+  approvalId  String
+  stepNumber  Int
+  /// What the step is called to people: "Procurement", "Finance", "Executive".
+  label       String @db.VarChar(80)
+
+  approverMemberId   String?
+  /// Resolved to members holding this role when the step is reached (§25).
+  approverRoleKey    String? @db.VarChar(40)
+  /// The permission that decides the step, beyond reading the record.
+  approverPermission String? @db.VarChar(80)
+
+  status             ApprovalStepStatus @default(PENDING)
+  decidedByMemberId  String?
+  /// Set when the decision was taken under a delegation from this member (§33).
+  onBehalfOfMemberId String?
+  decidedAt          DateTime?
+  decisionNote       String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([providerKey, approvalId, stepNumber])
+  @@index([companyId, approvalId, stepNumber])
+  @@index([companyId, approverMemberId, status])
+  @@index([companyId, decidedByMemberId, status])
+  @@map("approval_steps")
+}
+
+/// Temporary approval authority, from one member to another, in one company
+/// (PRD #41 §32-§34, §169-§173). It lends only the authority to decide what
+/// was assigned to the delegator — never module access the delegate lacks.
+model ApprovalDelegation {
+  id           String  @id @default(cuid())
+  companyId    String
+  fromMemberId String
+  toMemberId   String
+  /// One provider ("procurement"), or null for every approval the delegator may decide.
+  providerKey  String? @db.VarChar(40)
+
+  startsAt DateTime
+  endsAt   DateTime
+
+  reason String? @db.VarChar(500)
+  active Boolean @default(true)
+
+  createdByMemberId String
+  revokedAt         DateTime?
+  revokedByMemberId String?
+
+  company    Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  fromMember CompanyMember @relation("ApprovalDelegationFrom", fields: [fromMemberId], references: [id], onDelete: Restrict)
+  toMember   CompanyMember @relation("ApprovalDelegationTo", fields: [toMemberId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, fromMemberId, startsAt, endsAt])
+  @@index([companyId, toMemberId, startsAt, endsAt])
+  @@map("approval_delegations")
+}
+
+/// The answer to a decision request carrying an idempotency key (PRD #41
+/// §123, §124): a retried request replays this instead of deciding twice.
+model ApprovalDecisionReceipt {
+  id             String @id @default(cuid())
+  companyId      String
+  memberId       String
+  idempotencyKey String @db.VarChar(100)
+  providerKey    String @db.VarChar(40)
+  approvalId     String
+  decision       String @db.VarChar(16)
+  outcome        String @db.VarChar(24)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, memberId, idempotencyKey])
+  @@index([createdAt])
+  @@map("approval_decision_receipts")
+}
+
+/// When a purchase order needs more than a Procurement decision (PRD #41
+/// §27, §28, §158). Procurement's own configuration, in one currency: an order
+/// in another currency cannot be compared, so it takes the full chain.
+model ProcurementApprovalPolicy {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  /// Orders whose total is above this also need a Finance decision. Null: never.
+  financeStepAbove   Decimal? @db.Decimal(18, 2)
+  /// Orders whose total is above this also need an executive decision. Null: never.
+  executiveStepAbove Decimal? @db.Decimal(18, 2)
+  /// The role that takes the executive decision, resolved when the step is reached.
+  executiveRoleKey   String   @default("CEO") @db.VarChar(40)
+  /// The currency the limits are written in.
+  currency           String   @db.VarChar(3)
+
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("procurement_approval_policies")
 }

@@ -12,6 +12,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
   dateString,
   isOverdue,
@@ -612,6 +613,7 @@ export async function approveNcr(
   context: UserContext,
   ncrId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "NCR");
@@ -625,7 +627,7 @@ export async function approveNcr(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "NCR", ncrId);
+    const approval = await approvals.requirePendingApproval(tx, context, "NCR", ncrId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
@@ -661,6 +663,7 @@ export async function rejectNcr(
   context: UserContext,
   ncrId: string,
   note: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "NCR");
@@ -674,7 +677,7 @@ export async function rejectNcr(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "NCR", ncrId);
+    const approval = await approvals.requirePendingApproval(tx, context, "NCR", ncrId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", note);
 

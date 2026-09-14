@@ -67,6 +67,17 @@ export const PERMISSIONS = [
   "meeting.document.view",
   "meeting.document.create",
 
+  /* Approvals ------------------------------------------------------------ */
+  /**
+   * The Unified Approvals Center (PRD #41 §133, §134). These open the shared
+   * workspace and its history, and let an approver lend their authority for a
+   * while. None of them decides anything: approving is always the source
+   * module's own permission, checked by the source module.
+   */
+  "approvals.view",
+  "approvals.history.view",
+  "approvals.delegation.manage",
+
   /* Projects ------------------------------------------------------------- */
   "project.view",
   "project.create",
@@ -484,6 +495,14 @@ export const PERMISSIONS = [
 
   "procurement.approval.view",
   "procurement.approval.decide",
+  /**
+   * The financial step of a purchase order's approval chain (PRD #41 §27,
+   * §143). Procurement's own grant — the chain is Procurement's — held by the
+   * people who answer "can we afford this?" rather than by the buyers, and not
+   * on any ladder, so neither running the buying nor raising invoices brings
+   * it along by accident.
+   */
+  "procurement.order.finance_approve",
 
   /**
    * Budget headroom and the Finance commitment behind an order are Finance
@@ -900,6 +919,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   collaboration: "dashboard",
   calendar: "calendar",
   meeting: "meetings",
+  approvals: "approvals",
   project: "projects",
   task: "tasks",
   client: "clients",
@@ -1009,6 +1029,8 @@ const MUTATING_ACTIONS = new Set([
   "manage_participants",
   "finalize",
   "convert_to_task",
+  // Approvals Center (PRD #41 §27).
+  "finance_approve",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

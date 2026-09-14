@@ -60,7 +60,8 @@ export const renewalTypeLabels: Record<ContractRenewalType, string> = {
 const TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   DRAFT: ["IN_REVIEW", "CANCELLED", "ARCHIVED"],
   IN_REVIEW: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"],
-  PENDING_APPROVAL: ["APPROVED", "IN_REVIEW", "CANCELLED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "IN_REVIEW", "DRAFT", "CANCELLED"],
   APPROVED: ["SENT", "CANCELLED"],
   SENT: ["SIGNED", "CANCELLED"],
   SIGNED: ["ACTIVE", "TERMINATED"],

@@ -15,6 +15,7 @@ import { seedAccessConfiguration } from "./seed/access";
 import { seedActivities } from "./seed/activities";
 import { seedBusinessRecords } from "./seed/business";
 import { seedCalendarRecords } from "./seed/calendar";
+import { seedApprovalRecords } from "./seed/approvals";
 import { seedCompanies } from "./seed/companies";
 import { seedMeetingRecords } from "./seed/meetings";
 import { seedContractRecords } from "./seed/contracts";
@@ -72,6 +73,7 @@ async function main() {
   await seedModuleRecords(prisma, members);
   const calendar = await seedCalendarRecords(prisma, members);
   const meetings = await seedMeetingRecords(prisma, members);
+  const approvals = await seedApprovalRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
   await seedAuditEvents(prisma, { companyA, companyB });
 
@@ -108,6 +110,7 @@ async function main() {
   console.log(`✓ Company members: ${counts.members} (invitations: ${invitations})`);
   console.log(`✓ Calendar: ${calendar.events} company, project, team and personal events`);
   console.log(`✓ Meetings: ${meetings.meetings} meetings, ${meetings.series} weekly series`);
+  console.log(`✓ Approvals: ${approvals.policies} purchase-order policy, ${approvals.chains} order in a chain, ${approvals.delegations} delegation`);
   console.log(
     `✓ Finance: ${finance.invoices} invoices, ${finance.expenses} expenses, ` +
       `${finance.payments} payments, ${finance.budgets} budgets, ${finance.commitments} commitments`,

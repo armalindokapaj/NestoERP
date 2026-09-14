@@ -9,7 +9,8 @@ import type { CommitmentStatus } from "@prisma/client";
  */
 const TRANSITIONS: Record<CommitmentStatus, CommitmentStatus[]> = {
   DRAFT: ["PENDING_APPROVAL", "CANCELLED"],
-  PENDING_APPROVAL: ["APPROVED", "REJECTED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT"],
   APPROVED: ["CLOSED", "CANCELLED"],
   REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"],
   CLOSED: [],

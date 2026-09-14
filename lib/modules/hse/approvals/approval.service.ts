@@ -3,7 +3,8 @@ import { Prisma, type HseApprovalRecordType } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
-import { notifyApprovalDecided, notifyApprovalRequested } from "@/lib/core/notifications/approval-notifications";
+import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled } from "@/lib/core/notifications/approval-notifications";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -159,6 +160,7 @@ export async function openApproval(
   });
 
   await notifyApprovalRequested(tx, context, {
+    approvalId: approval.id,
     moduleKey: "hse",
     recordId,
     recordType: APPROVAL_RECORD[type].recordType,
@@ -174,6 +176,7 @@ export async function requirePendingApproval(
   context: UserContext,
   type: HseApprovalRecordType,
   recordId: string,
+  guard?: ApprovalGuard,
 ): Promise<{ id: string; submittedByMemberId: string }> {
   const approval = await tx.hseApproval.findFirst({
     where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
@@ -185,6 +188,9 @@ export async function requirePendingApproval(
       code: "NO_PENDING_APPROVAL",
     });
   }
+
+  // A resubmission since the review opened is a different cycle (PRD #41 §187).
+  assertApprovalGuard(guard, approval);
 
   return approval;
 }
@@ -220,6 +226,7 @@ export async function decideApproval(
   });
   if (approval) {
     await notifyApprovalDecided(tx, context, {
+      approvalId,
       moduleKey: "hse",
       recordId: approval.recordId,
       recordType: APPROVAL_RECORD[approval.recordType].recordType,
@@ -238,7 +245,7 @@ export async function cancelPendingApprovals(
   type: HseApprovalRecordType,
   recordId: string,
 ): Promise<void> {
-  await tx.hseApproval.updateMany({
+  const { count } = await tx.hseApproval.updateMany({
     where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
     data: {
       status: "CANCELLED",
@@ -246,6 +253,7 @@ export async function cancelPendingApprovals(
       decidedByMemberId: context.membershipId,
     },
   });
+  await recordApprovalCancelled(tx, context, { moduleKey: MODULE, recordType: APPROVAL_RECORD[type].recordType, noun: APPROVAL_RECORD[type].noun, recordId, count });
 }
 
 export async function pendingFor(

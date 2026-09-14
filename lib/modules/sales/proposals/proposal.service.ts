@@ -11,6 +11,7 @@ import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { businessDateString } from "@/lib/modules/finance/finance.fields";
 import { toAmountString, toRateString } from "@/lib/modules/finance/finance.money";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { loadMemberRef } from "../sales.dto";
 import { buildOpportunityScopeWhere } from "../sales.scope";
 import type { ProposalDetailDTO, ProposalSummaryDTO } from "../sales.types";
@@ -288,6 +289,7 @@ export async function approveProposal(
   context: UserContext,
   proposalId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "PROPOSAL");
@@ -295,7 +297,7 @@ export async function approveProposal(
   const existing = assertFound(await repository.findProposalInScope(context, proposalId));
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId);
+    const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "APPROVED");
@@ -315,6 +317,7 @@ export async function rejectProposal(
   context: UserContext,
   proposalId: string,
   reason: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "PROPOSAL");
@@ -322,7 +325,7 @@ export async function rejectProposal(
   const existing = assertFound(await repository.findProposalInScope(context, proposalId));
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId);
+    const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "REJECTED");
@@ -334,6 +337,39 @@ export async function rejectProposal(
       entityId: proposalId,
       action: "SALES_PROPOSAL_REJECTED",
       message: `rejected proposal ${existing.proposalNumber}`,
+      metadata: { reason } as Prisma.InputJsonValue,
+    });
+  });
+}
+
+/**
+ * Returns a proposal for revision (PRD #41 §48): back to draft with the
+ * approver's reason, to be repriced and submitted again as a new cycle.
+ */
+export async function returnProposal(
+  context: UserContext,
+  proposalId: string,
+  reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  assertModule(context, MODULE);
+  approvals.assertCanReject(context, "PROPOSAL");
+
+  const existing = assertFound(await repository.findProposalInScope(context, proposalId));
+
+  await prisma.$transaction(async (tx) => {
+    const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId, guard);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+
+    await moveStatus(tx, context, existing, "DRAFT");
+    await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: proposalId,
+      action: "SALES_PROPOSAL_RETURNED",
+      message: `returned proposal ${existing.proposalNumber} for revision`,
       metadata: { reason } as Prisma.InputJsonValue,
     });
   });

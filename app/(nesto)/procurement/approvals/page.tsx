@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckCheck } from "lucide-react";
 
 import { ProcurementApprovalQueue } from "@/components/procurement/approval-queue";
 import { ModulePage } from "@/components/modules/module-page";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
@@ -30,7 +32,22 @@ export default async function ApprovalsPage() {
   ]);
 
   return (
-    <ModulePage experience={experience} activeSection="approvals">
+    <ModulePage
+      experience={experience}
+      activeSection="approvals"
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/procurement/approvals/limits">Approval limits</Link>
+          </Button>
+          {can(context, "approvals.view") ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/approvals?provider=procurement">Open in Approvals</Link>
+            </Button>
+          ) : null}
+        </div>
+      }
+    >
       <div className="space-y-6">
         <section className="space-y-3">
           <h2 className="text-card font-semibold text-fg">Waiting on a decision</h2>

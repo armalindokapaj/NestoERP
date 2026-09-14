@@ -127,6 +127,9 @@ test("Legal sends a contract document for review and the Owner approves it (§59
     await signIn(page, "OWNER", { to: "/dashboard" });
     const menu = await openBell(page);
     await menu.getByRole("menuitem", { name: /asked you to review/ }).first().click();
+    // A review opens in the Approvals Center's drawer first, with the document one link away (PRD #41 §42).
+    await page.waitForURL(/\/approvals\?approval=documents%3A/);
+    await page.getByTestId("approval-detail").getByRole("link", { name: "Open full document" }).click();
     await page.waitForURL(/\/documents\/document_contract_01$/);
 
     const row = mainRegion(page).getByTestId("document-version-1");

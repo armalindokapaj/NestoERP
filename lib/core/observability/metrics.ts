@@ -43,6 +43,15 @@ export const Metric = {
   MEETING_MINUTES_FINALIZE: "meeting_minutes_finalize_count",
   MEETING_ACTION_TASK_CREATE: "meeting_action_task_create_count",
   MEETING_SERIES_GENERATED: "meeting_series_occurrences_generated_total",
+  // Approvals Center (PRD #41 §256)
+  APPROVALS_QUEUE: "approvals_queue_count",
+  APPROVALS_QUEUE_DURATION_MS: "approvals_queue_duration_ms_total",
+  APPROVALS_PROVIDER_DURATION_MS: "approvals_provider_duration_ms_total",
+  APPROVALS_PROVIDER_FAILURE: "approvals_provider_failure_count",
+  APPROVAL_DECISION_SUCCESS: "approval_decision_success_count",
+  APPROVAL_DECISION_FAILURE: "approval_decision_failure_count",
+  APPROVAL_CONFLICT: "approval_conflict_count",
+  APPROVAL_OVERDUE: "approval_overdue_count",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

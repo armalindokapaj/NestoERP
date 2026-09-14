@@ -49,11 +49,18 @@ export default async function FinanceApprovalsPage({
       experience={experience}
       activeSection="approvals"
       actions={
-        <Button asChild variant="secondary" size="sm">
-          <Link href={decided ? "/finance/approvals" : "/finance/approvals?status=DECIDED"}>
-            {decided ? "Waiting for a decision" : "Decided"}
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="secondary" size="sm">
+            <Link href={decided ? "/finance/approvals" : "/finance/approvals?status=DECIDED"}>
+              {decided ? "Waiting for a decision" : "Decided"}
+            </Link>
+          </Button>
+          {can(context, "approvals.view") ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/approvals?provider=finance">Open in Approvals</Link>
+            </Button>
+          ) : null}
+        </div>
       }
     >
       {result.data.length === 0 ? (

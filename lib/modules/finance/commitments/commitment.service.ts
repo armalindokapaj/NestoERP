@@ -9,6 +9,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { businessDateString } from "../finance.fields";
 import { toAmountString } from "../finance.money";
 import {
@@ -362,6 +363,7 @@ export async function approveCommitment(
   context: UserContext,
   commitmentId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "COMMITMENT");
@@ -369,12 +371,7 @@ export async function approveCommitment(
   const existing = await requireCommitment(context, commitmentId);
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "COMMITMENT",
-      commitmentId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "COMMITMENT", commitmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "APPROVED");
@@ -394,6 +391,7 @@ export async function rejectCommitment(
   context: UserContext,
   commitmentId: string,
   reason: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "COMMITMENT");
@@ -401,12 +399,7 @@ export async function rejectCommitment(
   const existing = await requireCommitment(context, commitmentId);
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "COMMITMENT",
-      commitmentId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "COMMITMENT", commitmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await moveStatus(tx, context, existing, "REJECTED");
@@ -418,6 +411,40 @@ export async function rejectCommitment(
       entityId: commitmentId,
       action: "FINANCE_COMMITMENT_REJECTED",
       message: `rejected commitment ${label(existing)}`,
+      metadata: { reason } as Prisma.InputJsonValue,
+    });
+  });
+}
+
+/**
+ * Returns the commitment for revision (PRD #41 §48): back to draft with the
+ * approver's reason, so the requester can correct it and submit it again as a
+ * new approval cycle. The decision history keeps the returned cycle.
+ */
+export async function returnCommitment(
+  context: UserContext,
+  commitmentId: string,
+  reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  assertModule(context, MODULE);
+  approvals.assertCanReject(context, "COMMITMENT");
+
+  const existing = await requireCommitment(context, commitmentId);
+
+  await prisma.$transaction(async (tx) => {
+    const approval = await approvals.requirePendingApproval(tx, context, "COMMITMENT", commitmentId, guard);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+
+    await moveStatus(tx, context, existing, "DRAFT");
+    await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: commitmentId,
+      action: "FINANCE_COMMITMENT_RETURNED",
+      message: `returned commitment ${label(existing)} for revision`,
       metadata: { reason } as Prisma.InputJsonValue,
     });
   });

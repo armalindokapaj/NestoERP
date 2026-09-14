@@ -11,7 +11,8 @@ import type { ExpenseStatus } from "@prisma/client";
  */
 const TRANSITIONS: Record<ExpenseStatus, ExpenseStatus[]> = {
   DRAFT: ["PENDING_APPROVAL", "CANCELLED"],
-  PENDING_APPROVAL: ["APPROVED", "REJECTED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT"],
   APPROVED: ["CANCELLED"],
   REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"],
   CANCELLED: [],

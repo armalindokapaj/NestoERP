@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/database/prisma";
+import { currentRequestContext } from "@/lib/core/observability/request-context";
 import type { UserContext } from "@/lib/context/types";
 import { applyRedaction } from "./audit-redaction";
 import { findAuditPolicy } from "./audit-policy.registry";
@@ -90,8 +91,10 @@ async function write(
       changesJson: changes ? (changes as unknown as Prisma.InputJsonValue) : undefined,
       reason: input.reason?.slice(0, 2000) ?? null,
       metadataJson: input.metadata ? (input.metadata as Prisma.InputJsonValue) : undefined,
-      correlationId: context.correlationId ?? null,
-      requestId: context.requestId ?? null,
+      // The request's own ids when the caller did not pass any, so a decision,
+      // its outbox event and its audit share one correlation (PRD #32 §34, PRD #41 §229).
+      correlationId: context.correlationId ?? currentRequestContext()?.correlationId ?? null,
+      requestId: context.requestId ?? currentRequestContext()?.requestId ?? null,
       ipAddress: context.ipAddress ?? null,
       userAgent: context.userAgent?.slice(0, 500) ?? null,
     },

@@ -34,6 +34,7 @@ export const ATTENTION_CONDITIONS = [
   "OVERDUE_INVOICE",
   "PROCUREMENT_ACTION_REQUIRED",
   "MEETING_ACTION_OVERDUE",
+  "APPROVAL_OVERDUE",
 ] as const;
 
 export type AttentionConditionKey = (typeof ATTENTION_CONDITIONS)[number];
@@ -230,18 +231,164 @@ async function approvalHolds(sources: ApprovalSource[], companyId: string, entit
   return false;
 }
 
+/**
+ * Approvals addressed to a person rather than a permission (PRD #41 §39): a
+ * document review names its reviewer, and a leave request goes to whoever may
+ * decide leave in the employee's HR scope — never to the employee.
+ */
+async function assignedApprovalCandidates(companyId: string): Promise<AttentionCandidate[]> {
+  const [reviews, leave] = await Promise.all([
+    prisma.documentReview.findMany({
+      where: { companyId, status: "PENDING" },
+      select: { id: true, documentId: true, reviewerMemberId: true, requestedByMemberId: true, version: { select: { versionNumber: true, document: { select: { name: true, projectId: true } } } } },
+      take: LIMIT,
+    }),
+    prisma.leaveRequest.findMany({
+      where: { companyId, status: "PENDING" },
+      select: { id: true, companyMemberId: true, submittedAt: true, startDate: true },
+      take: LIMIT,
+    }),
+  ]);
+  return [
+    ...reviews.map((row): AttentionCandidate => ({
+      entityType: "document",
+      entityId: row.documentId,
+      projectId: row.version.document.projectId,
+      title: `Review “${row.version.document.name}” v${row.version.versionNumber}`,
+      body: null,
+      priority: "HIGH",
+      dismissible: true,
+      // One per review, so each reviewer's item resolves with their own decision.
+      episode: row.id,
+      recipients: [row.reviewerMemberId],
+      exclude: [row.requestedByMemberId],
+    })),
+    ...leave.map((row): AttentionCandidate => ({
+      entityType: "leave_request",
+      entityId: row.id,
+      projectId: null,
+      title: "Leave request waiting for your approval",
+      body: `Starts ${isoDate(row.startDate)}`,
+      priority: "HIGH",
+      dismissible: true,
+      episode: `${row.id}:${row.submittedAt?.toISOString() ?? "draft"}`,
+      recipients: [],
+      holders: ["hr.leave.approve"],
+      exclude: [row.companyMemberId],
+    })),
+  ];
+}
+
 const pendingApproval: AttentionConditionDefinition = {
   key: "PENDING_APPROVAL",
   moduleKey: "dashboard",
-  collect: (companyId) => approvalCandidates(APPROVAL_SOURCES, companyId, "waiting for your approval"),
-  holds: (companyId, type, id) => approvalHolds(APPROVAL_SOURCES, companyId, type, id),
+  collect: async (companyId) => [
+    ...(await approvalCandidates(APPROVAL_SOURCES, companyId, "waiting for your approval")),
+    ...(await assignedApprovalCandidates(companyId)),
+  ],
+  async holds(companyId, type, id) {
+    if (type === "document") return (await prisma.documentReview.count({ where: { companyId, documentId: id, status: "PENDING" } })) > 0;
+    if (type === "leave_request") return (await prisma.leaveRequest.count({ where: { companyId, id, status: "PENDING" } })) > 0;
+    return approvalHolds(APPROVAL_SOURCES, companyId, type, id);
+  },
 };
 
+/**
+ * Procurement decisions, following the chain where an order has one (PRD #41
+ * §21): the current step's approvers are told — a permission, or the members
+ * of a role — and nobody who submitted it or already decided a step.
+ */
 const procurementActionRequired: AttentionConditionDefinition = {
   key: "PROCUREMENT_ACTION_REQUIRED",
   moduleKey: "procurement",
-  collect: (companyId) => approvalCandidates([PROCUREMENT_SOURCE], companyId, "needs a procurement decision"),
+  async collect(companyId) {
+    const candidates = await approvalCandidates([PROCUREMENT_SOURCE], companyId, "needs a procurement decision");
+    const approvalIds = candidates.map((candidate) => candidate.episode);
+    const steps = await prisma.approvalStep.findMany({
+      where: { companyId, providerKey: "procurement", approvalId: { in: approvalIds } },
+      orderBy: [{ approvalId: "asc" }, { stepNumber: "asc" }],
+      select: { approvalId: true, stepNumber: true, label: true, status: true, approverPermission: true, approverRoleKey: true, approverMemberId: true, decidedByMemberId: true, onBehalfOfMemberId: true },
+    });
+    if (steps.length === 0) return candidates;
+    const roleKeys = [...new Set(steps.map((step) => step.approverRoleKey).filter((key): key is string => Boolean(key)))];
+    const roleMembers = roleKeys.length
+      ? await prisma.companyMember.findMany({ where: { companyId, status: "ACTIVE", role: { key: { in: roleKeys } } }, select: { id: true, role: { select: { key: true } } } })
+      : [];
+    return candidates.map((candidate) => {
+      const chain = steps.filter((step) => step.approvalId === candidate.episode);
+      const current = chain.find((step) => step.status === "PENDING");
+      if (!current) return candidate;
+      const decided = chain.flatMap((step) => [step.decidedByMemberId, step.onBehalfOfMemberId]).filter((id): id is string => Boolean(id));
+      return {
+        ...candidate,
+        title: `Purchase order needs the ${current.label} decision`,
+        body: `Step ${current.stepNumber} of ${chain.length}`,
+        episode: `${candidate.episode}:${current.stepNumber}`,
+        recipients: current.approverMemberId
+          ? [current.approverMemberId]
+          : current.approverRoleKey
+            ? roleMembers.filter((member) => member.role.key === current.approverRoleKey).map((member) => member.id)
+            : [],
+        holders: current.approverPermission ? [current.approverPermission as Permission] : undefined,
+        exclude: [...(candidate.exclude ?? []), ...decided],
+      };
+    });
+  },
   holds: (companyId, type, id) => approvalHolds([PROCUREMENT_SOURCE], companyId, type, id),
+};
+
+/**
+ * Approvals past a real deadline (PRD #41 §36, §37, §39, §228): a review past
+ * its due date, leave whose first day has come, a proposal past its validity,
+ * a permit past its start. Only sources that have such a date appear; nothing
+ * is given a deadline it does not have.
+ */
+const approvalOverdue: AttentionConditionDefinition = {
+  key: "APPROVAL_OVERDUE",
+  moduleKey: "approvals",
+  async collect(companyId, now) {
+    const today = startOfDay(now);
+    const [reviews, leave, proposals, permits] = await Promise.all([
+      prisma.documentReview.findMany({
+        where: { companyId, status: "PENDING", dueAt: { lt: today } },
+        select: { id: true, documentId: true, reviewerMemberId: true, dueAt: true, version: { select: { document: { select: { name: true, projectId: true } } } } },
+        take: LIMIT,
+      }),
+      prisma.leaveRequest.findMany({ where: { companyId, status: "PENDING", startDate: { lt: today } }, select: { id: true, companyMemberId: true, startDate: true }, take: LIMIT }),
+      prisma.proposal.findMany({ where: { companyId, status: "PENDING_APPROVAL", validUntil: { lt: today } }, select: { id: true, proposalNumber: true, validUntil: true, createdByMemberId: true }, take: LIMIT }),
+      prisma.hseWorkPermit.findMany({ where: { companyId, status: "PENDING_APPROVAL", validFrom: { lt: today } }, select: { id: true, permitNumber: true, projectId: true, validFrom: true, requestedByMemberId: true }, take: LIMIT }),
+    ]);
+    return [
+      ...reviews.map((row): AttentionCandidate => ({
+        entityType: "document", entityId: row.documentId, projectId: row.version.document.projectId,
+        title: `Overdue review: “${row.version.document.name}”`, body: `Due ${isoDate(row.dueAt!)}`,
+        priority: "HIGH", dismissible: true, episode: `${row.id}:${isoDate(row.dueAt!)}`, recipients: [row.reviewerMemberId],
+      })),
+      ...leave.map((row): AttentionCandidate => ({
+        entityType: "leave_request", entityId: row.id, projectId: null,
+        title: "Leave began without a decision", body: `Started ${isoDate(row.startDate)}`,
+        priority: "HIGH", dismissible: true, episode: isoDate(row.startDate), recipients: [], holders: ["hr.leave.approve"], exclude: [row.companyMemberId],
+      })),
+      ...proposals.map((row): AttentionCandidate => ({
+        entityType: "proposal", entityId: row.id, projectId: null,
+        title: `Proposal ${row.proposalNumber} lapsed while waiting for approval`, body: `Valid until ${isoDate(row.validUntil!)}`,
+        priority: "HIGH", dismissible: true, episode: isoDate(row.validUntil!), recipients: [], holders: ["sales.proposal.approve"], exclude: [row.createdByMemberId],
+      })),
+      ...permits.map((row): AttentionCandidate => ({
+        entityType: "work_permit", entityId: row.id, projectId: row.projectId,
+        title: `Permit ${row.permitNumber} was due to start without approval`, body: `From ${isoDate(row.validFrom)}`,
+        priority: "CRITICAL", dismissible: true, episode: isoDate(row.validFrom), recipients: [], holders: ["hse.permit.approve"], exclude: [row.requestedByMemberId],
+      })),
+    ];
+  },
+  async holds(companyId, type, id, now) {
+    const today = startOfDay(now);
+    if (type === "document") return (await prisma.documentReview.count({ where: { companyId, documentId: id, status: "PENDING", dueAt: { lt: today } } })) > 0;
+    if (type === "leave_request") return (await prisma.leaveRequest.count({ where: { companyId, id, status: "PENDING", startDate: { lt: today } } })) > 0;
+    if (type === "proposal") return (await prisma.proposal.count({ where: { companyId, id, status: "PENDING_APPROVAL", validUntil: { lt: today } } })) > 0;
+    if (type === "work_permit") return (await prisma.hseWorkPermit.count({ where: { companyId, id, status: "PENDING_APPROVAL", validFrom: { lt: today } } })) > 0;
+    return false;
+  },
 };
 
 /* Legal -------------------------------------------------------------------- */
@@ -575,6 +722,7 @@ const DEFINITIONS: AttentionConditionDefinition[] = [
   overdueInvoice,
   procurementActionRequired,
   meetingActionOverdue,
+  approvalOverdue,
 ];
 
 const BY_KEY = new Map(DEFINITIONS.map((definition) => [definition.key, definition]));

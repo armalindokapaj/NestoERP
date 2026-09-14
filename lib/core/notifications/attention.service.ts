@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
@@ -152,6 +153,12 @@ export async function suppressModuleAttention(companyId: string, moduleKey: stri
 
 export type ReadableAttentionDTO = AttentionItemDTO & { href: string };
 
+const APPROVAL_CONDITIONS = new Set(["PENDING_APPROVAL", "PROCUREMENT_ACTION_REQUIRED", "APPROVAL_OVERDUE"]);
+
+function approvalLink(recordType: string, recordId: string): string {
+  return `/approvals?record=${encodeURIComponent(`${recordType}:${recordId}`)}`;
+}
+
 /**
  * Active attention the reader can still act on, each with a link resolved now
  * (PRD #38 §82, §86).
@@ -181,7 +188,9 @@ export async function listReadableAttention(context: UserContext, limit = 25): P
     }
     const record = await loadRecord(context, type, item.entity.entityId);
     if (!record || record.archived) continue;
-    readable.push({ ...item, href: record.href });
+    // Waiting approvals open in the Approvals Center's drawer (PRD #41 §42).
+    const href = APPROVAL_CONDITIONS.has(item.conditionKey) && can(context, "approvals.view") ? approvalLink(record.type, record.id) : record.href;
+    readable.push({ ...item, href });
     if (readable.length >= limit) break;
   }
   if (ended.length > 0) {

@@ -10,6 +10,9 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { settleStep } from "@/lib/core/approvals/approval-steps";
+import { assertChainHasApprovers, planOrderChain, resolveApprovalPolicy } from "../approvals/approval.policy";
 import {
   canSeeCommitment,
   dateString,
@@ -740,38 +743,73 @@ export async function submitOrder(context: UserContext, orderId: string): Promis
     });
   }
 
+  // The chain this order's value calls for under the company's policy, and
+  // somebody able to take every step of it — refused now, with a reason,
+  // rather than stuck later (PRD #41 §27, §161).
+  const [policy, totals] = await Promise.all([
+    resolveApprovalPolicy(context.companyId),
+    prisma.purchaseOrder.findUniqueOrThrow({ where: { id: orderId }, select: { totalAmount: true, currency: true } }),
+  ]);
+  const chain = planOrderChain(policy, totals);
+  if (chain.steps.length > 0) {
+    await assertChainHasApprovers(context.companyId, orderId, context.membershipId, chain.steps);
+  }
+
   await prisma.$transaction(async (tx) => {
     await moveStatus(tx, existing, "PENDING_APPROVAL", { submittedAt: new Date() });
-    await approvals.openApproval(tx, context, "PURCHASE_ORDER", orderId);
+    await approvals.openApproval(tx, context, "PURCHASE_ORDER", orderId, { steps: chain.steps });
 
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
       entityId: orderId,
       action: "PROCUREMENT_ORDER_SUBMITTED",
-      message: `sent order ${existing.poNumber} for approval`,
+      message:
+        chain.steps.length > 0
+          ? `sent order ${existing.poNumber} for approval in ${chain.steps.length} steps (${chain.steps.map((step) => step.label).join(", ")})`
+          : `sent order ${existing.poNumber} for approval`,
     });
   });
 }
-
 export async function approveOrder(
   context: UserContext,
   orderId: string,
   note: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
-  approvals.assertCanApprove(context, "PURCHASE_ORDER");
 
   const existing = await loadForWrite(context, orderId);
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "PURCHASE_ORDER",
-      orderId,
-    );
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_ORDER", orderId, guard);
+
+    // In a chain, the current step's approver decides it; only the last
+    // step approves the order (PRD #41 §21).
+    const actionable = await approvals.requireActionableStep(tx, context, approval, orderId, guard);
+    if (actionable) {
+      await settleStep(tx, context, actionable.step, "APPROVED", note, actionable.onBehalfOfMemberId);
+      const carriedOn = await approvals.advanceChain(tx, context, {
+        approvalId: approval.id,
+        orderId,
+        submittedByMemberId: approval.submittedByMemberId,
+        actionable,
+        note,
+      });
+      if (carriedOn) {
+        await recordActivity(tx, context, {
+          module: MODULE,
+          entityType: ENTITY,
+          entityId: orderId,
+          action: "PROCUREMENT_ORDER_STEP_APPROVED",
+          message: `approved step ${actionable.step.stepNumber} of ${actionable.steps.length} (${actionable.step.label}) on order ${existing.poNumber}`,
+        });
+        return;
+      }
+    } else {
+      approvals.assertCanApprove(context, "PURCHASE_ORDER");
+      approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    }
 
     await moveStatus(tx, existing, "APPROVED", {
       approvedAt: new Date(),
@@ -780,7 +818,10 @@ export async function approveOrder(
       rejectedByMemberId: null,
       rejectionReason: null,
     });
-    await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
+    await approvals.decideApproval(tx, context, approval.id, "APPROVED", note, {
+      step: actionable?.step.stepNumber,
+      onBehalfOfMemberId: actionable?.onBehalfOfMemberId,
+    });
 
     // Approval is the moment the money is committed (PRD #19 §116).
     await syncCommitment(tx, context, orderId);
@@ -794,39 +835,75 @@ export async function approveOrder(
     });
   });
 }
-
 export async function rejectOrder(
   context: UserContext,
   orderId: string,
   reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  await endOrderApproval(context, orderId, reason, "REJECTED", guard);
+}
+
+/**
+ * Returns an order for revision (PRD #41 §48): back to draft with the
+ * approver's reason, to be corrected and submitted again — which opens a new
+ * cycle, and a new chain if its value still calls for one.
+ */
+export async function returnOrder(
+  context: UserContext,
+  orderId: string,
+  reason: string,
+  guard?: ApprovalGuard,
+): Promise<void> {
+  await endOrderApproval(context, orderId, reason, "RETURNED", guard);
+}
+
+/** Rejecting or returning ends the cycle at whichever step it has reached. */
+async function endOrderApproval(
+  context: UserContext,
+  orderId: string,
+  reason: string,
+  outcome: "REJECTED" | "RETURNED",
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
-  approvals.assertCanReject(context, "PURCHASE_ORDER");
 
   const existing = await loadForWrite(context, orderId);
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_ORDER", orderId);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_ORDER", orderId, guard);
+    const actionable = await approvals.requireActionableStep(tx, context, approval, orderId, guard);
+    if (actionable) {
+      await settleStep(tx, context, actionable.step, outcome, reason, actionable.onBehalfOfMemberId);
+    } else {
+      approvals.assertCanReject(context, "PURCHASE_ORDER");
+      approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    }
 
-    await moveStatus(tx, existing, "REJECTED", {
-      rejectedAt: new Date(),
-      rejectedByMemberId: context.membershipId,
-      rejectionReason: reason,
+    if (outcome === "REJECTED") {
+      await moveStatus(tx, existing, "REJECTED", {
+        rejectedAt: new Date(),
+        rejectedByMemberId: context.membershipId,
+        rejectionReason: reason,
+      });
+    } else {
+      await moveStatus(tx, existing, "DRAFT", { submittedAt: null });
+    }
+    await approvals.decideApproval(tx, context, approval.id, outcome, reason, {
+      step: actionable?.step.stepNumber,
+      onBehalfOfMemberId: actionable?.onBehalfOfMemberId,
     });
-    await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
 
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
       entityId: orderId,
-      action: "PROCUREMENT_ORDER_REJECTED",
-      message: `rejected order ${existing.poNumber}`,
-      metadata: { reason } as Prisma.InputJsonValue,
+      action: outcome === "REJECTED" ? "PROCUREMENT_ORDER_REJECTED" : "PROCUREMENT_ORDER_RETURNED",
+      message: outcome === "REJECTED" ? `rejected order ${existing.poNumber}` : `returned order ${existing.poNumber} for revision`,
+      metadata: { reason, ...(actionable ? { step: actionable.step.stepNumber } : {}) } as Prisma.InputJsonValue,
     });
   });
 }
-
 export async function issueOrder(context: UserContext, orderId: string): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "procurement.order.issue");

@@ -120,6 +120,7 @@ export const contrasts = [
 export const moduleCopy: Record<ModuleKey, string> = {
   dashboard: "The screen each role opens first — their numbers, not everyone else's.",
   calendar: "Deadlines, inspections, deliveries and company events in one permission-aware schedule.",
+  approvals: "Every decision waiting on you — purchase orders, invoices, leave, contracts, documents — reviewed and decided in one place.",
   projects: "Every project as one record: programme, team, budget, drawings and status.",
   tasks: "Daily work assigned across site and office, always against a project.",
   meetings: "Agendas, minutes, decisions and the actions that follow — each action able to become a task.",

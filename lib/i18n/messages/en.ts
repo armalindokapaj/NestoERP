@@ -97,6 +97,7 @@ export const en = {
   modules: {
     dashboard: { label: "Dashboard", description: "Your role overview across the company." },
     calendar: { label: "Calendar", description: "Deadlines, events and schedules across the company." },
+    approvals: { label: "Approvals", description: "Every decision waiting on you, from every module, in one place." },
     projects: { label: "Projects", description: "Manage company projects and project activity." },
     tasks: { label: "Tasks", description: "Work assigned across projects and departments." },
     meetings: { label: "Meetings", description: "Agendas, minutes, decisions and the actions that follow." },

@@ -138,16 +138,31 @@ export const widgets: Record<string, WidgetDefinition> = {
     priority: 0,
     emptyMessage: "Nothing needs your attention right now.",
   },
+  /** The top of the Approvals Center's "Waiting for me", most urgent first (PRD #41 §97). */
   pendingApprovals: {
     key: "pendingApprovals",
-    module: "dashboard",
-    permission: "dashboard.view",
+    module: "approvals",
+    permission: "approvals.view",
     title: "Pending Approvals",
     description: "Waiting on your decision.",
     kind: "approvals",
     size: "MEDIUM",
     priority: 1,
+    href: "/approvals",
     emptyMessage: "You have nothing to approve.",
+  },
+  /** Where decisions are piling up, by source, within what this reader may see (PRD #41 §98). */
+  approvalBottlenecks: {
+    key: "approvalBottlenecks",
+    module: "approvals",
+    permission: "approvals.history.view",
+    title: "Approval Bottlenecks",
+    description: "Pending decisions by source, and how long the oldest has waited.",
+    kind: "breakdown",
+    size: "MEDIUM",
+    priority: 4,
+    href: "/approvals?tab=history&status=PENDING&sort=oldest",
+    emptyMessage: "Nothing is waiting for a decision.",
   },
   recentActivity: {
     key: "recentActivity",

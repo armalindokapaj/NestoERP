@@ -12,6 +12,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
+import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import {
@@ -465,6 +466,7 @@ export async function approvePermit(
   context: UserContext,
   permitId: string,
   decisionNote: string | null,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "WORK_PERMIT");
@@ -478,12 +480,7 @@ export async function approvePermit(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "WORK_PERMIT",
-      permitId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "WORK_PERMIT", permitId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
@@ -512,6 +509,7 @@ export async function rejectPermit(
   context: UserContext,
   permitId: string,
   decisionNote: string,
+  guard?: ApprovalGuard,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "WORK_PERMIT");
@@ -525,12 +523,7 @@ export async function rejectPermit(
   }
 
   await prisma.$transaction(async (tx) => {
-    const approval = await approvals.requirePendingApproval(
-      tx,
-      context,
-      "WORK_PERMIT",
-      permitId,
-    );
+    const approval = await approvals.requirePendingApproval(tx, context, "WORK_PERMIT", permitId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);

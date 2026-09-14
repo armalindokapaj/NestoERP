@@ -35,7 +35,8 @@ export const amendmentStatusLabels: Record<ContractAmendmentStatus, string> = {
 
 const TRANSITIONS: Record<ContractAmendmentStatus, ContractAmendmentStatus[]> = {
   DRAFT: ["PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  PENDING_APPROVAL: ["APPROVED", "REJECTED", "CANCELLED"],
+  // DRAFT: returned for revision (PRD #41 §48).
+  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT", "CANCELLED"],
   APPROVED: ["SENT", "CANCELLED"],
   REJECTED: ["PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
   SENT: ["SIGNED", "CANCELLED"],

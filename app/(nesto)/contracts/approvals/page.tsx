@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { ContractApprovalQueue } from "@/components/contracts/approval-queue";
 import { ModulePage } from "@/components/modules/module-page";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
@@ -36,7 +38,17 @@ export default async function ContractApprovalsPage({
   });
 
   return (
-    <ModulePage experience={experience} activeSection="approvals">
+    <ModulePage
+      experience={experience}
+      activeSection="approvals"
+      actions={
+        can(context, "approvals.view") ? (
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/approvals?provider=legal">Open in Approvals</Link>
+          </Button>
+        ) : undefined
+      }
+    >
       <div className="space-y-4">
         <nav aria-label="Approval filter" className="flex gap-2">
           <FilterLink href="/contracts/approvals" label="Pending" active={!decided} />

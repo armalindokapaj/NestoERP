@@ -44,6 +44,7 @@ import type {
   ResolvedKpi,
   ResolvedWidget,
   WidgetAlert,
+  WidgetApproval,
   WidgetPayload,
 } from "./dashboard.types";
 
@@ -401,6 +402,33 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
 
     case "pendingApprovals":
       return { kind: "approvals", items: await loadApprovals(context) };
+
+    case "approvalBottlenecks": {
+      const { listApprovals } = await import("@/lib/modules/approvals/approvals.service");
+      const { approvalQuerySchema } = await import("@/lib/modules/approvals/approvals.schema");
+      const result = await listApprovals(context, approvalQuerySchema.parse({ tab: "history", status: "PENDING", sort: "oldest", limit: 100 }));
+      const now = Date.now();
+      const bySource = new Map<string, { label: string; count: number; oldest: number; overdue: number }>();
+      for (const item of result.items) {
+        const entry = bySource.get(item.providerKey) ?? { label: result.providers.find((provider) => provider.key === item.providerKey)?.label ?? item.sourceLabel, count: 0, oldest: 0, overdue: 0 };
+        entry.count += 1;
+        entry.oldest = Math.max(entry.oldest, Math.floor((now - new Date(item.requestedAt).getTime()) / 86_400_000));
+        if (item.dueState === "overdue") entry.overdue += 1;
+        bySource.set(item.providerKey, entry);
+      }
+      return {
+        kind: "breakdown",
+        items: [...bySource.entries()]
+          .sort((a, b) => b[1].oldest - a[1].oldest)
+          .map(([key, entry]) => ({
+            label: entry.label,
+            value: entry.count,
+            display: `${entry.count}${result.nextCursor ? "+" : ""} waiting · oldest ${entry.oldest} ${entry.oldest === 1 ? "day" : "days"}${entry.overdue ? ` · ${entry.overdue} overdue` : ""}`,
+            status: entry.overdue > 0 ? "OVERDUE" : undefined,
+            href: `/approvals?tab=history&status=PENDING&provider=${key}&sort=oldest`,
+          })),
+      };
+    }
 
     case "recentActivity": {
       const visibleModules = Object.values(context.moduleAccess)
@@ -1436,113 +1464,26 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
  * Pending approvals, gathered only from the modules where this user actually
  * holds the approve permission (PRD #4 §64).
  */
-async function loadApprovals(context: UserContext) {
-  const items: { id: string; title: string; subtitle: string; href: string }[] = [];
-
-  if (can(context, "finance.invoice.approve")) {
-    const rows = await prisma.invoice.findMany({
-      where: {
-        AND: [buildInvoiceScopeWhere(context), { status: "PENDING_APPROVAL" }],
-      },
-      orderBy: { dueDate: "asc" },
-      take: 5,
-      select: {
-        id: true,
-        invoiceNumber: true,
-        currency: true,
-        totalAmount: true,
-        client: { select: { name: true } },
-      },
-    });
-
-    items.push(
-      ...rows.map((row) => ({
-        id: `invoice-${row.id}`,
-        title: `${row.invoiceNumber} — ${row.client.name}`,
-        subtitle: `Invoice · ${formatKpi({ amount: row.totalAmount, currency: row.currency })}`,
-        href: `/finance/invoices/${row.id}`,
-      })),
-    );
-  }
-
-  if (can(context, "hr.leave.approve")) {
-    const rows = await prisma.leaveRequest.findMany({
-      where: {
-        AND: [
-          buildLeaveScopeWhere(context),
-          { status: "PENDING" },
-          // Never your own: an approval queue that offers you your own request
-          // is offering something the service will refuse (PRD #16 §194).
-          { companyMemberId: { not: context.membershipId } },
-        ],
-      },
-      orderBy: { startDate: "asc" },
-      take: 5,
-      select: {
-        id: true,
-        leaveType: true,
-        days: true,
-        employeeProfile: {
-          select: {
-            companyMember: { select: { user: { select: { firstName: true, lastName: true } } } },
-          },
-        },
-      },
-    });
-
-    items.push(
-      ...rows.map((row) => {
-        const user = row.employeeProfile.companyMember.user;
-        return {
-          id: `leave-${row.id}`,
-          title: `${user.firstName} ${user.lastName}`,
-          subtitle: `Leave · ${leaveTypeLabels[row.leaveType]}, ${row.days.toFixed(2)} days`,
-          href: `/hr/leave/${row.id}`,
-        };
-      }),
-    );
-  }
-
-  if (can(context, "procurement.request.approve")) {
-    const rows = await prisma.purchaseRequest.findMany({
-      where: {
-        ...buildProjectLinkedScopeWhere(context, "procurement"),
-        status: "PENDING_APPROVAL",
-      },
-      orderBy: { requiredDate: "asc" },
-      take: 5,
-      select: { id: true, requestNumber: true, title: true, estimatedTotal: true },
-    });
-
-    items.push(
-      ...rows.map((row) => ({
-        id: `request-${row.id}`,
-        title: `${row.requestNumber} — ${row.title}`,
-        subtitle: `Purchase request · ${formatCurrency(decimalToNumber(row.estimatedTotal))}`,
-        href: `/procurement/requests/${row.id}`,
-      })),
-    );
-  }
-
-  if (can(context, "legal.contract.approve")) {
-    const rows = await prisma.contract.findMany({
-      where: { AND: [buildContractScopeWhere(context), { status: "PENDING_APPROVAL" }] },
-      orderBy: { updatedAt: "desc" },
-      take: 5,
-      select: { id: true, contractNumber: true, title: true },
-    });
-
-    items.push(
-      ...rows.map((row) => ({
-        id: `contract-${row.id}`,
-        title: `${row.contractNumber} — ${row.title}`,
-        subtitle: "Contract",
-        href: `/contracts/${row.id}`,
-      })),
-    );
-  }
-
-  return items;
+async function loadApprovals(context: UserContext): Promise<WidgetApproval[]> {
+  // The Approvals Center's own queue, so the widget never offers a decision
+  // the Center would withhold (PRD #41 §97).
+  const { listApprovals } = await import("@/lib/modules/approvals/approvals.service");
+  const { approvalQuerySchema } = await import("@/lib/modules/approvals/approvals.schema");
+  const { DUE_STATE_LABELS } = await import("@/lib/modules/approvals/approvals.types");
+  const result = await listApprovals(context, approvalQuerySchema.parse({ tab: "waiting", limit: 5 }));
+  return result.items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    subtitle: [
+      item.sourceLabel,
+      item.amount ? formatKpi({ amount: new Prisma.Decimal(item.amount.value), currency: item.amount.currency }) : null,
+      item.dueState === "overdue" || item.dueState === "due_today" ? DUE_STATE_LABELS[item.dueState] : null,
+      item.totalSteps ? `Step ${item.currentStep} of ${item.totalSteps}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    href: `/approvals?approval=${encodeURIComponent(item.id)}`,
+  }));
 }
 
 /* -------------------------------------------------------------------------- */
