@@ -44,6 +44,7 @@ export const ATTENTION_CONDITIONS = [
   "MILESTONE_OVERDUE",
   "MILESTONE_AT_RISK",
   "CRITICAL_MILESTONE_BLOCKED",
+  "ANNOUNCEMENT_ACK_REQUIRED",
 ] as const;
 
 export type AttentionConditionKey = (typeof ATTENTION_CONDITIONS)[number];
@@ -654,6 +655,38 @@ const criticalMilestoneBlocked: AttentionConditionDefinition = {
   },
 };
 
+/* Announcements (PRD #45 §47, §282, §283) ----------------------------------- */
+
+/**
+ * An important or critical announcement waiting for acknowledgment, for each
+ * target who has not given it. A critical one cannot be waved away; an
+ * acknowledgment or the announcement ending resolves it.
+ */
+const announcementAckRequired: AttentionConditionDefinition = {
+  key: "ANNOUNCEMENT_ACK_REQUIRED",
+  moduleKey: "announcements",
+  async collect(companyId, now) {
+    const rows = await prisma.announcement.findMany({
+      where: { companyId, status: "PUBLISHED", requiresAcknowledgment: true, priority: { in: ["IMPORTANT", "CRITICAL"] }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      take: LIMIT,
+      select: { id: true, title: true, priority: true, projectId: true, publishedAt: true, targets: { select: { memberId: true } }, acknowledgments: { select: { memberId: true } } },
+    });
+    return rows.map((row): AttentionCandidate => {
+      const acknowledged = new Set(row.acknowledgments.map((entry) => entry.memberId));
+      return {
+        entityType: "announcement", entityId: row.id, projectId: row.projectId,
+        title: `Acknowledge: ${row.title}`, body: row.priority === "CRITICAL" ? "Critical announcement" : "Important announcement",
+        priority: row.priority === "CRITICAL" ? "CRITICAL" : "HIGH", dismissible: row.priority !== "CRITICAL",
+        episode: row.publishedAt?.toISOString() ?? "published",
+        recipients: row.targets.map((target) => target.memberId).filter((memberId) => !acknowledged.has(memberId)),
+      };
+    });
+  },
+  async holds(companyId, type, id, now) {
+    return type === "announcement" && (await prisma.announcement.count({ where: { companyId, id, status: "PUBLISHED", requiresAcknowledgment: true, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } })) > 0;
+  },
+};
+
 /* Legal -------------------------------------------------------------------- */
 
 const EXPIRY_WINDOW_DAYS = 30;
@@ -995,6 +1028,7 @@ const DEFINITIONS: AttentionConditionDefinition[] = [
   milestoneOverdue,
   milestoneAtRisk,
   criticalMilestoneBlocked,
+  announcementAckRequired,
 ];
 
 const BY_KEY = new Map(DEFINITIONS.map((definition) => [definition.key, definition]));

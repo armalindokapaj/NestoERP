@@ -83,6 +83,8 @@ export const en = {
   },
 
   search: {
+    favorites: "Favorites",
+    recent: "Recent",
     placeholder: "Search projects, tasks, people or documents…",
     dialogTitle: "Search NESTO",
     hint: "Type at least two characters to search records you can open.",
@@ -98,6 +100,7 @@ export const en = {
     dashboard: { label: "Dashboard", description: "Your role overview across the company." },
     calendar: { label: "Calendar", description: "Deadlines, events and schedules across the company." },
     approvals: { label: "Approvals", description: "Every decision waiting on you, from every module, in one place." },
+    announcements: { label: "Announcements", description: "Company, department and project notices, with acknowledgment where it matters." },
     projects: { label: "Projects", description: "Manage company projects and project activity." },
     tasks: { label: "Tasks", description: "Work assigned across projects and departments." },
     meetings: { label: "Meetings", description: "Agendas, minutes, decisions and the actions that follow." },
@@ -220,6 +223,7 @@ export const en = {
         timesheets: { label: "Timesheets", description: "Weeks to submit, and weeks approved, returned or waiting for your review." },
         daily_logs: { label: "Daily logs", description: "Logs to review, logs returned to you, locks, corrections and missing logs." },
         project_planning: { label: "Project planning", description: "Milestones you own, due dates, overdue milestones, blockers and baseline changes." },
+        announcements: { label: "Announcements", description: "Announcements addressed to you, critical notices and acknowledgment reminders." },
       },
     },
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { DocumentActions } from "@/components/documents/document-actions";
@@ -71,7 +72,12 @@ export default async function DocumentDetailPage({ params }: Params) {
             ),
           },
         ]}
-        actions={<DocumentActions document={document} />}
+        actions={
+          <>
+            <RecordFavorite context={context} entityType="document" entityId={document.id} />
+            <DocumentActions document={document} />
+          </>
+        }
       />
 
       {archived ? (

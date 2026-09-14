@@ -1432,6 +1432,41 @@ const DEFINITIONS: RecordDefinition[] = [
     collaboration: { requires: [] },
   },
 
+  /* Announcements (PRD #45 §37-§39, §64, §280) ------------------------------ */
+  {
+    // Reached through its audience. Attachments sit with it while it is live;
+    // an expired one keeps its files but takes no more. No discussion (§64).
+    type: "announcement",
+    moduleKey: "announcements",
+    noun: "Announcement",
+    activityEntityType: "Announcement",
+    route: "/announcements",
+    viewPermissions: ["announcement.view"],
+    async find(context, id) {
+      const { managedWhere, readableAnnouncementWhere } = await import("@/lib/modules/announcements/announcement.permissions");
+      const row = await prisma.announcement.findFirst({
+        where: { AND: [readableAnnouncementWhere(context), { id }] },
+        select: { id: true, companyId: true, title: true, status: true, projectId: true, authorMemberId: true },
+      });
+      if (!row) return null;
+      // Files are added by the people who manage it, never by a reader who happens to hold the edit grant.
+      const managed = (await prisma.announcement.count({ where: { AND: [{ id: row.id }, managedWhere(context)] } })) > 0;
+      return {
+        type: "announcement", id: row.id, companyId: row.companyId, label: row.title, href: `/announcements/${row.id}`,
+        projectId: row.projectId, archived: row.status === "ARCHIVED", filesClosed: row.status === "EXPIRED" || !managed,
+        stakeholderMemberIds: unique(row.authorMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableAnnouncementWhere } = await import("@/lib/modules/announcements/announcement.permissions");
+      const rows = await prisma.announcement.findMany({ where: { AND: [readableAnnouncementWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: [], upload: ["announcement.edit"], tabHref: (summary) => summary.href, reviewable: false },
+    collaboration: null,
+  },
+
   /* Approvals (PRD #41 §170) ----------------------------------------------- */
   {
     // A delegation is only ever the business of the two people in it, so it is

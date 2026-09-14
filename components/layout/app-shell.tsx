@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cookies } from "next/headers";
 
+import { CriticalAnnouncementBanner } from "@/components/announcements/shell";
 import { DevAccessPanel } from "@/components/layout/dev-access-panel";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
@@ -10,6 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { MODULE_KEYS, modules } from "@/config/modules";
 import { resolveNavigation } from "@/config/navigation";
 import { isDevMode } from "@/lib/auth/dev-role";
+import { announcementShellState } from "@/lib/modules/announcements/announcement.service";
 import type { UserContext } from "@/lib/context/types";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 
@@ -41,6 +43,9 @@ export async function AppShell({
     enabledModules: context.enabledModules,
   });
 
+  // Unread count and the one critical banner, read in this member's audience (PRD #45 §67, §122).
+  const announcements = await announcementShellState(context).catch(() => ({ unread: 0, banner: null }));
+
   return (
     <TooltipProvider delayDuration={200}>
       <ToastProvider>
@@ -48,7 +53,8 @@ export async function AppShell({
           <Sidebar navigation={navigation} />
 
           <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-            <Topbar context={context} navigation={navigation} />
+            <Topbar context={context} navigation={navigation} announcementsUnread={announcements.unread} />
+            <CriticalAnnouncementBanner banner={announcements.banner} />
             <main
               id="nesto-main"
               className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-6 md:py-8 xl:px-8"

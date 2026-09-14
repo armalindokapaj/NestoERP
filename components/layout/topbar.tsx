@@ -1,3 +1,4 @@
+import { AnnouncementsIndicator } from "@/components/announcements/shell";
 import { DevRoleSwitcher } from "@/components/layout/dev-role-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { MobileHeader } from "@/components/layout/mobile-header";
@@ -27,9 +28,12 @@ import type { UserContext } from "@/lib/context/types";
 export async function Topbar({
   context,
   navigation,
+  announcementsUnread = 0,
 }: {
   context: UserContext;
   navigation: NavigationGroup[];
+  /** Live announcements addressed to this member and not yet opened (PRD #45 §121-§123). */
+  announcementsUnread?: number;
 }) {
   const t = await getTranslations("roles");
 
@@ -59,6 +63,7 @@ export async function Topbar({
             isOverridden={context.roleIsOverridden}
           />
         ) : null}
+        {context.enabledModules.includes("announcements") && context.permissions.includes("announcement.view") ? <AnnouncementsIndicator unread={announcementsUnread} /> : null}
         <NotificationsMenu />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
         <UserMenu

@@ -16,9 +16,14 @@ import {
   Package,
   Presentation,
   ReceiptText,
+  Flag,
+  History,
+  NotebookPen,
+  Megaphone,
   Search,
   ShoppingCart,
   SquareCheckBig,
+  Star,
   Target,
   Truck,
   UserRound,
@@ -62,7 +67,16 @@ const ENTITY_ICONS: Record<string, LucideIcon> = {
   ncr: ClipboardCheck,
   hse_incident: HardHat,
   hse_permit: HardHat,
+  project_milestone: Flag,
+  daily_log: NotebookPen,
+  announcement: Megaphone,
 };
+
+/** A favorite or recent record, already resolved against access by the server (PRD #45 §119, §319). */
+type Shortcut = { entityType: string; entityId: string; title: string; subtitle?: string; href: string };
+type Option = { key: string; kind: "favorite" | "recent" | "result"; entityType: string; title: string; subtitle?: string; href: string; status?: string; moduleKey?: string };
+
+const SHORTCUT_LIMIT = 6;
 
 type State =
   | { status: "idle" }
@@ -77,6 +91,7 @@ export function GlobalSearch() {
   const [query, setQuery] = React.useState("");
   const [state, setState] = React.useState<State>({ status: "idle" });
   const [active, setActive] = React.useState(0);
+  const [shortcuts, setShortcuts] = React.useState<{ favorites: Shortcut[]; recent: Shortcut[] } | null>(null);
   const t = useTranslations("search");
   const tModules = useTranslations("modules");
   const listId = React.useId();
@@ -124,6 +139,20 @@ export function GlobalSearch() {
     };
   }, [query, open]);
 
+  // Favorites and recent records load when the palette opens, fresh each time: a record
+  // somebody lost access to since is simply not in the answer (PRD #45 §120, §319).
+  React.useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void fetch("/api/productivity/palette")
+      .then(async (response) => (response.ok ? ((await response.json()) as { data: { favorites: Shortcut[]; recent: Shortcut[] } }).data : null))
+      .then((data) => !cancelled && setShortcuts(data))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   const results = React.useMemo(() => (state.status === "done" ? state.response.results : []), [state]);
 
   // Grouped by module, keeping the server's ranking inside each group and the
@@ -137,7 +166,36 @@ export function GlobalSearch() {
     }
     return [...byModule.entries()];
   }, [results]);
-  const ordered = React.useMemo(() => groups.flatMap(([, rows]) => rows), [groups]);
+  const favoriteKeys = React.useMemo(() => new Set((shortcuts?.favorites ?? []).map((item) => `${item.entityType}:${item.entityId}`)), [shortcuts]);
+
+  // Favorites, then recent, then search — a record appears once, in its first section (§119, §275).
+  const sections = React.useMemo(() => {
+    const text = query.trim().toLowerCase();
+    const matches = (item: Shortcut) => !text || item.title.toLowerCase().includes(text) || (item.subtitle ?? "").toLowerCase().includes(text);
+    const seen = new Set<string>();
+    const take = (items: Shortcut[], kind: "favorite" | "recent") =>
+      items
+        .filter(matches)
+        .filter((item) => {
+          const key = `${item.entityType}:${item.entityId}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, text ? 4 : SHORTCUT_LIMIT)
+        .map((item): Option => ({ key: `${kind}:${item.entityType}:${item.entityId}`, kind, entityType: item.entityType, title: item.title, subtitle: item.subtitle, href: item.href }));
+    const favorites = take(shortcuts?.favorites ?? [], "favorite");
+    const recent = take(shortcuts?.recent ?? [], "recent");
+    const searched = groups.map(([moduleKey, rows]) => ({
+      moduleKey,
+      rows: rows
+        .filter((result) => !seen.has(`${result.entityType}:${result.entityId}`))
+        .map((result): Option => ({ key: `result:${result.entityType}:${result.entityId}`, kind: "result", entityType: result.entityType, title: result.title, subtitle: [result.subtitle, result.meta].filter(Boolean).join(" · ") || undefined, href: result.href, status: result.status ?? undefined, moduleKey })),
+    }));
+    return { favorites, recent, searched: searched.filter((group) => group.rows.length) };
+  }, [query, shortcuts, groups]);
+
+  const ordered = React.useMemo(() => [...sections.favorites, ...sections.recent, ...sections.searched.flatMap((group) => group.rows)], [sections]);
 
   function onOpenChange(next: boolean) {
     setOpen(next);
@@ -147,7 +205,7 @@ export function GlobalSearch() {
     }
   }
 
-  function openResult(result: GlobalSearchResultDTO | undefined) {
+  function openResult(result: Option | undefined) {
     if (!result) return;
     onOpenChange(false);
     router.push(result.href);
@@ -230,60 +288,58 @@ export function GlobalSearch() {
           </div>
 
           <div className="max-h-[min(26rem,60vh)] overflow-y-auto p-2" aria-live="polite">
-            {state.status === "idle" ? (
+            {ordered.length > 0 ? (
+              <div id={listId} role="listbox" aria-label={t("resultsLabel")}>
+                {[
+                  { key: "favorites", label: t("favorites"), rows: sections.favorites },
+                  { key: "recent", label: t("recent"), rows: sections.recent },
+                  ...sections.searched.map((group) => ({ key: group.moduleKey, label: moduleLabel(group.moduleKey), rows: group.rows })),
+                ]
+                  .filter((group) => group.rows.length)
+                  .map((group) => (
+                    <div key={group.key} role="group" aria-label={group.label} className="mb-1" data-testid={`palette-${group.key}`}>
+                      <p className="px-2 pb-1 pt-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{group.label}</p>
+                      {group.rows.map((option) => {
+                        index += 1;
+                        const position = index;
+                        const Icon = option.kind === "favorite" ? Star : option.kind === "recent" ? History : (ENTITY_ICONS[option.entityType] ?? Boxes);
+                        const selected = position === active;
+                        const starred = option.kind === "result" && favoriteKeys.has(option.key.slice("result:".length));
+                        return (
+                          <div
+                            key={option.key}
+                            id={`${listId}-option-${position}`}
+                            role="option"
+                            aria-selected={selected}
+                            onMouseMove={() => setActive(position)}
+                            onClick={() => openResult(option)}
+                            className={cn("flex cursor-pointer items-center gap-3 rounded-md px-2 py-2", selected ? "bg-hover" : "hover:bg-hover")}
+                          >
+                            <Icon aria-hidden="true" className={cn("size-4 shrink-0", option.kind === "favorite" ? "fill-warning text-warning" : "text-fg-subtle")} />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-table text-fg">{option.title}</span>
+                              {option.subtitle ? <span className="block truncate text-meta text-fg-subtle">{option.subtitle}</span> : null}
+                            </span>
+                            {starred ? <Star aria-label="Favorite" className="size-3.5 shrink-0 fill-warning text-warning" /> : null}
+                            {option.status ? <span className="shrink-0 text-micro text-fg-subtle">{option.status.replaceAll("_", " ").toLowerCase()}</span> : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+              </div>
+            ) : state.status === "idle" ? (
               <DialogDescription className="mt-0 px-2 py-3 text-table text-fg-subtle">{t("hint")}</DialogDescription>
-            ) : state.status === "loading" && ordered.length === 0 ? (
+            ) : state.status === "loading" ? (
               <p className="px-2 py-3 text-table text-fg-subtle">{t("searching")}</p>
             ) : state.status === "error" ? (
               <p role="alert" className="px-2 py-3 text-table text-danger-strong">
                 {t("error")}
               </p>
-            ) : ordered.length === 0 ? (
-              <p className="px-2 py-3 text-table text-fg-muted">{t("noResults", { query: query.trim() })}</p>
             ) : (
-              <div id={listId} role="listbox" aria-label={t("resultsLabel")}>
-                {groups.map(([moduleKey, rows]) => (
-                  <div key={moduleKey} role="group" aria-label={moduleLabel(moduleKey)} className="mb-1">
-                    <p className="px-2 pb-1 pt-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
-                      {moduleLabel(moduleKey)}
-                    </p>
-                    {rows.map((result) => {
-                      index += 1;
-                      const position = index;
-                      const Icon = ENTITY_ICONS[result.entityType] ?? Boxes;
-                      const selected = position === active;
-                      return (
-                        <div
-                          key={`${result.entityType}:${result.entityId}`}
-                          id={`${listId}-option-${position}`}
-                          role="option"
-                          aria-selected={selected}
-                          onMouseMove={() => setActive(position)}
-                          onClick={() => openResult(result)}
-                          className={cn(
-                            "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2",
-                            selected ? "bg-hover" : "hover:bg-hover",
-                          )}
-                        >
-                          <Icon aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-table text-fg">{result.title}</span>
-                            {result.subtitle || result.meta ? (
-                              <span className="block truncate text-meta text-fg-subtle">
-                                {[result.subtitle, result.meta].filter(Boolean).join(" · ")}
-                              </span>
-                            ) : null}
-                          </span>
-                          {result.status ? (
-                            <span className="shrink-0 text-micro text-fg-subtle">{result.status.replaceAll("_", " ").toLowerCase()}</span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
+              <p className="px-2 py-3 text-table text-fg-muted">{t("noResults", { query: query.trim() })}</p>
             )}
+            {state.status === "loading" && ordered.length > 0 ? <p className="px-2 pt-1 text-meta text-fg-subtle">{t("searching")}</p> : null}
             {state.status === "done" && state.response.partial ? (
               <p className="px-2 pt-2 text-meta text-fg-subtle">{t("partial")}</p>
             ) : null}

@@ -178,6 +178,18 @@ export const AuditAction = {
   PROJECT_PLANNING_COPIED: "PROJECT_PLANNING_COPIED",
   PROJECT_PLANNING_SETTINGS_UPDATED: "PROJECT_PLANNING_SETTINGS_UPDATED",
 
+  // Announcements (PRD #45 §54-§56): what was published to whom and when — never who read it.
+  ANNOUNCEMENT_CREATED: "ANNOUNCEMENT_CREATED",
+  ANNOUNCEMENT_UPDATED: "ANNOUNCEMENT_UPDATED",
+  ANNOUNCEMENT_SCHEDULED: "ANNOUNCEMENT_SCHEDULED",
+  ANNOUNCEMENT_PUBLISHED: "ANNOUNCEMENT_PUBLISHED",
+  ANNOUNCEMENT_EXPIRED: "ANNOUNCEMENT_EXPIRED",
+  ANNOUNCEMENT_ARCHIVED: "ANNOUNCEMENT_ARCHIVED",
+  ANNOUNCEMENT_PINNED: "ANNOUNCEMENT_PINNED",
+  ANNOUNCEMENT_UNPINNED: "ANNOUNCEMENT_UNPINNED",
+  ANNOUNCEMENT_ACK_REQUIRED_CHANGED: "ANNOUNCEMENT_ACK_REQUIRED_CHANGED",
+  PRODUCTIVITY_SETTINGS_UPDATED: "PRODUCTIVITY_SETTINGS_UPDATED",
+
   // Reporting (PRD #28 §130)
   REPORT_EXPORTED_CSV: "REPORT_EXPORTED_CSV",
   REPORT_EXPORTED_XLSX: "REPORT_EXPORTED_XLSX",
@@ -364,6 +376,17 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PROJECT_PLANNING_TEMPLATE_APPLIED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["templateKey", "phases", "milestones"], required: false },
   { actionKey: AuditAction.PROJECT_PLANNING_COPIED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["sourceProjectId", "phases", "milestones"], required: false },
   { actionKey: AuditAction.PROJECT_PLANNING_SETTINGS_UPDATED, moduleKey: "projects", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["milestoneReminderDays", "baselineChangeReasonRequired", "notifyExecutivesOnCriticalChanges"], required: true },
+  /* Announcements -------------------------------------------------------- */
+  { actionKey: AuditAction.ANNOUNCEMENT_CREATED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["title", "priority", "audienceType", "projectId", "departmentId", "selectedMembers", "requiresAcknowledgment", "pinned"], required: false },
+  { actionKey: AuditAction.ANNOUNCEMENT_UPDATED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["title", "priority", "audienceType", "expiresAt", "material"], required: false },
+  { actionKey: AuditAction.ANNOUNCEMENT_SCHEDULED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "publishAt"], required: true },
+  { actionKey: AuditAction.ANNOUNCEMENT_PUBLISHED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "priority", "audienceType", "targets"], required: true },
+  { actionKey: AuditAction.ANNOUNCEMENT_EXPIRED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.ANNOUNCEMENT_ARCHIVED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.ANNOUNCEMENT_PINNED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["pinned"], required: false },
+  { actionKey: AuditAction.ANNOUNCEMENT_UNPINNED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["pinned"], required: false },
+  { actionKey: AuditAction.ANNOUNCEMENT_ACK_REQUIRED_CHANGED, moduleKey: "announcements", category: "ANNOUNCEMENT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["requiresAcknowledgment"], required: true },
+  { actionKey: AuditAction.PRODUCTIVITY_SETTINGS_UPDATED, moduleKey: "announcements", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["announcementsEnabled", "favoritesEnabled", "recentWorkEnabled", "recentWorkRetentionDays", "announcementAckReminderDays", "notifyNormalAnnouncements"], required: true },
   { actionKey: AuditAction.APPROVAL_POLICY_UPDATED, moduleKey: "procurement", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["financeStepAbove", "executiveStepAbove", "executiveRoleKey", "currency"], required: true },
 
   /* Reporting ------------------------------------------------------------ */

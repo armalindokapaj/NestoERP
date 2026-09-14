@@ -24,6 +24,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["activeProjects", "invoicedValue", "pipelineValue", "headcount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "approvalBottlenecks",
@@ -43,6 +46,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["teamSize", "enabledModuleCount", "openSupportCount", "documentCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "userDirectory",
       "companyModules",
       "supportRequests",
@@ -56,6 +62,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["teamSize", "openSupportCount", "enabledModuleCount", "openTaskCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "supportRequests",
       "teamDirectory",
       "companyModules",
@@ -68,6 +77,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["headcount", "pendingLeave", "openTaskCount", "activeProjects"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "leaveRequests",
@@ -82,6 +94,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["activeProjects", "invoicedValue", "pipelineValue", "projectsAtRisk"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "approvalBottlenecks",
@@ -100,6 +115,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["myProjectCount", "openTaskCount", "overdueTaskCount", "projectsAtRisk"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "myMeetingActions",
       "myTimesheet",
@@ -121,6 +139,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["myProjectCount", "openTaskCount", "overdueTaskCount", "documentCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "myMeetingActions",
       "myTimesheet",
@@ -139,6 +160,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["myProjectCount", "openTaskCount", "openQualityCount", "openIncidentCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "myMeetingActions",
       "myTimesheet",
@@ -158,6 +182,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["receivables", "overdueValue", "invoicedValue", "openTaskCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "overdueInvoices",
@@ -173,6 +200,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["activeContracts", "expiringContractCount", "openTaskCount", "clientCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "expiringContracts",
@@ -187,6 +217,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["pipelineValue", "openOpportunityCount", "clientCount", "openTaskCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "salesPipeline",
@@ -201,6 +234,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["openRequests", "openOrders", "lowStockCount", "openTaskCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "purchaseRequests",
@@ -215,6 +251,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["stockValue", "lowStockCount", "openRequests", "openTaskCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "lowStock",
       "recentMovements",
       "purchaseRequests",
@@ -227,6 +266,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["openQualityCount", "openNcrCount", "openTaskCount", "myProjectCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "openNcrs",
@@ -242,6 +284,9 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["openIncidentCount", "openPermitCount", "openTaskCount", "myProjectCount"],
     widgets: [
       "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
       "openIncidents",
@@ -255,7 +300,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
   VIEWER: {
     focus: "A read-only view of the work you have been given access to.",
     kpis: ["myProjectCount", "openTaskCount", "documentCount", "clientCount"],
-    widgets: ["myProjects", "openTasks", "recentDocuments", "recentActivity"],
+    widgets: ["announcements", "favorites", "recentWork", "myProjects", "openTasks", "recentDocuments", "recentActivity"],
     quickActions: [],
   },
 };

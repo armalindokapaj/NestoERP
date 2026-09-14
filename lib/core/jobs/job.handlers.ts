@@ -44,6 +44,23 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await remindMissingDailyLogs(now);
     return { processed: result.reminded, detail: result };
   },
+  "announcements.schedule": async ({ now }) => {
+    // Scheduled announcements go out when due, expired ones leave the feed; each once (PRD #45 §51-§53).
+    const { runAnnouncementSchedule } = await import("@/lib/modules/announcements/announcement.publish");
+    const result = await runAnnouncementSchedule(now);
+    return { processed: result.published + result.expired, detail: result };
+  },
+  "announcements.reminders": async ({ now }) => {
+    const { runAcknowledgmentReminders } = await import("@/lib/modules/announcements/announcement.publish");
+    const result = await runAcknowledgmentReminders(now);
+    return { processed: result.reminded, detail: result };
+  },
+  "recentwork.prune": async ({ now }) => {
+    // Older than the company's retention, or past the hundred newest per member (PRD #45 §104, §105).
+    const { pruneRecentWork } = await import("@/lib/modules/productivity/recent-work.service");
+    const result = await pruneRecentWork(now);
+    return { processed: result.pruned, detail: result };
+  },
   "planning.milestones": async ({ now }) => {
     // Due-soon and overdue reminders, once per milestone per target date (PRD #44 §74, §166, §167).
     const { runMilestoneReminders } = await import("@/lib/modules/project-planning/planning.attention");

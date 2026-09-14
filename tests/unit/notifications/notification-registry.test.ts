@@ -65,9 +65,10 @@ describe("notification event registry", () => {
     }
   });
 
-  it("marks only critical safety events mandatory", () => {
+  it("marks only critical safety events and critical announcements mandatory", () => {
     const mandatory = notificationEventDefinitions().filter((row) => row.mandatory);
-    expect(mandatory.map((row) => row.eventType)).toEqual([NotificationEvent.HSE_CRITICAL_RISK]);
+    // A critical announcement cannot be silenced in-app either (PRD #45 §45, §249).
+    expect(mandatory.map((row) => row.eventType).sort()).toEqual([NotificationEvent.ANNOUNCEMENT_CRITICAL, NotificationEvent.HSE_CRITICAL_RISK].sort());
     expect(mandatory.every((row) => row.priority === "CRITICAL")).toBe(true);
   });
 

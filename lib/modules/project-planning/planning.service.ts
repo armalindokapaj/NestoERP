@@ -9,6 +9,7 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { documentListQuerySchema } from "@/lib/modules/documents/document.schema";
 import { listDocuments } from "@/lib/modules/documents/document.service";
+import { isFavorite } from "@/lib/modules/productivity/favorites.service";
 import {
   addLocalDays,
   dateLabel,
@@ -582,5 +583,6 @@ export async function getMilestone(context: UserContext, milestoneId: string): P
     history,
     suggestion: { forecastDate: !isClosed(row.status) && earliest && (!target || target < earliest) ? earliest : null, atRisk },
     capabilities,
+    favorite: await isFavorite(context, RECORD, row.id),
   };
 }

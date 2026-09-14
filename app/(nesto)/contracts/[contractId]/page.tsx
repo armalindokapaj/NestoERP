@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { ContractActions } from "@/components/contracts/contract-actions";
@@ -94,7 +95,12 @@ export default async function ContractOverviewPage({ params }: Params) {
           ...(value ? [{ label: "Value", value }] : []),
           { label: "Expiry", value: expiryLabel(contract.attention.daysToExpiry) },
         ]}
-        actions={<ContractActions contract={contract} />}
+        actions={
+          <>
+            <RecordFavorite context={context} entityType="contract" entityId={contract.id} />
+            <ContractActions contract={contract} />
+          </>
+        }
       />
 
       <ContractTabs contractId={contract.id} active="overview" capabilities={may} />

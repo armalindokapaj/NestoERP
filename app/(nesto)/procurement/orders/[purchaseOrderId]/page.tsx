@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { notFound } from "next/navigation";
 
 import { RecordDocuments } from "@/components/documents/record-documents";
@@ -81,7 +82,12 @@ export default async function OrderDetailPage({ params }: Params) {
             value: order.requiredDate ? formatDate(order.requiredDate) : "No date",
           },
         ]}
-        actions={<OrderActions order={order} />}
+        actions={
+          <>
+            <RecordFavorite context={context} entityType="purchase_order" entityId={order.id} />
+            <OrderActions order={order} />
+          </>
+        }
       />
 
       {order.archivedAt ? (

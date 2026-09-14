@@ -131,6 +131,10 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Company A expired invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "PENDING", expiresAt: { lt: new Date() } } }), expected: 1, comparison: "gte" },
     { label: "Company A cancelled invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "CANCELLED" } }), expected: 1, comparison: "gte" },
     { label: "Company A accepted invitations", actual: await prisma.companyInvite.count({ where: { companyId: COMPANY_A, status: "ACCEPTED" } }), expected: 1, comparison: "gte" },
+    // PRD #45 §348: company, project and scheduled announcements, one asking for acknowledgment.
+    { label: "Company A published announcements", actual: await prisma.announcement.count({ where: { companyId: COMPANY_A, status: "PUBLISHED" } }), expected: 3, comparison: "gte" },
+    { label: "Company A scheduled announcements", actual: await prisma.announcement.count({ where: { companyId: COMPANY_A, status: "SCHEDULED" } }), expected: 1, comparison: "gte" },
+    { label: "Company A acknowledgment targets", actual: await prisma.announcementTarget.count({ where: { announcement: { companyId: COMPANY_A } } }), expected: 5, comparison: "gte" },
     // PRD #44 §311: a plan on the demo project, with dependencies and a critical blocker.
     { label: "Company A project phases", actual: await prisma.projectPhase.count({ where: { companyId: COMPANY_A, archivedAt: null } }), expected: 6, comparison: "gte" },
     { label: "Company A milestones", actual: await prisma.projectMilestone.count({ where: { companyId: COMPANY_A, archivedAt: null } }), expected: 11, comparison: "gte" },

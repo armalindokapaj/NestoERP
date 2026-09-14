@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { TriangleAlert } from "lucide-react";
+import { RecordFavorite } from "@/components/productivity/record-favorite";
+import { Megaphone, TriangleAlert } from "lucide-react";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PriorityBadge } from "@/components/modules/status-badge";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { canAddress } from "@/lib/modules/announcements/announcement.permissions";
 import * as projects from "@/lib/modules/projects/project.service";
 import { dateLabel } from "@/lib/modules/project-planning/planning.dates";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
@@ -162,6 +165,15 @@ export default async function ProjectOverviewPage({ params }: Params) {
             : []),
         ]}
         actions={
+          <>
+          <RecordFavorite context={context} entityType="project" entityId={project.id} />
+          {canAddress(context, "PROJECT") ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link href={`/announcements/new?projectId=${project.id}`}>
+                <Megaphone aria-hidden="true" /> Announce
+              </Link>
+            </Button>
+          ) : null}
           <ProjectActions
             projectId={project.id}
             projectName={project.name}
@@ -170,6 +182,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
             canArchive={actions.canArchive}
             canRestore={actions.canRestore}
           />
+          </>
         }
       />
 

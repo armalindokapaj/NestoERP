@@ -76,11 +76,14 @@ export function MeetingWorkspace({
   activity,
   documents,
   discussion,
+  favorite,
 }: {
   initial: MeetingDetailDTO;
   activity: ActivityEntry[];
   documents: React.ReactNode;
   discussion: React.ReactNode;
+  /** The star, rendered by the page (PRD #45 §75). */
+  favorite?: React.ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -293,6 +296,7 @@ export function MeetingWorkspace({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {favorite}
             {respond}
             <span className="hidden items-center gap-2 md:flex">{primary}</span>
             {caps.canEdit ? (
