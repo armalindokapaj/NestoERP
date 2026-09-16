@@ -1,5 +1,12 @@
 # Projects page and multi-company access (E-05A)
 
+Built from the first E-05A PRD and brought in line with the final one
+(`NESTO_V0.1_Enhancement_PRD_E05A_Projects_Page_and_Project_Discovery_FINAL`),
+which renumbered its sections. Citations from the first pass — in this document
+and in code comments — use the first PRD's numbers; everything added for the
+final PRD (project types, roles +1, chips, the phone sheet, the error state)
+cites the final one. Where the two PRDs differ, the final one is the contract.
+
 The Projects page is where a person finds every project they may open, in every
 company they belong to, and opens one. It does not choose a company first: the
 list crosses companies, and opening a project moves the session into the
@@ -23,13 +30,14 @@ it (they are on **Archived**, in the session's company).
 | Status machine | `lib/modules/projects/project.machine.ts` (registered in `lib/core/state/registry.ts`) |
 | Create, edit, change status, cover choice | `lib/modules/projects/project.service.ts` |
 | Query from a URL, both directions | `project.query.ts` (`parsePortfolioQuery`), `project.portfolio-url.ts` |
-| Project types | `config/project-types.ts` |
+| Project types: the defaults a company starts with | `config/project-types.ts` |
+| Project types: the company's own list | `lib/modules/projects/project-type.service.ts`, page `app/(nesto)/projects/types` |
 | Gallery / list preference | `lib/modules/projects/project.view-preference.ts` (cookie `nesto.projects.view`) |
 | Cover thumbnails | `lib/modules/documents/storage/thumbnail.service.ts` |
 | Moving a session between memberships | `lib/auth/session-store.ts` (`moveSessionToMembership`) |
 | Last activity | `lib/modules/shared/activity.ts` (`touchProjectActivity`) |
-| API | `app/api/projects/route.ts`, `app/api/projects/filter-options`, `app/api/projects/[projectId]/{status,favorite,open,cover,archive}` |
-| UI | `app/(nesto)/projects/page.tsx`, `app/(nesto)/projects/[projectId]/open`, `app/(nesto)/projects/new`, `components/projects/portfolio/*` |
+| API | `app/api/projects/route.ts`, `app/api/projects/filter-options`, `app/api/projects/[projectId]/{status,favorite,open,cover,archive}`, `app/api/projects/types`, `app/api/projects/types/[typeId]`, `app/api/projects/types/reorder` |
+| UI | `app/(nesto)/projects/(portfolio)/page.tsx` and its `error.tsx`, `app/(nesto)/projects/[projectId]/open`, `app/(nesto)/projects/new`, `components/projects/portfolio/*`, `components/projects/project-types-manager.tsx` |
 
 ## Authorisation: one person, several companies
 
@@ -174,21 +182,76 @@ nothing.
 ## Search and filters
 
 Search (debounced 300 ms) matches name, code, company name, city, country and
-project type label, inside the authorised set. Quick filters: All, Active,
+project type name, inside the authorised set. Quick filters: All, Active,
 Pending, Finished, Favorites. Filters: Company (shown when there is more than
 one), My role (an effective project role label, or *All my assignments*),
-Project type, Location (`country:` or `city:`). All combine with AND. Every
-option is drawn from the authorised projects only (`portfolioFilterOptions`), so
-a dropdown never names a company, role or place the person cannot see.
+Project type (by name, see below), Location (`country:` or `city:`). All combine
+with AND. Every option is drawn from the authorised projects only
+(`portfolioFilterOptions`), so a dropdown never names a company, role, type or
+place the person cannot see.
 
 URL: `/projects?q=&status=&favorites=1&company=&role=&type=&location=&sort=`.
 `/projects/all` and `/projects/my-projects` redirect there, carrying search and
-status (and `role=@assigned` for My Projects). Clear Filters resets everything
-but the gallery/list preference.
+status (and `role=@assigned` for My Projects).
 
-**My role** is the person's `ProjectMember.projectRole` on that project, or
+What is active shows under the toolbar as chips — *Status: Active ×*,
+*Sort: Project name A–Z ×* — each removing only itself, followed by **Clear
+filters**, which resets everything but the gallery/list preference (§32). The
+chips and Clear filters appear only while something is set, and a sort other
+than Recommended counts. While anything narrows the collection the row starts
+with **N results** (§53); a sort alone narrows nothing and shows no count.
+
+On a phone the four filters and the sort move into a bottom sheet with
+**Reset** and **Apply** (§39): choices in the sheet change nothing until Apply,
+so the page does not reload behind it at every choice. On a wide screen a
+filter applies as it is chosen.
+
+**My role** is the person's `ProjectMember.projectRole` on that project, and
 *Project Manager* where they manage it — never the job title or the company
-role (E-05A §52). An Owner on no project's team shows none.
+role (§55). Holding both, with different words, reads *Lead Architect +1*
+(§56): the team role first, then the manager role. The same words in another
+case are one role. An Owner on no project's team shows none.
+
+## Project types
+
+Each company keeps its own list (§30, §62) in `project_types`: a name, whether
+it is in use, and its place in the order. A company starts with the eight
+defaults in `config/project-types.ts` — the migration wrote them for every
+company that existed, `bootstrapCompany` and `bootstrapCompanyConfiguration`
+write them for a new one (only when it has none, so a rerun never brings back a
+type an administrator removed). A project points at one by `projectTypeId`.
+
+| Action | Who | Rule |
+| --- | --- | --- |
+| Read the list, with each type's project count | `project.type.manage` | the session's company |
+| Add | `project.type.manage` | names unique per company, whatever their case |
+| Rename, retire, use again | `project.type.manage` | audited `PROJECT_TYPE_UPDATED` with before and after |
+| Reorder | `project.type.manage` | the request names every type once; anything else is refused |
+| Delete | `project.type.manage` | only a type no project has; a used one is retired instead |
+
+`project.type.manage` is on no module ladder — it is company configuration —
+and the Owner and Admin hold it as overrides. The section tab **Project types**
+shows only to them.
+
+- **A new project must have a type** (§13): the create schema requires
+  `projectTypeId`, and the service accepts only a type of the chosen company
+  that is in use — another company's type, a retired one, or an unknown id is a
+  422 naming the field. Sales' won-deal conversion creates without one.
+- **An edit keeps a retired type.** The form offers the types in use plus the
+  project's own, marked *(retired)*, so saving other details never strips it.
+  Older projects without a type may stay without one.
+- **Filtering is by name, not id.** Each company has its own rows, so a person
+  in two companies has two *Residential* types; the filter offers the name once
+  and matches it case-insensitively in every company. A company that renames
+  its type is filtered under the new name.
+
+## Loading and failure
+
+The page streams: the header and 3:4 card skeletons show while the first page is
+built (§72). If building it fails, the page's own error boundary — scoped by the
+`(portfolio)` route group so a project's pages keep their own — says *Projects
+could not be loaded.* with **Retry**, which asks the server again (§76). A
+failed **Load more** says the same inline and turns the button into Retry.
 
 ## Covers
 
@@ -206,6 +269,10 @@ one by one.
 
 ## Tests
 
+- `tests/api/projects/project-types.test.ts` — only the Owner and Admin keep
+  the list; add, rename, retire, use again, reorder and delete, each audited;
+  names unique per company whatever the case and free across companies; a used
+  type cannot be deleted; another company's type is not found and never offered.
 - `tests/api/projects/portfolio.test.ts` — cross-company visibility for the
   seeded `multicompany` person (Architect in A on Greenline Villas, Project
   Manager in B on Isarvorstadt Studio Refit), filter options that never leak a
@@ -213,13 +280,22 @@ one by one.
   ordering with a cursor walk across the favorites boundary, every filter,
   per-person favorites, card permissions and roles, cover visibility and the
   thumbnail's shape, status permissions and audit, two simultaneous moves,
-  create in a chosen company and its refusal, and the activity marker.
+  create in a chosen company and its refusal, and the activity marker; and for
+  the final PRD: *Role +1*, filtering and searching a type name across two
+  companies' lists, a type required and checked against the chosen company and
+  retirement, a project code once per company, and a role granted
+  `project.create` creating without gaining the status (§104, §105).
 - `tests/e2e/modules/projects.spec.ts` — the gallery and its 3:4 covers, filters
-  and URL state with Back, Clear Filters, list view remembered, favorites without
-  navigating, change status, create; `tests/e2e/modules/projects-multi-company.spec.ts`
+  and URL state with Back, chips, the result count and Clear Filters (a sort
+  included), list view remembered, favorites without navigating, change status,
+  create with a type, an Admin keeping the type list and the create form
+  following it, a Project Manager refused it; `tests/e2e/modules/projects-multi-company.spec.ts`
   — both companies on one page, opening a project in the other company, a deep
   link into its tab, and a refused project that names nothing;
-  `tests/e2e/responsive/mobile.spec.ts` — two cards a row and the filter sheet.
+  `tests/e2e/responsive/mobile.spec.ts` — two cards a row, and the filter sheet
+  with the sort, applying only on Apply and clearing with Reset.
+- `tests/api/company/company-bootstrap.test.ts` — a new company starts with the
+  default types, and a rerun does not restore one that was removed.
 - `tests/perf/projects-page.perf.test.ts` (opt-in, `NESTO_PERF=1`) — 600 visible
   projects in a table of 5,600: first page, a page ten cursors deep, a filtered
   page and the filter options each under 500 ms at P95 (about 15 ms locally),
@@ -228,13 +304,24 @@ one by one.
 ## Limits
 
 - **Covers are chosen, not uploaded, on the edit page.** Upload the render to the
-  project's documents first. The create form has no cover.
+  project's documents first. The create form has no cover (§13 lists it as
+  optional): a new upload waits on the malware scan before it can be read, so a
+  cover chosen in the same step would show the placeholder anyway.
 - **Project codes are typed.** There is no project numbering scheme yet.
-- **Project types are a code list**, not a company-editable taxonomy.
+- **Project types are per company, not per Parent Group.** NESTO has no Parent
+  Group entity; two companies keep two lists, joined by name on the page.
+- **Somebody granted `project.create` without a wide enough scope** — an
+  Architect given it, say — sees the project they create only if they manage it
+  or join its team. The create form offers them as manager.
 - **Opening moves the whole session.** There is no per-tab company.
 - **The sidebar is the session company's.** Somebody whose session is in a
   company where they have no Projects access reaches the page by URL or by
   opening a project, not from the sidebar of that company.
-- **Archived projects are not on the page**; there is no Archived filter yet.
+- **Archived projects are not on the page**; there is no Archived filter yet (§85).
+- **Status changes always use the Change status dialog**, Pending → Active
+  included; §94 allows that one to be lighter but does not require it.
+- **Back restores filters, search and view**, and the browser's scroll position
+  on the first page; pages added with Load more are fetched again rather than
+  kept (§52, "where practical").
 - **Last activity is minute-accurate**, and can be one transaction late when the
   project row was locked.

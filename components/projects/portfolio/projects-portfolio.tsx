@@ -159,7 +159,15 @@ export function ProjectsPortfolio({
 
   return (
     <div className="space-y-6">
-      <ProjectsToolbar query={query} options={options} view={view} filterCount={filterCount} onNavigate={navigate} onViewChange={changeView} />
+      <ProjectsToolbar
+        query={query}
+        options={options}
+        view={view}
+        filterCount={filterCount}
+        matchingCount={initial.meta.matchingCount}
+        onNavigate={navigate}
+        onViewChange={changeView}
+      />
 
       <p className="sr-only" aria-live="polite">
         {navigating ? "Loading projects" : `Showing ${shown} of ${initial.meta.matchingCount} projects`}

@@ -16,12 +16,19 @@ export function locationLabel(location: PortfolioProjectDTO["location"]): string
   return [location.city, location.country].filter(Boolean).join(", ") || null;
 }
 
+/** "Architect", or "Architect +1" when the person holds more than one role on the project (E-05A §56). */
+export function roleLabel(role: PortfolioProjectDTO["myProjectRole"]): string | null {
+  if (!role) return null;
+  return role.others > 0 ? `${role.name} +${role.others}` : role.name;
+}
+
 /**
- * One project in the gallery (E-05A §7, §9, §25, §47).
+ * One project in the gallery (E-05A §15, §16, §41, §77).
  *
  * The render leads; the words underneath are the ones a person scanning a
  * portfolio needs — which project, which company, where, and what they are on
- * it. The whole card opens the project through one real link stretched over
+ * it — each on its own line, so a narrow card truncates one without losing
+ * another. The whole card opens the project through one real link stretched over
  * it, so it is one tab stop, opens on Enter, and the star and the menu sit on
  * top of it as their own buttons rather than inside it.
  */
@@ -39,7 +46,7 @@ export function ProjectCard({
   onArchive: () => void;
 }) {
   const location = locationLabel(project.location);
-  const detail = [location, project.myProjectRole?.name].filter(Boolean).join(" · ");
+  const role = roleLabel(project.myProjectRole);
 
   return (
     <article className="group relative min-w-0" data-testid="project-card" data-project-id={project.id}>
@@ -75,7 +82,16 @@ export function ProjectCard({
           <Building2 aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle" />
           <span className="truncate">{project.company.name}</span>
         </p>
-        {detail ? <p className="mt-0.5 truncate text-meta text-fg-subtle">{detail}</p> : null}
+        {location ? (
+          <p className="mt-0.5 truncate text-meta text-fg-subtle" data-testid="project-location">
+            {location}
+          </p>
+        ) : null}
+        {role ? (
+          <p className="mt-0.5 truncate text-meta text-fg-subtle" data-testid="project-role">
+            {role}
+          </p>
+        ) : null}
       </div>
     </article>
   );

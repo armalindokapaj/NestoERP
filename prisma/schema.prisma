@@ -849,12 +849,13 @@ model Company {
   departments Department[]
   modules     CompanyModule[]
 
-  projects   Project[]
-  clients    Client[]
-  contacts   Contact[]
-  tasks      Task[]
-  documents  Document[]
-  activities Activity[]
+  projects     Project[]
+  projectTypes ProjectType[]
+  clients      Client[]
+  contacts     Contact[]
+  tasks        Task[]
+  documents    Document[]
+  activities   Activity[]
 
   settings            CompanySettings?
   integrationSettings CompanyIntegrationSettings?
@@ -1282,8 +1283,8 @@ model Project {
   address                String?
   city                   String?
   country                String?
-  /// A key of the code-defined project type list, `config/project-types.ts` (E-05A §18.3).
-  projectType            String?
+  /// One of the company's own project types (E-05A §30, §62).
+  projectTypeId          String?
   /// The one canonical cover render. The document keeps its own file and its own
   /// access rules; the project only points at it (E-05A §8).
   coverImageDocumentId   String?
@@ -1307,11 +1308,14 @@ model Project {
 
   coverImage Document? @relation("ProjectCoverImage", fields: [coverImageDocumentId], references: [id], onDelete: SetNull)
 
+  /// A type in use cannot be deleted, only deactivated (E-05A §62).
+  projectType ProjectType? @relation(fields: [projectTypeId], references: [id], onDelete: Restrict)
+
   projectManager CompanyMember? @relation("ProjectManager", fields: [projectManagerMemberId], references: [id], onDelete: SetNull)
 
   members   ProjectMember[]
   tasks     Task[]
-  documents Document[] @relation("DocumentProject")
+  documents Document[]      @relation("DocumentProject")
 
   invoices          Invoice[]
   expenses          Expense[]
@@ -1374,7 +1378,9 @@ model Project {
   @@index([companyId, status])
   @@index([companyId, updatedAt])
   @@index([companyId, lastActivityAt])
+  @@index([status, lastActivityAt])
   @@index([coverImageDocumentId])
+  @@index([projectTypeId])
   @@index([clientId])
   @@index([projectManagerMemberId])
   @@index([status])
@@ -1382,6 +1388,34 @@ model Project {
   @@index([startDate])
   @@index([endDate])
   @@map("projects")
+}
+
+/// A company's project types (E-05A §30, §62).
+///
+/// A list the company keeps rather than a construction-only enum: NESTO is
+/// meant to run more than construction firms. Every company starts with the
+/// defaults in `config/project-types.ts` and renames, adds, orders and retires
+/// its own. A type projects use is deactivated, never deleted, so no project
+/// loses the type it was given.
+model ProjectType {
+  id        String  @id @default(cuid())
+  companyId String
+  name      String
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdBy String?
+  updatedBy String?
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name])
+  @@index([companyId, isActive, sortOrder])
+  @@map("project_types")
 }
 
 /// How PROJECT and ASSIGNED scope are resolved: user → member → project

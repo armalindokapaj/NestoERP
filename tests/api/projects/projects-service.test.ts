@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { AccessError } from "@/lib/access/guards";
 import * as projects from "@/lib/modules/projects/project.service";
@@ -7,7 +7,7 @@ import {
   projectListQuerySchema,
   updateProjectSchema,
 } from "@/lib/modules/projects/project.schema";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma, projectTypeId } from "../../helpers";
 
 /**
  * Projects authorisation tests (PRD #10 §210–§226, PRD #9 §130).
@@ -33,6 +33,11 @@ afterAll(async () => {
 
 const listQuery = projectListQuerySchema.parse({});
 
+let residential = "";
+beforeAll(async () => {
+  residential = await projectTypeId();
+});
+
 /**
  * Inputs go through the same schema the API route uses, so a test can never
  * hand the service a shape the real caller could not produce.
@@ -41,6 +46,7 @@ function createInput(overrides: Record<string, unknown> = {}) {
   return createProjectSchema.parse({
     code: "PRJ-TEST-001",
     name: "Authorisation Test Project",
+    projectTypeId: residential,
     status: "PENDING",
     ...overrides,
   });
@@ -175,7 +181,7 @@ describe("create authorisation and validation (PRD #10 §214, §215)", () => {
 
   it("allows the same code in a different company (PRD #10 §41)", async () => {
     const context = await loginAsEmail("owner-b@nesto.test");
-    const project = await projects.createProject(context, createInput({ code: "PRJ-001" }));
+    const project = await projects.createProject(context, createInput({ code: "PRJ-001", projectTypeId: await projectTypeId(context.companyId) }));
     created.push(project.id);
     expect(project.code).toBe("PRJ-001");
   });

@@ -201,6 +201,7 @@ export const siteSq: SiteCopy = {
     sections: {
       Overview: "Përmbledhje",
       Archived: "Të arkivuara",
+      "Project types": "Llojet e projekteve",
       "My Tasks": "Detyrat e mia",
       Upcoming: "Në vijim",
       "My Meetings": "Takimet e mia",

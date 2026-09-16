@@ -1,6 +1,5 @@
 import { Prisma, type ProjectStatus } from "@prisma/client";
 
-import { projectTypeLabel } from "@/config/project-types";
 import { roleLabel, isRoleKey } from "@/config/roles";
 import {
   AccessError,
@@ -23,6 +22,7 @@ import { isThumbnailableMimeType } from "@/lib/modules/documents/storage/thumbna
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { projectMachine, statusActionFor } from "./project.machine";
 import { contextForCompany } from "./project.portfolio";
+import { requireProjectTypeChoice } from "./project-type.service";
 import * as repository from "./project.repository";
 import type {
   AddProjectMemberInput,
@@ -179,6 +179,8 @@ export async function createProject(
 
   const clientId = await validateClient(context, input.clientId, null);
   const managerMemberId = await validateManager(context, input.projectManagerMemberId);
+  // One of the chosen company's own types, and one still in use (E-05A §13, §62).
+  const projectTypeId = await requireProjectTypeChoice(context, input.projectTypeId);
 
   // Naming somebody else as manager is the manager grant's decision on create
   // exactly as on update — taking the project yourself, or leaving it
@@ -189,7 +191,7 @@ export async function createProject(
 
   const project = await prisma
     .$transaction((tx) =>
-      createProjectRecord(tx, context, { ...input, clientId, projectManagerMemberId: managerMemberId }),
+      createProjectRecord(tx, context, { ...input, clientId, projectManagerMemberId: managerMemberId, projectTypeId }),
     )
     .catch(translateWriteError);
 
@@ -212,10 +214,11 @@ export async function createProject(
 export async function createProjectRecord(
   tx: Prisma.TransactionClient,
   context: UserContext,
-  input: Omit<CreateProjectInput, "clientId" | "projectManagerMemberId" | "companyId" | "projectType"> & {
+  input: Omit<CreateProjectInput, "clientId" | "projectManagerMemberId" | "companyId" | "projectTypeId"> & {
     clientId: string | null;
     projectManagerMemberId: string | null;
-    projectType?: string;
+    /** Already checked against the company's list by the caller. */
+    projectTypeId?: string | null;
   },
 ): Promise<{ id: string; code: string; name: string }> {
   assertPermission(context, "project.create");
@@ -234,7 +237,7 @@ export async function createProjectRecord(
       projectManagerMemberId: input.projectManagerMemberId,
       status: input.status as ProjectStatus,
       priority: input.priority ?? null,
-      projectType: input.projectType ?? null,
+      projectTypeId: input.projectTypeId ?? null,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
       address: input.address ?? null,
@@ -273,7 +276,7 @@ export async function createProjectRecord(
       actionKey: AuditAction.PROJECT_CREATED,
       entity: { type: "Project", id: created.id, label: created.name },
       projectId: created.id,
-      after: { code: created.code, name: created.name, status: input.status, projectType: input.projectType ?? null },
+      after: { code: created.code, name: created.name, status: input.status, projectTypeId: input.projectTypeId ?? null },
     },
     { tx },
   );
@@ -316,6 +319,7 @@ export async function updateProject(
 
   const clientId = await validateClient(context, input.clientId, existing.clientId);
   const managerMemberId = await validateManager(context, input.projectManagerMemberId);
+  const projectTypeId = await requireProjectTypeChoice(context, input.projectTypeId, existing.projectTypeId);
   const coverImageDocumentId =
     input.coverImageDocumentId === undefined
       ? existing.coverImageDocumentId
@@ -335,7 +339,7 @@ export async function updateProject(
     description: input.description ?? null,
     clientId,
     priority: input.priority ?? null,
-    projectType: input.projectType ?? null,
+    projectTypeId,
     startDate: input.startDate ?? null,
     endDate: input.endDate ?? null,
     address: input.address ?? null,
@@ -368,7 +372,7 @@ export async function updateProject(
           description: after.description,
           clientId: after.clientId,
           priority: input.priority ?? null,
-          projectType: input.projectType ?? null,
+          projectTypeId: after.projectTypeId,
           startDate: after.startDate,
           endDate: after.endDate,
           address: after.address,
@@ -537,7 +541,7 @@ type ProjectDetails = {
   description: string | null;
   clientId: string | null;
   priority: string | null;
-  projectType: string | null;
+  projectTypeId: string | null;
   startDate: Date | null;
   endDate: Date | null;
   address: string | null;
@@ -553,7 +557,7 @@ function detailsOf(row: repository.ProjectDetailRow): ProjectDetails {
     description: row.description,
     clientId: row.clientId,
     priority: row.priority,
-    projectType: row.projectType,
+    projectTypeId: row.projectTypeId,
     startDate: row.startDate,
     endDate: row.endDate,
     address: row.address,
@@ -1056,7 +1060,7 @@ function toDetailDTO(
     },
     location: { address: row.address, city: row.city, country: row.country },
     company: { id: row.company.id, name: row.company.name },
-    projectType: row.projectType ? { key: row.projectType, label: projectTypeLabel(row.projectType)! } : null,
+    projectType: row.projectType ? { id: row.projectType.id, name: row.projectType.name } : null,
     coverImageDocumentId: row.coverImageDocumentId,
     lastActivityAt: row.lastActivityAt.toISOString(),
     counts,

@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { AccessError } from "@/lib/access/guards";
 import { resolveContextForSession } from "@/lib/context/build-context";
@@ -36,6 +36,12 @@ const MULTI_A = "member_multicompany_a";
 const MULTI_B = "member_multicompany_b";
 
 const tempProjects: string[] = [];
+const tempTypes: string[] = [];
+
+/** A company's own project type, by name (E-05A §62). */
+async function typeId(companyId: string, name: string) {
+  return (await prisma.projectType.findFirstOrThrow({ where: { companyId, name }, select: { id: true } })).id;
+}
 const tempMembers: string[] = [];
 const tempDocuments: string[] = [];
 
@@ -50,6 +56,10 @@ afterEach(async () => {
   if (tempDocuments.length > 0) {
     await prisma.document.deleteMany({ where: { id: { in: tempDocuments } } });
     tempDocuments.length = 0;
+  }
+  if (tempTypes.length > 0) {
+    await prisma.projectType.deleteMany({ where: { id: { in: tempTypes } } });
+    tempTypes.length = 0;
   }
   if (tempMembers.length > 0) {
     await cleanupSessions();
@@ -86,8 +96,10 @@ async function tempProject(overrides: {
   lastActivityAt?: Date;
   managerMemberId?: string | null;
   memberIds?: string[];
+  /** A type name in the project's company. */
   projectType?: string | null;
   city?: string | null;
+  memberRole?: string;
 }) {
   sequence += 1;
   const id = `e05a_${Date.now().toString(36)}_${sequence}`;
@@ -98,7 +110,7 @@ async function tempProject(overrides: {
       code: `E05A-${Date.now().toString(36)}-${sequence}`,
       name: overrides.name ?? `E05A Project ${sequence}`,
       status: overrides.status ?? "ACTIVE",
-      projectType: overrides.projectType ?? null,
+      projectTypeId: overrides.projectType ? await typeId(overrides.companyId ?? COMPANY_A, overrides.projectType) : null,
       city: overrides.city ?? null,
       projectManagerMemberId: overrides.managerMemberId ?? null,
       lastActivityAt: overrides.lastActivityAt ?? new Date(),
@@ -108,7 +120,7 @@ async function tempProject(overrides: {
   });
   for (const companyMemberId of overrides.memberIds ?? []) {
     await prisma.projectMember.create({
-      data: { companyId: overrides.companyId ?? COMPANY_A, projectId: id, companyMemberId, status: "ACTIVE", projectRole: "Project Manager" },
+      data: { companyId: overrides.companyId ?? COMPANY_A, projectId: id, companyMemberId, status: "ACTIVE", projectRole: overrides.memberRole ?? "Project Manager" },
     });
   }
   tempProjects.push(id);
@@ -272,8 +284,8 @@ describe("filters and search (E-05A §17, §18, §66)", () => {
     const owner = await loginAs("OWNER");
     expect(await ids(owner, { status: "PENDING" })).toEqual([PROJECT.e]);
     expect(await ids(owner, { status: "FINISHED" })).toEqual([PROJECT.f]);
-    expect((await ids(owner, { projectType: "RESIDENTIAL" })).sort()).toEqual([PROJECT.c, PROJECT.e].sort());
-    expect((await ids(owner, { projectType: "COMMERCIAL", status: "ACTIVE" }))).toEqual([PROJECT.b]);
+    expect((await ids(owner, { projectType: "Residential" })).sort()).toEqual([PROJECT.c, PROJECT.e].sort());
+    expect((await ids(owner, { projectType: "commercial", status: "ACTIVE" }))).toEqual([PROJECT.b]);
     expect(await ids(owner, { location: "city:vlorë" })).toEqual([PROJECT.c]);
     expect(await ids(owner, { q: "hospital" })).toEqual([]);
     expect(await ids(owner, { q: "industrial" })).toEqual([PROJECT.d]);
@@ -284,6 +296,27 @@ describe("filters and search (E-05A §17, §18, §66)", () => {
     expect((await ids(multi, { role: ASSIGNED_ROLE })).sort()).toEqual([PROJECT.e, "project_b_two"].sort());
     expect(await ids(multi, { location: "country:Germany" })).toEqual(["project_b_two"]);
     expect(await ids(multi, { companyId: COMPANY_B, role: "Architect" })).toEqual([]);
+  });
+
+  it("filters and searches by a type name across companies, each with its own list (E-05A §30, §62)", async () => {
+    const multi = await loginAsMembership(MULTI_A);
+    const label = `Types ${Date.now()}`;
+    const inB = await tempProject({ companyId: COMPANY_B, name: `${label} B`, projectType: "Residential", managerMemberId: MULTI_B, memberIds: [MULTI_B] });
+
+    expect((await ids(multi, { projectType: "residential" })).sort()).toEqual([PROJECT.e, inB].sort());
+    expect((await ids(multi, { q: "resident" })).sort()).toEqual([PROJECT.e, inB].sort());
+    // Two companies' "Residential" rows are one choice in the filter.
+    expect((await portfolioFilterOptions(multi)).projectTypes.map((type) => type.label)).toEqual(["Commercial", "Residential"]);
+
+    // A renamed type is filtered by its new name, and only in its own company.
+    const renamedId = await typeId(COMPANY_B, "Residential");
+    await prisma.projectType.update({ where: { id: renamedId }, data: { name: "Housing" } });
+    try {
+      expect(await ids(multi, { projectType: "Housing" })).toEqual([inB]);
+      expect(await ids(multi, { projectType: "Residential" })).toEqual([PROJECT.e]);
+    } finally {
+      await prisma.projectType.update({ where: { id: renamedId }, data: { name: "Residential" } });
+    }
   });
 
   it("filters favorites per person — one person's star is nobody else's", async () => {
@@ -301,7 +334,7 @@ describe("filters and search (E-05A §17, §18, §66)", () => {
 
   it("reads the page's URL the way the API does", () => {
     const parsed = parsePortfolioQuery(new URLSearchParams("q=hospital&status=COMPLETED&company=cmp_1&type=hotel&location=city:Fier&sort=bogus&favorites=1"));
-    expect(parsed).toMatchObject({ q: "hospital", status: "FINISHED", companyId: "cmp_1", projectType: "HOTEL", location: "city:Fier", sort: "recommended", favorites: true, limit: 24 });
+    expect(parsed).toMatchObject({ q: "hospital", status: "FINISHED", companyId: "cmp_1", projectType: "hotel", location: "city:Fier", sort: "recommended", favorites: true, limit: 24 });
     expect(parsePortfolioQuery({ status: "DRAFT", location: "Fier" })).toMatchObject({ status: "PENDING", location: undefined });
   });
 });
@@ -313,13 +346,24 @@ describe("what each card says and allows (E-05A §7, §33, §52)", () => {
     const greenline = items.find((item) => item.id === PROJECT.e)!;
     const studio = items.find((item) => item.id === "project_b_two")!;
 
-    expect(greenline).toMatchObject({ myProjectRole: { name: "Architect" }, company: { id: COMPANY_A }, projectType: { key: "RESIDENTIAL", label: "Residential" }, location: { city: "Elbasan", country: "Albania" } });
+    expect(greenline).toMatchObject({ myProjectRole: { name: "Architect", others: 0 }, company: { id: COMPANY_A }, projectType: { name: "Residential" }, location: { city: "Elbasan", country: "Albania" } });
     expect(greenline.permissions).toMatchObject({ edit: true, manageStatus: false, archive: false });
     expect(greenline.statusMoves).toEqual([]);
 
-    expect(studio).toMatchObject({ myProjectRole: { name: "Project Manager" }, company: { id: COMPANY_B } });
+    expect(studio).toMatchObject({ myProjectRole: { name: "Project Manager", others: 0 }, company: { id: COMPANY_B } });
     expect(studio.permissions).toMatchObject({ edit: true, manageStatus: true, archive: true });
     expect(studio.statusMoves.sort()).toEqual(["FINISHED", "PENDING"]);
+  });
+
+  it("shows a second role as +1, and the same role twice as one (E-05A §56)", async () => {
+    const owner = await loginAs("OWNER");
+    const label = `Roles ${Date.now()}`;
+    const twoRoles = await tempProject({ name: `${label} lead`, managerMemberId: owner.membershipId, memberIds: [owner.membershipId], memberRole: "Lead Architect" });
+    const oneRole = await tempProject({ name: `${label} pm`, managerMemberId: owner.membershipId, memberIds: [owner.membershipId], memberRole: "project manager" });
+    const { items } = await listPortfolioProjects(owner, query({ q: label }));
+
+    expect(items.find((item) => item.id === twoRoles)?.myProjectRole).toEqual({ name: "Lead Architect", others: 1 });
+    expect(items.find((item) => item.id === oneRole)?.myProjectRole).toEqual({ name: "project manager", others: 0 });
   });
 
   it("offers a cover only to a reader who can open its document, as a 3:4 thumbnail", async () => {
@@ -428,15 +472,19 @@ describe("status (E-05A §11, §12, §68)", () => {
 });
 
 describe("create (E-05A §29-§31, §67)", () => {
+  let hospitalA = "";
+  beforeAll(async () => {
+    hospitalA = await typeId(COMPANY_A, "Hospital");
+  });
   const input = (overrides: Record<string, unknown> = {}) =>
-    createProjectSchema.parse({ code: `E05A-NEW-${Date.now().toString(36)}`, name: "E-05A created project", projectType: "HOSPITAL", ...overrides });
+    createProjectSchema.parse({ code: `E05A-NEW-${Date.now().toString(36)}`, name: "E-05A created project", projectTypeId: hospitalA, ...overrides });
 
   it("creates Pending by default for the Owner and an Admin, audited", async () => {
     for (const role of ["OWNER", "ADMIN"] as const) {
       const context = await loginAs(role);
       const created = await projects.createProject(context, input());
       tempProjects.push(created.id);
-      expect(created).toMatchObject({ status: "PENDING", company: { id: COMPANY_A }, projectType: { key: "HOSPITAL" } });
+      expect(created).toMatchObject({ status: "PENDING", company: { id: COMPANY_A }, projectType: { id: hospitalA, name: "Hospital" } });
       const audit = await prisma.auditEvent.findFirst({ where: { entityId: created.id, actionKey: "PROJECT_CREATED" } });
       expect(audit?.actorUserId).toBe(context.userId);
     }
@@ -447,6 +495,48 @@ describe("create (E-05A §29-§31, §67)", () => {
     await expectError(projects.createProject(await loginAs("ARCHITECT"), input()), "FORBIDDEN");
     const multi = await loginAsMembership(MULTI_A);
     expect(await creatableCompanies(multi)).toEqual([]);
+  });
+
+  it("lets a role create once it is granted project.create, without the status coming with it (E-05A §104, §105)", async () => {
+    // NESTO has no Architecture Manager role; an Architect granted the
+    // permission stands in for one, the way a company would configure it.
+    const architect = await loginAs("ARCHITECT");
+    const granted = { ...architect, permissions: [...architect.permissions, "project.create" as const] };
+
+    // Taking the project on themselves needs no manager grant, and keeps it in their own scope.
+    const created = await projects.createProject(granted, input({ projectManagerMemberId: architect.membershipId }));
+    tempProjects.push(created.id);
+    expect(created.status).toBe("PENDING");
+    await expectError(projects.createProject(granted, input({ status: "ACTIVE", projectManagerMemberId: architect.membershipId })), "FORBIDDEN");
+    await expectError(projects.changeProjectStatus(granted, created.id, { status: "ACTIVE" }), "FORBIDDEN");
+  });
+
+  it("enforces a project code once per company, not across companies (E-05A §14)", async () => {
+    const owner = await loginAs("OWNER");
+    const code = `E05A-DUP-${Date.now().toString(36)}`;
+    const first = await projects.createProject(owner, input({ code }));
+    tempProjects.push(first.id);
+    await expectError(projects.createProject(owner, input({ code, name: "Second with the same code" })), "CONFLICT");
+
+    const inB = await tempProject({ companyId: COMPANY_B });
+    await prisma.project.update({ where: { id: inB }, data: { code } });
+    expect((await prisma.project.findMany({ where: { code } })).map((row) => row.companyId).sort()).toEqual([COMPANY_A, COMPANY_B]);
+  });
+
+  it("offers and accepts only the company's types in use, and keeps a retired one on its project (E-05A §62)", async () => {
+    const owner = await loginAs("OWNER");
+    const retired = await prisma.projectType.create({ data: { companyId: COMPANY_A, name: `Retired ${Date.now()}`, isActive: false } });
+    tempTypes.push(retired.id);
+
+    await expectError(projects.createProject(owner, input({ projectTypeId: retired.id })), "VALIDATION_ERROR");
+    await expectError(projects.createProject(owner, input({ projectTypeId: await typeId(COMPANY_B, "Hotel") })), "VALIDATION_ERROR");
+    expect(createProjectSchema.safeParse({ code: "X-1", name: "No type" }).success).toBe(false);
+
+    const projectId = await tempProject({ name: `Retired type ${Date.now()}` });
+    await prisma.project.update({ where: { id: projectId }, data: { projectTypeId: retired.id } });
+    const project = await projects.getProject(owner, projectId);
+    const saved = await projects.updateProject(owner, projectId, { code: project.code, name: `${project.name} renamed`, projectTypeId: retired.id } as never);
+    expect(saved.projectType).toEqual({ id: retired.id, name: retired.name });
   });
 
   it("refuses a company named in the body where the person cannot create", async () => {
@@ -464,7 +554,9 @@ describe("create (E-05A §29-§31, §67)", () => {
 
     expect((await creatableCompanies(admin)).map((company) => company.id).sort()).toEqual([COMPANY_A, COMPANY_B]);
 
-    const created = await projects.createProject(admin, input({ companyId: COMPANY_B }));
+    // A type is the chosen company's own: Company A's Hospital is not Company B's.
+    await expectError(projects.createProject(admin, input({ companyId: COMPANY_B })), "VALIDATION_ERROR");
+    const created = await projects.createProject(admin, input({ companyId: COMPANY_B, projectTypeId: await typeId(COMPANY_B, "Hospital") }));
     tempProjects.push(created.id);
     expect(created.company.id).toBe(COMPANY_B);
     const row = await prisma.project.findUniqueOrThrow({ where: { id: created.id } });

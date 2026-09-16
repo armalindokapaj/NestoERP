@@ -71,13 +71,15 @@ describe.skipIf(!RUN)("the Projects page at 600 visible projects in a table of 5
     const now = Date.now();
 
     for (const [key, membership] of Object.entries(MEMBERSHIPS)) {
+      const types = await db.projectType.findMany({ where: { companyId: membership.companyId, name: { in: ["Residential", "Commercial"] } }, select: { id: true, name: true } });
+      const typeId = (name: string) => types.find((type) => type.name === name)!.id;
       const rows = Array.from({ length: VISIBLE_PER_COMPANY }, (_, index) => ({
         id: `${PREFIX}_${key}_${index}`,
         companyId: membership.companyId,
         code: `PERF-${key}-${index}`,
         name: `Perf ${key} project ${index.toString().padStart(3, "0")}`,
         status: (["PENDING", "ACTIVE", "FINISHED"] as const)[index % 3],
-        projectType: index % 2 === 0 ? "RESIDENTIAL" : "COMMERCIAL",
+        projectTypeId: typeId(index % 2 === 0 ? "Residential" : "Commercial"),
         city: index % 4 === 0 ? "Tiranë" : "Durrës",
         country: "Albania",
         lastActivityAt: new Date(now - index * 60_000),
@@ -132,7 +134,7 @@ describe.skipIf(!RUN)("the Projects page at 600 visible projects in a table of 5
     const results = {
       first: percentile(await time(() => listPortfolioProjects(session, first)), 95),
       deep: percentile(await time(() => listPortfolioProjects(session, deep)), 95),
-      filtered: percentile(await time(() => listPortfolioProjects(session, portfolioQuerySchema.parse({ q: "project 1", status: "ACTIVE", projectType: "RESIDENTIAL" }))), 95),
+      filtered: percentile(await time(() => listPortfolioProjects(session, portfolioQuerySchema.parse({ q: "project 1", status: "ACTIVE", projectType: "Residential" }))), 95),
       options: percentile(await time(() => portfolioFilterOptions(session)), 95),
     };
     console.info("[perf] projects page P95 (ms)", results);

@@ -79,6 +79,11 @@ export const AuditAction = {
   PROJECT_MANAGER_CHANGED: "PROJECT_MANAGER_CHANGED",
   PROJECT_ARCHIVED: "PROJECT_ARCHIVED",
   PROJECT_RESTORED: "PROJECT_RESTORED",
+  /** The company's own list of project types (E-05A §62). */
+  PROJECT_TYPE_CREATED: "PROJECT_TYPE_CREATED",
+  PROJECT_TYPE_UPDATED: "PROJECT_TYPE_UPDATED",
+  PROJECT_TYPE_DELETED: "PROJECT_TYPE_DELETED",
+  PROJECT_TYPES_REORDERED: "PROJECT_TYPES_REORDERED",
 
   // Documents (PRD #28 §129)
   DOCUMENT_DOWNLOAD_GRANTED: "DOCUMENT_DOWNLOAD_GRANTED",
@@ -321,12 +326,16 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.HR_COMPENSATION_CHANGED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["amount", "currency", "effectiveFrom"], redactFields: ["amount"], required: true },
 
   /* Projects ------------------------------------------------------------- */
-  { actionKey: AuditAction.PROJECT_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "status", "clientId", "projectType"], required: false },
-  { actionKey: AuditAction.PROJECT_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "description", "clientId", "priority", "projectType", "startDate", "endDate", "address", "city", "country", "coverImageDocumentId"], required: false },
+  { actionKey: AuditAction.PROJECT_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "status", "clientId", "projectTypeId"], required: false },
+  { actionKey: AuditAction.PROJECT_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "description", "clientId", "priority", "projectTypeId", "startDate", "endDate", "address", "city", "country", "coverImageDocumentId"], required: false },
   { actionKey: AuditAction.PROJECT_STATUS_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: false },
   { actionKey: AuditAction.PROJECT_MANAGER_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["managerMemberId", "managerName"], required: false },
   { actionKey: AuditAction.PROJECT_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
   { actionKey: AuditAction.PROJECT_RESTORED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
+  { actionKey: AuditAction.PROJECT_TYPE_CREATED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "isActive"], required: true },
+  { actionKey: AuditAction.PROJECT_TYPE_UPDATED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "isActive"], required: true },
+  { actionKey: AuditAction.PROJECT_TYPE_DELETED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name"], required: true },
+  { actionKey: AuditAction.PROJECT_TYPES_REORDERED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["order"], required: false },
 
   /* Documents ------------------------------------------------------------ */
   { actionKey: AuditAction.DOCUMENT_DOWNLOAD_GRANTED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },

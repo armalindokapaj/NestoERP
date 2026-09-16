@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import type { PortfolioProjectDTO } from "@/lib/modules/projects/project.types";
 import { formatDate } from "@/lib/utils/format";
-import { locationLabel } from "./project-card";
+import { locationLabel, roleLabel } from "./project-card";
 import { ProjectCardMenu } from "./project-card-menu";
 import { ProjectFavoriteButton } from "./project-favorite-button";
 import { ProjectStatusBadge } from "./project-status-badge";
@@ -52,7 +52,7 @@ export function ProjectList({ projects, ...handlers }: { projects: PortfolioProj
               </td>
               <td className="hidden max-w-0 truncate px-4 py-3 text-fg-muted sm:table-cell">{project.company.name}</td>
               <td className="px-4 py-3"><ProjectStatusBadge status={project.status} className="shadow-none" /></td>
-              <td className="hidden truncate px-4 py-3 text-fg-muted lg:table-cell">{project.myProjectRole?.name ?? "—"}</td>
+              <td className="hidden truncate px-4 py-3 text-fg-muted lg:table-cell">{roleLabel(project.myProjectRole) ?? "—"}</td>
               <td className="hidden truncate px-4 py-3 text-fg-muted lg:table-cell">{locationLabel(project.location) ?? "—"}</td>
               <td className="hidden whitespace-nowrap px-4 py-3 tabular-nums text-fg-muted md:table-cell">{formatDate(project.lastActivityAt)}</td>
               <td className="px-2 py-3">

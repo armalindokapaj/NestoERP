@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { PROJECT_TYPE_KEYS } from "@/config/project-types";
+import { PROJECT_TYPE_NAME_MAX } from "@/config/project-types";
 import { WORKING_STATUSES } from "./project.machine";
 
 /**
@@ -56,7 +56,8 @@ const projectFields = {
   clientId: optionalId,
   projectManagerMemberId: optionalId,
   priority: optionalEnum(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const),
-  projectType: optionalEnum(PROJECT_TYPE_KEYS),
+  /** One of the company's own project types; the service checks it is theirs and in use (E-05A §62). */
+  projectTypeId: optionalId,
   startDate: optionalDate,
   endDate: optionalDate,
   address: optionalText(300),
@@ -89,6 +90,8 @@ export const createProjectSchema = scheduleRefinement(
       .max(64)
       .optional()
       .transform((value) => (value === "" ? undefined : value)),
+    /** Required on a new project (E-05A §13); an older project may still have none. */
+    projectTypeId: z.string().trim().min(1, "Choose a project type").max(64),
     /** New projects start Pending unless an authorised person says otherwise (E-05A §31). */
     status: z.enum(WORKING_STATUSES).default("PENDING"),
   }),
@@ -197,7 +200,11 @@ export const portfolioQuerySchema = z.object({
   companyId: z.string().trim().max(64).optional(),
   /** An effective project role label, or `any` for every project the person is assigned to or manages. */
   role: z.string().trim().max(120).optional(),
-  projectType: z.enum(PROJECT_TYPE_KEYS).optional(),
+  /**
+   * A project type by name. Each company keeps its own list, so "Hospital" in
+   * two companies is two rows with one name — the filter matches the name.
+   */
+  projectType: z.string().trim().max(PROJECT_TYPE_NAME_MAX).optional(),
   /** `city:<name>` or `country:<name>`. */
   location: z
     .string()
@@ -224,3 +231,26 @@ export const changeProjectStatusSchema = z.object({
 });
 
 export type ChangeProjectStatusInput = { status: z.infer<typeof changeProjectStatusSchema>["status"]; reason?: string };
+
+/* -------------------------------------------------------------------------- */
+/* Project types (E-05A §30, §62)                                              */
+/* -------------------------------------------------------------------------- */
+
+const projectTypeName = z
+  .string()
+  .trim()
+  .min(1, "Give the type a name")
+  .max(PROJECT_TYPE_NAME_MAX, `Keep the name under ${PROJECT_TYPE_NAME_MAX} characters`);
+
+export const createProjectTypeSchema = z.object({ name: projectTypeName });
+
+/** Rename, retire or bring back. Absent leaves a field as it is. */
+export const updateProjectTypeSchema = z
+  .object({ name: projectTypeName.optional(), isActive: z.boolean().optional() })
+  .refine((value) => value.name !== undefined || value.isActive !== undefined, { message: "Nothing to change" });
+
+/** Every one of the company's types, in the order the list should show them. */
+export const reorderProjectTypesSchema = z.object({ ids: z.array(z.string().trim().min(1).max(64)).min(1).max(200) });
+
+export type CreateProjectTypeInput = z.infer<typeof createProjectTypeSchema>;
+export type UpdateProjectTypeInput = z.infer<typeof updateProjectTypeSchema>;

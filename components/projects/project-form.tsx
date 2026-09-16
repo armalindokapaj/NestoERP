@@ -28,7 +28,7 @@ export type ProjectFormValues = {
   projectManagerMemberId: string;
   status: string;
   priority: string;
-  projectType: string;
+  projectTypeId: string;
   coverImageDocumentId: string;
   startDate: string;
   endDate: string;
@@ -105,6 +105,7 @@ export function ProjectForm({
    * to set (E-05A §11): a new project starts Pending and an edit leaves it alone.
    */
   statuses: SelectOption[];
+  /** The company's own types in use, plus the project's own if it has been retired (E-05A §13, §62). */
   projectTypes: SelectOption[];
   /** The company a new project is created in; `changeHref` when there is a choice (E-05A §30). */
   company?: { id: string; name: string; changeHref?: string };
@@ -224,9 +225,24 @@ export function ProjectForm({
           </Field>
         </div>
 
-        <Field label="Project type" name="projectType" error={fieldErrors.projectType}>
-          <select id="projectType" name="projectType" defaultValue={initial.projectType} className={selectClass}>
-            <option value="">Not set</option>
+        <Field
+          label="Project type"
+          name="projectTypeId"
+          required={mode === "create"}
+          error={fieldErrors.projectTypeId}
+          hint={projectTypes.length === 0 ? "Your company has no project types in use yet." : undefined}
+        >
+          <select
+            id="projectTypeId"
+            name="projectTypeId"
+            defaultValue={initial.projectTypeId}
+            required={mode === "create"}
+            className={selectClass}
+            aria-invalid={Boolean(fieldErrors.projectTypeId)}
+            aria-describedby={fieldErrors.projectTypeId ? "projectTypeId-error" : undefined}
+          >
+            {/* A new project is always typed; an older one without a type may stay so. */}
+            {mode === "create" ? <option value="">Choose a type</option> : !initial.projectTypeId ? <option value="">Not set</option> : null}
             {projectTypes.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
