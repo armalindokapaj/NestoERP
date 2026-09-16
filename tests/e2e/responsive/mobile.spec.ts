@@ -70,28 +70,36 @@ test.describe("mobile navigation", () => {
 });
 
 test.describe("mobile module layout (PRD #9 §184)", () => {
-  test("renders a list as record cards rather than a squeezed table", async ({ page }) => {
+  test("shows projects as cards, two to a row, with the star and the company in reach (E-05A §24)", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER");
-    await page.goto("/projects/all");
+    await page.goto("/projects");
 
-    // The desktop table is hidden below the tablet breakpoint.
     await expect(page.getByRole("table")).toBeHidden();
-    await expect(page.getByRole("link", { name: /Riverside Residences/ }).first()).toBeVisible();
+    const cards = page.locator("#nesto-main").getByTestId("project-card");
+    await expect(cards.first()).toBeVisible();
+    const [first, second] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()]);
+    expect(Math.abs(first!.y - second!.y)).toBeLessThan(2);
+    await expect(cards.first().getByTestId("project-favorite")).toBeVisible();
+    await expect(cards.first().getByTestId("project-company")).toBeVisible();
+    await expect(cards.first().getByTestId("project-status")).toBeVisible();
   });
 
-  test("moves filters into a sheet (PRD #7 §88)", async ({ page }) => {
+  test("moves filters into a sheet (PRD #7 §88, E-05A §24)", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER");
-    await page.goto("/projects/all");
+    await page.goto("/projects");
 
-    await page.getByRole("button", { name: /^filters$/i }).click();
+    await page.locator("#nesto-main").getByTestId("projects-filters-open").click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("dialog").getByLabel("Status")).toBeVisible();
+    await page.getByRole("dialog").getByLabel("Project type").selectOption({ label: "Commercial" });
+    await expect(page).toHaveURL(/type=COMMERCIAL/);
+    await page.getByRole("dialog").getByRole("button", { name: "Show projects" }).click();
+    await expect(page.locator("#nesto-main").getByTestId("project-card")).toHaveCount(1);
   });
 
   test("never scrolls the page sideways", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER");
 
-    for (const path of ["/dashboard", "/projects/all", "/projects/project_a"]) {
+    for (const path of ["/dashboard", "/projects", "/projects/project_a"]) {
       await page.goto(path);
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

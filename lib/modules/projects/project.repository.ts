@@ -126,11 +126,15 @@ const DETAIL_SELECT = {
   address: true,
   city: true,
   country: true,
+  projectType: true,
+  coverImageDocumentId: true,
+  lastActivityAt: true,
   createdAt: true,
   updatedAt: true,
   archivedAt: true,
   clientId: true,
   projectManagerMemberId: true,
+  company: { select: { id: true, name: true } },
   client: { select: { id: true, name: true } },
   projectManager: {
     select: {
@@ -263,57 +267,6 @@ export async function listProjectActivity(
   ]);
 
   return { rows, total };
-}
-
-/** Overview statistics for the module landing page (PRD #10 §13, §14). */
-export async function projectOverviewStats(context: UserContext) {
-  const scope = buildProjectScopeWhere(context);
-  const active: Prisma.ProjectWhereInput = {
-    AND: [scope, { archivedAt: null, status: { not: "ARCHIVED" } }],
-  };
-
-  const [activeCount, onHold, completed, draft, overdue] = await Promise.all([
-    prisma.project.count({ where: { AND: [active, { status: "ACTIVE" }] } }),
-    prisma.project.count({ where: { AND: [active, { status: "ON_HOLD" }] } }),
-    prisma.project.count({ where: { AND: [active, { status: "COMPLETED" }] } }),
-    prisma.project.count({ where: { AND: [active, { status: "DRAFT" }] } }),
-    prisma.project.count({
-      where: {
-        AND: [
-          active,
-          { endDate: { lt: new Date() } },
-          { status: { notIn: ["COMPLETED", "ARCHIVED"] } },
-        ],
-      },
-    }),
-  ]);
-
-  return { active: activeCount, onHold, completed, draft, atRisk: overdue };
-}
-
-/** Recently touched projects, inside scope (PRD #10 §165). */
-export async function recentProjects(context: UserContext, take = 5) {
-  return prisma.project.findMany({
-    where: { AND: [buildProjectScopeWhere(context), { archivedAt: null }] },
-    orderBy: { updatedAt: "desc" },
-    take,
-    select: SUMMARY_SELECT,
-  });
-}
-
-/** Projects still to finish, soonest first (PRD #10 §166). */
-export async function upcomingDeadlines(context: UserContext, take = 5) {
-  return prisma.project.findMany({
-    where: {
-      AND: [
-        buildProjectScopeWhere(context),
-        { archivedAt: null, endDate: { gte: new Date() }, status: { notIn: ["COMPLETED", "ARCHIVED"] } },
-      ],
-    },
-    orderBy: { endDate: "asc" },
-    take,
-    select: SUMMARY_SELECT,
-  });
 }
 
 /**

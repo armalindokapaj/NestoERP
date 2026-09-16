@@ -1,30 +1,35 @@
 import type { Project, ProjectStatus } from "@prisma/client";
 
-/**
- * Project status rules (PRD #10 §61, §62, §196).
- *
- * The transition table lives here so the UI dropdown and the API validator read
- * the same rules. Archiving and restoring have their own endpoints and are
- * deliberately absent from the ordinary update path — `ARCHIVED → ACTIVE`
- * through PATCH must fail (PRD #10 §62).
- */
-const TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
-  DRAFT: ["ACTIVE", "ON_HOLD"],
-  ACTIVE: ["ON_HOLD", "COMPLETED"],
-  ON_HOLD: ["ACTIVE", "COMPLETED"],
-  COMPLETED: ["ACTIVE"],
-  ARCHIVED: [],
-};
+import { canMove } from "@/lib/core/state/machine";
+import { projectMachine, statusActionFor, WORKING_STATUSES } from "./project.machine";
 
-export const EDITABLE_STATUSES: ProjectStatus[] = ["DRAFT", "ACTIVE", "ON_HOLD", "COMPLETED"];
+/**
+ * Project status rules (E-05A §10, §12; PRD #10 §61, §62, §196).
+ *
+ * The moves themselves are declared once, on `projectMachine`; these helpers
+ * answer the questions the form and the menus ask from that declaration, so
+ * the UI dropdown and the API validator cannot disagree. Archiving and
+ * restoring have their own endpoints and are absent from the working moves —
+ * `ARCHIVED → ACTIVE` through the status endpoint must fail (PRD #10 §62).
+ */
+
+export const EDITABLE_STATUSES: ProjectStatus[] = [...WORKING_STATUSES];
+
+export const projectStatusLabels: Record<ProjectStatus, string> = {
+  PENDING: "Pending",
+  ACTIVE: "Active",
+  FINISHED: "Finished",
+  ARCHIVED: "Archived",
+};
 
 export function canTransitionProjectStatus(from: ProjectStatus, to: ProjectStatus): boolean {
   if (from === to) return true;
-  return TRANSITIONS[from].includes(to);
+  return statusActionFor(from, to) !== null && canMove(projectMachine, from, to);
 }
 
+/** The status a project may be set to from where it is, including staying put. */
 export function allowedTransitions(from: ProjectStatus): ProjectStatus[] {
-  return [from, ...TRANSITIONS[from]];
+  return [from, ...EDITABLE_STATUSES.filter((to) => to !== from && statusActionFor(from, to) !== null)];
 }
 
 export function isProjectArchived(project: Pick<Project, "status" | "archivedAt">): boolean {
@@ -36,8 +41,7 @@ export type ScheduleStatus =
   | "UPCOMING"
   | "IN_PROGRESS"
   | "OVERDUE"
-  | "COMPLETED"
-  | "ON_HOLD";
+  | "FINISHED";
 
 /**
  * Derived from the dates and the status — never stored, so it cannot go stale
@@ -47,8 +51,7 @@ export function getProjectScheduleStatus(
   project: Pick<Project, "status" | "startDate" | "endDate">,
   now: Date = new Date(),
 ): ScheduleStatus {
-  if (project.status === "COMPLETED") return "COMPLETED";
-  if (project.status === "ON_HOLD") return "ON_HOLD";
+  if (project.status === "FINISHED") return "FINISHED";
   if (!project.startDate && !project.endDate) return "NOT_SCHEDULED";
 
   if (project.endDate && project.endDate.getTime() < now.getTime()) return "OVERDUE";
@@ -76,6 +79,5 @@ export const scheduleStatusLabels: Record<ScheduleStatus, string> = {
   UPCOMING: "Upcoming",
   IN_PROGRESS: "In progress",
   OVERDUE: "Overdue",
-  COMPLETED: "Completed",
-  ON_HOLD: "On hold",
+  FINISHED: "Finished",
 };

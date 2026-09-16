@@ -18,6 +18,7 @@ export const AuditAction = {
   // Account basics (PRD #38 §20, §156)
   AUTH_PASSWORD_CHANGED: "AUTH_PASSWORD_CHANGED",
   AUTH_SESSIONS_REVOKED: "AUTH_SESSIONS_REVOKED",
+  AUTH_COMPANY_CONTEXT_SWITCHED: "AUTH_COMPANY_CONTEXT_SWITCHED",
   USER_PROFILE_UPDATED: "USER_PROFILE_UPDATED",
 
   // Access control (PRD #28 §95)
@@ -73,6 +74,7 @@ export const AuditAction = {
 
   // Projects (PRD #28 §127)
   PROJECT_CREATED: "PROJECT_CREATED",
+  PROJECT_UPDATED: "PROJECT_UPDATED",
   PROJECT_STATUS_CHANGED: "PROJECT_STATUS_CHANGED",
   PROJECT_MANAGER_CHANGED: "PROJECT_MANAGER_CHANGED",
   PROJECT_ARCHIVED: "PROJECT_ARCHIVED",
@@ -258,6 +260,8 @@ const POLICIES: AuditPolicy[] = [
   // Never the password, old or new — that it changed is the whole record (PRD #38 §156).
   { actionKey: AuditAction.AUTH_PASSWORD_CHANGED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: true },
   { actionKey: AuditAction.AUTH_SESSIONS_REVOKED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["scope", "revoked"], required: false },
+  // Recorded in the company the session moved into; the auth event keeps both ends (E-05A §26).
+  { actionKey: AuditAction.AUTH_COMPANY_CONTEXT_SWITCHED, moduleKey: "settings", category: "AUTHENTICATION", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },
   { actionKey: AuditAction.USER_PROFILE_UPDATED, moduleKey: "settings", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["firstName", "lastName", "phone", "jobTitle"], required: false },
 
   /* Access control ------------------------------------------------------- */
@@ -317,7 +321,8 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.HR_COMPENSATION_CHANGED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["amount", "currency", "effectiveFrom"], redactFields: ["amount"], required: true },
 
   /* Projects ------------------------------------------------------------- */
-  { actionKey: AuditAction.PROJECT_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "status", "clientId"], required: false },
+  { actionKey: AuditAction.PROJECT_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "status", "clientId", "projectType"], required: false },
+  { actionKey: AuditAction.PROJECT_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "description", "clientId", "priority", "projectType", "startDate", "endDate", "address", "city", "country", "coverImageDocumentId"], required: false },
   { actionKey: AuditAction.PROJECT_STATUS_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: false },
   { actionKey: AuditAction.PROJECT_MANAGER_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["managerMemberId", "managerName"], required: false },
   { actionKey: AuditAction.PROJECT_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },

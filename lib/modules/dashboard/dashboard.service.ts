@@ -497,7 +497,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
 
     case "activeProjects": {
       const scope = buildProjectScopeWhere(context);
-      const statuses = ["ACTIVE", "ON_HOLD", "DRAFT", "COMPLETED"] as const;
+      const statuses = ["ACTIVE", "PENDING", "FINISHED"] as const;
       const counts = await Promise.all(
         statuses.map((status) =>
           prisma.project.count({ where: { AND: [scope, { status, archivedAt: null }] } }),
@@ -510,7 +510,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           label: status,
           status,
           value: counts[index],
-          href: `/projects/all?status=${status}`,
+          href: `/projects?status=${status}`,
         })),
       };
     }
@@ -686,7 +686,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             {
               archivedAt: null,
               endDate: { gte: new Date() },
-              status: { notIn: ["COMPLETED", "ARCHIVED"] },
+              status: { notIn: ["FINISHED", "ARCHIVED"] },
             },
           ],
         },
@@ -1467,7 +1467,7 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
         priority: "CRITICAL",
         title: `${atRisk} project${atRisk === 1 ? "" : "s"} at risk`,
         detail: "Past the planned end date, or carrying a critical blocked task.",
-        href: "/projects/all",
+        href: "/projects",
       });
     }
   }
@@ -1725,7 +1725,7 @@ async function countProjectsAtRisk(context: UserContext): Promise<number> {
     where: {
       AND: [
         scope,
-        { archivedAt: null, status: { notIn: ["COMPLETED", "ARCHIVED"] } },
+        { archivedAt: null, status: { notIn: ["FINISHED", "ARCHIVED"] } },
         {
           OR: [
             { endDate: { lt: new Date() } },

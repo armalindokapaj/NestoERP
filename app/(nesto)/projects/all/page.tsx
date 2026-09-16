@@ -1,42 +1,15 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
-import { ModulePage } from "@/components/modules/module-page";
-import { Button } from "@/components/ui/button";
-import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
-import { requireModule } from "@/lib/context/current-user";
-import { ProjectsList } from "../projects-list";
+import { legacyProjectsHref } from "../legacy-routes";
 
-export const metadata: Metadata = { title: "All Projects" };
-
-export default async function ProjectsSectionPage({
+/**
+ * All Projects became the Projects page (E-05A §4). A bookmark keeps working:
+ * its search and status carry over, in the words E-05A renamed them to.
+ */
+export default async function AllProjectsRedirect({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const context = await requireModule("projects");
-  const experience = resolveModuleExperience(context, "projects");
-  const params = await searchParams;
-
-  return (
-    <ModulePage
-      experience={experience}
-      activeSection="all"
-      actions={
-        can(context, "project.create") ? (
-          <Button asChild size="sm">
-            <Link href="/projects/new">New project</Link>
-          </Button>
-        ) : null
-      }
-    >
-      <ProjectsList
-        context={context}
-        searchParams={params}
-        variant="all"
-        basePath="/projects/all"
-      />
-    </ModulePage>
-  );
+  redirect(legacyProjectsHref(await searchParams));
 }

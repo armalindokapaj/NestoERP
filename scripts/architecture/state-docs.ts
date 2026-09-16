@@ -15,6 +15,7 @@ const HEADING: Record<string, string> = {
   inventory: "Inventory",
   contracts: "Legal",
   engineering: "Engineering",
+  projects: "Projects",
 };
 
 let domain = "";

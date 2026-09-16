@@ -1,141 +1,109 @@
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
-import { ArrowRight, FolderKanban } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { ModulePage } from "@/components/modules/module-page";
-import { StatusBadge } from "@/components/modules/status-badge";
+import { ProjectsPortfolio, ProjectsPortfolioSkeleton } from "@/components/projects/portfolio/projects-portfolio";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { can } from "@/lib/access/can";
+import { canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
-import { requireModule } from "@/lib/context/current-user";
-import {
-  projectOverviewStats,
-  recentProjects,
-  upcomingDeadlines,
-} from "@/lib/modules/projects/project.repository";
-import { formatDate } from "@/lib/utils/format";
+import type { UserContext } from "@/lib/context/types";
+import { listPortfolioProjects, portfolioFilterOptions } from "@/lib/modules/projects/project.portfolio";
+import { activePortfolioFilterCount, parsePortfolioQuery } from "@/lib/modules/projects/project.query";
+import { parseProjectsView, PROJECTS_VIEW_COOKIE } from "@/lib/modules/projects/project.view-preference";
+import { requireProjectPortfolio } from "./portfolio-access";
+
+export const metadata: Metadata = { title: { absolute: "Projects · NESTO" } };
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
- * Projects module overview (PRD #10 §13).
+ * Projects (E-05A §1, §4, §5).
  *
- * This is the module's own dashboard, not the personal one at /dashboard: it
- * describes the portfolio, scoped to what this user may see (PRD #7 §16).
+ * One continuous collection of every project this person may open, in every
+ * company they belong to — favorites first, then whatever was worked on most
+ * recently. No separate sections for recent, finished or starred work: those
+ * are filters on the one collection.
  */
-export default async function ProjectsOverviewPage() {
-  const context = await requireModule("projects");
-  const experience = resolveModuleExperience(context, "projects");
-
-  const [stats, recent, deadlines] = await Promise.all([
-    projectOverviewStats(context),
-    recentProjects(context, 6),
-    upcomingDeadlines(context, 5),
-  ]);
-
-  const cards = [
-    { label: "Active", value: stats.active, href: "/projects/all?status=ACTIVE" },
-    { label: "On hold", value: stats.onHold, href: "/projects/all?status=ON_HOLD" },
-    { label: "At risk", value: stats.atRisk, href: "/projects/all" },
-    { label: "Completed", value: stats.completed, href: "/projects/all?status=COMPLETED" },
-  ];
-
-  const hasAnything = recent.length > 0;
+export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
+  const { session } = await requireProjectPortfolio();
+  const params = await searchParams;
 
   return (
-    <ModulePage
-      experience={experience}
-      activeSection="overview"
+    // No key: a new search or filter keeps the page on screen, dimmed, while
+    // the next first page arrives, so the search box keeps focus mid-typing.
+    <Suspense fallback={<ProjectsFrame session={session} description="Loading projects…"><ProjectsPortfolioSkeleton /></ProjectsFrame>}>
+      <ProjectsBody session={session} params={params} />
+    </Suspense>
+  );
+}
+
+async function ProjectsBody({ session, params }: { session: UserContext; params: Awaited<SearchParams> }) {
+  const query = parsePortfolioQuery(params);
+  const [result, options, cookieStore] = await Promise.all([
+    // The page always renders the first page; "Load more" asks the API for the rest.
+    listPortfolioProjects(session, { ...query, cursor: undefined }),
+    portfolioFilterOptions(session),
+    cookies(),
+  ]);
+
+  const { visibleProjectCount: projects, visibleCompanyCount: companies } = result.meta;
+  const description =
+    projects === 0
+      ? "Projects you can open, in every company you work for."
+      : `${projects} ${projects === 1 ? "project" : "projects"}${companies > 1 ? ` across ${companies} companies` : ""}`;
+
+  return (
+    <ProjectsFrame
+      session={session}
+      description={description}
       actions={
-        can(context, "project.create") ? (
+        options.creatableCompanies.length > 0 ? (
           <Button asChild size="sm">
-            <Link href="/projects/new">New project</Link>
+            <Link href="/projects/new">
+              <Plus aria-hidden="true" />
+              New project
+            </Link>
           </Button>
         ) : null
       }
     >
-      <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {cards.map((card) => (
-            <Link key={card.label} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
-              <p className="text-table text-fg-muted">{card.label}</p>
-              <p className="mt-2 text-page font-semibold tabular-nums text-fg">{card.value}</p>
-            </Link>
-          ))}
+      <ProjectsPortfolio
+        initial={result}
+        options={options}
+        query={query}
+        filterCount={activePortfolioFilterCount(query)}
+        initialView={parseProjectsView(cookieStore.get(PROJECTS_VIEW_COOKIE)?.value)}
+      />
+    </ProjectsFrame>
+  );
+}
+
+/**
+ * The module frame. Its section tabs — Milestones, Archived — belong to the
+ * session's company, so somebody whose session is in a company without project
+ * access sees the page without them.
+ */
+function ProjectsFrame({ session, description, actions, children }: { session: UserContext; description: string; actions?: React.ReactNode; children: React.ReactNode }) {
+  if (isModuleEnabled(session, "projects") && canAccessModule(session, "projects")) {
+    return (
+      <ModulePage experience={resolveModuleExperience(session, "projects")} activeSection="portfolio" description={description} actions={actions}>
+        {children}
+      </ModulePage>
+    );
+  }
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-page font-semibold text-fg">Projects</h1>
+          <p className="mt-1.5 text-body text-fg-muted">{description}</p>
         </div>
-
-        {!hasAnything ? (
-          <EmptyState
-            icon={<FolderKanban />}
-            title="No projects yet."
-            description="Projects created by your company will appear here."
-            action={
-              can(context, "project.create")
-                ? { label: "New project", href: "/projects/new" }
-                : undefined
-            }
-          />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <section className="nesto-card p-5">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Recently updated</h2>
-                <Link
-                  href="/projects/all"
-                  className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
-                >
-                  All projects
-                  <ArrowRight aria-hidden="true" className="size-3.5" />
-                </Link>
-              </div>
-              <ul className="mt-4 divide-y divide-line">
-                {recent.map((project) => (
-                  <li key={project.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
-                    <div className="min-w-0">
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
-                      >
-                        {project.name}
-                      </Link>
-                      <p className="truncate text-meta text-fg-subtle">
-                        {project.client?.name ?? project.code}
-                      </p>
-                    </div>
-                    <StatusBadge status={project.status} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Upcoming deadlines</h2>
-              {deadlines.length === 0 ? (
-                <p className="mt-4 text-table text-fg-subtle">
-                  No project end dates are coming up.
-                </p>
-              ) : (
-                <ul className="mt-4 divide-y divide-line">
-                  {deadlines.map((project) => (
-                    <li key={project.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
-                      <div className="min-w-0">
-                        <Link
-                          href={`/projects/${project.id}`}
-                          className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
-                        >
-                          {project.name}
-                        </Link>
-                        <p className="truncate text-meta text-fg-subtle">{project.code}</p>
-                      </div>
-                      <span className="shrink-0 text-meta tabular-nums text-fg-muted">
-                        {project.endDate ? formatDate(project.endDate) : "—"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
-        )}
+        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>
-    </ModulePage>
+      {children}
+    </div>
   );
 }

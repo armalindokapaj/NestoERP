@@ -230,7 +230,7 @@ export async function membershipGuards(context: UserContext, memberId: string) {
         companyId: context.companyId,
         projectManagerMemberId: memberId,
         archivedAt: null,
-        status: { in: ["DRAFT", "ACTIVE", "ON_HOLD"] },
+        status: { in: ["PENDING", "ACTIVE"] },
       },
     }),
     prisma.task.count({

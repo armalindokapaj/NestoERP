@@ -16,7 +16,7 @@
   "lib/modules/hse/templates/template.service.ts": 3,
   "lib/modules/hse/toolbox/toolbox.service.ts": 2,
   "lib/modules/meetings/meeting.task-sync.ts": 1,
-  "lib/modules/projects/project.service.ts": 6,
+  "lib/modules/projects/project.service.ts": 1,
   "lib/modules/qaqc/defects/defect.service.ts": 5,
   "lib/modules/qaqc/inspections/inspection.service.ts": 1,
   "lib/modules/qaqc/materials/material.service.ts": 1,

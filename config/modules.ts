@@ -64,8 +64,8 @@ export const groupLabels: Record<ModuleGroup, string | null> = {
 /**
  * A module section — the second level of NESTO navigation (PRD #3 §31).
  *
- * Sections are routes, not client state (PRD #7 §14): `/projects/all` rather
- * than `/projects?tab=all`, so refresh, deep links and back/forward all work.
+ * Sections are routes, not client state (PRD #7 §14): `/projects/archived`
+ * rather than `/projects?tab=archived`, so refresh, deep links and back/forward all work.
  * The section whose `key` matches `defaultSection` renders at the module root.
  */
 export type ModuleSectionConfig = {
@@ -164,11 +164,12 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     group: "work",
     permission: "project.view",
     writePermission: "project.create",
-    defaultSection: "overview",
+    defaultSection: "portfolio",
     sections: [
-      { key: "overview", label: "Overview" },
-      { key: "all", label: "All Projects" },
-      { key: "my-projects", label: "My Projects" },
+      // Every project the person may open, across their companies (E-05A §4).
+      // It replaced Overview, All Projects and My Projects: one collection with
+      // filters rather than three lists.
+      { key: "portfolio", label: "Projects" },
       // Milestones across projects: delays, variance and the portfolio (PRD #44 §171-§175).
       { key: "milestones", label: "Milestones", permission: "project_planning.view" },
       { key: "archived", label: "Archived" },
@@ -612,7 +613,7 @@ export function isModuleKey(value: string): value is ModuleKey {
   return (MODULE_KEYS as readonly string[]).includes(value);
 }
 
-/** The route for a module section: `/projects/all`. */
+/** The route for a module section: `/projects/archived`. */
 export function sectionRoute(moduleKey: ModuleKey, sectionKey: string): string {
   const definition = modules[moduleKey];
   if (sectionKey === definition.defaultSection) return definition.route;

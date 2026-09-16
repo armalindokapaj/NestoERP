@@ -72,6 +72,17 @@ before anything is written; modules with their own scope builders check through
 those. A database foreign key proves the row exists, not whose it is
 (PRD #47 §20, §21, §50, §51).
 
+**One person, several companies (E-05A).** A person may hold a membership in
+more than one company. The session still resolves exactly one of them. Two
+things look past it, and both reuse each company's own rules rather than
+widening any: the Projects page lists the union of each membership's own project
+scope, resolved through `buildMemberContexts`; and opening a project in another
+company moves the session row to the membership in that company, by POST, after
+re-finding the project through that membership and re-checking the membership
+is active (`moveSessionToMembership`). The move is recorded as
+`COMPANY_CONTEXT_SWITCHED`. Nothing moves a session to a company without a
+project the person may open there. See `docs/projects-page.md`.
+
 **The data itself is checked too.** `lib/core/security/company-integrity.ts`
 reads the schema from Prisma's DMMF and looks for any row whose id-shaped
 columns name another company's records — including child tables such as line
@@ -253,6 +264,8 @@ server-owned fields · a test.
 ## 10. What this does not do (V0.1)
 
 No SSO, MFA, passkeys or external contractor login; no custom role builder; no
-cross-company switching; no attribute-based policy engine (PRD #47 §5).
+free company switcher; no attribute-based policy engine (PRD #47 §5). A session
+moves between a person's companies only by opening a project that company owns
+(§2, E-05A).
 `EXTERNAL_SHAREABLE` is metadata and grants nobody anything — contractor
 records are internal company data (§101, §102).

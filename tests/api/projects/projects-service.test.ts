@@ -41,7 +41,7 @@ function createInput(overrides: Record<string, unknown> = {}) {
   return createProjectSchema.parse({
     code: "PRJ-TEST-001",
     name: "Authorisation Test Project",
-    status: "DRAFT",
+    status: "PENDING",
     ...overrides,
   });
 }
@@ -50,7 +50,7 @@ function updateInput(overrides: Record<string, unknown> = {}) {
   return updateProjectSchema.parse({
     code: "PRJ-TEST-001",
     name: "Authorisation Test Project",
-    status: "DRAFT",
+    status: "PENDING",
     ...overrides,
   });
 }
@@ -147,7 +147,7 @@ describe("create authorisation and validation (PRD #10 §214, §215)", () => {
     created.push(project.id);
 
     expect(project.code).toBe("PRJ-TEST-001");
-    expect(project.status).toBe("DRAFT");
+    expect(project.status).toBe("PENDING");
   });
 
   it("refuses the Viewer (PRD #10 §133)", async () => {
@@ -157,6 +157,11 @@ describe("create authorisation and validation (PRD #10 §214, §215)", () => {
 
   it("refuses the Architect, who may contribute but not create", async () => {
     const context = await loginAs("ARCHITECT");
+    await expectError(projects.createProject(context, createInput()), "FORBIDDEN");
+  });
+
+  it("refuses the Project Manager, who runs projects but does not open them (E-05A §29)", async () => {
+    const context = await loginAs("PROJECT_MANAGER");
     await expectError(projects.createProject(context, createInput()), "FORBIDDEN");
   });
 
@@ -284,17 +289,22 @@ describe("update authorisation (PRD #10 §216, §217)", () => {
     );
   });
 
-  it("refuses an invalid status transition (PRD #10 §62)", async () => {
+  it("refuses a correction back to Pending without a reason (E-05A §12)", async () => {
     const { context, project } = await scratchProject();
+    await projects.updateProject(context, project.id, updateInput({ code: project.code, name: project.name, status: "ACTIVE" }));
 
     await expectError(
       projects.updateProject(
         context,
         project.id,
-        updateInput({ code: project.code, name: project.name, status: "COMPLETED" }),
+        updateInput({ code: project.code, name: project.name, status: "PENDING" }),
       ),
       "VALIDATION_ERROR",
     );
+  });
+
+  it("refuses ARCHIVED as a status an edit may set (PRD #10 §62)", () => {
+    expect(updateProjectSchema.safeParse({ code: "PRJ-1", name: "Archive me", status: "ARCHIVED" }).success).toBe(false);
   });
 
   it("refuses a stale update (PRD #10 §178)", async () => {
@@ -307,7 +317,7 @@ describe("update authorisation (PRD #10 §216, §217)", () => {
         updateInput({
           code: project.code,
           name: project.name,
-          status: "DRAFT",
+          status: "PENDING",
           versionUpdatedAt: new Date("2020-01-01"),
         }),
       ),

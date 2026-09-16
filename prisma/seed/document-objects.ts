@@ -34,6 +34,8 @@ export type SeedDocumentInput = {
   archived?: boolean;
   archivedAt?: Date | null;
   archivedBy?: string | null;
+  /** The file's bytes, where the placeholder for its extension will not do — a cover render (E-05A §8). */
+  bytes?: Uint8Array;
 };
 
 /** A small but genuinely valid PDF, so a seeded file really can be previewed. */
@@ -123,7 +125,7 @@ export async function seedStoredDocument(
 ): Promise<void> {
   const extension = extensionOf(input.name);
   const mimeType = MIME_BY_EXTENSION[extension] ?? "application/pdf";
-  const bytes = bytesFor(extension, input.name);
+  const bytes = input.bytes ?? bytesFor(extension, input.name);
 
   const provider = storageProvider();
   const storageKey = buildStorageKey({

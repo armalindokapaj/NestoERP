@@ -34,7 +34,6 @@ export default async function ProjectsSectionPage({
       <ProjectsList
         context={context}
         searchParams={params}
-        variant="archived"
         basePath="/projects/archived"
       />
     </ModulePage>

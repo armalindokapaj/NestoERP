@@ -1,7 +1,8 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 import type { ModuleKey } from "@/config/modules";
 import type { UserContext } from "@/lib/context/types";
+import { DB_NOW } from "@/lib/database/clock";
 
 /**
  * Business activity (PRD #8 §45, PRD #10 §153).
@@ -40,6 +41,7 @@ export async function recordActivity(
       metadata: input.metadata,
     },
   });
+  await touchProjectActivity(tx, context.companyId, input);
 }
 
 /**
@@ -69,6 +71,57 @@ export async function recordActorActivity(
       metadata: input.metadata,
     },
   });
+  await touchProjectActivity(tx, actor.companyId, input);
+}
+
+/**
+ * Moves the project's `lastActivityAt` when the activity is about a project
+ * (E-05A §15).
+ *
+ * Every module that does meaningful work on a project already says so here —
+ * a task, a document, a meeting, a log, a status change all carry the project
+ * in their activity — so this one place keeps the Projects page's "recently
+ * active" order without any module having to remember to.
+ *
+ * Three decisions keep it from costing the write it rides on:
+ *
+ * - **Raw SQL**, so the project's `updatedAt` stays put. That column is the
+ *   edit form's concurrency token (PRD #10 §178); if adding a task moved it, a
+ *   project manager saving the project would be told somebody else had edited it.
+ * - **At most once a minute per project.** A burst of work on one project locks
+ *   its row once, not once per row written. The ordering is minute-accurate,
+ *   which is all "most recently active" needs.
+ * - **SKIP LOCKED.** If another transaction holds the project row, this one
+ *   does not wait for it — and cannot deadlock against it. The holder is itself
+ *   working on the project and records its own activity; the marker is at most
+ *   that transaction late.
+ *
+ * Projects owns the row; the `lastActivityAt` column is co-owned with this
+ * recorder (docs/data-ownership.md). It is written nowhere else.
+ */
+async function touchProjectActivity(tx: TransactionClient, companyId: string, input: ActivityInput): Promise<void> {
+  const projectId = projectOf(input);
+  if (!projectId) return;
+  await tx.$executeRaw(Prisma.sql`
+    UPDATE "projects" SET "lastActivityAt" = ${DB_NOW}
+    WHERE "id" = (
+      SELECT "id" FROM "projects"
+      WHERE "id" = ${projectId}
+        AND "companyId" = ${companyId}
+        AND "lastActivityAt" < ${DB_NOW} - INTERVAL '1 minute'
+      FOR UPDATE SKIP LOCKED
+    )
+  `);
+}
+
+function projectOf(input: ActivityInput): string | null {
+  if (input.entityType === "Project") return input.entityId;
+  const metadata = input.metadata;
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const value = (metadata as Record<string, unknown>).projectId;
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return null;
 }
 
 /** Describes a field change for activity metadata, e.g. a status transition. */

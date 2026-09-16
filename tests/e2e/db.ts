@@ -69,6 +69,7 @@ export async function removeTestProjects(codePrefix: string): Promise<void> {
   const ids = projects.map((project) => project.id);
 
   await db.activity.deleteMany({ where: { entityId: { in: ids } } });
+  await db.userFavorite.deleteMany({ where: { entityType: "project", entityId: { in: ids } } });
   await db.projectMember.deleteMany({ where: { projectId: { in: ids } } });
   await db.project.deleteMany({ where: { id: { in: ids } } });
 }

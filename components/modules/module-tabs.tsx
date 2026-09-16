@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils/cn";
 /**
  * Module sub-navigation (PRD #7 §14).
  *
- * Tabs are routes, not local state: `/projects/all`, not `/projects?tab=all`.
+ * Tabs are routes, not local state: `/projects/archived`, not `/projects?tab=archived`.
  * Deep links, refresh and back/forward therefore work without any extra code,
  * and only permitted tabs are rendered at all (PRD #5 §30).
  *

@@ -328,7 +328,9 @@ test.describe("access (PRD #22 §18, §23, §24, §407, §408)", () => {
 
   test("the CEO reads the company position and mutates nothing (§25)", async ({ page }) => {
     await signIn(page, "CEO");
-    await page.goto("/hse/hazards");
+    // Searched rather than expected on the first page: the list is ordered by
+    // last update, and a fresh seed leaves this hazard the oldest of 35.
+    await page.goto("/hse/hazards?search=HZ-2026-0001");
 
     await expect(recordTable(page).getByText("HZ-2026-0001").first()).toBeVisible();
     await expect(page.getByRole("link", { name: /report a hazard/i })).toHaveCount(0);

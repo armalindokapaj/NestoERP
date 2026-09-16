@@ -17,15 +17,14 @@ afterAll(async () => {
 });
 
 describe("privilege claims in a request body are inert", () => {
-  it("ignores companyId, role and createdBy on create", async () => {
+  it("ignores role, createdBy and archive fields on create", async () => {
     const context = await loginAs("OWNER");
 
     const input = createProjectSchema.parse({
       code: `PRJ-CONTRACT-${Date.now().toString().slice(-6)}`,
       name: "Contract Test",
-      status: "DRAFT",
+      status: "PENDING",
       // Everything below is what an attacker would try.
-      companyId: "company_demo_b",
       role: "OWNER",
       createdBy: "user_viewer",
       archivedAt: new Date().toISOString(),
@@ -41,6 +40,16 @@ describe("privilege claims in a request body are inert", () => {
     await prisma.activity.deleteMany({ where: { entityId: project.id } });
     await prisma.projectMember.deleteMany({ where: { projectId: project.id } });
     await prisma.project.delete({ where: { id: project.id } });
+  });
+
+  it("refuses a companyId the caller may not create in, and creates nothing (E-05A §39)", async () => {
+    const context = await loginAs("OWNER");
+    const code = `PRJ-CONTRACT-B-${Date.now().toString().slice(-6)}`;
+
+    const input = createProjectSchema.parse({ code, name: "Contract Test in B", companyId: "company_demo_b" });
+
+    await expect(projects.createProject(context, input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await prisma.project.count({ where: { code } })).toBe(0);
   });
 
   it("ignores archive fields on update", async () => {

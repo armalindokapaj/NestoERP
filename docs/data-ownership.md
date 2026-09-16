@@ -133,7 +133,12 @@ write that table". The reasons live with them in
   none of the others: Planning's two settings on `Project`, Account's profile
   fields on `User`, the numbering allocator's sequence counter on
   `CompanyNumberingScheme`. The gate reads the columns each call names and
-  fails if one strays (PRD #48 §252).
+  fails if one strays (PRD #48 §252). The activity recorder's
+  `Project.lastActivityAt` is the one co-owned column the gate cannot see: it is
+  written by raw SQL, deliberately, so the write does not move `updatedAt`. The
+  gate refuses an exception it never sees used, so the decision is recorded
+  here and in `lib/modules/shared/activity.ts` rather than in the registry
+  (E-05A §15, `docs/projects-page.md`).
 - **Module seeding** — access sync creates a `CompanyModule` row for a module
   newly added to the deployment, so an existing company has something to
   toggle. It never changes `enabled`.

@@ -398,9 +398,9 @@ export async function markWon(
         code: input.newProjectCode!,
         name: input.newProjectName!,
         description: existing.description ?? undefined,
-        // A project handed over from a won deal has not started yet: DRAFT is
-        // where the delivery team picks it up (PRD #10 §14, PRD #17 §90).
-        status: "DRAFT",
+        // A project handed over from a won deal has not started yet: Pending is
+        // where the delivery team picks it up (PRD #10 §14, PRD #17 §90, E-05A §10).
+        status: "PENDING",
         priority: undefined,
         startDate: undefined,
         endDate: undefined,

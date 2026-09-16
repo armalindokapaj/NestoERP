@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { EDITABLE_STATUSES } from "./project.status";
+import { PROJECT_TYPE_KEYS } from "@/config/project-types";
+import { WORKING_STATUSES } from "./project.machine";
 
 /**
  * Project validation (PRD #10 §193–§195).
@@ -54,8 +55,8 @@ const projectFields = {
   description: optionalText(5000),
   clientId: optionalId,
   projectManagerMemberId: optionalId,
-  status: z.enum(EDITABLE_STATUSES as [string, ...string[]]),
   priority: optionalEnum(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const),
+  projectType: optionalEnum(PROJECT_TYPE_KEYS),
   startDate: optionalDate,
   endDate: optionalDate,
   address: optionalText(300),
@@ -73,11 +74,40 @@ const scheduleRefinement = <T extends { startDate?: Date; endDate?: Date }>(
     { message: "End date must be on or after the start date.", path: ["endDate"] },
   );
 
-export const createProjectSchema = scheduleRefinement(z.object(projectFields));
+export const createProjectSchema = scheduleRefinement(
+  z.object({
+    ...projectFields,
+    /**
+     * The company the project is created in (E-05A §30, §39). Optional: absent
+     * means the company the session is in. Whatever arrives, the service checks
+     * `project.create` in that company for this person — naming a company is a
+     * request, never a grant.
+     */
+    companyId: z
+      .string()
+      .trim()
+      .max(64)
+      .optional()
+      .transform((value) => (value === "" ? undefined : value)),
+    /** New projects start Pending unless an authorised person says otherwise (E-05A §31). */
+    status: z.enum(WORKING_STATUSES).default("PENDING"),
+  }),
+);
 
 export const updateProjectSchema = scheduleRefinement(
   z.object({
     ...projectFields,
+    /**
+     * Absent leaves the status where it is. A different status is a move on the
+     * project machine and needs `project.status.manage` (E-05A §11) — editing
+     * the details does not carry it.
+     */
+    status: z.enum(WORKING_STATUSES).optional(),
+    /**
+     * The cover render (E-05A §8). Absent leaves it; an empty string clears it;
+     * an id must name an image document on this project the editor can open.
+     */
+    coverImageDocumentId: z.string().trim().max(64).optional(),
     /**
      * Optimistic concurrency: the value the form was loaded with. If the record
      * has moved on since, the update is refused rather than silently
@@ -105,7 +135,7 @@ export type ProjectSortKey = (typeof PROJECT_SORT_KEYS)[number];
 
 export const projectListQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
-  status: z.array(z.enum(["DRAFT", "ACTIVE", "ON_HOLD", "COMPLETED"])).optional(),
+  status: z.array(z.enum(WORKING_STATUSES)).optional(),
   priority: z.array(z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"])).optional(),
   clientId: z.string().optional(),
   projectManagerMemberId: z.string().optional(),
@@ -132,3 +162,65 @@ export const updateProjectMemberSchema = z.object({
 
 export type AddProjectMemberInput = z.infer<typeof addProjectMemberSchema>;
 export type UpdateProjectMemberInput = z.infer<typeof updateProjectMemberSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Projects page (E-05A)                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The Projects page sorts (E-05A §14, §20). `recommended` is favorites first,
+ * then the most recent activity, then the name.
+ */
+export const PORTFOLIO_SORT_KEYS = [
+  "recommended",
+  "activity",
+  "name-asc",
+  "name-desc",
+  "company-asc",
+  "newest",
+  "oldest",
+] as const;
+
+export type PortfolioSortKey = (typeof PORTFOLIO_SORT_KEYS)[number];
+
+export const PORTFOLIO_PAGE_SIZE = 24;
+
+/**
+ * One query behind the gallery, the list and `GET /api/projects` (E-05A §22,
+ * §36, §42). Every value narrows the person's authorised projects; none of
+ * them can widen it.
+ */
+export const portfolioQuerySchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  status: z.enum(WORKING_STATUSES).optional(),
+  favorites: z.boolean().default(false),
+  companyId: z.string().trim().max(64).optional(),
+  /** An effective project role label, or `any` for every project the person is assigned to or manages. */
+  role: z.string().trim().max(120).optional(),
+  projectType: z.enum(PROJECT_TYPE_KEYS).optional(),
+  /** `city:<name>` or `country:<name>`. */
+  location: z
+    .string()
+    .trim()
+    .max(240)
+    .regex(/^(city|country):.+$/)
+    .optional(),
+  sort: z.enum(PORTFOLIO_SORT_KEYS).default("recommended"),
+  cursor: z.string().max(2000).optional(),
+  limit: z.number().int().min(1).max(60).default(PORTFOLIO_PAGE_SIZE),
+});
+
+export type PortfolioQuery = z.infer<typeof portfolioQuerySchema>;
+
+/** `PATCH /api/projects/:id/status` (E-05A §40). */
+export const changeProjectStatusSchema = z.object({
+  status: z.enum(WORKING_STATUSES),
+  reason: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .transform((value) => (value === "" ? undefined : value)),
+});
+
+export type ChangeProjectStatusInput = { status: z.infer<typeof changeProjectStatusSchema>["status"]; reason?: string };

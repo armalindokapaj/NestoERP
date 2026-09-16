@@ -172,6 +172,8 @@ const SCHEMA_FIELD = new RegExp(`^\\s*(${SERVER_OWNED_FIELDS.join("|")})\\s*:\\s
 const SCHEMA_FIELD_EXCEPTIONS: Record<string, string> = {
   "lib/modules/documents/document.schema.ts#uploadedByMemberId": "list filter; only narrows the scoped document query",
   "lib/modules/tasks/task.schema.ts#createdByMemberId": "list filter; only narrows the scoped task query",
+  "lib/modules/projects/project.schema.ts#companyId":
+    "Projects page filter, which only narrows the union of the person's own memberships' project scopes; and the company a new project is created in, which contextForCompany re-checks against the person's own active memberships and project.create there (E-05A §30, §39)",
 };
 
 for (const file of walk("lib", (candidate) => candidate.endsWith(".ts"))) {

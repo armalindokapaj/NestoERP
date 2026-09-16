@@ -26,6 +26,8 @@ export const DEMO_USERNAME = {
   HSE: "hse",
   VIEWER: "viewer",
   OWNER_B: "owner-b",
+  /** Architect in Company A, Project Manager in Company B (E-05A §28). */
+  MULTI_COMPANY: "multicompany",
 } as const;
 
 export type DemoRole = keyof typeof DEMO_USERNAME;

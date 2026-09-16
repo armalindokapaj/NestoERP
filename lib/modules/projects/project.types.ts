@@ -41,6 +41,11 @@ export type ProjectDetailDTO = {
   } | null;
   schedule: { startDate: string | null; endDate: string | null };
   location: { address: string | null; city: string | null; country: string | null };
+  /** The managing company, shown in the workspace breadcrumb (E-05A §26). */
+  company: { id: string; name: string };
+  projectType: { key: string; label: string } | null;
+  coverImageDocumentId: string | null;
+  lastActivityAt: string;
   counts: { members: number; openTasks: number; documents: number };
   createdAt: string;
   updatedAt: string;
@@ -78,10 +83,53 @@ export type ProjectTaskSummary = {
   overdue: number;
 };
 
-export type ProjectOverviewStats = {
-  active: number;
-  onHold: number;
-  atRisk: number;
-  completed: number;
-  draft: number;
+
+/* -------------------------------------------------------------------------- */
+/* Projects page (E-05A §37, §41)                                              */
+/* -------------------------------------------------------------------------- */
+
+export type PortfolioProjectDTO = {
+  id: string;
+  code: string;
+  name: string;
+  status: ProjectStatus;
+  href: string;
+  /** The managing company, always named (E-05A §9). `isCurrent` is the session's company. */
+  company: { id: string; name: string; logoUrl: string | null; isCurrent: boolean };
+  /** Null when there is no cover or this reader cannot open its document (E-05A §73). */
+  cover: { documentId: string; thumbnailUrl: string } | null;
+  location: { city: string | null; country: string | null };
+  projectType: { key: string; label: string } | null;
+  myProjectRole: { name: string } | null;
+  isFavorite: boolean;
+  lastActivityAt: string;
+  createdAt: string;
+  /** Decided in the project's own company, by permission and scope — never by role name (E-05A §33, §59). */
+  permissions: { open: true; edit: boolean; manageStatus: boolean; archive: boolean; favorite: boolean };
+  /** The statuses Change Status may offer; empty without the permission. */
+  statusMoves: Array<"PENDING" | "ACTIVE" | "FINISHED">;
+};
+
+export type PortfolioListDTO = {
+  items: PortfolioProjectDTO[];
+  pageInfo: { nextCursor: string | null; hasNextPage: boolean };
+  meta: {
+    /** Every project this person can discover, before search and filters (E-05A §5). */
+    visibleProjectCount: number;
+    visibleCompanyCount: number;
+    /** What the current search and filters match. */
+    matchingCount: number;
+  };
+};
+
+export type PortfolioFilterOptionsDTO = {
+  companies: Array<{ id: string; name: string }>;
+  roles: Array<{ value: string; label: string }>;
+  projectTypes: Array<{ value: string; label: string }>;
+  locations: {
+    countries: Array<{ value: string; label: string }>;
+    cities: Array<{ value: string; label: string }>;
+  };
+  /** Where `+ New Project` may create (E-05A §30). */
+  creatableCompanies: Array<{ id: string; name: string }>;
 };
