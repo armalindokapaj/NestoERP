@@ -7,6 +7,7 @@
  */
 export type NestoSessionUser = {
   id: string;
-  email: string;
+  /** The login identifier (PRD #50 §6). Not an address — nothing signs in by one. */
+  username: string;
   sessionId: string;
 };

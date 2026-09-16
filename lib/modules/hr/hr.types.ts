@@ -21,7 +21,7 @@ import type {
 export type EmployeeRef = {
   memberId: string;
   fullName: string;
-  email: string;
+  email: string | null;
   avatarUrl: string | null;
 };
 
@@ -29,7 +29,7 @@ export type EmployeeSummaryDTO = {
   id: string;
   memberId: string;
   name: { firstName: string; lastName: string; fullName: string };
-  email: string;
+  email: string | null;
   avatarUrl: string | null;
   employeeNumber: string | null;
   jobTitle: string | null;

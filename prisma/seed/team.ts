@@ -173,6 +173,7 @@ export async function seedTeamRecords(prisma: PrismaClient, members: Map<string,
     update: {},
     create: {
       id: INVITED_USER.id,
+      username: INVITED_USER.username,
       email: INVITED_USER.email,
       firstName: INVITED_USER.firstName,
       lastName: INVITED_USER.lastName,

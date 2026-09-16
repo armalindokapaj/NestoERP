@@ -9,7 +9,6 @@
 export const MAIL_TEMPLATE_KEYS = [
   "team.invitation",
   "team.invitation_resend",
-  "auth.password_reset",
   "company.owner_invitation",
   "collaboration.mention",
   "approval.requested",

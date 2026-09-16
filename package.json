@@ -23,6 +23,7 @@
     "test:security:links": "SECURITY_DESTRUCTIVE=1 vitest run tests/security/foreign-links.test.ts",
     "test:architecture": "vitest run tests/architecture",
     "test:state": "vitest run tests/integration/transactions/transitions.test.ts",
+    "test:auth": "vitest run tests/unit/auth tests/integration/auth tests/integration/security/throttle.test.ts",
     "test:transactions": "vitest run tests/integration/transactions",
     "test:e2e": "playwright test",
     "test:e2e:prod": "NEXT_DIST_DIR=.next-e2e next build --turbopack && NEXT_DIST_DIR=.next-e2e E2E_PORT=3100 playwright test",

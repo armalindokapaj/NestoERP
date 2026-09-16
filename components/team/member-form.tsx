@@ -33,7 +33,7 @@ export function MemberForm({
   roles: SelectOption[];
   departments: SelectOption[];
   values: { roleId: string; departmentId: string | null; jobTitle: string | null };
-  profile: { fullName: string; email: string };
+  profile: { fullName: string; email: string | null };
   versionUpdatedAt?: string;
   cancelHref: string;
   canAssignRole: boolean;
@@ -55,7 +55,7 @@ export function MemberForm({
           <Input id="fullName" value={profile.fullName} readOnly disabled />
         </Field>
         <Field label="Email" name="email">
-          <Input id="email" value={profile.email} readOnly disabled />
+          <Input id="email" value={profile.email ?? ""} placeholder="—" readOnly disabled />
         </Field>
       </FormSection>
 

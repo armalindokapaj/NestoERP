@@ -8,31 +8,31 @@ import { expect, type Page } from "@playwright/test";
  */
 export const DEMO_PASSWORD = process.env.NESTO_DEMO_PASSWORD ?? "nesto1234";
 
-export const DEMO_EMAIL = {
-  OWNER: "owner@nesto.test",
-  ADMIN: "admin@nesto.test",
-  COMPANY_IT: "it@nesto.test",
-  HR: "hr@nesto.test",
-  CEO: "ceo@nesto.test",
-  PROJECT_MANAGER: "pm@nesto.test",
-  ARCHITECT: "architect@nesto.test",
-  ENGINEER: "engineer@nesto.test",
-  FINANCE: "finance@nesto.test",
-  LEGAL: "legal@nesto.test",
-  SALES: "sales@nesto.test",
-  PROCUREMENT: "procurement@nesto.test",
-  INVENTORY: "inventory@nesto.test",
-  QAQC: "qaqc@nesto.test",
-  HSE: "hse@nesto.test",
-  VIEWER: "viewer@nesto.test",
-  OWNER_B: "owner-b@nesto.test",
+export const DEMO_USERNAME = {
+  OWNER: "owner",
+  ADMIN: "admin",
+  COMPANY_IT: "it",
+  HR: "hr",
+  CEO: "ceo",
+  PROJECT_MANAGER: "pm",
+  ARCHITECT: "architect",
+  ENGINEER: "engineer",
+  FINANCE: "finance",
+  LEGAL: "legal",
+  SALES: "sales",
+  PROCUREMENT: "procurement",
+  INVENTORY: "inventory",
+  QAQC: "qaqc",
+  HSE: "hse",
+  VIEWER: "viewer",
+  OWNER_B: "owner-b",
 } as const;
 
-export type DemoRole = keyof typeof DEMO_EMAIL;
+export type DemoRole = keyof typeof DEMO_USERNAME;
 
 export async function signIn(page: Page, role: DemoRole, options: { to?: string } = {}) {
   await page.goto(options.to ? `/login?callbackUrl=${encodeURIComponent(options.to)}` : "/login");
-  await page.getByLabel("Email").fill(DEMO_EMAIL[role]);
+  await page.getByLabel("Username").fill(DEMO_USERNAME[role]);
   await page.getByLabel("Password").fill(DEMO_PASSWORD);
   // Scoped to the form: in a development build the login page also carries the
   // demo-account panel, whose sixteen "Sign in as ..." buttons would otherwise

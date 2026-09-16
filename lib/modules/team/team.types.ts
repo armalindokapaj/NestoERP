@@ -12,7 +12,7 @@ export type TeamMemberSummaryDTO = {
   id: string;
   userId: string;
   name: { firstName: string; lastName: string; fullName: string };
-  email: string;
+  email: string | null;
   avatarUrl: string | null;
   role: { id: string; key: string; name: string };
   department: { id: string; name: string } | null;
@@ -35,7 +35,7 @@ export type TeamMemberDetailDTO = {
     firstName: string;
     lastName: string;
     fullName: string;
-    email: string;
+    email: string | null;
     phone: string | null;
     avatarUrl: string | null;
   };
@@ -89,7 +89,7 @@ export type TeamMemberProjectDTO = {
 
 export type InvitationDTO = {
   id: string;
-  email: string;
+  email: string | null;
   name: string | null;
   role: { id: string; name: string };
   department: { id: string; name: string } | null;

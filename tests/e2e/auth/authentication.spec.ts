@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { db } from "../db";
-import { DEMO_EMAIL, DEMO_PASSWORD, signIn, signOut } from "../fixtures";
+import { DEMO_PASSWORD, DEMO_USERNAME, signIn, signOut } from "../fixtures";
 
 /**
  * Authentication journeys (PRD #9 §145–§147, §179).
@@ -18,26 +18,26 @@ test.describe("sign in", () => {
 
   test("refuses a wrong password without naming the cause (PRD #6 §8)", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill(DEMO_EMAIL.OWNER);
+    await page.getByLabel("Username").fill(DEMO_USERNAME.OWNER);
     await page.getByLabel("Password").fill("definitely-not-the-password");
     await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
-    await expect(page.locator("form").getByRole("alert")).toContainText(/incorrect email or password/i);
+    await expect(page.locator("form").getByRole("alert")).toContainText(/incorrect username or password/i);
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("gives an unknown email the same message", async ({ page }) => {
+  test("gives an unknown username the same message", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("nobody@nesto.test");
+    await page.getByLabel("Username").fill("nobody.at.all");
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
     await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
-    await expect(page.locator("form").getByRole("alert")).toContainText(/incorrect email or password/i);
+    await expect(page.locator("form").getByRole("alert")).toContainText(/incorrect username or password/i);
   });
 
   test("refuses an inactive account (PRD #9 §139)", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("inactive-user@nesto.test");
+    await page.getByLabel("Username").fill("inactive-user");
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
     await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
@@ -47,7 +47,7 @@ test.describe("sign in", () => {
 
   test("refuses a member of a suspended company (PRD #9 §32)", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("suspended-company@nesto.test");
+    await page.getByLabel("Username").fill("suspended-company");
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
     await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
@@ -65,7 +65,7 @@ test.describe("route protection", () => {
     await page.goto("/projects/project_a");
     await expect(page).toHaveURL(/\/login\?callbackUrl=/);
 
-    await page.getByLabel("Email").fill(DEMO_EMAIL.PROJECT_MANAGER);
+    await page.getByLabel("Username").fill(DEMO_USERNAME.PROJECT_MANAGER);
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
     await page.locator("form").getByRole("button", { name: /sign in/i }).click();
 
@@ -93,7 +93,7 @@ test.describe("route protection", () => {
     await signIn(page, "OWNER");
 
     // Revoke it behind their back: the cookie stays, the session row does not.
-    await db.session.deleteMany({ where: { user: { email: DEMO_EMAIL.OWNER } } });
+    await db.session.deleteMany({ where: { user: { username: DEMO_USERNAME.OWNER } } });
 
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login\?reason=session-expired/);
@@ -102,10 +102,10 @@ test.describe("route protection", () => {
     // And the login page stays reachable when asked for directly, stale cookie
     // and all — this is the navigation that used to end in ERR_TOO_MANY_REDIRECTS.
     await page.goto("/login");
-    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Username")).toBeVisible();
 
     // The whole point of getting them here: they can sign back in.
-    await page.getByLabel("Email").fill(DEMO_EMAIL.OWNER);
+    await page.getByLabel("Username").fill(DEMO_USERNAME.OWNER);
     await page.getByLabel("Password").fill(DEMO_PASSWORD);
     await page.locator("form").getByRole("button", { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/dashboard/);
@@ -122,17 +122,25 @@ test.describe("sign out", () => {
   });
 });
 
-test.describe("password recovery (PRD #9 §225)", () => {
-  test("gives the same confirmation whatever the address", async ({ page }) => {
+test.describe("password recovery (PRD #50 §3, §268)", () => {
+  test("sends people to their administrator, and offers no form", async ({ page }) => {
     await page.goto("/forgot-password");
-    await page.getByLabel("Email").fill("nobody-at-all@nesto.test");
-    await page.getByRole("button", { name: /send reset link/i }).click();
 
-    await expect(page.getByText(/check your email/i)).toBeVisible();
+    await expect(page.getByText(/contact your nesto administrator/i)).toBeVisible();
+    // No self-service reset exists in V0.1: nothing here takes an address, and
+    // nothing here sends mail.
+    await expect(page.locator("input")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /back to sign in/i })).toBeVisible();
   });
 
-  test("refuses an invalid reset link", async ({ page }) => {
+  test("an old reset link leads nowhere but the sign-in page", async ({ page }) => {
     await page.goto("/reset-password?token=not-a-real-token");
-    await expect(page.getByText(/that link is not valid/i)).toBeVisible();
+
+    // The route is gone from the build, so what is left is an unknown path an
+    // unauthenticated visitor asked for: the middleware sends them to sign in.
+    // What matters is that no link in anybody's inbox can still set a password.
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByLabel("Username")).toBeVisible();
+    await expect(page.getByLabel(/new password/i)).toHaveCount(0);
   });
 });

@@ -80,14 +80,14 @@ class Session {
     return body.csrfToken;
   }
 
-  async signIn(email: string, password: string): Promise<string | null> {
+  async signIn(username: string, password: string): Promise<string | null> {
     const csrfToken = await this.csrf();
     const response = await this.request("/api/auth/callback/credentials", {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         csrfToken,
-        email,
+        username,
         password,
         callbackUrl: `${BASE}/dashboard`,
       }),
@@ -115,7 +115,7 @@ async function verifyRole(role: RoleKey) {
 
   const session = new Session();
 
-  const location = await session.signIn(account.email, DEMO_PASSWORD);
+  const location = await session.signIn(account.username, DEMO_PASSWORD);
   check(
     Boolean(location && location.includes("/dashboard")),
     `${role}: login redirects to /dashboard`,
@@ -237,7 +237,7 @@ async function verifyPublicRoutes() {
     "public: protected deep link keeps a callbackUrl",
   );
 
-  const badLogin = await session.signIn(demoAccountForRole("OWNER")!.email, "wrong-password");
+  const badLogin = await session.signIn(demoAccountForRole("OWNER")!.username, "wrong-password");
   check(
     Boolean(badLogin && badLogin.includes("error")),
     "public: wrong password is rejected",

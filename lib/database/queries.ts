@@ -19,7 +19,7 @@ export type TeamMember = {
   firstName: string;
   lastName: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   avatarUrl: string | null;
   roleKey: string;
@@ -59,7 +59,7 @@ type MemberRow = {
     id: string;
     firstName: string;
     lastName: string;
-    email: string;
+    email: string | null;
     phone: string | null;
     avatarUrl: string | null;
     status: string;

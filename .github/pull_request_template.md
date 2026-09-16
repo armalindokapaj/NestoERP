@@ -46,10 +46,20 @@
 - [ ] Transition tests added, including the stale and simultaneous cases
 - [ ] `docs/state-machines.md`, `docs/document-lifecycle.md` and `docs/audit-model.md` still true
 
+## Identity and sessions
+
+<!-- For any change touching sign-in, accounts, sessions or mail. -->
+
+- [ ] Nothing authenticates by email — `username` is the identifier
+- [ ] No flow was made to require mail delivery to complete
+- [ ] Passwords and hashes stay out of logs, audit metadata and responses
+- [ ] Session-ending events still end sessions (password change, reset, suspension)
+- [ ] `docs/authentication-local.md`, `docs/session-security.md` and `docs/account-administration.md` still true
+
 ## Checks
 
 - [ ] `pnpm lint` · `pnpm typecheck`
 - [ ] `pnpm test` (or the suites this touches)
-- [ ] `pnpm verify:authorization` · `pnpm verify:ownership` · `pnpm verify:state` · `pnpm security:matrix --check` · `pnpm verify:roles`
+- [ ] `pnpm verify:authorization` · `pnpm verify:ownership` · `pnpm verify:state` · `pnpm verify:production-guards` · `pnpm security:matrix --check` · `pnpm verify:roles`
 - [ ] `pnpm test:security`
 - [ ] Migration reviewed against `docs/` and applied with `migrate deploy` (never `migrate dev`)

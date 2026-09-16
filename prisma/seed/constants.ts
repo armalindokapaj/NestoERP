@@ -43,8 +43,8 @@ export const DEPARTMENTS: { key: string; name: string }[] = [
 
 /** Company B exists so tenant isolation can actually be proven (PRD #9 §12). */
 export const COMPANY_B_USERS: DemoUserSpec[] = [
-  { id: "user_owner_b", email: "owner-b@nesto.test", firstName: "Bruno", lastName: "Keller", role: "OWNER", department: "management", jobTitle: "Owner", phone: "+49 30 000 001" },
-  { id: "user_viewer_b", email: "viewer-b@nesto.test", firstName: "Bea", lastName: "Hoffman", role: "VIEWER", department: "projects", jobTitle: "Observer", phone: "+49 30 000 002" },
+  { id: "user_owner_b", username: "owner-b", email: "owner-b@nesto.test", firstName: "Bruno", lastName: "Keller", role: "OWNER", department: "management", jobTitle: "Owner", phone: "+49 30 000 001" },
+  { id: "user_viewer_b", username: "viewer-b", email: "viewer-b@nesto.test", firstName: "Bea", lastName: "Hoffman", role: "VIEWER", department: "projects", jobTitle: "Observer", phone: "+49 30 000 002" },
 ];
 
 /**
@@ -52,10 +52,10 @@ export const COMPANY_B_USERS: DemoUserSpec[] = [
  * They exist for tests, not for the demo login list.
  */
 export const NEGATIVE_USERS = [
-  { id: "user_inactive", email: "inactive-user@nesto.test", firstName: "Ivy", lastName: "Nolan", userStatus: "INACTIVE" as const, membershipStatus: "ACTIVE" as const },
-  { id: "user_suspended", email: "suspended-user@nesto.test", firstName: "Sean", lastName: "Doyle", userStatus: "SUSPENDED" as const, membershipStatus: "ACTIVE" as const },
-  { id: "user_membership_inactive", email: "inactive-membership@nesto.test", firstName: "Mila", lastName: "Frank", userStatus: "ACTIVE" as const, membershipStatus: "INACTIVE" as const },
-  { id: "user_membership_suspended", email: "suspended-membership@nesto.test", firstName: "Marco", lastName: "Silva", userStatus: "ACTIVE" as const, membershipStatus: "SUSPENDED" as const },
+  { id: "user_inactive", username: "inactive-user", email: "inactive-user@nesto.test", firstName: "Ivy", lastName: "Nolan", userStatus: "INACTIVE" as const, membershipStatus: "ACTIVE" as const },
+  { id: "user_suspended", username: "suspended-user", email: "suspended-user@nesto.test", firstName: "Sean", lastName: "Doyle", userStatus: "SUSPENDED" as const, membershipStatus: "ACTIVE" as const },
+  { id: "user_membership_inactive", username: "inactive-membership", email: "inactive-membership@nesto.test", firstName: "Mila", lastName: "Frank", userStatus: "ACTIVE" as const, membershipStatus: "INACTIVE" as const },
+  { id: "user_membership_suspended", username: "suspended-membership", email: "suspended-membership@nesto.test", firstName: "Marco", lastName: "Silva", userStatus: "ACTIVE" as const, membershipStatus: "SUSPENDED" as const },
 ];
 
 /**
@@ -64,6 +64,7 @@ export const NEGATIVE_USERS = [
  */
 export const MULTI_COMPANY_USER = {
   id: "user_multicompany",
+  username: "multicompany",
   email: "multicompany@nesto.test",
   firstName: "Mia",
   lastName: "Vogel",
@@ -73,6 +74,7 @@ export const MULTI_COMPANY_USER = {
 /** A member of a suspended company: login must be refused (PRD #9 §32). */
 export const SUSPENDED_COMPANY_USER = {
   id: "user_suspended_company",
+  username: "suspended-company",
   email: "suspended-company@nesto.test",
   firstName: "Cora",
   lastName: "Neves",
@@ -92,6 +94,7 @@ export const DEMO_EXISTING_ACCOUNT_INVITE_TOKEN = "nesto-demo-existing-account-i
 /** Has a NESTO account already, and a pending invitation to Company A. */
 export const INVITED_USER = {
   id: "user_invited",
+  username: "invited-consultant",
   email: "invited-consultant@nesto.test",
   firstName: "Elira",
   lastName: "Hoxha",

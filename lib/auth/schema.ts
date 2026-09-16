@@ -1,27 +1,25 @@
 import { z } from "zod";
 
 export const credentialsSchema = z.object({
-  email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
+  username: z.string().trim().min(1, "Enter your username"),
   password: z.string().min(1, "Password is required"),
 });
 
 export type CredentialsInput = z.infer<typeof credentialsSchema>;
 
-export const forgotPasswordSchema = z.object({
-  email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
-});
-
-export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
-
 /**
- * A new password (PRD #6 §56).
+ * A new password (PRD #6 §56, PRD #50 §13).
  *
  * Length is the requirement that actually matters; composition rules push
  * people toward predictable substitutions without adding real strength.
+ *
+ * There is no reset-by-link schema beside this one: V0.1 has no self-service
+ * reset, so the only ways a password changes are its holder choosing a new one
+ * and an administrator issuing a temporary one (PRD #50 §3, §19, §20).
  */
-export const resetPasswordSchema = z
+export const changePasswordSchema = z
   .object({
-    token: z.string().min(1),
+    currentPassword: z.string().min(1, "Enter your current password"),
     password: z
       .string()
       .min(10, "Use at least 10 characters")
@@ -33,4 +31,4 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
-export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

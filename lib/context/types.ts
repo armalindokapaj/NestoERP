@@ -49,7 +49,7 @@ export type UserContext = {
   firstName: string;
   lastName: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   avatarUrl: string | null;
   jobTitle: string | null;

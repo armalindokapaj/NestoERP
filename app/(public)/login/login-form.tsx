@@ -25,7 +25,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
     formState: { errors },
   } = useForm<CredentialsInput>({
     resolver: zodResolver(credentialsSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { username: "", password: "" },
   });
 
   const onSubmit = handleSubmit((values) => {
@@ -50,19 +50,22 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
       ) : null}
 
       <div className="space-y-1.5">
-        <Label htmlFor="email">{t("email")}</Label>
+        <Label htmlFor="username">{t("username")}</Label>
         <Input
-          id="email"
-          type="email"
-          autoComplete="email"
+          id="username"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           autoFocus
-          placeholder={t("emailPlaceholder")}
-          aria-invalid={Boolean(errors.email)}
-          {...register("email")}
+          placeholder={t("usernamePlaceholder")}
+          aria-invalid={Boolean(errors.username)}
+          {...register("username")}
         />
-        {errors.email ? (
+        {errors.username ? (
           <p className="text-meta text-danger-strong">
-            {translateAuthError(t, errors.email.message ?? "")}
+            {translateAuthError(t, errors.username.message ?? "")}
           </p>
         ) : null}
       </div>

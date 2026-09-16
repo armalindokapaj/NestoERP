@@ -16,7 +16,6 @@ export const PUBLIC_ROUTES = [
   "/",
   "/login",
   "/forgot-password",
-  "/reset-password",
   /* Public site (app/(public)/(site)) */
   "/platform",
   "/pricing",
@@ -68,7 +67,7 @@ export const TOKEN_AUTHENTICATED_ROUTES = ["/api/internal/metrics"] as const;
 const PUBLIC_ROUTE_PREFIXES = ["/invite/"] as const;
 
 /** Public routes an authenticated user should never sit on. */
-const AUTHED_REDIRECT_ROUTES = ["/login", "/forgot-password", "/reset-password"] as const;
+const AUTHED_REDIRECT_ROUTES = ["/login", "/forgot-password"] as const;
 
 /**
  * Reasons the app itself sent a cookie-carrying visitor back to /login

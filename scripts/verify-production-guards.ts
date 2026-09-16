@@ -219,8 +219,11 @@ const checks: Check[] = [
     run: () => {
       const expectations: Array<[string, RegExp]> = [
         ["lib/auth/credentials.ts", /peekThrottle\("AUTH_LOGIN"/],
-        ["lib/actions/auth.ts", /hitThrottle\("AUTH_RESET_REQUEST"/],
-        ["lib/actions/auth.ts", /hitThrottle\("AUTH_RESET_SUBMIT"/],
+        // The reset-request and reset-submit flows are gone: V0.1 has no
+        // self-service password reset, so there is nothing there to throttle
+        // (PRD #50 §3, §268). Recovery is an administrator action, which is
+        // held by `team.member.password.reset` instead of by a rate limit.
+        ["lib/modules/account/account.service.ts", /peekThrottle\("PASSWORD_CHANGE"/],
         ["lib/modules/team/invitations/invite.service.ts", /hitThrottle\("INVITE_RESEND"/],
         ["lib/actions/team.ts", /hitThrottle\("INVITE_ACCEPT"/],
       ];

@@ -38,12 +38,12 @@ describe("mail templates", () => {
   });
 
   it("refuses a missing variable rather than sending a blank", () => {
-    expect(() => renderMailTemplate("auth.password_reset", { firstName: "Ana" })).toThrow(/resetUrl/);
+    expect(() => renderMailTemplate("collaboration.mention", { actorName: "Ana", recordLabel: "a task" })).toThrow(/link/);
   });
 
   it("refuses a link that is not an http(s) URL", () => {
     expect(() =>
-      renderMailTemplate("auth.password_reset", { firstName: "Ana", resetUrl: "javascript:alert(1)" }),
+      renderMailTemplate("collaboration.mention", { actorName: "Ana", recordLabel: "a task", link: "javascript:alert(1)" }),
     ).toThrow(/http/);
   });
 

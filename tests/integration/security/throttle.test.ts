@@ -108,15 +108,15 @@ describe("clientAddress", () => {
 
 describe("sign-in throttling (PRD #38 §147)", () => {
   const headers = () => new Headers({ "x-forwarded-for": "192.0.2.44", "user-agent": "vitest" });
-  const EMAIL = "architect@nesto.test";
+  const USERNAME = "architect";
 
   it("locks an account after repeated failures, even for the right password", async () => {
     const { limit } = THROTTLES.AUTH_LOGIN.account;
     for (let i = 0; i < limit; i += 1) {
-      expect(await authenticateCredentials({ email: EMAIL, password: "wrong-password" }, headers())).toBeNull();
+      expect(await authenticateCredentials({ username: USERNAME, password: "wrong-password" }, headers())).toBeNull();
     }
 
-    await expect(authenticateCredentials({ email: EMAIL, password: "nesto1234" }, headers())).rejects.toBeInstanceOf(
+    await expect(authenticateCredentials({ username: USERNAME, password: "nesto1234" }, headers())).rejects.toBeInstanceOf(
       SignInRateLimited,
     );
 
@@ -130,16 +130,16 @@ describe("sign-in throttling (PRD #38 §147)", () => {
   it("counts an address nobody registered the same way, so lockout reveals nothing", async () => {
     const { limit } = THROTTLES.AUTH_LOGIN.account;
     for (let i = 0; i < limit; i += 1) {
-      await authenticateCredentials({ email: "nobody-at-all@nesto.test", password: "x" }, headers());
+      await authenticateCredentials({ username: "nobody.at.all", password: "x" }, headers());
     }
     await expect(
-      authenticateCredentials({ email: "nobody-at-all@nesto.test", password: "x" }, headers()),
+      authenticateCredentials({ username: "nobody.at.all", password: "x" }, headers()),
     ).rejects.toBeInstanceOf(SignInRateLimited);
   });
 
   it("clears the account's failures on a successful sign-in and records the address", async () => {
-    await authenticateCredentials({ email: EMAIL, password: "wrong-password" }, headers());
-    const user = await authenticateCredentials({ email: EMAIL, password: "nesto1234" }, headers());
+    await authenticateCredentials({ username: USERNAME, password: "wrong-password" }, headers());
+    const user = await authenticateCredentials({ username: USERNAME, password: "nesto1234" }, headers());
     expect(user).not.toBeNull();
 
     const session = await prisma.session.findUniqueOrThrow({ where: { id: user!.sessionId } });

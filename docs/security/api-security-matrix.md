@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**569 route handlers, 261 server actions.** AUTHENTICATED 28 · COMPANY_SCOPED 788 · PUBLIC 9 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**569 route handlers, 259 server actions.** AUTHENTICATED 28 · COMPANY_SCOPED 788 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -855,8 +855,6 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 |---|---|---|---|---|---|---|---|---|
 | ACTION | `signInAction` | PUBLIC | — | — | — | — | — | security |
 | ACTION | `signOutAction` | PUBLIC | — | — | — | — | — | security |
-| ACTION | `requestPasswordResetAction` | PUBLIC | — | — | — | — | — | security |
-| ACTION | `resetPasswordAction` | PUBLIC | — | — | — | — | — | security |
 
 ## Server actions — clients
 

@@ -777,15 +777,32 @@ enum SupportRequestStatus {
 /// One global NESTO identity. Role, company and department live on the
 /// membership, never here (PRD #8 §13).
 model User {
-  id           String     @id @default(cuid())
-  firstName    String
-  lastName     String
-  email        String     @unique
-  passwordHash String
-  phone        String?
-  avatarUrl    String?
-  status       UserStatus @default(ACTIVE)
-  lastLoginAt  DateTime?
+  id        String @id @default(cuid())
+  firstName String
+  lastName  String
+
+  /// The login identifier (PRD #50 §6, §7). Stored already normalised:
+  /// trimmed, NFKC, lowercased. Unique across the platform.
+  username String @unique
+
+  /// Contact metadata, not an identifier (PRD #50 §66, §67). Nothing
+  /// authenticates by it and no flow requires it to be present.
+  email String? @unique
+
+  passwordHash               String
+  /// When the hash was last set, for rotation policy (PRD #50 §11, §15).
+  passwordChangedAt          DateTime  @default(now())
+  /// Set by an administrator's reset; the holder may do nothing else until
+  /// they choose a password of their own (PRD #50 §16, §17, §270).
+  mustChangePassword         Boolean   @default(false)
+  /// A temporary password stops working at this moment, whether or not it
+  /// was used (PRD #50 §17).
+  temporaryPasswordExpiresAt DateTime?
+
+  phone       String?
+  avatarUrl   String?
+  status      UserStatus @default(ACTIVE)
+  lastLoginAt DateTime?
 
   memberships         CompanyMember[]
   sessions            Session[]
@@ -2331,6 +2348,11 @@ model Commitment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// One commitment per source record. The handoff from a purchase order is
+  /// idempotent because the database refuses a second one, not because the
+  /// caller remembered to look (PRD #48 §41, §141, §165). A commitment raised
+  /// in Finance itself carries no source, and NULLs do not collide.
+  @@unique([companyId, sourceModule, sourceEntityType, sourceEntityId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([projectId])
@@ -2338,11 +2360,6 @@ model Commitment {
   @@index([expectedDate])
   @@index([currency])
   @@index([sourceModule, sourceEntityType, sourceEntityId])
-  /// One commitment per source record. The handoff from a purchase order is
-  /// idempotent because the database refuses a second one, not because the
-  /// caller remembered to look (PRD #48 §41, §141, §165). A commitment raised
-  /// in Finance itself carries no source, and NULLs do not collide.
-  @@unique([companyId, sourceModule, sourceEntityType, sourceEntityId])
   @@map("commitments")
 }
 

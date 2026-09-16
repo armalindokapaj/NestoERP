@@ -898,6 +898,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "team.member.reactivate",
       "team.member.suspend",
       "team.member.unsuspend",
+      "team.member.password.reset",
       "team.member.security_metadata.view",
       "team.invitation.view",
       "team.invitation.resend",

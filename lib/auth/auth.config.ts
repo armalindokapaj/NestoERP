@@ -25,7 +25,7 @@ export const authConfig = {
         // `user` is what authorize() returned on sign-in.
         token.nesto = {
           id: user.id as string,
-          email: user.email as string,
+          username: user.username as string,
           sessionId: user.sessionId,
         };
       }

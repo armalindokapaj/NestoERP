@@ -69,7 +69,7 @@ describe("session and membership state (PRD #47 §13, §22, §23)", () => {
   it("refuses every request for a member of a suspended company (§22)", async () => {
     const { session: row } = await createRawSession("suspended-company@nesto.test").catch(async () => {
       const member = await prisma.companyMember.findFirstOrThrow({ where: { company: { status: "SUSPENDED" } }, include: { user: true } });
-      return createRawSession(member.user.email);
+      return createRawSession(member.user.username);
     });
     session.id = row.id;
     const outcome = await get("/api/me");

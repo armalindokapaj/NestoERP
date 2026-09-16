@@ -123,6 +123,12 @@ jobs:
         # (PRD #48 §194-§202, §294-§296).
         run: pnpm test:transactions
 
+      - name: Local authentication tests
+        # Username identity, temporary passwords and administrator reset —
+        # including that an account with no email signs in like any other
+        # (PRD #50 §279-§281, §302, §325).
+        run: pnpm test:auth
+
       - name: State transition tests
         # A guarded transition moves a record that has not moved, refuses one
         # that has, and lets exactly one of two simultaneous callers win —

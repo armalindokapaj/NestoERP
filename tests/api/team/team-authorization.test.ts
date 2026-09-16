@@ -69,6 +69,7 @@ async function person(
 ) {
   return prisma.user.create({
     data: {
+      username: `probe.${name.toLowerCase()}`,
       email: EMAIL(name),
       firstName: `Given${name}`,
       lastName: `Family${name}`,
@@ -307,6 +308,7 @@ describe("an invitee is an address until they accept (PRD #47 §59)", () => {
     await prisma.companyInvite.updateMany({ where: { companyId, email }, data: { status: "CANCELLED" } });
     await prisma.user.create({
       data: {
+        username: `bootstrap.${email.split("@")[0].toLowerCase()}`,
         email,
         firstName: "Privatefirst",
         lastName: "Privatelast",
