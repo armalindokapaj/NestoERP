@@ -1,0 +1,142 @@
+# Worker alerts (PRD #51 §118, §124, §256).
+#
+# Prometheus alerting rules over the gauges `/api/internal/metrics` exposes.
+# Every metric named here is checked against the exporter by
+# tests/architecture/workers.test.ts, so a renamed gauge fails CI rather than
+# silently disarming an alert. Runbook: docs/worker-operations.md.
+#
+# Severity: `critical` pages whoever is on call; `warning` opens a ticket.
+
+groups:
+  - name: nesto-workers
+    rules:
+      - alert: WorkerGroupDown
+        # No live worker process for a group: its jobs are not running at all.
+        expr: worker_processes_live == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No worker is running the {{ $labels.group }} group"
+          runbook: docs/worker-operations.md#no-worker-is-running
+
+      - alert: WorkerTierUnhealthy
+        expr: worker_health_status >= 2
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A critical job has stopped, or a group holding one has no worker"
+          runbook: docs/worker-operations.md#reading-health
+
+      - alert: WorkerCriticalJobFailed
+        # Failed its maximum attempts in a row.
+        expr: worker_job_failed{criticality=~"CRITICAL|HIGH"} == 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} has failed its maximum attempts"
+          runbook: docs/worker-operations.md#a-job-is-failing
+
+      - alert: WorkerJobFailed
+        expr: worker_job_failed{criticality=~"NORMAL|LOW"} == 1
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} has failed its maximum attempts"
+          runbook: docs/worker-operations.md#a-job-is-failing
+
+      - alert: WorkerCriticalJobStale
+        expr: worker_job_healthy{criticality=~"CRITICAL|HIGH"} == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} has not succeeded within its expected interval"
+          runbook: docs/worker-operations.md#a-job-is-stale
+
+      - alert: WorkerJobStale
+        expr: worker_job_healthy{criticality=~"NORMAL|LOW"} == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} has not succeeded within its expected interval"
+          runbook: docs/worker-operations.md#a-job-is-stale
+
+      - alert: WorkerHighFailureRate
+        expr: worker_job_failures_last_hour > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} recorded more than 20 failed attempts in an hour"
+          runbook: docs/worker-operations.md#reading-the-failure-history
+
+      - alert: WorkerRepeatedLeaseExpiry
+        # Workers dying mid-run: out-of-memory kills, deploys without a grace period.
+        expr: worker_job_lease_expiries_last_hour >= 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} was taken over from a dead worker three times in an hour"
+          runbook: docs/worker-operations.md#workers-keep-dying-mid-run
+
+      - alert: NotificationOutboxBacklog
+        expr: notification_oldest_due_age_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "An in-app notification has waited more than five minutes to be delivered"
+          runbook: docs/worker-operations.md#the-outbox-is-backing-up
+
+      - alert: NotificationOutboxFailedEvents
+        expr: notification_outbox_failed > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outbox events have failed and wait for an operator"
+          runbook: docs/worker-operations.md#failed-outbox-events
+
+      - alert: ScanQueueStuck
+        expr: scan_queue_age_seconds > 900
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "An uploaded file has waited more than fifteen minutes for its malware scan"
+          runbook: docs/worker-operations.md#files-wait-for-their-scan
+
+      - alert: ScanFilesFailed
+        # Files that waited through every scan attempt and were failed, never made available.
+        expr: scan_failed_last_hour > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Uploaded files were failed because the scanner never gave a verdict"
+          runbook: docs/worker-operations.md#files-wait-for-their-scan
+
+      - alert: ScanClaimsAbandoned
+        # Scans claimed and never finished: the worker or upload request died mid-scan.
+        expr: scan_claims_abandoned > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Malware scans keep being abandoned mid-scan"
+          runbook: docs/worker-operations.md#files-wait-for-their-scan
+
+      - alert: ScanQuarantineOwed
+        expr: scan_quarantine_owed > 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "An infected file's object has not been moved to quarantine"
+          runbook: docs/runbooks/document-scanning.md#quarantine-move-owed

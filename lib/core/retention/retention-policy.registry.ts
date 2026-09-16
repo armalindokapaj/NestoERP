@@ -85,6 +85,46 @@ const POLICIES: RetentionPolicy[] = [
     description: "Processed outbox rows once delivery is settled.",
   },
   {
+    key: "notification-outbox.failed",
+    resourceType: "NotificationEventOutbox",
+    retentionDays: 180,
+    deleteMode: "HARD_DELETE",
+    legalHoldAware: false,
+    batchSize: 1000,
+    description:
+      "Events that never delivered, six months after they failed: far longer than delivered ones, because a failed event is what an operator comes looking for (PRD #51 §205, §227).",
+  },
+  {
+    key: "job-failures",
+    resourceType: "JobFailure",
+    retentionDays: 180,
+    deleteMode: "HARD_DELETE",
+    legalHoldAware: false,
+    batchSize: 1000,
+    description:
+      "Every failed job run and outbox attempt, kept as long as the failed events they explain. A manual retry marks these rows and never removes them (PRD #51 §36, §39, §227).",
+  },
+  {
+    key: "job-idempotency-keys",
+    resourceType: "JobIdempotencyKey",
+    retentionDays: 400,
+    deleteMode: "HARD_DELETE",
+    legalHoldAware: false,
+    batchSize: 1000,
+    description:
+      "What a job has already sent. Kept past the 365-day purge of read notifications, so a condition that stays true for a year — an RFI nobody answers — is not announced a second time while the first notice may still be on somebody's list (PRD #51 §15-§19).",
+  },
+  {
+    key: "worker-processes.stopped",
+    resourceType: "WorkerProcess",
+    retentionDays: 7,
+    deleteMode: "HARD_DELETE",
+    legalHoldAware: false,
+    batchSize: 1000,
+    description:
+      "Worker processes that stopped, or stopped beating, a week ago. Health only reads the living; a worker also prunes these when it starts (PRD #51 §116-§118, §229).",
+  },
+  {
     key: "mail-deliveries.settled",
     resourceType: "MailDelivery",
     retentionDays: 180,

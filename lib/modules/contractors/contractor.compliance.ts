@@ -3,12 +3,17 @@ import type { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import type { AttentionRowPage } from "@/lib/core/notifications/attention.conditions";
+import { jobStopRequested } from "@/lib/core/jobs/job.context";
+import { JobError } from "@/lib/core/jobs/job.errors";
+import { claimIdempotencyKey, idempotencyKeyClaimed } from "@/lib/core/jobs/job.idempotency";
 import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordSystemAction, recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
+import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { addLocalDays, daysBetween, localDate } from "@/lib/modules/calendar/calendar.time";
@@ -187,20 +192,29 @@ export async function createComplianceItem(context: UserContext, contractorId: s
   });
 }
 
-/** Renewing — a new certificate, a new expiry — puts the item back to what the dates say (§312). */
+/**
+ * Renewing — a new certificate, a new expiry — puts the item back to what the
+ * dates say (§312).
+ *
+ * The write is bound to the status and expiry it was decided from. The daily
+ * job moves the same rows, and without the binding either side could land a
+ * status that belongs to the other's dates: a renewal overwritten to EXPIRED
+ * with next year's expiry, which the job never looks at again (PRD #51 §80).
+ */
 export async function updateComplianceItem(context: UserContext, id: string, input: ComplianceInput): Promise<{ id: string; status: ComplianceStatus }> {
   const row = await findManageableItem(context, id, "contractor_compliance.manage");
   await assertEvidence(context, row.contractorId, row.id, input.documentId, row.documentId);
   const clock = await today(context.companyId);
   const status = deriveComplianceStatus({ status: input.status, expiresAt: input.expiresAt }, clock.today, clock.settings.contractorComplianceReminderDays);
   await prisma.$transaction(async (tx) => {
-    await tx.contractorComplianceItem.update({
-      where: { id: row.id },
+    const moved = await tx.contractorComplianceItem.updateMany({
+      where: { id: row.id, companyId: context.companyId, status: row.status, expiresAt: row.expiresAt },
       data: {
         type: input.type, title: input.title, status, documentId: input.documentId, issuedAt: at(input.issuedAt), expiresAt: at(input.expiresAt), issuer: input.issuer, referenceNumber: input.referenceNumber, notes: input.notes,
         ...(status !== row.status ? { statusChangedAt: new Date(), waivedReason: null, waivedAt: null, waivedByMemberId: null } : {}),
       },
     });
+    if (!moved.count) throw fail("COMPLIANCE_STALE", "This compliance item changed while you were saving it. Reload to see the latest.", "CONFLICT");
     await recordUserAction(
       context,
       { actionKey: AuditAction.CONTRACTOR_COMPLIANCE_UPDATED, entity: { type: COMPLIANCE_RECORD, id: row.id, label: `${input.title} · ${row.contractor.legalName}` }, before: auditShape({ ...row, issuedAt: dateOf(row.issuedAt), expiresAt: dateOf(row.expiresAt) }), after: auditShape({ ...input, status }) },
@@ -271,70 +285,117 @@ export async function complianceRecipients(db: Tx | typeof prisma, companyId: st
   return [...new Set([...owners, ...assignments.flatMap((row) => [row.internalManagerMemberId, row.project.projectManagerMemberId])].filter((id): id is string => Boolean(id)))];
 }
 
+const JOB = "contractors.compliance";
+/** Items read at a time; a company with more is walked by cursor, never cut off (PRD #51 §133-§138). */
+const BATCH = 100;
+/** A contractor the company has finished with, or put away, is not chased for its paperwork. */
+const CLOSED_CONTRACTOR: Array<"ARCHIVED" | "OFFBOARDED"> = ["ARCHIVED", "OFFBOARDED"];
+
 const WORKER_ROW = { id: true, companyId: true, contractorId: true, type: true, title: true, status: true, expiresAt: true, contractor: { select: { legalName: true, status: true } } } satisfies Prisma.ContractorComplianceItemSelect;
+type WorkerRow = Prisma.ContractorComplianceItemGetPayload<{ select: typeof WORKER_ROW }>;
+
+/**
+ * Brings one item to what its expiry date says and tells the people
+ * responsible, once per status per expiry date.
+ *
+ * The move is bound to the status and expiry as read, so a renewal saved
+ * meanwhile is never overtaken. The notice is claimed in the idempotency
+ * ledger in the same transaction, so two runs at once, or a run after
+ * retention has purged the first event from the outbox, tell people once
+ * (PRD #51 §15-§19, §80). An item with nobody to tell claims nothing: whoever
+ * takes compliance on before the next run still hears.
+ */
+async function settleExpiry(companyId: string, row: WorkerRow, todayDate: string, now: Date): Promise<{ moved: boolean; notified: ComplianceStatus | null }> {
+  const expires = dateOf(row.expiresAt)!;
+  const next: ComplianceStatus = expires < todayDate ? "EXPIRED" : "EXPIRING";
+  const moving = next !== row.status;
+  const claim = { companyId, jobKey: JOB, key: `${row.id}:${next}:${expires}` };
+  // Already in its status and already told: nothing to open a transaction for.
+  if (!moving && (await idempotencyKeyClaimed(prisma, claim))) return { moved: false, notified: null };
+  return prisma.$transaction(async (tx) => {
+    if (moving) {
+      const moved = await tx.contractorComplianceItem.updateMany({ where: { id: row.id, companyId, status: row.status, expiresAt: row.expiresAt }, data: { status: next, statusChangedAt: now } });
+      if (!moved.count) return { moved: false, notified: null };
+      if (next === "EXPIRED") {
+        await recordSystemAction(companyId, { actionKey: AuditAction.CONTRACTOR_COMPLIANCE_EXPIRED, entity: { type: COMPLIANCE_RECORD, id: row.id, label: `${row.title} · ${row.contractor.legalName}` }, before: { status: row.status, expiresAt: expires }, after: { status: "EXPIRED", expiresAt: expires } }, { tx });
+      }
+    }
+    const memberIds = await complianceRecipients(tx, companyId, row.contractorId);
+    if (!memberIds.length || !(await claimIdempotencyKey(tx, claim))) return { moved: moving, notified: null };
+    await enqueueNotificationEvent(tx, {
+      companyId,
+      eventType: next === "EXPIRED" ? NotificationEvent.CONTRACTOR_COMPLIANCE_EXPIRED : NotificationEvent.CONTRACTOR_COMPLIANCE_EXPIRING,
+      moduleKey: MODULE,
+      entityType: COMPLIANCE_RECORD,
+      entityId: row.id,
+      actorMemberId: null,
+      projectId: null,
+      payload: { memberIds, title: row.title, contractorName: row.contractor.legalName, typeLabel: COMPLIANCE_TYPE_LABELS[row.type as ComplianceType], expiresAt: expires, dateLabel: dateLabel(expires) },
+    });
+    return { moved: moving, notified: next };
+  });
+}
 
 /**
  * Job `contractors.compliance` (daily, §44, §199): VALID → EXPIRING inside the
- * reminder window, VALID or EXPIRING → EXPIRED past the date. Each move is
- * guarded by the status it leaves; each item notifies once per expiry date.
+ * reminder window, VALID or EXPIRING → EXPIRED past the date, in the company's
+ * own day. `expiring` and `expired` count the people told; `moved`, the items
+ * whose status changed.
+ *
+ * Every item in the company is reached, however many, and one that fails is
+ * logged by id and stepped over, its move and its notice rolled back together;
+ * the company's run then fails, after every other item has been settled
+ * (PRD #51 §30-§36, §133-§138). MISSING and WAIVED are a person's word and are
+ * never derived here (§48).
  */
-export async function runComplianceExpiry(now = new Date()): Promise<{ expiring: number; expired: number }> {
-  let expiring = 0;
-  let expired = 0;
-  const companyRun = await forEachCompany("contractors.compliance", async (system) => {
-    const company = { id: system.companyId };
-    const settings = await resolveEngineeringSettings(company.id);
+export async function runComplianceExpiry(now = new Date()): Promise<{ expiring: number; expired: number; moved: number }> {
+  const counts = { expiring: 0, expired: 0, moved: 0 };
+  const companyRun = await forEachCompany(JOB, async ({ companyId }) => {
+    const settings = await resolveEngineeringSettings(companyId);
     const todayDate = localDate(now, settings.timezone);
     const horizon = addLocalDays(todayDate, settings.contractorComplianceReminderDays);
-    const rows = await prisma.contractorComplianceItem.findMany({
-      where: { companyId: company.id, archivedAt: null, status: { in: ["VALID", "EXPIRING"] }, expiresAt: { lte: new Date(`${horizon}T23:59:59.999Z`) }, contractor: { is: { status: { not: "ARCHIVED" } } } },
-      take: 2_000,
-      select: WORKER_ROW,
-    });
-    for (const row of rows) {
-      const expires = dateOf(row.expiresAt)!;
-      const next: ComplianceStatus = expires < todayDate ? "EXPIRED" : "EXPIRING";
-      // An item already expiring has nothing to move, but its reminder may still be due for this date.
-      await prisma.$transaction(async (tx) => {
-        if (next !== row.status) {
-          const moved = await tx.contractorComplianceItem.updateMany({ where: { id: row.id, status: row.status }, data: { status: next, statusChangedAt: now } });
-          if (!moved.count) return;
-          if (next === "EXPIRED") {
-            await recordSystemAction(company.id, { actionKey: AuditAction.CONTRACTOR_COMPLIANCE_EXPIRED, entity: { type: COMPLIANCE_RECORD, id: row.id, label: `${row.title} · ${row.contractor.legalName}` }, before: { status: row.status, expiresAt: expires }, after: { status: "EXPIRED", expiresAt: expires } }, { tx });
-          }
-        }
-        const eventType = next === "EXPIRED" ? NotificationEvent.CONTRACTOR_COMPLIANCE_EXPIRED : NotificationEvent.CONTRACTOR_COMPLIANCE_EXPIRING;
-        const already = await tx.notificationEventOutbox.count({ where: { companyId: company.id, eventType, entityType: COMPLIANCE_RECORD, entityId: row.id, payloadJson: { path: ["expiresAt"], equals: expires } } });
-        if (already) return;
-        const memberIds = await complianceRecipients(tx, company.id, row.contractorId);
-        if (!memberIds.length) return;
-        await enqueueNotificationEvent(tx, {
-          companyId: company.id,
-          eventType,
-          moduleKey: MODULE,
-          entityType: COMPLIANCE_RECORD,
-          entityId: row.id,
-          actorMemberId: null,
-          projectId: null,
-          payload: { memberIds, title: row.title, contractorName: row.contractor.legalName, typeLabel: COMPLIANCE_TYPE_LABELS[row.type as ComplianceType], expiresAt: expires, dateLabel: dateLabel(expires) },
-        });
-        if (next === "EXPIRED") expired += 1;
-        else expiring += 1;
+    let failed = 0;
+    for (let after: string | undefined; !jobStopRequested(); ) {
+      const rows = await prisma.contractorComplianceItem.findMany({
+        where: { companyId, archivedAt: null, status: { in: ["VALID", "EXPIRING"] }, expiresAt: { lte: new Date(`${horizon}T23:59:59.999Z`) }, contractor: { is: { status: { notIn: CLOSED_CONTRACTOR } } }, ...(after ? { id: { gt: after } } : {}) },
+        orderBy: { id: "asc" },
+        take: BATCH,
+        select: WORKER_ROW,
       });
+      for (const row of rows) {
+        try {
+          const result = await settleExpiry(companyId, row, todayDate, now);
+          if (result.moved) counts.moved += 1;
+          if (result.notified === "EXPIRED") counts.expired += 1;
+          if (result.notified === "EXPIRING") counts.expiring += 1;
+        } catch (error) {
+          failed += 1;
+          logger.error(`${JOB}.item_failed`, { companyId, complianceItemId: row.id, ...serialiseError(error) });
+        }
+      }
+      if (rows.length < BATCH) break;
+      after = rows[rows.length - 1]!.id;
     }
+    if (failed) throw new JobError("PARTIAL_FAILURE", `${failed} compliance items could not be settled`);
   }, { moduleKey: MODULE });
-  if (expiring) incrementCounter(Metric.COMPLIANCE_EXPIRING, {}, expiring);
-  if (expired) incrementCounter(Metric.COMPLIANCE_EXPIRED, {}, expired);
-  assertEveryCompanySucceeded("contractors.compliance", companyRun);
-  return { expiring, expired };
+  if (counts.expiring) incrementCounter(Metric.COMPLIANCE_EXPIRING, {}, counts.expiring);
+  if (counts.expired) incrementCounter(Metric.COMPLIANCE_EXPIRED, {}, counts.expired);
+  assertEveryCompanySucceeded(JOB, companyRun);
+  return counts;
 }
 
 export type ComplianceAttentionRow = { id: string; contractorId: string; title: string; status: ComplianceStatus; expiresAt: string | null; contractorName: string; statusChangedAt: Date | null; createdAt: Date };
 
-export async function complianceInStatus(companyId: string, status: "EXPIRING" | "EXPIRED" | "MISSING", itemId?: string): Promise<ComplianceAttentionRow[]> {
+/**
+ * Compliance items in an alert status on contractors still engaged. Given a
+ * page, one page of them by id, so the attention reconciler walks them all
+ * (PRD #51 §133-§135).
+ */
+export async function complianceInStatus(companyId: string, status: "EXPIRING" | "EXPIRED" | "MISSING", itemId?: string, page?: AttentionRowPage): Promise<ComplianceAttentionRow[]> {
   const rows = await prisma.contractorComplianceItem.findMany({
-    where: { companyId, status, archivedAt: null, ...(itemId ? { id: itemId } : {}), contractor: { is: { status: { notIn: ["ARCHIVED", "OFFBOARDED"] } } } },
-    take: 500,
+    where: { companyId, status, archivedAt: null, ...(itemId ? { id: itemId } : {}), ...(page?.after ? { id: { gt: page.after } } : {}), contractor: { is: { status: { notIn: CLOSED_CONTRACTOR } } } },
+    orderBy: { id: "asc" },
+    take: page?.take ?? 500,
     select: { id: true, contractorId: true, title: true, status: true, expiresAt: true, statusChangedAt: true, createdAt: true, contractor: { select: { legalName: true } } },
   });
   return rows.map((row) => ({ id: row.id, contractorId: row.contractorId, title: row.title, status: row.status, expiresAt: dateOf(row.expiresAt), contractorName: row.contractor.legalName, statusChangedAt: row.statusChangedAt, createdAt: row.createdAt }));

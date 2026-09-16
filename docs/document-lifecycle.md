@@ -77,6 +77,15 @@ read** (PRD #49 §64):
 - **Mirroring a scan verdict onto the current version** writes only to a
   version still `SCANNING`: it never archives a version, and never rolls back
   one that has already settled.
+- **A scan is claimed before it runs** (`scanStatus` `SCANNING`, with
+  `scanStartedAt` and `scanAttempts`), and its verdict is written only over that
+  claim. A claim whose worker or request died is taken back after 15 minutes, so
+  nothing stays `SCANNING` for ever; a scanner that gives no verdict is retried
+  with a growing delay, and after 12 attempts the file is `FAILED`
+  (`FILE_SCAN_FAILED`) — never made available unchecked (PRD #51 §35, §176, §193).
+- **A version is never promoted over a newer one.** Under the document row
+  lock, a version whose scan finishes after a later version became current stays
+  in the history, available but not current.
 
 Verification can reject outright: an executable wearing a `.pdf` name never
 reaches the scanner. `REJECTED` and `FAILED` are terminal — a failed upload is

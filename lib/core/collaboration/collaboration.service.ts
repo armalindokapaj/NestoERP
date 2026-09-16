@@ -9,6 +9,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
 import type { RecordDefinition, RecordSummary } from "@/lib/core/records/record.types";
+import { DB_NOW } from "@/lib/database/clock";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import type { CreateCommentInput, ThreadQuery } from "./collaboration.schema";
@@ -250,7 +251,7 @@ async function ensureThread(
   // end up in one thread, not a unique-violation error for one of them.
   await tx.$executeRaw`
     INSERT INTO "collaboration_threads" ("id", "companyId", "parentType", "parentId", "createdAt", "updatedAt")
-    VALUES (${`thr_${crypto.randomUUID().replace(/-/g, "")}`}, ${companyId}, ${parentType}, ${parentId}, now(), now())
+    VALUES (${`thr_${crypto.randomUUID().replace(/-/g, "")}`}, ${companyId}, ${parentType}, ${parentId}, ${DB_NOW}, ${DB_NOW})
     ON CONFLICT ("companyId", "parentType", "parentId") DO NOTHING`;
   const thread = await tx.collaborationThread.findUniqueOrThrow({
     where: { companyId_parentType_parentId: { companyId, parentType, parentId } },

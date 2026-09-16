@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { DB_NOW } from "@/lib/database/clock";
 import { prisma } from "@/lib/database/prisma";
 import { DEFAULT_MAX_FILE_BYTES, StorageError } from "@/lib/core/storage";
 
@@ -129,7 +130,7 @@ export async function assertQuotaAllows(
 async function lockUsageRow(tx: Prisma.TransactionClient, companyId: string): Promise<void> {
   await tx.$executeRaw`
     INSERT INTO "company_storage_usage" ("companyId", "usedBytes", "fileCount", "updatedAt")
-    VALUES (${companyId}, 0, 0, NOW())
+    VALUES (${companyId}, 0, 0, ${DB_NOW})
     ON CONFLICT ("companyId") DO UPDATE SET "updatedAt" = "company_storage_usage"."updatedAt"
   `;
   await tx.$queryRaw`SELECT "usedBytes" FROM "company_storage_usage" WHERE "companyId" = ${companyId} FOR UPDATE`;
@@ -179,22 +180,25 @@ export async function removeUsage(
  *
  * The reconciliation PRD #35 §238 asks for: a projection can drift, and the
  * ledger it projects is still right.
+ *
+ * The usage row is locked before the documents are counted. An upload adding
+ * its bytes meanwhile would otherwise be overwritten by a total it was not in;
+ * this way it either committed before the count, and is in it, or waits for
+ * this write and adds to it — so a second run, or one racing an upload, lands
+ * on the same numbers (PRD #29 §148, PRD #51 §18).
  */
 export async function recalculateUsage(companyId: string): Promise<StorageUsage> {
-  const aggregate = await prisma.document.aggregate({
-    where: { companyId, storageKey: { not: null }, storageStatus: { not: "REJECTED" } },
-    _sum: { sizeBytes: true },
-    _count: true,
+  const totals = await prisma.$transaction(async (tx) => {
+    await lockUsageRow(tx, companyId);
+    const aggregate = await tx.document.aggregate({
+      where: { companyId, storageKey: { not: null }, storageStatus: { not: "REJECTED" } },
+      _sum: { sizeBytes: true },
+      _count: true,
+    });
+    const usage = { usedBytes: aggregate._sum.sizeBytes ?? BigInt(0), fileCount: aggregate._count };
+    await tx.companyStorageUsage.update({ where: { companyId }, data: usage });
+    return usage;
   });
 
-  const usedBytes = aggregate._sum.sizeBytes ?? BigInt(0);
-  const fileCount = aggregate._count;
-
-  await prisma.companyStorageUsage.upsert({
-    where: { companyId },
-    create: { companyId, usedBytes, fileCount },
-    update: { usedBytes, fileCount },
-  });
-
-  return { usedBytes, fileCount, reservedBytes: await sumReservedBytes(prisma, companyId) };
+  return { ...totals, reservedBytes: await sumReservedBytes(prisma, companyId) };
 }

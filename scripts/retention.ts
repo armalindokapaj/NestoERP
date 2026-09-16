@@ -1,52 +1,61 @@
 /**
- * Retention runner (PRD #33 §69, §74, PRD #34 §370-§374).
+ * Retention, once (PRD #33 §69, §74, PRD #34 §370-§374, PRD #51 §163-§166).
  *
- * Defaults to a dry run and refuses to mutate production without an explicit
- * confirmation flag: a script that deletes data must never do so because
- * somebody pressed up-arrow and enter (PRD #34 §372, §374).
+ * Runs the `retention.run` job now, through its lease. Defaults to a dry run
+ * and refuses to delete without an explicit confirmation, and in production
+ * without naming it: a command that deletes data must never do so because
+ * somebody pressed up-arrow and enter (PRD #34 §372, §374). The scheduled job
+ * deletes only where `WORKER_RETENTION_APPLY=true`; `--apply` here is the
+ * one-off equivalent and does not change that setting.
  *
  *   pnpm retention:dry-run
- *   tsx scripts/retention.ts --apply --confirm=DELETE
+ *   tsx scripts/retention.ts --apply --confirm=DELETE [--environment=production]
  */
-import { runAllRetentionPolicies } from "../lib/core/retention/retention.service";
 import { appEnvironment } from "../lib/config/env";
+import { runJobNow } from "../lib/core/jobs/job.manual";
+import { prisma } from "../lib/database/prisma";
 
 const args = new Set(process.argv.slice(2));
 const apply = args.has("--apply");
-const confirmed = [...args].some((arg) => arg === "--confirm=DELETE");
+const confirmed = args.has("--confirm=DELETE");
 
 async function main() {
   const environment = appEnvironment();
-
-  if (apply && !confirmed) {
-    console.error("Refusing to delete without --confirm=DELETE");
-    process.exit(1);
-  }
-
+  if (apply && !confirmed) throw new Error("Refusing to delete without --confirm=DELETE");
   if (apply && environment === "production" && !args.has("--environment=production")) {
-    console.error("Refusing to run against production without --environment=production");
-    process.exit(1);
+    throw new Error("Refusing to run against production without --environment=production");
   }
 
   const dryRun = !apply;
   console.log(`Retention run — environment=${environment} mode=${dryRun ? "DRY RUN" : "APPLY"}\n`);
 
-  const results = await runAllRetentionPolicies({ dryRun });
+  const controller = new AbortController();
+  process.once("SIGINT", () => controller.abort());
+  process.once("SIGTERM", () => controller.abort());
 
-  for (const result of results) {
-    const action = result.dryRun ? "would remove" : "removed";
-    console.log(
-      `  ${result.policyKey.padEnd(36)} ${String(result.candidateCount).padStart(7)} candidates, ${action} ${result.dryRun ? result.candidateCount : result.deletedCount}`,
-    );
+  const outcome = await runJobNow("retention.run", {
+    dryRun,
+    env: { ...process.env, WORKER_RETENTION_APPLY: apply ? "true" : "false" },
+    signal: controller.signal,
+  });
+  if (outcome.busy) throw new Error("A worker is running retention right now; try again when it finishes");
+
+  const policies = (outcome.detail?.policies ?? {}) as Record<string, number>;
+  const action = dryRun ? "would remove" : "removed";
+  for (const [policyKey, count] of Object.entries(policies)) {
+    console.log(`  ${policyKey.padEnd(36)} ${action} ${String(count).padStart(7)}`);
   }
-
-  const total = results.reduce((sum, r) => sum + (r.dryRun ? r.candidateCount : r.deletedCount), 0);
-  console.log(`\n${dryRun ? "Would remove" : "Removed"} ${total} rows across ${results.length} policies.`);
+  console.log(`\n${dryRun ? "Would remove" : "Removed"} ${outcome.processed} rows across ${Object.keys(policies).length} policies.`);
+  if (outcome.error) console.error(`  ${outcome.errorCode}: ${outcome.error}`);
+  if (outcome.status !== "success") process.exitCode = 1;
 }
 
 main()
   .catch((error) => {
     console.error("Retention run failed:", error instanceof Error ? error.message : error);
-    process.exit(1);
+    process.exitCode = 1;
   })
-  .then(() => process.exit(0));
+  .finally(async () => {
+    await prisma.$disconnect();
+    process.exit();
+  });

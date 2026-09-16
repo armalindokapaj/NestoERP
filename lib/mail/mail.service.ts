@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { mailDeliveryEnabled } from "@/lib/config/env";
 import { prisma } from "@/lib/database/prisma";
 import { logger } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
@@ -171,14 +172,17 @@ export async function sendMail(message: MailMessage): Promise<MailOutcome> {
     }
   }
 
-  if (!recipientAllowed(recipient)) {
+  // Recorded, never sent: mail switched off for the deployment (PRD #51 §63,
+  // §215), or a recipient outside the staging allowlist (PRD #38 §12).
+  const suppressed = !mailDeliveryEnabled() ? "MAIL_DELIVERY_DISABLED" : !recipientAllowed(recipient) ? "RECIPIENT_NOT_ALLOWLISTED" : null;
+  if (suppressed) {
     await prisma.mailDelivery.update({
       where: { id: deliveryId },
-      data: { status: "SUPPRESSED", errorCode: "RECIPIENT_NOT_ALLOWLISTED", lastAttemptAt: new Date() },
+      data: { status: "SUPPRESSED", errorCode: suppressed, lastAttemptAt: new Date() },
     });
     incrementCounter(Metric.MAIL_SUPPRESSED, { template: message.templateKey });
-    logger.info("mail.suppressed", { deliveryId, templateKey: message.templateKey });
-    return { deliveryId, status: "SUPPRESSED", errorCode: "RECIPIENT_NOT_ALLOWLISTED" };
+    logger.info("mail.suppressed", { deliveryId, templateKey: message.templateKey, reason: suppressed });
+    return { deliveryId, status: "SUPPRESSED", errorCode: suppressed };
   }
 
   let lastErrorCode = "UNKNOWN";

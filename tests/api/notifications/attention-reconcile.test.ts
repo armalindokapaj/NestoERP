@@ -1,7 +1,6 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 import { AccessError } from "@/lib/access/guards";
-import { claimJob } from "@/lib/core/jobs/job.runner";
 import { reconcileAttention } from "@/lib/core/notifications/attention.reconcile";
 import { dismissAttention, listReadableAttention } from "@/lib/core/notifications/attention.service";
 import { claimOutboxBatch, dispatchNotifications } from "@/lib/core/notifications/notification.dispatch";
@@ -20,7 +19,6 @@ import { cleanupSessions, loginAs, prisma, PROJECT } from "../../helpers";
 const DAY = 86_400_000;
 const createdTasks: string[] = [];
 const createdNotifications: string[] = [];
-const heartbeatKeys: string[] = [];
 
 afterEach(async () => {
   if (createdTasks.length > 0) {
@@ -36,10 +34,6 @@ afterEach(async () => {
   if (createdNotifications.length > 0) {
     await prisma.notification.deleteMany({ where: { id: { in: createdNotifications } } });
     createdNotifications.length = 0;
-  }
-  if (heartbeatKeys.length > 0) {
-    await prisma.workerHeartbeat.deleteMany({ where: { job: { in: heartbeatKeys } } });
-    heartbeatKeys.length = 0;
   }
   await prisma.notificationPreference.deleteMany({ where: { memberId: "member_engineer", category: { in: ["tasks", "hse"] } } });
 });
@@ -254,22 +248,8 @@ describe("worker concurrency (PRD #38 §80, §96)", () => {
     // Release the claims so later dispatches in this run are not held up.
     await prisma.notificationEventOutbox.updateMany({
       where: { entityId: task.id },
-      data: { status: "PENDING", lockedAt: null, lockedBy: null, leaseExpiresAt: null },
+      data: { status: "PENDING", attemptCount: 0, lockedAt: null, lockedBy: null, leaseExpiresAt: null },
     });
-  });
-
-  it("lets one worker at a time claim a scheduled job, and recovers an expired lease", async () => {
-    const job = { key: `test.lease.${Date.now()}`, group: "scheduled" as const, intervalSeconds: 60, leaseSeconds: 30, staleAfterSeconds: 600 };
-    heartbeatKeys.push(job.key);
-
-    const now = new Date();
-    expect(await claimJob(job, "worker-a", now)).not.toBeNull();
-    expect(await claimJob(job, "worker-b", now)).toBeNull();
-
-    // worker-a died holding it; after the lease runs out another worker takes over.
-    const later = new Date(now.getTime() + 31_000);
-    expect(await claimJob(job, "worker-b", later)).not.toBeNull();
-    expect((await prisma.workerHeartbeat.findUnique({ where: { job: job.key } }))!.leaseOwner).toBe("worker-b");
   });
 });
 

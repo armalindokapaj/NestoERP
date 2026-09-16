@@ -1,5 +1,8 @@
 import { logger, serialiseError } from "@/lib/core/observability/logger";
+import { currentRequestContext, newCorrelationId, newRequestId, runWithRequestContext } from "@/lib/core/observability/request-context";
 import { prisma } from "@/lib/database/prisma";
+import { currentJobRun } from "./job.context";
+import { JobError } from "./job.errors";
 
 /**
  * The actor behind background work (PRD #47 §92-§94, §240, §241).
@@ -31,6 +34,14 @@ export type CompanyRunReport<T> = {
  * after it still get their reminders. Without this a company that always
  * failed early in the list would silently stop the job for everybody behind
  * it, run after run.
+ *
+ * Inside a runner's job run (PRD #51 §12-§14, §57, §164) it also:
+ * - keeps to the companies an operator named with `--company`;
+ * - stops between companies once the run is told to stop — shutdown, timeout
+ *   or a lost lease — and throws, so a partial pass is never recorded as a
+ *   success;
+ * - gives every company the run's correlation id, so its logs, audit and
+ *   outbox rows are found together.
  */
 export async function forEachCompany<T>(
   jobName: string,
@@ -43,23 +54,41 @@ export async function forEachCompany<T>(
     includeInactive?: boolean;
   } = {},
 ): Promise<CompanyRunReport<T>> {
+  const jobRun = currentJobRun();
+  const scoped = [options.companyIds, jobRun?.companyIds ?? undefined].filter((ids): ids is readonly string[] => Boolean(ids));
+  const companyIds = scoped.length === 0 ? undefined : scoped.reduce((left, right) => left.filter((id) => right.includes(id)));
+
   const companies = await prisma.company.findMany({
     where: {
       ...(options.includeInactive ? {} : { status: "ACTIVE" as const }),
-      ...(options.companyIds ? { id: { in: [...options.companyIds] } } : {}),
+      ...(companyIds ? { id: { in: [...companyIds] } } : {}),
       ...(options.moduleKey ? { modules: { some: { enabled: true, module: { key: options.moduleKey } } } } : {}),
     },
     select: { id: true },
     orderBy: { id: "asc" },
   });
 
+  const parent = currentRequestContext();
+  const correlationId = jobRun?.correlationId ?? parent?.correlationId ?? newCorrelationId();
   const report: CompanyRunReport<T> = { results: [], failed: [] };
   for (const company of companies) {
-    const context: SystemContext = { actorType: "SYSTEM", companyId: company.id, jobName, correlationId: crypto.randomUUID() };
+    if (jobRun?.signal.aborted) {
+      throw jobRun.signal.reason instanceof Error ? jobRun.signal.reason : new JobError("ABORTED", `${jobName} stopped before company ${company.id}`);
+    }
+    const context: SystemContext = { actorType: "SYSTEM", companyId: company.id, jobName, correlationId };
+    const requestContext = {
+      requestId: jobRun?.runId ?? parent?.requestId ?? newRequestId(),
+      correlationId,
+      startedAt: Date.now(),
+      route: `job:${jobName}`,
+      companyId: company.id,
+      jobKey: jobName,
+      workerId: jobRun?.workerId,
+    };
     try {
-      report.results.push({ companyId: company.id, result: await run(context) });
+      report.results.push({ companyId: company.id, result: await runWithRequestContext(requestContext, () => run(context)) });
     } catch (error) {
-      logger.error("worker.job.company_failed", { job: jobName, companyId: company.id, correlationId: context.correlationId, ...serialiseError(error) });
+      logger.error("worker.job.company_failed", { job: jobName, companyId: company.id, correlationId, ...serialiseError(error) });
       report.failed.push({ companyId: company.id, error: error instanceof Error ? error.message : String(error) });
     }
   }
@@ -73,5 +102,5 @@ export async function forEachCompany<T>(
  */
 export function assertEveryCompanySucceeded(jobName: string, report: CompanyRunReport<unknown>): void {
   if (report.failed.length === 0) return;
-  throw new Error(`${jobName} failed for ${report.failed.length} of ${report.failed.length + report.results.length} companies`);
+  throw new JobError("PARTIAL_FAILURE", `${jobName} failed for ${report.failed.length} of ${report.failed.length + report.results.length} companies`);
 }

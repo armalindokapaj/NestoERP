@@ -114,7 +114,7 @@ const MESSAGES: Record<StorageErrorCode, string> = {
 
   FILE_SCAN_PENDING: "This file is still being checked.",
   FILE_REJECTED_MALWARE: "This file was rejected by a security check.",
-  FILE_SCAN_FAILED: "This file is still being verified.",
+  FILE_SCAN_FAILED: "This file could not be checked for malware. Upload it again.",
 
   PREVIEW_NOT_SUPPORTED: "This file type cannot be previewed. Download it instead.",
   PREVIEW_NOT_READY: "The preview is still being prepared.",

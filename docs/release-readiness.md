@@ -576,7 +576,7 @@ domain-specific pre-check: those now answer `<MACHINE>_STALE` or
 pre-check code a test or a screen reads (`RFI_NOT_ANSWERED`,
 `ORDER_HAS_RECEIPTS`, `REVIEW_ALREADY_DECIDED`, …) is unchanged.
 
-Full vitest 2 890 passed, 7 skipped.
+Full vitest 2 890 passed, 7 skipped; Playwright 397 passed against a production build.
 
 The API security matrix changed in one column only: 173 endpoints' state-guard
 evidence now names `applyTransition` or `canMove`. No endpoint lost state
@@ -660,3 +660,128 @@ transitions now binding `companyId`.
   and swapping it changes only that file.
 - **Password history and rotation (§14, §15) are not implemented.** Nothing
   stops somebody reusing their previous password.
+
+---
+
+## 15. PRD #51 — Workers & scheduled jobs
+
+Background work is one mechanism now: twenty jobs in one registry
+(`lib/core/jobs/job.registry.ts`), run by `pnpm worker` through a lease, each
+with an owner, a company scope, an idempotency key, a retry policy, a timeout
+and a criticality. `docs/workers.md` is the contract,
+`docs/worker-operations.md` the runbook, and `docs/worker-matrix.md` — generated
+from the registry, checked by CI — the inventory.
+
+### 15.1 What changed
+
+| Before | Now |
+|---|---|
+| A job lease with no extension; a long run could be taken over mid-run | Lease extended every third of its length; a worker that loses it stops |
+| No timeout; shutdown finished the whole pass | Per-job timeout and shutdown abort the run; a handler that ignores it is abandoned with its lease left to expire; shutdown bounded by `WORKER_SHUTDOWN_TIMEOUT_SECONDS` |
+| A failed job retried after its interval, silently | Exponential backoff with jitter, classified errors, `failed` after `maxAttempts`, every attempt kept in `job_failures` |
+| Raw SQL compared against bare `now()` | `DB_NOW` everywhere: the database runs in Europe/Tirane while columns hold UTC, so jobs were due every tick and leases lasted two hours |
+| An outbox event could fail forever at the front of the queue | Attempt counted at claim; permanent errors fail at once; a worker dying on the last attempt fails it as `LEASE_EXPIRED`; operator retry keeps the history |
+| "Already notified?" by counting outbox rows, outside the transaction | `job_idempotency_keys`, claimed inside the transaction that enqueues — race-free, and not forgotten when the outbox is purged |
+| `take: 500` / `take: 2000` caps, most with no order, across the jobs | Every job walks its work by cursor in bounded batches; nothing true is silently dropped |
+| Company loops in some jobs, global queries in others | Every business job through `forEachCompany`: active companies, module switches honoured, one company's failure isolated |
+| Readiness said `ok` when a group had never been deployed | Worker processes heartbeat; health is HEALTHY / DEGRADED / UNHEALTHY by criticality; metrics and alert rules (`ops/alerts/workers.yml`) |
+| Mail provider required in production | `MAIL_DELIVERY=disabled`: in-app notifications need no email |
+
+Migrations `20260916180000_workers_hardening_prd_51`,
+`20260916181000_scan_attempts_prd_51` and
+`20260916200000_scan_queue_index_prd_51` are additive; each was replayed from
+zero into an empty database before it was applied here.
+
+### 15.2 Defects the audit found, and what happened to them
+
+No P0. Every P1 is fixed:
+
+- **attention.reconcile** capped every condition at 500 unordered rows and then
+  resolved active items beyond the cut — true conditions flipped between active
+  and resolved. It now reads every condition to the end and resolves only items a
+  complete pass did not see; a dismissal made during a pass stays dismissed.
+- **notifications.due** re-selected yesterday's tasks on every hourly run (~24
+  outbox rows per item per day) in one transaction across all companies.
+- **approvals.overdue** keyed a document review by document, so only the first of
+  several reviewers was ever reminded.
+- **calendar.reminders** read at most 2 000 events and 2 000 meetings across the
+  deployment every minute; reminders beyond that never fired. One malformed
+  recurrence rule failed every run.
+- **meetings.series**: one failing series ended the pass and was first again next
+  time; a "this and later" cancel racing the job could be followed by new
+  occurrences. Generated meetings are now audited as the system.
+- **announcements** published and reminded in suspended companies, swallowed
+  per-row errors, and returned expired schedules to draft without the required
+  audit.
+- **timesheets.reminders**: one company's exception stopped every later company.
+- **documents.scan** left a file `SCANNING` for ever when a worker or request died
+  mid-scan, retried scanner errors every 15 seconds for ever, and could make an
+  older version current again after a newer one.
+- **storage.cleanup** wedged on a placeholder a draft engineering revision still
+  referenced: every run threw at the same row, after deleting its object.
+- **Shutdown** finished the whole pass; **readiness** ignored a group with no
+  worker at all.
+
+Found while fixing them: the throttle stored window ends two hours late on this
+database (retry hints two hours too long) and purged by the worker's clock;
+retention declared a batch size it never used; dispatch counted events whose
+lease another worker had taken; a scan-failed file told its uploader the file
+"did not arrive".
+
+### 15.3 The evidence
+
+Full vitest 3 109 passed (7 skipped: the destructive suites). Of those:
+
+- **Contract tests, 176 in 20 files** (`tests/api/jobs/<job>.test.ts`): for every
+  job idempotency and failure isolation; for every company-scoped job company
+  isolation and the suspended-company rule; for every CRITICAL, HIGH and outbox job
+  concurrency. `pnpm verify:workers` fails CI if a job lacks one.
+- **Runner, 21**: one claim at a time, crash takeover recorded, lease extension and
+  loss, timeout honoured and abandoned, backoff and jitter bounds, max attempts,
+  dry run leaving the schedule alone, `--company` scoping, shutdown releasing the
+  job in hand, an old and a new release overlapping.
+- Several agents broke their own fixes on purpose — the version check, the lease
+  clause, the cancel lock, the claim result, the status guard — and the matching
+  tests failed each time.
+
+Gates: `verify:workers`, `verify:ownership`, `verify:state` (blind state writes
+96 → 92), `verify:authorization`, `security:matrix --check`,
+`verify:production-guards`, typecheck and lint all pass. The by-id baseline was
+re-recorded at 249 (from 300); most of that fall is PRD #49's second pass, which
+had not been recorded, and it rose by one where dispatch reads a company's status
+by its own id.
+
+### 15.4 Limits, stated plainly
+
+- **Nothing here has run as a deployed worker.** The processes, the alert rules and
+  the metrics scrape are operational steps; `docs/worker-operations.md` says how.
+- **No operations UI.** Failed jobs are visible through `pnpm worker --status`,
+  `--failures`, metrics and logs; retry and manual runs are CLI, authorised by
+  access to the worker's shell and recorded with the operator's name (§40, §42).
+  No manual cancel (§41, optional).
+- **Overdue badges in module pages still count days in UTC**
+  (contracts, obligations, procurement, inventory status helpers), while the
+  attention items and reminders now use the company's day. Near midnight a badge
+  and its attention item can disagree by one day.
+- **Compliance `MISSING` is not derived from evidence** (§79, §80): the model has no
+  "evidence required" field, and inventing the state would be worse than leaving it
+  a person's decision.
+- **Engineering submit/issue does not take the document row lock**, so the check
+  that a file is not frozen narrows the race with a version promotion rather than
+  closing it.
+- **A record overdue for more than 400 days is reminded once more** when retention
+  purges its ledger row.
+- **A suspended company's outbox events are dropped, not held** until reactivation.
+- **The throttle's lockout decision still reads the app server's clock** against a
+  window the database wrote; it matters only with clock drift larger than the time
+  left in a window.
+
+### 15.5 Go-live checklist, amended
+
+§9's "`notifications:dispatch` and `storage:maintenance` scheduled" and
+"`retention.ts` scheduled" become:
+
+- [ ] `pnpm worker --group=notifications`, `--group=documents`, `--group=scheduled`
+      running under a process manager, with `pnpm worker --health` as the healthcheck
+- [ ] `ops/alerts/workers.yml` loaded; `WorkerGroupDown` seen to fire and clear
+- [ ] `pnpm retention:dry-run` reviewed before `WORKER_RETENTION_APPLY=true`

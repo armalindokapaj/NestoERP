@@ -59,6 +59,9 @@ async function clear(prisma: PrismaClient) {
   await prisma.attentionItem.deleteMany({ where: { entityType: { in: ENTITY_TYPES }, entityId: { in: all } } });
   await prisma.notification.deleteMany({ where: { entityType: { in: ENTITY_TYPES }, entityId: { in: all } } });
   await prisma.notificationEventOutbox.deleteMany({ where: { entityType: { in: ENTITY_TYPES }, entityId: { in: all } } });
+  // The reminders' idempotency ledger too, or a re-seeded record that is due
+  // again would never be announced (PRD #51 §15-§19).
+  await prisma.jobIdempotencyKey.deleteMany({ where: { ...inCompanies, jobKey: { in: ["contractors.compliance", "engineering.reminders"] } } });
   await prisma.integrationLink.deleteMany({ where: { ...inCompanies, integrationType: "ENGINEERING_RECORD" } });
   await prisma.dailyLogWorkforceEntry.updateMany({ where: { ...inCompanies, contractorId: { not: null } }, data: { contractorId: null, workPackageId: null } });
   await prisma.dailyLogWorkActivity.updateMany({ where: { ...inCompanies, contractorId: { not: null } }, data: { contractorId: null, workPackageId: null } });

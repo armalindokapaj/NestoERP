@@ -302,10 +302,15 @@ describe("integration boundaries (§140-§143, §200-§205, §295, §300-§303)"
     await respondRfi(architect, S.rfis.slabEdge, { text: "Setback 150 mm; edge beam may reduce to 450 mm.", final: true });
     expect(await prisma.attentionItem.count({ where: { entityId: S.rfis.slabEdge, conditionKey: { in: ["RFI_OVERDUE", "RFI_RESPONSE_REQUIRED"] }, status: "ACTIVE" } })).toBe(0);
 
+    // The Tower's RFI falls overdue: reminded once, however often the job runs (§196).
+    await prisma.rfi.update({ where: { id: S.rfis.tower }, data: { dueAt: new Date(Date.now() - 3 * 86_400_000) } });
     const first = await runEngineeringReminders(new Date());
     const second = await runEngineeringReminders(new Date());
-    expect(second.rfiOverdue + second.submittalOverdue + second.rfiDueSoon + second.submittalDueSoon).toBe(0);
-    expect(first.submittalOverdue + first.rfiOverdue + first.submittalDueSoon + first.rfiDueSoon).toBeGreaterThanOrEqual(0);
+    expect(first.rfiOverdue).toBeGreaterThanOrEqual(1);
+    expect(second).toEqual({ rfiDueSoon: 0, rfiOverdue: 0, submittalDueSoon: 0, submittalOverdue: 0 });
+    const reminders = await prisma.notificationEventOutbox.findMany({ where: { entityType: "rfi", entityId: S.rfis.tower, eventType: "RFI_OVERDUE" } });
+    expect(reminders).toHaveLength(1);
+    expect((reminders[0].payloadJson as { memberIds: string[] }).memberIds).toContain(pm.membershipId);
   });
 
   it("summarises the project and my work, and reports without a contractor score (§159, §206-§211, §278)", async () => {

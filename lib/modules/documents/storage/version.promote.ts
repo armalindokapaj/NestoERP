@@ -18,6 +18,19 @@ export async function frozenFileReason(documentId: string): Promise<string | nul
 }
 
 /**
+ * Takes the lock every swap of a document's file queues behind (PRD #49 §246,
+ * §247).
+ *
+ * Whatever decides whether a version may become current — the freeze a
+ * submitted revision puts on the file, the version already current — is read
+ * after this, inside the transaction that makes the swap. Read before it, the
+ * answer can be out of date by the time the swap lands.
+ */
+export async function lockDocumentForSwap(tx: Prisma.TransactionClient, documentId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "documents" WHERE id = ${documentId} FOR UPDATE`;
+}
+
+/**
  * Makes a verified version the one the document serves (PRD #38 §57, §65).
  *
  * The document's file columns are a mirror of its current version, rewritten
@@ -34,24 +47,36 @@ export async function frozenFileReason(documentId: string): Promise<string | nul
  * arriving meanwhile waits for the promotion and then applies to the file it
  * made current, rather than being undone by a write computed from what the
  * document held a moment before (PRD #49 §246, §247).
+ *
+ * A version never replaces a newer one. Versions finish in any order — a
+ * version whose scan errored is retried later, by which time the next upload
+ * may have been scanned and made current — and "last to finish wins" would
+ * put the older file back in front of everybody (PRD #51 §95, §193). Such a
+ * version stays in the history, available, and false says it was not made
+ * current.
  */
-export async function promoteVersion(tx: Prisma.TransactionClient, versionId: string): Promise<void> {
+export async function promoteVersion(tx: Prisma.TransactionClient, versionId: string): Promise<boolean> {
   const version = await tx.documentVersion.findUniqueOrThrow({ where: { id: versionId } });
-  await tx.$queryRaw`SELECT id FROM "documents" WHERE id = ${version.documentId} FOR UPDATE`;
+  await lockDocumentForSwap(tx, version.documentId);
   const document = await tx.document.findUniqueOrThrow({
     where: { id: version.documentId },
-    select: { status: true, archivedAt: true, storageStatus: true },
+    select: { status: true, archivedAt: true, storageStatus: true, currentVersionId: true },
   });
+  if (document.currentVersionId && document.currentVersionId !== version.id) {
+    const current = await tx.documentVersion.findUnique({ where: { id: document.currentVersionId }, select: { versionNumber: true } });
+    if (current && current.versionNumber > version.versionNumber) return false;
+  }
   const archived = document.status === "ARCHIVED" || document.archivedAt !== null;
   const storageStatus = archived ? "ARCHIVED" : "AVAILABLE";
   // Swapping the file is not a storage transition, so only a document whose
   // state would change asks the table — and a live one never needs to.
   if (document.storageStatus !== storageStatus) assertTransition(document.storageStatus, storageStatus);
 
-  // The storage state read under the lock is the guard: nothing else can have
-  // moved it, and the write says so rather than relying on it.
+  // The state and the current version read under the lock are the guard:
+  // nothing else can have moved them, and the write says so rather than
+  // relying on it.
   const promoted = await tx.document.updateMany({
-    where: { id: version.documentId, storageStatus: document.storageStatus },
+    where: { id: version.documentId, storageStatus: document.storageStatus, currentVersionId: document.currentVersionId },
     data: {
       currentVersionId: version.id,
       storageProvider: version.storageProvider,
@@ -68,6 +93,8 @@ export async function promoteVersion(tx: Prisma.TransactionClient, versionId: st
       scanStatus: version.scanStatus,
       scanProvider: version.scanProvider,
       scanCompletedAt: version.scanCompletedAt,
+      scanStartedAt: version.scanStartedAt,
+      scanAttempts: version.scanAttempts,
       previewStatus: version.previewStatus,
       previewMimeType: version.previewMimeType,
       previewStorageKey: null,
@@ -80,4 +107,5 @@ export async function promoteVersion(tx: Prisma.TransactionClient, versionId: st
     },
   });
   if (promoted.count === 0) throw new StorageError("INVALID_DOCUMENT_STORAGE_STATE");
+  return true;
 }

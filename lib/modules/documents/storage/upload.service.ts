@@ -25,7 +25,7 @@ import {
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { canAttachToDocumentParent, resolveDocumentParent } from "../document.parent-access";
 import * as quota from "./quota.service";
-import { frozenFileReason, promoteVersion } from "./version.promote";
+import { frozenFileReason, lockDocumentForSwap, promoteVersion } from "./version.promote";
 import { runScanForDocument } from "./scan.service";
 import type { CompleteDocumentUploadInput, CreateDocumentUploadInput } from "./storage.schema";
 import type { CreateUploadResponse } from "./storage.types";
@@ -954,8 +954,10 @@ async function completeVersionUpload(
       if (settled.count === 0) throw new StorageError("INVALID_DOCUMENT_STORAGE_STATE");
       await quota.addUsage(tx, context.companyId, metadata.sizeBytes);
       if (!scanNeeded) {
-        // Asked again at the swap itself: a revision submitted while the bytes
-        // were being verified freezes the file just as surely (PRD #46 §69).
+        // Asked again at the swap itself, under the lock the swap takes: a
+        // revision submitted while the bytes were being verified freezes the
+        // file just as surely (PRD #46 §69).
+        await lockDocumentForSwap(tx, session.documentId);
         const frozenNow = await frozenFileReason(session.documentId);
         if (frozenNow) throw stateDenied(frozenNow, { code: "ENGINEERING_FILE_FROZEN" });
         await promoteVersion(tx, version.id);

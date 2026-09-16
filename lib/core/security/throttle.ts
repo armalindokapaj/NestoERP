@@ -1,4 +1,6 @@
+import { DB_NOW } from "@/lib/database/clock";
 import { prisma } from "@/lib/database/prisma";
+import { jobStopRequested } from "@/lib/core/jobs/job.context";
 import { logger } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { hashSubject, type RateLimitResult } from "./rate-limit";
@@ -88,16 +90,18 @@ function outcome(rows: Array<{ row: Row | null; window: Window }>, counted: bool
 
 async function increment(key: string, windowMs: number): Promise<Row> {
   // One statement: a fresh window starts at 1, a live one increments. The
-  // database clock decides, so instances with drifting clocks agree.
+  // database clock decides, so instances with drifting clocks agree — in UTC,
+  // like every other column, so the window read back ends when it says it does
+  // (PRD #51 §159, §160).
   const rows = await prisma.$queryRaw<Row[]>`
     INSERT INTO "rate_limit_buckets" ("key", "count", "windowEndsAt", "updatedAt")
-    VALUES (${key}, 1, now() + (${windowMs} * interval '1 millisecond'), now())
+    VALUES (${key}, 1, ${DB_NOW} + (${windowMs} * interval '1 millisecond'), ${DB_NOW})
     ON CONFLICT ("key") DO UPDATE SET
-      "count" = CASE WHEN "rate_limit_buckets"."windowEndsAt" <= now() THEN 1
+      "count" = CASE WHEN "rate_limit_buckets"."windowEndsAt" <= ${DB_NOW} THEN 1
                      ELSE "rate_limit_buckets"."count" + 1 END,
-      "windowEndsAt" = CASE WHEN "rate_limit_buckets"."windowEndsAt" <= now() THEN EXCLUDED."windowEndsAt"
+      "windowEndsAt" = CASE WHEN "rate_limit_buckets"."windowEndsAt" <= ${DB_NOW} THEN EXCLUDED."windowEndsAt"
                             ELSE "rate_limit_buckets"."windowEndsAt" END,
-      "updatedAt" = now()
+      "updatedAt" = ${DB_NOW}
     RETURNING "count", "windowEndsAt"`;
   return rows[0];
 }
@@ -173,10 +177,30 @@ export async function clearThrottle<N extends ThrottleName>(
   await prisma.rateLimitBucket.deleteMany({ where: { key: { in: keys } } });
 }
 
-/** Expired windows, for the scheduled worker. */
+/** Buckets one purge statement removes at most. */
+export const THROTTLE_PURGE_BATCH = 1000;
+
+/**
+ * Closed windows, for the scheduled worker (PRD #51 §132-§134, §159, §160).
+ *
+ * Closed by the database's clock, which wrote them: a worker whose own clock
+ * ran ahead would otherwise clear lockouts that are still in force. A batch at
+ * a time, because an address spray leaves a bucket per address and one
+ * statement deleting all of them holds the table for as long as it takes. The
+ * window is re-checked outside the subquery, so a bucket a sign-in restarted
+ * while the batch waited for its lock is kept.
+ */
 export async function purgeExpiredThrottles(): Promise<number> {
-  const result = await prisma.rateLimitBucket.deleteMany({ where: { windowEndsAt: { lte: new Date() } } });
-  return result.count;
+  let purged = 0;
+  for (;;) {
+    if (jobStopRequested()) return purged;
+    const batch = await prisma.$executeRaw`
+      DELETE FROM "rate_limit_buckets"
+      WHERE "key" IN (SELECT "key" FROM "rate_limit_buckets" WHERE "windowEndsAt" <= ${DB_NOW} LIMIT ${THROTTLE_PURGE_BATCH})
+        AND "windowEndsAt" <= ${DB_NOW}`;
+    purged += batch;
+    if (batch < THROTTLE_PURGE_BATCH) return purged;
+  }
 }
 
 /**

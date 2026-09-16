@@ -55,6 +55,10 @@ async function cleanup() {
   await prisma.attentionItem.deleteMany({ where: { entityType: "announcement", entityId: { in: created } } });
   await prisma.notification.deleteMany({ where: { entityType: "announcement", entityId: { in: created } } });
   await prisma.notificationEventOutbox.deleteMany({ where: { entityType: "announcement", entityId: { in: created } } });
+  // Reminder rounds are claimed per announcement (PRD #51 §15-§19). The reminder test's clock also reaches the
+  // seeded policy's rounds, which would otherwise stay claimed, and reminded, ahead of the real date.
+  await prisma.jobIdempotencyKey.deleteMany({ where: { jobKey: "announcements.reminders", OR: [...created, ...SEEDED].map((id) => ({ key: { startsWith: `${id}:` } })) } });
+  await prisma.notificationEventOutbox.deleteMany({ where: { eventType: "ANNOUNCEMENT_REMINDER", entityType: "announcement", entityId: { in: SEEDED } } });
   await prisma.activity.deleteMany({ where: { entityId: { in: created } } });
   await prisma.announcement.deleteMany({ where: { id: { in: created } } });
   await prisma.announcement.update({ where: { id: ANNOUNCEMENT_SEED.company }, data: { pinned: true } });

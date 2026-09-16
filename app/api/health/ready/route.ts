@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/database/prisma";
-import { jobHealth } from "@/lib/core/jobs/job.health";
+import { workerHealth } from "@/lib/core/jobs/job.health";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
+import { scannerEnabled } from "@/lib/core/storage";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 
 export const dynamic = "force-dynamic";
@@ -36,19 +37,26 @@ export async function GET() {
     if (!storage.ok) logger.error("health.storage.unreachable", {});
 
     /*
-     * Background work is reported, not required (PRD #38 §104): a web instance
-     * can serve requests while the worker is down, but notifications, scans and
-     * attention stop moving, and that has to be visible. One word only — which
-     * job is behind is for the metrics endpoint, not a public probe.
+     * Background work is reported, not required (PRD #38 §104, PRD #51 §115):
+     * a web instance can serve requests while the worker is down, but
+     * notifications, scans and attention stop moving, and that has to be
+     * visible. One word only — which job is behind is for the metrics
+     * endpoint, not a public probe.
+     *
+     * `not_running` means no live worker process at all; `unhealthy` means a
+     * critical job has stopped or a group holding one has no worker, even if
+     * the other groups are running (§111, §256).
      */
-    const jobs = await jobHealth().catch(() => null);
-    const workers = !jobs
+    const health = await workerHealth({ capabilities: { scanner: scannerEnabled() } }).catch(() => null);
+    const workers = !health
       ? "unknown"
-      : jobs.every((job) => job.state === "never_run")
+      : health.workers.length === 0
         ? "not_running"
-        : jobs.some((job) => job.state === "failing" || job.state === "stale")
-          ? "degraded"
-          : "ok";
+        : health.status === "HEALTHY"
+          ? "ok"
+          : health.status === "DEGRADED"
+            ? "degraded"
+            : "unhealthy";
 
     return NextResponse.json({ status: "ok", storage: storage.ok ? "ok" : "degraded", workers });
   } catch (error) {

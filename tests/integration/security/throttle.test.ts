@@ -42,6 +42,9 @@ describe("hitThrottle", () => {
     const refused = await hitThrottle("INVITE_RESEND", { invite: "invite-a" });
     expect(refused.allowed).toBe(false);
     expect(refused.retryAfterSeconds).toBeGreaterThan(0);
+    // The window ends where the database put it, never later: a hint longer
+    // than the window is a window stored in the server's zone rather than UTC.
+    expect(refused.retryAfterSeconds).toBeLessThanOrEqual(THROTTLES.INVITE_RESEND.invite.windowMs / 1000);
   });
 
   it("refuses when any one dimension is exhausted", async () => {
@@ -73,7 +76,18 @@ describe("hitThrottle", () => {
     expect((await peekThrottle("INVITE_RESEND", { invite: "invite-window" })).allowed).toBe(true);
     const next = await hitThrottle("INVITE_RESEND", { invite: "invite-window" });
     expect(next).toMatchObject({ allowed: true, remaining: THROTTLES.INVITE_RESEND.invite.limit - 1 });
-    expect(await purgeExpiredThrottles()).toBeGreaterThanOrEqual(0);
+
+    // The purge takes a window that has closed and leaves the one just restarted.
+    const [restarted] = await prisma.rateLimitBucket.findMany({ where: { key: { startsWith: "INVITE_RESEND:invite:" } } });
+    await hitThrottle("INVITE_RESEND", { invite: "invite-closed" });
+    await prisma.rateLimitBucket.updateMany({
+      where: { key: { startsWith: "INVITE_RESEND:invite:" }, NOT: { key: restarted.key } },
+      data: { windowEndsAt: new Date(Date.now() - 1000) },
+    });
+
+    expect(await purgeExpiredThrottles()).toBeGreaterThanOrEqual(1);
+    const left = await prisma.rateLimitBucket.findMany({ where: { key: { startsWith: "INVITE_RESEND:invite:" } } });
+    expect(left.map((row) => ({ key: row.key, count: row.count }))).toEqual([{ key: restarted.key, count: 1 }]);
   });
 
   it("never stores the subject itself (PRD #38 §18)", async () => {

@@ -112,6 +112,15 @@ jobs:
         # naming one in its `where` (PRD #49 §276-§279).
         run: pnpm verify:state
 
+      - name: Worker gates
+        # A valid job registry and worker environment; contract tests for every
+        # job with the properties its shape demands; handlers that only call
+        # their owner; no route that starts a job; alerts that read metrics the
+        # exporter still writes; docs/worker-matrix.md current (PRD #51 §198-§202).
+        run: |
+          pnpm verify:workers
+          pnpm worker --validate
+
       - name: Architecture tests
         # The same rules from the test runner, plus a named test for each drift
         # PRD #48 §293 lists, so a regression says which one came back.
@@ -135,6 +144,12 @@ jobs:
         # against the real database (PRD #49 §258, §271, §272).
         run: pnpm test:state
 
+      - name: Worker tests
+        # Leases, timeouts, retries and shutdown against the real database, and
+        # each job's idempotency, company isolation, concurrency and failure
+        # contract (PRD #51 §172-§195).
+        run: pnpm test:workers
+
       - name: Build
         run: pnpm build
 
@@ -145,10 +160,10 @@ jobs:
         run: pnpm verify:production-guards
 
       - name: Storage maintenance dry run
-        # Exercises the worker the storage architecture depends on and reports
-        # any document whose object has gone missing. A dry run changes
-        # nothing, and a non-zero orphan count on seeded data means the seed
-        # and the objects have drifted apart (PRD #29 §128, §129, §377).
+        # Runs the storage jobs once through their leases and reports any
+        # document whose object has gone missing. A dry run deletes nothing,
+        # and a non-zero orphan count on seeded data means the seed and the
+        # objects have drifted apart (PRD #29 §128, §129, §377, PRD #51 §163).
         run: pnpm storage:maintenance
 
       - name: Install Playwright browsers

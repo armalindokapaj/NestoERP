@@ -69,6 +69,7 @@ async function cleanup() {
   await prisma.attentionItem.deleteMany({ where: { entityId: { in: trail } } });
   await prisma.notification.deleteMany({ where: { entityId: { in: trail } } });
   await prisma.notificationEventOutbox.deleteMany({ where: { entityId: { in: trail } } });
+  await prisma.jobIdempotencyKey.deleteMany({ where: { jobKey: "planning.milestones", OR: trail.map((id) => ({ key: { startsWith: `${id}:` } })) } });
   await prisma.activity.deleteMany({ where: { entityId: { in: [...ids, ...createdTasks] } } });
   const threads = await prisma.collaborationThread.findMany({ where: { parentId: { in: [...ids, ...createdTasks] } }, select: { id: true } });
   await prisma.subscription.deleteMany({ where: { threadId: { in: threads.map((row) => row.id) } } });

@@ -47,7 +47,7 @@ const OWNED: Record<string, string[]> = {
   "core/approvals": ["approvalStep"],
   approvals: ["approvalDelegation", "approvalDecisionReceipt"],
   "core/security": ["rateLimitBucket"],
-  "core/jobs": ["workerHeartbeat"],
+  "core/jobs": ["workerHeartbeat", "workerProcess", "jobFailure", "jobIdempotencyKey"],
   mail: ["mailDelivery"],
 
   /* Business domains ------------------------------------------------------- */

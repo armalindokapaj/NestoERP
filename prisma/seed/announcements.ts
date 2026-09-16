@@ -41,6 +41,8 @@ export async function seedAnnouncementRecords(prisma: PrismaClient, members: Mem
 
   await prisma.attentionItem.deleteMany({ where: { entityType: "announcement", entityId: { in: ids } } });
   await prisma.notificationEventOutbox.deleteMany({ where: { entityType: "announcement", entityId: { in: ids } } });
+  // Reminder rounds are claimed as `<announcement>:<round>`; re-seeded announcements start again.
+  await prisma.jobIdempotencyKey.deleteMany({ where: { companyId: COMPANY_A, jobKey: "announcements.reminders", OR: ids.map((announcementId) => ({ key: { startsWith: `${announcementId}:` } })) } });
   await prisma.announcement.deleteMany({ where: { id: { in: ids } } });
   await prisma.productivitySettings.upsert({ where: { companyId: COMPANY_A }, update: {}, create: { companyId: COMPANY_A } });
 
