@@ -1,3 +1,5 @@
+import { applyTransition } from "@/lib/core/state/transition";
+import { hseInspectionMachine } from "./inspection.machine";
 import { Prisma, type HseInspectionStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
@@ -502,10 +504,13 @@ export async function startInspection(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: hseInspectionMachine,
+      action: "start",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "IN_PROGRESS",
         executedByMemberId: context.membershipId,
         inspectionDate: new Date(),
         updatedByMemberId: context.membershipId,
@@ -655,10 +660,13 @@ export async function submitInspection(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: hseInspectionMachine,
+      action: "submit",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "PENDING_APPROVAL",
         result: input.result,
         summary: input.summary ?? null,
         inspectionDate: input.inspectionDate ?? new Date(),
@@ -703,10 +711,13 @@ export async function approveInspection(
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
-    await tx.hseInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: hseInspectionMachine,
+      action: "approve",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "APPROVED",
         approvedAt: new Date(),
         approvedByMemberId: context.membershipId,
         decisionNote,
@@ -747,10 +758,13 @@ export async function rejectInspection(
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);
 
-    await tx.hseInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: hseInspectionMachine,
+      action: "reject",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "REJECTED",
         rejectedAt: new Date(),
         rejectedByMemberId: context.membershipId,
         decisionNote,
@@ -824,10 +838,13 @@ export async function closeInspection(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: hseInspectionMachine,
+      action: "close",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "CLOSED",
         closedAt: new Date(),
         closedByMemberId: context.membershipId,
         decisionNote: disposition ?? undefined,
@@ -864,10 +881,13 @@ export async function cancelInspection(
   await prisma.$transaction(async (tx) => {
     await approvals.cancelPendingApprovals(tx, context, "INSPECTION", inspectionId);
 
-    await tx.hseInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: hseInspectionMachine,
+      action: "cancel",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "CANCELLED",
         cancelledAt: new Date(),
         updatedByMemberId: context.membershipId,
       },

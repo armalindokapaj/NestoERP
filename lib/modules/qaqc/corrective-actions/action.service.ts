@@ -1,3 +1,5 @@
+import { applyTransition } from "@/lib/core/state/transition";
+import { correctiveActionMachine } from "./action.machine";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { Prisma, type CorrectiveActionStatus } from "@prisma/client";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
@@ -409,14 +411,26 @@ export async function assignAction(
   const member = await requireMember(context, memberId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.correctiveAction.update({
-      where: { id: actionId },
-      data: {
-        assignedToMemberId: member.id,
-        status: existing.status === "OPEN" ? "IN_PROGRESS" : existing.status,
-        updatedByMemberId: context.membershipId,
-      },
-    });
+    // Naming somebody starts an action nobody had started; otherwise it is an
+    // assignment alone. Both carry the state they were decided from.
+    if (existing.status === "OPEN") {
+      await applyTransition(tx, {
+        machine: correctiveActionMachine,
+        action: "start",
+        id: actionId,
+        context,
+        from: existing.status,
+        data: { assignedToMemberId: member.id, updatedByMemberId: context.membershipId },
+      });
+    } else {
+      const moved = await tx.correctiveAction.updateMany({
+        where: { id: actionId, companyId: context.companyId, status: existing.status },
+        data: { assignedToMemberId: member.id, updatedByMemberId: context.membershipId },
+      });
+      if (moved.count === 0) {
+        throw new AccessError("CONFLICT", "This action changed since you opened it. Reload to see the latest.", { code: "CORRECTIVE_ACTION_STALE" });
+      }
+    }
 
     if (member.id !== existing.assignedToMemberId) {
       await enqueueNotificationEvent(tx, {
@@ -457,10 +471,13 @@ export async function completeAction(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.correctiveAction.update({
-      where: { id: actionId },
+    await applyTransition(tx, {
+      machine: correctiveActionMachine,
+      action: "complete",
+      id: actionId,
+      context,
+      from: existing.status,
       data: {
-        status: "PENDING_VERIFICATION",
         completionNote,
         completedAt: new Date(),
         completedByMemberId: context.membershipId,
@@ -520,10 +537,13 @@ export async function verifyAction(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.correctiveAction.update({
-      where: { id: actionId },
+    await applyTransition(tx, {
+      machine: correctiveActionMachine,
+      action: "verify",
+      id: actionId,
+      context,
+      from: existing.status,
       data: {
-        status: "VERIFIED",
         verificationNote,
         verifiedAt: new Date(),
         verifiedByMemberId: context.membershipId,
@@ -559,9 +579,14 @@ export async function rejectAction(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.correctiveAction.update({
-      where: { id: actionId },
-      data: { status: "REJECTED", updatedByMemberId: context.membershipId },
+    await applyTransition(tx, {
+      machine: correctiveActionMachine,
+      action: "reject",
+      id: actionId,
+      context,
+      from: existing.status,
+      reason,
+      data: { updatedByMemberId: context.membershipId },
     });
 
     await recordActivity(tx, context, {
@@ -592,9 +617,14 @@ export async function reopenAction(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.correctiveAction.update({
-      where: { id: actionId },
-      data: { status: "REOPENED", updatedByMemberId: context.membershipId },
+    await applyTransition(tx, {
+      machine: correctiveActionMachine,
+      action: "reopen",
+      id: actionId,
+      context,
+      from: existing.status,
+      reason,
+      data: { updatedByMemberId: context.membershipId },
     });
 
     await recordActivity(tx, context, {
@@ -625,10 +655,13 @@ export async function cancelAction(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.correctiveAction.update({
-      where: { id: actionId },
+    await applyTransition(tx, {
+      machine: correctiveActionMachine,
+      action: "cancel",
+      id: actionId,
+      context,
+      from: existing.status,
       data: {
-        status: "CANCELLED",
         cancelledAt: new Date(),
         updatedByMemberId: context.membershipId,
       },

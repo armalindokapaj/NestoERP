@@ -299,6 +299,7 @@ export const AGGREGATION_POINTS: Array<{ file: string; reason: string }> = [
   { file: "lib/modules/approvals/approvals.registry.ts", reason: "Every approval source the centre routes (PRD #41 §17)." },
   { file: "lib/modules/productivity/navigable.registry.ts", reason: "Every record type that can be starred (PRD #45 §81)." },
   { file: "lib/modules/dashboard/dashboard.service.ts", reason: "Every KPI on the dashboard, read-only across domains (PRD #48 §102)." },
+  { file: "lib/core/state/registry.ts", reason: "Every declared state machine, so the gate and the docs can read them (PRD #49 §154)." },
 ];
 
 /**

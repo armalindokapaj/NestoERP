@@ -33,10 +33,23 @@
 - [ ] Audit and outbox written in the same transaction where the change requires them
 - [ ] `docs/data-ownership.md` and `docs/transaction-boundaries.md` still true
 
+## State and history
+
+<!-- For any change that moves a record between states, or touches a document. -->
+
+- [ ] The transition is semantic — an action, not a status the client chose
+- [ ] Allowed source states are declared, and the state the caller read is in the `where`
+- [ ] Nothing that became history is overwritten: a new version, a correction or a reversal instead
+- [ ] A reason is required where the transition demands one
+- [ ] Audit emitted for the transition, in the same transaction
+- [ ] Document parent authorisation checked — never the file id alone
+- [ ] Transition tests added, including the stale and simultaneous cases
+- [ ] `docs/state-machines.md`, `docs/document-lifecycle.md` and `docs/audit-model.md` still true
+
 ## Checks
 
 - [ ] `pnpm lint` · `pnpm typecheck`
 - [ ] `pnpm test` (or the suites this touches)
-- [ ] `pnpm verify:authorization` · `pnpm verify:ownership` · `pnpm security:matrix --check` · `pnpm verify:roles`
+- [ ] `pnpm verify:authorization` · `pnpm verify:ownership` · `pnpm verify:state` · `pnpm security:matrix --check` · `pnpm verify:roles`
 - [ ] `pnpm test:security`
 - [ ] Migration reviewed against `docs/` and applied with `migrate deploy` (never `migrate dev`)

@@ -1,3 +1,5 @@
+import { applyTransition } from "@/lib/core/state/transition";
+import { hseHazardMachine } from "./hazard.machine";
 import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
@@ -487,14 +489,27 @@ export async function assignHazard(
   const member = await requireMember(context, memberId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseHazard.update({
-      where: { id: hazardId },
-      data: {
-        assignedToMemberId: member.id,
-        status: existing.status === "OPEN" ? "IN_PROGRESS" : existing.status,
-        updatedByMemberId: context.membershipId,
-      },
-    });
+    // Naming somebody starts a hazard nobody had picked up; for one already
+    // under way it is an assignment alone. Both carry the state they were
+    // decided from.
+    if (existing.status === "OPEN") {
+      await applyTransition(tx, {
+        machine: hseHazardMachine,
+        action: "start",
+        id: hazardId,
+        context,
+        from: existing.status,
+        data: { assignedToMemberId: member.id, updatedByMemberId: context.membershipId },
+      });
+    } else {
+      const moved = await tx.hseHazard.updateMany({
+        where: { id: hazardId, companyId: context.companyId, status: existing.status },
+        data: { assignedToMemberId: member.id, updatedByMemberId: context.membershipId },
+      });
+      if (moved.count === 0) {
+        throw new AccessError("CONFLICT", "This hazard changed since you opened it. Reload to see the latest.", { code: "HSE_HAZARD_STALE" });
+      }
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -586,12 +601,15 @@ export async function controlHazard(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseHazard.update({
-      where: { id: hazardId },
+    await applyTransition(tx, {
+      machine: hseHazardMachine,
+      action: "control",
+      id: hazardId,
+      context,
+      from: existing.status,
       data: {
         immediateControl: input.immediateControl ?? undefined,
         controlMeasure: input.controlMeasure,
-        status: "CONTROLLED",
         updatedByMemberId: context.membershipId,
       },
     });
@@ -668,10 +686,13 @@ export async function closeHazard(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseHazard.update({
-      where: { id: hazardId },
+    await applyTransition(tx, {
+      machine: hseHazardMachine,
+      action: "close",
+      id: hazardId,
+      context,
+      from: existing.status,
       data: {
-        status: "CLOSED",
         closedAt: new Date(),
         closedByMemberId: context.membershipId,
         closureNote: input.closureNote,
@@ -705,10 +726,14 @@ export async function reopenHazard(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseHazard.update({
-      where: { id: hazardId },
+    await applyTransition(tx, {
+      machine: hseHazardMachine,
+      action: "reopen",
+      id: hazardId,
+      context,
+      from: existing.status,
+      reason,
       data: {
-        status: "REOPENED",
         closedAt: null,
         closedByMemberId: null,
         updatedByMemberId: context.membershipId,
@@ -743,10 +768,13 @@ export async function cancelHazard(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseHazard.update({
-      where: { id: hazardId },
+    await applyTransition(tx, {
+      machine: hseHazardMachine,
+      action: "cancel",
+      id: hazardId,
+      context,
+      from: existing.status,
       data: {
-        status: "CANCELLED",
         cancelledAt: new Date(),
         updatedByMemberId: context.membershipId,
       },

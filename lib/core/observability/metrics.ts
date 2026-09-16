@@ -106,6 +106,10 @@ export const Metric = {
   TRANSACTION_RETRY: "transaction_retry_total",
   CONFLICT: "conflict_total",
   IDEMPOTENCY_REPLAY: "idempotency_replay_total",
+  // State integrity (PRD #49 §64, §236, §279)
+  TRANSITION_APPLIED: "transition_applied_total",
+  TRANSITION_CONFLICT: "transition_conflict_total",
+  TRANSITION_REPLAY: "transition_replay_total",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

@@ -106,6 +106,12 @@ jobs:
         # dependency cycle between domains (PRD #48 §185-§192, §270, §298).
         run: pnpm verify:ownership
 
+      - name: State integrity gates
+        # Every declared state machine governs a model its own domain owns and
+        # is registered; no file gains a write that sets a state column without
+        # naming one in its `where` (PRD #49 §276-§279).
+        run: pnpm verify:state
+
       - name: Architecture tests
         # The same rules from the test runner, plus a named test for each drift
         # PRD #48 §293 lists, so a regression says which one came back.
@@ -116,6 +122,12 @@ jobs:
         # operation, and concurrent writers — against the real database
         # (PRD #48 §194-§202, §294-§296).
         run: pnpm test:transactions
+
+      - name: State transition tests
+        # A guarded transition moves a record that has not moved, refuses one
+        # that has, and lets exactly one of two simultaneous callers win —
+        # against the real database (PRD #49 §258, §271, §272).
+        run: pnpm test:state
 
       - name: Build
         run: pnpm build

@@ -1,3 +1,5 @@
+import { applyTransition } from "@/lib/core/state/transition";
+import { hsePermitMachine } from "./permit.machine";
 import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
@@ -454,10 +456,13 @@ export async function submitPermit(context: UserContext, permitId: string): Prom
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseWorkPermit.update({
-      where: { id: permitId },
+    await applyTransition(tx, {
+      machine: hsePermitMachine,
+      action: "submit",
+      id: permitId,
+      context,
+      from: existing.status,
       data: {
-        status: "PENDING_APPROVAL",
         submittedAt: new Date(),
         updatedByMemberId: context.membershipId,
       },
@@ -498,10 +503,13 @@ export async function approvePermit(
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
-    await tx.hseWorkPermit.update({
-      where: { id: permitId },
+    await applyTransition(tx, {
+      machine: hsePermitMachine,
+      action: "approve",
+      id: permitId,
+      context,
+      from: existing.status,
       data: {
-        status: "APPROVED",
         approvedAt: new Date(),
         approvedByMemberId: context.membershipId,
         updatedByMemberId: context.membershipId,
@@ -541,9 +549,13 @@ export async function rejectPermit(
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);
 
-    await tx.hseWorkPermit.update({
-      where: { id: permitId },
-      data: { status: "DRAFT", submittedAt: null, updatedByMemberId: context.membershipId },
+    await applyTransition(tx, {
+      machine: hsePermitMachine,
+      action: "reject",
+      id: permitId,
+      context,
+      from: existing.status,
+      data: { submittedAt: null, updatedByMemberId: context.membershipId },
     });
 
     await recordActivity(tx, context, {
@@ -597,10 +609,13 @@ export async function activatePermit(context: UserContext, permitId: string): Pr
   const reactivating = existing.status === "SUSPENDED";
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseWorkPermit.update({
-      where: { id: permitId },
+    await applyTransition(tx, {
+      machine: hsePermitMachine,
+      action: "activate",
+      id: permitId,
+      context,
+      from: existing.status,
       data: {
-        status: "ACTIVE",
         activatedAt: new Date(),
         suspendedAt: null,
         suspensionReason: null,
@@ -635,10 +650,14 @@ export async function suspendPermit(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseWorkPermit.update({
-      where: { id: permitId },
+    await applyTransition(tx, {
+      machine: hsePermitMachine,
+      action: "suspend",
+      id: permitId,
+      context,
+      from: existing.status,
+      reason,
       data: {
-        status: "SUSPENDED",
         suspendedAt: new Date(),
         suspensionReason: reason,
         updatedByMemberId: context.membershipId,
@@ -677,10 +696,13 @@ export async function closePermit(context: UserContext, permitId: string): Promi
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseWorkPermit.update({
-      where: { id: permitId },
+    await applyTransition(tx, {
+      machine: hsePermitMachine,
+      action: "close",
+      id: permitId,
+      context,
+      from: existing.status,
       data: {
-        status: "CLOSED",
         closedAt: new Date(),
         closedByMemberId: context.membershipId,
         updatedByMemberId: context.membershipId,
@@ -718,10 +740,13 @@ export async function cancelPermit(
   await prisma.$transaction(async (tx) => {
     await approvals.cancelPendingApprovals(tx, context, "WORK_PERMIT", permitId);
 
-    await tx.hseWorkPermit.update({
-      where: { id: permitId },
+    await applyTransition(tx, {
+      machine: hsePermitMachine,
+      action: "cancel",
+      id: permitId,
+      context,
+      from: existing.status,
       data: {
-        status: "CANCELLED",
         cancelledAt: new Date(),
         updatedByMemberId: context.membershipId,
       },
