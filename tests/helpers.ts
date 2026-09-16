@@ -144,6 +144,11 @@ export async function cleanupSessions(): Promise<void> {
   createdSessions.length = 0;
 }
 
+/** One of a company's own project types by name, as seeded from the defaults (E-05A §62). */
+export async function projectTypeId(companyId = "company_demo_a", name = "Residential"): Promise<string> {
+  return (await prisma.projectType.findFirstOrThrow({ where: { companyId, name }, select: { id: true } })).id;
+}
+
 export const PROJECT = {
   a: "project_a",
   b: "project_b",

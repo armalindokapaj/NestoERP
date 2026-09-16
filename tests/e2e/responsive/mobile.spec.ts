@@ -84,16 +84,28 @@ test.describe("mobile module layout (PRD #9 §184)", () => {
     await expect(cards.first().getByTestId("project-status")).toBeVisible();
   });
 
-  test("moves filters into a sheet (PRD #7 §88, E-05A §24)", async ({ page }) => {
+  test("moves filters and the sort into a sheet that applies them together (PRD #7 §88, E-05A §39)", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER");
     await page.goto("/projects");
 
     await page.locator("#nesto-main").getByTestId("projects-filters-open").click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByRole("dialog").getByLabel("Project type").selectOption({ label: "Commercial" });
-    await expect(page).toHaveURL(/type=COMMERCIAL/);
-    await page.getByRole("dialog").getByRole("button", { name: "Show projects" }).click();
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toBeVisible();
+    await sheet.getByLabel("Project type").selectOption({ label: "Commercial" });
+    await sheet.getByLabel("Sort").selectOption({ label: "Project name Z–A" });
+    // Nothing moves behind the sheet until Apply.
+    await expect(page).toHaveURL(/\/projects$/);
+    await sheet.getByRole("button", { name: "Apply" }).click();
+
+    await expect(page).toHaveURL(/type=Commercial/);
+    await expect(page).toHaveURL(/sort=name-desc/);
     await expect(page.locator("#nesto-main").getByTestId("project-card")).toHaveCount(1);
+
+    // Reset clears the sheet; Apply then clears the page.
+    await page.locator("#nesto-main").getByTestId("projects-filters-open").click();
+    await sheet.getByRole("button", { name: "Reset" }).click();
+    await sheet.getByRole("button", { name: "Apply" }).click();
+    await expect(page).toHaveURL(/\/projects$/);
   });
 
   test("never scrolls the page sideways", async ({ page }) => {

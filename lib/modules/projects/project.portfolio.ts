@@ -3,7 +3,6 @@ import { cache } from "react";
 import { z } from "zod";
 
 import type { Permission } from "@/config/permissions";
-import { PROJECT_TYPE_LABELS, isProjectTypeKey, projectTypeLabel, projectTypesMatching } from "@/config/project-types";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
@@ -239,10 +238,10 @@ const LIST_SELECT = {
   code: true,
   name: true,
   status: true,
-  projectType: true,
   city: true,
   country: true,
   companyId: true,
+  projectType: { select: { id: true, name: true } },
   coverImageDocumentId: true,
   projectManagerMemberId: true,
   lastActivityAt: true,
@@ -373,9 +372,7 @@ function filterClauses(query: PortfolioQuery, portfolio: PortfolioMembership[], 
   const memberIds = portfolio.map((membership) => membership.context.membershipId);
 
   if (query.q) {
-    const text = query.q;
-    const types = projectTypesMatching(text);
-    const contains = { contains: text, mode: "insensitive" as const };
+    const contains = { contains: query.q, mode: "insensitive" as const };
     clauses.push({
       OR: [
         { name: contains },
@@ -383,7 +380,7 @@ function filterClauses(query: PortfolioQuery, portfolio: PortfolioMembership[], 
         { company: { name: contains } },
         { city: contains },
         { country: contains },
-        ...(types.length > 0 ? [{ projectType: { in: types } }] : []),
+        { projectType: { name: contains } },
       ],
     });
   }
@@ -391,7 +388,9 @@ function filterClauses(query: PortfolioQuery, portfolio: PortfolioMembership[], 
   if (query.status) clauses.push({ status: query.status });
   if (query.favorites) clauses.push({ id: { in: [...favorites] } });
   if (query.companyId) clauses.push({ companyId: query.companyId });
-  if (query.projectType) clauses.push({ projectType: query.projectType });
+  // By name: each company keeps its own list, and "Hospital" means the same
+  // thing on a card from either company (E-05A §30).
+  if (query.projectType) clauses.push({ projectType: { name: { equals: query.projectType, mode: "insensitive" } } });
 
   if (query.location) {
     const separator = query.location.indexOf(":");
@@ -512,27 +511,32 @@ export async function listPortfolioProjects(session: UserContext, query: Portfol
 }
 
 /**
- * The role this person holds on each project (E-05A §52): their project role
- * on the team, or Project Manager where they manage it. Never the job title and
- * never the company role — an Owner who is on no project's team has no project
- * role to show.
+ * The roles this person holds on each project (E-05A §55, §56): their role on
+ * the project's team first, then Project Manager where they manage it and the
+ * team role says something else. Never the job title and never the company
+ * role — an Owner who is on no project's team has no project role to show.
+ * The same words in another case are one role, not two.
  */
-async function effectiveRoles(portfolio: PortfolioMembership[], rows: ListRow[]): Promise<Map<string, string>> {
-  const roles = new Map<string, string>();
+async function effectiveRoles(portfolio: PortfolioMembership[], rows: ListRow[]): Promise<Map<string, string[]>> {
+  const roles = new Map<string, string[]>();
   if (rows.length === 0) return roles;
   const memberIds = new Set(portfolio.map((membership) => membership.context.membershipId));
 
+  const add = (projectId: string, label: string | null | undefined) => {
+    const trimmed = label?.trim();
+    if (!trimmed) return;
+    const held = roles.get(projectId) ?? [];
+    if (!held.some((existing) => existing.toLowerCase() === trimmed.toLowerCase())) roles.set(projectId, [...held, trimmed]);
+  };
+
   const assignments = await prisma.projectMember.findMany({
     where: { projectId: { in: rows.map((row) => row.id) }, companyMemberId: { in: [...memberIds] }, status: "ACTIVE" },
-    select: { projectId: true, projectRole: true, isPrimary: true },
+    select: { projectId: true, projectRole: true },
     orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
   });
-  for (const assignment of assignments) {
-    const label = assignment.projectRole?.trim();
-    if (label && !roles.has(assignment.projectId)) roles.set(assignment.projectId, label);
-  }
+  for (const assignment of assignments) add(assignment.projectId, assignment.projectRole);
   for (const row of rows) {
-    if (!roles.has(row.id) && row.projectManagerMemberId && memberIds.has(row.projectManagerMemberId)) roles.set(row.id, "Project Manager");
+    if (row.projectManagerMemberId && memberIds.has(row.projectManagerMemberId)) add(row.id, "Project Manager");
   }
   return roles;
 }
@@ -540,12 +544,12 @@ async function effectiveRoles(portfolio: PortfolioMembership[], rows: ListRow[])
 function toPortfolioDTO(
   row: ListRow,
   portfolio: PortfolioMembership[],
-  lookups: { favorites: Set<string>; enabledCompanies: Set<string>; covers: Map<string, number>; roles: Map<string, string> },
+  lookups: { favorites: Set<string>; enabledCompanies: Set<string>; covers: Map<string, number>; roles: Map<string, string[]> },
 ): PortfolioProjectDTO {
   const membership = portfolio.find((candidate) => candidate.companyId === row.companyId)!;
   const context = membership.context;
   const coverVersion = row.coverImageDocumentId ? lookups.covers.get(row.coverImageDocumentId) : undefined;
-  const role = lookups.roles.get(row.id);
+  const [role, ...otherRoles] = lookups.roles.get(row.id) ?? [];
   const manageStatus = can(context, "project.status.manage");
 
   return {
@@ -560,8 +564,8 @@ function toPortfolioDTO(
         ? { documentId: row.coverImageDocumentId, thumbnailUrl: `/api/projects/${row.id}/cover?v=${coverVersion.toString(36)}` }
         : null,
     location: { city: row.city, country: row.country },
-    projectType: row.projectType ? { key: row.projectType, label: projectTypeLabel(row.projectType)! } : null,
-    myProjectRole: role ? { name: role } : null,
+    projectType: row.projectType ? { id: row.projectType.id, name: row.projectType.name } : null,
+    myProjectRole: role ? { name: role, others: otherRoles.length } : null,
     isFavorite: lookups.favorites.has(row.id),
     lastActivityAt: row.lastActivityAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
@@ -597,7 +601,7 @@ export async function portfolioFilterOptions(session: UserContext): Promise<Port
 
   const [companies, types, places, assignments, managed] = await Promise.all([
     prisma.project.groupBy({ by: ["companyId"], where: authorised, _count: { _all: true } }),
-    prisma.project.groupBy({ by: ["projectType"], where: { AND: [authorised, { projectType: { not: null } }] } }),
+    prisma.project.groupBy({ by: ["projectTypeId"], where: { AND: [authorised, { projectTypeId: { not: null } }] } }),
     prisma.project.groupBy({ by: ["city", "country"], where: { AND: [authorised, { OR: [{ city: { not: null } }, { country: { not: null } }] }] } }),
     prisma.projectMember.findMany({
       where: { companyMemberId: { in: memberIds }, status: "ACTIVE", projectRole: { not: null }, project: authorised },
@@ -608,6 +612,16 @@ export async function portfolioFilterOptions(session: UserContext): Promise<Port
   ]);
 
   const represented = new Set(companies.map((group) => group.companyId));
+
+  // Types are rows per company; the filter offers each name once.
+  const typeRows = await prisma.projectType.findMany({
+    where: { id: { in: types.map((group) => group.projectTypeId).filter((id): id is string => Boolean(id)) } },
+    select: { name: true },
+  });
+  const typeNames = new Map<string, string>();
+  for (const { name } of typeRows) {
+    if (!typeNames.has(name.toLowerCase())) typeNames.set(name.toLowerCase(), name);
+  }
 
   const roleLabels = new Map<string, string>();
   for (const { projectRole } of assignments) {
@@ -628,11 +642,7 @@ export async function portfolioFilterOptions(session: UserContext): Promise<Port
   return {
     companies: portfolio.filter((membership) => represented.has(membership.companyId)).map((membership) => ({ id: membership.companyId, name: membership.company.name })),
     roles: [...roleLabels.values()].sort((a, b) => a.localeCompare(b)).map((label) => ({ value: label, label })),
-    projectTypes: types
-      .map((group) => group.projectType)
-      .filter((key): key is string => Boolean(key))
-      .map((key) => ({ value: key, label: isProjectTypeKey(key) ? PROJECT_TYPE_LABELS[key] : key }))
-      .sort((a, b) => a.label.localeCompare(b.label)),
+    projectTypes: [...typeNames.values()].sort((a, b) => a.localeCompare(b)).map((name) => ({ value: name, label: name })),
     locations: {
       countries: [...countries.values()].sort((a, b) => a.label.localeCompare(b.label)),
       cities: [...cities.values()].sort((a, b) => a.label.localeCompare(b.label)),

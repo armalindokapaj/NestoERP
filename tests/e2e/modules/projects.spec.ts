@@ -77,9 +77,9 @@ test.describe("Project Manager (PRD #9 §153)", () => {
     await page.goto("/projects?status=ACTIVE&sort=name-asc");
 
     await expect(mainRegion(page).getByRole("button", { name: "Active", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(mainRegion(page).getByLabel("Sort")).toHaveValue("name-asc");
+    await expect(mainRegion(page).getByLabel("Sort", { exact: true })).toHaveValue("name-asc");
     await page.reload();
-    await expect(mainRegion(page).getByLabel("Sort")).toHaveValue("name-asc");
+    await expect(mainRegion(page).getByLabel("Sort", { exact: true })).toHaveValue("name-asc");
 
     await mainRegion(page).getByRole("searchbox", { name: "Search projects" }).fill("Riverside");
     await expect(page).toHaveURL(/q=Riverside/);
@@ -93,11 +93,24 @@ test.describe("Project Manager (PRD #9 §153)", () => {
     await expect(mainRegion(page).getByRole("searchbox", { name: "Search projects" })).toHaveValue("Riverside");
   });
 
-  test("shows Clear filters only while something is filtered (E-05A §19)", async ({ page }) => {
+  test("shows Clear filters only while something is filtered or re-sorted (E-05A §32, §53)", async ({ page }) => {
     await page.goto("/projects");
     await expect(mainRegion(page).getByTestId("projects-clear-filters")).toHaveCount(0);
+    await expect(mainRegion(page).getByTestId("projects-result-count")).toHaveCount(0);
 
-    await page.goto("/projects?status=PENDING");
+    // A sort narrows nothing, so there is no result count — but it can be cleared.
+    await page.goto("/projects?sort=name-asc");
+    await expect(mainRegion(page).getByTestId("projects-clear-filters")).toBeVisible();
+    await expect(mainRegion(page).getByTestId("projects-result-count")).toHaveCount(0);
+
+    // Each active value is a chip that removes only itself.
+    await page.goto("/projects?status=ACTIVE&sort=name-asc");
+    // Other specs may add projects mid-run, so the words are asserted, not the number.
+    await expect(mainRegion(page).getByTestId("projects-result-count")).toHaveText(/^\d+ results?$/);
+    await mainRegion(page).getByRole("button", { name: "Remove Sort: Project name A–Z" }).click();
+    await expect(page).toHaveURL(/\/projects\?status=ACTIVE$/);
+    await expect(mainRegion(page).getByRole("button", { name: "Remove Status: Active" })).toBeVisible();
+
     await mainRegion(page).getByTestId("projects-clear-filters").click();
     await expect(page).toHaveURL(/\/projects$/);
     await expect(mainRegion(page).getByTestId("projects-clear-filters")).toHaveCount(0);
@@ -218,7 +231,8 @@ test.describe("Viewer (PRD #9 §163)", () => {
 
     const create = await request.post("/api/projects", {
       headers: { cookie: header, "content-type": "application/json" },
-      data: { code: "PRJ-HACK", name: "Should not exist", status: "PENDING" },
+      // A well-formed body, so the refusal is the permission and not the shape.
+      data: { code: "PRJ-HACK", name: "Should not exist", status: "PENDING", projectTypeId: "any-type" },
     });
     expect(create.status()).toBe(403);
 
@@ -259,7 +273,7 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
     await expect(page.getByTestId("project-form-company")).toContainText("NESTO Demo Construction");
     await page.getByLabel("Project name").fill("End-to-end Test Project");
     await page.getByLabel("Project code").fill(code);
-    await page.getByLabel("Project type").selectOption("HOSPITAL");
+    await page.getByLabel("Project type").selectOption({ label: "Hospital" });
     await page.getByLabel("Status").selectOption("ACTIVE");
     await page.getByRole("button", { name: /create project/i }).click();
 
@@ -275,7 +289,7 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
     await expect(page.getByRole("heading", { name: "End-to-end Renamed" })).toBeVisible();
 
     // The new project is on the Projects page, typed.
-    await page.goto("/projects?type=HOSPITAL");
+    await page.goto("/projects?type=Hospital");
     await expect(card(page, "End-to-end Renamed")).toBeVisible();
 
     // Archive, with confirmation
@@ -339,6 +353,7 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
 
     await page.getByLabel("Project name").fill("Duplicate Code Project");
     await page.getByLabel("Project code").fill("PRJ-001");
+    await page.getByLabel("Project type").selectOption({ label: "Commercial" });
     await page.getByRole("button", { name: /create project/i }).click();
 
     await expect(page.locator("form").getByRole("alert")).toContainText(/already exists/i);
@@ -350,11 +365,56 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
 
     await page.getByLabel("Project name").fill("Bad Dates Project");
     await page.getByLabel("Project code").fill(`PRJ-DATE-${Date.now().toString().slice(-5)}`);
+    await page.getByLabel("Project type").selectOption({ label: "Other" });
     await page.getByLabel("Start date").fill("2027-06-01");
     await page.getByLabel("End date").fill("2027-01-01");
     await page.getByRole("button", { name: /create project/i }).click();
 
     await expect(page.getByText(/end date must be on or after the start date/i)).toBeVisible();
+  });
+});
+
+test.describe("Project types (E-05A §30, §62)", () => {
+  const name = `E2E Education ${Date.now().toString(36)}`;
+
+  test.afterAll(async () => {
+    await db.projectType.deleteMany({ where: { companyId: "company_demo_a", name: { startsWith: "E2E Education" } } });
+  });
+
+  test("an Admin keeps the company's list, and new projects choose only from the types in use", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await page.goto("/projects");
+    await mainRegion(page).getByRole("link", { name: "Project types" }).click();
+    await expect(page).toHaveURL(/\/projects\/types$/);
+
+    await page.getByLabel("Add a project type").fill(name);
+    await page.getByRole("button", { name: "Add type" }).click();
+    const row = page.getByTestId("project-type").filter({ hasText: name });
+    await expect(row).toContainText("No projects");
+
+    await page.goto("/projects/new");
+    await expect(page.getByLabel("Project type").locator("option", { hasText: name })).toHaveCount(1);
+
+    await page.goto("/projects/types");
+    await page.getByTestId("project-type").filter({ hasText: name }).getByRole("button", { name: `Retire ${name}` }).click();
+    await expect(page.getByTestId("project-type").filter({ hasText: name })).toContainText("Retired");
+
+    await page.goto("/projects/new");
+    await expect(page.getByLabel("Project type").locator("option", { hasText: name })).toHaveCount(0);
+
+    // A type no project uses can be deleted, with confirmation.
+    await page.goto("/projects/types");
+    await page.getByRole("button", { name: `Delete ${name}` }).click();
+    await page.getByRole("button", { name: "Delete type" }).click();
+    await expect(page.getByTestId("project-type").filter({ hasText: name })).toHaveCount(0);
+  });
+
+  test("is not a Project Manager's to keep", async ({ page }) => {
+    await signIn(page, "PROJECT_MANAGER");
+    await page.goto("/projects");
+    await expect(mainRegion(page).getByRole("link", { name: "Project types" })).toHaveCount(0);
+    const response = await page.goto("/projects/types");
+    expect(response?.status()).toBe(404);
   });
 });
 

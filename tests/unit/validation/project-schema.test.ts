@@ -17,6 +17,7 @@ import { parseProjectListQuery } from "@/lib/modules/projects/project.query";
 const valid = {
   code: "PRJ-100",
   name: "Harbor Offices",
+  projectTypeId: "ptype_residential",
   status: "PENDING",
 };
 
@@ -78,12 +79,14 @@ describe("createProjectSchema (PRD #10 §33–§38)", () => {
   });
 
   it("starts a project Pending when no status is given (E-05A §31)", () => {
-    expect(createProjectSchema.parse({ code: "PRJ-1", name: "No status" }).status).toBe("PENDING");
+    expect(createProjectSchema.parse({ code: "PRJ-1", name: "No status", projectTypeId: "ptype_residential" }).status).toBe("PENDING");
   });
 
-  it("accepts only the project types the list defines (E-05A §18.3)", () => {
-    expect(createProjectSchema.parse({ ...valid, projectType: "HOSPITAL" }).projectType).toBe("HOSPITAL");
-    expect(createProjectSchema.safeParse({ ...valid, projectType: "CASTLE" }).success).toBe(false);
+  it("requires a project type on a new project, but not on an edit (E-05A §13)", () => {
+    // Whether the id is one of the company's types in use is the service's question.
+    expect(createProjectSchema.safeParse({ ...valid, projectTypeId: undefined }).success).toBe(false);
+    expect(createProjectSchema.safeParse({ ...valid, projectTypeId: "" }).success).toBe(false);
+    expect(updateProjectSchema.parse({ ...valid, projectTypeId: "" }).projectTypeId).toBeUndefined();
   });
 });
 

@@ -1,4 +1,5 @@
 import type { ModuleKey } from "@/config/modules";
+import { defaultProjectTypeRows } from "@/config/project-types";
 import { prisma } from "@/lib/database/prisma";
 
 import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.service";
@@ -124,4 +125,10 @@ export async function bootstrapCompanyConfiguration(companyId: string): Promise<
     })),
     skipDuplicates: true,
   });
+
+  // Project types to start from (E-05A §62) — only for a company that has none,
+  // so a retried onboarding never brings back a type an administrator removed.
+  if (!(await prisma.projectType.findFirst({ where: { companyId }, select: { id: true } }))) {
+    await prisma.projectType.createMany({ data: defaultProjectTypeRows(companyId), skipDuplicates: true });
+  }
 }

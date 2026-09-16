@@ -5,12 +5,12 @@ import { Building2, ChevronRight } from "lucide-react";
 
 import { ProjectForm } from "@/components/projects/project-form";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
-import { PROJECT_TYPE_KEYS, PROJECT_TYPE_LABELS } from "@/config/project-types";
 import { can } from "@/lib/access/can";
 import { createProjectAction } from "@/lib/actions/projects";
 import { requireUserContext } from "@/lib/context/current-user";
 import { contextForCompany, creatableCompanies } from "@/lib/modules/projects/project.portfolio";
 import { projectFormOptions } from "@/lib/modules/projects/project.options";
+import { projectTypeChoices } from "@/lib/modules/projects/project-type.service";
 import { EDITABLE_STATUSES, projectStatusLabels } from "@/lib/modules/projects/project.status";
 
 export const metadata: Metadata = { title: "New project" };
@@ -63,7 +63,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
   }
 
   const context = await contextForCompany(session, chosen.id, "project.create");
-  const options = await projectFormOptions(context);
+  const [options, projectTypes] = await Promise.all([projectFormOptions(context), projectTypeChoices(context)]);
 
   async function action(formData: FormData) {
     "use server";
@@ -80,7 +80,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
         company={{ id: chosen.id, name: chosen.name, changeHref: companies.length > 1 ? "/projects/new" : undefined }}
         clients={options.clients}
         managers={options.managers}
-        projectTypes={PROJECT_TYPE_KEYS.map((key) => ({ value: key, label: PROJECT_TYPE_LABELS[key] }))}
+        projectTypes={projectTypes}
         statuses={
           // Starting a project anywhere but Pending is the status decision (E-05A §31).
           can(context, "project.status.manage")
@@ -95,7 +95,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
           projectManagerMemberId: "",
           status: "PENDING",
           priority: "",
-          projectType: "",
+          projectTypeId: "",
           coverImageDocumentId: "",
           startDate: "",
           endDate: "",

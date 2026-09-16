@@ -173,6 +173,8 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       // Milestones across projects: delays, variance and the portfolio (PRD #44 §171-§175).
       { key: "milestones", label: "Milestones", permission: "project_planning.view" },
       { key: "archived", label: "Archived" },
+      // The company's own list of project types (E-05A §62).
+      { key: "types", label: "Project types", permission: "project.type.manage" },
     ],
   },
   tasks: {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
+import { defaultProjectTypeRows } from "@/config/project-types";
 import { appLink } from "@/lib/config/app-url";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordSystemAction } from "@/lib/core/audit/audit.service";
@@ -20,8 +21,8 @@ import {
  * Production company provisioning (PRD #38 §19).
  *
  * Creates everything a company needs to function — the company, its settings,
- * its module switches, numbering, integration settings, storage quota — and an
- * Owner invitation, without any of the demo seed. Nobody sets the Owner's
+ * its module switches, numbering, integration settings, storage quota, project
+ * types — and an Owner invitation, without any of the demo seed. Nobody sets the Owner's
  * password here: the Owner receives an invitation and chooses it themselves,
  * so no credential ever passes through the operator running the command.
  *
@@ -143,6 +144,10 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
       update: {},
       create: { companyId, maxStorageBytes: null, maxSingleFileBytes: BigInt(DEFAULT_MAX_FILE_BYTES) },
     });
+    // The project types a company starts with; its administrators keep the list
+    // from then on, so a rerun adds none it renamed or removed (E-05A §62).
+    const hasProjectTypes = await tx.projectType.findFirst({ where: { companyId }, select: { id: true } });
+    if (!hasProjectTypes) await tx.projectType.createMany({ data: defaultProjectTypeRows(companyId) });
 
     if (!existing) {
       await recordSystemAction(

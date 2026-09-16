@@ -43,7 +43,7 @@ export type ProjectDetailDTO = {
   location: { address: string | null; city: string | null; country: string | null };
   /** The managing company, shown in the workspace breadcrumb (E-05A §26). */
   company: { id: string; name: string };
-  projectType: { key: string; label: string } | null;
+  projectType: { id: string; name: string } | null;
   coverImageDocumentId: string | null;
   lastActivityAt: string;
   counts: { members: number; openTasks: number; documents: number };
@@ -99,8 +99,13 @@ export type PortfolioProjectDTO = {
   /** Null when there is no cover or this reader cannot open its document (E-05A §73). */
   cover: { documentId: string; thumbnailUrl: string } | null;
   location: { city: string | null; country: string | null };
-  projectType: { key: string; label: string } | null;
-  myProjectRole: { name: string } | null;
+  projectType: { id: string; name: string } | null;
+  /**
+   * What this person is on the project — their role on its team, or Project
+   * Manager — never their job title (E-05A §55). `others` counts the further
+   * roles they hold on it, shown as "Architect +1" (§56).
+   */
+  myProjectRole: { name: string; others: number } | null;
   isFavorite: boolean;
   lastActivityAt: string;
   createdAt: string;
@@ -132,4 +137,14 @@ export type PortfolioFilterOptionsDTO = {
   };
   /** Where `+ New Project` may create (E-05A §30). */
   creatableCompanies: Array<{ id: string; name: string }>;
+};
+
+/** One of a company's project types, as the people who keep the list see it (E-05A §62). */
+export type ProjectTypeDTO = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+  /** Projects of every status, archived included, that use it. A used type is retired, not deleted. */
+  projectCount: number;
 };

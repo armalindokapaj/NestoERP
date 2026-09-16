@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { AccessError } from "@/lib/access/guards";
 import { createProjectSchema, updateProjectSchema } from "@/lib/modules/projects/project.schema";
 import * as projects from "@/lib/modules/projects/project.service";
-import { cleanupSessions, loginAs, prisma } from "../../helpers";
+import { cleanupSessions, loginAs, prisma, projectTypeId } from "../../helpers";
 
 /**
  * API contract tests (PRD #6 §122, PRD #10 §158).
@@ -23,6 +23,7 @@ describe("privilege claims in a request body are inert", () => {
     const input = createProjectSchema.parse({
       code: `PRJ-CONTRACT-${Date.now().toString().slice(-6)}`,
       name: "Contract Test",
+      projectTypeId: await projectTypeId(),
       status: "PENDING",
       // Everything below is what an attacker would try.
       role: "OWNER",
@@ -46,7 +47,7 @@ describe("privilege claims in a request body are inert", () => {
     const context = await loginAs("OWNER");
     const code = `PRJ-CONTRACT-B-${Date.now().toString().slice(-6)}`;
 
-    const input = createProjectSchema.parse({ code, name: "Contract Test in B", companyId: "company_demo_b" });
+    const input = createProjectSchema.parse({ code, name: "Contract Test in B", companyId: "company_demo_b", projectTypeId: await projectTypeId("company_demo_b") });
 
     await expect(projects.createProject(context, input)).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await prisma.project.count({ where: { code } })).toBe(0);
@@ -63,6 +64,7 @@ describe("privilege claims in a request body are inert", () => {
       createProjectSchema.parse({
         code: `PRJ-CONTRACT-U-${Date.now().toString().slice(-6)}`,
         name: "Contract Update Test",
+        projectTypeId: await projectTypeId(),
         status: "ACTIVE",
       }),
     );

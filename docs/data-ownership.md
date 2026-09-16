@@ -51,7 +51,7 @@ with it.
 | `core/security` | `RateLimitBucket` |
 | `core/jobs` | `WorkerHeartbeat` |
 | `mail` | `MailDelivery` |
-| `projects` | `Project`, `ProjectMember` |
+| `projects` | `Project`, `ProjectMember`, `ProjectType` |
 | `clients` | `Client`, `Contact` |
 | `tasks` | `Task` |
 | `documents` | `Document`, `DocumentVersion`, `DocumentReview`, `DocumentUploadSession`, storage quota and usage |

@@ -72,7 +72,7 @@ describe("bootstrapCompany", () => {
     expect(result.owner.state).toBe("INVITED");
     const companyId = result.companyId;
 
-    const [modules, settings, integration, numbering, quota, finance, audit] = await Promise.all([
+    const [modules, settings, integration, numbering, quota, finance, audit, projectTypes] = await Promise.all([
       prisma.companyModule.findMany({ where: { companyId }, include: { module: true } }),
       prisma.companySettings.findUnique({ where: { companyId } }),
       prisma.companyIntegrationSettings.findUnique({ where: { companyId } }),
@@ -80,6 +80,7 @@ describe("bootstrapCompany", () => {
       prisma.companyStorageQuota.findUnique({ where: { companyId } }),
       prisma.financeSettings.findUnique({ where: { companyId } }),
       prisma.auditEvent.findFirst({ where: { companyId, actionKey: "COMPANY_CREATED" } }),
+      prisma.projectType.findMany({ where: { companyId }, orderBy: { sortOrder: "asc" }, select: { name: true, isActive: true } }),
     ]);
 
     expect(modules.length).toBeGreaterThan(10);
@@ -91,6 +92,9 @@ describe("bootstrapCompany", () => {
     expect(quota).not.toBeNull();
     expect(finance).not.toBeNull();
     expect(audit).not.toBeNull();
+    // New projects need a type, so a company starts with the defaults to choose from (E-05A §13, §62).
+    expect(projectTypes.map((type) => type.name)).toEqual(["Residential", "Commercial", "Hospital", "Hotel", "Industrial", "Infrastructure", "Mixed use", "Other"]);
+    expect(projectTypes.every((type) => type.isActive)).toBe(true);
 
     const message = readOutbox().at(-1);
     expect(message?.to).toBe(OWNER);
@@ -98,6 +102,10 @@ describe("bootstrapCompany", () => {
   });
 
   it("converges on a rerun: no second company, no second invitation", async () => {
+    // A type the company's administrators removed stays removed.
+    const provisioned = await prisma.company.findUniqueOrThrow({ where: { slug: SLUG } });
+    await prisma.projectType.deleteMany({ where: { companyId: provisioned.id, name: "Hotel" } });
+
     const again = await bootstrapCompany({ name: "Renamed On Rerun", slug: SLUG, ownerEmail: OWNER });
     expect(again.companyCreated).toBe(false);
     expect(again.owner.state).toBe("INVITATION_PENDING");
@@ -108,6 +116,7 @@ describe("bootstrapCompany", () => {
     // An administrator's module choice survives a rerun that did not mention it.
     const hse = await prisma.companyModule.findFirstOrThrow({ where: { companyId: company.id, module: { key: "hse" } } });
     expect(hse.enabled).toBe(false);
+    expect(await prisma.projectType.count({ where: { companyId: company.id } })).toBe(7);
   });
 
   it("lets the invited Owner set their password and become the active Owner", async () => {

@@ -209,6 +209,12 @@ export const PERMISSIONS = [
    * being the one who declares it started or handed over.
    */
   "project.status.manage",
+  /**
+   * Keeping the company's list of project types (E-05A §30, §62): adding,
+   * renaming, ordering and retiring them. Company configuration rather than
+   * project work, so no module ladder reaches it.
+   */
+  "project.type.manage",
   "project.archive",
   "project.restore",
   "project.manage",

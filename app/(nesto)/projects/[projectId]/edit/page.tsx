@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 
 import { ProjectForm } from "@/components/projects/project-form";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
-import { PROJECT_TYPE_KEYS, PROJECT_TYPE_LABELS } from "@/config/project-types";
 import { can } from "@/lib/access/can";
 import { transitionFor } from "@/lib/core/state/machine";
 import { updateProjectAction } from "@/lib/actions/projects";
 import { projectMachine, statusActionFor } from "@/lib/modules/projects/project.machine";
 import { projectFormOptions } from "@/lib/modules/projects/project.options";
+import { projectTypeChoices } from "@/lib/modules/projects/project-type.service";
 import { coverCandidates } from "@/lib/modules/projects/project.service";
 import { allowedTransitions, projectStatusLabels } from "@/lib/modules/projects/project.status";
 import { loadProject } from "../project-context";
@@ -33,12 +33,14 @@ export default async function EditProjectPage({ params }: Params) {
     redirect(`/projects/${project.id}`);
   }
 
-  const [options, covers] = await Promise.all([
+  const [options, covers, projectTypes] = await Promise.all([
     projectFormOptions(context, {
       clientId: project.client?.id ?? null,
       managerMemberId: project.projectManager?.memberId ?? null,
     }),
     coverCandidates(context, project.id),
+    // A retired type stays offered to the project that has it (E-05A §62).
+    projectTypeChoices(context, project.projectType?.id ?? null),
   ]);
 
   // The status is offered only to somebody who may move it, and only the moves
@@ -80,7 +82,7 @@ export default async function EditProjectPage({ params }: Params) {
         clients={options.clients}
         managers={options.managers}
         statuses={statuses}
-        projectTypes={PROJECT_TYPE_KEYS.map((key) => ({ value: key, label: PROJECT_TYPE_LABELS[key] }))}
+        projectTypes={projectTypes}
         covers={{
           options: [
             ...covers.map((cover) => ({ value: cover.id, label: cover.name })),
@@ -100,7 +102,7 @@ export default async function EditProjectPage({ params }: Params) {
           projectManagerMemberId: project.projectManager?.memberId ?? "",
           status: project.status,
           priority: project.priority ?? "",
-          projectType: project.projectType?.key ?? "",
+          projectTypeId: project.projectType?.id ?? "",
           coverImageDocumentId: project.coverImageDocumentId ?? "",
           startDate: project.schedule.startDate?.slice(0, 10) ?? "",
           endDate: project.schedule.endDate?.slice(0, 10) ?? "",

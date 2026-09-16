@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**575 route handlers, 259 server actions.** AUTHENTICATED 28 · COMPANY_SCOPED 794 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**580 route handlers, 259 server actions.** AUTHENTICATED 28 · COMPANY_SCOPED 799 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -608,7 +608,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/projects/[projectId]/rfis` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `rfi.view` | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | sweep |
 | POST | `/api/projects/[projectId]/rfis` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `rfi.create`, `rfi.open` +2 | `buildProjectScopeWhere`, `engineeringProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
 | GET | `/api/projects/[projectId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +83 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | sweep |
-| PATCH | `/api/projects/[projectId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | `applyTransition`, `assertTransitionAllowed` | sweep |
+| PATCH | `/api/projects/[projectId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +2 | `applyTransition`, `assertTransitionAllowed` | sweep |
 | PATCH | `/api/projects/[projectId]/status` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +84 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | `applyTransition`, `assertTransitionAllowed` +1 | sweep |
 | GET | `/api/projects/[projectId]/submittals` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `submittal.view` | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | sweep |
 | POST | `/api/projects/[projectId]/submittals` | COMPANY_SCOPED | `engineering`, `procurement`, `projects` | `procurement.supplier.view`, `project.view`, `submittal.create` +2 | `buildProjectScopeWhere`, `engineeringProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
@@ -620,7 +620,12 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | POST | `/api/projects/[projectId]/work-packages` | COMPANY_SCOPED | `contractors`, `contracts`, `finance` +1 | `finance.view`, `legal.view`, `project.view` +2 | `buildProjectScopeWhere`, `contractorProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
 | GET | `/api/projects/filter-options` | COMPANY_SCOPED | `projects` | `project.create`, `project.view` | `buildProjectScopeWhere` | `requirePortfolio` | — | sweep |
 | GET | `/api/projects` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +87 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `requirePortfolio` | — | sweep |
-| POST | `/api/projects` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | sweep |
+| POST | `/api/projects` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | — | sweep |
+| PATCH | `/api/projects/types/[typeId]` | COMPANY_SCOPED | `projects` | `project.type.manage` | — | — | — | sweep |
+| DELETE | `/api/projects/types/[typeId]` | COMPANY_SCOPED | `projects` | `project.type.manage` | — | — | — | sweep |
+| POST | `/api/projects/types/reorder` | COMPANY_SCOPED | `projects` | `project.type.manage` | — | — | — | sweep |
+| GET | `/api/projects/types` | COMPANY_SCOPED | `projects` | `project.type.manage` | — | — | — | sweep |
+| POST | `/api/projects/types` | COMPANY_SCOPED | `projects` | `project.type.manage` | — | — | — | sweep |
 
 ## /api/qaqc
 
@@ -1096,8 +1101,8 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
-| ACTION | `createProjectAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | sweep |
-| ACTION | `updateProjectAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | `applyTransition`, `assertTransitionAllowed` | sweep |
+| ACTION | `createProjectAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | — | sweep |
+| ACTION | `updateProjectAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +2 | `applyTransition`, `assertTransitionAllowed` | sweep |
 | ACTION | `archiveProjectAction` | COMPANY_SCOPED | `projects` | `project.archive` | `buildProjectScopeWhere` | `assertFound`, `findProjectInScope` | `applyTransition` | sweep |
 | ACTION | `restoreProjectAction` | COMPANY_SCOPED | `projects` | `project.restore` | `buildProjectScopeWhere` | `assertFound`, `findProjectInScope` | `applyTransition` | sweep |
 | ACTION | `addProjectMemberAction` | COMPANY_SCOPED | `projects` | `project.member.add` | `buildProjectScopeWhere` | `assertFound`, `findProjectInScope` | — | sweep |
@@ -1176,7 +1181,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 |---|---|---|---|---|---|---|---|---|
 | ACTION | `updateCompanySettingsAction` | COMPANY_SCOPED | `company` | `company.finance_settings.manage`, `company.finance_settings.view`, `company.settings.update` +1 | — | — | — | sweep |
 | ACTION | `updateIntegrationSettingsAction` | COMPANY_SCOPED | `company` | `company.integrations.manage`, `company.integrations.view` | — | — | — | sweep |
-| ACTION | `setModuleEnabledAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +22 | `announcement.create`, `announcement.view`, `approvals.view` +131 | — | — | — | sweep |
+| ACTION | `setModuleEnabledAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +22 | `announcement.create`, `announcement.view`, `approvals.view` +132 | — | — | — | sweep |
 | ACTION | `updateNumberingSchemeAction` | COMPANY_SCOPED | `company` | `company.numbering.manage` | — | — | — | sweep |
 
 ## Server actions — tasks

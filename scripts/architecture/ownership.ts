@@ -51,7 +51,7 @@ const OWNED: Record<string, string[]> = {
   mail: ["mailDelivery"],
 
   /* Business domains ------------------------------------------------------- */
-  projects: ["project", "projectMember"],
+  projects: ["project", "projectMember", "projectType"],
   clients: ["client", "contact"],
   tasks: ["task"],
   documents: [

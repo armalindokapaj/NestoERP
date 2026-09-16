@@ -873,3 +873,51 @@ suites). Of those:
   a consequence of E-05A §29's defaults, accepted.
 - **The development server needs a restart** after this migration and
   `prisma generate`: a running server keeps the old enum in its client.
+
+### 16.4 The final PRD
+
+The PRD was reissued as *E-05A — Projects Page & Project Discovery (FINAL)*,
+with its sections renumbered. Held against the build above, most of it was
+already met; these were not, and now are (final PRD numbers):
+
+| Final PRD | Before | Now |
+|---|---|---|
+| §30, §62 Project Type configurable, not a construction-only enum | `projectType`, a key from a code list | `ProjectType` rows per company, kept at Projects → Project types under `project.type.manage` (Owner, Admin); retired rather than deleted when used |
+| §13 Project Type required on create | optional | required by the create schema, checked against the chosen company's types in use |
+| §56 Multiple project roles | first role only | *Lead Architect +1* on the card and in the list |
+| §32 Clear Filters also for a non-default sort; removable filter chips | a single Clear filters button, sort not counted | a chip per active value, each removing itself, sort included |
+| §53 Result count while filtered | only near Load more | *N results* beside the chips |
+| §38, §39 Phone sheet with Sort, Reset and Apply | filters applied on every choice; sort outside | filters and sort staged in the sheet, applied together |
+| §76 Error state | the application-wide error page | *Projects could not be loaded.* with Retry, inside the shell |
+| §61 `[status, lastActivityAt]` index | absent | added |
+
+Migration `20260917090000_project_types_e05a` creates `project_types`, writes
+the eight defaults for every company, points each project at its company's row
+(RESIDENTIAL → Residential, MIXED_USE → Mixed use, …) and only then drops the
+old column. It was applied to a restored copy of the development database
+first — all eight typed projects kept their type, the untyped one stayed
+untyped — and replayed from zero with no drift. New companies get the defaults
+from `bootstrapCompany`; a rerun never restores a type that was removed.
+
+**Evidence.** Full vitest: 3 193 passed, 1 failed — the Albanian site copy
+lacked the new *Project types* tab label; added, and that file re-run green.
+New: `tests/api/projects/project-types.test.ts` (7 tests), and in
+`portfolio.test.ts` *Role +1*, a type name filtered and searched across two
+companies' lists, a type checked against the chosen company and retirement, a
+code once per company, and a role granted `project.create` creating without
+gaining the status (§104, §105). E2E against the production build: 410 passed,
+1 failed — a `getByLabel("Sort")` that now also matched the sort chip's
+*Remove Sort: …*; made exact, and the Projects, multi-company and mobile specs
+re-run: 56 passed. The demo seed re-runs cleanly. Gates: typecheck, lint
+(0 errors), `verify:ownership`, `verify:authorization`, `verify:state`,
+`security:matrix --check` (839 endpoints), `verify:production-guards`.
+
+**Not done, on purpose.** A cover image on the create form (§13, optional): an
+upload waits on the malware scan before it can be read, so it would show the
+placeholder anyway; covers stay chosen on the edit page. Pending → Active uses
+the same Change status dialog as every move (§94 allows lighter, does not
+require it). Pages added with Load more are fetched again after Back rather
+than kept (§52, "where practical"). NESTO still has no Parent Group or
+Architecture Manager role; project types are per company.
+
+The development server needs a restart after this migration too.

@@ -1090,7 +1090,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     // Company daily log rules are not a project manager's to change (PRD #43 §129, §248).
     dailyLogs: { extra: ["daily_log.settings.manage"] },
     // The company's planning rules, and moving a locked baseline (PRD #44 §76, §309).
-    projects: { extra: ["project_planning.settings.manage"] },
+    // The company's list of project types (E-05A §62).
+    projects: { extra: ["project_planning.settings.manage", "project.type.manage"] },
     // Promoting somebody to Owner is the one company action an Admin must not
     // be able to take on their own (PRD #14 §95, §96).
     team: { extra: ["team.owner.assign"] },
@@ -1133,10 +1134,10 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      *
      * It is setting projects up, though: a Company Admin creates projects, keeps
      * their details right and moves them between Pending, Active and Finished
-     * inside their company (E-05A §29, §60). Archiving stays with whoever holds
-     * the module outright.
+     * inside their company (E-05A §29, §60), and keeps the company's list of
+     * project types (§62). Archiving stays with whoever holds the module outright.
      */
-    projects: { deny: ["project_planning.view"], extra: ["project.create", "project.update", "project.status.manage"] },
+    projects: { deny: ["project_planning.view"], extra: ["project.create", "project.update", "project.status.manage", "project.type.manage"] },
   },
   CEO: {
     /**

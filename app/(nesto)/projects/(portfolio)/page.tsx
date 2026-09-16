@@ -13,7 +13,7 @@ import type { UserContext } from "@/lib/context/types";
 import { listPortfolioProjects, portfolioFilterOptions } from "@/lib/modules/projects/project.portfolio";
 import { activePortfolioFilterCount, parsePortfolioQuery } from "@/lib/modules/projects/project.query";
 import { parseProjectsView, PROJECTS_VIEW_COOKIE } from "@/lib/modules/projects/project.view-preference";
-import { requireProjectPortfolio } from "./portfolio-access";
+import { requireProjectPortfolio } from "../portfolio-access";
 
 export const metadata: Metadata = { title: { absolute: "Projects · NESTO" } };
 
@@ -62,9 +62,10 @@ async function ProjectsBody({ session, params }: { session: UserContext; params:
       actions={
         options.creatableCompanies.length > 0 ? (
           <Button asChild size="sm">
-            <Link href="/projects/new">
+            <Link href="/projects/new" aria-label="New project">
               <Plus aria-hidden="true" />
-              New project
+              {/* A phone keeps the header to "Projects +" (E-05A §38). */}
+              <span className="hidden sm:inline">New project</span>
             </Link>
           </Button>
         ) : null

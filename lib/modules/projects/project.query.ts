@@ -1,5 +1,5 @@
+import { PROJECT_TYPE_NAME_MAX } from "@/config/project-types";
 import { firstValue } from "@/lib/modules/shared/list-query";
-import { isProjectTypeKey } from "@/config/project-types";
 import {
   PORTFOLIO_PAGE_SIZE,
   PORTFOLIO_SORT_KEYS,
@@ -87,7 +87,7 @@ export function parsePortfolioQuery(params: RawParams): PortfolioQuery {
   const statusValue = (read(params, "status") ?? "").trim().toUpperCase();
   const status = LEGACY_STATUS[statusValue] ?? statusValue;
   const sortValue = read(params, "sort") ?? "";
-  const typeValue = (read(params, "type") ?? read(params, "projectType") ?? "").trim().toUpperCase();
+  const typeValue = (read(params, "type") ?? read(params, "projectType") ?? "").trim();
   const location = read(params, "location")?.trim();
   const limit = Number.parseInt(read(params, "limit") ?? String(PORTFOLIO_PAGE_SIZE), 10);
   const favorites = (read(params, "favorites") ?? "").toLowerCase();
@@ -98,7 +98,7 @@ export function parsePortfolioQuery(params: RawParams): PortfolioQuery {
     favorites: favorites === "true" || favorites === "1",
     companyId: (read(params, "company") ?? read(params, "companyId"))?.trim() || undefined,
     role: (read(params, "role") ?? read(params, "roleId"))?.trim() || undefined,
-    projectType: isProjectTypeKey(typeValue) ? typeValue : undefined,
+    projectType: typeValue && typeValue.length <= PROJECT_TYPE_NAME_MAX ? typeValue : undefined,
     location: location && /^(city|country):.+$/.test(location) && location.length <= 240 ? location : undefined,
     sort: (PORTFOLIO_SORT_KEYS as readonly string[]).includes(sortValue) ? (sortValue as PortfolioSortKey) : "recommended",
     cursor: read(params, "cursor") || undefined,
@@ -106,7 +106,18 @@ export function parsePortfolioQuery(params: RawParams): PortfolioQuery {
   });
 }
 
-/** How many narrowing values are set — what decides whether Clear Filters shows (E-05A §19). */
+/**
+ * How many values narrow the collection — what the "N results" line and the
+ * empty-state wording go by (E-05A §53, §74). A sort reorders; it never narrows.
+ */
 export function activePortfolioFilterCount(query: PortfolioQuery): number {
   return [query.q, query.status, query.favorites || undefined, query.companyId, query.role, query.projectType, query.location].filter(Boolean).length;
+}
+
+/**
+ * Whether Clear Filters shows: anything narrowing, or a sort other than
+ * Recommended — Clear Filters resets both (E-05A §32).
+ */
+export function portfolioIsCustomised(query: PortfolioQuery): boolean {
+  return activePortfolioFilterCount(query) > 0 || query.sort !== "recommended";
 }
