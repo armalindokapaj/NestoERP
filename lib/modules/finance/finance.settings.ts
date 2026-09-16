@@ -7,6 +7,7 @@ import { optionalText } from "@/lib/modules/shared/fields";
 import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.service";
 import { currencyCode } from "./finance.fields";
 import { DEFAULT_CURRENCY } from "./finance.currency";
+import { writeCompanySettings } from "@/lib/modules/settings/company-settings.service";
 
 /**
  * Company finance settings (PRD #15 §28, §394–§398).
@@ -95,17 +96,15 @@ export async function updateFinanceSettings(
     if (await baseCurrencyLocked(context.companyId)) throw new Error("BASE_CURRENCY_LOCKED");
   }
 
-  await prisma.$transaction([
-    prisma.companySettings.update({
-      where: { companyId: context.companyId },
-      data: {
-        baseCurrency: input.baseCurrency,
-        defaultPaymentTermsDays: input.defaultPaymentTermsDays,
-        fiscalYearStartMonth: input.fiscalYearStartMonth,
-        updatedByMemberId: context.membershipId,
-      },
-    }),
-    prisma.financeSettings.upsert({
+  await prisma.$transaction(async (tx) => {
+    // The company-wide half, and the configuration bump that goes with it,
+    // through the module that owns them (PRD #48 §106).
+    await writeCompanySettings(tx, context.companyId, context.membershipId, {
+      baseCurrency: input.baseCurrency,
+      defaultPaymentTermsDays: input.defaultPaymentTermsDays,
+      fiscalYearStartMonth: input.fiscalYearStartMonth,
+    });
+    await tx.financeSettings.upsert({
       where: { companyId: context.companyId },
       update: {
         invoicePrefix: input.invoicePrefix ?? null,
@@ -116,12 +115,8 @@ export async function updateFinanceSettings(
         invoicePrefix: input.invoicePrefix ?? null,
         defaultTaxRate: input.defaultTaxRate ?? null,
       },
-    }),
-    prisma.company.update({
-      where: { id: context.companyId },
-      data: { configVersion: { increment: 1 } },
-    }),
-  ]);
+    });
+  });
 
   return resolveFinanceSettings(context.companyId);
 }

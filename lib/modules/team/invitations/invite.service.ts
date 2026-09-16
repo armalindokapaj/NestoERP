@@ -1,7 +1,8 @@
+import { createUserForInvite } from "@/lib/auth/identity";
+import { recordActorActivity } from "@/lib/modules/shared/activity";
 import { Prisma, type CompanyInviteStatus } from "@prisma/client";
 
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
-import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { sendMail } from "@/lib/mail";
@@ -613,15 +614,11 @@ export async function acceptInvite(
           "Choose a name and password to finish setting up your account.",
         );
       }
-      user = await tx.user.create({
-        data: {
-          email: invite.email,
-          firstName: input.firstName,
-          lastName: input.lastName,
-          passwordHash: await hashPassword(input.password),
-          status: "ACTIVE",
-        },
-        select: { id: true, status: true, firstName: true, lastName: true },
+      user = await createUserForInvite(tx, {
+        email: invite.email,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        password: input.password,
       });
     }
 
@@ -691,19 +688,18 @@ export async function acceptInvite(
       throw new AccessError("CONFLICT", "This invitation has already been used.");
     }
 
-    await tx.activity.create({
-      data: {
-        companyId: invite.companyId,
+    await recordActorActivity(
+      tx,
+      { companyId: invite.companyId, memberId: membership.id, userId: user.id },
+      {
         module: MODULE,
         entityType: "CompanyMember",
         entityId: membership.id,
         action: "MEMBER_JOINED",
         message: `${user.firstName} ${user.lastName} joined the company`,
-        actorMemberId: membership.id,
-        actorUserId: user.id,
         metadata: { memberId: membership.id, email: invite.email } as Prisma.InputJsonValue,
       },
-    });
+    );
 
     // Access granted is required evidence, and it commits with the membership
     // it describes (PRD #28 §95).

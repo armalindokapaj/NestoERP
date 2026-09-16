@@ -316,3 +316,90 @@ export async function linkIntegration(
 
   return link.id;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Reference links (PRD #48 §64, §65)                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A reference one record keeps to another — a daily log to an inspection, a
+ * milestone to a meeting, an RFI to a submittal.
+ *
+ * Unlike the handoffs above, nothing is created on the other side and nothing
+ * is kept in step: the link is the whole fact. What it shares with them is the
+ * table, which is why it is written here. `IntegrationLink` is shared
+ * infrastructure, and a module that writes it directly writes its own idea of
+ * mode, status and idempotency key — three modules did, three slightly
+ * different ways (PRD #48 §64, §106).
+ *
+ * The caller has already decided the link is allowed: that its author may edit
+ * the source, may read the target, and that both are on the same project. This
+ * owns how the row is shaped and how a repeat is absorbed.
+ */
+export async function linkReference(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  params: {
+    integrationType: string;
+    source: { module: string; entityType: string; id: string };
+    target: { module: string; entityType: string; id: string };
+  },
+): Promise<{ id: string }> {
+  const { source, target } = params;
+  // Re-linking a pair that was unlinked returns the same row to ACTIVE rather
+  // than leaving two rows for one relationship (PRD #48 §33, §205).
+  const idempotencyKey = `${source.entityType}:${source.id}:${target.entityType}:${target.id}`;
+
+  return tx.integrationLink.upsert({
+    where: {
+      companyId_integrationType_idempotencyKey: {
+        companyId: context.companyId,
+        integrationType: params.integrationType,
+        idempotencyKey,
+      },
+    },
+    create: {
+      companyId: context.companyId,
+      integrationType: params.integrationType,
+      mode: "REFERENCE",
+      sourceModule: source.module,
+      sourceEntityType: source.entityType,
+      sourceEntityId: source.id,
+      targetModule: target.module,
+      targetEntityType: target.entityType,
+      targetEntityId: target.id,
+      idempotencyKey,
+      correlationId: currentRequestContext()?.correlationId ?? null,
+      createdByMemberId: context.membershipId,
+    },
+    update: { status: "ACTIVE", targetEntityId: target.id },
+    select: { id: true },
+  });
+}
+
+/**
+ * Withdraws a reference link.
+ *
+ * Cancelled rather than deleted: the link was a statement somebody made, and
+ * the audit trail of it outlives the relationship (PRD #48 §128, §206).
+ * Answers whether this call is the one that withdrew it, so a caller can tell
+ * a repeat from a link that was never theirs.
+ */
+export async function unlinkReference(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  params: { integrationType: string; linkId: string; source: { entityType: string; id: string } },
+): Promise<boolean> {
+  const { count } = await tx.integrationLink.updateMany({
+    where: {
+      id: params.linkId,
+      companyId: context.companyId,
+      integrationType: params.integrationType,
+      sourceEntityType: params.source.entityType,
+      sourceEntityId: params.source.id,
+      status: "ACTIVE",
+    },
+    data: { status: "CANCELLED" },
+  });
+  return count > 0;
+}

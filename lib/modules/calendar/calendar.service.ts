@@ -630,6 +630,63 @@ async function replaceMyReminders(
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Reminders on a meeting (PRD #48 §72, §74)                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Reminders for participants of a meeting.
+ *
+ * The meeting is Meetings' record and its schedule is Meetings' to change;
+ * `CalendarReminder` is Calendar's row, and it is the one thing on a meeting
+ * that Calendar really owns — the same table, delivery worker and per-member
+ * uniqueness that reminders on a calendar event use. So Meetings says who
+ * should be reminded and when, and Calendar writes it (PRD #48 §74).
+ *
+ * Duplicates are skipped rather than refused: adding a participant to a series
+ * re-offers reminders to people who already have them (PRD #48 §226).
+ */
+export async function setMeetingReminders(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  input: { meetingIds: readonly string[]; memberIds: readonly string[]; minutesBefore: readonly number[] },
+): Promise<void> {
+  if (input.meetingIds.length === 0 || input.memberIds.length === 0 || input.minutesBefore.length === 0) return;
+  await tx.calendarReminder.createMany({
+    data: input.meetingIds.flatMap((meetingId) =>
+      input.memberIds.flatMap((memberId) =>
+        input.minutesBefore.map((minutesBefore) => ({ companyId, meetingId, memberId, minutesBefore })),
+      ),
+    ),
+    skipDuplicates: true,
+  });
+}
+
+/** Reminders written from a series occurrence's own rows, channel and all. */
+export async function copyMeetingReminders(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  input: { meetingIds: readonly string[]; reminders: readonly { memberId: string; minutesBefore: number; channel: "IN_APP" | "EMAIL" }[] },
+): Promise<void> {
+  if (input.meetingIds.length === 0 || input.reminders.length === 0) return;
+  await tx.calendarReminder.createMany({
+    data: input.meetingIds.flatMap((meetingId) => input.reminders.map((reminder) => ({ companyId, meetingId, ...reminder }))),
+    skipDuplicates: true,
+  });
+}
+
+/** Nobody is reminded of a meeting they are no longer in (PRD #40 §104). */
+export async function clearMeetingReminders(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  input: { meetingIds: readonly string[]; memberId?: string },
+): Promise<void> {
+  if (input.meetingIds.length === 0) return;
+  await tx.calendarReminder.deleteMany({
+    where: { companyId, meetingId: { in: [...input.meetingIds] }, ...(input.memberId ? { memberId: input.memberId } : {}) },
+  });
+}
+
 /** A reader's own reminder on an event they can see (PRD #39 §70). The target is always the caller. */
 export async function addReminder(
   context: UserContext,

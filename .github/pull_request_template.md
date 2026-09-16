@@ -1,7 +1,8 @@
 <!--
-  Delete the sections that do not apply. The authorization list is not optional
-  for anything that reads or writes a business record: see
-  docs/security/authorization-model.md (PRD #47 §185).
+  Delete the sections that do not apply. Neither the authorization list nor the
+  ownership list is optional for anything that reads or writes a business
+  record: see docs/security/authorization-model.md (PRD #47 §185) and
+  docs/data-ownership.md (PRD #48 §276, §277).
 -->
 
 ## What this changes
@@ -19,10 +20,23 @@
 - [ ] No server-owned field (`companyId`, `createdBy…`, `approvedBy…`) accepted from the request
 - [ ] Security tests added or extended
 
+## Ownership and transactions
+
+<!-- For any change that writes. Who owns this record? -->
+
+- [ ] The write is by the model's owning domain, or through that owner's door
+- [ ] Transaction boundary named — everything that must be true together commits together
+- [ ] Rollback behaviour understood: a failure leaves no foreign-domain record behind
+- [ ] No irreversible side effect (mail, storage, external API) inside the transaction
+- [ ] Idempotency considered — a retry or a double-click makes one record, not two
+- [ ] Concurrency considered — a stale edit or a second decision gets a 409, not a silent overwrite
+- [ ] Audit and outbox written in the same transaction where the change requires them
+- [ ] `docs/data-ownership.md` and `docs/transaction-boundaries.md` still true
+
 ## Checks
 
 - [ ] `pnpm lint` · `pnpm typecheck`
 - [ ] `pnpm test` (or the suites this touches)
-- [ ] `pnpm verify:authorization` · `pnpm security:matrix --check` · `pnpm verify:roles`
+- [ ] `pnpm verify:authorization` · `pnpm verify:ownership` · `pnpm security:matrix --check` · `pnpm verify:roles`
 - [ ] `pnpm test:security`
 - [ ] Migration reviewed against `docs/` and applied with `migrate deploy` (never `migrate dev`)

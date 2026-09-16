@@ -5,6 +5,7 @@ import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/sys
 import { logger } from "@/lib/core/observability/logger";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
 import { prisma } from "@/lib/database/prisma";
+import { resolveAttentionFor } from "./attention.service";
 import {
   attentionConditionDefinitions,
   attentionDedupeKey,
@@ -232,9 +233,7 @@ export async function resolveAttentionForRecord(
   entityType: string,
   entityId: string,
   conditionKeys: string[],
+  options: { recipientMemberId?: string; includeDismissed?: boolean } = {},
 ): Promise<void> {
-  await tx.attentionItem.updateMany({
-    where: { companyId, entityType, entityId, conditionKey: { in: conditionKeys }, status: "ACTIVE" },
-    data: { status: "RESOLVED", resolvedAt: new Date() },
-  });
+  await resolveAttentionFor(tx, { companyId, entityType, entityId, conditionKeys, ...options });
 }

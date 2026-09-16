@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { can } from "@/lib/access/can";
@@ -177,6 +178,29 @@ export async function baseCurrencyLocked(companyId: string): Promise<boolean> {
   return invoices + expenses + payments + budgets + commitments > 0;
 }
 
+/**
+ * The company-scoped settings write, and the configuration bump that goes with
+ * it (PRD #48 §106).
+ *
+ * `CompanySettings` is Settings' row. Finance owns some of the values on it —
+ * base currency, payment terms, the fiscal year — and writes them through
+ * here so the `configVersion` bump that invalidates every cache keyed off
+ * company configuration cannot be forgotten by one caller and remembered by
+ * another (PRD #24 §315-§317).
+ */
+export async function writeCompanySettings(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  memberId: string | null,
+  data: Prisma.CompanySettingsUpdateInput,
+): Promise<void> {
+  await tx.companySettings.update({
+    where: { companyId },
+    data: { ...data, ...(memberId ? { updatedByMemberId: memberId } : {}) },
+  });
+  await tx.company.update({ where: { id: companyId }, data: { configVersion: { increment: 1 } } });
+}
+
 export async function updateCompanySettings(
   context: UserContext,
   input: CompanySettingsInput,
@@ -223,15 +247,7 @@ export async function updateCompanySettings(
   };
 
   await prisma.$transaction(async (tx) => {
-    await tx.companySettings.update({
-      where: { companyId: context.companyId },
-      data: { ...written, updatedByMemberId: context.membershipId },
-    });
-    // Anything caching company configuration keys off this (PRD #24 §315-§317).
-    await tx.company.update({
-      where: { id: context.companyId },
-      data: { configVersion: { increment: 1 } },
-    });
+    await writeCompanySettings(tx, context.companyId, context.membershipId, written);
 
     await recordUserAction(
       context,

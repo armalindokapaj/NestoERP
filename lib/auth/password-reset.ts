@@ -4,8 +4,8 @@ import { appLink } from "@/lib/config/app-url";
 import { prisma } from "@/lib/database/prisma";
 import { sendMail } from "@/lib/mail";
 import { recordAuthEvent } from "./events";
-import { hashPassword } from "./password";
 import { revokeSessionsForUser } from "./session-store";
+import { setPassword } from "./identity";
 
 /**
  * Password reset (PRD #6 §55–§58).
@@ -99,19 +99,9 @@ export async function resetPassword(token: string, newPassword: string): Promise
   if (!record || record.usedAt) return { ok: false, reason: "INVALID" };
   if (record.expiresAt.getTime() <= Date.now()) return { ok: false, reason: "EXPIRED" };
 
-  const passwordHash = await hashPassword(newPassword);
-
   await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: record.userId }, data: { passwordHash } });
-    await tx.passwordResetToken.update({
-      where: { id: record.id },
-      data: { usedAt: new Date() },
-    });
-    // Any other token for this user is now meaningless.
-    await tx.passwordResetToken.updateMany({
-      where: { userId: record.userId, usedAt: null },
-      data: { usedAt: new Date() },
-    });
+    // Sets the hash and spends every outstanding link, this one included.
+    await setPassword(tx, record.userId, newPassword);
   });
 
   // Existing sessions are invalidated: a reset should end access anyone else

@@ -18,6 +18,7 @@ import { RECORD, RECORD_LINK_TYPE } from "./planning.permissions";
 import type { createTaskFromMilestoneSchema, linkTaskSchema } from "./planning.schema";
 import { assertWritable, fail, findReadableMilestone, projectMemberOptions, type ReadableMilestone } from "./planning.service";
 import { STATUS_LABELS, type Option } from "./planning.types";
+import { linkReference, unlinkReference } from "@/lib/core/integrations/integration.service";
 
 /**
  * What a milestone points at (PRD #44 §49-§64, §183-§185, §193-§195, §287-§291).
@@ -103,17 +104,10 @@ export async function linkRecord(context: UserContext, milestoneId: string, type
   if (record.projectId !== milestone.projectId) throw fail("MILESTONE_RECORD_PROJECT_MISMATCH", type === "meeting" ? "That meeting is on another project." : "That daily log is on another project.");
 
   return prisma.$transaction(async (tx) => {
-    const key = `${milestone.id}:${type}:${recordId}`;
-    const link = await tx.integrationLink.upsert({
-      where: { companyId_integrationType_idempotencyKey: { companyId: context.companyId, integrationType: RECORD_LINK_TYPE, idempotencyKey: key } },
-      create: {
-        companyId: context.companyId, integrationType: RECORD_LINK_TYPE, mode: "REFERENCE",
-        sourceModule: "projects", sourceEntityType: RECORD, sourceEntityId: milestone.id,
-        targetModule: definition!.moduleKey, targetEntityType: type, targetEntityId: recordId,
-        idempotencyKey: key, createdByMemberId: context.membershipId,
-      },
-      update: { status: "ACTIVE" },
-      select: { id: true },
+    const link = await linkReference(tx, context, {
+      integrationType: RECORD_LINK_TYPE,
+      source: { module: "projects", entityType: RECORD, id: milestone.id },
+      target: { module: definition!.moduleKey, entityType: type, id: recordId },
     });
     await recordUserAction(context, { actionKey: AuditAction.PROJECT_MILESTONE_UPDATED, entity: { type: RECORD, id: milestone.id, label: milestone.name }, projectId: milestone.projectId, after: { linkedRecordType: type, linkedRecordId: recordId } }, { tx });
     return { linkId: link.id };
@@ -123,8 +117,8 @@ export async function linkRecord(context: UserContext, milestoneId: string, type
 export async function unlinkRecord(context: UserContext, milestoneId: string, linkId: string): Promise<void> {
   const milestone = await findReadableMilestone(context, milestoneId);
   assertEditable(context, milestone);
-  const moved = await prisma.integrationLink.updateMany({ where: { id: linkId, companyId: context.companyId, integrationType: RECORD_LINK_TYPE, sourceEntityType: RECORD, sourceEntityId: milestone.id, status: "ACTIVE" }, data: { status: "CANCELLED" } });
-  if (!moved.count) throw fail("MILESTONE_LINK_NOT_FOUND", "That link could not be found.", "NOT_FOUND");
+  const removed = await unlinkReference(prisma, context, { integrationType: RECORD_LINK_TYPE, linkId, source: { entityType: RECORD, id: milestone.id } });
+  if (!removed) throw fail("MILESTONE_LINK_NOT_FOUND", "That link could not be found.", "NOT_FOUND");
 }
 
 /* -------------------------------------------------------------------------- */

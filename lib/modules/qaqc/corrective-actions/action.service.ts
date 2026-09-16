@@ -1,3 +1,4 @@
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { Prisma, type CorrectiveActionStatus } from "@prisma/client";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
 import { linkIntegration } from "@/lib/core/integrations/integration.service";
@@ -669,10 +670,12 @@ export async function createActionTask(
   );
 
   const tasks = await import("@/lib/modules/tasks/task.service");
+  const collaboration = await import("@/lib/core/collaboration/collaboration.service");
 
-  const task = await tasks.createTask(
-    context,
-    {
+  // The task, this module's activity and the link between them commit together
+  // (PRD #48 §22, §145): a failure here leaves no task nothing points at.
+  const task = await runInTransaction("qaqc.action.to_task", async (tx) => {
+    const created = await tasks.createTaskFromContextIn(tx, context, {
       title: input.title,
       description: input.description,
       projectId: action.projectId ?? undefined,
@@ -681,18 +684,17 @@ export async function createActionTask(
       dueDate: input.dueDate,
       status: "TODO",
       priority: "MEDIUM",
-    },
-    { moduleKey: MODULE, entityType: "corrective_action", entityId: actionId },
-  );
+      parentType: "corrective_action",
+      parentId: actionId,
+    });
 
-  await prisma.$transaction(async (tx) => {
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
       entityId: actionId,
       action: "QAQC_ACTION_TASK_CREATED",
       message: `raised a task on ${action.actionNumber}`,
-      metadata: { taskId: task.id } as Prisma.InputJsonValue,
+      metadata: { taskId: created.id } as Prisma.InputJsonValue,
     });
 
     // The task is the canonical Task, owned by the Tasks module; this records
@@ -701,9 +703,14 @@ export async function createActionTask(
     await linkIntegration(tx, context, {
       integrationType: IntegrationType.QA_ACTION_TASK,
       source: { id: actionId },
-      target: { id: task.id },
+      target: { id: created.id },
     });
+    return created;
   });
+
+  // Watchers depend on who can read the task now it exists, so they are
+  // written after the commit (PRD #38 §33).
+  await collaboration.subscribeStakeholders({ companyId: context.companyId, parentType: "task", parentId: task.id, memberIds: [context.membershipId, ...(task.assigneeMemberId ? [task.assigneeMemberId] : [])] });
 
   return { id: task.id };
 }

@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { type DocumentSharingClassification, Prisma } from "@prisma/client";
 
 import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
@@ -245,6 +245,46 @@ export async function updateDocument(
   });
 
   return getDocument(context, documentId);
+}
+
+/**
+ * The sharing classification of a file attached to another module's record
+ * (PRD #48 §88, §89).
+ *
+ * Engineering decides that a drawing may leave the company; Documents owns the
+ * column that says so, and the file it hangs on. The caller has already
+ * checked its own record's permissions and state — what is enforced here is
+ * that the document is this company's and really is attached to the record
+ * named, so a foreign id cannot reclassify somebody else's file.
+ *
+ * Runs in the caller's transaction so the classification and the caller's own
+ * audit entry commit together (PRD #48 §24).
+ */
+export async function setSharingClassification(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: {
+    documentId: string;
+    parent: { entityType: string; entityId: string };
+    classification: DocumentSharingClassification;
+  },
+): Promise<{ previous: DocumentSharingClassification } | null> {
+  const document = await tx.document.findFirst({
+    where: {
+      id: input.documentId,
+      companyId: context.companyId,
+      entityType: input.parent.entityType,
+      entityId: input.parent.entityId,
+    },
+    select: { id: true, sharingClassification: true },
+  });
+  if (!document) return null;
+
+  await tx.document.updateMany({
+    where: { id: document.id, companyId: context.companyId },
+    data: { sharingClassification: input.classification },
+  });
+  return { previous: document.sharingClassification };
 }
 
 export async function archiveDocument(context: UserContext, documentId: string): Promise<void> {

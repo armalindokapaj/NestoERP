@@ -1,6 +1,8 @@
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { Prisma, type PurchaseOrderStatus } from "@prisma/client";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
 import { linkIntegration } from "@/lib/core/integrations/integration.service";
+import { ensureCommitmentForSource, settleCommitmentForSource } from "@/lib/modules/finance/commitments/commitment.source";
 
 import { can, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
@@ -781,7 +783,7 @@ export async function approveOrder(
 
   const existing = await loadForWrite(context, orderId);
 
-  await prisma.$transaction(async (tx) => {
+  await runInTransaction("procurement.order.approve", async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_ORDER", orderId, guard);
 
     // In a chain, the current step's approver decides it; only the last
@@ -955,17 +957,13 @@ export async function cancelOrder(
     }
   }
 
-  await prisma.$transaction(async (tx) => {
+  await runInTransaction("procurement.order.cancel", async (tx) => {
     await moveStatus(tx, existing, "CANCELLED", { cancelledAt: new Date() });
     await approvals.cancelPendingApprovals(tx, context, "PURCHASE_ORDER", orderId);
 
-    // The money is no longer committed (PRD #19 §128).
-    if (existing.financeCommitmentId) {
-      await tx.commitment.updateMany({
-        where: { id: existing.financeCommitmentId, companyId: context.companyId },
-        data: { status: "CANCELLED" },
-      });
-    }
+    // The money is no longer committed (PRD #19 §128). Finance owns the row,
+    // so Finance moves it — inside this transaction (PRD #48 §77).
+    await settleCommitmentForSource(tx, context, commitmentSource(orderId), "CANCELLED");
 
     if (existing.purchaseRequestId) {
       await refreshSourcingState(tx, context, existing.purchaseRequestId);
@@ -1000,15 +998,10 @@ export async function closeOrder(
     );
   }
 
-  await prisma.$transaction(async (tx) => {
+  await runInTransaction("procurement.order.close", async (tx) => {
     await moveStatus(tx, existing, "CLOSED", { closedAt: new Date() });
 
-    if (existing.financeCommitmentId) {
-      await tx.commitment.updateMany({
-        where: { id: existing.financeCommitmentId, companyId: context.companyId },
-        data: { status: "CLOSED" },
-      });
-    }
+    await settleCommitmentForSource(tx, context, commitmentSource(orderId), "CLOSED");
 
     if (existing.purchaseRequestId) {
       await refreshSourcingState(tx, context, existing.purchaseRequestId);
@@ -1091,14 +1084,19 @@ export async function restoreOrder(context: UserContext, orderId: string): Promi
 /* Finance commitment (PRD #19 §115–§123)                                      */
 /* -------------------------------------------------------------------------- */
 
+/** Where a purchase order's commitment is filed in Finance (PRD #48 §164, §165). */
+function commitmentSource(orderId: string) {
+  return { module: "procurement", entityType: "purchase_order", entityId: orderId } as const;
+}
+
 /**
  * One commitment per order, created when it is approved (PRD #19 §116, §121).
  *
- * Written directly rather than through the Finance service on purpose: the
- * commitment must land in the same transaction as the approval, and the buyer
- * approving an order is not required to hold Finance write permissions. The
- * authorisation is the approval itself plus the module being enabled
- * (PRD #19 §123).
+ * Finance owns `Commitment`, so the row is written by Finance's own contract
+ * rather than from here (PRD #48 §11, §77). It runs inside the approval's
+ * transaction: the order is not approved unless the money is committed with it
+ * (PRD #48 §143). The buyer approving the order is not required to hold Finance
+ * permissions — the approval is the authorisation (PRD #19 §123).
  *
  * With Finance switched off the approval still works and no commitment is made
  * (PRD #19 §122).
@@ -1126,52 +1124,31 @@ async function syncCommitment(
 
   if (!order) return;
 
-  // Idempotent: a retry finds the commitment the first attempt made.
-  if (order.financeCommitmentId) {
-    const existing = await tx.commitment.findFirst({
-      where: { id: order.financeCommitmentId },
-      select: { id: true },
+  const commitment = await ensureCommitmentForSource(tx, context, {
+    source: commitmentSource(order.id),
+    projectId: order.projectId,
+    reference: order.poNumber,
+    description: `Purchase order ${order.poNumber}`,
+    counterpartyName: order.supplier.name,
+    category: "MATERIALS",
+    currency: order.currency,
+    amount: order.totalAmount,
+    expectedDate: order.requiredDate,
+  });
+
+  if (order.financeCommitmentId !== commitment.id) {
+    await tx.purchaseOrder.update({
+      where: { id: orderId },
+      data: { financeCommitmentId: commitment.id },
     });
-    if (existing) {
-      await tx.commitment.update({
-        where: { id: existing.id },
-        data: { amount: order.totalAmount, status: "APPROVED" },
-      });
-      return;
-    }
   }
 
-  const commitment = await tx.commitment.create({
-    data: {
-      companyId: context.companyId,
-      projectId: order.projectId,
-      reference: order.poNumber,
-      description: `Purchase order ${order.poNumber}`,
-      // A snapshot: renaming the supplier later must not rewrite what was
-      // committed (PRD #19 §120).
-      counterpartyName: order.supplier.name,
-      category: "MATERIALS",
-      currency: order.currency,
-      amount: order.totalAmount,
-      expectedDate: order.requiredDate,
-      status: "APPROVED",
-      sourceModule: "procurement",
-      sourceEntityType: "purchase_order",
-      sourceEntityId: order.id,
-      createdByMemberId: context.membershipId,
-    },
-    select: { id: true },
-  });
+  if (!commitment.created) return;
 
-  await tx.purchaseOrder.update({
-    where: { id: orderId },
-    data: { financeCommitmentId: commitment.id },
-  });
-
-  // The handoff is already idempotent through financeCommitmentId; this is the
-  // durable trace of it, so "where did this commitment come from?" has an
-  // answer that does not depend on reading procurement's own columns
-  // (PRD #23 §21, §94).
+  // The handoff is already idempotent through the commitment's source
+  // reference; this is the durable trace of it, so "where did this commitment
+  // come from?" has an answer that does not depend on reading procurement's
+  // own columns (PRD #23 §21, §94).
   await linkIntegration(tx, context, {
     integrationType: IntegrationType.PROCUREMENT_PO_FINANCE_COMMITMENT,
     source: { id: order.id },

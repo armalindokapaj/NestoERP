@@ -1,3 +1,4 @@
+import { revokeSessions } from "@/lib/auth/session-store";
 import { Prisma, type MembershipStatus } from "@prisma/client";
 
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
@@ -452,7 +453,7 @@ async function changeMembershipStatus(
     // carry company access, so deleting them is the revocation
     // (PRD #14 §242, §243).
     if (next !== "ACTIVE") {
-      await tx.session.deleteMany({ where: { membershipId: memberId } });
+      await revokeSessions(tx, { membershipId: memberId });
 
       // A pending invitation is access waiting to be claimed. Removing the
       // membership it would activate withdraws the invitation with it, so the

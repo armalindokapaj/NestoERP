@@ -386,3 +386,76 @@ never moved because the reason code defaulted only for 404. Each has a test.
   site. It is a ratchet against growth; the suites are the behavioural proof.
 - The API security matrix is static evidence: a check is on the path, not
   necessarily on every branch.
+
+---
+
+## 12. PRD #48 — Domain Ownership & Transaction Integrity
+
+Every model now has one owning domain; every cross-domain change goes through
+that owner's door, inside the caller's transaction where the two must commit
+together. The contract is `docs/data-ownership.md`, what commits with what is
+`docs/transaction-boundaries.md`, and which way the arrows point is
+`docs/domain-dependencies.md`.
+
+### 12.1 What is enforced now
+
+| Area | Position |
+|---|---|
+| Ownership | 189 models, each with exactly one owner in `scripts/architecture/ownership.ts`; the gate fails on a model with no owner (§292) |
+| Foreign mutation | Removed everywhere PRD #48 §293 names, and everywhere the audit found besides; what remains is four reviewed exceptions, three of them held to named columns (§10, §11, §105) |
+| Layering | Nothing under `app/` writes: 464 routes and 322 server actions delegate to services (§108, §109) |
+| Transaction boundaries | Cross-domain operations run through `runInTransaction`, which names the operation and retries only transient serialisation failures (§21, §124, §176) |
+| Atomicity | The four two-phase handoffs that could leave an orphan — meeting, QA and HSE actions becoming tasks, and a purchase order's commitment — are single transactions (§22, §143, §145) |
+| Idempotency | One commitment per source record, behind a unique index; one inventory receipt per delivery; approval decisions keyed by `Idempotency-Key`; publish and submit transitions conditional on the state they were read in (§39-§44) |
+| Concurrency | Conditional status writes, `expectedVersion`, `FOR UPDATE` on every allocated counter (§45-§52) |
+| Cascades | No cascade delete reaches from one domain's records into another's history; the five that cross a domain line are configuration, not history, and each is recorded with its reason (§130, §131) |
+| Dependency cycles | Six pairs, each named and explained; a seventh fails CI (§155, §156, §270) |
+| Metrics | `transaction_success_total`, `transaction_failure_total`, `transaction_retry_total`, `conflict_total`, labelled by operation (§180-§182) |
+
+### 12.2 Evidence
+
+| Check | Result |
+|---|---|
+| `pnpm verify:ownership` | 189 models owned, 734 write sites in 1 522 files, 464 routes writing none, no new dependency cycle, no unreviewed cross-domain cascade |
+| `pnpm test:architecture` | 11 passed — the gate, plus a named test for each drift §293 lists |
+| `pnpm test:transactions` | 11 passed against the real database: rollback after an injected failure, idempotency, a concurrent race for one source record, ten simultaneous number allocations, a rolled-back allocation, two concurrent transitions |
+| Bulk write audit | 233 `updateMany`/`deleteMany` calls, every one bound by a company, an id, a parent id already authorised, or a platform policy |
+| Raw SQL inventory | 16 statements, all parameterised; 12 row locks, 7 `ON CONFLICT` upserts, 4 DMMF-driven integrity-scan statements |
+| Full vitest | 2 029 passed, 7 skipped, 116 files |
+
+CI gains three gates after the security suites: the ownership gate, the
+architecture tests and the transaction integrity tests.
+
+### 12.3 Defects found and fixed
+
+The audit found eleven domains writing another's tables. Five were the drifts
+the PRD predicted — Procurement into Finance's `Commitment`, Meetings into
+`Task`, Engineering into `Document`, and four modules each into `AttentionItem`
+and `IntegrationLink`. Six it did not: Meetings writing calendar reminders,
+Timesheets moving approval routing rows, Finance writing company settings and
+the configuration version, Account and Team deleting sessions and setting
+password hashes, and the invitation flow creating a `User` and an `Activity`
+row by hand. Each is now a door on the owner's side that takes the caller's
+transaction.
+
+Two real defects came with them. Three action-to-task conversions created the
+task in one transaction and linked it in another, so a lost race left a task
+nobody had asked for — the meeting case even had a compensating archive written
+for it, which is the shape of a missing transaction boundary. And `Commitment`
+had no unique constraint on its source record: the handoff was idempotent
+because the caller remembered, not because the database refused.
+
+### 12.4 Limits, stated plainly
+
+- The write scan is syntactic. It reads `<client>.<model>.<op>(…)`, which is
+  how every write in this repository is spelled, but a write assembled
+  dynamically would not be seen. Nothing in `lib/` does that today.
+- Field-scoped exceptions are checked against the columns a call names
+  literally. A call that spreads a computed object into `data` cannot be
+  checked that way, and the gate fails it rather than guessing.
+- The six dependency cycles are recorded, not removed. Three are leaf helpers
+  that could be moved to a neutral module; two are handoffs that genuinely run
+  both ways and should stay. None can produce a wrong number.
+- `runInTransaction` is adopted on the cross-domain operations, not on all 517
+  transactions. The rest are single-domain and already atomic; what they lack
+  is the named metric, not the boundary.

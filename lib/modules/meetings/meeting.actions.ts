@@ -1,3 +1,4 @@
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import type { MeetingActionItemStatus, Prisma } from "@prisma/client";
 
 import { can, canAccessModule } from "@/lib/access/can";
@@ -10,9 +11,10 @@ import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.re
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { isLocalDate } from "@/lib/modules/calendar/calendar.time";
+import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
-import { createTaskFromContext } from "@/lib/modules/tasks/task.service";
+import { createTaskFromContextIn } from "@/lib/modules/tasks/task.service";
 import { notifyActionAssigned, notifyActionCompleted } from "./meeting.notifications";
 import { canConvertToTask, canCreateAction, canManageActions, meetingsOpen, readableMeetingWhere } from "./meeting.permissions";
 import {
@@ -173,9 +175,14 @@ export async function completeActionItem(context: UserContext, meetingId: string
 }
 
 /**
- * Action → Task (PRD #40 §56-§61, §180). One task per action, ever: the link is
- * claimed with a conditional write and a unique index, and a task created by
- * the losing side of a race is archived straight away rather than left behind.
+ * Action → Task (PRD #40 §56-§61, §180). One task per action, ever.
+ *
+ * The task and the link commit together (PRD #48 §145): the link is claimed
+ * with a conditional write, and the loser of a race rolls the transaction back
+ * — so a task no action points at is never created in the first place, rather
+ * than created and then archived (PRD #48 §22, §146). Meetings does not write
+ * the task itself; Tasks owns that row and is given this transaction to write
+ * it in (PRD #48 §75).
  */
 export async function convertActionToTask(context: UserContext, meetingId: string, actionId: string): Promise<MeetingDetailDTO> {
   const meeting = await requireReadableMeeting(context, meetingId);
@@ -189,37 +196,34 @@ export async function convertActionToTask(context: UserContext, meetingId: strin
   // The meeting's project, when the caller can put work on it.
   const projectId = meeting.projectId && canAccessModule(context, "projects") && (await canAccessProject(context, meeting.projectId)) ? meeting.projectId : undefined;
 
-  const task = await createTaskFromContext(context, {
-    title: action.title.length >= 2 ? action.title : `${action.title} (action)`,
-    description: action.description ?? undefined,
-    projectId,
-    assigneeMemberId: action.ownerMemberId ?? undefined,
-    status: action.status === "IN_PROGRESS" ? "IN_PROGRESS" : "TODO",
-    priority: "MEDIUM",
-    dueDate: action.dueAt ?? undefined,
-    startDate: undefined,
-    parentType: RECORD,
-    parentId: meetingId,
-  });
+  const task = await runInTransaction("meetings.action.to_task", async (tx) => {
+    const created = await createTaskFromContextIn(tx, context, {
+      title: action.title.length >= 2 ? action.title : `${action.title} (action)`,
+      description: action.description ?? undefined,
+      projectId,
+      assigneeMemberId: action.ownerMemberId ?? undefined,
+      status: action.status === "IN_PROGRESS" ? "IN_PROGRESS" : "TODO",
+      priority: "MEDIUM",
+      dueDate: action.dueAt ?? undefined,
+      startDate: undefined,
+      parentType: RECORD,
+      parentId: meetingId,
+    });
 
-  const linked = await prisma.$transaction(async (tx) => {
-    const result = await tx.meetingActionItem.updateMany({ where: { id: actionId, linkedTaskId: null }, data: { linkedTaskId: task.id } });
-    if (result.count === 0) return false;
+    const result = await tx.meetingActionItem.updateMany({ where: { id: actionId, linkedTaskId: null }, data: { linkedTaskId: created.id } });
+    if (result.count === 0) throw new AccessError("CONFLICT", "This action already has a task.", { code: "ACTION_ALREADY_CONVERTED" });
+
     await recordUserAction(
       context,
-      { actionKey: AuditAction.MEETING_ACTION_TASK_CREATED, entity: { type: ENTITY, id: meetingId }, projectId: meeting.projectId, metadata: { actionId, taskId: task.id } },
+      { actionKey: AuditAction.MEETING_ACTION_TASK_CREATED, entity: { type: ENTITY, id: meetingId }, projectId: meeting.projectId, metadata: { actionId, taskId: created.id } },
       { tx },
     );
-    return true;
+    return created;
   });
 
-  if (!linked) {
-    await prisma.task.update({
-      where: { id: task.id },
-      data: { preArchiveStatus: "TODO", status: "ARCHIVED", archivedAt: new Date(), archivedBy: context.userId, updatedBy: context.userId },
-    });
-    throw new AccessError("CONFLICT", "This action already has a task.", { code: "ACTION_ALREADY_CONVERTED" });
-  }
+  // Watchers are the task's own, written outside its transaction because they
+  // depend on who can read the task now it exists (PRD #38 §33).
+  await subscribeStakeholders({ companyId: context.companyId, parentType: "task", parentId: task.id, memberIds: [context.membershipId, ...(task.assigneeMemberId ? [task.assigneeMemberId] : [])] });
   incrementCounter(Metric.MEETING_ACTION_TASK_CREATE);
   return getMeeting(context, meetingId);
 }
