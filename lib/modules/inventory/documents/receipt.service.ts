@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -28,6 +29,7 @@ import {
   resolveLineTargets,
   reverseMovements,
 } from "./posting";
+import { inventoryReceiptMachine } from "./receipt.machine";
 
 /**
  * Stock coming in (PRD #20 §84–§103).
@@ -237,14 +239,24 @@ export async function updateReceipt(
   const targets = await resolveLineTargets(context, input.lines, [warehouse.id]);
 
   await prisma.$transaction(async (tx) => {
+    // Still a draft, decided by the write rather than by the read above: a
+    // receipt posted while this form was open keeps the lines it was posted
+    // with, instead of having them replaced under its movements.
+    const editing = await tx.inventoryReceipt.updateMany({
+      where: { id: receiptId, companyId: context.companyId, status: existing.status },
+      data: { warehouseId: warehouse.id, receiptDate: input.receiptDate, notes: input.notes ?? null },
+    });
+    if (editing.count === 0) {
+      throw new AccessError("CONFLICT", "This receipt was posted or cancelled while you were editing it. Reload to see the latest.", {
+        code: "INVENTORY_RECEIPT_STALE",
+      });
+    }
+
     await tx.inventoryReceiptLine.deleteMany({ where: { inventoryReceiptId: receiptId } });
 
     await tx.inventoryReceipt.update({
       where: { id: receiptId },
       data: {
-        warehouseId: warehouse.id,
-        receiptDate: input.receiptDate,
-        notes: input.notes ?? null,
         lines: {
           create: input.lines.map((line) => ({
             inventoryItemId: line.inventoryItemId,
@@ -278,6 +290,21 @@ export async function postReceipt(context: UserContext, receiptId: string): Prom
   assertPostable(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    /*
+     * Claimed before anything reaches the ledger. Two people posting at once
+     * both read a draft; the second waits here on the first, finds the receipt
+     * posted, and stops before adding its stock a second time. The lines are
+     * read after the claim, so they are the lines that were posted.
+     */
+    await applyTransition(tx, {
+      machine: inventoryReceiptMachine,
+      action: "post",
+      id: receiptId,
+      context,
+      from: existing.status,
+      data: { postedAt: new Date(), postedByMemberId: context.membershipId },
+    });
+
     const lines = await tx.inventoryReceiptLine.findMany({
       where: { inventoryReceiptId: receiptId },
       select: { id: true, inventoryItemId: true, locationId: true, quantity: true, unit: true },
@@ -312,18 +339,6 @@ export async function postReceipt(context: UserContext, receiptId: string): Prom
       });
     }
 
-    // Conditional on DRAFT, so two people posting at once settle once.
-    const result = await tx.inventoryReceipt.updateMany({
-      where: { id: receiptId, status: "DRAFT" },
-      data: { status: "POSTED", postedAt: new Date(), postedByMemberId: context.membershipId },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That receipt has already been posted.", {
-        code: "STALE_RECORD",
-      });
-    }
-
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -343,7 +358,13 @@ export async function cancelReceipt(context: UserContext, receiptId: string): Pr
   assertCancellable(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
-    await tx.inventoryReceipt.update({ where: { id: receiptId }, data: { status: "CANCELLED" } });
+    await applyTransition(tx, {
+      machine: inventoryReceiptMachine,
+      action: "cancel",
+      id: receiptId,
+      context,
+      from: existing.status,
+    });
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -363,6 +384,17 @@ export async function reverseReceipt(context: UserContext, receiptId: string): P
   assertReversible(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    // Claimed first for the same reason as posting: a second reversal stops
+    // here rather than taking the stock out twice.
+    await applyTransition(tx, {
+      machine: inventoryReceiptMachine,
+      action: "reverse",
+      id: receiptId,
+      context,
+      from: existing.status,
+      data: { reversedAt: new Date(), reversedByMemberId: context.membershipId },
+    });
+
     const lines = await tx.inventoryReceiptLine.findMany({
       where: { inventoryReceiptId: receiptId, movementId: { not: null } },
       select: { movementId: true },
@@ -375,21 +407,6 @@ export async function reverseReceipt(context: UserContext, receiptId: string): P
       { module: MODULE, entityType: "inventory_receipt", entityId: receiptId },
       new Date(),
     );
-
-    const result = await tx.inventoryReceipt.updateMany({
-      where: { id: receiptId, status: "POSTED" },
-      data: {
-        status: "REVERSED",
-        reversedAt: new Date(),
-        reversedByMemberId: context.membershipId,
-      },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That receipt has already been reversed.", {
-        code: "STALE_RECORD",
-      });
-    }
 
     await recordActivity(tx, context, {
       module: MODULE,

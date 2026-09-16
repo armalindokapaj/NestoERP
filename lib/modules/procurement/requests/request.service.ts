@@ -4,6 +4,7 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -39,6 +40,7 @@ import type {
   RequestItemDTO,
   RequestSummaryDTO,
 } from "../procurement.types";
+import { purchaseRequestMachine, type PurchaseRequestAction } from "./request.machine";
 
 /**
  * Purchase requests (PRD #19 §41–§63).
@@ -560,7 +562,14 @@ export async function submitRequest(context: UserContext, requestId: string): Pr
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "PENDING_APPROVAL", { submittedAt: new Date() });
+    await applyTransition(tx, {
+      machine: purchaseRequestMachine,
+      action: "submit",
+      id: requestId,
+      context,
+      from: existing.status,
+      data: { submittedAt: new Date() },
+    });
     await approvals.openApproval(tx, context, "PURCHASE_REQUEST", requestId);
 
     await recordActivity(tx, context, {
@@ -588,12 +597,19 @@ export async function approveRequest(
     const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "APPROVED", {
-      approvedAt: new Date(),
-      approvedByMemberId: context.membershipId,
-      rejectedAt: null,
-      rejectedByMemberId: null,
-      rejectionReason: null,
+    await applyTransition(tx, {
+      machine: purchaseRequestMachine,
+      action: "approve",
+      id: requestId,
+      context,
+      from: existing.status,
+      data: {
+        approvedAt: new Date(),
+        approvedByMemberId: context.membershipId,
+        rejectedAt: null,
+        rejectedByMemberId: null,
+        rejectionReason: null,
+      },
     });
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
@@ -622,10 +638,17 @@ export async function rejectRequest(
     const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "REJECTED", {
-      rejectedAt: new Date(),
-      rejectedByMemberId: context.membershipId,
-      rejectionReason: reason,
+    await applyTransition(tx, {
+      machine: purchaseRequestMachine,
+      action: "reject",
+      id: requestId,
+      context,
+      from: existing.status,
+      data: {
+        rejectedAt: new Date(),
+        rejectedByMemberId: context.membershipId,
+        rejectionReason: reason,
+      },
     });
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
 
@@ -659,7 +682,13 @@ export async function returnRequest(
     const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "DRAFT", {});
+    await applyTransition(tx, {
+      machine: purchaseRequestMachine,
+      action: "return",
+      id: requestId,
+      context,
+      from: existing.status,
+    });
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
 
     await recordActivity(tx, context, {
@@ -681,7 +710,13 @@ export async function startSourcing(context: UserContext, requestId: string): Pr
   const existing = await loadForWrite(context, requestId);
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "IN_SOURCING", {});
+    await applyTransition(tx, {
+      machine: purchaseRequestMachine,
+      action: "start_sourcing",
+      id: requestId,
+      context,
+      from: existing.status,
+    });
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -709,7 +744,14 @@ export async function cancelRequest(
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "CANCELLED", { cancelledAt: new Date() });
+    await applyTransition(tx, {
+      machine: purchaseRequestMachine,
+      action: "cancel",
+      id: requestId,
+      context,
+      from: existing.status,
+      data: { cancelledAt: new Date() },
+    });
     await approvals.cancelPendingApprovals(tx, context, "PURCHASE_REQUEST", requestId);
 
     await recordActivity(tx, context, {
@@ -737,11 +779,14 @@ export async function archiveRequest(context: UserContext, requestId: string): P
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.purchaseRequest.update({
-      where: { id: requestId },
+    await applyTransition(tx, {
+      machine: purchaseRequestMachine,
+      action: "archive",
+      id: requestId,
+      context,
+      from: existing.status,
       data: {
         preArchiveStatus: existing.status,
-        status: "ARCHIVED",
         archivedAt: new Date(),
         archivedByMemberId: context.membershipId,
       },
@@ -765,12 +810,16 @@ export async function restoreRequest(context: UserContext, requestId: string): P
   if (!existing.archivedAt) return;
 
   await prisma.$transaction(async (tx) => {
-    await tx.purchaseRequest.update({
-      where: { id: requestId },
-      // Returns the status it held before, not a guess: leaving the archive is
-      // not a lifecycle decision.
+    // Returns the status it held before, not a guess: leaving the archive is
+    // not a lifecycle decision.
+    await applyTransition(tx, {
+      machine: purchaseRequestMachine,
+      action: "restore",
+      id: requestId,
+      context,
+      from: existing.status,
+      to: existing.preArchiveStatus ?? "DRAFT",
       data: {
-        status: existing.preArchiveStatus ?? "DRAFT",
         preArchiveStatus: null,
         archivedAt: null,
         archivedByMemberId: null,
@@ -787,12 +836,23 @@ export async function restoreRequest(context: UserContext, requestId: string): P
   });
 }
 
+type OrderingStatus = Extract<PurchaseRequestStatus, "PARTIALLY_ORDERED" | "ORDERED" | "COMPLETED">;
+
+/** The machine's action for each state a request's orders can leave it in. */
+const ORDERING_ACTION: Record<OrderingStatus, PurchaseRequestAction> = {
+  PARTIALLY_ORDERED: "partially_order",
+  ORDERED: "order",
+  COMPLETED: "complete",
+};
+
 /**
  * Re-derives how much of a request has been ordered (PRD #19 §62, §63).
  *
- * Called by the order service after an order is issued or cancelled, so the
- * request's status is a consequence of what exists rather than something
- * somebody remembered to click.
+ * Called by the order service after an order is issued, cancelled, closed or
+ * received against, so the request's status is a consequence of what exists
+ * rather than something somebody remembered to click. The machine decides
+ * whether the derived status is a move at all — the ordering states only go
+ * forward, and only once sourcing has started.
  */
 export async function refreshSourcingState(
   tx: Prisma.TransactionClient,
@@ -825,7 +885,7 @@ export async function refreshSourcingState(
 
   // Every order closed and every line covered means the ask is met.
   const allClosed = orders.every((order) => order.status === "CLOSED" || order.status === "RECEIVED");
-  const next: PurchaseRequestStatus =
+  const next: OrderingStatus =
     covered.size >= lines && lines > 0
       ? allClosed
         ? "COMPLETED"
@@ -835,7 +895,13 @@ export async function refreshSourcingState(
   if (next === request.status) return;
   if (!canTransitionRequestStatus(request.status, next)) return;
 
-  await tx.purchaseRequest.update({ where: { id: requestId }, data: { status: next } });
+  await applyTransition(tx, {
+    machine: purchaseRequestMachine,
+    action: ORDERING_ACTION[next],
+    id: requestId,
+    context,
+    from: request.status,
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -865,36 +931,6 @@ async function loadForWrite(context: UserContext, requestId: string): Promise<Wr
       },
     }),
   );
-}
-
-async function moveStatus(
-  tx: Prisma.TransactionClient,
-  context: UserContext,
-  existing: WriteRow,
-  to: PurchaseRequestStatus,
-  extra: Prisma.PurchaseRequestUpdateInput,
-): Promise<void> {
-  if (!canTransitionRequestStatus(existing.status, to)) {
-    throw new AccessError(
-      "CONFLICT",
-      `A ${existing.status.toLowerCase().replace(/_/g, " ")} request cannot move to ${to
-        .toLowerCase()
-        .replace(/_/g, " ")}.`,
-      { code: "INVALID_TRANSITION" },
-    );
-  }
-
-  // Conditional on the status we read, so two actions racing settle once.
-  const result = await tx.purchaseRequest.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: { ...(extra as Prisma.PurchaseRequestUpdateManyMutationInput), status: to },
-  });
-
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "Somebody else moved this request. Reload and try again.", {
-      code: "STALE_RECORD",
-    });
-  }
 }
 
 function assertNotStale(sent: Date | undefined, actual: Date): void {

@@ -1,4 +1,6 @@
 import { Prisma, type InvoiceStatus } from "@prisma/client";
+import { targetsOf, transitionFor } from "@/lib/core/state/machine";
+import { applyTransition, type TransitionOutcome } from "@/lib/core/state/transition";
 import { allocateNumber } from "@/lib/core/numbering/numbering.service";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
 import { linkIntegration } from "@/lib/core/integrations/integration.service";
@@ -34,9 +36,9 @@ import type {
   InvoiceListQuery,
   UpdateInvoiceInput,
 } from "./invoice.schema";
+import { invoiceMachine, type InvoiceTransitionAction } from "./invoice.machine";
 import {
   CANCELLABLE_INVOICE_STATUSES,
-  canTransitionInvoice,
   invoiceSettlement,
   isInvoiceArchivable,
   isInvoiceEditable,
@@ -533,7 +535,7 @@ export async function submitInvoice(context: UserContext, invoiceId: string): Pr
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "PENDING_APPROVAL");
+    await moveStatus(tx, context, existing, "submit");
     await approvals.openApproval(tx, context, "INVOICE", invoiceId);
 
     await recordActivity(tx, context, {
@@ -561,7 +563,7 @@ export async function approveInvoice(
     const approval = await approvals.requirePendingApproval(tx, context, "INVOICE", invoiceId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "APPROVED");
+    await moveStatus(tx, context, existing, "approve");
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
     await recordActivity(tx, context, {
@@ -607,7 +609,7 @@ export async function rejectInvoice(
     const approval = await approvals.requirePendingApproval(tx, context, "INVOICE", invoiceId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "REJECTED");
+    await moveStatus(tx, context, existing, "reject", { reason });
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
 
     await recordActivity(tx, context, {
@@ -653,7 +655,7 @@ export async function returnInvoice(
     const approval = await approvals.requirePendingApproval(tx, context, "INVOICE", invoiceId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "DRAFT");
+    await moveStatus(tx, context, existing, "return", { reason });
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
 
     await recordActivity(tx, context, {
@@ -680,8 +682,14 @@ export async function markInvoiceSent(context: UserContext, invoiceId: string): 
 
   const existing = assertFound(await repository.findInvoiceInScope(context, invoiceId));
 
+  // Marking a sent invoice sent again is the same request arriving twice. It
+  // settles without writing, so the date the invoice went out stays the first
+  // one rather than moving to whenever somebody pressed the button again.
+  if (existing.status === "SENT") return;
+
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "SENT", { sentAt: new Date() });
+    const outcome = await moveStatus(tx, context, existing, "mark_sent", { data: { sentAt: new Date() }, idempotent: true });
+    if (outcome === "ALREADY_THERE") return;
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -717,7 +725,7 @@ export async function cancelInvoice(context: UserContext, invoiceId: string): Pr
       );
     }
 
-    await moveStatus(tx, context, existing, "CANCELLED");
+    await moveStatus(tx, context, existing, "cancel");
     await approvals.cancelPendingApprovals(tx, context, "INVOICE", invoiceId);
 
     await recordActivity(tx, context, {
@@ -763,10 +771,13 @@ export async function archiveInvoice(context: UserContext, invoiceId: string): P
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.invoice.update({
-      where: { id: invoiceId },
+    await applyTransition(tx, {
+      machine: invoiceMachine,
+      action: "archive",
+      id: invoiceId,
+      context,
+      from: existing.status,
       data: {
-        status: "ARCHIVED",
         // Remembered so restore returns the invoice to where it was rather
         // than to a status somebody picked (PRD #15 §69).
         preArchiveStatus: existing.status,
@@ -798,14 +809,14 @@ export async function restoreInvoice(context: UserContext, invoiceId: string): P
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: existing.preArchiveStatus ?? "DRAFT",
-        preArchiveStatus: null,
-        archivedAt: null,
-        archivedByMemberId: null,
-      },
+    await applyTransition(tx, {
+      machine: invoiceMachine,
+      action: "restore",
+      id: invoiceId,
+      context,
+      from: existing.status,
+      to: existing.preArchiveStatus ?? "DRAFT",
+      data: { preArchiveStatus: null, archivedAt: null, archivedByMemberId: null },
     });
 
     await recordActivity(tx, context, {
@@ -822,30 +833,39 @@ export async function restoreInvoice(context: UserContext, invoiceId: string): P
 /* Internals                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Moves an invoice by one of its machine's actions, from the status it was read in.
+ *
+ * A move the workflow never makes is refused as the validation error it has
+ * always been, before anything is written. The write itself goes through
+ * `applyTransition`, conditional on the status we read, so two people acting at
+ * once cannot both win (PRD #15 §278, §392; PRD #49 §64).
+ */
 async function moveStatus(
   tx: Prisma.TransactionClient,
   context: UserContext,
   existing: { id: string; status: InvoiceStatus },
-  next: InvoiceStatus,
-  extra: Prisma.InvoiceUpdateInput = {},
-): Promise<void> {
-  if (!canTransitionInvoice(existing.status, next)) {
+  action: InvoiceTransitionAction,
+  options: { data?: Prisma.InvoiceUncheckedUpdateManyInput; reason?: string; idempotent?: boolean } = {},
+): Promise<TransitionOutcome> {
+  const transition = transitionFor(invoiceMachine, action)!;
+  if (!transition.from.includes(existing.status)) {
     throw new AccessError(
       "VALIDATION_ERROR",
-      `An invoice cannot move from ${existing.status} to ${next}.`,
+      `An invoice cannot move from ${existing.status} to ${targetsOf(transition)[0]}.`,
     );
   }
 
-  // Conditional on the status we read, so two people acting at once cannot both
-  // win (PRD #15 §278, §392).
-  const result = await tx.invoice.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: { status: next, updatedByMemberId: context.membershipId, ...extra },
+  return applyTransition(tx, {
+    machine: invoiceMachine,
+    action,
+    id: existing.id,
+    context,
+    from: existing.status,
+    reason: options.reason,
+    idempotent: options.idempotent,
+    data: { updatedByMemberId: context.membershipId, ...options.data },
   });
-
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "This invoice changed while you were working on it.");
-  }
 }
 
 /** Locks an invoice for an edit, provided it still has the status the edit was checked against. */

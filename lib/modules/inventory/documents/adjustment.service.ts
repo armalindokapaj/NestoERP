@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -26,6 +27,7 @@ import {
   resolveLineTargets,
   reverseMovements,
 } from "./posting";
+import { stockAdjustmentMachine } from "./adjustment.machine";
 
 /**
  * Corrections to what the system believes is there (PRD #20 §141–§151).
@@ -211,14 +213,28 @@ export async function updateAdjustment(
   const targets = await resolveLineTargets(context, input.lines, [warehouse.id]);
 
   await prisma.$transaction(async (tx) => {
-    await tx.stockAdjustmentLine.deleteMany({ where: { stockAdjustmentId: adjustmentId } });
-    await tx.stockAdjustment.update({
-      where: { id: adjustmentId },
+    // Still a draft, decided by the write rather than by the read above: an
+    // adjustment posted while this form was open keeps the lines and the
+    // reason it was posted with, instead of having them replaced.
+    const editing = await tx.stockAdjustment.updateMany({
+      where: { id: adjustmentId, companyId: context.companyId, status: existing.status },
       data: {
         warehouseId: warehouse.id,
         adjustmentDate: input.adjustmentDate,
         reason: input.reason,
         notes: input.notes ?? null,
+      },
+    });
+    if (editing.count === 0) {
+      throw new AccessError("CONFLICT", "This adjustment was posted or cancelled while you were editing it. Reload to see the latest.", {
+        code: "STOCK_ADJUSTMENT_STALE",
+      });
+    }
+
+    await tx.stockAdjustmentLine.deleteMany({ where: { stockAdjustmentId: adjustmentId } });
+    await tx.stockAdjustment.update({
+      where: { id: adjustmentId },
+      data: {
         lines: {
           create: input.lines.map((line) => ({
             inventoryItemId: line.inventoryItemId,
@@ -247,6 +263,21 @@ export async function postAdjustment(
   assertPostable(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    /*
+     * Claimed before anything reaches the ledger. Two people posting at once
+     * both read a draft; the second waits here on the first, finds the
+     * adjustment posted, and stops before applying the correction twice. The
+     * lines are read after the claim, so they are the lines that were posted.
+     */
+    await applyTransition(tx, {
+      machine: stockAdjustmentMachine,
+      action: "post",
+      id: adjustmentId,
+      context,
+      from: existing.status,
+      data: { postedByMemberId: context.membershipId },
+    });
+
     const lines = await tx.stockAdjustmentLine.findMany({
       where: { stockAdjustmentId: adjustmentId },
       orderBy: [{ locationId: "asc" }, { inventoryItemId: "asc" }],
@@ -286,17 +317,6 @@ export async function postAdjustment(
       await tx.stockAdjustmentLine.update({ where: { id: line.id }, data: { movementId } });
     }
 
-    const result = await tx.stockAdjustment.updateMany({
-      where: { id: adjustmentId, status: "DRAFT" },
-      data: { status: "POSTED", postedByMemberId: context.membershipId },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That adjustment has already been posted.", {
-        code: "STALE_RECORD",
-      });
-    }
-
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -318,9 +338,14 @@ export async function cancelAdjustment(
   const existing = await loadForWrite(context, adjustmentId);
   assertCancellable(existing.status, NOUN);
 
-  await prisma.stockAdjustment.update({
-    where: { id: adjustmentId },
-    data: { status: "CANCELLED" },
+  await prisma.$transaction(async (tx) => {
+    await applyTransition(tx, {
+      machine: stockAdjustmentMachine,
+      action: "cancel",
+      id: adjustmentId,
+      context,
+      from: existing.status,
+    });
   });
 }
 
@@ -335,6 +360,16 @@ export async function reverseAdjustment(
   assertReversible(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    // Claimed first for the same reason as posting: a second reversal stops
+    // here rather than undoing the correction twice.
+    await applyTransition(tx, {
+      machine: stockAdjustmentMachine,
+      action: "reverse",
+      id: adjustmentId,
+      context,
+      from: existing.status,
+    });
+
     const lines = await tx.stockAdjustmentLine.findMany({
       where: { stockAdjustmentId: adjustmentId, movementId: { not: null } },
       select: { movementId: true },
@@ -347,17 +382,6 @@ export async function reverseAdjustment(
       { module: MODULE, entityType: "stock_adjustment", entityId: adjustmentId },
       new Date(),
     );
-
-    const result = await tx.stockAdjustment.updateMany({
-      where: { id: adjustmentId, status: "POSTED" },
-      data: { status: "REVERSED" },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That adjustment has already been reversed.", {
-        code: "STALE_RECORD",
-      });
-    }
 
     await recordActivity(tx, context, {
       module: MODULE,

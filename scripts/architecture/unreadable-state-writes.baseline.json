@@ -1,0 +1,19 @@
+{
+  "lib/modules/clients/client.service.ts": 1,
+  "lib/modules/contractors/contractor.compliance.ts": 1,
+  "lib/modules/daily-logs/daily-log.service.ts": 1,
+  "lib/modules/hr/attendance/attendance.service.ts": 1,
+  "lib/modules/hr/employees/employee.service.ts": 1,
+  "lib/modules/hse/hazards/hazard.service.ts": 1,
+  "lib/modules/hse/ppe/ppe.service.ts": 1,
+  "lib/modules/meetings/meeting.actions.ts": 1,
+  "lib/modules/meetings/meeting.agenda.ts": 1,
+  "lib/modules/meetings/meeting.service.ts": 2,
+  "lib/modules/project-planning/planning.milestones.ts": 1,
+  "lib/modules/project-planning/planning.phases.ts": 1,
+  "lib/modules/projects/project.service.ts": 2,
+  "lib/modules/qaqc/ncrs/ncr.service.ts": 1,
+  "lib/modules/sales/leads/lead.service.ts": 1,
+  "lib/modules/sales/opportunities/opportunity.service.ts": 1,
+  "lib/modules/tasks/task.service.ts": 2
+}

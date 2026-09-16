@@ -243,6 +243,39 @@ describe("upload pipeline (PRD #29 §9, §80, §233)", () => {
     expect(usage).not.toBeNull();
   });
 
+  /**
+   * Two completions of one upload at once — a double submit, or a retry that
+   * overtook a slow response — record it once and never lose the file
+   * (PRD #29 §263, PRD #49 §236). The session is the claim: whichever request
+   * loses it writes nothing, and above all does not reject or delete the
+   * object the winner made available.
+   */
+  it("settles a double-submitted completion once", async () => {
+    const context = await loginAs("PROJECT_MANAGER");
+    const session = await createUploadSession(context, uploadInput());
+    created.push(session.documentId);
+
+    const row = await prisma.documentUploadSession.findUniqueOrThrow({
+      where: { id: session.uploadSessionId },
+      select: { storageKey: true },
+    });
+    await storageProvider().putObject(row.storageKey, PDF, "application/pdf");
+
+    const outcomes = await Promise.allSettled([
+      completeUpload(context, session.uploadSessionId),
+      completeUpload(context, session.uploadSessionId),
+    ]);
+    expect(outcomes.some((outcome) => outcome.status === "fulfilled")).toBe(true);
+
+    const document = await prisma.document.findUniqueOrThrow({ where: { id: session.documentId } });
+    expect(document.storageStatus).toBe("AVAILABLE");
+    expect(await storageProvider().headObject(row.storageKey)).not.toBeNull();
+    expect((await prisma.documentUploadSession.findUniqueOrThrow({ where: { id: session.uploadSessionId } })).status).toBe("COMPLETED");
+    expect(
+      await prisma.activity.count({ where: { entityType: "Document", entityId: session.documentId, action: "DOCUMENT_UPLOADED" } }),
+    ).toBe(1);
+  });
+
   /** A retried authorisation reuses its session rather than stranding it (§262). */
   it("is idempotent on authorisation with a key", async () => {
     const context = await loginAs("PROJECT_MANAGER");

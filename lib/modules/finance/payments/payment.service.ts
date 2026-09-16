@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { applyTransition } from "@/lib/core/state/transition";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
@@ -19,6 +20,7 @@ import { outstandingForExpense, outstandingForInvoice } from "../finance.settlem
 import type { PaymentSummaryDTO } from "../finance.types";
 import { acceptsPayment } from "../invoices/invoice.status";
 import { acceptsDisbursement } from "../expenses/expense.status";
+import { paymentMachine } from "./payment.machine";
 import type { CreatePaymentInput, PaymentListQuery } from "./payment.schema";
 
 /**
@@ -345,19 +347,21 @@ export async function voidPayment(
   }
 
   await prisma.$transaction(async (tx) => {
-    const result = await tx.payment.updateMany({
-      where: { id: paymentId, status: "RECORDED" },
+    // Conditional on the payment still being recorded, so two people voiding
+    // it at once cannot both reverse the same money.
+    await applyTransition(tx, {
+      machine: paymentMachine,
+      action: "void",
+      id: paymentId,
+      context,
+      from: payment.status,
+      reason,
       data: {
-        status: "VOIDED",
         voidedByMemberId: context.membershipId,
         voidedAt: new Date(),
         voidReason: reason,
       },
     });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "This payment has already been voided.");
-    }
 
     const target =
       payment.invoice?.invoiceNumber ??

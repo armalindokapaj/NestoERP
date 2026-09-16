@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -10,6 +11,7 @@ import { buildSupplierWhere } from "../procurement.scope";
 import type { SupplierDetailDTO, SupplierSummaryDTO } from "../procurement.types";
 import type { SupplierInput, SupplierListQuery } from "../procurement.schema";
 import { supplierStatusLabels } from "../procurement.status";
+import { supplierMachine } from "./supplier.machine";
 
 /**
  * Suppliers (PRD #19 §10, §26–§40).
@@ -342,29 +344,50 @@ export async function updateSupplier(
   await prisma.$transaction(async (tx) => {
     await assertCodeIsFree(tx, context, input.code, supplierId);
 
-    await tx.supplier.update({
-      where: { id: supplierId },
-      data: {
-        code: input.code ?? null,
-        name: input.name,
-        legalName: input.legalName ?? null,
-        supplierType: input.supplierType,
-        status: input.status,
-        email: input.email ?? null,
-        phone: input.phone ?? null,
-        website: input.website ?? null,
-        taxId: input.taxId ?? null,
-        registrationNumber: input.registrationNumber ?? null,
-        address: input.address ?? null,
-        city: input.city ?? null,
-        country: input.country ?? null,
-        paymentTermsDays: input.paymentTermsDays ?? null,
-        defaultCurrency: input.defaultCurrency ?? null,
-        notes: input.notes ?? null,
-        normalizedName: normalizeSupplierName(input.name),
-        updatedByMemberId: context.membershipId,
-      },
-    });
+    const details = {
+      code: input.code ?? null,
+      name: input.name,
+      legalName: input.legalName ?? null,
+      supplierType: input.supplierType,
+      email: input.email ?? null,
+      phone: input.phone ?? null,
+      website: input.website ?? null,
+      taxId: input.taxId ?? null,
+      registrationNumber: input.registrationNumber ?? null,
+      address: input.address ?? null,
+      city: input.city ?? null,
+      country: input.country ?? null,
+      paymentTermsDays: input.paymentTermsDays ?? null,
+      defaultCurrency: input.defaultCurrency ?? null,
+      notes: input.notes ?? null,
+      normalizedName: normalizeSupplierName(input.name),
+      updatedByMemberId: context.membershipId,
+    };
+
+    // A form saved with a different status activates or deactivates the
+    // supplier; one saved with the same status is an edit. Both are bound to
+    // the status the form was opened on, so neither lands on a supplier
+    // archived meanwhile, nor puts one back to active behind the archive.
+    if (input.status !== existing.status) {
+      await applyTransition(tx, {
+        machine: supplierMachine,
+        action: input.status === "ACTIVE" ? "activate" : "deactivate",
+        id: supplierId,
+        context,
+        from: existing.status,
+        data: details,
+      });
+    } else {
+      const edited = await tx.supplier.updateMany({
+        where: { id: supplierId, companyId: context.companyId, status: existing.status },
+        data: details,
+      });
+      if (edited.count === 0) {
+        throw new AccessError("CONFLICT", "This supplier changed since you opened it. Reload to see the latest.", {
+          code: "SUPPLIER_STALE",
+        });
+      }
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -389,7 +412,7 @@ export async function archiveSupplier(context: UserContext, supplierId: string):
   const existing = assertFound(
     await prisma.supplier.findFirst({
       where: { AND: [buildSupplierWhere(context), { id: supplierId }] },
-      select: { id: true, name: true, archivedAt: true },
+      select: { id: true, name: true, status: true, archivedAt: true },
     }),
   );
 
@@ -417,10 +440,13 @@ export async function archiveSupplier(context: UserContext, supplierId: string):
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.supplier.update({
-      where: { id: supplierId },
+    await applyTransition(tx, {
+      machine: supplierMachine,
+      action: "archive",
+      id: supplierId,
+      context,
+      from: existing.status,
       data: {
-        status: "ARCHIVED",
         archivedAt: new Date(),
         archivedByMemberId: context.membershipId,
       },
@@ -443,18 +469,22 @@ export async function restoreSupplier(context: UserContext, supplierId: string):
   const existing = assertFound(
     await prisma.supplier.findFirst({
       where: { AND: [buildSupplierWhere(context), { id: supplierId }] },
-      select: { id: true, name: true, archivedAt: true },
+      select: { id: true, name: true, status: true, archivedAt: true },
     }),
   );
 
   if (!existing.archivedAt) return;
 
   await prisma.$transaction(async (tx) => {
-    await tx.supplier.update({
-      where: { id: supplierId },
-      // Restores to INACTIVE rather than ACTIVE: coming out of the archive is
-      // not the same decision as being ready to buy from again.
-      data: { status: "INACTIVE", archivedAt: null, archivedByMemberId: null },
+    // Restores to INACTIVE rather than ACTIVE: coming out of the archive is
+    // not the same decision as being ready to buy from again.
+    await applyTransition(tx, {
+      machine: supplierMachine,
+      action: "restore",
+      id: supplierId,
+      context,
+      from: existing.status,
+      data: { archivedAt: null, archivedByMemberId: null },
     });
 
     await recordActivity(tx, context, {

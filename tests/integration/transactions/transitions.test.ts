@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 
+import { defineStateMachine } from "@/lib/core/state/machine";
 import { applyTransition, assertTransitionAllowed } from "@/lib/core/state/transition";
 import { hseHazardMachine } from "@/lib/modules/hse/hazards/hazard.machine";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
@@ -15,6 +16,7 @@ import { cleanupSessions, loginAs, prisma } from "../../helpers";
  */
 
 const raised: string[] = [];
+const steps: string[] = [];
 
 async function hazard(companyId: string, memberId: string, status: "OPEN" | "CLOSED" = "OPEN") {
   const row = await prisma.hseHazard.create({
@@ -40,6 +42,7 @@ async function hazard(companyId: string, memberId: string, status: "OPEN" | "CLO
 }
 
 afterAll(async () => {
+  if (steps.length > 0) await prisma.approvalStep.deleteMany({ where: { id: { in: steps } } });
   if (raised.length > 0) await prisma.hseHazard.deleteMany({ where: { id: { in: raised } } });
   await cleanupSessions();
   await prisma.$disconnect();
@@ -217,5 +220,148 @@ describe("the transition guard", () => {
     expect(() =>
       assertTransitionAllowed(hseHazardMachine, { currentState: "OPEN", action: "control", context }),
     ).toThrow();
+  });
+});
+
+/**
+ * The three things a transition can say beyond one permission and one
+ * destination, exercised on a probe machine over the hazard table so they are
+ * tested once, here, rather than only through whichever domain uses them first.
+ */
+type ProbeState = "OPEN" | "CONTROLLED" | "CLOSED" | "CANCELLED";
+type ProbeAction = "settle" | "decide" | "either";
+
+const probe = defineStateMachine<ProbeState, ProbeAction>({
+  key: "probe_hazard",
+  model: "hseHazard",
+  field: "status",
+  states: ["OPEN", "CONTROLLED", "CLOSED", "CANCELLED"],
+  terminal: ["CLOSED", "CANCELLED"],
+  transitions: [
+    // The record decides where it lands; the service names which.
+    { action: "settle", from: ["OPEN"], to: ["CLOSED", "CANCELLED"], permission: "hse.hazard.close" },
+    // An approval chain can conclude it for somebody without the permission.
+    { action: "decide", from: ["OPEN"], to: "CONTROLLED", permission: "finance.approval.decide", concludedByApprovalStep: true },
+    // Any one of these is enough.
+    { action: "either", from: ["OPEN"], to: "CONTROLLED", permission: ["finance.approval.decide", "hse.hazard.control"] },
+  ],
+});
+
+async function decidedStep(companyId: string, decidedByMemberId: string | null, status: "PENDING" | "APPROVED") {
+  const row = await prisma.approvalStep.create({
+    data: {
+      companyId,
+      providerKey: "probe",
+      approvalId: `probe-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      stepNumber: 1,
+      label: "Probe",
+      status,
+      decidedByMemberId,
+      decidedAt: status === "PENDING" ? null : new Date(),
+    },
+    select: { id: true },
+  });
+  steps.push(row.id);
+  return row.id;
+}
+
+describe("a transition with more than one destination", () => {
+  it("lands where the service says, provided the machine declares it", async () => {
+    const context = await loginAs("HSE");
+    const row = await hazard(context.companyId, context.membershipId);
+
+    await runInTransaction("test.transition.destination", (tx) =>
+      applyTransition(tx, { machine: probe, action: "settle", id: row.id, context, from: "OPEN", to: "CANCELLED" }),
+    );
+
+    const after = await prisma.hseHazard.findUniqueOrThrow({ where: { id: row.id }, select: { status: true } });
+    expect(after.status).toBe("CANCELLED");
+  });
+
+  it("refuses a destination the machine does not declare, and one left unnamed", async () => {
+    const context = await loginAs("HSE");
+    const row = await hazard(context.companyId, context.membershipId);
+
+    await expect(
+      runInTransaction("test.transition.undeclared", (tx) =>
+        applyTransition(tx, { machine: probe, action: "settle", id: row.id, context, from: "OPEN", to: "CONTROLLED" }),
+      ),
+    ).rejects.toThrow(/does not lead to/);
+    await expect(
+      runInTransaction("test.transition.unnamed", (tx) =>
+        applyTransition(tx, { machine: probe, action: "settle", id: row.id, context, from: "OPEN" }),
+      ),
+    ).rejects.toThrow(/name which/);
+
+    const after = await prisma.hseHazard.findUniqueOrThrow({ where: { id: row.id }, select: { status: true } });
+    expect(after.status).toBe("OPEN");
+  });
+});
+
+describe("a transition an approval chain concludes", () => {
+  it("is refused to somebody with neither the permission nor a step", async () => {
+    const context = await loginAs("HSE");
+    const row = await hazard(context.companyId, context.membershipId);
+
+    await expect(
+      runInTransaction("test.transition.no-authority", (tx) =>
+        applyTransition(tx, { machine: probe, action: "decide", id: row.id, context, from: "OPEN" }),
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("is applied for the person who decided the step", async () => {
+    const context = await loginAs("HSE");
+    const row = await hazard(context.companyId, context.membershipId);
+    const step = await decidedStep(context.companyId, context.membershipId, "APPROVED");
+
+    const outcome = await runInTransaction("test.transition.step", (tx) =>
+      applyTransition(tx, { machine: probe, action: "decide", id: row.id, context, from: "OPEN", approvalStepId: step }),
+    );
+
+    expect(outcome).toBe("MOVED");
+  });
+
+  it("will not take a step somebody else decided, or one still pending", async () => {
+    const context = await loginAs("HSE");
+    const other = await loginAs("OWNER");
+    const row = await hazard(context.companyId, context.membershipId);
+    const theirs = await decidedStep(context.companyId, other.membershipId, "APPROVED");
+    const pending = await decidedStep(context.companyId, context.membershipId, "PENDING");
+
+    for (const step of [theirs, pending]) {
+      await expect(
+        runInTransaction("test.transition.foreign-step", (tx) =>
+          applyTransition(tx, { machine: probe, action: "decide", id: row.id, context, from: "OPEN", approvalStepId: step }),
+        ),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+    const after = await prisma.hseHazard.findUniqueOrThrow({ where: { id: row.id }, select: { status: true } });
+    expect(after.status).toBe("OPEN");
+  });
+
+  it("does not let a step stand in on a transition that never declared it", async () => {
+    const context = await loginAs("HSE");
+    const row = await hazard(context.companyId, context.membershipId);
+    const step = await decidedStep(context.companyId, context.membershipId, "APPROVED");
+
+    await expect(
+      runInTransaction("test.transition.undeclared-step", (tx) =>
+        applyTransition(tx, { machine: probe, action: "settle", id: row.id, context, from: "OPEN", to: "CLOSED", approvalStepId: step }),
+      ),
+    ).rejects.toThrow(/not concluded by an approval step/);
+  });
+});
+
+describe("a transition naming several permissions", () => {
+  it("is applied for somebody holding any one of them", async () => {
+    // HSE holds hse.hazard.control and not finance.approval.decide.
+    const context = await loginAs("HSE");
+    const row = await hazard(context.companyId, context.membershipId);
+
+    const outcome = await runInTransaction("test.transition.any-of", (tx) =>
+      applyTransition(tx, { machine: probe, action: "either", id: row.id, context, from: "OPEN" }),
+    );
+    expect(outcome).toBe("MOVED");
   });
 });

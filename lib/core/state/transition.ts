@@ -1,11 +1,11 @@
 import type { Prisma } from "@prisma/client";
 
 import { AccessError } from "@/lib/access/guards";
-import { can } from "@/lib/access/can";
+import { canAny } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import type { StateMachine, TransitionDefinition } from "./machine";
-import { transitionFor } from "./machine";
+import { permissionsOf, targetsOf, transitionFor } from "./machine";
 
 /**
  * Applying a transition (PRD #49 §58, §63-§65).
@@ -46,6 +46,12 @@ export type ApplyTransitionInput<S extends string, A extends string> = {
   context: UserContext;
   /** The state the caller read, used for the audit trail and the error message. */
   from: S;
+  /**
+   * Which of the transition's declared destinations, where it declares more
+   * than one — computed by the service from the record, never taken from the
+   * client (§62). Omitted for a transition with a single destination.
+   */
+  to?: S;
   /** The row version the caller's page was rendered from, where the model carries one. */
   expectedVersion?: number;
   /** Columns the transition sets besides the state — timestamps, actor, reason. */
@@ -58,6 +64,13 @@ export type ApplyTransitionInput<S extends string, A extends string> = {
    */
   reason?: string | null;
   /**
+   * The approval step this actor settled, when a chain concludes the
+   * transition rather than the actor's own permission (PRD #41 §21). Only a
+   * transition declaring `concludedByApprovalStep` accepts it, and the step
+   * must have been decided by this actor.
+   */
+  approvalStepId?: string;
+  /**
    * Treat a record already in the target state as success rather than as a
    * conflict (§236-§240). Double-submit of an idempotent action — publish,
    * close, void — should not raise, and should not write twice either.
@@ -69,16 +82,19 @@ export type ApplyTransitionInput<S extends string, A extends string> = {
  * Checks the move is one the machine allows and the actor is allowed to make
  * (§57). Throws rather than returning a verdict: every caller's next step on
  * failure is the same refusal.
+ *
+ * An approval chain's step holder is not checked here — whether they hold the
+ * step is the chain's question, answered before the write.
  */
 export function assertTransitionAllowed<S extends string, A extends string>(
   machine: StateMachine<S, A>,
-  input: { currentState: S; action: A; context: UserContext; reason?: string | null },
+  input: { currentState: S; action: A; context: UserContext; reason?: string | null; to?: S },
 ): TransitionDefinition<S, A> {
   const transition = transitionFor(machine, input.action);
   if (!transition) {
     throw new AccessError("VALIDATION_ERROR", `${machine.key} has no action "${input.action}".`);
   }
-  if (!can(input.context, transition.permission)) {
+  if (!canAny(input.context, permissionsOf(transition))) {
     throw new AccessError("FORBIDDEN");
   }
   if (!transition.from.includes(input.currentState)) {
@@ -89,6 +105,7 @@ export function assertTransitionAllowed<S extends string, A extends string>(
       action: input.action,
     });
   }
+  if (input.to !== undefined) destinationOf(machine, transition, input.to);
   if (transition.requiresReason && !input.reason?.trim()) {
     throw new AccessError("VALIDATION_ERROR", "Give a reason for this change.", { field: "reason" });
   }
@@ -109,7 +126,7 @@ export async function applyTransition<S extends string, A extends string>(
   const transition = transitionFor(machine, action);
   if (!transition) throw new AccessError("VALIDATION_ERROR", `${machine.key} has no action "${action}".`);
 
-  if (!can(context, transition.permission)) throw new AccessError("FORBIDDEN");
+  await assertAuthorised(tx, machine, transition, input);
 
   // The move has to be legal from where the caller found the record. Checked
   // before the write so an illegal transition is named as one, rather than
@@ -121,6 +138,7 @@ export async function applyTransition<S extends string, A extends string>(
       action,
     });
   }
+  const to = destinationOf(machine, transition, input.to);
 
   const delegate = (tx as unknown as Record<string, StatefulDelegate>)[machine.model];
   if (!delegate) throw new Error(`${machine.key}: no Prisma delegate named "${machine.model}"`);
@@ -142,7 +160,7 @@ export async function applyTransition<S extends string, A extends string>(
     throw new AccessError("VALIDATION_ERROR", "Give a reason for this change.", { field: "reason" });
   }
 
-  const payload: Record<string, unknown> = { ...data, [machine.field]: transition.to };
+  const payload: Record<string, unknown> = { ...data, [machine.field]: to };
   if (expectedVersion !== undefined) payload.version = { increment: 1 };
 
   const moved = await delegate.updateMany({ where, data: payload });
@@ -155,7 +173,7 @@ export async function applyTransition<S extends string, A extends string>(
   // idempotent action is the outcome the caller wanted — or somebody else
   // moved the record first.
   if (input.idempotent) {
-    const settled = await countIn(tx, machine, { id, companyId, state: transition.to });
+    const settled = await countIn(tx, machine, { id, companyId, state: to });
     if (settled > 0) {
       incrementCounter(Metric.TRANSITION_REPLAY, { machine: machine.key, action });
       return "ALREADY_THERE";
@@ -169,6 +187,49 @@ export async function applyTransition<S extends string, A extends string>(
   });
 }
 
+/**
+ * The permission floor, or the approval step standing in for it.
+ *
+ * A step is accepted only where the transition declares a chain can conclude
+ * it, and only once the step row says this actor decided it — so passing an id
+ * is a claim the database checks, not a flag that switches the check off.
+ */
+async function assertAuthorised<S extends string, A extends string>(
+  tx: Tx,
+  machine: StateMachine<S, A>,
+  transition: TransitionDefinition<S, A>,
+  input: ApplyTransitionInput<S, A>,
+): Promise<void> {
+  if (input.approvalStepId === undefined) {
+    if (!canAny(input.context, permissionsOf(transition))) throw new AccessError("FORBIDDEN");
+    return;
+  }
+  if (!transition.concludedByApprovalStep) {
+    throw new Error(`${machine.key}: "${transition.action}" is not concluded by an approval step`);
+  }
+  const decided = await tx.approvalStep.count({
+    where: {
+      id: input.approvalStepId,
+      companyId: input.context.companyId,
+      decidedByMemberId: input.context.membershipId,
+      status: { not: "PENDING" },
+    },
+  });
+  if (decided === 0) throw new AccessError("FORBIDDEN");
+}
+
+function destinationOf<S extends string, A extends string>(machine: StateMachine<S, A>, transition: TransitionDefinition<S, A>, chosen: S | undefined): S {
+  const targets = targetsOf(transition);
+  if (chosen === undefined) {
+    if (targets.length === 1) return targets[0];
+    throw new Error(`${machine.key}: "${transition.action}" leads to one of ${targets.join(", ")} — name which`);
+  }
+  if (!targets.includes(chosen)) {
+    throw new Error(`${machine.key}: "${transition.action}" does not lead to ${chosen}`);
+  }
+  return chosen;
+}
+
 async function countIn<S extends string, A extends string>(
   tx: Tx,
   machine: StateMachine<S, A>,
@@ -179,7 +240,10 @@ async function countIn<S extends string, A extends string>(
 }
 
 function illegalMessage<S extends string, A extends string>(machine: StateMachine<S, A>, transition: TransitionDefinition<S, A>, current: S): string {
-  return `This ${label(machine)} is ${humanise(current)}, so it cannot be ${pastTense(transition.action)}.`;
+  const word = transition.action.replace(/_/g, " ");
+  // "cannot be mark sented" helps nobody; a phrase is named rather than conjugated.
+  if (word.includes(" ")) return `This ${label(machine)} is ${humanise(current)}, so "${word}" cannot be applied to it.`;
+  return `This ${label(machine)} is ${humanise(current)}, so it cannot be ${pastTense(word)}.`;
 }
 
 function staleMessage<S extends string, A extends string>(machine: StateMachine<S, A>, from: S): string {
@@ -194,8 +258,10 @@ function humanise(state: string): string {
   return state.toLowerCase().replace(/_/g, " ");
 }
 
-function pastTense(action: string): string {
-  const word = action.replace(/_/g, " ");
+const IRREGULAR: Record<string, string> = { submit: "submitted", cancel: "cancelled", commit: "committed", rework: "reworked", withdraw: "withdrawn" };
+
+function pastTense(word: string): string {
+  if (IRREGULAR[word]) return IRREGULAR[word];
   if (word.endsWith("e")) return `${word}d`;
   return `${word}ed`;
 }

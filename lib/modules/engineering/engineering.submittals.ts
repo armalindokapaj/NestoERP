@@ -8,6 +8,8 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { transitionFor } from "@/lib/core/state/machine";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { loadEngineeringProject, projectEngineeringOptions, type ProjectEngineeringOptions } from "./engineering.documents";
@@ -32,6 +34,8 @@ import {
   resolveProjectContext,
   withNumber,
 } from "./engineering.shared";
+import { submittalRevisionMachine } from "./engineering.submittal-revision.machine";
+import { technicalSubmittalMachine } from "./engineering.submittal.machine";
 import {
   LINKABLE_TYPES,
   SUBMITTAL_IN_REVIEW,
@@ -91,6 +95,9 @@ const SUBMITTAL_SELECT = {
 } satisfies Prisma.TechnicalSubmittalSelect;
 
 type SubmittalRow = Prisma.TechnicalSubmittalGetPayload<{ select: typeof SUBMITTAL_SELECT }>;
+
+/** Which decisions a submittal is closed out from — the machine's answer, so the button and the command agree. */
+const closable = (status: SubmittalStatus) => transitionFor(technicalSubmittalMachine, "close")!.from.includes(status);
 
 async function toRows(context: UserContext, rows: SubmittalRow[]): Promise<SubmittalRowDTO[]> {
   const [names, { today }] = await Promise.all([people(context.companyId, rows.map((row) => row.assignedReviewerMemberId)), companyToday(context.companyId)]);
@@ -181,7 +188,7 @@ export async function getSubmittal(context: UserContext, id: string): Promise<Su
       canEdit: edit,
       canAddRevision: edit,
       // A decided submittal is closed out by the people who decide them (§227).
-      canClose: live && ["APPROVED", "APPROVED_WITH_COMMENTS", "REJECTED"].includes(row.status) && can(context, "submittal.approve"),
+      canClose: live && closable(row.status) && can(context, "submittal.approve"),
       canVoid: live && can(context, "submittal.edit") && can(context, "submittal.approve"),
       canLink: edit && linkableTypesFor(context, LINKABLE_TYPES).length > 0,
       canCreateTask: edit && can(context, "task.create"),
@@ -323,10 +330,9 @@ export async function updateSubmittal(context: UserContext, id: string, input: U
 export async function closeSubmittal(context: UserContext, id: string): Promise<{ id: string }> {
   const row = await findWritableSubmittal(context, id);
   assertPermission(context, "submittal.approve");
-  if (!["APPROVED", "APPROVED_WITH_COMMENTS", "REJECTED"].includes(row.status)) throw fail("SUBMITTAL_NOT_DECIDED", "A submittal is closed once its review has a final decision.", "CONFLICT");
+  if (!closable(row.status)) throw fail("SUBMITTAL_NOT_DECIDED", "A submittal is closed once its review has a final decision.", "CONFLICT");
   await prisma.$transaction(async (tx) => {
-    const moved = await tx.technicalSubmittal.updateMany({ where: { id: row.id, status: row.status as SubmittalStatus }, data: { status: "CLOSED", closedAt: new Date(), version: { increment: 1 } } });
-    if (!moved.count) throw fail("SUBMITTAL_STALE", "This submittal changed since you opened it. Reload to see the latest.", "CONFLICT");
+    await applyTransition(tx, { machine: technicalSubmittalMachine, action: "close", id: row.id, context, from: row.status, data: { closedAt: new Date(), version: { increment: 1 } } });
     await recordUserAction(context, { actionKey: AuditAction.SUBMITTAL_CLOSED, entity: { type: SUBMITTAL_RECORD, id: row.id, label: row.submittalNumber }, projectId: row.projectId, before: { status: row.status }, after: { status: "CLOSED" } }, { tx });
     await recordActivity(tx, context, { module: MODULE, entityType: SUBMITTAL_ACTIVITY, entityId: row.id, action: "SUBMITTAL_CLOSED", message: `closed submittal ${row.submittalNumber}` });
   });
@@ -338,9 +344,12 @@ export async function voidSubmittal(context: UserContext, id: string, input: { r
   const row = await findWritableSubmittal(context, id);
   assertPermission(context, "submittal.approve");
   await prisma.$transaction(async (tx) => {
-    const moved = await tx.technicalSubmittal.updateMany({ where: { id: row.id, status: { notIn: ["VOID", "CLOSED"] } }, data: { status: "VOID", voidedAt: new Date(), voidReason: input.reason, version: { increment: 1 } } });
-    if (!moved.count) throw fail("SUBMITTAL_STALE", "This submittal changed since you opened it. Reload to see the latest.", "CONFLICT");
-    await tx.technicalSubmittalRevision.updateMany({ where: { submittalId: row.id, status: "DRAFT" }, data: { status: "VOID", voidedAt: new Date() } });
+    await applyTransition(tx, { machine: technicalSubmittalMachine, action: "void", id: row.id, context, from: row.status, reason: input.reason, data: { voidedAt: new Date(), voidReason: input.reason, version: { increment: 1 } } });
+    // A draft left behind has nothing to become; each is discarded from the draft it still is.
+    const drafts = await tx.technicalSubmittalRevision.findMany({ where: { submittalId: row.id, status: "DRAFT" }, select: { id: true, status: true } });
+    for (const draft of drafts) {
+      await applyTransition(tx, { machine: submittalRevisionMachine, action: "void", id: draft.id, context, from: draft.status, data: { voidedAt: new Date() } });
+    }
     await recordUserAction(context, { actionKey: AuditAction.SUBMITTAL_VOIDED, entity: { type: SUBMITTAL_RECORD, id: row.id, label: row.submittalNumber }, projectId: row.projectId, before: { status: row.status }, after: { status: "VOID" }, reason: input.reason }, { tx });
     await recordActivity(tx, context, { module: MODULE, entityType: SUBMITTAL_ACTIVITY, entityId: row.id, action: "SUBMITTAL_VOIDED", message: `voided submittal ${row.submittalNumber}` });
   });

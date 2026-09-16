@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
+import { assertTransition, StorageError } from "@/lib/core/storage";
+
 /**
  * Why this document's current file may not be replaced right now, or null
  * (PRD #46 §69, §123, PRD #47 §85, §86).
@@ -26,17 +28,30 @@ export async function frozenFileReason(documentId: string): Promise<string | nul
  * and preview grants consult, so a version finishing its scan after the
  * document was archived must not quietly make it downloadable again
  * (PRD #29 §162, §319).
+ *
+ * That is only true if the archive cannot land between reading the document
+ * and writing it, so the document row is locked first. An archive or restore
+ * arriving meanwhile waits for the promotion and then applies to the file it
+ * made current, rather than being undone by a write computed from what the
+ * document held a moment before (PRD #49 §246, §247).
  */
 export async function promoteVersion(tx: Prisma.TransactionClient, versionId: string): Promise<void> {
   const version = await tx.documentVersion.findUniqueOrThrow({ where: { id: versionId } });
+  await tx.$queryRaw`SELECT id FROM "documents" WHERE id = ${version.documentId} FOR UPDATE`;
   const document = await tx.document.findUniqueOrThrow({
     where: { id: version.documentId },
-    select: { status: true, archivedAt: true },
+    select: { status: true, archivedAt: true, storageStatus: true },
   });
   const archived = document.status === "ARCHIVED" || document.archivedAt !== null;
+  const storageStatus = archived ? "ARCHIVED" : "AVAILABLE";
+  // Swapping the file is not a storage transition, so only a document whose
+  // state would change asks the table — and a live one never needs to.
+  if (document.storageStatus !== storageStatus) assertTransition(document.storageStatus, storageStatus);
 
-  await tx.document.update({
-    where: { id: version.documentId },
+  // The storage state read under the lock is the guard: nothing else can have
+  // moved it, and the write says so rather than relying on it.
+  const promoted = await tx.document.updateMany({
+    where: { id: version.documentId, storageStatus: document.storageStatus },
     data: {
       currentVersionId: version.id,
       storageProvider: version.storageProvider,
@@ -49,7 +64,7 @@ export async function promoteVersion(tx: Prisma.TransactionClient, versionId: st
       detectedMimeType: version.mimeTypeDetected,
       sizeBytes: version.sizeBytes,
       checksum: version.checksumSha256,
-      storageStatus: archived ? "ARCHIVED" : "AVAILABLE",
+      storageStatus,
       scanStatus: version.scanStatus,
       scanProvider: version.scanProvider,
       scanCompletedAt: version.scanCompletedAt,
@@ -64,4 +79,5 @@ export async function promoteVersion(tx: Prisma.TransactionClient, versionId: st
       rejectionReason: null,
     },
   });
+  if (promoted.count === 0) throw new StorageError("INVALID_DOCUMENT_STORAGE_STATE");
 }

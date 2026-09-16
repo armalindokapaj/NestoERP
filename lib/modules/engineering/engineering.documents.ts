@@ -7,8 +7,10 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
 import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { engineeringDocumentMachine } from "./engineering.document.machine";
 import { linkableTypesFor, listLinks, tasksFromRecord } from "./engineering.links";
 import {
   DOCUMENT_ACTIVITY,
@@ -24,6 +26,7 @@ import {
   readableSubmittalWhere,
   readableTransmittalWhere,
 } from "./engineering.permissions";
+import { engineeringRevisionMachine } from "./engineering.revision.machine";
 import { loadRevisionParent, revisionCapabilities, revisionDTOs, revisionsOf } from "./engineering.revisions";
 import type { CreateEngineeringDocumentInput, EngineeringDocumentListQuery, UpdateEngineeringDocumentInput } from "./engineering.schema";
 import { companyToday, resolveEngineeringSettings } from "./engineering.settings";
@@ -297,10 +300,12 @@ export async function retireEngineeringDocument(context: UserContext, id: string
   const open = await prisma.engineeringDocumentRevision.count({ where: { engineeringDocumentId: row.id, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } });
   if (open && input.status === "SUPERSEDED") throw fail("ENGINEERING_DOCUMENT_IN_REVIEW", "Finish the review in progress first.", "CONFLICT");
   await prisma.$transaction(async (tx) => {
-    const moved = await tx.engineeringDocument.updateMany({ where: { id: row.id, status: { notIn: ["VOID", "SUPERSEDED"] } }, data: { status: input.status, voidedAt: new Date(), voidReason: input.reason, version: { increment: 1 } } });
-    if (!moved.count) throw fail("ENGINEERING_DOCUMENT_STALE", "This document changed since you opened it. Reload to see the latest.", "CONFLICT");
-    // A draft left behind has nothing to become.
-    await tx.engineeringDocumentRevision.updateMany({ where: { engineeringDocumentId: row.id, status: "DRAFT" }, data: { status: "VOID", voidedAt: new Date() } });
+    await applyTransition(tx, { machine: engineeringDocumentMachine, action: input.status === "VOID" ? "void" : "supersede", id: row.id, context, from: row.status, reason: input.reason, data: { voidedAt: new Date(), voidReason: input.reason, version: { increment: 1 } } });
+    // A draft left behind has nothing to become; each is discarded from the draft it still is.
+    const drafts = await tx.engineeringDocumentRevision.findMany({ where: { engineeringDocumentId: row.id, status: "DRAFT" }, select: { id: true, status: true } });
+    for (const draft of drafts) {
+      await applyTransition(tx, { machine: engineeringRevisionMachine, action: "void", id: draft.id, context, from: draft.status, data: { voidedAt: new Date() } });
+    }
     await recordActivity(tx, context, { module: MODULE, entityType: DOCUMENT_ACTIVITY, entityId: row.id, action: "ENGINEERING_DOCUMENT_VOIDED", message: input.status === "VOID" ? `voided ${row.documentNumber}` : `marked ${row.documentNumber} superseded` });
     await recordUserAction(context, { actionKey: AuditAction.ENGINEERING_DOCUMENT_VOIDED, entity: { type: DOCUMENT_RECORD, id: row.id, label: row.documentNumber }, projectId: row.projectId, before: { status: row.status }, after: { status: input.status }, reason: input.reason }, { tx });
   });

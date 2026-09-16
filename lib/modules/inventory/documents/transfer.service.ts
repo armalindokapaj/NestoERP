@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -25,6 +26,7 @@ import {
   resolveLineTargets,
   reverseMovements,
 } from "./posting";
+import { stockTransferMachine } from "./transfer.machine";
 
 /**
  * Stock moving between locations (PRD #20 §129–§140).
@@ -238,14 +240,28 @@ export async function updateTransfer(
   );
 
   await prisma.$transaction(async (tx) => {
-    await tx.stockTransferLine.deleteMany({ where: { stockTransferId: transferId } });
-    await tx.stockTransfer.update({
-      where: { id: transferId },
+    // Still a draft, decided by the write rather than by the read above: a
+    // transfer posted while this form was open keeps the lines it was posted
+    // with, instead of having them replaced under its movements.
+    const editing = await tx.stockTransfer.updateMany({
+      where: { id: transferId, companyId: context.companyId, status: existing.status },
       data: {
         fromWarehouseId: from.id,
         toWarehouseId: to.id,
         transferDate: input.transferDate,
         notes: input.notes ?? null,
+      },
+    });
+    if (editing.count === 0) {
+      throw new AccessError("CONFLICT", "This transfer was posted or cancelled while you were editing it. Reload to see the latest.", {
+        code: "STOCK_TRANSFER_STALE",
+      });
+    }
+
+    await tx.stockTransferLine.deleteMany({ where: { stockTransferId: transferId } });
+    await tx.stockTransfer.update({
+      where: { id: transferId },
+      data: {
         lines: {
           create: input.lines.map((line) => ({
             inventoryItemId: line.inventoryItemId,
@@ -280,6 +296,21 @@ export async function postTransfer(context: UserContext, transferId: string): Pr
   assertPostable(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    /*
+     * Claimed before anything reaches the ledger. Two people posting at once
+     * both read a draft; the second waits here on the first, finds the
+     * transfer posted, and stops before moving the stock a second time. The
+     * lines are read after the claim, so they are the lines that were posted.
+     */
+    await applyTransition(tx, {
+      machine: stockTransferMachine,
+      action: "post",
+      id: transferId,
+      context,
+      from: existing.status,
+      data: { postedByMemberId: context.membershipId },
+    });
+
     const lines = await tx.stockTransferLine.findMany({
       where: { stockTransferId: transferId },
       // Ordered so concurrent transfers take their row locks in the same
@@ -333,17 +364,6 @@ export async function postTransfer(context: UserContext, transferId: string): Pr
       });
     }
 
-    const result = await tx.stockTransfer.updateMany({
-      where: { id: transferId, status: "DRAFT" },
-      data: { status: "POSTED", postedByMemberId: context.membershipId },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That transfer has already been posted.", {
-        code: "STALE_RECORD",
-      });
-    }
-
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -361,9 +381,14 @@ export async function cancelTransfer(context: UserContext, transferId: string): 
   const existing = await loadForWrite(context, transferId);
   assertCancellable(existing.status, NOUN);
 
-  await prisma.stockTransfer.update({
-    where: { id: transferId },
-    data: { status: "CANCELLED" },
+  await prisma.$transaction(async (tx) => {
+    await applyTransition(tx, {
+      machine: stockTransferMachine,
+      action: "cancel",
+      id: transferId,
+      context,
+      from: existing.status,
+    });
   });
 }
 
@@ -375,6 +400,16 @@ export async function reverseTransfer(context: UserContext, transferId: string):
   assertReversible(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    // Claimed first for the same reason as posting: a second reversal stops
+    // here rather than moving the stock back twice.
+    await applyTransition(tx, {
+      machine: stockTransferMachine,
+      action: "reverse",
+      id: transferId,
+      context,
+      from: existing.status,
+    });
+
     const lines = await tx.stockTransferLine.findMany({
       where: { stockTransferId: transferId },
       select: { outMovementId: true, inMovementId: true },
@@ -391,17 +426,6 @@ export async function reverseTransfer(context: UserContext, transferId: string):
       { module: MODULE, entityType: "stock_transfer", entityId: transferId },
       new Date(),
     );
-
-    const result = await tx.stockTransfer.updateMany({
-      where: { id: transferId, status: "POSTED" },
-      data: { status: "REVERSED" },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That transfer has already been reversed.", {
-        code: "STALE_RECORD",
-      });
-    }
 
     await recordActivity(tx, context, {
       module: MODULE,

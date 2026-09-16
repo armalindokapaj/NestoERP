@@ -11,13 +11,21 @@ import type {
   SupplierType,
 } from "@prisma/client";
 
+import { canMove } from "@/lib/core/state/machine";
+import { purchaseOrderMachine } from "./orders/order.machine";
+import { supplierQuoteMachine } from "./quotes/quote.machine";
+import { purchaseRequestMachine } from "./requests/request.machine";
+import { rfqMachine } from "./rfqs/rfq.machine";
+
 /**
  * The procurement lifecycles (PRD #19 §245–§248).
  *
- * Every move is a named action, and this table is the whole truth about what
- * may follow what — no generic PATCH can set a status (PRD #19 §19). ARCHIVED
- * has no outgoing edge because leaving the archive is a restore, which returns
- * the status the record held before.
+ * Every move is a named action, and each record's machine is the whole truth
+ * about what may follow what — no generic PATCH can set a status (PRD #19 §19,
+ * PRD #49 §54). The `canTransition…` helpers here answer from those machines
+ * rather than from a second table. They answer for lifecycle moves only:
+ * leaving the archive is a restore, which returns the status the record held
+ * before, so ARCHIVED still has no outgoing edge here.
  *
  * Two rules are worth naming because they are easy to get wrong:
  *
@@ -113,26 +121,11 @@ export const categoryLabels: Record<ProcurementCategory, string> = {
   OTHER: "Other",
 };
 
-const REQUEST_TRANSITIONS: Record<PurchaseRequestStatus, PurchaseRequestStatus[]> = {
-  DRAFT: ["PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  // DRAFT: returned for revision (PRD #41 §48).
-  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT", "CANCELLED"],
-  APPROVED: ["IN_SOURCING", "CANCELLED"],
-  // A rejected request goes back to the desk it came from, and may be resubmitted.
-  REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  IN_SOURCING: ["PARTIALLY_ORDERED", "ORDERED", "CANCELLED"],
-  PARTIALLY_ORDERED: ["ORDERED", "CANCELLED"],
-  ORDERED: ["COMPLETED"],
-  COMPLETED: ["ARCHIVED"],
-  CANCELLED: ["ARCHIVED"],
-  ARCHIVED: [],
-};
-
 export function canTransitionRequestStatus(
   from: PurchaseRequestStatus,
   to: PurchaseRequestStatus,
 ): boolean {
-  return REQUEST_TRANSITIONS[from].includes(to);
+  return from !== "ARCHIVED" && canMove(purchaseRequestMachine, from, to);
 }
 
 /** A request's lines are its ask; they freeze once somebody has approved it. */
@@ -177,15 +170,8 @@ export const rfqSupplierStatusLabels: Record<RFQSupplierStatus, string> = {
   DISQUALIFIED: "Disqualified",
 };
 
-const RFQ_TRANSITIONS: Record<RFQStatus, RFQStatus[]> = {
-  DRAFT: ["ISSUED", "CANCELLED"],
-  ISSUED: ["CLOSED", "CANCELLED"],
-  CLOSED: [],
-  CANCELLED: [],
-};
-
 export function canTransitionRfqStatus(from: RFQStatus, to: RFQStatus): boolean {
-  return RFQ_TRANSITIONS[from].includes(to);
+  return canMove(rfqMachine, from, to);
 }
 
 /** An issued enquiry's items are fixed: suppliers priced what they were sent. */
@@ -217,19 +203,11 @@ export const quoteStatusLabels: Record<SupplierQuoteStatus, string> = {
   NOT_SELECTED: "Not selected",
 };
 
-const QUOTE_TRANSITIONS: Record<SupplierQuoteStatus, SupplierQuoteStatus[]> = {
-  DRAFT: ["RECEIVED", "DISQUALIFIED"],
-  RECEIVED: ["SELECTED", "NOT_SELECTED", "DISQUALIFIED"],
-  DISQUALIFIED: [],
-  SELECTED: [],
-  NOT_SELECTED: [],
-};
-
 export function canTransitionQuoteStatus(
   from: SupplierQuoteStatus,
   to: SupplierQuoteStatus,
 ): boolean {
-  return QUOTE_TRANSITIONS[from].includes(to);
+  return canMove(supplierQuoteMachine, from, to);
 }
 
 export function isQuoteEditable(status: SupplierQuoteStatus): boolean {
@@ -271,25 +249,13 @@ export const orderStatusLabels: Record<PurchaseOrderStatus, string> = {
   ARCHIVED: "Archived",
 };
 
-const ORDER_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> = {
-  DRAFT: ["PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  // DRAFT: returned for revision (PRD #41 §48).
-  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT", "CANCELLED"],
-  APPROVED: ["ISSUED", "CANCELLED"],
-  REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  ISSUED: ["PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"],
-  PARTIALLY_RECEIVED: ["RECEIVED", "CLOSED"],
-  RECEIVED: ["CLOSED"],
-  CLOSED: ["ARCHIVED"],
-  CANCELLED: ["ARCHIVED"],
-  ARCHIVED: [],
-};
-
 export function canTransitionOrderStatus(
   from: PurchaseOrderStatus,
   to: PurchaseOrderStatus,
 ): boolean {
-  return ORDER_TRANSITIONS[from].includes(to);
+  // Re-deriving receipts may leave an order where it is, which the machine
+  // declares as a move among the receiving states; staying put is not one.
+  return from !== "ARCHIVED" && from !== to && canMove(purchaseOrderMachine, from, to);
 }
 
 /** An order's lines are the commitment; they freeze once somebody approves it. */

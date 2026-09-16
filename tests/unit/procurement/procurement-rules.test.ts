@@ -53,9 +53,13 @@ describe("request lifecycle (PRD #19 §245)", () => {
 
   it("sends a rejected request back to the desk it came from", () => {
     expect(canTransitionRequestStatus("PENDING_APPROVAL", "REJECTED")).toBe(true);
-    expect(canTransitionRequestStatus("REJECTED", "DRAFT")).toBe(true);
-    // And lets it be resubmitted without a round trip through DRAFT.
+    // It is corrected where it stands and resubmitted without a round trip
+    // through DRAFT — nothing moves it back there (PRD #49 §132: the table is
+    // what the service does). Only a return for revision reaches DRAFT.
+    expect(isRequestEditable("REJECTED")).toBe(true);
     expect(canTransitionRequestStatus("REJECTED", "PENDING_APPROVAL")).toBe(true);
+    expect(canTransitionRequestStatus("REJECTED", "DRAFT")).toBe(false);
+    expect(canTransitionRequestStatus("PENDING_APPROVAL", "DRAFT")).toBe(true);
   });
 
   it("refuses a jump that skips approval", () => {

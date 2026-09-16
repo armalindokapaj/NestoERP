@@ -18,6 +18,11 @@ import { canTransitionCommitment } from "./commitment.status";
  * Authorisation stays with the caller. Approving a purchase order is not a
  * Finance permission, and the buyer who holds it is not required to hold one
  * (PRD #19 §123) — what Finance enforces here is consistency, not access.
+ *
+ * That is also why these writes bind the status they read themselves rather
+ * than going through `applyTransition`: the legality is the commitment
+ * machine's, asked through `canTransitionCommitment`, but applying a
+ * transition would ask the buyer for Finance's own grant (PRD #49 §64).
  */
 
 export type CommitmentSource = {

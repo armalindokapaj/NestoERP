@@ -6,6 +6,7 @@ import {
   activeScanner,
   assertTransition,
   buildQuarantineKey,
+  canTransition,
 } from "@/lib/core/storage";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
@@ -13,17 +14,32 @@ import { frozenFileReason, promoteVersion } from "./version.promote";
 // Registers the ClamAV engine: server-only, so it is loaded here, where scans run.
 import "@/lib/core/storage/clamav-scanner";
 
-/** The current version mirrors its document's scan verdict (PRD #38 §56). */
+/**
+ * The current version mirrors its document's scan verdict (PRD #38 §56).
+ *
+ * Only a version still waiting on that verdict takes it. A first upload's
+ * version sits at SCANNING alongside its document until the scanner answers;
+ * once it has settled — available, rejected — there is nothing left to
+ * mirror, and a sync that read the document before a second worker recorded
+ * the verdict must not carry that older reading onto a version that has moved
+ * on, nor un-reject one. Losing that race is harmless: the write that won
+ * already carried the verdict, so this returns quietly.
+ */
 async function syncCurrentVersion(documentId: string): Promise<void> {
   const document = await prisma.document.findUnique({
     where: { id: documentId },
     select: { currentVersionId: true, storageStatus: true, scanStatus: true, scanProvider: true, scanCompletedAt: true, availableAt: true, rejectionReason: true, previewStatus: true },
   });
   if (!document?.currentVersionId) return;
+  // Archiving belongs to the document, not to its versions: a file the
+  // scanner cleared stays AVAILABLE in the history, as every other version
+  // does, even if the document was archived before this caught up.
+  const storageStatus = document.storageStatus === "ARCHIVED" ? "AVAILABLE" : document.storageStatus;
+  if (storageStatus !== "SCANNING" && !canTransition("SCANNING", storageStatus)) return;
   await prisma.documentVersion.updateMany({
-    where: { id: document.currentVersionId },
+    where: { id: document.currentVersionId, storageStatus: "SCANNING" },
     data: {
-      storageStatus: document.storageStatus,
+      storageStatus,
       scanStatus: document.scanStatus,
       scanProvider: document.scanProvider,
       scanCompletedAt: document.scanCompletedAt,

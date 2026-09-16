@@ -1,4 +1,6 @@
 import { Prisma, type CommitmentStatus } from "@prisma/client";
+import { targetsOf, transitionFor } from "@/lib/core/state/machine";
+import { applyTransition, type TransitionOutcome } from "@/lib/core/state/transition";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
@@ -27,9 +29,9 @@ import type {
   CreateCommitmentInput,
   UpdateCommitmentInput,
 } from "./commitment.schema";
+import { commitmentMachine, type CommitmentTransitionAction } from "./commitment.machine";
 import {
   CANCELLABLE_COMMITMENT_STATUSES,
-  canTransitionCommitment,
   isCommitmentArchivable,
   isCommitmentEditable,
   isCommitmentSubmittable,
@@ -351,7 +353,7 @@ export async function submitCommitment(
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "PENDING_APPROVAL");
+    await moveStatus(tx, context, existing, "submit");
     await approvals.openApproval(tx, context, "COMMITMENT", commitmentId);
 
     await recordActivity(tx, context, {
@@ -379,7 +381,7 @@ export async function approveCommitment(
     const approval = await approvals.requirePendingApproval(tx, context, "COMMITMENT", commitmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "APPROVED");
+    await moveStatus(tx, context, existing, "approve");
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
     await recordActivity(tx, context, {
@@ -407,7 +409,7 @@ export async function rejectCommitment(
     const approval = await approvals.requirePendingApproval(tx, context, "COMMITMENT", commitmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "REJECTED");
+    await moveStatus(tx, context, existing, "reject", { reason });
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
 
     await recordActivity(tx, context, {
@@ -441,7 +443,7 @@ export async function returnCommitment(
     const approval = await approvals.requirePendingApproval(tx, context, "COMMITMENT", commitmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "DRAFT");
+    await moveStatus(tx, context, existing, "return", { reason });
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
 
     await recordActivity(tx, context, {
@@ -465,8 +467,13 @@ export async function closeCommitment(
 
   const existing = await requireCommitment(context, commitmentId);
 
+  // Closing a closed commitment is the same request arriving twice, and
+  // settles without writing it — or its activity — a second time.
+  if (existing.status === "CLOSED") return;
+
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "CLOSED");
+    const outcome = await moveStatus(tx, context, existing, "close", { idempotent: true });
+    if (outcome === "ALREADY_THERE") return;
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -495,7 +502,7 @@ export async function cancelCommitment(
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "CANCELLED");
+    await moveStatus(tx, context, existing, "cancel");
     await approvals.cancelPendingApprovals(tx, context, "COMMITMENT", commitmentId);
 
     await recordActivity(tx, context, {
@@ -536,10 +543,13 @@ export async function archiveCommitment(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.commitment.update({
-      where: { id: commitmentId },
+    await applyTransition(tx, {
+      machine: commitmentMachine,
+      action: "archive",
+      id: commitmentId,
+      context,
+      from: existing.status,
       data: {
-        status: "ARCHIVED",
         preArchiveStatus: existing.status,
         archivedAt: new Date(),
         archivedByMemberId: context.membershipId,
@@ -572,14 +582,14 @@ export async function restoreCommitment(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.commitment.update({
-      where: { id: commitmentId },
-      data: {
-        status: existing.preArchiveStatus ?? "DRAFT",
-        preArchiveStatus: null,
-        archivedAt: null,
-        archivedByMemberId: null,
-      },
+    await applyTransition(tx, {
+      machine: commitmentMachine,
+      action: "restore",
+      id: commitmentId,
+      context,
+      from: existing.status,
+      to: existing.preArchiveStatus ?? "DRAFT",
+      data: { preArchiveStatus: null, archivedAt: null, archivedByMemberId: null },
     });
 
     await recordActivity(tx, context, {
@@ -605,27 +615,39 @@ async function requireCommitment(context: UserContext, commitmentId: string) {
   );
 }
 
+/**
+ * Moves a commitment by one of its machine's actions, from the status it was read in.
+ *
+ * A move the workflow never makes is refused as the validation error it has
+ * always been, before anything is written. The write goes through
+ * `applyTransition`, conditional on the status we read, so two people acting at
+ * once cannot both win (PRD #49 §64).
+ */
 async function moveStatus(
   tx: Prisma.TransactionClient,
   context: UserContext,
   existing: { id: string; status: CommitmentStatus },
-  next: CommitmentStatus,
-): Promise<void> {
-  if (!canTransitionCommitment(existing.status, next)) {
+  action: CommitmentTransitionAction,
+  options: { reason?: string; idempotent?: boolean } = {},
+): Promise<TransitionOutcome> {
+  const transition = transitionFor(commitmentMachine, action)!;
+  if (!transition.from.includes(existing.status)) {
     throw new AccessError(
       "VALIDATION_ERROR",
-      `A commitment cannot move from ${existing.status} to ${next}.`,
+      `A commitment cannot move from ${existing.status} to ${targetsOf(transition)[0]}.`,
     );
   }
 
-  const result = await tx.commitment.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: { status: next, updatedByMemberId: context.membershipId },
+  return applyTransition(tx, {
+    machine: commitmentMachine,
+    action,
+    id: existing.id,
+    context,
+    from: existing.status,
+    reason: options.reason,
+    idempotent: options.idempotent,
+    data: { updatedByMemberId: context.membershipId },
   });
-
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "This commitment changed while you were working on it.");
-  }
 }
 
 async function validateProject(

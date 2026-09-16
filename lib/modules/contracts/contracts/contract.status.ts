@@ -1,14 +1,16 @@
 import type { ContractRenewalType, ContractStatus } from "@prisma/client";
 
+import { canMove } from "@/lib/core/state/machine";
+import { contractMachine } from "./contract.machine";
+
 /**
  * The contract lifecycle (PRD #18 §40, §191, §293).
  *
  * Two rules are encoded here and nowhere else:
  *
- *   1. **Every move is a named action.** The transition table is the whole
- *      truth about what may follow what, and no generic PATCH can set `status`
- *      (PRD #18 §192). ARCHIVED has no outgoing edge because leaving the
- *      archive is a restore, which returns the status the record held before.
+ *   1. **Every move is a named action.** The contract's machine
+ *      (`contract.machine.ts`) is the whole truth about what may follow what,
+ *      and no generic PATCH can set `status` (PRD #18 §192).
  *   2. **Expiry is a fact about today, not a stored flag.** A contract whose
  *      expiry date has passed reads as expired whether or not anybody has run
  *      the maintenance action yet, so a report cannot disagree with a calendar
@@ -51,29 +53,19 @@ export const renewalTypeLabels: Record<ContractRenewalType, string> = {
 };
 
 /**
- * What may follow what (PRD #18 §191).
+ * What may follow what (PRD #18 §191), answered from the contract's machine.
  *
  * SIGNED → TERMINATED is deliberate: an agreement can be ended after signature
  * but before it ever takes effect. ACTIVE → CANCELLED is deliberately absent —
  * a contract in force is terminated, never cancelled (PRD #18 §128).
+ *
+ * The archive still reads as having no outgoing edge here. Leaving it is a
+ * restore, which returns whatever the contract held before rather than a move
+ * anybody chooses, so "can an archived contract be cancelled?" stays no.
  */
-const TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
-  DRAFT: ["IN_REVIEW", "CANCELLED", "ARCHIVED"],
-  IN_REVIEW: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"],
-  // DRAFT: returned for revision (PRD #41 §48).
-  PENDING_APPROVAL: ["APPROVED", "IN_REVIEW", "DRAFT", "CANCELLED"],
-  APPROVED: ["SENT", "CANCELLED"],
-  SENT: ["SIGNED", "CANCELLED"],
-  SIGNED: ["ACTIVE", "TERMINATED"],
-  ACTIVE: ["EXPIRED", "TERMINATED"],
-  EXPIRED: ["ARCHIVED"],
-  TERMINATED: ["ARCHIVED"],
-  CANCELLED: ["ARCHIVED"],
-  ARCHIVED: [],
-};
-
 export function canTransitionContractStatus(from: ContractStatus, to: ContractStatus): boolean {
-  return TRANSITIONS[from].includes(to);
+  if (from === "ARCHIVED") return false;
+  return canMove(contractMachine, from, to);
 }
 
 /**
@@ -99,7 +91,7 @@ export function isContractEditable(status: ContractStatus): boolean {
 
 /** Archive only what is finished (PRD #18 §134). */
 export function isContractArchivable(status: ContractStatus): boolean {
-  return status === "DRAFT" || status === "CANCELLED" || status === "EXPIRED" || status === "TERMINATED";
+  return canTransitionContractStatus(status, "ARCHIVED");
 }
 
 export function isContractCancellable(status: ContractStatus): boolean {

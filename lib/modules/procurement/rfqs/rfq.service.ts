@@ -1,9 +1,10 @@
-import { Prisma, type RFQStatus } from "@prisma/client";
+import { Prisma, type PurchaseRequestStatus, type RFQStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -29,6 +30,8 @@ import {
   isRfqSupplierEditable,
 } from "../procurement.status";
 import type { RfqCapabilities, RfqDetailDTO, RfqSummaryDTO } from "../procurement.types";
+import { purchaseRequestMachine } from "../requests/request.machine";
+import { rfqMachine } from "./rfq.machine";
 
 /**
  * Requests for quotation (PRD #19 §64–§77).
@@ -362,11 +365,17 @@ export async function createRfq(context: UserContext, input: RfqInput): Promise<
       select: { id: true, rfqNumber: true },
     });
 
-    // Sourcing has begun, so the request behind it says so (PRD #19 §61).
-    if (related.purchaseRequestId) {
-      await tx.purchaseRequest.updateMany({
-        where: { id: related.purchaseRequestId, status: "APPROVED" },
-        data: { status: "IN_SOURCING" },
+    // Sourcing has begun, so the request behind it says so (PRD #19 §61). Only
+    // an approved request moves; one that a second enquiry started sourcing a
+    // moment earlier is already where this was going, and settles quietly.
+    if (related.purchaseRequestId && related.purchaseRequestStatus === "APPROVED") {
+      await applyTransition(tx, {
+        machine: purchaseRequestMachine,
+        action: "start_sourcing",
+        id: related.purchaseRequestId,
+        context,
+        from: related.purchaseRequestStatus,
+        idempotent: true,
       });
     }
 
@@ -480,7 +489,14 @@ export async function issueRfq(context: UserContext, rfqId: string): Promise<voi
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, existing, "ISSUED", { issuedAt: new Date() });
+    await applyTransition(tx, {
+      machine: rfqMachine,
+      action: "issue",
+      id: rfqId,
+      context,
+      from: existing.status,
+      data: { issuedAt: new Date() },
+    });
     await tx.rFQSupplier.updateMany({
       where: { rfqId, invitedAt: null },
       data: { invitedAt: new Date() },
@@ -503,7 +519,14 @@ export async function closeRfq(context: UserContext, rfqId: string): Promise<voi
   const existing = await loadForWrite(context, rfqId);
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, existing, "CLOSED", { closedAt: new Date() });
+    await applyTransition(tx, {
+      machine: rfqMachine,
+      action: "close",
+      id: rfqId,
+      context,
+      from: existing.status,
+      data: { closedAt: new Date() },
+    });
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -526,7 +549,14 @@ export async function cancelRfq(
   const existing = await loadForWrite(context, rfqId);
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, existing, "CANCELLED", { cancelledAt: new Date() });
+    await applyTransition(tx, {
+      machine: rfqMachine,
+      action: "cancel",
+      id: rfqId,
+      context,
+      from: existing.status,
+      data: { cancelledAt: new Date() },
+    });
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -557,15 +587,19 @@ export async function inviteSupplier(
   const [supplier] = await resolveSuppliers(context, [supplierId]);
 
   await prisma.$transaction(async (tx) => {
-    await tx.rFQSupplier.upsert({
-      where: { rfqId_supplierId: { rfqId, supplierId: supplier } },
-      update: {},
-      create: {
-        rfqId,
-        supplierId: supplier,
-        status: "INVITED",
-        invitedAt: existing.status === "ISSUED" ? new Date() : null,
-      },
+    // Only ever an insert. A supplier already on the enquiry keeps whatever
+    // they have done since being asked — answered, declined, been disqualified
+    // — and inviting them again changes none of it.
+    await tx.rFQSupplier.createMany({
+      data: [
+        {
+          rfqId,
+          supplierId: supplier,
+          status: "INVITED",
+          invitedAt: existing.status === "ISSUED" ? new Date() : null,
+        },
+      ],
+      skipDuplicates: true,
     });
 
     await recordActivity(tx, context, {
@@ -631,32 +665,6 @@ async function loadForWrite(context: UserContext, rfqId: string): Promise<WriteR
   );
 }
 
-async function moveStatus(
-  tx: Prisma.TransactionClient,
-  existing: WriteRow,
-  to: RFQStatus,
-  extra: Prisma.RFQUpdateManyMutationInput,
-): Promise<void> {
-  if (!canTransitionRfqStatus(existing.status, to)) {
-    throw new AccessError(
-      "CONFLICT",
-      `A ${existing.status.toLowerCase()} enquiry cannot move to ${to.toLowerCase()}.`,
-      { code: "INVALID_TRANSITION" },
-    );
-  }
-
-  const result = await tx.rFQ.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: { ...extra, status: to },
-  });
-
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "Somebody else moved this enquiry. Reload and try again.", {
-      code: "STALE_RECORD",
-    });
-  }
-}
-
 function assertNotStale(sent: Date | undefined, actual: Date): void {
   if (!sent) return;
   if (sent.getTime() !== actual.getTime()) {
@@ -670,10 +678,11 @@ function assertNotStale(sent: Date | undefined, actual: Date): void {
 
 async function resolveRelated(context: UserContext, input: RfqInput) {
   let purchaseRequestId: string | null = null;
+  let purchaseRequestStatus: PurchaseRequestStatus | null = null;
   if (input.purchaseRequestId) {
     const request = await prisma.purchaseRequest.findFirst({
       where: { AND: [buildRequestScopeWhere(context), { id: input.purchaseRequestId }] },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!request) {
       throw new AccessError("VALIDATION_ERROR", "That purchase request does not exist.", {
@@ -681,6 +690,7 @@ async function resolveRelated(context: UserContext, input: RfqInput) {
       });
     }
     purchaseRequestId = request.id;
+    purchaseRequestStatus = request.status;
   }
 
   let projectId: string | null = null;
@@ -697,7 +707,7 @@ async function resolveRelated(context: UserContext, input: RfqInput) {
     projectId = project.id;
   }
 
-  return { purchaseRequestId, projectId };
+  return { purchaseRequestId, purchaseRequestStatus, projectId };
 }
 
 /** Only active suppliers may be invited (PRD #19 §28, §68). */

@@ -7,6 +7,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { loadEngineeringProject } from "./engineering.documents";
@@ -15,6 +16,7 @@ import { engineeringOpen, filesOpen, MODULE, readableEngineeringDocumentWhere, r
 import type { CreateTransmittalInput, TransmittalListQuery, UpdateTransmittalInput } from "./engineering.schema";
 import { companyToday } from "./engineering.settings";
 import { assertProjectWritable, at, dateOf, fail, people, personOf, projectArchived, projectNumber, resolveProjectContext, withNumber } from "./engineering.shared";
+import { documentTransmittalMachine } from "./engineering.transmittal.machine";
 import { TRANSMITTAL_PURPOSE_LABELS, type TransmittalDetailDTO, type TransmittalItemDTO, type TransmittalRowDTO } from "./engineering.types";
 
 /**
@@ -262,8 +264,7 @@ export async function issueTransmittal(context: UserContext, id: string, input: 
   const { today } = await companyToday(context.companyId);
   const issuedDate = input.issuedAt ?? today;
   await prisma.$transaction(async (tx) => {
-    const moved = await tx.documentTransmittal.updateMany({ where: { id: row.id, status: "DRAFT" }, data: { status: "ISSUED", issuedAt: at(issuedDate), issuedByMemberId: context.membershipId } });
-    if (!moved.count) throw fail("TRANSMITTAL_ISSUED_LOCKED", "This transmittal was already issued.", "CONFLICT");
+    await applyTransition(tx, { machine: documentTransmittalMachine, action: "issue", id: row.id, context, from: row.status, data: { issuedAt: at(issuedDate), issuedByMemberId: context.membershipId } });
     /*
      * The version each file carried at issue, for good (§122, §123). An item
      * that names a revision carries the version that revision was submitted
@@ -292,8 +293,7 @@ export async function voidTransmittal(context: UserContext, id: string, input: {
   assertProjectWritable(row.project);
   if (row.status === "VOID") throw fail("TRANSMITTAL_VOID", "This transmittal is already void.", "CONFLICT");
   await prisma.$transaction(async (tx) => {
-    const moved = await tx.documentTransmittal.updateMany({ where: { id: row.id, status: { not: "VOID" } }, data: { status: "VOID", voidedAt: new Date(), voidReason: input.reason, voidedByMemberId: context.membershipId } });
-    if (!moved.count) throw fail("TRANSMITTAL_VOID", "This transmittal is already void.", "CONFLICT");
+    await applyTransition(tx, { machine: documentTransmittalMachine, action: "void", id: row.id, context, from: row.status, reason: input.reason, data: { voidedAt: new Date(), voidReason: input.reason, voidedByMemberId: context.membershipId } });
     await recordUserAction(context, { actionKey: AuditAction.TRANSMITTAL_VOIDED, entity: { type: TRANSMITTAL_RECORD, id: row.id, label: row.transmittalNumber }, projectId: row.projectId, before: { status: row.status }, after: { status: "VOID" }, reason: input.reason }, { tx });
     await recordActivity(tx, context, { module: MODULE, entityType: TRANSMITTAL_ACTIVITY, entityId: row.id, action: "TRANSMITTAL_VOIDED", message: `voided transmittal ${row.transmittalNumber}` });
   });

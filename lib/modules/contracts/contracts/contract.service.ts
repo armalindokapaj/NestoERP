@@ -10,6 +10,8 @@ import {
 } from "@/lib/access/guards";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { transitionFor } from "@/lib/core/state/machine";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
@@ -32,6 +34,7 @@ import type {
   ContractSummaryDTO,
 } from "../contract.types";
 import * as amendments from "../amendments/amendment.service";
+import { contractMachine, type ContractAction } from "./contract.machine";
 import * as repository from "./contract.repository";
 import type {
   ContractListQuery,
@@ -45,7 +48,6 @@ import {
   acceptsAmendments,
   acceptsObligations,
   arePartiesEditable,
-  canTransitionContractStatus,
   contractEditMode,
   daysBetween,
   getEffectiveContractStatus,
@@ -384,25 +386,23 @@ export async function updateContract(
    * never shown. Without the grant the stored values are kept as they are
    * (PRD #18 §22, §23, PRD #47 §66, §100).
    */
-  const commercial: Prisma.ContractUncheckedUpdateInput = canSeeCommercial(context)
-    ? {
-        currency: input.currency ?? null,
-        contractValue: input.contractValue ? new Prisma.Decimal(input.contractValue) : null,
-        commercialNotes: input.commercialNotes ?? null,
-      }
-    : {};
-  const confidentialTerms: Prisma.ContractUncheckedUpdateInput = canSeeConfidential(context)
-    ? { legalNotes: input.legalNotes ?? null }
-    : {};
+  const commercial = canSeeCommercial(context);
+  const confidentialTerms = canSeeConfidential(context);
 
   await prisma.$transaction(async (tx) => {
     await assertNumberIsFree(tx, context, input.contractNumber, contractId);
 
-    await tx.contract.update({
-      where: { id: contractId },
+    // Conditional on the status the edit was allowed in: a contract sent for
+    // approval while this form was open has frozen terms, and a save landing
+    // after that would rewrite what the approver is deciding on.
+    const saved = await tx.contract.updateMany({
+      where: { id: contractId, companyId: context.companyId, status: existing.status },
       data: {
-        ...commercial,
-        ...confidentialTerms,
+        // `undefined` leaves the stored value as it is.
+        currency: commercial ? (input.currency ?? null) : undefined,
+        contractValue: commercial ? (input.contractValue ? new Prisma.Decimal(input.contractValue) : null) : undefined,
+        commercialNotes: commercial ? (input.commercialNotes ?? null) : undefined,
+        legalNotes: confidentialTerms ? (input.legalNotes ?? null) : undefined,
         contractNumber: input.contractNumber,
         title: input.title,
         contractType: input.contractType,
@@ -424,6 +424,7 @@ export async function updateContract(
         updatedByMemberId: context.membershipId,
       },
     });
+    if (saved.count === 0) throw contractStale();
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -463,14 +464,17 @@ export async function updateContractMetadata(
   const owner = await resolveOwner(context, input.ownerMemberId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.contract.update({
-      where: { id: contractId },
+    // Conditional on the status read, like the full edit: a contract that
+    // closed meanwhile is read-only.
+    const saved = await tx.contract.updateMany({
+      where: { id: contractId, companyId: context.companyId, status: existing.status },
       data: {
         ownerMemberId: owner,
         summary: input.summary ?? null,
         updatedByMemberId: context.membershipId,
       },
     });
+    if (saved.count === 0) throw contractStale();
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -526,8 +530,7 @@ export async function assignOwner(
 export async function submitForReview(context: UserContext, contractId: string): Promise<void> {
   await runTransition(context, contractId, {
     permission: "legal.contract.submit_review",
-    from: ["DRAFT"],
-    next: "IN_REVIEW",
+    transition: "submit_review",
     action: "LEGAL_CONTRACT_SUBMITTED_REVIEW",
     message: (contract) => `sent contract ${contract.contractNumber} for review`,
   });
@@ -540,8 +543,7 @@ export async function returnToDraft(
 ): Promise<void> {
   await runTransition(context, contractId, {
     permission: "legal.contract.review",
-    from: ["IN_REVIEW"],
-    next: "DRAFT",
+    transition: "return_to_draft",
     action: "LEGAL_CONTRACT_RETURNED_DRAFT",
     message: (contract) => `returned contract ${contract.contractNumber} to draft`,
     metadata: note ? ({ note } as Prisma.InputJsonValue) : undefined,
@@ -563,7 +565,7 @@ export async function submitForApproval(context: UserContext, contractId: string
   assertNotArchived(existing.archivedAt);
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "PENDING_APPROVAL");
+    await moveStatus(tx, context, existing, "submit_approval");
     await approvals.openApproval(tx, context, "CONTRACT", contractId);
 
     await recordActivity(tx, context, {
@@ -591,7 +593,7 @@ export async function approveContract(
     const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "APPROVED");
+    await moveStatus(tx, context, existing, "approve");
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
     await recordActivity(tx, context, {
@@ -621,7 +623,7 @@ export async function rejectContract(
 
     // Back to review rather than to draft: the reviewer's work is not undone by
     // a rejected approval (PRD #18 §114).
-    await moveStatus(tx, context, existing, "IN_REVIEW");
+    await moveStatus(tx, context, existing, "reject", {}, reason);
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
 
     await recordActivity(tx, context, {
@@ -656,7 +658,7 @@ export async function returnContractForRevision(
     const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "DRAFT");
+    await moveStatus(tx, context, existing, "return_for_revision", {}, reason);
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
 
     await recordActivity(tx, context, {
@@ -677,7 +679,7 @@ export async function returnContractForRevision(
 export async function markSent(context: UserContext, contractId: string): Promise<void> {
   await runTransition(context, contractId, {
     permission: "legal.contract.mark_sent",
-    next: "SENT",
+    transition: "mark_sent",
     extra: { sentAt: new Date() },
     action: "LEGAL_CONTRACT_MARKED_SENT",
     message: (contract) => `marked contract ${contract.contractNumber} as sent`,
@@ -715,7 +717,7 @@ export async function markSigned(
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "SIGNED", { signedDate: input.signedDate });
+    await moveStatus(tx, context, existing, "mark_signed", { signedDate: input.signedDate });
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -762,7 +764,7 @@ export async function activateContract(
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "ACTIVE", { effectiveDate: effective });
+    await moveStatus(tx, context, existing, "activate", { effectiveDate: effective });
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -803,7 +805,7 @@ export async function expireContract(context: UserContext, contractId: string): 
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "EXPIRED");
+    await moveStatus(tx, context, existing, "expire");
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -850,11 +852,18 @@ export async function terminateContract(
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "TERMINATED", {
-      terminationDate: input.terminationDate,
-      terminationReason: input.terminationReason,
-      terminatedByMemberId: context.membershipId,
-    });
+    await moveStatus(
+      tx,
+      context,
+      existing,
+      "terminate",
+      {
+        terminationDate: input.terminationDate,
+        terminationReason: input.terminationReason,
+        terminatedByMemberId: context.membershipId,
+      },
+      input.terminationReason,
+    );
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -893,7 +902,7 @@ export async function cancelContract(
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "CANCELLED");
+    await moveStatus(tx, context, existing, "cancel");
     // A cancelled contract has nothing left to decide (PRD #18 §129).
     await approvals.cancelPendingApprovals(tx, context, "CONTRACT", contractId);
 
@@ -927,10 +936,13 @@ export async function archiveContract(context: UserContext, contractId: string):
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.contract.update({
-      where: { id: contractId },
+    await applyTransition(tx, {
+      machine: contractMachine,
+      action: "archive",
+      id: contractId,
+      context,
+      from: existing.status,
       data: {
-        status: "ARCHIVED",
         preArchiveStatus: existing.status,
         archivedAt: new Date(),
         archivedByMemberId: context.membershipId,
@@ -957,10 +969,16 @@ export async function restoreContract(context: UserContext, contractId: string):
   if (!existing.archivedAt) throw new AccessError("CONFLICT", "This contract is not archived.");
 
   await prisma.$transaction(async (tx) => {
-    await tx.contract.update({
-      where: { id: contractId },
+    // Back to what it held before it was archived. A contract archived before
+    // that was recorded goes back to draft, where nothing about it is final.
+    await applyTransition(tx, {
+      machine: contractMachine,
+      action: "restore",
+      id: contractId,
+      context,
+      from: existing.status,
+      to: existing.preArchiveStatus ?? "DRAFT",
       data: {
-        status: existing.preArchiveStatus ?? "DRAFT",
         preArchiveStatus: null,
         archivedAt: null,
         archivedByMemberId: null,
@@ -983,16 +1001,8 @@ export async function restoreContract(context: UserContext, contractId: string):
 
 type TransitionSpec = {
   permission: Parameters<typeof assertPermission>[1];
-  /**
-   * The statuses this action starts from, when narrower than the transition
-   * table. PENDING_APPROVAL → IN_REVIEW and → DRAFT exist for the approver's
-   * reject and return, which close the approval cycle as they move; reaching
-   * them through "send for review" or "return to draft" would leave that cycle
-   * pending on a contract no longer waiting for it (PRD #47 §85).
-   */
-  from?: ContractStatus[];
-  next: ContractStatus;
-  extra?: Prisma.ContractUpdateInput;
+  transition: ContractAction;
+  extra?: Prisma.ContractUncheckedUpdateManyInput;
   action: string;
   message: (contract: { contractNumber: string }) => string;
   metadata?: Prisma.InputJsonValue;
@@ -1009,16 +1019,22 @@ async function runTransition(
   const existing = assertFound(await repository.findContractInScope(context, contractId));
   assertNotArchived(existing.archivedAt);
 
-  if (spec.from && !spec.from.includes(existing.status)) {
-    throw stateDenied(
-      existing.status === "PENDING_APPROVAL"
-        ? "This contract is waiting for a decision. The approver can return it or reject it."
-        : `A contract cannot move from ${existing.status} to ${spec.next}.`,
-    );
+  /*
+   * A contract waiting for a decision leaves it only by the approver's reject
+   * or return, which close the approval cycle as they move. Sending it for
+   * review or back to draft from here would leave that cycle pending on a
+   * contract no longer waiting for it (PRD #47 §85) — so the refusal says who
+   * can move it, rather than only that this cannot.
+   */
+  if (
+    existing.status === "PENDING_APPROVAL" &&
+    !transitionFor(contractMachine, spec.transition)?.from.includes(existing.status)
+  ) {
+    throw stateDenied("This contract is waiting for a decision. The approver can return it or reject it.");
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, spec.next, spec.extra);
+    await moveStatus(tx, context, existing, spec.transition, spec.extra);
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -1032,38 +1048,36 @@ async function runTransition(
 }
 
 /**
- * One status change, conditional on the status that was read (PRD #18 §320).
+ * One status change through the contract's machine (PRD #18 §320, PRD #49 §58).
  *
- * Two people terminating and expiring the same contract at the same moment
- * cannot both succeed: the second `updateMany` matches nothing and the caller
- * is told the record moved.
+ * Conditional on the status that was read, so two people terminating and
+ * expiring the same contract at the same moment cannot both succeed: the
+ * second write matches nothing and its caller is told the contract moved.
  */
 async function moveStatus(
   tx: Prisma.TransactionClient,
   context: UserContext,
-  existing: { id: string; status: ContractStatus; contractNumber: string },
-  next: ContractStatus,
-  extra: Prisma.ContractUpdateInput = {},
+  existing: { id: string; status: ContractStatus },
+  action: ContractAction,
+  extra: Prisma.ContractUncheckedUpdateManyInput = {},
+  reason?: string,
 ): Promise<void> {
-  if (!canTransitionContractStatus(existing.status, next)) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      `A contract cannot move from ${existing.status} to ${next}.`,
-    );
-  }
-
-  const result = await tx.contract.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: {
-      status: next,
-      updatedByMemberId: context.membershipId,
-      ...(extra as Prisma.ContractUpdateManyMutationInput),
-    },
+  await applyTransition(tx, {
+    machine: contractMachine,
+    action,
+    id: existing.id,
+    context,
+    from: existing.status,
+    reason,
+    data: { ...extra, updatedByMemberId: context.membershipId },
   });
+}
 
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "This contract changed while you were working on it.");
-  }
+/** The edit lost a race with a transition: the contract is no longer in the status it was edited in. */
+function contractStale(): AccessError {
+  return new AccessError("CONFLICT", "This contract changed since you opened it. Reload to see the latest.", {
+    code: "CONTRACT_STALE",
+  });
 }
 
 /**
