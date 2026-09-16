@@ -3,6 +3,7 @@ import { Prisma, type SupplierQuoteStatus } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import {
@@ -21,6 +22,7 @@ import {
   isQuoteSelectable,
 } from "../procurement.status";
 import type { QuoteComparisonDTO, QuoteDTO, QuoteItemDTO } from "../procurement.types";
+import { supplierQuoteMachine } from "./quote.machine";
 
 /**
  * Supplier quotes and the comparison (PRD #19 §78–§94).
@@ -252,7 +254,7 @@ export async function createQuote(
 
   const invited = await prisma.rFQSupplier.findFirst({
     where: { rfqId, supplierId: input.supplierId },
-    select: { id: true },
+    select: { id: true, status: true },
   });
 
   if (!invited) {
@@ -302,10 +304,14 @@ export async function createQuote(
       select: { id: true },
     });
 
-    await tx.rFQSupplier.updateMany({
-      where: { rfqId, supplierId: input.supplierId },
+    // The invitation has no company or machine of its own, so the status it
+    // was read in is its guard: one removed from the enquiry, or answered by
+    // another quote, meanwhile is not quietly written over.
+    const responded = await tx.rFQSupplier.updateMany({
+      where: { rfqId, supplierId: input.supplierId, status: invited.status },
       data: { status: "RESPONDED", respondedAt: new Date() },
     });
+    if (responded.count === 0) throw staleInvitation();
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -406,16 +412,30 @@ export async function disqualifyQuote(
     });
   }
 
+  const invitation = await prisma.rFQSupplier.findFirst({
+    where: { rfqId: existing.rfqId, supplierId: existing.supplierId },
+    select: { status: true },
+  });
+
   await prisma.$transaction(async (tx) => {
-    await tx.supplierQuote.update({
-      where: { id: quoteId },
-      data: { status: "DISQUALIFIED", disqualificationReason: reason },
+    await applyTransition(tx, {
+      machine: supplierQuoteMachine,
+      action: "disqualify",
+      id: quoteId,
+      context,
+      from: existing.status,
+      data: { disqualificationReason: reason },
     });
 
-    await tx.rFQSupplier.updateMany({
-      where: { rfqId: existing.rfqId, supplierId: existing.supplierId },
-      data: { status: "DISQUALIFIED" },
-    });
+    // The supplier's invitation follows its quote, from the status it was read
+    // in. A quote whose invitation is gone has nothing to follow.
+    if (invitation) {
+      const disqualified = await tx.rFQSupplier.updateMany({
+        where: { rfqId: existing.rfqId, supplierId: existing.supplierId, status: invitation.status },
+        data: { status: "DISQUALIFIED" },
+      });
+      if (disqualified.count === 0) throw staleInvitation();
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -464,22 +484,31 @@ export async function selectQuote(context: UserContext, quoteId: string): Promis
       );
     }
 
-    // Conditional on RECEIVED, so two selections racing settle once.
-    const result = await tx.supplierQuote.updateMany({
-      where: { id: quoteId, status: "RECEIVED" },
-      data: { status: "SELECTED" },
+    // Conditional on the status read, so two selections racing settle once.
+    await applyTransition(tx, {
+      machine: supplierQuoteMachine,
+      action: "select",
+      id: quoteId,
+      context,
+      from: existing.status,
     });
 
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That quote has already been decided.", {
-        code: "STALE_RECORD",
+    // Every other answer still standing is passed over, each from the status
+    // it was read in, so a quote decided some other way meanwhile is not
+    // written over.
+    const others = await tx.supplierQuote.findMany({
+      where: { rfqId: existing.rfqId, id: { not: quoteId }, status: "RECEIVED" },
+      select: { id: true, status: true },
+    });
+    for (const other of others) {
+      await applyTransition(tx, {
+        machine: supplierQuoteMachine,
+        action: "pass_over",
+        id: other.id,
+        context,
+        from: other.status,
       });
     }
-
-    await tx.supplierQuote.updateMany({
-      where: { rfqId: existing.rfqId, id: { not: quoteId }, status: "RECEIVED" },
-      data: { status: "NOT_SELECTED" },
-    });
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -521,6 +550,14 @@ async function loadForWrite(context: UserContext, quoteId: string) {
   );
 
   return { ...row, rfqNumber: row.rfq.rfqNumber };
+}
+
+function staleInvitation(): AccessError {
+  return new AccessError(
+    "CONFLICT",
+    "This supplier's invitation to the enquiry changed while you were working. Reload to see the latest.",
+    { code: "RFQ_SUPPLIER_STALE" },
+  );
 }
 
 function assertNotStale(sent: Date | undefined, actual: Date): void {

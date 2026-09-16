@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -23,6 +24,7 @@ import {
   postLines,
   resolveLineTargets,
 } from "./posting";
+import { stockReturnMachine } from "./return.machine";
 
 /**
  * Unused material coming back from a project (PRD #20 §121–§128).
@@ -213,15 +215,29 @@ export async function updateReturn(
   const targets = await resolveLineTargets(context, input.lines, [warehouse.id]);
 
   await prisma.$transaction(async (tx) => {
-    await tx.stockReturnLine.deleteMany({ where: { stockReturnId: returnId } });
-    await tx.stockReturn.update({
-      where: { id: returnId },
+    // Still a draft, decided by the write rather than by the read above: a
+    // return posted while this form was open keeps the lines it was posted
+    // with, instead of having them replaced under its movements.
+    const editing = await tx.stockReturn.updateMany({
+      where: { id: returnId, companyId: context.companyId, status: existing.status },
       data: {
         warehouseId: warehouse.id,
         projectId: project.id,
         returnDate: input.returnDate,
         returnedByMemberId: input.returnedByMemberId ?? null,
         notes: input.notes ?? null,
+      },
+    });
+    if (editing.count === 0) {
+      throw new AccessError("CONFLICT", "This return was posted or cancelled while you were editing it. Reload to see the latest.", {
+        code: "STOCK_RETURN_STALE",
+      });
+    }
+
+    await tx.stockReturnLine.deleteMany({ where: { stockReturnId: returnId } });
+    await tx.stockReturn.update({
+      where: { id: returnId },
+      data: {
         lines: {
           create: input.lines.map((line) => ({
             inventoryItemId: line.inventoryItemId,
@@ -247,6 +263,21 @@ export async function postReturn(context: UserContext, returnId: string): Promis
   assertPostable(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    /*
+     * Claimed before anything reaches the ledger. Two people posting at once
+     * both read a draft; the second waits here on the first, finds the return
+     * posted, and stops before putting the material on the shelf twice. The
+     * lines are read after the claim, so they are the lines that were posted.
+     */
+    await applyTransition(tx, {
+      machine: stockReturnMachine,
+      action: "post",
+      id: returnId,
+      context,
+      from: existing.status,
+      data: { postedByMemberId: context.membershipId },
+    });
+
     const lines = await tx.stockReturnLine.findMany({
       where: { stockReturnId: returnId },
       select: { id: true, inventoryItemId: true, locationId: true, quantity: true, unit: true },
@@ -284,17 +315,6 @@ export async function postReturn(context: UserContext, returnId: string): Promis
       });
     }
 
-    const result = await tx.stockReturn.updateMany({
-      where: { id: returnId, status: "DRAFT" },
-      data: { status: "POSTED", postedByMemberId: context.membershipId },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That return has already been posted.", {
-        code: "STALE_RECORD",
-      });
-    }
-
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -312,7 +332,15 @@ export async function cancelReturn(context: UserContext, returnId: string): Prom
   const existing = await loadForWrite(context, returnId);
   assertCancellable(existing.status, NOUN);
 
-  await prisma.stockReturn.update({ where: { id: returnId }, data: { status: "CANCELLED" } });
+  await prisma.$transaction(async (tx) => {
+    await applyTransition(tx, {
+      machine: stockReturnMachine,
+      action: "cancel",
+      id: returnId,
+      context,
+      from: existing.status,
+    });
+  });
 }
 
 /* -------------------------------------------------------------------------- */

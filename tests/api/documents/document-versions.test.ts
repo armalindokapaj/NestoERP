@@ -262,6 +262,50 @@ describe("review (PRD #38 §59-§65, §154)", () => {
     expect(await prisma.documentReview.count({ where: { id: reviewId, status: "PENDING" } })).toBe(0);
   });
 
+  it("finishes a parallel review exactly once when the last two reviewers approve together (PRD #49 §241, §244)", async () => {
+    const pm = await loginAs("PROJECT_MANAGER");
+    const [architect, legal] = await Promise.all([loginAs("ARCHITECT"), loginAs("LEGAL")]);
+    const documentId = await newDocument(pm);
+    const versionId = (await prisma.document.findUniqueOrThrow({ where: { id: documentId } })).currentVersionId!;
+    const first = await requestReview(pm, versionId, { reviewerMemberId: architect.membershipId });
+    const second = await requestReview(pm, versionId, { reviewerMemberId: legal.membershipId });
+
+    // Each would otherwise count the other still pending, and the version
+    // would sit in review with every request approved.
+    const outcomes = await Promise.all([
+      decideReview(architect, first.reviewId, "APPROVED", undefined),
+      decideReview(legal, second.reviewId, "APPROVED", undefined),
+    ]);
+    expect(outcomes.map((outcome) => outcome.versionState).sort()).toEqual(["APPROVED", "IN_REVIEW"]);
+    expect((await prisma.documentVersion.findUniqueOrThrow({ where: { id: versionId } })).reviewState).toBe("APPROVED");
+    expect(await prisma.notificationEventOutbox.count({ where: { entityId: documentId, eventType: "DOCUMENT_APPROVED" } })).toBe(1);
+  });
+
+  it("refuses a decision on a round another reviewer has already rejected", async () => {
+    const pm = await loginAs("PROJECT_MANAGER");
+    const [architect, legal] = await Promise.all([loginAs("ARCHITECT"), loginAs("LEGAL")]);
+    const documentId = await newDocument(pm);
+    const versionId = (await prisma.document.findUniqueOrThrow({ where: { id: documentId } })).currentVersionId!;
+    const first = await requestReview(pm, versionId, { reviewerMemberId: architect.membershipId });
+    const second = await requestReview(pm, versionId, { reviewerMemberId: legal.membershipId });
+
+    // In either order the round ends rejected, with nothing left pending.
+    await Promise.allSettled([
+      decideReview(architect, first.reviewId, "REJECTED", "Wrong grid lines"),
+      decideReview(legal, second.reviewId, "APPROVED", undefined),
+    ]);
+    expect((await prisma.documentVersion.findUniqueOrThrow({ where: { id: versionId } })).reviewState).toBe("REJECTED");
+    expect(await prisma.documentReview.count({ where: { documentVersionId: versionId, status: "PENDING" } })).toBe(0);
+
+    // A second round, ended by the architect before Legal decides: Legal is
+    // told it is over rather than reopening it.
+    const late = await requestReview(pm, versionId, { reviewerMemberId: legal.membershipId });
+    const ending = await requestReview(pm, versionId, { reviewerMemberId: architect.membershipId });
+    await decideReview(architect, ending.reviewId, "REJECTED", "Still wrong");
+    await expectCode(decideReview(legal, late.reviewId, "APPROVED", undefined), "CONFLICT", "REVIEW_ALREADY_DECIDED");
+    expect((await prisma.documentVersion.findUniqueOrThrow({ where: { id: versionId } })).reviewState).toBe("REJECTED");
+  });
+
   it("requires a note to reject, and supersedes an older approved version when a newer one is approved", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
     const architect = await loginAs("ARCHITECT");

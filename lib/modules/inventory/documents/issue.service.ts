@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -19,12 +20,15 @@ import { nextDocumentNumber } from "../inventory.numbering";
 import { ZERO, quantityString, toStoredQuantity } from "../inventory.quantity";
 import { buildInventoryProjectWhere, buildIssueScopeWhere, buildWarehouseScopeWhere } from "../inventory.scope";
 import type { IssueInput, TransactionListQuery } from "../inventory.schema";
+import { isReservationHolding } from "../inventory.status";
 import type {
   IssueDetailDTO,
   IssueSummaryDTO,
   MemberRef,
   TransactionCapabilities,
 } from "../inventory.types";
+import { stockReservationMachine } from "../reservations/reservation.machine";
+import { stockIssueMachine } from "./issue.machine";
 import {
   assertCancellable,
   assertEditable,
@@ -276,10 +280,11 @@ export async function updateIssue(
   const targets = await resolveLineTargets(context, input.lines, [warehouse.id]);
 
   await prisma.$transaction(async (tx) => {
-    await tx.stockIssueLine.deleteMany({ where: { stockIssueId: issueId } });
-
-    await tx.stockIssue.update({
-      where: { id: issueId },
+    // Still a draft, decided by the write rather than by the read above: an
+    // issue posted while this form was open keeps the lines it was posted
+    // with, instead of having them replaced under its movements.
+    const editing = await tx.stockIssue.updateMany({
+      where: { id: issueId, companyId: context.companyId, status: existing.status },
       data: {
         warehouseId: warehouse.id,
         projectId,
@@ -287,6 +292,19 @@ export async function updateIssue(
         issuedToMemberId: input.issuedToMemberId ?? null,
         requestedByMemberId: input.requestedByMemberId ?? null,
         notes: input.notes ?? null,
+      },
+    });
+    if (editing.count === 0) {
+      throw new AccessError("CONFLICT", "This issue was posted or cancelled while you were editing it. Reload to see the latest.", {
+        code: "STOCK_ISSUE_STALE",
+      });
+    }
+
+    await tx.stockIssueLine.deleteMany({ where: { stockIssueId: issueId } });
+
+    await tx.stockIssue.update({
+      where: { id: issueId },
+      data: {
         lines: {
           create: input.lines.map((line) => ({
             inventoryItemId: line.inventoryItemId,
@@ -326,6 +344,21 @@ export async function postIssue(context: UserContext, issueId: string): Promise<
   assertPostable(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    /*
+     * Claimed before anything reaches the ledger or a reservation. Two people
+     * posting at once both read a draft; the second waits here on the first,
+     * finds the issue posted, and stops before taking the stock out twice. The
+     * lines are read after the claim, so they are the lines that were posted.
+     */
+    await applyTransition(tx, {
+      machine: stockIssueMachine,
+      action: "post",
+      id: issueId,
+      context,
+      from: existing.status,
+      data: { postedByMemberId: context.membershipId },
+    });
+
     const lines = await tx.stockIssueLine.findMany({
       where: { stockIssueId: issueId },
       select: {
@@ -354,30 +387,36 @@ export async function postIssue(context: UserContext, issueId: string): Promise<
 
       const reservation = await tx.stockReservation.findFirst({
         where: { id: line.reservationId, companyId: context.companyId },
-        select: { id: true, quantity: true, fulfilledQuantity: true, locationId: true, warehouseId: true, inventoryItemId: true },
+        select: { id: true, status: true, quantity: true, fulfilledQuantity: true, locationId: true, warehouseId: true, inventoryItemId: true },
       });
-      if (!reservation) continue;
+      // Released, cancelled or expired since the line named it, a reservation
+      // holds nothing any more: there is nothing to consume, and releasing it
+      // again would hand out stock another reservation is holding.
+      if (!reservation || !isReservationHolding(reservation.status)) continue;
 
       const remaining = reservation.quantity.minus(reservation.fulfilledQuantity);
       const consumed = Prisma.Decimal.min(remaining, line.quantity);
       if (consumed.lessThanOrEqualTo(ZERO)) continue;
+
+      const fulfilled = reservation.fulfilledQuantity.plus(consumed);
+      // The reservation's own transition, taken under this issue's post
+      // permission, and before its hold is given back so a reservation closed
+      // meanwhile is not released twice.
+      await applyTransition(tx, {
+        machine: stockReservationMachine,
+        action: "fulfill",
+        id: reservation.id,
+        context,
+        from: reservation.status,
+        to: fulfilled.greaterThanOrEqualTo(reservation.quantity) ? "FULFILLED" : "PARTIALLY_FULFILLED",
+        data: { fulfilledQuantity: fulfilled },
+      });
 
       await releaseReservation(tx, context, {
         inventoryItemId: reservation.inventoryItemId,
         warehouseId: reservation.warehouseId,
         locationId: reservation.locationId,
         quantity: consumed,
-      });
-
-      const fulfilled = reservation.fulfilledQuantity.plus(consumed);
-      await tx.stockReservation.update({
-        where: { id: reservation.id },
-        data: {
-          fulfilledQuantity: fulfilled,
-          status: fulfilled.greaterThanOrEqualTo(reservation.quantity)
-            ? "FULFILLED"
-            : "PARTIALLY_FULFILLED",
-        },
       });
     }
 
@@ -405,17 +444,6 @@ export async function postIssue(context: UserContext, issueId: string): Promise<
       });
     }
 
-    const result = await tx.stockIssue.updateMany({
-      where: { id: issueId, status: "DRAFT" },
-      data: { status: "POSTED", postedByMemberId: context.membershipId },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That issue has already been posted.", {
-        code: "STALE_RECORD",
-      });
-    }
-
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
@@ -435,9 +463,13 @@ export async function cancelIssue(context: UserContext, issueId: string): Promis
   assertCancellable(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
-    await tx.stockIssue.update({
-      where: { id: issueId },
-      data: { status: "CANCELLED", cancelledAt: new Date() },
+    await applyTransition(tx, {
+      machine: stockIssueMachine,
+      action: "cancel",
+      id: issueId,
+      context,
+      from: existing.status,
+      data: { cancelledAt: new Date() },
     });
     await recordActivity(tx, context, {
       module: MODULE,
@@ -458,6 +490,17 @@ export async function reverseIssue(context: UserContext, issueId: string): Promi
   assertReversible(existing.status, NOUN);
 
   await prisma.$transaction(async (tx) => {
+    // Claimed first for the same reason as posting: a second reversal stops
+    // here rather than putting the stock back twice.
+    await applyTransition(tx, {
+      machine: stockIssueMachine,
+      action: "reverse",
+      id: issueId,
+      context,
+      from: existing.status,
+      data: { reversedAt: new Date() },
+    });
+
     const lines = await tx.stockIssueLine.findMany({
       where: { stockIssueId: issueId, movementId: { not: null } },
       select: { movementId: true },
@@ -470,17 +513,6 @@ export async function reverseIssue(context: UserContext, issueId: string): Promi
       { module: MODULE, entityType: "stock_issue", entityId: issueId },
       new Date(),
     );
-
-    const result = await tx.stockIssue.updateMany({
-      where: { id: issueId, status: "POSTED" },
-      data: { status: "REVERSED", reversedAt: new Date() },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That issue has already been reversed.", {
-        code: "STALE_RECORD",
-      });
-    }
 
     await recordActivity(tx, context, {
       module: MODULE,

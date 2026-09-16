@@ -4,6 +4,7 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -19,6 +20,8 @@ import type {
   WarehouseDetailDTO,
   WarehouseSummaryDTO,
 } from "../inventory.types";
+import { inventoryLocationMachine } from "./location.machine";
+import { warehouseMachine } from "./warehouse.machine";
 
 /**
  * Warehouses and the locations inside them (PRD #20 §49–§66).
@@ -326,7 +329,7 @@ export async function updateWarehouse(
   const existing = assertFound(
     await prisma.warehouse.findFirst({
       where: { AND: [buildWarehouseScopeWhere(context), { id: warehouseId }] },
-      select: { id: true, code: true, archivedAt: true, updatedAt: true },
+      select: { id: true, code: true, status: true, archivedAt: true, updatedAt: true },
     }),
   );
 
@@ -342,21 +345,42 @@ export async function updateWarehouse(
   await prisma.$transaction(async (tx) => {
     await assertCodeIsFree(tx, context, input.code, warehouseId);
 
-    await tx.warehouse.update({
-      where: { id: warehouseId },
-      data: {
-        code: input.code,
-        name: input.name,
-        description: input.description ?? null,
-        warehouseType: input.warehouseType,
-        projectId,
-        address: input.address ?? null,
-        city: input.city ?? null,
-        country: input.country ?? null,
-        status: input.status,
-        updatedByMemberId: context.membershipId,
-      },
-    });
+    const details = {
+      code: input.code,
+      name: input.name,
+      description: input.description ?? null,
+      warehouseType: input.warehouseType,
+      projectId,
+      address: input.address ?? null,
+      city: input.city ?? null,
+      country: input.country ?? null,
+      updatedByMemberId: context.membershipId,
+    };
+
+    // The form carries the status. Changing it switches the warehouse on or
+    // off, which is a transition; leaving it alone is an edit, still
+    // conditional on the status the form was opened on, so a warehouse
+    // archived meanwhile is not quietly edited back to life.
+    if (input.status !== existing.status) {
+      await applyTransition(tx, {
+        machine: warehouseMachine,
+        action: input.status === "ACTIVE" ? "activate" : "deactivate",
+        id: warehouseId,
+        context,
+        from: existing.status,
+        data: details,
+      });
+    } else {
+      const saved = await tx.warehouse.updateMany({
+        where: { id: warehouseId, companyId: context.companyId, status: existing.status },
+        data: details,
+      });
+      if (saved.count === 0) {
+        throw new AccessError("CONFLICT", "This warehouse changed since you opened it. Reload to see the latest.", {
+          code: "WAREHOUSE_STALE",
+        });
+      }
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -380,7 +404,7 @@ export async function archiveWarehouse(
   const existing = assertFound(
     await prisma.warehouse.findFirst({
       where: { AND: [buildWarehouseScopeWhere(context), { id: warehouseId }] },
-      select: { id: true, code: true, archivedAt: true },
+      select: { id: true, code: true, status: true, archivedAt: true },
     }),
   );
 
@@ -402,14 +426,18 @@ export async function archiveWarehouse(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.warehouse.update({
-      where: { id: warehouseId },
-      data: {
-        status: "ARCHIVED",
-        archivedAt: new Date(),
-        archivedByMemberId: context.membershipId,
-      },
+    const outcome = await applyTransition(tx, {
+      machine: warehouseMachine,
+      action: "archive",
+      id: warehouseId,
+      context,
+      from: existing.status,
+      data: { archivedAt: new Date(), archivedByMemberId: context.membershipId },
+      idempotent: true,
     });
+    // Archived by somebody else a moment earlier: already done, and theirs is
+    // the archive the history records.
+    if (outcome === "ALREADY_THERE") return;
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -431,17 +459,23 @@ export async function restoreWarehouse(
   const existing = assertFound(
     await prisma.warehouse.findFirst({
       where: { AND: [buildWarehouseScopeWhere(context), { id: warehouseId }] },
-      select: { id: true, code: true, archivedAt: true },
+      select: { id: true, code: true, status: true, archivedAt: true },
     }),
   );
 
   if (!existing.archivedAt) return;
 
   await prisma.$transaction(async (tx) => {
-    await tx.warehouse.update({
-      where: { id: warehouseId },
-      data: { status: "INACTIVE", archivedAt: null, archivedByMemberId: null },
+    const outcome = await applyTransition(tx, {
+      machine: warehouseMachine,
+      action: "restore",
+      id: warehouseId,
+      context,
+      from: existing.status,
+      data: { archivedAt: null, archivedByMemberId: null },
+      idempotent: true,
     });
+    if (outcome === "ALREADY_THERE") return;
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -524,7 +558,7 @@ export async function archiveLocation(
       where: {
         AND: [{ warehouse: { is: buildWarehouseScopeWhere(context) } }, { id: locationId }],
       },
-      select: { id: true, code: true, warehouseId: true, isDefault: true, archivedAt: true },
+      select: { id: true, code: true, status: true, warehouseId: true, isDefault: true, archivedAt: true },
     }),
   );
 
@@ -551,9 +585,16 @@ export async function archiveLocation(
     );
   }
 
-  await prisma.inventoryLocation.update({
-    where: { id: locationId },
-    data: { status: "ARCHIVED", archivedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await applyTransition(tx, {
+      machine: inventoryLocationMachine,
+      action: "archive",
+      id: locationId,
+      context,
+      from: existing.status,
+      data: { archivedAt: new Date() },
+      idempotent: true,
+    });
   });
 }
 

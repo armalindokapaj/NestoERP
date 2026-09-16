@@ -79,6 +79,14 @@ function writtenFields(call: ts.CallExpression): string[] | null {
   const argument = call.arguments[0];
   if (!argument || !ts.isObjectLiteralExpression(argument)) return null;
 
+  // `update({ where, data })` passes the payload by name, and `{ ...args }`
+  // passes all of it: either way the columns are not on the page. Reading
+  // either as "writes nothing" would wave through exactly the write the gates
+  // most need to see.
+  if (argument.properties.some((entry) => ts.isSpreadAssignment(entry) || (ts.isShorthandPropertyAssignment(entry) && ["data", "create", "update"].includes(entry.name.text)))) {
+    return null;
+  }
+
   const fields = new Set<string>();
   for (const key of ["data", "create", "update"]) {
     const property = argument.properties.find(
@@ -109,6 +117,9 @@ function whereFields(call: ts.CallExpression): string[] | null {
   const argument = call.arguments[0];
   if (!argument || !ts.isObjectLiteralExpression(argument)) return null;
 
+  if (argument.properties.some((entry) => ts.isSpreadAssignment(entry) || (ts.isShorthandPropertyAssignment(entry) && entry.name.text === "where"))) {
+    return null;
+  }
   const property = argument.properties.find(
     (candidate): candidate is ts.PropertyAssignment =>
       ts.isPropertyAssignment(candidate) && (ts.isIdentifier(candidate.name) || ts.isStringLiteral(candidate.name)) && candidate.name.text === "where",

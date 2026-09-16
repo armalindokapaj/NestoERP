@@ -1,4 +1,6 @@
 import { Prisma, type ExpenseStatus } from "@prisma/client";
+import { targetsOf, transitionFor } from "@/lib/core/state/machine";
+import { applyTransition } from "@/lib/core/state/transition";
 import { allocateNumber } from "@/lib/core/numbering/numbering.service";
 
 import { can } from "@/lib/access/can";
@@ -21,9 +23,9 @@ import { calculateExpenseTotal } from "../invoices/invoice.calculation";
 import { expenseSettlement } from "../invoices/invoice.status";
 import * as repository from "./expense.repository";
 import type { CreateExpenseInput, ExpenseListQuery, UpdateExpenseInput } from "./expense.schema";
+import { expenseMachine, type ExpenseTransitionAction } from "./expense.machine";
 import {
   CANCELLABLE_EXPENSE_STATUSES,
-  canTransitionExpense,
   isExpenseArchivable,
   isExpenseEditable,
   isExpenseSubmittable,
@@ -287,7 +289,7 @@ export async function submitExpense(context: UserContext, expenseId: string): Pr
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "PENDING_APPROVAL");
+    await moveStatus(tx, context, existing, "submit");
     await approvals.openApproval(tx, context, "EXPENSE", expenseId);
 
     await recordActivity(tx, context, {
@@ -315,7 +317,7 @@ export async function approveExpense(
     const approval = await approvals.requirePendingApproval(tx, context, "EXPENSE", expenseId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "APPROVED");
+    await moveStatus(tx, context, existing, "approve");
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
     await recordActivity(tx, context, {
@@ -360,7 +362,7 @@ export async function rejectExpense(
     const approval = await approvals.requirePendingApproval(tx, context, "EXPENSE", expenseId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "REJECTED");
+    await moveStatus(tx, context, existing, "reject", reason);
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
 
     await recordActivity(tx, context, {
@@ -406,7 +408,7 @@ export async function returnExpense(
     const approval = await approvals.requirePendingApproval(tx, context, "EXPENSE", expenseId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "DRAFT");
+    await moveStatus(tx, context, existing, "return", reason);
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
 
     await recordActivity(tx, context, {
@@ -443,7 +445,7 @@ export async function cancelExpense(context: UserContext, expenseId: string): Pr
       );
     }
 
-    await moveStatus(tx, context, existing, "CANCELLED");
+    await moveStatus(tx, context, existing, "cancel");
     await approvals.cancelPendingApprovals(tx, context, "EXPENSE", expenseId);
 
     await recordActivity(tx, context, {
@@ -470,10 +472,13 @@ export async function archiveExpense(context: UserContext, expenseId: string): P
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.expense.update({
-      where: { id: expenseId },
+    await applyTransition(tx, {
+      machine: expenseMachine,
+      action: "archive",
+      id: expenseId,
+      context,
+      from: existing.status,
       data: {
-        status: "ARCHIVED",
         preArchiveStatus: existing.status,
         archivedAt: new Date(),
         archivedByMemberId: context.membershipId,
@@ -503,14 +508,14 @@ export async function restoreExpense(context: UserContext, expenseId: string): P
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.expense.update({
-      where: { id: expenseId },
-      data: {
-        status: existing.preArchiveStatus ?? "DRAFT",
-        preArchiveStatus: null,
-        archivedAt: null,
-        archivedByMemberId: null,
-      },
+    await applyTransition(tx, {
+      machine: expenseMachine,
+      action: "restore",
+      id: expenseId,
+      context,
+      from: existing.status,
+      to: existing.preArchiveStatus ?? "DRAFT",
+      data: { preArchiveStatus: null, archivedAt: null, archivedByMemberId: null },
     });
 
     await recordActivity(tx, context, {
@@ -527,27 +532,38 @@ export async function restoreExpense(context: UserContext, expenseId: string): P
 /* Internals                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Moves an expense by one of its machine's actions, from the status it was read in.
+ *
+ * A move the workflow never makes is refused as the validation error it has
+ * always been, before anything is written. The write goes through
+ * `applyTransition`, conditional on the status we read, so two people acting at
+ * once cannot both win (PRD #49 §64).
+ */
 async function moveStatus(
   tx: Prisma.TransactionClient,
   context: UserContext,
   existing: { id: string; status: ExpenseStatus },
-  next: ExpenseStatus,
+  action: ExpenseTransitionAction,
+  reason?: string,
 ): Promise<void> {
-  if (!canTransitionExpense(existing.status, next)) {
+  const transition = transitionFor(expenseMachine, action)!;
+  if (!transition.from.includes(existing.status)) {
     throw new AccessError(
       "VALIDATION_ERROR",
-      `An expense cannot move from ${existing.status} to ${next}.`,
+      `An expense cannot move from ${existing.status} to ${targetsOf(transition)[0]}.`,
     );
   }
 
-  const result = await tx.expense.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: { status: next, updatedByMemberId: context.membershipId },
+  await applyTransition(tx, {
+    machine: expenseMachine,
+    action,
+    id: existing.id,
+    context,
+    from: existing.status,
+    reason,
+    data: { updatedByMemberId: context.membershipId },
   });
-
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "This expense changed while you were working on it.");
-  }
 }
 
 /**

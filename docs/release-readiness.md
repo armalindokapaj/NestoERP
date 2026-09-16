@@ -464,7 +464,7 @@ because the caller remembered, not because the database refused.
 
 ## 13. PRD #49 — Documents, Audit & State Integrity
 
-The foundation is in place and two domains are on it. A controlled record now
+The foundation is in place and eight domains are on it. A controlled record now
 moves by a declared transition, and the state it moves from is part of the
 write rather than an `if` above it. The contract is `docs/state-machines.md`;
 `docs/document-lifecycle.md` and `docs/audit-model.md` write down what was
@@ -474,9 +474,9 @@ already built by PRDs #13, #28 and #29 and had never been stated in one place.
 
 | Gate | What it refuses |
 |---|---|
-| `pnpm verify:state` | A machine governing a model its domain does not own; a machine file nothing registers; any file gaining a state write that does not name a state column in its `where`. |
-| `pnpm test:architecture` | The same rules from the test runner, plus a named test for each claim the machines make about the code. |
-| `pnpm test:state` | A guarded transition against the real database: the stale case, the simultaneous case, the foreign-company case, the replay. |
+| `pnpm verify:state` | A machine governing a model its domain does not own; a machine file nothing registers; any file gaining a state write that does not name a state column in its `where`; any file gaining a write on a stateful model whose payload the gate cannot read and whose `where` names no state. |
+| `pnpm test:architecture` | The same rules from the test runner, a named test for each claim the machines make about the code, and the transition matrix: every action of every registered machine, from every state, with and without its permissions and its reason. |
+| `pnpm test:state` | A guarded transition against the real database: the stale case, the simultaneous case, the foreign-company case, the replay, a destination the machine does not declare, and an approval step standing in for the permission only when this actor decided it. |
 
 ### 13.2 The evidence
 
@@ -504,11 +504,13 @@ from resurrecting the file.
 
 ### 13.4 Limits, stated plainly
 
-- **Two domains of about twenty are on machines.** HSE and QA/QC were chosen
+- **Eight domains of about twenty are on machines.** HSE and QA/QC first,
   because a lost transition on a safety or quality record loses the evidence
-  that something was dealt with. Everything else still transitions through its
-  own service, held by the ratchet rather than converted. The baseline is the
-  backlog, and it is 176 writes across 55 files.
+  that something was dealt with; then Documents, Finance, Procurement,
+  Inventory, Legal and Engineering (§13.5). Everything else still transitions
+  through its own service, held by the ratchet rather than converted. The
+  baseline is the backlog: 96 writes across 33 files, plus 20 writes whose
+  payload the gate cannot read.
 - **`applyTransition` reaches its table through a delegate name**, which PRD
   #48's ownership scanner cannot see. The registry plus the first gate rule is
   what puts those writes back under the ownership rule; without both, a domain
@@ -523,6 +525,77 @@ from resurrecting the file.
 - **Reason text is validated, not placed.** `requiresReason` refuses a blank
   reason; which column it lands in is the owner service's business, because
   domains store it under different names.
+
+### 13.5 The second pass — the high-risk domains
+
+Documents, Finance, Procurement, Inventory, Legal and Engineering were moved
+onto machines: 32 of them over 156 transitions, 39 over 199 in all. None of
+those six domains has a blind state write left, and none is in either baseline.
+
+The contract grew three things, each because a domain needed it rather than in
+anticipation:
+
+- **Several permissions, any one of which will do** — Finance approves on the
+  record's own permission or the module-wide decide permission.
+- **Several destinations, when the record decides which** — restoring from the
+  archive, and an order that a receipt leaves partly or wholly received.
+- **An approval step standing in for the permission** — a purchase order's
+  chain is concluded by whoever holds its last step, who may hold no order
+  permission at all. The step id is checked against the step row, in the same
+  transaction, as decided by this actor; it is a claim the database checks,
+  not a switch.
+
+Converting the writes found real defects, not just unguarded ones:
+
+- **Two reviewers approving a document version's last two requests at once**
+  each saw the other outstanding, and the version stayed in review with every
+  request approved. Decisions on one version now queue behind a row lock.
+- **A double-submitted upload completion** counted the bytes against the
+  quota twice; **a failing or cancelled upload deleted the file before its
+  database write**, so it could delete a file a parallel completion had just
+  made available. Every upload path now claims its session first, and deletes
+  only after the claim commits.
+- **Promoting a version could write `AVAILABLE` over an archived document**,
+  making its file downloadable again.
+- **An engineering document or submittal voided while a reviewer had it open
+  could be set back to `APPROVED`.** The parent write was blind, and invisible
+  to the scanner because its table was chosen at runtime.
+- **Expiring reservations released the hold before the guarded write**, so a
+  race with a manual release gave the stock back twice. Posting a stock issue
+  also fulfilled a reservation whatever its state — a path nothing reaches
+  yet, since no issue line is linked to a reservation.
+- **Editing a supplier while somebody archived it** reset its status to
+  active while `archivedAt` stayed set.
+- **A second *mark sent* on an invoice** overwrote `sentAt` and logged a
+  duplicate activity.
+
+Error behaviour changed only for the loser of a race and for moves that had no
+domain-specific pre-check: those now answer `<MACHINE>_STALE` or
+`<MACHINE>_ILLEGAL_TRANSITION` as 409, in place of a mix of `STALE_RECORD`,
+`INVALID_TRANSITION`, uncoded conflicts and — in Legal — a 400. Every
+pre-check code a test or a screen reads (`RFI_NOT_ANSWERED`,
+`ORDER_HAS_RECEIPTS`, `REVIEW_ALREADY_DECIDED`, …) is unchanged.
+
+Full vitest 2 890 passed, 7 skipped.
+
+The API security matrix changed in one column only: 173 endpoints' state-guard
+evidence now names `applyTransition` or `canMove`. No endpoint lost state
+evidence, 64 gained it, and permissions, scope and record guards are identical.
+
+**Limits of the second pass.**
+
+- The document storage pipeline, approval cycle rows, enquiry invitations and
+  the commitment writes Procurement makes through Finance's door are guarded
+  on the state they read but are not machines; `docs/state-machines.md` says
+  why for each.
+- Legal's approvals need `legal.approval.decide` *and* the record permission;
+  a transition says "any of", so the machine names the record permission and
+  the service still checks both.
+- Two stock issues drawing on one partly fulfilled reservation can still lose
+  an update to its fulfilled quantity — the state does not change, so a state
+  guard cannot see it. Nothing links an issue line to a reservation yet.
+- A crash between an upload's claim and its file delete now leaves an orphaned
+  object for the cleanup worker, where before a crash could delete a live file.
 
 ---
 

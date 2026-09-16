@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -22,6 +23,7 @@ import {
 import type { ItemInput, ItemListQuery } from "../inventory.schema";
 import { needsAttention, stockLevelFor, type StockLevel } from "../inventory.status";
 import type { ItemDetailDTO, ItemSummaryDTO, StockRowDTO } from "../inventory.types";
+import { inventoryItemMachine } from "./item.machine";
 
 /**
  * Inventory items (PRD #20 §25–§48).
@@ -356,7 +358,7 @@ export async function updateItem(
   const existing = assertFound(
     await prisma.inventoryItem.findFirst({
       where: { AND: [buildItemScopeWhere(context), { id: itemId }] },
-      select: { id: true, sku: true, baseUnit: true, archivedAt: true, updatedAt: true },
+      select: { id: true, sku: true, baseUnit: true, status: true, archivedAt: true, updatedAt: true },
     }),
   );
 
@@ -387,22 +389,43 @@ export async function updateItem(
   await prisma.$transaction(async (tx) => {
     await assertSkuIsFree(tx, context, input.sku, itemId);
 
-    await tx.inventoryItem.update({
-      where: { id: itemId },
-      data: {
-        sku: input.sku,
-        name: input.name,
-        description: input.description ?? null,
-        category: input.category,
-        baseUnit: input.baseUnit,
-        status: input.status,
-        minimumStock: input.minimumStock === undefined ? null : new Prisma.Decimal(input.minimumStock),
-        reorderPoint: input.reorderPoint === undefined ? null : new Prisma.Decimal(input.reorderPoint),
-        defaultWarehouseId: input.defaultWarehouseId ?? null,
-        defaultLocationId: input.defaultLocationId ?? null,
-        updatedByMemberId: context.membershipId,
-      },
-    });
+    const details = {
+      sku: input.sku,
+      name: input.name,
+      description: input.description ?? null,
+      category: input.category,
+      baseUnit: input.baseUnit,
+      minimumStock: input.minimumStock === undefined ? null : new Prisma.Decimal(input.minimumStock),
+      reorderPoint: input.reorderPoint === undefined ? null : new Prisma.Decimal(input.reorderPoint),
+      defaultWarehouseId: input.defaultWarehouseId ?? null,
+      defaultLocationId: input.defaultLocationId ?? null,
+      updatedByMemberId: context.membershipId,
+    };
+
+    // The form carries the status. Changing it switches the item on or off,
+    // which is a transition; leaving it alone is an edit, still conditional on
+    // the status the form was opened on, so an item archived meanwhile is not
+    // quietly edited back to life.
+    if (input.status !== existing.status) {
+      await applyTransition(tx, {
+        machine: inventoryItemMachine,
+        action: input.status === "ACTIVE" ? "activate" : "deactivate",
+        id: itemId,
+        context,
+        from: existing.status,
+        data: details,
+      });
+    } else {
+      const saved = await tx.inventoryItem.updateMany({
+        where: { id: itemId, companyId: context.companyId, status: existing.status },
+        data: details,
+      });
+      if (saved.count === 0) {
+        throw new AccessError("CONFLICT", "This item changed since you opened it. Reload to see the latest.", {
+          code: "INVENTORY_ITEM_STALE",
+        });
+      }
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -423,7 +446,7 @@ export async function archiveItem(context: UserContext, itemId: string): Promise
   const existing = assertFound(
     await prisma.inventoryItem.findFirst({
       where: { AND: [buildItemScopeWhere(context), { id: itemId }] },
-      select: { id: true, sku: true, archivedAt: true },
+      select: { id: true, sku: true, status: true, archivedAt: true },
     }),
   );
 
@@ -445,14 +468,18 @@ export async function archiveItem(context: UserContext, itemId: string): Promise
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.inventoryItem.update({
-      where: { id: itemId },
-      data: {
-        status: "ARCHIVED",
-        archivedAt: new Date(),
-        archivedByMemberId: context.membershipId,
-      },
+    const outcome = await applyTransition(tx, {
+      machine: inventoryItemMachine,
+      action: "archive",
+      id: itemId,
+      context,
+      from: existing.status,
+      data: { archivedAt: new Date(), archivedByMemberId: context.membershipId },
+      idempotent: true,
     });
+    // Archived by somebody else a moment earlier: already done, and theirs is
+    // the archive the history records.
+    if (outcome === "ALREADY_THERE") return;
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -471,19 +498,25 @@ export async function restoreItem(context: UserContext, itemId: string): Promise
   const existing = assertFound(
     await prisma.inventoryItem.findFirst({
       where: { AND: [buildItemScopeWhere(context), { id: itemId }] },
-      select: { id: true, sku: true, archivedAt: true },
+      select: { id: true, sku: true, status: true, archivedAt: true },
     }),
   );
 
   if (!existing.archivedAt) return;
 
   await prisma.$transaction(async (tx) => {
-    await tx.inventoryItem.update({
-      where: { id: itemId },
-      // Back as INACTIVE: leaving the archive is not the same decision as being
-      // ready to move again.
-      data: { status: "INACTIVE", archivedAt: null, archivedByMemberId: null },
+    // Back as INACTIVE: leaving the archive is not the same decision as being
+    // ready to move again.
+    const outcome = await applyTransition(tx, {
+      machine: inventoryItemMachine,
+      action: "restore",
+      id: itemId,
+      context,
+      from: existing.status,
+      data: { archivedAt: null, archivedByMemberId: null },
+      idempotent: true,
     });
+    if (outcome === "ALREADY_THERE") return;
 
     await recordActivity(tx, context, {
       module: MODULE,

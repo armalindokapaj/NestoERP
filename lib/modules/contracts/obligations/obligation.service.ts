@@ -9,6 +9,7 @@ import {
   stateDenied,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -17,6 +18,7 @@ import { dateString, toMemberRef } from "../contract.dto";
 import { buildContractScopeWhere } from "../contract.scope";
 import type { ContractObligationDTO } from "../contract.types";
 import { acceptsObligations } from "../contracts/contract.status";
+import { contractObligationMachine, type ContractObligationAction } from "./obligation.machine";
 import type { ObligationInput, ObligationListQuery, ObligationTaskInput } from "./obligation.schema";
 import { canCloseObligation, daysOverdue, isObligationOverdue } from "./obligation.status";
 
@@ -208,8 +210,10 @@ export async function updateObligation(
     : null;
 
   await prisma.$transaction(async (tx) => {
-    await tx.contractObligation.update({
-      where: { id: obligationId },
+    // Conditional on the obligation still being open: one completed or
+    // cancelled while this form was open is closed, and stays as it was closed.
+    const saved = await tx.contractObligation.updateMany({
+      where: { id: obligationId, companyId: context.companyId, status: existing.status },
       data: {
         title: input.title,
         description: input.description ?? null,
@@ -219,6 +223,11 @@ export async function updateObligation(
         updatedByMemberId: context.membershipId,
       },
     });
+    if (saved.count === 0) {
+      throw new AccessError("CONFLICT", "This obligation changed since you opened it. Reload to see the latest.", {
+        code: "CONTRACT_OBLIGATION_STALE",
+      });
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -240,7 +249,7 @@ export async function completeObligation(
 ): Promise<void> {
   await closeObligation(context, obligationId, {
     permission: "legal.obligation.complete",
-    status: "COMPLETED",
+    transition: "complete",
     action: "LEGAL_OBLIGATION_COMPLETED",
     verb: "completed",
     note,
@@ -254,7 +263,7 @@ export async function cancelObligation(
 ): Promise<void> {
   await closeObligation(context, obligationId, {
     permission: "legal.obligation.cancel",
-    status: "CANCELLED",
+    transition: "cancel",
     action: "LEGAL_OBLIGATION_CANCELLED",
     verb: "cancelled",
     note,
@@ -315,7 +324,7 @@ async function closeObligation(
   obligationId: string,
   spec: {
     permission: Parameters<typeof assertPermission>[1];
-    status: "COMPLETED" | "CANCELLED";
+    transition: ContractObligationAction;
     action: string;
     verb: string;
     note: string | null;
@@ -335,18 +344,17 @@ async function closeObligation(
   await prisma.$transaction(async (tx) => {
     // Conditional on the status that was read, so two people closing at once
     // cannot both win (PRD #18 §320).
-    const result = await tx.contractObligation.updateMany({
-      where: { id: obligationId, status: "OPEN" },
+    await applyTransition(tx, {
+      machine: contractObligationMachine,
+      action: spec.transition,
+      id: obligationId,
+      context,
+      from: existing.status,
       data: {
-        status: spec.status,
-        completedAt: spec.status === "COMPLETED" ? new Date() : null,
+        completedAt: spec.transition === "complete" ? new Date() : null,
         updatedByMemberId: context.membershipId,
       },
     });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "This obligation changed while you were working on it.");
-    }
 
     await recordActivity(tx, context, {
       module: MODULE,

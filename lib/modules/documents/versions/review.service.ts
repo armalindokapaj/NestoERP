@@ -8,6 +8,7 @@ import type { UserContext } from "@/lib/context/types";
 import { delegationBetween } from "@/lib/core/approvals/approval-delegations";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { applyTransition } from "@/lib/core/state/transition";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
@@ -15,6 +16,8 @@ import { recordActivity } from "@/lib/modules/shared/activity";
 import { findReadableDocument } from "../document.parent-access";
 import { requireDocument } from "../storage/storage-access.service";
 import { documentReviewable } from "./version.service";
+import { documentReviewMachine } from "./review.machine";
+import { documentVersionReviewMachine } from "./version-review.machine";
 import { resolveAttentionFor } from "@/lib/core/notifications/attention.service";
 
 /**
@@ -172,7 +175,21 @@ export async function requestReview(
         },
         select: { id: true },
       });
-      await tx.documentVersion.update({ where: { id: versionRow.id }, data: { reviewState: "IN_REVIEW" } });
+      /*
+       * Conditional on the review state read above, so a request cannot put a
+       * version back in review that a decision approved or rejected meanwhile
+       * — the request, and the reviewer it named, go with it. Idempotent
+       * because a version somebody else has just put in review is exactly
+       * where this request wanted it: another reviewer joins the open round.
+       */
+      await applyTransition(tx, {
+        machine: documentVersionReviewMachine,
+        action: "request",
+        id: versionRow.id,
+        context,
+        from: versionRow.reviewState,
+        idempotent: true,
+      });
 
       await recordActivity(tx, context, {
         module: "documents",
@@ -244,23 +261,47 @@ export async function decideReview(
   if (decision === "REJECTED" && !note?.trim()) throw new AccessError("VALIDATION_ERROR", "REJECTION_NOTE_REQUIRED");
 
   return prisma.$transaction(async (tx) => {
-    // Conditional on PENDING: two clicks, or two tabs, settle it once (PRD #38 §154).
-    const settled = await tx.documentReview.updateMany({
-      where: { id: review.id, status: "PENDING" },
+    /*
+     * Every decision on one version queues behind this lock (PRD #49 §241,
+     * §244). Completion is a count of the requests still pending, and a count
+     * taken while another reviewer's decision is uncommitted still sees that
+     * request as pending — so two reviewers approving the last two requests at
+     * once would each see the other outstanding, and the version would stay in
+     * review with every request approved. Under the lock the second count is
+     * taken after the first decision commits, so the round finishes exactly
+     * once, and a decision arriving after it finished finds its request no
+     * longer pending.
+     *
+     * Taken before any request row is touched: a rejection cancels its
+     * siblings, and a reviewer holding a sibling while waiting here would
+     * otherwise deadlock against it.
+     */
+    await tx.$queryRaw`SELECT id FROM "document_versions" WHERE id = ${review.documentVersionId} FOR UPDATE`;
+
+    // Read under the lock, so it is the state every other decision left behind.
+    // Two clicks, or two tabs, settle it once (PRD #38 §154).
+    const current = await tx.documentReview.findFirst({ where: { id: review.id, companyId: context.companyId }, select: { status: true } });
+    if (!current) throw new AccessError("NOT_FOUND");
+    if (current.status !== "PENDING") throw new AccessError("CONFLICT", "REVIEW_ALREADY_DECIDED");
+    await applyTransition(tx, {
+      machine: documentReviewMachine,
+      action: decision === "APPROVED" ? "approve" : "reject",
+      id: review.id,
+      context,
+      from: current.status,
+      reason: note,
       data: {
-        status: decision,
         decisionNote: note?.trim() || null,
         decidedAt: new Date(),
         decidedByMemberId: context.membershipId,
         pendingKey: null,
       },
     });
-    if (settled.count === 0) throw new AccessError("CONFLICT", "REVIEW_ALREADY_DECIDED");
     await resolveReviewAttention(tx, context.companyId, review.id);
 
     const version = await tx.documentVersion.findUniqueOrThrow({
       where: { id: review.documentVersionId },
-      select: { id: true, versionNumber: true, uploadedByMemberId: true },
+      select: { id: true, versionNumber: true, uploadedByMemberId: true, reviewState: true },
     });
 
     let versionState: "IN_REVIEW" | "APPROVED" | "REJECTED" = "IN_REVIEW";
@@ -268,28 +309,60 @@ export async function decideReview(
 
     if (decision === "REJECTED") {
       versionState = "REJECTED";
-      await tx.documentReview.updateMany({
+      // One rejection ends the round: the other reviewers are not left
+      // deciding a version that has already been turned down.
+      const siblings = await tx.documentReview.findMany({
         where: { documentVersionId: version.id, status: "PENDING" },
-        data: { status: "CANCELLED", decidedAt: new Date(), pendingKey: null },
+        select: { id: true, status: true },
       });
-      await tx.documentVersion.update({ where: { id: version.id }, data: { reviewState: "REJECTED" } });
+      for (const sibling of siblings) {
+        await applyTransition(tx, {
+          machine: documentReviewMachine,
+          action: "cancel",
+          id: sibling.id,
+          context,
+          from: sibling.status,
+          data: { decidedAt: new Date(), pendingKey: null },
+        });
+      }
+      await applyTransition(tx, {
+        machine: documentVersionReviewMachine,
+        action: "reject",
+        id: version.id,
+        context,
+        from: version.reviewState,
+      });
     } else {
       const stillPending = await tx.documentReview.count({ where: { documentVersionId: version.id, status: "PENDING" } });
       if (stillPending === 0) {
         versionState = "APPROVED";
-        await tx.documentVersion.update({ where: { id: version.id }, data: { reviewState: "APPROVED" } });
+        await applyTransition(tx, {
+          machine: documentVersionReviewMachine,
+          action: "approve",
+          id: version.id,
+          context,
+          from: version.reviewState,
+        });
         // Older approved versions are superseded, not deleted: their files and
         // their review history stay (PRD #38 §65).
         const older = await tx.documentVersion.findMany({
           where: { documentId: review.documentId, reviewState: "APPROVED", versionNumber: { lt: version.versionNumber } },
-          select: { id: true, versionNumber: true },
+          select: { id: true, versionNumber: true, reviewState: true },
         });
-        if (older.length > 0) {
-          await tx.documentVersion.updateMany({
-            where: { id: { in: older.map((row) => row.id) } },
-            data: { reviewState: "SUPERSEDED", supersededAt: new Date() },
+        for (const row of older) {
+          // Idempotent: a later version approved at the same moment may have
+          // superseded it first, which is the outcome both wanted. Only the
+          // decision that actually moved it says so.
+          const outcome = await applyTransition(tx, {
+            machine: documentVersionReviewMachine,
+            action: "supersede",
+            id: row.id,
+            context,
+            from: row.reviewState,
+            data: { supersededAt: new Date() },
+            idempotent: true,
           });
-          superseded.push(...older.map((row) => row.versionNumber));
+          if (outcome === "MOVED") superseded.push(row.versionNumber);
         }
       }
     }

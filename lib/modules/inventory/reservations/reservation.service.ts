@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
@@ -19,6 +20,7 @@ import { buildInventoryProjectWhere, buildReservationScopeWhere, buildWarehouseS
 import type { ReservationInput, ReservationListQuery } from "../inventory.schema";
 import { isReservationHolding } from "../inventory.status";
 import type { ReservationDTO } from "../inventory.types";
+import { stockReservationMachine } from "./reservation.machine";
 
 /**
  * Stock spoken for but not yet issued (PRD #20 §152–§166).
@@ -227,6 +229,18 @@ async function close(
   if (!isReservationHolding(existing.status)) return;
 
   await prisma.$transaction(async (tx) => {
+    // Closed before the hold is given back, from the state it was read in: a
+    // reservation somebody else closed or drew on meanwhile stops here rather
+    // than releasing a quantity it no longer holds.
+    await applyTransition(tx, {
+      machine: stockReservationMachine,
+      action: status === "RELEASED" ? "release" : "cancel",
+      id: reservationId,
+      context,
+      from: existing.status,
+      data: { updatedByMemberId: context.membershipId },
+    });
+
     // Only what is still held goes back; the fulfilled part already left.
     await releaseReservation(tx, context, {
       inventoryItemId: existing.inventoryItemId,
@@ -234,17 +248,6 @@ async function close(
       locationId: existing.locationId,
       quantity: existing.quantity.minus(existing.fulfilledQuantity),
     });
-
-    const result = await tx.stockReservation.updateMany({
-      where: { id: reservationId, status: { in: ["ACTIVE", "PARTIALLY_FULFILLED"] } },
-      data: { status, updatedByMemberId: context.membershipId },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That reservation has already been closed.", {
-        code: "STALE_RECORD",
-      });
-    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -275,6 +278,7 @@ export async function expireOverdue(context: UserContext, today = new Date()): P
     },
     select: {
       id: true,
+      status: true,
       quantity: true,
       fulfilledQuantity: true,
       inventoryItemId: true,
@@ -283,28 +287,53 @@ export async function expireOverdue(context: UserContext, today = new Date()): P
     },
   });
 
+  let expired = 0;
   for (const reservation of overdue) {
-    await prisma.$transaction(async (tx) => {
+    const moved = await prisma.$transaction(async (tx) => {
+      try {
+        await applyTransition(tx, {
+          machine: stockReservationMachine,
+          action: "expire",
+          id: reservation.id,
+          context,
+          from: reservation.status,
+        });
+      } catch (error) {
+        /*
+         * Released, cancelled or drawn on between the list and this row. That
+         * is somebody else's decision about a reservation nobody was waiting
+         * on, so it is skipped rather than failing the rest of the run — and,
+         * because nothing has been written yet, its hold is not given back a
+         * second time.
+         */
+        if (isStale(error)) return false;
+        throw error;
+      }
+
       await releaseReservation(tx, context, {
         inventoryItemId: reservation.inventoryItemId,
         warehouseId: reservation.warehouseId,
         locationId: reservation.locationId,
         quantity: reservation.quantity.minus(reservation.fulfilledQuantity),
       });
-
-      await tx.stockReservation.updateMany({
-        where: { id: reservation.id, status: { in: ["ACTIVE", "PARTIALLY_FULFILLED"] } },
-        data: { status: "EXPIRED" },
-      });
+      return true;
     });
+    if (moved) expired += 1;
   }
 
-  return overdue.length;
+  return expired;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Internals                                                                   */
 /* -------------------------------------------------------------------------- */
+
+function isStale(error: unknown): boolean {
+  return (
+    error instanceof AccessError &&
+    (error.details as { code?: string } | undefined)?.code === `${stockReservationMachine.key.toUpperCase()}_STALE`
+  );
+}
 
 async function requireProject(context: UserContext, projectId: string) {
   const project = await prisma.project.findFirst({

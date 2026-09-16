@@ -19,8 +19,24 @@ export type TransitionDefinition<S extends string, A extends string> = {
   action: A;
   /** Source states the action is legal from. Never empty. */
   from: readonly S[];
-  to: S;
-  permission: Permission;
+  /**
+   * The state it leads to — or, where the record rather than the actor decides
+   * which, the states it may lead to. Restoring from the archive returns to
+   * whatever the record held before; a goods receipt leaves an order partly or
+   * wholly received. The service computes which and names it; the client never
+   * does (§62).
+   */
+  to: S | readonly S[];
+  /** Any one of these lets the actor apply it — an approver's own permission, or the module-wide decide permission. */
+  permission: Permission | readonly Permission[];
+  /**
+   * An approval chain can conclude this transition (PRD #41 §21). Whoever holds
+   * the chain's current step decides it — by name, by role, or standing in for
+   * either — and need not hold `permission`. The caller passes the step it
+   * settled, and `applyTransition` checks that step was decided by this actor.
+   * Nothing else skips the permission.
+   */
+  concludedByApprovalStep?: boolean;
   /** A reason the actor must supply, stored with the record and the audit event (§162, §234). */
   requiresReason?: boolean;
   /**
@@ -51,7 +67,14 @@ export function defineStateMachine<S extends string, A extends string>(machine: 
     if (transition.from.length === 0) {
       throw new Error(`${machine.key}: transition "${transition.action}" has no source state`);
     }
-    for (const state of [...transition.from, transition.to]) {
+    const targets = targetsOf(transition);
+    if (targets.length === 0) {
+      throw new Error(`${machine.key}: transition "${transition.action}" leads nowhere`);
+    }
+    if (permissionsOf(transition).length === 0) {
+      throw new Error(`${machine.key}: transition "${transition.action}" names no permission`);
+    }
+    for (const state of [...transition.from, ...targets]) {
       if (!machine.states.includes(state)) {
         throw new Error(`${machine.key}: transition "${transition.action}" names "${state}", which is not one of its states`);
       }
@@ -87,7 +110,28 @@ export function actionsFrom<S extends string, A extends string>(machine: StateMa
   return machine.transitions.filter((transition) => transition.from.includes(state));
 }
 
-/** States an action can reach a record in, whatever it is in now. */
+/** Actions that can leave a record in a state, whatever it is in now. */
 export function statesReaching<S extends string, A extends string>(machine: StateMachine<S, A>, state: S): A[] {
-  return machine.transitions.filter((transition) => transition.to === state).map((transition) => transition.action);
+  return machine.transitions.filter((transition) => targetsOf(transition).includes(state)).map((transition) => transition.action);
+}
+
+/** The states a transition may lead to, as a list whether it declares one or several. */
+export function targetsOf<S extends string, A extends string>(transition: TransitionDefinition<S, A>): readonly S[] {
+  return typeof transition.to === "string" ? [transition.to] : (transition.to as readonly S[]);
+}
+
+/** The permissions any one of which lets an actor apply a transition. */
+export function permissionsOf<S extends string, A extends string>(transition: TransitionDefinition<S, A>): readonly Permission[] {
+  return typeof transition.permission === "string" ? [transition.permission] : (transition.permission as readonly Permission[]);
+}
+
+/**
+ * Whether some declared transition moves a record from one state to another.
+ *
+ * For the older `canTransition…(from, to)` helpers a domain's UI and services
+ * still ask, so they answer from the machine instead of a second table that
+ * could drift from it.
+ */
+export function canMove<S extends string, A extends string>(machine: StateMachine<S, A>, from: S, to: S): boolean {
+  return machine.transitions.some((transition) => transition.from.includes(from) && targetsOf(transition).includes(to));
 }

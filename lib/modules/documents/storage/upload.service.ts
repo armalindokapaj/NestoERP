@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { Prisma, type DocumentStorageStatus } from "@prisma/client";
+import { Prisma, type DocumentStorageStatus, type DocumentUploadSessionStatus } from "@prisma/client";
 
 import { AccessError, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import { prisma } from "@/lib/database/prisma";
@@ -318,6 +318,8 @@ export async function completeUpload(
   await transition(document.id, "PENDING_UPLOAD", "UPLOADED");
   await transition(document.id, "UPLOADED", "VERIFYING");
 
+  let scanNeeded: boolean;
+  let claimed: boolean;
   try {
     const verified = await verifyStoredObject({
       companyId: context.companyId,
@@ -331,13 +333,31 @@ export async function completeUpload(
       maxBytes: await quota.maxSingleFileBytes(context.companyId),
     });
 
-    const scanNeeded = verified.scanRequired && scannerEnabled();
+    scanNeeded = verified.scanRequired && scannerEnabled();
+    const settledAs = scanNeeded ? "SCANNING" : "AVAILABLE";
+    assertTransition("VERIFYING", settledAs);
 
-    await prisma.$transaction(async (tx) => {
-      await tx.document.update({
-        where: { id: document.id },
+    claimed = await prisma.$transaction(async (tx) => {
+      /*
+       * The session is claimed first, conditional on the state it was read in,
+       * and everything else follows from winning it. Two completions of one
+       * upload — a double submit, a retry that overtook a slow response — both
+       * get this far, and without the claim both would count the bytes against
+       * the quota and both would record the upload. The loser writes nothing
+       * (PRD #29 §81, §263). First, too, because every writer of a session
+       * takes it before the document or the version, so no two of them can
+       * each hold one row while waiting on the other's.
+       */
+      const claim = await tx.documentUploadSession.updateMany({
+        where: { id: sessionId, status: session.status },
+        data: { status: "COMPLETED", completedAt: new Date(), reservedBytes: BigInt(0) },
+      });
+      if (claim.count === 0) return false;
+
+      const settled = await tx.document.updateMany({
+        where: { id: document.id, storageStatus: "VERIFYING" },
         data: {
-          storageStatus: scanNeeded ? "SCANNING" : "AVAILABLE",
+          storageStatus: settledAs,
           detectedMimeType: verified.detectedMimeType,
           checksum: verified.checksum,
           sizeBytes: BigInt(metadata.sizeBytes),
@@ -353,12 +373,17 @@ export async function completeUpload(
           updatedBy: context.userId,
         },
       });
+      // Nothing else moves a document out of VERIFYING while its session is
+      // open, and the session is this request's now.
+      if (settled.count === 0) throw new StorageError("INVALID_DOCUMENT_STORAGE_STATE");
 
       if (version) {
-        await tx.documentVersion.update({
-          where: { id: version.id },
+        // Version 1 mirrors the document, which carried the intermediate
+        // states for both of them; it moves from wherever it was read.
+        const mirrored = await tx.documentVersion.updateMany({
+          where: { id: version.id, storageStatus: version.storageStatus },
           data: {
-            storageStatus: scanNeeded ? "SCANNING" : "AVAILABLE",
+            storageStatus: settledAs,
             mimeTypeDetected: verified.detectedMimeType,
             checksumSha256: verified.checksum,
             sizeBytes: BigInt(metadata.sizeBytes),
@@ -368,12 +393,8 @@ export async function completeUpload(
             availableAt: scanNeeded ? null : new Date(),
           },
         });
+        if (mirrored.count === 0) throw new StorageError("INVALID_DOCUMENT_STORAGE_STATE");
       }
-
-      await tx.documentUploadSession.update({
-        where: { id: sessionId },
-        data: { status: "COMPLETED", completedAt: new Date(), reservedBytes: BigInt(0) },
-      });
 
       await quota.addUsage(tx, context.companyId, metadata.sizeBytes);
 
@@ -390,39 +411,68 @@ export async function completeUpload(
           sizeBytes: metadata.sizeBytes,
         } as Prisma.InputJsonValue,
       });
+      return true;
     });
-
-    if (scanNeeded) {
-      /*
-       * The scan is enqueued by the state itself: the row sits at
-       * SCANNING/PENDING and the maintenance worker drains anything left
-       * behind. Running it inline first is a latency optimisation, not the
-       * guarantee — if this throws, the document stays unavailable, which is
-       * the correct failure direction (PRD #29 §59, §271, §314).
-       */
-      await runScanForDocument(document.id).catch((error) => {
-        logger.warn("storage.scan.inline_failed", {
-          documentId: document.id,
-          error: error instanceof Error ? error.message : "unknown",
-        });
-      });
-    }
-
-    const finalState = await prisma.document.findUnique({
-      where: { id: document.id },
-      select: { storageStatus: true },
-    });
-
-    return { documentId: document.id, status: finalState?.storageStatus ?? "VERIFYING" };
   } catch (error) {
     await rejectUpload(context, {
       sessionId,
+      sessionStatus: session.status,
       documentId: document.id,
       storageKey: session.storageKey,
       reason: error instanceof StorageError ? error.storageCode : "STORAGE_PROVIDER_ERROR",
     });
     throw error;
   }
+
+  // Losing the claim is not a verification failure, so nothing is rejected:
+  // the object this request verified is the one whichever request won made
+  // available.
+  if (!claimed) {
+    return { documentId: document.id, status: await sessionSettledElsewhere(sessionId, () => documentStorageStatus(document.id)) };
+  }
+
+  if (scanNeeded) {
+    /*
+     * The scan is enqueued by the state itself: the row sits at
+     * SCANNING/PENDING and the maintenance worker drains anything left
+     * behind. Running it inline first is a latency optimisation, not the
+     * guarantee — if this throws, the document stays unavailable, which is
+     * the correct failure direction (PRD #29 §59, §271, §314).
+     */
+    await runScanForDocument(document.id).catch((error) => {
+      logger.warn("storage.scan.inline_failed", {
+        documentId: document.id,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    });
+  }
+
+  return { documentId: document.id, status: await documentStorageStatus(document.id) };
+}
+
+async function documentStorageStatus(documentId: string): Promise<string> {
+  const row = await prisma.document.findUnique({ where: { id: documentId }, select: { storageStatus: true } });
+  return row?.storageStatus ?? "VERIFYING";
+}
+
+/**
+ * What a completion that lost its claim on the session answers.
+ *
+ * Another request settled the session between this one reading it and
+ * claiming it. A completion that got there first is exactly what a retry a
+ * moment later would have found, so it is returned the same way (PRD #29 §81,
+ * §263); an abort or an expiry is refused as it would have been had it been
+ * read in time. Nothing was written, and nothing is deleted.
+ */
+async function sessionSettledElsewhere(sessionId: string, currentStatus: () => Promise<string>): Promise<string> {
+  const row = await prisma.documentUploadSession.findUnique({ where: { id: sessionId }, select: { status: true } });
+  if (row?.status === "COMPLETED") return currentStatus();
+  // A first upload's abort removes its placeholder, and the session with it.
+  if (!row || row.status === "ABORTED") throw new StorageError("UPLOAD_ABORTED");
+  if (row.status === "EXPIRED") throw new StorageError("UPLOAD_SESSION_EXPIRED");
+  throw new AccessError("CONFLICT", "This upload changed while it was being completed. Reload to see the latest.", {
+    code: "DOCUMENT_UPLOAD_SESSION_STALE",
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -536,13 +586,15 @@ export async function abortUpload(context: UserContext, sessionId: string): Prom
   if (!session) throw new StorageError("UPLOAD_SESSION_NOT_FOUND");
   if (session.status === "COMPLETED") throw new StorageError("UPLOAD_ALREADY_COMPLETED");
 
-  await storageProvider().deleteObject(session.storageKey).catch(() => undefined);
-
-  await prisma.$transaction(async (tx) => {
-    await tx.documentUploadSession.update({
-      where: { id: sessionId },
+  const aborted = await prisma.$transaction(async (tx) => {
+    // Conditional on the state read above: an upload that completed in the
+    // moment between is not cancelled out from under the file it made
+    // available.
+    const claim = await tx.documentUploadSession.updateMany({
+      where: { id: sessionId, status: session.status },
       data: { status: "ABORTED", reservedBytes: BigInt(0) },
     });
+    if (claim.count === 0) return false;
     // A new version that never arrived leaves no version behind; the document
     // itself is untouched. A first upload removes its placeholder entirely.
     if (session.documentVersionId) {
@@ -553,7 +605,23 @@ export async function abortUpload(context: UserContext, sessionId: string): Prom
     await tx.document.deleteMany({
       where: { id: session.documentId, storageStatus: "PENDING_UPLOAD" },
     });
+    return true;
   });
+
+  if (!aborted) {
+    const now = await prisma.documentUploadSession.findUnique({ where: { id: sessionId }, select: { status: true } });
+    // Cancelled twice is cancelled: the second click is not an error.
+    if (!now || now.status === "ABORTED") return;
+    if (now.status === "COMPLETED") throw new StorageError("UPLOAD_ALREADY_COMPLETED");
+    throw new AccessError("CONFLICT", "This upload changed while it was being cancelled. Reload to see the latest.", {
+      code: "DOCUMENT_UPLOAD_SESSION_STALE",
+    });
+  }
+
+  // The object goes once the session can no longer take bytes, and only once
+  // this request has won it — never before, when it might still be the file a
+  // completion was making available.
+  await storageProvider().deleteObject(session.storageKey).catch(() => undefined);
 
   logger.info("storage.upload.aborted", { sessionId, documentId: session.documentId });
 }
@@ -564,14 +632,23 @@ export async function abortUpload(context: UserContext, sessionId: string): Prom
  *
  * The document is kept in REJECTED rather than deleted, so the uploader is
  * told why instead of watching their upload vanish (PRD #29 §164).
+ *
+ * The session is claimed first, conditional on the state the completion read
+ * it in, and the object is deleted only once that claim has committed. A
+ * completion that fails after another request completed the same upload must
+ * not reject what that request made available, and must not delete its file.
  */
 async function rejectUpload(
   context: UserContext,
-  input: { sessionId: string; documentId: string; storageKey: string; reason: string },
+  input: { sessionId: string; sessionStatus: DocumentUploadSessionStatus; documentId: string; storageKey: string; reason: string },
 ): Promise<void> {
-  await storageProvider().deleteObject(input.storageKey).catch(() => undefined);
+  const rejected = await prisma.$transaction(async (tx) => {
+    const claim = await tx.documentUploadSession.updateMany({
+      where: { id: input.sessionId, status: input.sessionStatus },
+      data: { status: "FAILED", failureReason: input.reason, reservedBytes: BigInt(0) },
+    });
+    if (claim.count === 0) return false;
 
-  await prisma.$transaction(async (tx) => {
     await tx.document.updateMany({
       where: { id: input.documentId, storageStatus: { in: ["VERIFYING", "UPLOADED", "PENDING_UPLOAD"] } },
       data: {
@@ -585,11 +662,12 @@ async function rejectUpload(
       where: { storageKey: input.storageKey, storageStatus: { in: ["VERIFYING", "UPLOADED", "PENDING_UPLOAD"] } },
       data: { storageStatus: "REJECTED", rejectionReason: input.reason },
     });
-    await tx.documentUploadSession.update({
-      where: { id: input.sessionId },
-      data: { status: "FAILED", failureReason: input.reason, reservedBytes: BigInt(0) },
-    });
+    return true;
   });
+  // Somebody else settled the session first; whatever they left is theirs.
+  if (!rejected) return;
+
+  await storageProvider().deleteObject(input.storageKey).catch(() => undefined);
 
   logger.warn("storage.upload.rejected", {
     documentId: input.documentId,
@@ -830,6 +908,8 @@ async function completeVersionUpload(
   await transitionVersion(version.id, "PENDING_UPLOAD", "UPLOADED");
   await transitionVersion(version.id, "UPLOADED", "VERIFYING");
 
+  let scanNeeded: boolean;
+  let claimed: boolean;
   try {
     const verified = await verifyStoredObject({
       companyId: context.companyId,
@@ -842,13 +922,24 @@ async function completeVersionUpload(
       declaredChecksum: input.checksumSha256 ?? null,
       maxBytes: await quota.maxSingleFileBytes(context.companyId),
     });
-    const scanNeeded = verified.scanRequired && scannerEnabled();
+    scanNeeded = verified.scanRequired && scannerEnabled();
+    const settledAs = scanNeeded ? "SCANNING" : "AVAILABLE";
+    assertTransition("VERIFYING", settledAs);
 
-    await prisma.$transaction(async (tx) => {
-      await tx.documentVersion.update({
-        where: { id: version.id },
+    claimed = await prisma.$transaction(async (tx) => {
+      // The session first, as for a first upload: one completion wins it, and
+      // only the winner counts the bytes, records the version and swaps the
+      // file (PRD #29 §81, §263).
+      const claim = await tx.documentUploadSession.updateMany({
+        where: { id: session.id, status: session.status },
+        data: { status: "COMPLETED", completedAt: new Date(), reservedBytes: BigInt(0) },
+      });
+      if (claim.count === 0) return false;
+
+      const settled = await tx.documentVersion.updateMany({
+        where: { id: version.id, storageStatus: "VERIFYING" },
         data: {
-          storageStatus: scanNeeded ? "SCANNING" : "AVAILABLE",
+          storageStatus: settledAs,
           mimeTypeDetected: verified.detectedMimeType,
           checksumSha256: verified.checksum,
           sizeBytes: BigInt(metadata.sizeBytes),
@@ -858,10 +949,9 @@ async function completeVersionUpload(
           availableAt: scanNeeded ? null : new Date(),
         },
       });
-      await tx.documentUploadSession.update({
-        where: { id: session.id },
-        data: { status: "COMPLETED", completedAt: new Date(), reservedBytes: BigInt(0) },
-      });
+      // Nothing else moves a version out of VERIFYING while its session is
+      // open, and the session is this request's now.
+      if (settled.count === 0) throw new StorageError("INVALID_DOCUMENT_STORAGE_STATE");
       await quota.addUsage(tx, context.companyId, metadata.sizeBytes);
       if (!scanNeeded) {
         // Asked again at the swap itself: a revision submitted while the bytes
@@ -888,17 +978,8 @@ async function completeVersionUpload(
         },
         { tx },
       );
+      return true;
     });
-
-    if (scanNeeded) {
-      const { runScanForVersion } = await import("./scan.service");
-      await runScanForVersion(version.id).catch((error) => {
-        logger.warn("storage.scan.inline_failed", { documentId: session.documentId, error: error instanceof Error ? error.message : "unknown" });
-      });
-    }
-
-    const final = await prisma.documentVersion.findUnique({ where: { id: version.id }, select: { storageStatus: true } });
-    return { documentId: session.documentId, status: final?.storageStatus ?? "VERIFYING" };
   } catch (error) {
     const reason =
       error instanceof StorageError
@@ -906,20 +987,45 @@ async function completeVersionUpload(
         : error instanceof AccessError && error.reason === "STATE_DENIED"
           ? "ENGINEERING_FILE_FROZEN"
           : "STORAGE_PROVIDER_ERROR";
-    await provider.deleteObject(session.storageKey).catch(() => undefined);
-    await prisma.$transaction(async (tx) => {
+    // The session is claimed before anything is rejected or deleted, for the
+    // same reason as a first upload's: a completion that failed after another
+    // one won must leave the winner's version and its file alone.
+    const rejected = await prisma.$transaction(async (tx) => {
+      const claim = await tx.documentUploadSession.updateMany({
+        where: { id: session.id, status: session.status },
+        data: { status: "FAILED", failureReason: reason, reservedBytes: BigInt(0) },
+      });
+      if (claim.count === 0) return false;
       await tx.documentVersion.updateMany({
         where: { id: version.id, storageStatus: { in: ["VERIFYING", "UPLOADED", "PENDING_UPLOAD"] } },
         data: { storageStatus: "REJECTED", rejectionReason: reason },
       });
-      await tx.documentUploadSession.update({
-        where: { id: session.id },
-        data: { status: "FAILED", failureReason: reason, reservedBytes: BigInt(0) },
-      });
+      return true;
     });
-    logger.warn("storage.version_upload.rejected", { documentId: session.documentId, versionNumber: version.versionNumber, reason });
+    if (rejected) {
+      await provider.deleteObject(session.storageKey).catch(() => undefined);
+      logger.warn("storage.version_upload.rejected", { documentId: session.documentId, versionNumber: version.versionNumber, reason });
+    }
     throw error;
   }
+
+  if (!claimed) {
+    return { documentId: session.documentId, status: await sessionSettledElsewhere(session.id, () => versionStorageStatus(version.id)) };
+  }
+
+  if (scanNeeded) {
+    const { runScanForVersion } = await import("./scan.service");
+    await runScanForVersion(version.id).catch((error) => {
+      logger.warn("storage.scan.inline_failed", { documentId: session.documentId, error: error instanceof Error ? error.message : "unknown" });
+    });
+  }
+
+  return { documentId: session.documentId, status: await versionStorageStatus(version.id) };
+}
+
+async function versionStorageStatus(versionId: string): Promise<string> {
+  const row = await prisma.documentVersion.findUnique({ where: { id: versionId }, select: { storageStatus: true } });
+  return row?.storageStatus ?? "VERIFYING";
 }
 
 /* -------------------------------------------------------------------------- */

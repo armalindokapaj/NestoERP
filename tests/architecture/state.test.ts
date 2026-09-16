@@ -1,7 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
-import { actionsFrom, defineStateMachine, transitionFor } from "@/lib/core/state/machine";
+import type { Permission } from "@/config/permissions";
+import type { UserContext } from "@/lib/context/types";
+import { actionsFrom, canMove, defineStateMachine, permissionsOf, targetsOf, transitionFor } from "@/lib/core/state/machine";
+import { assertTransitionAllowed } from "@/lib/core/state/transition";
 import { STATE_MACHINES } from "@/lib/core/state/registry";
 import { MODEL_OWNER, domainOfFile } from "../../scripts/architecture/ownership";
 
@@ -21,7 +24,7 @@ describe("the state gate", () => {
 describe("every declared machine", () => {
   it.each(STATE_MACHINES.map((machine) => [machine.key, machine] as const))("%s names only states it declares", (_key, machine) => {
     for (const transition of machine.transitions) {
-      for (const state of [...transition.from, transition.to]) {
+      for (const state of [...transition.from, ...targetsOf(transition)]) {
         expect(machine.states).toContain(state);
       }
     }
@@ -32,7 +35,7 @@ describe("every declared machine", () => {
     // state the domain creates records in. A state nothing reaches and
     // nothing leaves is a state that should not be in the enum.
     for (const state of machine.states) {
-      const reachable = machine.transitions.some((transition) => transition.to === state);
+      const reachable = machine.transitions.some((transition) => targetsOf(transition).includes(state));
       const leavable = machine.transitions.some((transition) => transition.from.includes(state));
       expect(reachable || leavable, `${machine.key}: "${state}" is reached by nothing and leads nowhere`).toBe(true);
     }
@@ -81,6 +84,37 @@ describe("the machine contract", () => {
     ).toThrow(/defined twice/);
   });
 
+  it("refuses a transition that leads nowhere", () => {
+    expect(() =>
+      defineStateMachine<"A" | "B", "go">({
+        key: "probe", model: "probe", field: "status", states: ["A", "B"], terminal: [],
+        transitions: [{ action: "go", from: ["A"], to: [], permission: "task.create" }],
+      }),
+    ).toThrow(/leads nowhere/);
+  });
+
+  it("refuses a transition that names no permission", () => {
+    expect(() =>
+      defineStateMachine<"A" | "B", "go">({
+        key: "probe", model: "probe", field: "status", states: ["A", "B"], terminal: [],
+        transitions: [{ action: "go", from: ["A"], to: "B", permission: [] }],
+      }),
+    ).toThrow(/names no permission/);
+  });
+
+  it("answers the older from-to question from the machine", () => {
+    const machine = defineStateMachine<"A" | "B" | "C", "go" | "restore">({
+      key: "probe", model: "probe", field: "status", states: ["A", "B", "C"], terminal: [],
+      transitions: [
+        { action: "go", from: ["A"], to: "C", permission: "task.create" },
+        { action: "restore", from: ["C"], to: ["A", "B"], permission: "task.create" },
+      ],
+    });
+    expect(canMove(machine, "A", "C")).toBe(true);
+    expect(canMove(machine, "C", "B")).toBe(true);
+    expect(canMove(machine, "A", "B")).toBe(false);
+  });
+
   it("refuses a terminal state that something leads out of", () => {
     expect(() =>
       defineStateMachine<"A" | "B", "go">({
@@ -122,5 +156,71 @@ describe("the machines say what the code does", () => {
       // must sit in the owning domain.
       expect(domainOfFile(`lib/modules/${owner}/x.machine.ts`)).toBeTruthy();
     }
+  });
+});
+
+/**
+ * The transition matrix (PRD #49 §257-§259), walked for every registered
+ * machine rather than written out per domain, so a machine added tomorrow is
+ * covered by the same four questions the day it is registered: is the action
+ * allowed from each state it declares, refused from every other, refused to
+ * somebody without the permission, and refused without a reason it needs.
+ *
+ * Scope and staleness need a real row and live in
+ * tests/integration/transactions/transitions.test.ts.
+ */
+describe("the transition matrix", () => {
+  const holding = (permissions: readonly Permission[]) => ({ permissions }) as unknown as UserContext;
+
+  const cases = STATE_MACHINES.flatMap((machine) =>
+    machine.transitions.map((transition) => [`${machine.key}.${transition.action}`, machine, transition] as const),
+  );
+
+  it.each(cases)("%s is allowed from exactly the states it declares", (_name, machine, transition) => {
+    const actor = holding(permissionsOf(transition));
+    for (const state of machine.states) {
+      const attempt = () =>
+        assertTransitionAllowed(machine, { currentState: state, action: transition.action, context: actor, reason: "Matrix probe." });
+      if (transition.from.includes(state)) {
+        expect(attempt, `${machine.key}.${transition.action} from ${state}`).not.toThrow();
+      } else {
+        expect(attempt, `${machine.key}.${transition.action} from ${state}`).toThrow(
+          expect.objectContaining({ code: "CONFLICT", details: expect.objectContaining({ code: `${machine.key.toUpperCase()}_ILLEGAL_TRANSITION` }) }),
+        );
+      }
+    }
+  });
+
+  it.each(cases)("%s is refused to somebody holding none of its permissions", (_name, machine, transition) => {
+    const nobody = holding([]);
+    expect(() =>
+      assertTransitionAllowed(machine, { currentState: transition.from[0], action: transition.action, context: nobody, reason: "Matrix probe." }),
+    ).toThrow(expect.objectContaining({ code: "FORBIDDEN" }));
+  });
+
+  it.each(cases)("%s accepts each of its permissions on its own", (_name, machine, transition) => {
+    for (const permission of permissionsOf(transition)) {
+      expect(() =>
+        assertTransitionAllowed(machine, { currentState: transition.from[0], action: transition.action, context: holding([permission]), reason: "Matrix probe." }),
+      ).not.toThrow();
+    }
+  });
+
+  it.each(cases.filter(([, , transition]) => transition.requiresReason))("%s is refused without a reason", (_name, machine, transition) => {
+    for (const reason of [undefined, null, "", "   "]) {
+      expect(() =>
+        assertTransitionAllowed(machine, { currentState: transition.from[0], action: transition.action, context: holding(permissionsOf(transition)), reason }),
+      ).toThrow(/reason/i);
+    }
+  });
+
+  it.each(cases.filter(([, , transition]) => targetsOf(transition).length > 1))("%s refuses a destination it does not declare", (_name, machine, transition) => {
+    const elsewhere = machine.states.find((state) => !targetsOf(transition).includes(state));
+    if (!elsewhere) return;
+    expect(() =>
+      assertTransitionAllowed(machine, {
+        currentState: transition.from[0], action: transition.action, context: holding(permissionsOf(transition)), reason: "Matrix probe.", to: elsewhere,
+      }),
+    ).toThrow(/does not lead to/);
   });
 });

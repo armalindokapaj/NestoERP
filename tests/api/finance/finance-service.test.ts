@@ -1013,3 +1013,112 @@ describe("overview and reports (PRD #15 §360, §361)", () => {
     );
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* Transitions (PRD #49 §64, §236)                                             */
+/* -------------------------------------------------------------------------- */
+
+describe("finance transitions bind the status they were read in (PRD #49 §64)", () => {
+  it("archives a draft invoice and restores it to draft", async () => {
+    const finance = await loginAs("FINANCE");
+    const owner = await loginAs("OWNER");
+    const invoice = await invoices.createInvoice(finance, invoiceInput());
+    createdInvoices.push(invoice.id);
+
+    await invoices.archiveInvoice(owner, invoice.id);
+    const archived = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+    expect(archived.status).toBe("ARCHIVED");
+    expect(archived.preArchiveStatus).toBe("DRAFT");
+
+    await invoices.restoreInvoice(owner, invoice.id);
+    const restored = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+    expect(restored.status).toBe("DRAFT");
+    expect(restored.preArchiveStatus).toBeNull();
+    expect(restored.archivedAt).toBeNull();
+  });
+
+  it("restores a cancelled expense to cancelled, not to draft (PRD #15 §102)", async () => {
+    const finance = await loginAs("FINANCE");
+    const owner = await loginAs("OWNER");
+    const expense = await expenses.createExpense(
+      finance,
+      createExpenseSchema.parse({
+        projectId: "project_a",
+        expenseDate: "2026-03-01",
+        category: "MATERIALS",
+        description: "Restore target fixture",
+        currency: "EUR",
+        netAmount: "10",
+        taxAmount: "0",
+      }),
+    );
+    createdExpenses.push(expense.id);
+
+    await expenses.cancelExpense(owner, expense.id);
+    await expenses.archiveExpense(owner, expense.id);
+    await expenses.restoreExpense(owner, expense.id);
+
+    const row = await prisma.expense.findUniqueOrThrow({ where: { id: expense.id } });
+    expect(row.status).toBe("CANCELLED");
+  });
+
+  it("lets only one of two simultaneous cancellations through", async () => {
+    const finance = await loginAs("FINANCE");
+    const owner = await loginAs("OWNER");
+    const invoice = await invoices.createInvoice(finance, invoiceInput());
+    createdInvoices.push(invoice.id);
+
+    const results = await Promise.allSettled([
+      invoices.cancelInvoice(owner, invoice.id),
+      invoices.cancelInvoice(owner, invoice.id),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const refused = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    expect(refused?.reason).toBeInstanceOf(AccessError);
+    expect((refused?.reason as AccessError).code).toBe("CONFLICT");
+  });
+
+  it("settles a second mark-sent without moving the date the invoice went out", async () => {
+    const finance = await loginAs("FINANCE");
+    const owner = await loginAs("OWNER");
+    const invoice = await invoices.createInvoice(finance, invoiceInput());
+    createdInvoices.push(invoice.id);
+
+    await invoices.submitInvoice(finance, invoice.id);
+    await invoices.approveInvoice(owner, invoice.id, null);
+    await invoices.markInvoiceSent(owner, invoice.id);
+    const first = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+
+    await invoices.markInvoiceSent(owner, invoice.id);
+    const second = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+
+    expect(second.status).toBe("SENT");
+    expect(second.sentAt).toEqual(first.sentAt);
+  });
+
+  it("closes a commitment once, however often it is asked (PRD #15 §134)", async () => {
+    const owner = await loginAs("OWNER");
+    const commitment = await commitments.createCommitment(
+      owner,
+      createCommitmentSchema.parse({
+        projectId: "project_a",
+        description: "Close replay fixture",
+        category: "SERVICES",
+        currency: "EUR",
+        amount: "10",
+      }),
+    );
+    createdCommitments.push(commitment.id);
+
+    await commitments.submitCommitment(owner, commitment.id);
+    await commitments.approveCommitment(owner, commitment.id, null);
+    await commitments.closeCommitment(owner, commitment.id);
+    await commitments.closeCommitment(owner, commitment.id);
+
+    const closings = await prisma.activity.count({
+      where: { entityId: commitment.id, action: "FINANCE_COMMITMENT_CLOSED" },
+    });
+    expect(closings).toBe(1);
+  });
+});

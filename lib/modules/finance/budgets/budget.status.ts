@@ -1,24 +1,37 @@
 import type { BudgetStatus } from "@prisma/client";
 
+import { canMove, transitionFor } from "@/lib/core/state/machine";
+import { projectBudgetMachine, type ProjectBudgetTransitionAction } from "./budget.machine";
+
+/** The statuses an action on the budget machine is legal from. */
+function legalFrom(action: ProjectBudgetTransitionAction): BudgetStatus[] {
+  return [...transitionFor(projectBudgetMachine, action)!.from];
+}
+
 /**
- * Budget workflow transitions (PRD #15 §247).
+ * The workflow, without archive and restore (PRD #15 §247).
  *
- * An approved budget has no outgoing transition at all: it is never edited and
- * never re-approved. The only way forward is a revision, which is a new version
- * rather than a change to this one (PRD #15 §111, §115).
+ * Both are actions on the machine, but neither is a step in the workflow:
+ * archiving has its own guard, and restore reads `preArchiveStatus` rather than
+ * picking a status to land on.
  */
-const TRANSITIONS: Record<BudgetStatus, BudgetStatus[]> = {
-  DRAFT: ["PENDING_APPROVAL"],
-  // DRAFT: returned for revision (PRD #41 §48).
-  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT"],
-  APPROVED: [],
-  REJECTED: ["DRAFT", "PENDING_APPROVAL"],
-  ARCHIVED: [],
+const WORKFLOW = {
+  ...projectBudgetMachine,
+  transitions: projectBudgetMachine.transitions.filter((transition) => transition.action !== "archive" && transition.action !== "restore"),
 };
 
+/**
+ * Whether the workflow moves a budget from one status to another, answered
+ * from `projectBudgetMachine` so there is one table rather than two that can
+ * drift. A status counts as moving to itself, as it always has here.
+ *
+ * An approved budget has no outgoing transition at all: the only way forward
+ * is a revision, which is a new version rather than a change to this one
+ * (PRD #15 §111, §115).
+ */
 export function canTransitionBudget(from: BudgetStatus, to: BudgetStatus): boolean {
   if (from === to) return true;
-  return TRANSITIONS[from].includes(to);
+  return canMove(WORKFLOW, from, to);
 }
 
 export const EDITABLE_BUDGET_STATUSES: BudgetStatus[] = ["DRAFT", "REJECTED"];
@@ -27,8 +40,10 @@ export function isBudgetEditable(status: BudgetStatus): boolean {
   return EDITABLE_BUDGET_STATUSES.includes(status);
 }
 
+const SUBMITTABLE_BUDGET_STATUSES = legalFrom("submit");
+
 export function isBudgetSubmittable(status: BudgetStatus): boolean {
-  return status === "DRAFT" || status === "REJECTED";
+  return SUBMITTABLE_BUDGET_STATUSES.includes(status);
 }
 
 /**
@@ -37,7 +52,7 @@ export function isBudgetSubmittable(status: BudgetStatus): boolean {
  * It is the denominator of every variance figure on the project; archiving it
  * would leave those numbers divided by nothing.
  */
-export const ARCHIVABLE_BUDGET_STATUSES: BudgetStatus[] = ["DRAFT", "REJECTED"];
+export const ARCHIVABLE_BUDGET_STATUSES: BudgetStatus[] = legalFrom("archive");
 
 export function isBudgetArchivable(budget: { status: BudgetStatus; isCurrent: boolean }): boolean {
   if (budget.isCurrent) return false;

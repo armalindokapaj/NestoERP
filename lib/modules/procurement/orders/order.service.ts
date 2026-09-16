@@ -1,4 +1,5 @@
 import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { applyTransition } from "@/lib/core/state/transition";
 import { Prisma, type PurchaseOrderStatus } from "@prisma/client";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
 import { linkIntegration } from "@/lib/core/integrations/integration.service";
@@ -47,6 +48,7 @@ import type {
   OrderSummaryDTO,
 } from "../procurement.types";
 import { refreshSourcingState } from "../requests/request.service";
+import { purchaseOrderMachine } from "./order.machine";
 
 /**
  * Purchase orders (PRD #19 §95–§131).
@@ -758,7 +760,14 @@ export async function submitOrder(context: UserContext, orderId: string): Promis
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, existing, "PENDING_APPROVAL", { submittedAt: new Date() });
+    await applyTransition(tx, {
+      machine: purchaseOrderMachine,
+      action: "submit",
+      id: orderId,
+      context,
+      from: existing.status,
+      data: { submittedAt: new Date() },
+    });
     await approvals.openApproval(tx, context, "PURCHASE_ORDER", orderId, { steps: chain.steps });
 
     await recordActivity(tx, context, {
@@ -813,12 +822,22 @@ export async function approveOrder(
       approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
     }
 
-    await moveStatus(tx, existing, "APPROVED", {
-      approvedAt: new Date(),
-      approvedByMemberId: context.membershipId,
-      rejectedAt: null,
-      rejectedByMemberId: null,
-      rejectionReason: null,
+    // In a chain the last step's holder concludes it, and may hold the step
+    // rather than the order permission; the settled step is what says so.
+    await applyTransition(tx, {
+      machine: purchaseOrderMachine,
+      action: "approve",
+      id: orderId,
+      context,
+      from: existing.status,
+      approvalStepId: actionable?.step.id,
+      data: {
+        approvedAt: new Date(),
+        approvedByMemberId: context.membershipId,
+        rejectedAt: null,
+        rejectedByMemberId: null,
+        rejectionReason: null,
+      },
     });
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note, {
       step: actionable?.step.stepNumber,
@@ -883,13 +902,29 @@ async function endOrderApproval(
     }
 
     if (outcome === "REJECTED") {
-      await moveStatus(tx, existing, "REJECTED", {
-        rejectedAt: new Date(),
-        rejectedByMemberId: context.membershipId,
-        rejectionReason: reason,
+      await applyTransition(tx, {
+        machine: purchaseOrderMachine,
+        action: "reject",
+        id: orderId,
+        context,
+        from: existing.status,
+        approvalStepId: actionable?.step.id,
+        data: {
+          rejectedAt: new Date(),
+          rejectedByMemberId: context.membershipId,
+          rejectionReason: reason,
+        },
       });
     } else {
-      await moveStatus(tx, existing, "DRAFT", { submittedAt: null });
+      await applyTransition(tx, {
+        machine: purchaseOrderMachine,
+        action: "return",
+        id: orderId,
+        context,
+        from: existing.status,
+        approvalStepId: actionable?.step.id,
+        data: { submittedAt: null },
+      });
     }
     await approvals.decideApproval(tx, context, approval.id, outcome, reason, {
       step: actionable?.step.stepNumber,
@@ -913,7 +948,14 @@ export async function issueOrder(context: UserContext, orderId: string): Promise
   const existing = await loadForWrite(context, orderId);
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, existing, "ISSUED", { issuedAt: new Date() });
+    await applyTransition(tx, {
+      machine: purchaseOrderMachine,
+      action: "issue",
+      id: orderId,
+      context,
+      from: existing.status,
+      data: { issuedAt: new Date() },
+    });
 
     if (existing.purchaseRequestId) {
       await refreshSourcingState(tx, context, existing.purchaseRequestId);
@@ -958,7 +1000,14 @@ export async function cancelOrder(
   }
 
   await runInTransaction("procurement.order.cancel", async (tx) => {
-    await moveStatus(tx, existing, "CANCELLED", { cancelledAt: new Date() });
+    await applyTransition(tx, {
+      machine: purchaseOrderMachine,
+      action: "cancel",
+      id: orderId,
+      context,
+      from: existing.status,
+      data: { cancelledAt: new Date() },
+    });
     await approvals.cancelPendingApprovals(tx, context, "PURCHASE_ORDER", orderId);
 
     // The money is no longer committed (PRD #19 §128). Finance owns the row,
@@ -999,7 +1048,14 @@ export async function closeOrder(
   }
 
   await runInTransaction("procurement.order.close", async (tx) => {
-    await moveStatus(tx, existing, "CLOSED", { closedAt: new Date() });
+    await applyTransition(tx, {
+      machine: purchaseOrderMachine,
+      action: "close",
+      id: orderId,
+      context,
+      from: existing.status,
+      data: { closedAt: new Date() },
+    });
 
     await settleCommitmentForSource(tx, context, commitmentSource(orderId), "CLOSED");
 
@@ -1032,11 +1088,14 @@ export async function archiveOrder(context: UserContext, orderId: string): Promi
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.purchaseOrder.update({
-      where: { id: orderId },
+    await applyTransition(tx, {
+      machine: purchaseOrderMachine,
+      action: "archive",
+      id: orderId,
+      context,
+      from: existing.status,
       data: {
         preArchiveStatus: existing.status,
-        status: "ARCHIVED",
         archivedAt: new Date(),
         archivedByMemberId: context.membershipId,
       },
@@ -1060,10 +1119,16 @@ export async function restoreOrder(context: UserContext, orderId: string): Promi
   if (!existing.archivedAt) return;
 
   await prisma.$transaction(async (tx) => {
-    await tx.purchaseOrder.update({
-      where: { id: orderId },
+    // Returns the status it held before, not a guess: leaving the archive is
+    // not a lifecycle decision.
+    await applyTransition(tx, {
+      machine: purchaseOrderMachine,
+      action: "restore",
+      id: orderId,
+      context,
+      from: existing.status,
+      to: existing.preArchiveStatus ?? "DRAFT",
       data: {
-        status: existing.preArchiveStatus ?? "DRAFT",
         preArchiveStatus: null,
         archivedAt: null,
         archivedByMemberId: null,
@@ -1195,7 +1260,16 @@ export async function refreshReceiptState(
   const next = fraction <= 0 ? "ISSUED" : fraction >= 1 ? "RECEIVED" : "PARTIALLY_RECEIVED";
 
   if (next !== order.status) {
-    await tx.purchaseOrder.update({ where: { id: orderId }, data: { status: next } });
+    // Bound to the status read here: a receipt booked or voided underneath this
+    // one re-derived the order itself, and is not written over.
+    await applyTransition(tx, {
+      machine: purchaseOrderMachine,
+      action: "reconcile_receipts",
+      id: orderId,
+      context,
+      from: order.status,
+      to: next,
+    });
   }
 
   if (order.purchaseRequestId) {
@@ -1256,34 +1330,6 @@ async function loadForWrite(context: UserContext, orderId: string): Promise<Writ
       },
     }),
   );
-}
-
-async function moveStatus(
-  tx: Prisma.TransactionClient,
-  existing: WriteRow,
-  to: PurchaseOrderStatus,
-  extra: Prisma.PurchaseOrderUpdateManyMutationInput,
-): Promise<void> {
-  if (!canTransitionOrderStatus(existing.status, to)) {
-    throw new AccessError(
-      "CONFLICT",
-      `A ${existing.status.toLowerCase().replace(/_/g, " ")} order cannot move to ${to
-        .toLowerCase()
-        .replace(/_/g, " ")}.`,
-      { code: "INVALID_TRANSITION" },
-    );
-  }
-
-  const result = await tx.purchaseOrder.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: { ...extra, status: to },
-  });
-
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "Somebody else moved this order. Reload and try again.", {
-      code: "STALE_RECORD",
-    });
-  }
 }
 
 function assertNotStale(sent: Date | undefined, actual: Date): void {

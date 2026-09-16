@@ -59,9 +59,55 @@ A record can pass the first and fail the second.
 Pass `idempotent: true` where a replayed action should settle rather than raise
 — publish, close, void. It returns `ALREADY_THERE` and writes nothing twice.
 
+### Three things a transition can say beyond the simple case
+
+**Several permissions, any one of which will do.** An invoice is approved by
+somebody holding `finance.invoice.approve` or the module-wide
+`finance.approval.decide`; the transition lists both rather than naming one
+and leaving the other to an `if` the table cannot see.
+
+**Several destinations, when the record decides which.** Restoring from the
+archive returns to whatever the record held before; a goods receipt leaves an
+order partly or wholly received. The transition declares every state it may
+lead to, the service works out which from the record and passes it as `to`,
+and `applyTransition` refuses one the table does not list. The client never
+names it (§62).
+
+```ts
+await applyTransition(tx, {
+  machine: purchaseOrderMachine,
+  action: "restore",
+  id: orderId,
+  context,
+  from: "ARCHIVED",
+  to: existing.preArchiveStatus ?? "DRAFT",   // one of the declared targets
+  data: { preArchiveStatus: null, archivedAt: null },
+});
+```
+
+**An approval chain can conclude it.** In a chain (PRD #41 §21) whoever holds
+the current step decides — by name, by role, or standing in for either under
+a delegation — and may not hold the record's own approve permission at all. A
+transition that a chain can conclude declares `concludedByApprovalStep`, and
+the service passes the step it just settled as `approvalStepId`.
+`applyTransition` then checks that step, in the same transaction, was decided
+by this actor: an id is a claim the database checks, not a switch that turns
+the permission off. A transition that does not declare it refuses a step.
+
 ## What is declared
 
-### `hse_inspection` — `hseInspection.status`
+Thirty-nine machines over 199 transitions: HSE and QA/QC, where this began,
+and the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
+their own — Documents, Finance, Procurement, Inventory, Legal and
+Engineering. The tables below are generated
+from `lib/core/state/registry.ts` by `scripts/architecture/state-docs.ts`; an
+edit belongs in the machine, and the table is regenerated from it.
+
+### HSE
+
+5 machines.
+
+#### `hse_inspection` — `hseInspection.status`
 
 States: `DRAFT`, `SCHEDULED`, `IN_PROGRESS`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `CLOSED`, `CANCELLED`
 Terminal: `CLOSED`, `CANCELLED`
@@ -75,7 +121,7 @@ Terminal: `CLOSED`, `CANCELLED`
 | `close` | `APPROVED` | `CLOSED` | `hse.inspection.close` | — | the whole inspection |
 | `cancel` | `DRAFT`, `SCHEDULED`, `IN_PROGRESS` | `CANCELLED` | `hse.inspection.cancel` | — | — |
 
-### `hse_permit` — `hseWorkPermit.status`
+#### `hse_permit` — `hseWorkPermit.status`
 
 States: `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `ACTIVE`, `SUSPENDED`, `EXPIRED`, `CLOSED`, `CANCELLED`
 Terminal: `CLOSED`, `CANCELLED`
@@ -90,7 +136,7 @@ Terminal: `CLOSED`, `CANCELLED`
 | `close` | `ACTIVE`, `SUSPENDED`, `EXPIRED` | `CLOSED` | `hse.permit.close` | — | the whole permit |
 | `cancel` | `DRAFT`, `PENDING_APPROVAL`, `APPROVED` | `CANCELLED` | `hse.permit.cancel` | — | — |
 
-### `hse_action` — `hseAction.status`
+#### `hse_action` — `hseAction.status`
 
 States: `OPEN`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `VERIFIED`, `REJECTED`, `CANCELLED`, `REOPENED`
 Terminal: `CANCELLED`
@@ -104,7 +150,7 @@ Terminal: `CANCELLED`
 | `reopen` | `VERIFIED` | `REOPENED` | `hse.action.reopen` | required | — |
 | `cancel` | `OPEN`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `REJECTED`, `REOPENED` | `CANCELLED` | `hse.action.cancel` | — | — |
 
-### `hse_incident` — `hseIncident.status`
+#### `hse_incident` — `hseIncident.status`
 
 States: `OPEN`, `UNDER_INVESTIGATION`, `ACTIONS_OPEN`, `PENDING_CLOSE`, `CLOSED`, `CANCELLED`, `REOPENED`
 Terminal: `CANCELLED`
@@ -117,7 +163,7 @@ Terminal: `CANCELLED`
 | `reopen` | `CLOSED` | `REOPENED` | `hse.incident.reopen` | required | — |
 | `cancel` | `OPEN`, `UNDER_INVESTIGATION`, `ACTIONS_OPEN`, `PENDING_CLOSE`, `REOPENED` | `CANCELLED` | `hse.incident.cancel` | — | — |
 
-### `hse_hazard` — `hseHazard.status`
+#### `hse_hazard` — `hseHazard.status`
 
 States: `OPEN`, `CONTROLLED`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `CLOSED`, `CANCELLED`, `REOPENED`
 Terminal: `CANCELLED`
@@ -130,7 +176,11 @@ Terminal: `CANCELLED`
 | `reopen` | `CLOSED` | `REOPENED` | `hse.hazard.reopen` | required | — |
 | `cancel` | `OPEN`, `CONTROLLED`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `REOPENED` | `CANCELLED` | `hse.hazard.cancel` | — | — |
 
-### `quality_inspection` — `qualityInspection.status`
+### QA/QC
+
+2 machines.
+
+#### `quality_inspection` — `qualityInspection.status`
 
 States: `DRAFT`, `IN_PROGRESS`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `CLOSED`, `CANCELLED`
 Terminal: `CANCELLED`
@@ -146,7 +196,7 @@ Terminal: `CANCELLED`
 | `reopen` | `CLOSED` | `APPROVED` | `qaqc.inspection.reopen` | — | — |
 | `cancel` | `DRAFT`, `IN_PROGRESS` | `CANCELLED` | `qaqc.inspection.cancel` | — | — |
 
-### `corrective_action` — `correctiveAction.status`
+#### `corrective_action` — `correctiveAction.status`
 
 States: `OPEN`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `VERIFIED`, `REJECTED`, `CANCELLED`, `REOPENED`
 Terminal: `CANCELLED`
@@ -160,24 +210,500 @@ Terminal: `CANCELLED`
 | `reopen` | `VERIFIED` | `REOPENED` | `qaqc.corrective_action.reopen` | required | — |
 | `cancel` | `OPEN`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `REJECTED`, `REOPENED` | `CANCELLED` | `qaqc.corrective_action.cancel` | — | — |
 
-## What is not declared yet
+### Documents
 
-Seven machines cover the two domains where a lost transition matters most —
-safety and quality records, where the register is the evidence that something
-was dealt with. Every other domain still transitions through its own service.
+3 machines.
 
-That is held, not ignored. `pnpm verify:state` counts every write to a state
-column that does not name a state column in its `where`, per file, against
-`scripts/architecture/blind-state-writes.baseline.json`. The count may fall and
-never rise: a new blind write fails CI, and a domain converted to a machine
-ratchets its own entry down. The baseline is the backlog, in the order the
-files appear in it.
+#### `document` — `document.status`
 
-Several domains were already guarded before any of this and needed nothing:
-procurement's purchase orders bind `status: existing.status` in `moveStatus`,
-daily logs bind both the status and the row version, and the document storage
-worker binds `storageStatus` before writing `scanStatus`. Those are the shape
-the machine generalises, not exceptions to it.
+States: `ACTIVE`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `archive` | `ACTIVE` | `ARCHIVED` | `document.archive` | — | its details, its file and its reviews, until it is restored |
+| `restore` | `ARCHIVED` | `ACTIVE` | `document.restore` | — | — |
+
+#### `document_version_review` — `documentVersion.reviewState`
+
+States: `DRAFT`, `IN_REVIEW`, `APPROVED`, `REJECTED`, `SUPERSEDED`
+Terminal: `SUPERSEDED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `request` | `DRAFT`, `IN_REVIEW`, `REJECTED` | `IN_REVIEW` | `document.review.request` | — | — |
+| `approve` | `IN_REVIEW` | `APPROVED` | `document.review.decide` | — | its review: an approved version is not sent round again |
+| `reject` | `IN_REVIEW` | `REJECTED` | `document.review.decide` | — | — |
+| `supersede` | `APPROVED` | `SUPERSEDED` | `document.review.decide` | — | — |
+
+#### `document_review` — `documentReview.status`
+
+States: `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`
+Terminal: `APPROVED`, `REJECTED`, `CANCELLED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `approve` | `PENDING` | `APPROVED` | `document.review.decide` | — | — |
+| `reject` | `PENDING` | `REJECTED` | `document.review.decide` | required | — |
+| `cancel` | `PENDING` | `CANCELLED` | `document.review.decide` | — | — |
+
+### Finance
+
+5 machines.
+
+#### `invoice` — `invoice.status`
+
+States: `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `SENT`, `CANCELLED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `REJECTED` | `PENDING_APPROVAL` | `finance.invoice.submit` | — | — |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` | `finance.approval.decide` or `finance.invoice.approve` | — | the client, project, dates, currency and lines |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `finance.approval.decide` or `finance.invoice.reject` | required | — |
+| `return` | `PENDING_APPROVAL` | `DRAFT` | `finance.approval.decide` or `finance.invoice.reject` | required | — |
+| `mark_sent` | `APPROVED` | `SENT` | `finance.invoice.mark_sent` | — | — |
+| `cancel` | `DRAFT`, `REJECTED`, `APPROVED`, `SENT` | `CANCELLED` | `finance.invoice.cancel` | — | — |
+| `archive` | `DRAFT`, `REJECTED`, `CANCELLED` | `ARCHIVED` | `finance.invoice.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `REJECTED` or `CANCELLED` | `finance.invoice.restore` | — | — |
+
+#### `expense` — `expense.status`
+
+States: `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `CANCELLED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `REJECTED` | `PENDING_APPROVAL` | `finance.expense.submit` | — | — |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` | `finance.approval.decide` or `finance.expense.approve` | — | the whole expense |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `finance.approval.decide` or `finance.expense.reject` | required | — |
+| `return` | `PENDING_APPROVAL` | `DRAFT` | `finance.approval.decide` or `finance.expense.reject` | required | — |
+| `cancel` | `DRAFT`, `REJECTED`, `APPROVED` | `CANCELLED` | `finance.expense.cancel` | — | — |
+| `archive` | `DRAFT`, `REJECTED`, `CANCELLED` | `ARCHIVED` | `finance.expense.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `REJECTED` or `CANCELLED` | `finance.expense.restore` | — | — |
+
+#### `payment` — `payment.status`
+
+States: `RECORDED`, `VOIDED`
+Terminal: `VOIDED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `void` | `RECORDED` | `VOIDED` | `finance.payment.void` | required | the whole payment |
+
+#### `project_budget` — `projectBudget.status`
+
+States: `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `ARCHIVED`
+Terminal: `APPROVED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `REJECTED` | `PENDING_APPROVAL` | `finance.budget.submit` | — | — |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` | `finance.approval.decide` or `finance.budget.approve` | — | the whole version — a change is the next version |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `finance.approval.decide` or `finance.budget.reject` | required | — |
+| `return` | `PENDING_APPROVAL` | `DRAFT` | `finance.approval.decide` or `finance.budget.reject` | required | — |
+| `archive` | `DRAFT`, `REJECTED` | `ARCHIVED` | `finance.budget.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `REJECTED` | `finance.budget.restore` | — | — |
+
+#### `commitment` — `commitment.status`
+
+States: `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `CLOSED`, `CANCELLED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `REJECTED` | `PENDING_APPROVAL` | `finance.commitment.submit` | — | — |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` | `finance.approval.decide` or `finance.commitment.approve` | — | — |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `finance.approval.decide` or `finance.commitment.reject` | required | — |
+| `return` | `PENDING_APPROVAL` | `DRAFT` | `finance.approval.decide` or `finance.commitment.reject` | required | — |
+| `close` | `APPROVED` | `CLOSED` | `finance.commitment.close` | — | — |
+| `cancel` | `DRAFT`, `REJECTED`, `APPROVED` | `CANCELLED` | `finance.commitment.cancel` | — | — |
+| `archive` | `DRAFT`, `REJECTED`, `CANCELLED`, `CLOSED` | `ARCHIVED` | `finance.commitment.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `REJECTED` or `CANCELLED` or `CLOSED` | `finance.commitment.restore` | — | — |
+
+### Procurement
+
+6 machines.
+
+#### `purchase_request` — `purchaseRequest.status`
+
+States: `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `IN_SOURCING`, `PARTIALLY_ORDERED`, `ORDERED`, `COMPLETED`, `CANCELLED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `REJECTED` | `PENDING_APPROVAL` | `procurement.request.submit` | — | — |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` | `procurement.request.approve` | — | the lines asked for |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `procurement.request.reject` | — | — |
+| `return` | `PENDING_APPROVAL` | `DRAFT` | `procurement.request.reject` | — | — |
+| `start_sourcing` | `APPROVED` | `IN_SOURCING` | `procurement.rfq.create` | — | — |
+| `partially_order` | `IN_SOURCING` | `PARTIALLY_ORDERED` | `procurement.order.issue` or `procurement.order.cancel` or `procurement.order.close` or `procurement.receipt.create` or `procurement.receipt.void` | — | — |
+| `order` | `IN_SOURCING`, `PARTIALLY_ORDERED` | `ORDERED` | `procurement.order.issue` or `procurement.order.cancel` or `procurement.order.close` or `procurement.receipt.create` or `procurement.receipt.void` | — | — |
+| `complete` | `ORDERED` | `COMPLETED` | `procurement.order.issue` or `procurement.order.cancel` or `procurement.order.close` or `procurement.receipt.create` or `procurement.receipt.void` | — | — |
+| `cancel` | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `IN_SOURCING`, `PARTIALLY_ORDERED` | `CANCELLED` | `procurement.request.cancel` | — | — |
+| `archive` | `DRAFT`, `CANCELLED`, `COMPLETED` | `ARCHIVED` | `procurement.request.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `CANCELLED` or `COMPLETED` | `procurement.request.restore` | — | — |
+
+#### `rfq` — `rFQ.status`
+
+States: `DRAFT`, `ISSUED`, `CLOSED`, `CANCELLED`
+Terminal: `CLOSED`, `CANCELLED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `issue` | `DRAFT` | `ISSUED` | `procurement.rfq.issue` | — | the lines suppliers are asked to price |
+| `close` | `ISSUED` | `CLOSED` | `procurement.rfq.close` | — | — |
+| `cancel` | `DRAFT`, `ISSUED` | `CANCELLED` | `procurement.rfq.cancel` | — | — |
+
+#### `supplier_quote` — `supplierQuote.status`
+
+States: `DRAFT`, `RECEIVED`, `DISQUALIFIED`, `SELECTED`, `NOT_SELECTED`
+Terminal: `DISQUALIFIED`, `SELECTED`, `NOT_SELECTED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `disqualify` | `DRAFT`, `RECEIVED` | `DISQUALIFIED` | `procurement.quote.disqualify` | — | the quote as answered |
+| `select` | `RECEIVED` | `SELECTED` | `procurement.quote.select` | — | the quote as answered |
+| `pass_over` | `RECEIVED` | `NOT_SELECTED` | `procurement.quote.select` | — | the quote as answered |
+
+#### `purchase_order` — `purchaseOrder.status`
+
+States: `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `ISSUED`, `PARTIALLY_RECEIVED`, `RECEIVED`, `CLOSED`, `CANCELLED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `REJECTED` | `PENDING_APPROVAL` | `procurement.order.submit` | — | — |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` | `procurement.order.approve`, or the approval step's approver | — | the lines and the amount committed |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `procurement.order.reject`, or the approval step's approver | — | — |
+| `return` | `PENDING_APPROVAL` | `DRAFT` | `procurement.order.reject`, or the approval step's approver | — | — |
+| `issue` | `APPROVED` | `ISSUED` | `procurement.order.issue` | — | — |
+| `reconcile_receipts` | `ISSUED`, `PARTIALLY_RECEIVED`, `RECEIVED` | `ISSUED` or `PARTIALLY_RECEIVED` or `RECEIVED` | `procurement.receipt.create` or `procurement.receipt.void` | — | — |
+| `cancel` | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `ISSUED` | `CANCELLED` | `procurement.order.cancel` | — | — |
+| `close` | `PARTIALLY_RECEIVED`, `RECEIVED` | `CLOSED` | `procurement.order.close` | — | — |
+| `archive` | `DRAFT`, `CLOSED`, `CANCELLED` | `ARCHIVED` | `procurement.order.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `CLOSED` or `CANCELLED` | `procurement.order.restore` | — | — |
+
+#### `goods_receipt` — `goodsReceipt.status`
+
+States: `RECORDED`, `VOIDED`
+Terminal: `VOIDED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `void` | `RECORDED` | `VOIDED` | `procurement.receipt.void` | — | — |
+
+#### `supplier` — `supplier.status`
+
+States: `ACTIVE`, `INACTIVE`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `activate` | `INACTIVE` | `ACTIVE` | `procurement.supplier.update` | — | — |
+| `deactivate` | `ACTIVE` | `INACTIVE` | `procurement.supplier.update` | — | — |
+| `archive` | `ACTIVE`, `INACTIVE` | `ARCHIVED` | `procurement.supplier.archive` | — | — |
+| `restore` | `ARCHIVED` | `INACTIVE` | `procurement.supplier.restore` | — | — |
+
+### Inventory
+
+9 machines.
+
+#### `inventory_receipt` — `inventoryReceipt.status`
+
+States: `DRAFT`, `POSTED`, `CANCELLED`, `REVERSED`
+Terminal: `CANCELLED`, `REVERSED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `post` | `DRAFT` | `POSTED` | `inventory.receipt.post` | — | its lines, and the movements they posted |
+| `cancel` | `DRAFT` | `CANCELLED` | `inventory.receipt.create` | — | the whole draft |
+| `reverse` | `POSTED` | `REVERSED` | `inventory.receipt.reverse` | — | — |
+
+#### `stock_issue` — `stockIssue.status`
+
+States: `DRAFT`, `POSTED`, `CANCELLED`, `REVERSED`
+Terminal: `CANCELLED`, `REVERSED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `post` | `DRAFT` | `POSTED` | `inventory.issue.post` | — | its lines, and the movements they posted |
+| `cancel` | `DRAFT` | `CANCELLED` | `inventory.issue.cancel` | — | the whole draft |
+| `reverse` | `POSTED` | `REVERSED` | `inventory.issue.reverse` | — | — |
+
+#### `stock_return` — `stockReturn.status`
+
+States: `DRAFT`, `POSTED`, `CANCELLED`
+Terminal: `POSTED`, `CANCELLED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `post` | `DRAFT` | `POSTED` | `inventory.return.post` | — | its lines, and the movements they posted |
+| `cancel` | `DRAFT` | `CANCELLED` | `inventory.return.create` | — | the whole draft |
+
+#### `stock_transfer` — `stockTransfer.status`
+
+States: `DRAFT`, `POSTED`, `CANCELLED`, `REVERSED`
+Terminal: `CANCELLED`, `REVERSED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `post` | `DRAFT` | `POSTED` | `inventory.transfer.post` | — | its lines, and the movements they posted |
+| `cancel` | `DRAFT` | `CANCELLED` | `inventory.transfer.cancel` | — | the whole draft |
+| `reverse` | `POSTED` | `REVERSED` | `inventory.transfer.reverse` | — | — |
+
+#### `stock_adjustment` — `stockAdjustment.status`
+
+States: `DRAFT`, `POSTED`, `CANCELLED`, `REVERSED`
+Terminal: `CANCELLED`, `REVERSED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `post` | `DRAFT` | `POSTED` | `inventory.adjustment.post` | — | its lines, and the movements they posted |
+| `cancel` | `DRAFT` | `CANCELLED` | `inventory.adjustment.cancel` | — | the whole draft |
+| `reverse` | `POSTED` | `REVERSED` | `inventory.adjustment.reverse` | — | — |
+
+#### `stock_reservation` — `stockReservation.status`
+
+States: `ACTIVE`, `PARTIALLY_FULFILLED`, `FULFILLED`, `RELEASED`, `CANCELLED`, `EXPIRED`
+Terminal: `FULFILLED`, `RELEASED`, `CANCELLED`, `EXPIRED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `release` | `ACTIVE`, `PARTIALLY_FULFILLED` | `RELEASED` | `inventory.reservation.release` | — | — |
+| `cancel` | `ACTIVE`, `PARTIALLY_FULFILLED` | `CANCELLED` | `inventory.reservation.cancel` | — | — |
+| `expire` | `ACTIVE`, `PARTIALLY_FULFILLED` | `EXPIRED` | `inventory.reservation.release` | — | — |
+| `fulfill` | `ACTIVE`, `PARTIALLY_FULFILLED` | `PARTIALLY_FULFILLED` or `FULFILLED` | `inventory.issue.post` | — | — |
+
+#### `inventory_item` — `inventoryItem.status`
+
+States: `ACTIVE`, `INACTIVE`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `activate` | `INACTIVE` | `ACTIVE` | `inventory.item.update` | — | — |
+| `deactivate` | `ACTIVE` | `INACTIVE` | `inventory.item.update` | — | — |
+| `archive` | `ACTIVE`, `INACTIVE` | `ARCHIVED` | `inventory.item.archive` | — | the item's details, until it is restored |
+| `restore` | `ARCHIVED` | `INACTIVE` | `inventory.item.restore` | — | — |
+
+#### `warehouse` — `warehouse.status`
+
+States: `ACTIVE`, `INACTIVE`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `activate` | `INACTIVE` | `ACTIVE` | `inventory.warehouse.update` | — | — |
+| `deactivate` | `ACTIVE` | `INACTIVE` | `inventory.warehouse.update` | — | — |
+| `archive` | `ACTIVE`, `INACTIVE` | `ARCHIVED` | `inventory.warehouse.archive` | — | the warehouse's details, until it is restored |
+| `restore` | `ARCHIVED` | `INACTIVE` | `inventory.warehouse.restore` | — | — |
+
+#### `inventory_location` — `inventoryLocation.status`
+
+States: `ACTIVE`, `INACTIVE`, `ARCHIVED`
+Terminal: `ARCHIVED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `archive` | `ACTIVE`, `INACTIVE` | `ARCHIVED` | `inventory.location.archive` | — | — |
+
+### Legal
+
+3 machines.
+
+#### `contract` — `contract.status`
+
+States: `DRAFT`, `IN_REVIEW`, `PENDING_APPROVAL`, `APPROVED`, `SENT`, `SIGNED`, `ACTIVE`, `EXPIRED`, `TERMINATED`, `CANCELLED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit_review` | `DRAFT` | `IN_REVIEW` | `legal.contract.submit_review` | — | — |
+| `return_to_draft` | `IN_REVIEW` | `DRAFT` | `legal.contract.review` | — | — |
+| `submit_approval` | `IN_REVIEW` | `PENDING_APPROVAL` | `legal.contract.submit_approval` | — | — |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` | `legal.contract.approve` | — | the value, dates, parties and legal terms |
+| `reject` | `PENDING_APPROVAL` | `IN_REVIEW` | `legal.contract.reject` | required | — |
+| `return_for_revision` | `PENDING_APPROVAL` | `DRAFT` | `legal.contract.reject` | required | — |
+| `mark_sent` | `APPROVED` | `SENT` | `legal.contract.mark_sent` | — | — |
+| `mark_signed` | `SENT` | `SIGNED` | `legal.contract.mark_signed` | — | — |
+| `activate` | `SIGNED` | `ACTIVE` | `legal.contract.activate` | — | — |
+| `expire` | `ACTIVE` | `EXPIRED` | `legal.contract.expire` | — | — |
+| `terminate` | `SIGNED`, `ACTIVE` | `TERMINATED` | `legal.contract.terminate` | required | — |
+| `cancel` | `DRAFT`, `IN_REVIEW`, `PENDING_APPROVAL`, `APPROVED`, `SENT` | `CANCELLED` | `legal.contract.cancel` | — | — |
+| `archive` | `DRAFT`, `EXPIRED`, `TERMINATED`, `CANCELLED` | `ARCHIVED` | `legal.contract.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `EXPIRED` or `TERMINATED` or `CANCELLED` | `legal.contract.restore` | — | — |
+
+#### `contract_amendment` — `contractAmendment.status`
+
+States: `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `SENT`, `SIGNED`, `ACTIVE`, `CANCELLED`, `ARCHIVED`
+Terminal: `ACTIVE`, `ARCHIVED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `REJECTED` | `PENDING_APPROVAL` | `legal.amendment.submit` | — | the amendment's terms |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` | `legal.amendment.approve` | — | — |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `legal.amendment.reject` | required | — |
+| `return_for_revision` | `PENDING_APPROVAL` | `DRAFT` | `legal.amendment.reject` | required | — |
+| `mark_sent` | `APPROVED` | `SENT` | `legal.amendment.mark_sent` | — | — |
+| `mark_signed` | `SENT` | `SIGNED` | `legal.amendment.mark_signed` | — | — |
+| `activate` | `SIGNED` | `ACTIVE` | `legal.amendment.activate` | — | the whole amendment, and the contract values it replaced |
+| `cancel` | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `SENT`, `SIGNED` | `CANCELLED` | `legal.amendment.cancel` | — | — |
+| `archive` | `DRAFT`, `REJECTED`, `CANCELLED` | `ARCHIVED` | `legal.amendment.archive` | — | — |
+
+#### `contract_obligation` — `contractObligation.status`
+
+States: `OPEN`, `COMPLETED`, `CANCELLED`
+Terminal: `COMPLETED`, `CANCELLED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `complete` | `OPEN` | `COMPLETED` | `legal.obligation.complete` | — | the whole obligation |
+| `cancel` | `OPEN` | `CANCELLED` | `legal.obligation.cancel` | — | the whole obligation |
+
+### Engineering
+
+6 machines.
+
+#### `engineering_document` — `engineeringDocument.status`
+
+States: `DRAFT`, `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `APPROVED_WITH_COMMENTS`, `REVISION_REQUIRED`, `REJECTED`, `SUPERSEDED`, `VOID`
+Terminal: `SUPERSEDED`, `VOID`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `APPROVED`, `APPROVED_WITH_COMMENTS`, `REVISION_REQUIRED`, `REJECTED` | `SUBMITTED` | `engineering_document.submit` | — | the title and type, while the reviewer has them |
+| `start_review` | `SUBMITTED` | `UNDER_REVIEW` | `engineering_document.review` | — | — |
+| `approve` | `SUBMITTED`, `UNDER_REVIEW` | `APPROVED` | `engineering_document.approve` | — | the title and type that were approved |
+| `approve_with_comments` | `SUBMITTED`, `UNDER_REVIEW` | `APPROVED_WITH_COMMENTS` | `engineering_document.approve` | — | the title and type that were approved |
+| `require_revision` | `SUBMITTED`, `UNDER_REVIEW` | `REVISION_REQUIRED` | `engineering_document.review` | — | — |
+| `reject` | `SUBMITTED`, `UNDER_REVIEW` | `REJECTED` | `engineering_document.review` | — | — |
+| `void` | `DRAFT`, `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `APPROVED_WITH_COMMENTS`, `REVISION_REQUIRED`, `REJECTED` | `VOID` | `engineering_document.approve` | required | the whole document |
+| `supersede` | `DRAFT`, `APPROVED`, `APPROVED_WITH_COMMENTS`, `REVISION_REQUIRED`, `REJECTED` | `SUPERSEDED` | `engineering_document.approve` | required | the whole document |
+
+#### `engineering_revision` — `engineeringDocumentRevision.status`
+
+States: `DRAFT`, `SUBMITTED`, `UNDER_REVIEW`, `FINALIZED`, `SUPERSEDED`, `VOID`
+Terminal: `SUPERSEDED`, `VOID`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT` | `SUBMITTED` | `engineering_document.submit` | — | the file, at the exact version submitted |
+| `start_review` | `SUBMITTED` | `UNDER_REVIEW` | `engineering_document.review` | — | — |
+| `decide` | `SUBMITTED`, `UNDER_REVIEW` | `FINALIZED` | `engineering_document.review` | — | the decision and the reviewer's comment |
+| `supersede` | `SUBMITTED`, `UNDER_REVIEW`, `FINALIZED` | `SUPERSEDED` | `engineering_document.approve` | — | — |
+| `void` | `DRAFT` | `VOID` | `engineering_document.edit` | — | — |
+
+#### `rfi` — `rfi.status`
+
+States: `DRAFT`, `OPEN`, `ANSWERED`, `CLARIFICATION_REQUIRED`, `CLOSED`, `VOID`
+Terminal: `CLOSED`, `VOID`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `open` | `DRAFT` | `OPEN` | `rfi.open` | — | the subject and the question |
+| `respond` | `OPEN`, `ANSWERED`, `CLARIFICATION_REQUIRED` | `ANSWERED` | `rfi.respond` | — | — |
+| `request_clarification` | `ANSWERED` | `CLARIFICATION_REQUIRED` | `rfi.edit` | — | — |
+| `close` | `ANSWERED` | `CLOSED` | `rfi.close` | — | the whole RFI, its responses and its references |
+| `void` | `DRAFT`, `OPEN`, `ANSWERED`, `CLARIFICATION_REQUIRED` | `VOID` | `rfi.void` | required | the whole RFI |
+
+#### `technical_submittal` — `technicalSubmittal.status`
+
+States: `DRAFT`, `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `APPROVED_WITH_COMMENTS`, `REVISION_REQUIRED`, `REJECTED`, `CLOSED`, `VOID`
+Terminal: `CLOSED`, `VOID`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `APPROVED`, `APPROVED_WITH_COMMENTS`, `REVISION_REQUIRED`, `REJECTED` | `SUBMITTED` | `submittal.submit` | — | the product details under review |
+| `start_review` | `SUBMITTED` | `UNDER_REVIEW` | `submittal.review` | — | — |
+| `approve` | `SUBMITTED`, `UNDER_REVIEW` | `APPROVED` | `submittal.approve` | — | the product details under review |
+| `approve_with_comments` | `SUBMITTED`, `UNDER_REVIEW` | `APPROVED_WITH_COMMENTS` | `submittal.approve` | — | the product details under review |
+| `require_revision` | `SUBMITTED`, `UNDER_REVIEW` | `REVISION_REQUIRED` | `submittal.review` | — | — |
+| `reject` | `SUBMITTED`, `UNDER_REVIEW` | `REJECTED` | `submittal.review` | — | the product details under review |
+| `close` | `APPROVED`, `APPROVED_WITH_COMMENTS`, `REJECTED` | `CLOSED` | `submittal.approve` | — | the whole submittal |
+| `void` | `DRAFT`, `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `APPROVED_WITH_COMMENTS`, `REVISION_REQUIRED`, `REJECTED` | `VOID` | `submittal.approve` | required | the whole submittal |
+
+#### `submittal_revision` — `technicalSubmittalRevision.status`
+
+States: `DRAFT`, `SUBMITTED`, `UNDER_REVIEW`, `FINALIZED`, `SUPERSEDED`, `VOID`
+Terminal: `SUPERSEDED`, `VOID`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT` | `SUBMITTED` | `submittal.submit` | — | the file, at the exact version submitted |
+| `start_review` | `SUBMITTED` | `UNDER_REVIEW` | `submittal.review` | — | — |
+| `decide` | `SUBMITTED`, `UNDER_REVIEW` | `FINALIZED` | `submittal.review` | — | the decision and the reviewer's comment |
+| `supersede` | `SUBMITTED`, `UNDER_REVIEW`, `FINALIZED` | `SUPERSEDED` | `submittal.approve` | — | — |
+| `void` | `DRAFT` | `VOID` | `submittal.edit` | — | — |
+
+#### `document_transmittal` — `documentTransmittal.status`
+
+States: `DRAFT`, `ISSUED`, `VOID`
+Terminal: `VOID`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `issue` | `DRAFT` | `ISSUED` | `transmittal.issue` | — | its items and the file version each carried |
+| `void` | `DRAFT`, `ISSUED` | `VOID` | `transmittal.void` | required | — |
+
+## What is not declared yet, and what is guarded without a machine
+
+**Other domains.** QA/QC's defects, NCRs, requests and templates, the rest of
+HSE, Sales, Clients, Team, Projects, Tasks, HR, Contractors, Calendar,
+Meetings, and the notification, integration and mail infrastructure still
+transition through their own services. That is held, not ignored. `pnpm
+verify:state` counts every write that sets a state column without naming a
+state column in its `where`, per file, against
+`scripts/architecture/blind-state-writes.baseline.json` — 96 writes in 33
+files, none of them in the eight domains above. The count may fall and never
+rise: a new blind write fails CI, and a domain converted to a machine ratchets
+its own entry down. The baseline is the backlog, in the order the files appear
+in it.
+
+**Writes the gate cannot read.** A payload built by spreading, or passed by
+name (`update({ where, data })`), hides which columns it writes, so the blind
+count cannot tell whether it sets a state. On a model with a state column such
+a write is counted against its own ratchet,
+`scripts/architecture/unreadable-state-writes.baseline.json` — 20 writes in 17
+files — unless its `where` names a state. Spelling the columns out is usually
+the fix, and is what the Legal and Inventory edits did.
+
+**Guarded on purpose, without a machine.** A machine is for a lifecycle a
+person moves a record through. These are state columns too, and each binds
+the state it read, but they are not that:
+
+- *The document storage pipeline* — `storageStatus`, `scanStatus` and
+  `previewStatus` on documents and versions, and `documentUploadSession.status`.
+  Background workers drive most of it under a `SystemContext`, never a
+  `UserContext`, and its table already lives in
+  `lib/core/storage/storage-state.ts`. Every writer claims the upload session
+  first, conditional on the state it read, and writes the document or version
+  conditional on `VERIFYING`; the file is deleted only after that claim
+  commits. See `docs/document-lifecycle.md`.
+- *Approval cycle rows* — `financeApproval`, `procurementApproval`,
+  `contractApproval` and `approvalStep`. Each decision is already conditional
+  on `PENDING`; the record the cycle is about moves by its own machine.
+- *Invitation rows on an enquiry* — `rFQSupplier` carries no company column,
+  so it cannot be scoped the way `applyTransition` scopes a write. Recording a
+  quote and disqualifying a supplier bind the invitation's status instead.
+- *Finance commitments moved through Procurement's door* —
+  `ensureCommitmentForSource` and `settleCommitmentForSource`. The door's
+  contract is that the caller authorises, and a buyer need not hold a finance
+  permission; both writes bind the status they read, and settling one that
+  lost a race is a quiet no-op rather than a rollback of the order.
+
+**Known limits.**
+
+- Legal's approvals need `legal.approval.decide` *and* the record's own
+  permission. A transition says "any of", so the machines declare the record's
+  permission and the service still checks both.
+- Two stock issues drawing on the same partly fulfilled reservation both move
+  it from `PARTIALLY_FULFILLED` to `PARTIALLY_FULFILLED`; a state guard cannot
+  tell them apart. Closing that needs a row lock or a version column. Nothing
+  links an issue line to a reservation today, so the path is dormant.
+- Documents' review decisions take a row lock on the version rather than a
+  state guard alone: completion is a count of requests still pending, and a
+  count cannot see another reviewer's uncommitted decision.
 
 ## Adding a machine
 
@@ -190,7 +716,17 @@ the machine generalises, not exceptions to it.
    checked by nothing — not the gate, not the docs, not the tests.
 3. Replace the service's status writes with `applyTransition`, passing the
    state the service read as `from`.
-4. Run `pnpm verify:state --update-baseline` and commit the fall.
+4. Run `pnpm verify:state --update-baseline` and commit the fall in both
+   baselines.
+5. Regenerate the tables above with
+   `npx tsx scripts/architecture/state-docs.ts` and the API security matrix
+   with `pnpm security:matrix`. `applyTransition` is state-guard evidence
+   there, so a converted endpoint keeps its evidence rather than losing it.
+
+The transition matrix in `tests/architecture/state.test.ts` walks every
+registered machine — every action from every state, with and without its
+permissions and its reason — so a new machine is tested the day it is
+registered, without a test written for it.
 
 The gate refuses a machine that governs a model its own domain does not own.
 A transition is a write, and `applyTransition` reaches its table through a

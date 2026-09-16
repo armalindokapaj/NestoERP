@@ -1,30 +1,38 @@
 import type { InvoiceStatus, Prisma } from "@prisma/client";
 
+import { canMove, transitionFor } from "@/lib/core/state/machine";
+import { invoiceMachine, type InvoiceTransitionAction } from "./invoice.machine";
+
+/** The statuses an action on the invoice machine is legal from. */
+function legalFrom(action: InvoiceTransitionAction): InvoiceStatus[] {
+  return [...transitionFor(invoiceMachine, action)!.from];
+}
+
 /**
- * Invoice workflow transitions (PRD #15 §245).
+ * The workflow, without archive and restore (PRD #15 §245).
  *
- * ARCHIVED is deliberately unreachable through this table: archiving is its
- * own action with its own guard, and restore reads `preArchiveStatus` rather
- * than picking a status to land on (PRD #15 §68, §69).
- *
- * `SENT → CANCELLED` is listed here but carries a second condition the table
- * cannot express — no recorded payments — which the service checks
- * (PRD #15 §67).
+ * Both are actions on the machine, but neither is a step in the workflow:
+ * archiving has its own guard, and restore reads `preArchiveStatus` rather than
+ * picking a status to land on (PRD #15 §68, §69). A caller asking whether an
+ * archived invoice can become `CANCELLED` is not asking whether restoring one
+ * might land there.
  */
-const TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
-  DRAFT: ["PENDING_APPROVAL", "CANCELLED"],
-  // DRAFT: returned for revision (PRD #41 §48).
-  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT"],
-  APPROVED: ["SENT", "CANCELLED"],
-  REJECTED: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"],
-  SENT: ["CANCELLED"],
-  CANCELLED: [],
-  ARCHIVED: [],
+const WORKFLOW = {
+  ...invoiceMachine,
+  transitions: invoiceMachine.transitions.filter((transition) => transition.action !== "archive" && transition.action !== "restore"),
 };
 
+/**
+ * Whether the workflow moves an invoice from one status to another, answered
+ * from `invoiceMachine` so there is one table rather than two that can drift.
+ * A status counts as moving to itself, as it always has here.
+ *
+ * `SENT → CANCELLED` carries a second condition the table cannot express — no
+ * recorded payments — which the service checks (PRD #15 §67).
+ */
 export function canTransitionInvoice(from: InvoiceStatus, to: InvoiceStatus): boolean {
   if (from === to) return true;
-  return TRANSITIONS[from].includes(to);
+  return canMove(WORKFLOW, from, to);
 }
 
 /** Financial fields are frozen the moment an invoice leaves draft (PRD #15 §59, §60). */
@@ -34,8 +42,10 @@ export function isInvoiceEditable(status: InvoiceStatus): boolean {
   return EDITABLE_INVOICE_STATUSES.includes(status);
 }
 
+const SUBMITTABLE_INVOICE_STATUSES = legalFrom("submit");
+
 export function isInvoiceSubmittable(status: InvoiceStatus): boolean {
-  return status === "DRAFT" || status === "REJECTED";
+  return SUBMITTABLE_INVOICE_STATUSES.includes(status);
 }
 
 /**
@@ -43,18 +53,13 @@ export function isInvoiceSubmittable(status: InvoiceStatus): boolean {
  *
  * An approved or sent invoice is money somebody owes; it stays visible.
  */
-export const ARCHIVABLE_INVOICE_STATUSES: InvoiceStatus[] = ["DRAFT", "REJECTED", "CANCELLED"];
+export const ARCHIVABLE_INVOICE_STATUSES: InvoiceStatus[] = legalFrom("archive");
 
 export function isInvoiceArchivable(status: InvoiceStatus): boolean {
   return ARCHIVABLE_INVOICE_STATUSES.includes(status);
 }
 
-export const CANCELLABLE_INVOICE_STATUSES: InvoiceStatus[] = [
-  "DRAFT",
-  "REJECTED",
-  "APPROVED",
-  "SENT",
-];
+export const CANCELLABLE_INVOICE_STATUSES: InvoiceStatus[] = legalFrom("cancel");
 
 /** Payments may only be recorded against an invoice that has gone out (PRD #15 §66). */
 export function acceptsPayment(status: InvoiceStatus): boolean {

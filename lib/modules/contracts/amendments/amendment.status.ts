@@ -1,5 +1,8 @@
 import type { ContractAmendmentStatus } from "@prisma/client";
 
+import { canMove } from "@/lib/core/state/machine";
+import { contractAmendmentMachine } from "./amendment.machine";
+
 /**
  * Amendment state (PRD #18 §162, §170–§180, §294).
  *
@@ -33,24 +36,12 @@ export const amendmentStatusLabels: Record<ContractAmendmentStatus, string> = {
   ARCHIVED: "Archived",
 };
 
-const TRANSITIONS: Record<ContractAmendmentStatus, ContractAmendmentStatus[]> = {
-  DRAFT: ["PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  // DRAFT: returned for revision (PRD #41 §48).
-  PENDING_APPROVAL: ["APPROVED", "REJECTED", "DRAFT", "CANCELLED"],
-  APPROVED: ["SENT", "CANCELLED"],
-  REJECTED: ["PENDING_APPROVAL", "CANCELLED", "ARCHIVED"],
-  SENT: ["SIGNED", "CANCELLED"],
-  SIGNED: ["ACTIVE", "CANCELLED"],
-  ACTIVE: [],
-  CANCELLED: ["ARCHIVED"],
-  ARCHIVED: [],
-};
-
+/** What may follow what, answered from the amendment's machine. */
 export function canTransitionAmendmentStatus(
   from: ContractAmendmentStatus,
   to: ContractAmendmentStatus,
 ): boolean {
-  return TRANSITIONS[from].includes(to);
+  return canMove(contractAmendmentMachine, from, to);
 }
 
 export function isAmendmentEditable(status: ContractAmendmentStatus): boolean {
@@ -58,7 +49,7 @@ export function isAmendmentEditable(status: ContractAmendmentStatus): boolean {
 }
 
 export function isAmendmentSubmittable(status: ContractAmendmentStatus): boolean {
-  return status === "DRAFT" || status === "REJECTED";
+  return canTransitionAmendmentStatus(status, "PENDING_APPROVAL");
 }
 
 export function isAmendmentCancellable(status: ContractAmendmentStatus): boolean {
@@ -66,7 +57,7 @@ export function isAmendmentCancellable(status: ContractAmendmentStatus): boolean
 }
 
 export function isAmendmentArchivable(status: ContractAmendmentStatus): boolean {
-  return status === "DRAFT" || status === "REJECTED" || status === "CANCELLED";
+  return canTransitionAmendmentStatus(status, "ARCHIVED");
 }
 
 /**

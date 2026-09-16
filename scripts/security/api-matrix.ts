@@ -63,7 +63,7 @@ const REVIEWED: Record<string, string> = {
 const MODULE_GUARDS = new Set(["assertModule", "requireModule", "moduleAndPermissions", "isModuleEnabled", "canAccessModule", "hasAccessLevel", "getModuleScope", "buildProjectLinkedScopeWhere", "resolveModuleExperience"]);
 const SCOPE_PATTERN = /^(build\w*(Scope|Access)Where|\w*Door|readable\w*Where|canAccessProject|accessibleProjectIds|visible\w*Where|\w*ScopeWhere)$/;
 const RECORD_PATTERN = /^(loadRecord|canReadRecord|assertFound|find\w*InScope|require(?!UserContext|Module|Permission)[A-Z]\w*|findReadable\w*|findWritable\w*|get[A-Z]\w*OrThrow)$/;
-const STATE_PATTERN = /^(stateDenied|assert\w*(State|Status|Live|Writable|Editable|Open|Draft|Transition)\w*|can(Transition|Move)\w*|assertTransition|frozenDocumentReason|touchLog)$/;
+const STATE_PATTERN = /^(stateDenied|applyTransition|assert\w*(State|Status|Live|Writable|Editable|Open|Draft|Transition)\w*|can(Transition|Move)\w*|assertTransition|frozenDocumentReason|touchLog)$/;
 
 type Evidence = { permissions: Set<string>; modules: Set<string>; scope: Set<string>; record: Set<string>; state: Set<string> };
 const empty = (): Evidence => ({ permissions: new Set(), modules: new Set(), scope: new Set(), record: new Set(), state: new Set() });

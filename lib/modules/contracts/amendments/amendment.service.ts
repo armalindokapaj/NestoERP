@@ -1,4 +1,4 @@
-import { Prisma, type ContractAmendmentStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import {
@@ -9,6 +9,7 @@ import {
   stateDenied,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
@@ -18,9 +19,9 @@ import { canSeeCommercial, dateString } from "../contract.dto";
 import { buildContractScopeWhere } from "../contract.scope";
 import type { ContractAmendmentDTO } from "../contract.types";
 import { acceptsAmendments, daysBetween } from "../contracts/contract.status";
+import { contractAmendmentMachine, type ContractAmendmentAction } from "./amendment.machine";
 import type { AmendmentInput, AmendmentSignedInput } from "./amendment.schema";
 import {
-  canTransitionAmendmentStatus,
   isAmendmentArchivable,
   isAmendmentCancellable,
   isAmendmentEditable,
@@ -45,8 +46,8 @@ import {
  *      about to replace. Reading before locking is the same as not checking
  *      (PRD #18 §318).
  *   3. **Activation is idempotent by construction**: the status move is
- *      conditional on SIGNED, so a second attempt changes nothing and says so
- *      (PRD #18 §511).
+ *      conditional on the SIGNED status it read, so a second attempt changes
+ *      nothing and says so (PRD #18 §511).
  */
 
 const MODULE = "contracts" as const;
@@ -228,29 +229,35 @@ export async function updateAmendment(
   await prisma.$transaction(async (tx) => {
     await assertNumberIsFree(tx, existing.contractId, input.amendmentNumber, amendmentId);
 
-    await tx.contractAmendment.update({
-      where: { id: amendmentId },
+    // Conditional on the status the edit was allowed in: an amendment submitted
+    // while this form was open is in front of an approver, and a save landing
+    // after that would change what they are deciding on.
+    const saved = await tx.contractAmendment.updateMany({
+      where: { id: amendmentId, companyId: context.companyId, status: existing.status },
       data: {
         amendmentNumber: input.amendmentNumber,
         title: input.title,
         summary: input.summary,
         effectiveDate: input.effectiveDate ?? null,
         // The new value is written only by somebody who can read it; for
-        // anybody else the stored figure and its delta stay as they were,
-        // rather than being blanked by a form that never showed them
-        // (PRD #18 §22, PRD #47 §66, §100).
-        ...(commercial
-          ? {
-              newContractValue: input.newContractValue
-                ? new Prisma.Decimal(input.newContractValue)
-                : null,
-              valueDelta: deltaFor(contract.contractValue, input.newContractValue),
-            }
-          : {}),
+        // anybody else the stored figure and its delta stay as they were
+        // (`undefined` leaves them), rather than being blanked by a form that
+        // never showed them (PRD #18 §22, PRD #47 §66, §100).
+        newContractValue: commercial
+          ? input.newContractValue
+            ? new Prisma.Decimal(input.newContractValue)
+            : null
+          : undefined,
+        valueDelta: commercial ? deltaFor(contract.contractValue, input.newContractValue) : undefined,
         newExpiryDate: input.newExpiryDate ?? null,
         updatedByMemberId: context.membershipId,
       },
     });
+    if (saved.count === 0) {
+      throw new AccessError("CONFLICT", "This amendment changed since you opened it. Reload to see the latest.", {
+        code: "CONTRACT_AMENDMENT_STALE",
+      });
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -275,7 +282,7 @@ export async function submitAmendment(context: UserContext, amendmentId: string)
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "PENDING_APPROVAL");
+    await moveStatus(tx, context, existing, "submit");
     await approvals.openApproval(tx, context, "AMENDMENT", amendmentId);
 
     await recordActivity(tx, context, {
@@ -304,7 +311,7 @@ export async function approveAmendment(
     const approval = await approvals.requirePendingApproval(tx, context, "AMENDMENT", amendmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "APPROVED");
+    await moveStatus(tx, context, existing, "approve");
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
     await recordActivity(tx, context, {
@@ -333,7 +340,7 @@ export async function rejectAmendment(
     const approval = await approvals.requirePendingApproval(tx, context, "AMENDMENT", amendmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "REJECTED");
+    await moveStatus(tx, context, existing, "reject", {}, reason);
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
 
     await recordActivity(tx, context, {
@@ -367,7 +374,7 @@ export async function returnAmendment(
     const approval = await approvals.requirePendingApproval(tx, context, "AMENDMENT", amendmentId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "DRAFT");
+    await moveStatus(tx, context, existing, "return_for_revision", {}, reason);
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
 
     await recordActivity(tx, context, {
@@ -384,7 +391,7 @@ export async function returnAmendment(
 export async function markAmendmentSent(context: UserContext, amendmentId: string): Promise<void> {
   await simpleTransition(context, amendmentId, {
     permission: "legal.amendment.mark_sent",
-    next: "SENT",
+    transition: "mark_sent",
     action: "LEGAL_AMENDMENT_MARKED_SENT",
     verb: "marked as sent",
   });
@@ -397,7 +404,7 @@ export async function markAmendmentSigned(
 ): Promise<void> {
   await simpleTransition(context, amendmentId, {
     permission: "legal.amendment.mark_signed",
-    next: "SIGNED",
+    transition: "mark_signed",
     extra: { signedDate: input.signedDate },
     action: "LEGAL_AMENDMENT_MARKED_SIGNED",
     verb: "recorded as signed",
@@ -458,7 +465,7 @@ export async function activateAmendment(context: UserContext, amendmentId: strin
       );
     }
 
-    await moveStatus(tx, context, existing, "ACTIVE", {
+    await moveStatus(tx, context, existing, "activate", {
       activatedAt: new Date(),
       previousContractValue: contract.contractValue,
       previousExpiryDate: contract.expiryDate,
@@ -468,11 +475,17 @@ export async function activateAmendment(context: UserContext, amendmentId: strin
       ),
     });
 
-    const data: Prisma.ContractUpdateInput = { updatedByMemberId: context.membershipId };
-    if (existing.newContractValue !== null) data.contractValue = existing.newContractValue;
-    if (existing.newExpiryDate !== null) data.expiryDate = existing.newExpiryDate;
-
-    await tx.contract.update({ where: { id: existing.contractId }, data });
+    // Only what the amendment changes: a value or expiry it leaves empty stays
+    // the contract's own (`undefined` leaves it). By id alone because the row
+    // is locked and its status was checked under that lock, above.
+    await tx.contract.update({
+      where: { id: existing.contractId },
+      data: {
+        contractValue: existing.newContractValue ?? undefined,
+        expiryDate: existing.newExpiryDate ?? undefined,
+        updatedByMemberId: context.membershipId,
+      },
+    });
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -514,7 +527,7 @@ export async function cancelAmendment(
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "CANCELLED");
+    await moveStatus(tx, context, existing, "cancel");
     await approvals.cancelPendingApprovals(tx, context, "AMENDMENT", amendmentId);
 
     await recordActivity(tx, context, {
@@ -541,7 +554,7 @@ export async function archiveAmendment(context: UserContext, amendmentId: string
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "ARCHIVED", {
+    await moveStatus(tx, context, existing, "archive", {
       archivedAt: new Date(),
       archivedByMemberId: context.membershipId,
     });
@@ -566,8 +579,8 @@ async function simpleTransition(
   amendmentId: string,
   spec: {
     permission: Parameters<typeof assertPermission>[1];
-    next: ContractAmendmentStatus;
-    extra?: Prisma.ContractAmendmentUpdateInput;
+    transition: ContractAmendmentAction;
+    extra?: Prisma.ContractAmendmentUncheckedUpdateManyInput;
     action: string;
     verb: string;
   },
@@ -578,7 +591,7 @@ async function simpleTransition(
   const existing = assertFound(await findInScope(context, amendmentId));
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, spec.next, spec.extra);
+    await moveStatus(tx, context, existing, spec.transition, spec.extra);
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -591,36 +604,35 @@ async function simpleTransition(
   });
 }
 
+/**
+ * One status change through the amendment's machine (PRD #18 §320, PRD #49 §58),
+ * conditional on the status that was read.
+ *
+ * An archived contract is read-only, amendments included — a rule about the
+ * contract rather than the amendment, so it is checked here rather than in
+ * the table.
+ */
 async function moveStatus(
   tx: Prisma.TransactionClient,
   context: UserContext,
   existing: AmendmentRow,
-  next: ContractAmendmentStatus,
-  extra: Prisma.ContractAmendmentUpdateInput = {},
+  action: ContractAmendmentAction,
+  extra: Prisma.ContractAmendmentUncheckedUpdateManyInput = {},
+  reason?: string,
 ): Promise<void> {
   if (existing.contract.archivedAt) {
     throw new AccessError("CONFLICT", "This contract is archived and read-only.");
   }
 
-  if (!canTransitionAmendmentStatus(existing.status, next)) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      `An amendment cannot move from ${existing.status} to ${next}.`,
-    );
-  }
-
-  const result = await tx.contractAmendment.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: {
-      status: next,
-      updatedByMemberId: context.membershipId,
-      ...(extra as Prisma.ContractAmendmentUpdateManyMutationInput),
-    },
+  await applyTransition(tx, {
+    machine: contractAmendmentMachine,
+    action,
+    id: existing.id,
+    context,
+    from: existing.status,
+    reason,
+    data: { ...extra, updatedByMemberId: context.membershipId },
   });
-
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "This amendment changed while you were working on it.");
-  }
 }
 
 /**

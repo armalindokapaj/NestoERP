@@ -10,6 +10,10 @@ import type {
   WarehouseType,
 } from "@prisma/client";
 
+import { transitionFor } from "@/lib/core/state/machine";
+import { STOCK_DOCUMENT_STEPS } from "./documents/document.transitions";
+import { stockReservationMachine } from "./reservations/reservation.machine";
+
 /**
  * Inventory lifecycles (PRD #20 §280).
  *
@@ -20,6 +24,11 @@ import type {
  *
  * After posting there is no edit — only a reversal, which writes a new ledger
  * row rather than erasing one (PRD #20 §70, §100).
+ *
+ * Which states each step is legal from is declared once, with the machines
+ * (`documents/document.transitions.ts`, `reservations/reservation.machine.ts`);
+ * the `is…Postable`-style helpers below answer from those declarations rather
+ * than keeping a second copy that could drift from them.
  */
 
 export const TRANSACTION_STATUSES = ["DRAFT", "POSTED", "CANCELLED", "REVERSED"] as const;
@@ -36,16 +45,16 @@ export function isTransactionEditable(status: InventoryTransactionStatus): boole
 }
 
 export function isTransactionPostable(status: InventoryTransactionStatus): boolean {
-  return status === "DRAFT";
+  return STOCK_DOCUMENT_STEPS.post.from.includes(status);
 }
 
 /** Cancel before posting; reverse after. They are not the same act (§99, §100). */
 export function isTransactionCancellable(status: InventoryTransactionStatus): boolean {
-  return status === "DRAFT";
+  return STOCK_DOCUMENT_STEPS.cancel.from.includes(status);
 }
 
 export function isTransactionReversible(status: InventoryTransactionStatus): boolean {
-  return status === "POSTED";
+  return STOCK_DOCUMENT_STEPS.reverse.from.includes(status);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -195,7 +204,7 @@ export function isReservationHolding(status: StockReservationStatus): boolean {
 }
 
 export function isReservationClosable(status: StockReservationStatus): boolean {
-  return isReservationHolding(status);
+  return transitionFor(stockReservationMachine, "release")!.from.includes(status);
 }
 
 const DAY = 24 * 60 * 60 * 1000;

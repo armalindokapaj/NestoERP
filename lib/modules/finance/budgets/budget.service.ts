@@ -1,4 +1,6 @@
 import { Prisma, type BudgetStatus } from "@prisma/client";
+import { targetsOf, transitionFor } from "@/lib/core/state/machine";
+import { applyTransition } from "@/lib/core/state/transition";
 
 import { can } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
@@ -23,8 +25,8 @@ import type {
 import { calculateBudgetTotal } from "../invoices/invoice.calculation";
 import { projectFinanceNumbers, type ProjectFinanceNumbers } from "./budget.summary";
 import type { BudgetListQuery, CreateBudgetInput, UpdateBudgetInput } from "./budget.schema";
+import { projectBudgetMachine, type ProjectBudgetTransitionAction } from "./budget.machine";
 import {
-  canTransitionBudget,
   isBudgetArchivable,
   isBudgetEditable,
   isBudgetOpen,
@@ -401,7 +403,7 @@ export async function submitBudget(context: UserContext, budgetId: string): Prom
   }
 
   await prisma.$transaction(async (tx) => {
-    await moveStatus(tx, context, existing, "PENDING_APPROVAL");
+    await moveStatus(tx, context, existing, "submit");
     await approvals.openApproval(tx, context, "BUDGET", budgetId);
 
     await recordActivity(tx, context, {
@@ -436,7 +438,7 @@ export async function approveBudget(
     const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "APPROVED");
+    await moveStatus(tx, context, existing, "approve");
 
     await tx.projectBudget.updateMany({
       where: { projectId: existing.projectId, isCurrent: true, id: { not: budgetId } },
@@ -506,7 +508,7 @@ export async function rejectBudget(
     const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "REJECTED");
+    await moveStatus(tx, context, existing, "reject", reason);
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
 
     await recordActivity(tx, context, {
@@ -540,7 +542,7 @@ export async function returnBudget(
     const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
-    await moveStatus(tx, context, existing, "DRAFT");
+    await moveStatus(tx, context, existing, "return", reason);
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);
 
     await recordActivity(tx, context, {
@@ -633,10 +635,13 @@ export async function archiveBudget(context: UserContext, budgetId: string): Pro
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.projectBudget.update({
-      where: { id: budgetId },
+    await applyTransition(tx, {
+      machine: projectBudgetMachine,
+      action: "archive",
+      id: budgetId,
+      context,
+      from: existing.status,
       data: {
-        status: "ARCHIVED",
         preArchiveStatus: existing.status,
         archivedAt: new Date(),
         archivedByMemberId: context.membershipId,
@@ -668,14 +673,14 @@ export async function restoreBudget(context: UserContext, budgetId: string): Pro
   await prisma.$transaction(async (tx) => {
     await assertNoOpenVersion(tx, existing.projectId);
 
-    await tx.projectBudget.update({
-      where: { id: budgetId },
-      data: {
-        status: existing.preArchiveStatus ?? "DRAFT",
-        preArchiveStatus: null,
-        archivedAt: null,
-        archivedByMemberId: null,
-      },
+    await applyTransition(tx, {
+      machine: projectBudgetMachine,
+      action: "restore",
+      id: budgetId,
+      context,
+      from: existing.status,
+      to: existing.preArchiveStatus ?? "DRAFT",
+      data: { preArchiveStatus: null, archivedAt: null, archivedByMemberId: null },
     });
 
     await recordActivity(tx, context, {
@@ -701,27 +706,39 @@ async function requireBudget(context: UserContext, budgetId: string) {
   );
 }
 
+/**
+ * Moves a budget by one of its machine's actions, from the status it was read in.
+ *
+ * A move the workflow never makes is refused as the validation error it has
+ * always been, before anything is written. The write goes through
+ * `applyTransition`, conditional on the status we read, so two people acting at
+ * once cannot both win (PRD #49 §64). No `expectedVersion`: a budget's
+ * `version` is its version number, not a row version.
+ */
 async function moveStatus(
   tx: Prisma.TransactionClient,
   context: UserContext,
   existing: { id: string; status: BudgetStatus },
-  next: BudgetStatus,
+  action: ProjectBudgetTransitionAction,
+  reason?: string,
 ): Promise<void> {
-  if (!canTransitionBudget(existing.status, next)) {
+  const transition = transitionFor(projectBudgetMachine, action)!;
+  if (!transition.from.includes(existing.status)) {
     throw new AccessError(
       "VALIDATION_ERROR",
-      `A budget cannot move from ${existing.status} to ${next}.`,
+      `A budget cannot move from ${existing.status} to ${targetsOf(transition)[0]}.`,
     );
   }
 
-  const result = await tx.projectBudget.updateMany({
-    where: { id: existing.id, status: existing.status },
-    data: { status: next, updatedByMemberId: context.membershipId },
+  await applyTransition(tx, {
+    machine: projectBudgetMachine,
+    action,
+    id: existing.id,
+    context,
+    from: existing.status,
+    reason,
+    data: { updatedByMemberId: context.membershipId },
   });
-
-  if (result.count === 0) {
-    throw new AccessError("CONFLICT", "This budget changed while you were working on it.");
-  }
 }
 
 /** At most one draft or pending version per project (PRD #15 §110). */

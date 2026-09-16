@@ -5,6 +5,7 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -15,6 +16,7 @@ import type { ReceiptInput } from "../procurement.schema";
 import { acceptsReceipts } from "../procurement.status";
 import type { ReceiptDTO } from "../procurement.types";
 import { refreshReceiptState } from "../orders/order.service";
+import { goodsReceiptMachine } from "./receipt.machine";
 
 /**
  * Goods receipts (PRD #19 §132–§147).
@@ -390,21 +392,19 @@ export async function voidReceipt(
   await assertNoDownstreamState(context, receiptId, existing.receiptNumber);
 
   await prisma.$transaction(async (tx) => {
-    const result = await tx.goodsReceipt.updateMany({
-      where: { id: receiptId, status: "RECORDED" },
+    // Conditional on the status read, so two voids racing settle once.
+    await applyTransition(tx, {
+      machine: goodsReceiptMachine,
+      action: "void",
+      id: receiptId,
+      context,
+      from: existing.status,
       data: {
-        status: "VOIDED",
         voidedAt: new Date(),
         voidedByMemberId: context.membershipId,
         voidReason: reason,
       },
     });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "That receipt has already been voided.", {
-        code: "STALE_RECORD",
-      });
-    }
 
     // What has arrived just changed, so the order says so.
     await refreshReceiptState(tx, context, existing.purchaseOrderId);

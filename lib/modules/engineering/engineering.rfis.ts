@@ -10,6 +10,7 @@ import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.re
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { loadRecord, moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { addLocalDays } from "@/lib/modules/calendar/calendar.time";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -17,6 +18,7 @@ import { loadEngineeringProject } from "./engineering.documents";
 import { linkedRecordProject, tasksFromRecord } from "./engineering.links";
 import { notifyEngineering } from "./engineering.notify";
 import { engineeringOpen, filesOpen, filesWritable, MODULE, readableEngineeringDocumentWhere, readableRfiWhere, readableSubmittalWhere, RFI_ACTIVITY, RFI_RECORD } from "./engineering.permissions";
+import { rfiMachine, type RfiAction } from "./engineering.rfi.machine";
 import type { CreateRfiInput, RfiListQuery, UpdateRfiInput } from "./engineering.schema";
 import { companyToday } from "./engineering.settings";
 import {
@@ -46,7 +48,6 @@ import {
   type RfiReferenceDTO,
   type RfiReferenceType,
   type RfiRowDTO,
-  type RfiStatus,
 } from "./engineering.types";
 
 /**
@@ -234,9 +235,13 @@ async function findWritableRfi(context: UserContext, id: string, permission: "rf
   return row;
 }
 
-async function move(tx: Prisma.TransactionClient, row: RfiRow, from: RfiStatus[], data: Prisma.RfiUpdateManyMutationInput) {
-  const moved = await tx.rfi.updateMany({ where: { id: row.id, status: { in: from } }, data: { ...data, version: { increment: 1 } } });
-  if (!moved.count) throw fail("RFI_STALE", "This RFI changed since you opened it. Reload to see the latest.", "CONFLICT");
+/**
+ * Every RFI move is guarded by the status this caller read, and moves the
+ * version on: a page opened before an answer or a closure is stale after it,
+ * and an edit made from it is refused rather than applied over the move.
+ */
+async function move(tx: Prisma.TransactionClient, context: UserContext, row: RfiRow, action: RfiAction, data: Record<string, unknown>, reason?: string) {
+  await applyTransition(tx, { machine: rfiMachine, action, id: row.id, context, from: row.status, reason, data: { ...data, version: { increment: 1 } } });
 }
 
 async function openInTransaction(tx: Prisma.TransactionClient, context: UserContext, row: { id: string; projectId: string; rfiNumber: string; subject: string; assignedToMemberId: string | null; createdByMemberId: string; version: number }, project: { name: string; projectManagerMemberId: string | null }, due: string) {
@@ -348,7 +353,7 @@ export async function openRfi(context: UserContext, id: string): Promise<{ id: s
   const due = dateOf(row.dueAt) ?? addLocalDays(today, settings.rfiDefaultDueDays);
   if (due < today) throw fail("RFI_DUE_IN_PAST", "Move the due date forward before opening this RFI.", "VALIDATION_ERROR", { field: "dueAt" });
   await prisma.$transaction(async (tx) => {
-    await move(tx, row, ["DRAFT"], { status: "OPEN", openedAt: new Date(), dueAt: at(due) });
+    await move(tx, context, row, "open", { openedAt: new Date(), dueAt: at(due) });
     await openInTransaction(tx, context, { ...row, version: row.version + 1 }, row.project, due);
   });
   return { id: row.id };
@@ -362,7 +367,7 @@ export async function respondRfi(context: UserContext, id: string, input: { text
   const now = new Date();
   const response = await prisma.$transaction(async (tx) => {
     const created = await tx.rfiResponse.create({ data: { companyId: context.companyId, rfiId: row.id, responseText: input.text, respondedByMemberId: context.membershipId, respondedAt: now, finalResponse: input.final }, select: { id: true } });
-    await move(tx, row, ["OPEN", "CLARIFICATION_REQUIRED", "ANSWERED"], { status: "ANSWERED", answeredAt: row.answeredAt ?? now });
+    await move(tx, context, row, "respond", { answeredAt: row.answeredAt ?? now });
     await recordUserAction(context, { actionKey: AuditAction.RFI_RESPONDED, entity: { type: RFI_RECORD, id: row.id, label: row.rfiNumber }, projectId: row.projectId, after: { status: "ANSWERED", responseId: created.id, finalResponse: input.final } }, { tx });
     await recordActivity(tx, context, { module: MODULE, entityType: RFI_ACTIVITY, entityId: row.id, action: "RFI_ANSWERED", message: `answered ${label(row)}` });
     await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.RFI_ANSWERED, entityType: RFI_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId, memberIds: [row.createdByMemberId, row.raisedByMemberId], payload: { number: row.rfiNumber, subject: row.subject, actorName: context.fullName } });
@@ -379,7 +384,7 @@ export async function requestClarification(context: UserContext, id: string, inp
   if (row.status !== "ANSWERED") throw fail("RFI_NOT_ANSWERED", "Only an answered RFI goes back for clarification.", "CONFLICT");
   await prisma.$transaction(async (tx) => {
     const created = await tx.rfiResponse.create({ data: { companyId: context.companyId, rfiId: row.id, responseText: input.text, respondedByMemberId: context.membershipId, clarificationRequest: true }, select: { id: true } });
-    await move(tx, row, ["ANSWERED"], { status: "CLARIFICATION_REQUIRED" });
+    await move(tx, context, row, "request_clarification", {});
     await recordUserAction(context, { actionKey: AuditAction.RFI_CLARIFICATION_REQUESTED, entity: { type: RFI_RECORD, id: row.id, label: row.rfiNumber }, projectId: row.projectId, after: { status: "CLARIFICATION_REQUIRED", responseId: created.id } }, { tx });
     await recordActivity(tx, context, { module: MODULE, entityType: RFI_ACTIVITY, entityId: row.id, action: "RFI_CLARIFICATION_REQUIRED", message: `asked for clarification on ${label(row)}` });
     await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.RFI_CLARIFICATION_REQUIRED, entityType: RFI_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId, memberIds: [row.assignedToMemberId], payload: { number: row.rfiNumber, subject: row.subject } });
@@ -391,7 +396,7 @@ export async function closeRfi(context: UserContext, id: string, input: { note: 
   const row = await findWritableRfi(context, id, "rfi.close");
   if (row.status !== "ANSWERED") throw fail("RFI_NOT_ANSWERED", "An RFI is closed once it has been answered.", "CONFLICT");
   await prisma.$transaction(async (tx) => {
-    await move(tx, row, ["ANSWERED"], { status: "CLOSED", closedAt: new Date(), closureNote: input.note });
+    await move(tx, context, row, "close", { closedAt: new Date(), closureNote: input.note });
     await recordUserAction(context, { actionKey: AuditAction.RFI_CLOSED, entity: { type: RFI_RECORD, id: row.id, label: row.rfiNumber }, projectId: row.projectId, before: { status: row.status }, after: { status: "CLOSED" } }, { tx });
     await recordActivity(tx, context, { module: MODULE, entityType: RFI_ACTIVITY, entityId: row.id, action: "RFI_CLOSED", message: `closed ${label(row)}` });
     await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.RFI_CLOSED, entityType: RFI_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId, memberIds: [row.assignedToMemberId, row.raisedByMemberId, row.createdByMemberId], payload: { number: row.rfiNumber, subject: row.subject } });
@@ -403,7 +408,7 @@ export async function closeRfi(context: UserContext, id: string, input: { note: 
 export async function voidRfi(context: UserContext, id: string, input: { reason: string }): Promise<{ id: string }> {
   const row = await findWritableRfi(context, id, "rfi.void");
   await prisma.$transaction(async (tx) => {
-    await move(tx, row, ["DRAFT", "OPEN", "ANSWERED", "CLARIFICATION_REQUIRED"], { status: "VOID", voidedAt: new Date(), voidReason: input.reason });
+    await move(tx, context, row, "void", { voidedAt: new Date(), voidReason: input.reason }, input.reason);
     await recordUserAction(context, { actionKey: AuditAction.RFI_VOIDED, entity: { type: RFI_RECORD, id: row.id, label: row.rfiNumber }, projectId: row.projectId, before: { status: row.status }, after: { status: "VOID" }, reason: input.reason }, { tx });
     await recordActivity(tx, context, { module: MODULE, entityType: RFI_ACTIVITY, entityId: row.id, action: "RFI_VOIDED", message: `voided ${label(row)}` });
   });

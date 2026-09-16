@@ -8,7 +8,9 @@ import { recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
-import { fileTypeLabel, storageStatusMessage } from "@/lib/core/storage";
+import { assertTransition, fileTypeLabel, storageStatusMessage } from "@/lib/core/storage";
+import { applyTransition } from "@/lib/core/state/transition";
+import { documentMachine } from "./document.machine";
 import { attachDocumentFromBytes } from "./storage/upload.service";
 import { readDocumentBytes } from "./storage/download.service";
 import { frozenFileReason } from "./storage/version.promote";
@@ -307,6 +309,8 @@ export async function archiveDocument(context: UserContext, documentId: string):
   const frozen = await frozenFileReason(existing.id);
   if (frozen) throw stateDenied(frozen, { code: "ENGINEERING_FILE_FROZEN" });
 
+  assertTransition(existing.storageStatus, "ARCHIVED");
+
   await prisma.$transaction(async (tx) => {
     /*
      * Two states move together, and they mean different things (PRD #29 §135).
@@ -319,14 +323,23 @@ export async function archiveDocument(context: UserContext, documentId: string):
      * still read AVAILABLE would leave its file downloadable after it left the
      * lists (PRD #29 §162, §319).
      *
+     * The write is conditional on the business state read above. That guards
+     * the storage state too: nothing moves an ACTIVE document's file out of
+     * AVAILABLE except this, and a version promoted meanwhile locks the row
+     * and keeps it AVAILABLE, so the archive lands after it rather than under
+     * it.
+     *
      * `storageKey` is deliberately untouched. The object stays exactly where
      * it is: archive is never a deletion (PRD #29 §139).
      */
-    await tx.document.update({
-      where: { id: documentId },
+    await applyTransition(tx, {
+      machine: documentMachine,
+      action: "archive",
+      id: documentId,
+      context,
+      from: existing.status,
       data: {
         preArchiveStatus: existing.status,
-        status: "ARCHIVED",
         storageStatus: "ARCHIVED",
         archivedAt: new Date(),
         archivedBy: context.userId,
@@ -367,11 +380,18 @@ export async function restoreDocument(context: UserContext, documentId: string):
     throw new AccessError("CONFLICT", "This document is not archived.");
   }
 
+  // A restore is the one way out of the archived storage state (PRD #29 §319).
+  assertTransition(existing.storageStatus, "AVAILABLE");
+
   await prisma.$transaction(async (tx) => {
-    await tx.document.update({
-      where: { id: documentId },
+    await applyTransition(tx, {
+      machine: documentMachine,
+      action: "restore",
+      id: documentId,
+      context,
+      from: existing.status,
+      to: existing.preArchiveStatus ?? "ACTIVE",
       data: {
-        status: existing.preArchiveStatus ?? "ACTIVE",
         // Back to available, because the object was never removed and was
         // verified before it was archived (PRD #29 §137).
         storageStatus: "AVAILABLE",

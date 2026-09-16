@@ -27,6 +27,12 @@ import {
   isCommitmentArchivable,
   isSourced,
 } from "@/lib/modules/finance/commitments/commitment.status";
+import { permissionsOf, targetsOf, transitionFor, type StateMachine } from "@/lib/core/state/machine";
+import { projectBudgetMachine } from "@/lib/modules/finance/budgets/budget.machine";
+import { commitmentMachine } from "@/lib/modules/finance/commitments/commitment.machine";
+import { expenseMachine } from "@/lib/modules/finance/expenses/expense.machine";
+import { invoiceMachine } from "@/lib/modules/finance/invoices/invoice.machine";
+import { paymentMachine } from "@/lib/modules/finance/payments/payment.machine";
 
 const d = (value: string) => new Prisma.Decimal(value);
 
@@ -39,8 +45,10 @@ describe("invoice transitions (PRD #15 §245)", () => {
   });
 
   it("lets a rejected invoice be fixed and resubmitted", () => {
-    expect(canTransitionInvoice("REJECTED", "DRAFT")).toBe(true);
+    // Corrected where it stands, not sent back to draft first.
+    expect(isInvoiceEditable("REJECTED")).toBe(true);
     expect(canTransitionInvoice("REJECTED", "PENDING_APPROVAL")).toBe(true);
+    expect(canTransitionInvoice("REJECTED", "DRAFT")).toBe(false);
   });
 
   it("never skips approval", () => {
@@ -208,5 +216,54 @@ describe("commitment transitions (PRD #15 §248)", () => {
   it("recognises a commitment another module owns (PRD #15 §128)", () => {
     expect(isSourced({ sourceModule: "procurement" })).toBe(true);
     expect(isSourced({ sourceModule: null })).toBe(false);
+  });
+});
+
+describe("the finance machines say what the services do (PRD #49 §132)", () => {
+  const decided: StateMachine<string, string>[] = [invoiceMachine, expenseMachine, projectBudgetMachine, commitmentMachine];
+
+  it("lets either the decide grant or the record's own grant settle an approval", () => {
+    // canApproveType and canRejectType accept either; the floor must not be narrower.
+    for (const machine of decided) {
+      for (const action of ["approve", "reject", "return"]) {
+        expect(permissionsOf(transitionFor(machine, action)!), `${machine.key}.${action}`).toContain("finance.approval.decide");
+      }
+    }
+  });
+
+  it("returns for revision to draft, and never moves a rejected record there", () => {
+    for (const machine of decided) {
+      expect(transitionFor(machine, "return")!.to).toBe("DRAFT");
+      const intoDraft = machine.transitions.filter((transition) => transition.action !== "restore" && targetsOf(transition).includes("DRAFT"));
+      expect(intoDraft.flatMap((transition) => transition.from)).not.toContain("REJECTED");
+    }
+  });
+
+  it("restores only to a status archiving could have stored", () => {
+    for (const machine of decided) {
+      const archive = transitionFor(machine, "archive")!;
+      const restore = transitionFor(machine, "restore")!;
+      expect([...targetsOf(restore)].sort()).toEqual([...archive.from].sort());
+    }
+  });
+
+  it("keeps archive and restore out of the workflow answer the procurement door asks", () => {
+    // An archived, closed commitment must not read as closable: the door would
+    // write CLOSED over ARCHIVED and leave archivedAt behind.
+    expect(canTransitionCommitment("ARCHIVED", "CLOSED")).toBe(false);
+    expect(canTransitionCommitment("CLOSED", "ARCHIVED")).toBe(false);
+    // A status still moves to itself, which is how the door refreshes an approved one.
+    expect(canTransitionCommitment("APPROVED", "APPROVED")).toBe(true);
+  });
+
+  it("gives an approved budget nowhere to go", () => {
+    expect(projectBudgetMachine.terminal).toEqual(["APPROVED"]);
+  });
+
+  it("voids a payment once, with a reason", () => {
+    const voiding = transitionFor(paymentMachine, "void")!;
+    expect(voiding.from).toEqual(["RECORDED"]);
+    expect(voiding.requiresReason).toBe(true);
+    expect(paymentMachine.terminal).toEqual(["VOIDED"]);
   });
 });

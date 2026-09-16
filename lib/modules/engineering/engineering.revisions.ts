@@ -1,5 +1,5 @@
 import { setSharingClassification as setDocumentSharingClassification } from "@/lib/modules/documents/document.service";
-import type { Prisma } from "@prisma/client";
+import type { EngineeringDocumentStatus, Prisma, TechnicalSubmittalStatus } from "@prisma/client";
 
 import type { Permission } from "@/config/permissions";
 import { can } from "@/lib/access/can";
@@ -10,9 +10,11 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
+import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { addLocalDays } from "@/lib/modules/calendar/calendar.time";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { engineeringDocumentMachine, type EngineeringDocumentAction } from "./engineering.document.machine";
 import { notifyEngineering } from "./engineering.notify";
 import {
   DOCUMENT_ACTIVITY,
@@ -25,9 +27,12 @@ import {
   SUBMITTAL_ACTIVITY,
   SUBMITTAL_RECORD,
 } from "./engineering.permissions";
+import { engineeringRevisionMachine, type EngineeringRevisionAction } from "./engineering.revision.machine";
 import type { CreateRevisionInput, ReviewDecisionInput } from "./engineering.schema";
 import { companyToday, type EngineeringSettingsDTO } from "./engineering.settings";
 import { assertProjectWritable, at, dateLabel, dateOf, fail, people, personOf, projectArchived } from "./engineering.shared";
+import { submittalRevisionMachine, type SubmittalRevisionAction } from "./engineering.submittal-revision.machine";
+import { technicalSubmittalMachine, type TechnicalSubmittalAction } from "./engineering.submittal.machine";
 import {
   APPROVING_DECISIONS,
   REVIEW_DECISION_LABELS,
@@ -123,12 +128,7 @@ interface RevisionTable {
   findMany(args: Args): Promise<Array<Record<string, unknown>>>;
   findFirst(args: Args): Promise<Record<string, unknown> | null>;
   create(args: Args): Promise<{ id: string }>;
-  updateMany(args: Args): Promise<{ count: number }>;
   aggregate(args: Args): Promise<{ _max: { revisionNumber: number | null } }>;
-}
-
-interface ParentTable {
-  updateMany(args: Args): Promise<{ count: number }>;
 }
 
 const COMMON_SELECT = {
@@ -154,10 +154,6 @@ const COMMON_SELECT = {
 
 function table(db: Db, kind: RevisionKind): RevisionTable {
   return (kind === "document" ? db.engineeringDocumentRevision : db.technicalSubmittalRevision) as unknown as RevisionTable;
-}
-
-function parents(db: Db, kind: RevisionKind): ParentTable {
-  return (kind === "document" ? db.engineeringDocument : db.technicalSubmittal) as unknown as ParentTable;
 }
 
 const selectFor = (kind: RevisionKind) => ({ ...COMMON_SELECT, [KIND[kind].fk]: true });
@@ -291,6 +287,37 @@ export async function revisionDTOs(context: UserContext, parent: RevisionParent,
 
 const label = (parent: RevisionParent, revision: Pick<RevisionRow, "revisionCode">) => `${parent.number} Rev ${revision.revisionCode}`;
 
+/*
+ * A revision and its record move together — submitting a revision submits the
+ * record, and a decision on it becomes the record's status — each by its own
+ * machine and each guarded by the status this caller read. A record retired,
+ * or a revision decided, by somebody else in between is then refused rather
+ * than overwritten. The record's version moves on with it, so a page opened
+ * before the review cannot save over the decision.
+ */
+type RevisionAction = EngineeringRevisionAction & SubmittalRevisionAction;
+type ParentAction = EngineeringDocumentAction & TechnicalSubmittalAction;
+
+const DECISION_ACTION = {
+  APPROVED: "approve",
+  APPROVED_WITH_COMMENTS: "approve_with_comments",
+  REVISION_REQUIRED: "require_revision",
+  REJECTED: "reject",
+} as const satisfies Record<ReviewDecision, ParentAction>;
+
+async function moveRevision(tx: Tx, context: UserContext, kind: RevisionKind, revision: Pick<RevisionRow, "id" | "status">, action: RevisionAction, data: Record<string, unknown>) {
+  const move = { action, id: revision.id, context, from: revision.status, data };
+  if (kind === "document") await applyTransition(tx, { machine: engineeringRevisionMachine, ...move });
+  else await applyTransition(tx, { machine: submittalRevisionMachine, ...move });
+}
+
+async function moveParent(tx: Tx, context: UserContext, parent: RevisionParent, action: ParentAction, data: Record<string, unknown> = {}) {
+  const move = { action, id: parent.id, context, data: { ...data, version: { increment: 1 } } };
+  // `status` was read from the parent's own column by loadRevisionParent.
+  if (parent.kind === "document") await applyTransition(tx, { machine: engineeringDocumentMachine, ...move, from: parent.status as EngineeringDocumentStatus });
+  else await applyTransition(tx, { machine: technicalSubmittalMachine, ...move, from: parent.status as TechnicalSubmittalStatus });
+}
+
 /** The file a revision carries: a live Document filed on this record and not already carried by another revision (§125). */
 async function assertRevisionFile(context: UserContext, parent: RevisionParent, documentId: string) {
   const document = await prisma.document.findFirst({ where: { id: documentId, companyId: context.companyId, entityType: KIND[parent.kind].record, entityId: parent.id, status: "ACTIVE" }, select: { id: true, storageStatus: true } });
@@ -307,14 +334,10 @@ async function submitInTransaction(tx: Tx, context: UserContext, parent: Revisio
   const document = await tx.document.findFirst({ where: { id: revision.documentId, companyId: context.companyId, status: "ACTIVE" }, select: { storageStatus: true, currentVersionId: true } });
   if (!document || document.storageStatus !== "AVAILABLE") throw fail("REVISION_FILE_NOT_READY", "The revision's file is still being processed. Try again in a moment.", "CONFLICT");
   const now = new Date();
-  const moved = await table(tx, parent.kind).updateMany({
-    where: { id: revision.id, status: "DRAFT" },
-    data: { status: "SUBMITTED", submittedAt: now, submittedByMemberId: context.membershipId, documentVersionId: document.currentVersionId },
-  });
-  if (!moved.count) throw fail("REVISION_STALE", "This revision changed since you opened it. Reload to see the latest.", "CONFLICT");
+  await moveRevision(tx, context, parent.kind, revision, "submit", { submittedAt: now, submittedByMemberId: context.membershipId, documentVersionId: document.currentVersionId });
   // A review without a date gets the company's default, counted from submission (§105, §279).
   const due = parent.dueAt ? dateOf(parent.dueAt)! : addLocalDays(today, settings.submittalDefaultReviewDays);
-  await parents(tx, parent.kind).updateMany({ where: { id: parent.id }, data: { status: "SUBMITTED", currentRevisionId: revision.id, [spec.dueField]: at(due), version: { increment: 1 } } });
+  await moveParent(tx, context, parent, "submit", { currentRevisionId: revision.id, [spec.dueField]: at(due) });
   await recordActivity(tx, context, { module: MODULE, entityType: spec.activity, entityId: parent.id, action: "REVISION_SUBMITTED", message: `submitted ${label(parent, revision)} for review` });
   await recordUserAction(
     context,
@@ -393,9 +416,8 @@ export async function startReview(context: UserContext, kind: RevisionKind, revi
   const gate = reviewGate(context, parent, revision, settings);
   if (gate) throw fail(gate.startsWith("You submitted") ? "REVIEW_SELF_FORBIDDEN" : "REVIEW_NOT_ASSIGNED", gate, "FORBIDDEN");
   await prisma.$transaction(async (tx) => {
-    const moved = await table(tx, kind).updateMany({ where: { id: revision.id, status: "SUBMITTED" }, data: { status: "UNDER_REVIEW", reviewStartedAt: new Date() } });
-    if (!moved.count) throw fail("REVISION_STALE", "This revision changed since you opened it. Reload to see the latest.", "CONFLICT");
-    await parents(tx, kind).updateMany({ where: { id: parent.id }, data: { status: "UNDER_REVIEW", version: { increment: 1 } } });
+    await moveRevision(tx, context, kind, revision, "start_review", { reviewStartedAt: new Date() });
+    await moveParent(tx, context, parent, "start_review");
     await recordActivity(tx, context, { module: MODULE, entityType: spec.activity, entityId: parent.id, action: "REVIEW_STARTED", message: `started reviewing ${label(parent, revision)}` });
   });
   return { id: revision.id };
@@ -416,18 +438,17 @@ export async function decideRevision(context: UserContext, kind: RevisionKind, r
   const approving = APPROVING_DECISIONS.includes(input.decision);
   const now = new Date();
   await prisma.$transaction(async (tx) => {
-    const moved = await table(tx, kind).updateMany({
-      where: { id: revision.id, status: { in: IN_REVIEW } },
-      data: { status: "FINALIZED", reviewDecision: input.decision, reviewComment: input.comment, reviewedAt: now, reviewedByMemberId: context.membershipId },
-    });
-    if (!moved.count) throw fail("REVISION_STALE", "This revision changed since you opened it. Reload to see the latest.", "CONFLICT");
-    await parents(tx, kind).updateMany({ where: { id: parent.id }, data: { status: input.decision, version: { increment: 1 } } });
+    // The decision is written once: it goes in the write that finalises the
+    // revision, which is guarded by the review state this reviewer read, and
+    // nothing leads out of FINALIZED but being superseded.
+    await moveRevision(tx, context, kind, revision, "decide", { reviewDecision: input.decision, reviewComment: input.comment, reviewedAt: now, reviewedByMemberId: context.membershipId });
+    await moveParent(tx, context, parent, DECISION_ACTION[input.decision]);
 
     if (approving) {
       // The approved revision is current; every older one is superseded and kept (§71, §81).
       const older = (await revisionsOf(tx, kind, parent.id)).filter((row) => row.id !== revision.id && (row.status === "FINALIZED" || row.status === "SUBMITTED" || row.status === "UNDER_REVIEW"));
       if (older.length) {
-        await table(tx, kind).updateMany({ where: { id: { in: older.map((row) => row.id) } }, data: { status: "SUPERSEDED", supersededAt: now } });
+        for (const row of older) await moveRevision(tx, context, kind, row, "supersede", { supersededAt: now });
         await recordUserAction(context, { actionKey: AuditAction.ENGINEERING_REVISION_SUPERSEDED, entity: { type: spec.record, id: parent.id, label: parent.number }, projectId: parent.projectId, after: { revisionIds: older.map((row) => row.id), supersededBy: revision.id } }, { tx });
       }
     }
@@ -469,8 +490,7 @@ export async function voidRevision(context: UserContext, kind: RevisionKind, rev
   assertLive(parent);
   if (revision.status !== "DRAFT") throw fail("REVISION_NOT_DRAFT", "Only a draft revision can be discarded.", "CONFLICT");
   await prisma.$transaction(async (tx) => {
-    const moved = await table(tx, kind).updateMany({ where: { id: revision.id, status: "DRAFT" }, data: { status: "VOID", voidedAt: new Date() } });
-    if (!moved.count) throw fail("REVISION_STALE", "This revision changed since you opened it. Reload to see the latest.", "CONFLICT");
+    await moveRevision(tx, context, kind, revision, "void", { voidedAt: new Date() });
     await recordActivity(tx, context, { module: MODULE, entityType: KIND[kind].activity, entityId: parent.id, action: "REVISION_VOIDED", message: `discarded the draft ${label(parent, revision)}` });
   });
   return { id: revision.id };
