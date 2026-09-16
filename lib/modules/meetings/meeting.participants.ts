@@ -16,6 +16,7 @@ import { ENTITY, getMeeting, laterOccurrencesInReach, MODULE, RECORD, requireRea
 import { PARTICIPANTS_MAX } from "./meeting.schema";
 import { requireMembers, type ParticipantInput } from "./meeting.service";
 import type { MeetingDetailDTO } from "./meeting.types";
+import { clearMeetingReminders, setMeetingReminders } from "@/lib/modules/calendar/calendar.service";
 
 /**
  * Participants, replies and attendance (PRD #40 §18-§26, §112-§114, §132-§136).
@@ -83,12 +84,7 @@ export async function addParticipants(
       skipDuplicates: true,
     });
     if (offsets.length > 0) {
-      await tx.calendarReminder.createMany({
-        data: meetingIds.flatMap((id) =>
-          added.flatMap((participant) => offsets.map((minutesBefore) => ({ companyId: context.companyId, meetingId: id, memberId: participant.memberId, minutesBefore }))),
-        ),
-        skipDuplicates: true,
-      });
+      await setMeetingReminders(tx, context.companyId, { meetingIds, memberIds: added.map((participant) => participant.memberId), minutesBefore: offsets });
     }
     await recordUserAction(
       context,
@@ -159,7 +155,7 @@ export async function removeParticipant(context: UserContext, meetingId: string,
   const meetingIds = [meetingId, ...(scope === "FUTURE" ? await laterOccurrences(context, meeting) : [])];
   await prisma.$transaction(async (tx) => {
     await tx.meetingParticipant.deleteMany({ where: { meetingId: { in: meetingIds }, memberId, role: { not: "ORGANIZER" } } });
-    await tx.calendarReminder.deleteMany({ where: { meetingId: { in: meetingIds }, memberId } });
+    await clearMeetingReminders(tx, context.companyId, { meetingIds, memberId });
     await recordUserAction(
       context,
       { actionKey: AuditAction.MEETING_PARTICIPANT_REMOVED, entity: { type: ENTITY, id: meetingId }, projectId: meeting.projectId, metadata: { memberId } },
@@ -223,10 +219,7 @@ export async function transferOrganizer(context: UserContext, meetingId: string,
       create: { meetingId, memberId, companyId: context.companyId, role: "ORGANIZER", response: "ACCEPTED", displayName: names.get(memberId)!, invitedAt: new Date(), respondedAt: new Date() },
     });
     if (offsets.length > 0) {
-      await tx.calendarReminder.createMany({
-        data: offsets.map((minutesBefore) => ({ companyId: context.companyId, meetingId, memberId, minutesBefore })),
-        skipDuplicates: true,
-      });
+      await setMeetingReminders(tx, context.companyId, { meetingIds: [meetingId], memberIds: [memberId], minutesBefore: offsets });
     }
     await recordUserAction(
       context,

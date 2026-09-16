@@ -240,3 +240,25 @@ export async function closeOpenSteps(
 ): Promise<void> {
   await tx.approvalStep.updateMany({ where: { providerKey, approvalId, status: "PENDING" }, data: { status } });
 }
+
+/**
+ * Points the open steps of one cycle at a different approver (PRD #48 §212).
+ *
+ * The source module decides who decides — a timesheet follows its member to
+ * whoever approves for them now. The routing row is the approvals platform's,
+ * so it is moved from here, in the caller's transaction (PRD #48 §86, §106).
+ * Only pending steps move: a decision already taken stays attributed to
+ * whoever took it.
+ */
+export async function reassignOpenSteps(
+  tx: Prisma.TransactionClient,
+  providerKey: string,
+  approvalId: string,
+  approverMemberId: string,
+): Promise<number> {
+  const { count } = await tx.approvalStep.updateMany({
+    where: { providerKey, approvalId, status: "PENDING" },
+    data: { approverMemberId },
+  });
+  return count;
+}

@@ -6,6 +6,7 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import type { RecordType } from "@/lib/core/records/record.types";
+import { resolveAttentionFor } from "./attention.service";
 import { NotificationEvent } from "./notification.events";
 import { enqueueNotificationEvent } from "./notification.service";
 
@@ -45,10 +46,7 @@ export async function resolveApprovalAttention(
   companyId: string,
   record: { recordType: RecordType; recordId: string },
 ): Promise<void> {
-  await tx.attentionItem.updateMany({
-    where: { companyId, conditionKey: { in: APPROVAL_CONDITIONS }, entityType: record.recordType, entityId: record.recordId, status: "ACTIVE" },
-    data: { status: "RESOLVED", resolvedAt: new Date() },
-  });
+  await resolveAttentionFor(tx, { companyId, conditionKeys: APPROVAL_CONDITIONS, entityType: record.recordType, entityId: record.recordId });
 }
 
 export async function notifyApprovalRequested(

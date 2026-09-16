@@ -15,6 +15,7 @@ import { recordActivity } from "@/lib/modules/shared/activity";
 import { findReadableDocument } from "../document.parent-access";
 import { requireDocument } from "../storage/storage-access.service";
 import { documentReviewable } from "./version.service";
+import { resolveAttentionFor } from "@/lib/core/notifications/attention.service";
 
 /**
  * Document review (PRD #38 §59-§65, §68).
@@ -58,15 +59,11 @@ export const reassignReviewSchema = z.object({
 
 /** The attention items one review raised — per reviewer, keyed by the review (PRD #41 §227). */
 async function resolveReviewAttention(tx: Prisma.TransactionClient, companyId: string, reviewId: string): Promise<void> {
-  await tx.attentionItem.updateMany({
-    where: {
-      companyId,
-      conditionKey: { in: ["PENDING_APPROVAL", "APPROVAL_OVERDUE"] },
-      entityType: "document",
-      dedupeKey: { endsWith: `:${reviewId}` },
-      status: "ACTIVE",
-    },
-    data: { status: "RESOLVED", resolvedAt: new Date() },
+  await resolveAttentionFor(tx, {
+    companyId,
+    conditionKeys: ["PENDING_APPROVAL", "APPROVAL_OVERDUE"],
+    entityType: "document",
+    dedupeKeySuffix: `:${reviewId}`,
   });
 }
 

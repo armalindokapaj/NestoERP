@@ -39,6 +39,7 @@ import {
 import type { CreateMeetingInput, MeetingListQuery, MeetingRecurrence, UpdateMeetingInput } from "./meeting.schema";
 import { DEFAULT_REMINDER_MINUTES, PARTICIPANTS_MAX, SERIES_OCCURRENCES_MAX } from "./meeting.schema";
 import { AGENDA_TEMPLATES, type MeetingConflictDTO, type MeetingListItemDTO, type MeetingWriteResult } from "./meeting.types";
+import { setMeetingReminders } from "@/lib/modules/calendar/calendar.service";
 
 /**
  * Meetings (PRD #40 §99-§102, §155-§162, §178-§180, §221-§230).
@@ -388,12 +389,7 @@ async function createMeetingInner(context: UserContext, input: CreateMeetingInpu
       });
     }
     if (reminders.length > 0) {
-      await tx.calendarReminder.createMany({
-        data: meetings.flatMap((meeting) =>
-          everyone.flatMap((memberId) => reminders.map((minutesBefore) => ({ companyId: context.companyId, meetingId: meeting.id, memberId, minutesBefore }))),
-        ),
-        skipDuplicates: true,
-      });
+      await setMeetingReminders(tx, context.companyId, { meetingIds: meetings.map((meeting) => meeting.id), memberIds: everyone, minutesBefore: reminders });
     }
 
     const head = { ...meetings[0], projectId, timezone: zone };

@@ -36,7 +36,7 @@ export async function createSession(input: {
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {
-  await prisma.session.deleteMany({ where: { id: sessionId } });
+  await revokeSessions(prisma, { sessionId });
 }
 
 /** Used when a password is reset: every other session for that user is dropped. */
@@ -44,7 +44,35 @@ export async function revokeSessionsForUser(
   userId: string,
   options: { except?: string } = {},
 ): Promise<void> {
-  await prisma.session.deleteMany({
-    where: { userId, ...(options.except ? { id: { not: options.except } } : {}) },
+  await revokeSessions(prisma, { userId, exceptSessionId: options.except });
+}
+
+/**
+ * Every session a person holds, ended (PRD #48 §11).
+ *
+ * `Session` is Auth's row and the cookie is only an id into it, so deleting
+ * the row is the revocation — there is no token left to expire (PRD #6 §113).
+ * Account and Team both need this: changing a password signs the other devices
+ * out, and deactivating a membership ends access now rather than whenever a
+ * session happens to lapse (PRD #14 §242).
+ *
+ * Runs in the caller's transaction where one is given, so the revocation
+ * commits with the change that caused it.
+ */
+export async function revokeSessions(
+  client: Pick<typeof prisma, "session">,
+  target: { userId?: string; membershipId?: string; exceptSessionId?: string; sessionId?: string },
+): Promise<number> {
+  if (!target.userId && !target.membershipId && !target.sessionId) {
+    throw new Error("revokeSessions needs a user, a membership or a session");
+  }
+  const { count } = await client.session.deleteMany({
+    where: {
+      ...(target.sessionId ? { id: target.sessionId } : {}),
+      ...(target.userId ? { userId: target.userId } : {}),
+      ...(target.membershipId ? { membershipId: target.membershipId } : {}),
+      ...(target.exceptSessionId ? { id: { not: target.exceptSessionId } } : {}),
+    },
   });
+  return count;
 }

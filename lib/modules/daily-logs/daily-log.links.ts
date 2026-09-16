@@ -20,6 +20,7 @@ import { assertTask } from "./daily-log.entries";
 import { fail, findReadableLog, lockedError, RECORD_LINK_TYPE, touchLog, type ReadableLog } from "./daily-log.service";
 import { resolveDailyLogSettings } from "./daily-log.settings";
 import { addLocalDays, businessInstant, dateOf, timeOn } from "./daily-log.time";
+import { linkReference, unlinkReference } from "@/lib/core/integrations/integration.service";
 
 /**
  * What a log points at (PRD #43 §62-§79, §116, §117, §179-§183).
@@ -150,17 +151,10 @@ export async function linkRecord(context: UserContext, dailyLogId: string, input
 
   return prisma.$transaction(async (tx) => {
     const version = await touchLog(tx, log.id);
-    const key = `${log.id}:${input.recordType}:${input.recordId}`;
-    const link = await tx.integrationLink.upsert({
-      where: { companyId_integrationType_idempotencyKey: { companyId: context.companyId, integrationType: RECORD_LINK_TYPE, idempotencyKey: key } },
-      create: {
-        companyId: context.companyId, integrationType: RECORD_LINK_TYPE, mode: "REFERENCE",
-        sourceModule: "dailyLogs", sourceEntityType: RECORD, sourceEntityId: log.id,
-        targetModule: definition.moduleKey, targetEntityType: input.recordType, targetEntityId: input.recordId,
-        idempotencyKey: key, createdByMemberId: context.membershipId,
-      },
-      update: { status: "ACTIVE" },
-      select: { id: true },
+    const link = await linkReference(tx, context, {
+      integrationType: RECORD_LINK_TYPE,
+      source: { module: "dailyLogs", entityType: RECORD, id: log.id },
+      target: { module: definition.moduleKey, entityType: input.recordType, id: input.recordId },
     });
     return { linkId: link.id, version };
   });
@@ -177,7 +171,7 @@ export async function unlinkRecord(context: UserContext, dailyLogId: string, lin
   }
   return prisma.$transaction(async (tx) => {
     const version = await touchLog(tx, log.id);
-    await tx.integrationLink.update({ where: { id: link.id }, data: { status: "CANCELLED" } });
+    await unlinkReference(tx, context, { integrationType: RECORD_LINK_TYPE, linkId: link.id, source: { entityType: RECORD, id: log.id } });
     return { version };
   });
 }

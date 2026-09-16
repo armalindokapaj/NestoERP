@@ -1,0 +1,8 @@
+[
+  "calendar ↔ contracts ↔ meetings ↔ tasks",
+  "contractors ↔ engineering",
+  "contractors ↔ engineering ↔ work-packages",
+  "engineering ↔ work-packages",
+  "finance ↔ sales",
+  "meetings ↔ tasks"
+]

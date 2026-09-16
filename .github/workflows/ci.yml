@@ -100,6 +100,23 @@ jobs:
         # state, against every route and server action (PRD #47 §131-§139, §158, §258).
         run: pnpm test:security
 
+      - name: Domain ownership gates
+        # One owner per model; no domain writing another's tables outside a
+        # recorded exception; nothing under app/ writing at all; no new
+        # dependency cycle between domains (PRD #48 §185-§192, §270, §298).
+        run: pnpm verify:ownership
+
+      - name: Architecture tests
+        # The same rules from the test runner, plus a named test for each drift
+        # PRD #48 §293 lists, so a regression says which one came back.
+        run: pnpm test:architecture
+
+      - name: Transaction integrity tests
+        # Rollback after an injected failure, idempotency of a repeated
+        # operation, and concurrent writers — against the real database
+        # (PRD #48 §194-§202, §294-§296).
+        run: pnpm test:transactions
+
       - name: Build
         run: pnpm build
 

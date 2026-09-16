@@ -194,19 +194,56 @@ export async function createTaskFromContext(
   input: CreateTaskInput & { parentType: string; parentId: string },
 ): Promise<TaskDetailDTO> {
   const { parentType, parentId, ...task } = input;
-  const definition = recordDefinition(parentType);
-  return createTask(context, task, {
-    moduleKey: definition?.moduleKey ?? "",
-    entityType: parentType,
-    entityId: parentId,
-  });
+  return createTask(context, task, parentContextOf(parentType, parentId));
 }
 
-export async function createTask(
+function parentContextOf(parentType: string, parentId: string): TaskParentContext {
+  const definition = recordDefinition(parentType);
+  return { moduleKey: definition?.moduleKey ?? "", entityType: parentType, entityId: parentId };
+}
+
+/**
+ * The same door, opened inside the caller's transaction (PRD #48 §24, §25, §145).
+ *
+ * A module that must create a task and record something of its own together
+ * — a meeting action becoming a task — cannot use the version above: it
+ * commits on its own, and a failure afterwards would leave a task nobody
+ * asked for. Here the task is written with the caller's client, so one
+ * rollback takes both (PRD #48 §22, §146).
+ *
+ * Tasks' rules still apply: the permission, the parent record, the project of
+ * that parent, the assignee. What the caller gets back is an id, not a DTO —
+ * reading the task back is for after the commit, and so is
+ * `subscribeStakeholders`, which writes outside this transaction.
+ */
+export async function createTaskFromContextIn(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: CreateTaskInput & { parentType: string; parentId: string },
+): Promise<{ id: string; assigneeMemberId: string | null }> {
+  const { parentType, parentId, ...task } = input;
+  const prepared = await prepareTask(context, task, parentContextOf(parentType, parentId));
+  const created = await writeTask(tx, context, task, prepared).catch(translateWriteError);
+  return { id: created.id, assigneeMemberId: prepared.assigneeMemberId };
+}
+
+type PreparedTask = {
+  trustedParent: Awaited<ReturnType<typeof resolveTaskParent>>;
+  projectId: string | null;
+  assigneeMemberId: string | null;
+  status: TaskStatus;
+};
+
+/**
+ * Everything decided before the write: the parent record, its project, the
+ * assignee. All reads, and none of it depends on the caller's transaction —
+ * which is why a caller that owns one can still use it (PRD #48 §114).
+ */
+async function prepareTask(
   context: UserContext,
   input: CreateTaskInput,
   parent?: TaskParentContext,
-): Promise<TaskDetailDTO> {
+): Promise<PreparedTask> {
   assertModule(context, MODULE);
   assertPermission(context, "task.create");
 
@@ -233,66 +270,86 @@ export async function createTask(
     throw new AccessError("VALIDATION_ERROR", "Create the task, then mark it blocked with a reason.");
   }
 
+  return { trustedParent, projectId, assigneeMemberId, status };
+}
+
+/** The task row, its activity and the assignee's notification — one transaction's worth. */
+async function writeTask(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: CreateTaskInput,
+  prepared: PreparedTask,
+): Promise<{ id: string }> {
+  const { trustedParent, projectId, assigneeMemberId, status } = prepared;
+
+  const task = await tx.task.create({
+    data: {
+      companyId: context.companyId,
+      projectId,
+      title: input.title,
+      description: input.description ?? null,
+      assigneeMemberId,
+      createdByMemberId: context.membershipId,
+      status,
+      priority: input.priority as TaskPriority,
+      startDate: input.startDate ?? null,
+      dueDate: input.dueDate ?? null,
+      // Completing on create is allowed, but the timestamp is the server's
+      // (PRD #11 §50, §117).
+      completedAt: status === "COMPLETED" ? new Date() : null,
+      createdBy: context.userId,
+      module: trustedParent?.moduleKey ?? null,
+      entityType: trustedParent?.entityType ?? null,
+      entityId: trustedParent?.entityId ?? null,
+    },
+    select: { id: true },
+  });
+
+  await recordActivity(tx, context, {
+    module: MODULE,
+    entityType: ENTITY,
+    entityId: task.id,
+    action: "TASK_CREATED",
+    message: "created the task",
+    metadata: { taskId: task.id, projectId } as Prisma.InputJsonValue,
+  });
+
+  if (assigneeMemberId) {
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: task.id,
+      action: "TASK_ASSIGNED",
+      message: "assigned the task",
+      metadata: { taskId: task.id, assigneeMemberId } as Prisma.InputJsonValue,
+    });
+
+    // Being given work is the one thing somebody should not have to go
+    // looking for (PRD #25 §30).
+    await enqueueNotificationEvent(tx, {
+      companyId: context.companyId,
+      eventType: NotificationEvent.TASK_ASSIGNED,
+      moduleKey: "tasks",
+      entityType: RECORD,
+      entityId: task.id,
+      actorMemberId: context.membershipId,
+      projectId,
+      payload: { assigneeMemberId, title: input.title, assignmentVersion: new Date().toISOString() },
+    });
+  }
+
+  return task;
+}
+
+export async function createTask(
+  context: UserContext,
+  input: CreateTaskInput,
+  parent?: TaskParentContext,
+): Promise<TaskDetailDTO> {
+  const prepared = await prepareTask(context, input, parent);
+
   const created = await prisma
-    .$transaction(async (tx) => {
-      const task = await tx.task.create({
-        data: {
-          companyId: context.companyId,
-          projectId,
-          title: input.title,
-          description: input.description ?? null,
-          assigneeMemberId,
-          createdByMemberId: context.membershipId,
-          status,
-          priority: input.priority as TaskPriority,
-          startDate: input.startDate ?? null,
-          dueDate: input.dueDate ?? null,
-          // Completing on create is allowed, but the timestamp is the server's
-          // (PRD #11 §50, §117).
-          completedAt: status === "COMPLETED" ? new Date() : null,
-          createdBy: context.userId,
-          module: trustedParent?.moduleKey ?? null,
-          entityType: trustedParent?.entityType ?? null,
-          entityId: trustedParent?.entityId ?? null,
-        },
-        select: { id: true },
-      });
-
-      await recordActivity(tx, context, {
-        module: MODULE,
-        entityType: ENTITY,
-        entityId: task.id,
-        action: "TASK_CREATED",
-        message: "created the task",
-        metadata: { taskId: task.id, projectId } as Prisma.InputJsonValue,
-      });
-
-      if (assigneeMemberId) {
-        await recordActivity(tx, context, {
-          module: MODULE,
-          entityType: ENTITY,
-          entityId: task.id,
-          action: "TASK_ASSIGNED",
-          message: "assigned the task",
-          metadata: { taskId: task.id, assigneeMemberId } as Prisma.InputJsonValue,
-        });
-
-        // Being given work is the one thing somebody should not have to go
-        // looking for (PRD #25 §30).
-        await enqueueNotificationEvent(tx, {
-          companyId: context.companyId,
-          eventType: NotificationEvent.TASK_ASSIGNED,
-          moduleKey: "tasks",
-          entityType: RECORD,
-          entityId: task.id,
-          actorMemberId: context.membershipId,
-          projectId,
-          payload: { assigneeMemberId, title: input.title, assignmentVersion: new Date().toISOString() },
-        });
-      }
-
-      return task;
-    })
+    .$transaction((tx) => writeTask(tx, context, input, prepared))
     .catch(translateWriteError);
 
   // The one accountable assignee and the creator watch the task's discussion
@@ -301,7 +358,7 @@ export async function createTask(
     companyId: context.companyId,
     parentType: RECORD,
     parentId: created.id,
-    memberIds: [context.membershipId, ...(assigneeMemberId ? [assigneeMemberId] : [])],
+    memberIds: [context.membershipId, ...(prepared.assigneeMemberId ? [prepared.assigneeMemberId] : [])],
   });
 
   return getTask(context, created.id);

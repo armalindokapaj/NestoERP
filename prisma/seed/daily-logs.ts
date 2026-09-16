@@ -201,7 +201,9 @@ export async function seedDailyLogRecords(prisma: PrismaClient, members: Members
     { log: DAILY_LOG_SEED.submitted, module: "hse", type: "hazard", target: "hse_hz_001" },
   ];
   for (const link of links) {
-    const key = `${link.log}:${link.type}:${link.target}`;
+    // The same key `linkReference` writes: source type, source, target type,
+    // target (PRD #48 §65).
+    const key = `daily_log:${link.log}:${link.type}:${link.target}`;
     await prisma.integrationLink.upsert({
       where: { companyId_integrationType_idempotencyKey: { companyId: COMPANY_A, integrationType: "DAILY_LOG_RECORD", idempotencyKey: key } },
       update: { status: "ACTIVE", sourceEntityId: link.log },

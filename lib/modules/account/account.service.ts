@@ -1,12 +1,14 @@
 import { AccessError } from "@/lib/access/guards";
 import { recordAuthEvent } from "@/lib/auth/events";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { verifyPassword } from "@/lib/auth/password";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { hitThrottle, peekThrottle } from "@/lib/core/security/throttle";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import type { ChangePasswordInput, UpdateProfileInput } from "./account.schema";
+import { setPassword } from "@/lib/auth/identity";
+import { revokeSessions } from "@/lib/auth/session-store";
 
 /**
  * Account basics (PRD #38 §20).
@@ -102,17 +104,11 @@ export async function changePassword(
     throw new AccessError("VALIDATION_ERROR", "CURRENT_PASSWORD_INCORRECT");
   }
 
-  const passwordHash = await hashPassword(input.newPassword);
-
   const revoked = await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: context.userId }, data: { passwordHash } });
-    await tx.passwordResetToken.updateMany({
-      where: { userId: context.userId, usedAt: null },
-      data: { usedAt: new Date() },
-    });
-    const sessions = await tx.session.deleteMany({
-      where: { userId: context.userId, id: { not: context.sessionId } },
-    });
+    // Auth owns the credential and the reset links that could undo this
+    // (PRD #48 §11); the other devices go with it.
+    await setPassword(tx, context.userId, input.newPassword);
+    const sessions = await revokeSessions(tx, { userId: context.userId, exceptSessionId: context.sessionId });
 
     // Required evidence, committed with the change — never the password
     // itself (PRD #38 §156).
@@ -121,12 +117,12 @@ export async function changePassword(
       {
         actionKey: AuditAction.AUTH_PASSWORD_CHANGED,
         entity: { type: "User", id: context.userId, label: context.fullName },
-        metadata: { otherSessionsRevoked: sessions.count },
+        metadata: { otherSessionsRevoked: sessions },
       },
       { tx },
     );
 
-    return sessions.count;
+    return sessions;
   });
 
   await recordAuthEvent({
@@ -214,23 +210,21 @@ async function recordRevocation(context: UserContext, scope: string, revoked: nu
  * NOT_FOUND, exactly like an id that does not exist.
  */
 export async function revokeOwnSession(context: UserContext, sessionId: string): Promise<{ current: boolean }> {
-  const result = await prisma.session.deleteMany({ where: { id: sessionId, userId: context.userId } });
-  if (result.count === 0) throw new AccessError("NOT_FOUND", "That session does not exist.");
+  const revoked = await revokeSessions(prisma, { sessionId, userId: context.userId });
+  if (revoked === 0) throw new AccessError("NOT_FOUND", "That session does not exist.");
   await recordRevocation(context, sessionId === context.sessionId ? "current" : "one", 1);
   return { current: sessionId === context.sessionId };
 }
 
 export async function revokeOtherSessions(context: UserContext): Promise<number> {
-  const result = await prisma.session.deleteMany({
-    where: { userId: context.userId, id: { not: context.sessionId } },
-  });
-  await recordRevocation(context, "others", result.count);
-  return result.count;
+  const revoked = await revokeSessions(prisma, { userId: context.userId, exceptSessionId: context.sessionId });
+  await recordRevocation(context, "others", revoked);
+  return revoked;
 }
 
 /** Signs the person out everywhere, including here (PRD #38 §20). */
 export async function revokeAllSessions(context: UserContext): Promise<number> {
-  const result = await prisma.session.deleteMany({ where: { userId: context.userId } });
-  await recordRevocation(context, "all", result.count);
-  return result.count;
+  const revoked = await revokeSessions(prisma, { userId: context.userId });
+  await recordRevocation(context, "all", revoked);
+  return revoked;
 }

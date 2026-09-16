@@ -7,6 +7,7 @@ import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/ap
 import { closeOpenSteps, createApprovalSteps, currentStepOf, loadApprovalSteps, settleStep, stepEligibility } from "@/lib/core/approvals/approval-steps";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
 import { resolveApprovalAttention } from "@/lib/core/notifications/approval-notifications";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
@@ -146,10 +147,7 @@ export async function submitTimesheet(
       payload: { approverMemberId: approver.memberId, memberName: context.fullName, weekLabel: label, totalLabel: formatMinutes(detail.totals.totalMinutes), submissionVersion: week.submissionVersion + 1 },
     });
     // The member's own "not submitted" and "returned" reminders end here (§214).
-    await tx.attentionItem.updateMany({
-      where: { companyId: context.companyId, entityType: "timesheet", entityId: week.id, conditionKey: { in: ["TIMESHEET_NOT_SUBMITTED", "TIMESHEET_RETURNED"] }, status: "ACTIVE" },
-      data: { status: "RESOLVED", resolvedAt: new Date() },
-    });
+    await resolveAttentionForRecord(tx, context.companyId, "timesheet", week.id, ["TIMESHEET_NOT_SUBMITTED", "TIMESHEET_RETURNED"]);
     await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: week.id, action: "TIMESHEET_SUBMITTED", message: `submitted the timesheet for ${label}` });
     await recordUserAction(
       context,
@@ -222,10 +220,7 @@ async function decide(context: UserContext, timesheetId: string, outcome: Outcom
     if (moved.count === 0) throw fail("STALE_VERSION", "This week changed since you opened it. Review it again.");
 
     await resolveApprovalAttention(tx, context.companyId, { recordType: "timesheet", recordId: week.id });
-    await tx.attentionItem.updateMany({
-      where: { companyId: context.companyId, entityType: "timesheet", entityId: week.id, conditionKey: "TIMESHEET_APPROVAL_OVERDUE", status: "ACTIVE" },
-      data: { status: "RESOLVED", resolvedAt: now },
-    });
+    await resolveAttentionForRecord(tx, context.companyId, "timesheet", week.id, ["TIMESHEET_APPROVAL_OVERDUE"]);
 
     await enqueueNotificationEvent(tx, {
       companyId: context.companyId,

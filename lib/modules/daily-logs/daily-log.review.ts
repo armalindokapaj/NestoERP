@@ -7,6 +7,7 @@ import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { resolveAttentionFor } from "@/lib/core/notifications/attention.service";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
@@ -91,10 +92,7 @@ export async function submitDailyLog(context: UserContext, dailyLogId: string, i
     await transition(tx, log, input.expectedVersion, ["DRAFT", "CORRECTION_REQUIRED"], {
       status: "SUBMITTED", submittedAt: new Date(), submittedByMemberId: context.membershipId, reviewerMemberId, submissionCount: { increment: 1 }, returnReason: null,
     });
-    await tx.attentionItem.updateMany({
-      where: { companyId: context.companyId, entityType: RECORD, entityId: log.id, conditionKey: "DAILY_LOG_RETURNED", status: "ACTIVE" },
-      data: { status: "RESOLVED", resolvedAt: new Date() },
-    });
+    await resolveAttentionFor(tx, { companyId: context.companyId, entityType: RECORD, entityId: log.id, conditionKeys: ["DAILY_LOG_RETURNED"] });
     if (reviewerMemberId) {
       await enqueueNotificationEvent(tx, {
         companyId: context.companyId, eventType: NotificationEvent.DAILY_LOG_SUBMITTED, moduleKey: MODULE, entityType: RECORD, entityId: log.id, actorMemberId: context.membershipId, projectId: log.projectId,
@@ -133,10 +131,7 @@ export async function reviewDailyLog(context: UserContext, dailyLogId: string, i
 }
 
 async function resolveReviewAttention(tx: Tx, companyId: string, dailyLogId: string) {
-  await tx.attentionItem.updateMany({
-    where: { companyId, entityType: RECORD, entityId: dailyLogId, conditionKey: "DAILY_LOG_AWAITING_REVIEW", status: "ACTIVE" },
-    data: { status: "RESOLVED", resolvedAt: new Date() },
-  });
+  await resolveAttentionFor(tx, { companyId, entityType: RECORD, entityId: dailyLogId, conditionKeys: ["DAILY_LOG_AWAITING_REVIEW"] });
 }
 
 export async function returnDailyLog(context: UserContext, dailyLogId: string, input: { expectedVersion: number; reason: string }) {
@@ -181,7 +176,8 @@ export async function voidDailyLog(context: UserContext, dailyLogId: string, inp
   if (!input.reason.trim()) throw fail("DAILY_LOG_REASON_REQUIRED", "Say why the log is void.");
   await prisma.$transaction(async (tx) => {
     await transition(tx, log, input.expectedVersion, ["DRAFT", "SUBMITTED", "REVIEWED", "LOCKED", "CORRECTION_REQUIRED"], { status: "VOID", voidedAt: new Date(), voidedByMemberId: context.membershipId, voidReason: input.reason });
-    await tx.attentionItem.updateMany({ where: { companyId: context.companyId, entityType: RECORD, entityId: log.id, status: "ACTIVE" }, data: { status: "RESOLVED", resolvedAt: new Date() } });
+    // A void log raises nothing any more, whichever condition put it there.
+    await resolveAttentionFor(tx, { companyId: context.companyId, entityType: RECORD, entityId: log.id });
     await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: log.id, action: "DAILY_LOG_VOIDED", message: "voided the daily log", metadata: { note: input.reason } as Prisma.InputJsonValue });
     await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_VOIDED, entity: { type: RECORD, id: log.id }, before: { status: log.status }, after: { status: "VOID" }, reason: input.reason }, { tx });
   });

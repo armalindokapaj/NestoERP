@@ -2338,6 +2338,11 @@ model Commitment {
   @@index([expectedDate])
   @@index([currency])
   @@index([sourceModule, sourceEntityType, sourceEntityId])
+  /// One commitment per source record. The handoff from a purchase order is
+  /// idempotent because the database refuses a second one, not because the
+  /// caller remembered to look (PRD #48 §41, §141, §165). A commitment raised
+  /// in Finance itself carries no source, and NULLs do not collide.
+  @@unique([companyId, sourceModule, sourceEntityType, sourceEntityId])
   @@map("commitments")
 }
 

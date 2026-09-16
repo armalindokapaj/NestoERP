@@ -11,6 +11,7 @@ import { recordAuthEvent } from "./events";
 import { verifyPassword } from "./password";
 import { credentialsSchema } from "./schema";
 import { createSession } from "./session-store";
+import { recordSignIn } from "./identity";
 
 export type AuthenticatedUser = { id: string; email: string; sessionId: string };
 
@@ -107,10 +108,7 @@ export async function authenticateCredentials(
   // its count, so one good account cannot launder a spray.
   await clearThrottle("AUTH_LOGIN", { account: email });
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date() },
-  });
+  await recordSignIn(prisma, user.id);
 
   await recordAuthEvent({
     type: "LOGIN_SUCCESS",

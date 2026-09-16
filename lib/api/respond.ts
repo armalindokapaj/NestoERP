@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import { AccessError, type ApiErrorCode, errorStatus } from "@/lib/access/guards";
 import { recordAuthorizationDenial } from "@/lib/access/security-log";
+import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import type { UserContext } from "@/lib/context/types";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
@@ -101,6 +102,12 @@ async function handleRequest(
   } catch (error) {
     if (error instanceof AccessError) {
       recordAuthorizationDenial({ code: error.code, reason: error.reason });
+      // A stale edit, a record already decided, a transition that no longer
+      // applies: the rate of these says whether two people are routinely
+      // working on the same thing (PRD #48 §181).
+      if (error.code === "CONFLICT") {
+        incrementCounter(Metric.CONFLICT, { kind: (error.details as { code?: string } | undefined)?.code ?? "unspecified" });
+      }
       return apiError(error.code, error.message, error.details);
     }
 

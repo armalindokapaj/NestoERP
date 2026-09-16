@@ -4,6 +4,7 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { parseRecurrence, RecurrenceError } from "@/lib/modules/calendar/calendar.recurrence";
 import { SERIES_OCCURRENCES_MAX } from "./meeting.schema";
 import { planOccurrences, SERIES_HORIZON_DAYS } from "./meeting.service";
+import { copyMeetingReminders } from "@/lib/modules/calendar/calendar.service";
 
 /**
  * The meeting series job (PRD #40 §226, §229, §230).
@@ -157,10 +158,7 @@ async function extendOne(
         }
         const reminders = latest.reminders.filter((row) => active.has(row.memberId));
         if (reminders.length > 0) {
-          await tx.calendarReminder.createMany({
-            data: ids.flatMap((meetingId) => reminders.map((row) => ({ companyId: series.companyId, meetingId, ...row }))),
-            skipDuplicates: true,
-          });
+          await copyMeetingReminders(tx, series.companyId, { meetingIds: ids, reminders });
         }
       }
       await tx.meetingSeries.update({

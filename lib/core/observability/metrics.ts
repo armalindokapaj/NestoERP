@@ -100,6 +100,12 @@ export const Metric = {
   CROSS_PROJECT_DENIED: "cross_project_denied_total",
   MODULE_DISABLED_DENIED: "module_disabled_denied_total",
   PERMISSION_DENIED: "permission_denied_total",
+  // Transaction integrity (PRD #48 §180-§182)
+  TRANSACTION_SUCCESS: "transaction_success_total",
+  TRANSACTION_FAILURE: "transaction_failure_total",
+  TRANSACTION_RETRY: "transaction_retry_total",
+  CONFLICT: "conflict_total",
+  IDEMPOTENCY_REPLAY: "idempotency_replay_total",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

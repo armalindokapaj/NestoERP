@@ -1,3 +1,4 @@
+import { setSharingClassification as setDocumentSharingClassification } from "@/lib/modules/documents/document.service";
 import type { Prisma } from "@prisma/client";
 
 import type { Permission } from "@/config/permissions";
@@ -502,10 +503,16 @@ export async function setSharingClassification(context: UserContext, kind: Revis
   // A void or closed record, or one on an archived project, is history: its files' metadata is too (PRD #47 §85).
   assertLive(parent);
   if (!filesOpen(context)) throw new AccessError("FORBIDDEN", "You cannot change documents.");
-  const document = await prisma.document.findFirst({ where: { id: documentId, companyId: context.companyId, entityType: KIND[kind].record, entityId: parent.id }, select: { id: true, sharingClassification: true } });
-  if (!document) throw fail("REVISION_FILE_INVALID", "That file is not on this record.", "NOT_FOUND");
   await prisma.$transaction(async (tx) => {
-    await tx.document.update({ where: { id: document.id }, data: { sharingClassification: classification } });
-    await recordUserAction(context, { actionKey: kind === "document" ? AuditAction.ENGINEERING_DOCUMENT_UPDATED : AuditAction.SUBMITTAL_UPDATED, entity: { type: KIND[kind].record, id: parent.id, label: parent.number }, projectId: parent.projectId, before: { documentId, sharingClassification: document.sharingClassification }, after: { documentId, sharingClassification: classification } }, { tx });
+    // Documents owns the file and the column; Engineering decides the value
+    // (PRD #48 §89). It refuses a document that is not on this record, which
+    // is the check a foreign id has to fail.
+    const changed = await setDocumentSharingClassification(tx, context, {
+      documentId,
+      parent: { entityType: KIND[kind].record, entityId: parent.id },
+      classification,
+    });
+    if (!changed) throw fail("REVISION_FILE_INVALID", "That file is not on this record.", "NOT_FOUND");
+    await recordUserAction(context, { actionKey: kind === "document" ? AuditAction.ENGINEERING_DOCUMENT_UPDATED : AuditAction.SUBMITTAL_UPDATED, entity: { type: KIND[kind].record, id: parent.id, label: parent.number }, projectId: parent.projectId, before: { documentId, sharingClassification: changed.previous }, after: { documentId, sharingClassification: classification } }, { tx });
   });
 }

@@ -142,7 +142,8 @@ export async function seedPlanningRecords(prisma: PrismaClient, members: Members
         companyId: COMPANY_A, integrationType: "MILESTONE_RECORD", mode: "REFERENCE",
         sourceModule: "projects", sourceEntityType: "project_milestone", sourceEntityId: M.structure,
         targetModule: link.module, targetEntityType: link.type, targetEntityId: link.id,
-        idempotencyKey: `${M.structure}:${link.type}:${link.id}`, createdByMemberId: pm,
+        // The same key `linkReference` writes (PRD #48 §65).
+        idempotencyKey: `project_milestone:${M.structure}:${link.type}:${link.id}`, createdByMemberId: pm,
       },
     });
   }

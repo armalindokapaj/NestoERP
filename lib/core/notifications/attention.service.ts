@@ -89,10 +89,71 @@ export async function resolveAttention(
   companyId: string,
   dedupeKey: string,
 ): Promise<void> {
-  await tx.attentionItem.updateMany({
-    where: { companyId, dedupeKey, status: "ACTIVE" },
+  await resolveAttentionFor(tx, { companyId, dedupeKey });
+}
+
+/**
+ * Which items to resolve, for a service that has just ended a condition.
+ *
+ * Every field narrows; an empty selection beyond `companyId` is refused rather
+ * than resolving a company's whole list by accident.
+ */
+export type AttentionTarget = {
+  companyId: string;
+  entityType?: string;
+  entityId?: string;
+  conditionKeys?: string[];
+  /** One person's copy of a condition everyone was told about. */
+  recipientMemberId?: string;
+  dedupeKey?: string;
+  /** Items keyed `…:<id>` — one approval round's items across every reviewer. */
+  dedupeKeySuffix?: string;
+  /**
+   * Resolve items the recipient had already dismissed. Dismissing hides an
+   * item; it does not make the condition untrue, so a condition that really
+   * has ended should close both (PRD #25 §76).
+   */
+  includeDismissed?: boolean;
+};
+
+/**
+ * Attention's own write door (PRD #48 §66, §67).
+ *
+ * Attention is shared platform infrastructure: a module knows its condition
+ * ended, not how the item is stored, who else holds a copy, or what "resolved"
+ * means for one that was dismissed first. Modules call this inside their own
+ * transaction so the resolution commits with the change that caused it
+ * (PRD #48 §123); nothing outside this file writes `AttentionItem`.
+ *
+ * Answers how many items closed, for callers that report it.
+ */
+export async function resolveAttentionFor(
+  tx: Pick<Prisma.TransactionClient, "attentionItem">,
+  target: AttentionTarget,
+): Promise<number> {
+  const { companyId, entityType, entityId, conditionKeys, recipientMemberId, dedupeKey, dedupeKeySuffix, includeDismissed } = target;
+  if (!entityType && !entityId && !conditionKeys?.length && !recipientMemberId && !dedupeKey && !dedupeKeySuffix) {
+    throw new AccessError("VALIDATION_ERROR", "Resolving attention needs something to resolve.");
+  }
+  // Both would land on the same `dedupeKey` key and one would silently win.
+  if (dedupeKey && dedupeKeySuffix) {
+    throw new AccessError("VALIDATION_ERROR", "Give a dedupe key or a suffix, not both.");
+  }
+
+  const { count } = await tx.attentionItem.updateMany({
+    where: {
+      companyId,
+      ...(entityType ? { entityType } : {}),
+      ...(entityId ? { entityId } : {}),
+      ...(conditionKeys?.length ? { conditionKey: { in: conditionKeys } } : {}),
+      ...(recipientMemberId ? { recipientMemberId } : {}),
+      ...(dedupeKey ? { dedupeKey } : {}),
+      ...(dedupeKeySuffix ? { dedupeKey: { endsWith: dedupeKeySuffix } } : {}),
+      status: includeDismissed ? { in: ["ACTIVE", "DISMISSED"] } : "ACTIVE",
+    },
     data: { status: "RESOLVED", resolvedAt: new Date() },
   });
+  return count;
 }
 
 /**

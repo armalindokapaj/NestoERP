@@ -1,3 +1,4 @@
+import { resolveAttentionFor } from "@/lib/core/notifications/attention.service";
 import { Prisma } from "@prisma/client";
 
 import { can, canAccessModule } from "@/lib/access/can";
@@ -464,7 +465,9 @@ export async function acknowledgeAnnouncement(context: UserContext, announcement
     if (existing) return existing;
     return tx.announcementAcknowledgment.create({ data: { announcementId: row.id, memberId: context.membershipId, acknowledgedAt: now }, select: { acknowledgedAt: true } });
   });
-  await prisma.attentionItem.updateMany({ where: { companyId: context.companyId, entityType: RECORD, entityId: row.id, recipientMemberId: context.membershipId, conditionKey: "ANNOUNCEMENT_ACK_REQUIRED", status: { in: ["ACTIVE", "DISMISSED"] } }, data: { status: "RESOLVED", resolvedAt: now } });
+  // Their own copy only: everybody else still owes an acknowledgment. A
+  // dismissed item closes too — they have now done the thing it asked for.
+  await resolveAttentionFor(prisma, { companyId: context.companyId, entityType: RECORD, entityId: row.id, recipientMemberId: context.membershipId, conditionKeys: ["ANNOUNCEMENT_ACK_REQUIRED"], includeDismissed: true });
   return { acknowledgedAt: acknowledgment.acknowledgedAt.toISOString() };
 }
 

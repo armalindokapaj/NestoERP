@@ -16,6 +16,7 @@ import { loadRevisionParent } from "./engineering.revisions";
 import type { CreateTaskFromRecordInput } from "./engineering.schema";
 import { dateLabel, dateOf, fail, projectArchived } from "./engineering.shared";
 import { LINKABLE_LABELS, type LinkableType, type LinkedRecordDTO, type Option } from "./engineering.types";
+import { linkReference, unlinkReference } from "@/lib/core/integrations/integration.service";
 
 /**
  * What engineering records and work packages point at (PRD #46 §79, §111-§113,
@@ -152,17 +153,10 @@ export async function linkRecord(context: UserContext, sourceType: LinkSourceTyp
   if (placed.projectId && placed.projectId !== source.projectId) throw fail("ENGINEERING_LINK_PROJECT_MISMATCH", "That record belongs to another project.", "VALIDATION_ERROR", { field: "recordId" }, "CROSS_PROJECT_REFERENCE");
 
   return prisma.$transaction(async (tx) => {
-    const key = `${sourceType}:${source.id}:${input.type}:${target.id}`;
-    const link = await tx.integrationLink.upsert({
-      where: { companyId_integrationType_idempotencyKey: { companyId: context.companyId, integrationType: LINK_TYPE, idempotencyKey: key } },
-      create: {
-        companyId: context.companyId, integrationType: LINK_TYPE, mode: "REFERENCE",
-        sourceModule: source.module, sourceEntityType: sourceType, sourceEntityId: source.id,
-        targetModule: definition.moduleKey, targetEntityType: input.type, targetEntityId: target.id,
-        idempotencyKey: key, createdByMemberId: context.membershipId,
-      },
-      update: { status: "ACTIVE" },
-      select: { id: true },
+    const link = await linkReference(tx, context, {
+      integrationType: LINK_TYPE,
+      source: { module: source.module, entityType: sourceType, id: source.id },
+      target: { module: definition.moduleKey, entityType: input.type, id: target.id },
     });
     await recordUserAction(context, { actionKey: AuditAction.ENGINEERING_LINK_CHANGED, entity: { type: sourceType, id: source.id, label: source.label }, projectId: source.projectId, after: { linkedRecordType: input.type, linkedRecordId: target.id } }, { tx });
     return { linkId: link.id };
@@ -175,7 +169,7 @@ export async function unlinkRecord(context: UserContext, sourceType: LinkSourceT
   const link = await prisma.integrationLink.findFirst({ where: { id: linkId, companyId: context.companyId, integrationType: LINK_TYPE, sourceEntityType: sourceType, sourceEntityId: source.id, status: "ACTIVE" }, select: { id: true, targetEntityType: true, targetEntityId: true } });
   if (!link) throw fail("ENGINEERING_LINK_NOT_FOUND", "That link could not be found.", "NOT_FOUND");
   await prisma.$transaction(async (tx) => {
-    await tx.integrationLink.update({ where: { id: link.id }, data: { status: "CANCELLED" } });
+    await unlinkReference(tx, context, { integrationType: LINK_TYPE, linkId: link.id, source: { entityType: sourceType, id: source.id } });
     await recordUserAction(context, { actionKey: AuditAction.ENGINEERING_LINK_CHANGED, entity: { type: sourceType, id: source.id, label: source.label }, projectId: source.projectId, after: { linkedRecordType: link.targetEntityType, linkedRecordId: link.targetEntityId, removed: true } }, { tx });
   });
 }

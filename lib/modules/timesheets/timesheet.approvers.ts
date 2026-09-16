@@ -9,6 +9,7 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { prisma } from "@/lib/database/prisma";
 import { teamMemberWhere, timesheetsOpen } from "./timesheet.permissions";
 import type { TimesheetPerson } from "./timesheet.types";
+import { reassignOpenSteps } from "@/lib/core/approvals/approval-steps";
 
 /**
  * Who decides a member's weeks (PRD #42 §72-§76, §233, §235-§237).
@@ -169,7 +170,7 @@ export async function setApprover(context: UserContext, input: { memberId: strin
         const cycles = await tx.timesheetApproval.findMany({ where: { recordId: week.id, status: "PENDING" }, select: { id: true } });
         for (const cycle of cycles) {
           await tx.timesheetApproval.update({ where: { id: cycle.id }, data: { approverMemberId: effective.memberId } });
-          await tx.approvalStep.updateMany({ where: { providerKey: "timesheets", approvalId: cycle.id, status: "PENDING" }, data: { approverMemberId: effective.memberId } });
+          await reassignOpenSteps(tx, "timesheets", cycle.id, effective.memberId);
         }
         await recordUserAction(
           context,

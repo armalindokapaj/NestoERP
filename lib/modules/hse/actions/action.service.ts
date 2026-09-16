@@ -1,3 +1,4 @@
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { Prisma } from "@prisma/client";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
 import { linkIntegration } from "@/lib/core/integrations/integration.service";
@@ -762,10 +763,12 @@ export async function createTaskForAction(
   );
 
   const tasks = await import("@/lib/modules/tasks/task.service");
+  const collaboration = await import("@/lib/core/collaboration/collaboration.service");
 
-  const task = await tasks.createTask(
-    context,
-    {
+  // The task and the link that says where it came from commit together
+  // (PRD #48 §22, §145).
+  const task = await runInTransaction("hse.action.to_task", async (tx) => {
+    const created = await tasks.createTaskFromContextIn(tx, context, {
       title: input.title,
       description: input.description ?? undefined,
       projectId: action.projectId ?? undefined,
@@ -776,17 +779,19 @@ export async function createTaskForAction(
       // Carried across, so a critical safety action does not land on somebody's
       // board as ordinary work.
       priority: action.priority,
-    },
-    { moduleKey: MODULE, entityType: "hse_action", entityId: actionId },
-  );
+      parentType: "hse_action",
+      parentId: actionId,
+    });
 
-  await prisma.$transaction(async (tx) => {
     await linkIntegration(tx, context, {
       integrationType: IntegrationType.HSE_ACTION_TASK,
       source: { id: actionId },
-      target: { id: task.id },
+      target: { id: created.id },
     });
+    return created;
   });
+
+  await collaboration.subscribeStakeholders({ companyId: context.companyId, parentType: "task", parentId: task.id, memberIds: [context.membershipId, ...(task.assigneeMemberId ? [task.assigneeMemberId] : [])] });
 
   return { id: task.id };
 }
