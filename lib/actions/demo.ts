@@ -32,7 +32,7 @@ export async function signInAsDemoRoleAction(
 
   try {
     await signIn("credentials", {
-      email: account.email,
+      username: account.username,
       password: DEMO_PASSWORD,
       redirectTo: "/dashboard",
     });
