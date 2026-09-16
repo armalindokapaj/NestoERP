@@ -26,6 +26,20 @@ requires `MAIL_ALLOWED_RECIPIENTS` — a comma-separated list of exact addresses
 and `@domain` entries. A staging message to anyone else is recorded as
 `SUPPRESSED` and never sent.
 
+## Running without email
+
+`MAIL_DELIVERY=disabled` is a deployment that sends no email, on purpose (PRD #51
+§212, §215). It lifts the production requirement for a provider and credentials,
+every message is recorded `SUPPRESSED` with `MAIL_DELIVERY_DISABLED`, and the
+notification dispatcher writes in-app notifications without attempting email.
+Nothing people need arrives by email then: an administrator resets a password
+and hands over the temporary one (`docs/account-administration.md`), and an
+invitation link works without its email but has to be passed on by hand.
+
+Use it during a long provider outage too: in-app notifications keep flowing
+instead of every dispatch waiting on a provider timeout. Unset it and restart the
+web and worker processes to send again; nothing suppressed is replayed.
+
 ## What is recorded, and what is not
 
 `mail_deliveries` holds the recipient, template key, provider, provider message
@@ -43,7 +57,8 @@ Rows are purged after 180 days (`mail-deliveries.settled`).
   check the provider's dashboard with `providerMessageId`.
 - `FAILED` — the provider refused it or could not be reached after three
   attempts (250 ms and 1 s apart for retryable errors).
-- `SUPPRESSED` — deliberately not sent (staging allowlist).
+- `SUPPRESSED` — deliberately not sent: the staging allowlist, or
+  `MAIL_DELIVERY_DISABLED` on a deployment that sends no email.
 - `QUEUED` — recorded, send in progress. A row that stays `QUEUED` means the
   process died mid-send.
 

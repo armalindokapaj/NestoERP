@@ -1,9 +1,7 @@
 {
   "lib/core/access/access-sync.service.ts": 1,
   "lib/core/integrations/integration.service.ts": 4,
-  "lib/core/notifications/attention.reconcile.ts": 1,
-  "lib/core/notifications/attention.service.ts": 3,
-  "lib/core/notifications/notification.dispatch.ts": 2,
+  "lib/core/notifications/attention.service.ts": 2,
   "lib/core/notifications/notification.service.ts": 2,
   "lib/mail/mail.service.ts": 3,
   "lib/modules/calendar/calendar.service.ts": 1,

@@ -50,6 +50,8 @@ async function cleanup() {
   await prisma.attentionItem.deleteMany({ where: { entityId: { in: trail } } });
   await prisma.notification.deleteMany({ where: { entityId: { in: trail } } });
   await prisma.notificationEventOutbox.deleteMany({ where: { entityId: { in: trail } } });
+  // A reminder taken back from the outbox is forgotten by the job's ledger too, or the next run never sends it (PRD #51 §15-§19).
+  await prisma.jobIdempotencyKey.deleteMany({ where: { jobKey: "dailylogs.missing", key: { startsWith: `${SITE}:` } } });
   await prisma.activity.deleteMany({ where: { entityId: { in: [...ids, ...createdTasks] } } });
   const threads = await prisma.collaborationThread.findMany({ where: { parentId: { in: [...ids, ...createdTasks] } }, select: { id: true } });
   await prisma.subscription.deleteMany({ where: { threadId: { in: threads.map((row) => row.id) } } });

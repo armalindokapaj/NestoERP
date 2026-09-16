@@ -1,49 +1,59 @@
 /**
- * Notification dispatch worker (PRD #25 §230-§245).
+ * Notification dispatch, once (PRD #25 §230-§245, PRD #51 §163).
  *
- * Drains the notification outbox: producers enqueue events inside their own
- * transaction, and this turns them into notifications for the people entitled
- * to hear about them. Idempotent — every notification carries a dedupe key, so
- * running this twice over the same event produces one notification.
+ * Drains the notification outbox a batch at a time: producers enqueue events
+ * inside their own transaction, and dispatch turns them into notifications for
+ * the people entitled to hear about them. The worker does this every few
+ * seconds (`pnpm worker`); this runs the same job once, through the same lease,
+ * so it never races a worker that is already draining.
  *
- * Meant to run on a schedule. It is deliberately a separate process rather than
- * something a request does on the way past: a person submitting an invoice
- * should not wait while the company's approvers are resolved.
- *
- *   tsx scripts/notifications.ts              drain up to 100 events
- *   tsx scripts/notifications.ts --limit=500
+ *   pnpm notifications:dispatch              one batch of up to 100 events
+ *   pnpm notifications:dispatch --limit=500
  */
 import { appEnvironment } from "../lib/config/env";
-import { dispatchNotifications } from "../lib/core/notifications/notification.dispatch";
+import { runJobNow } from "../lib/core/jobs/job.manual";
 import { prisma } from "../lib/database/prisma";
 
-const args = new Set(process.argv.slice(2));
-const limitArg = [...args].find((arg) => arg.startsWith("--limit="));
+const args = process.argv.slice(2);
+const limitArg = args.find((arg) => arg.startsWith("--limit="));
 const limit = Number(limitArg?.slice("--limit=".length) ?? 100);
 
 async function main() {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("--limit must be a whole number from 1 to 1000");
   console.log(`Notification dispatch — environment=${appEnvironment()} limit=${limit}\n`);
 
-  const result = await dispatchNotifications(limit);
+  const controller = new AbortController();
+  process.once("SIGINT", () => controller.abort());
+  process.once("SIGTERM", () => controller.abort());
 
-  console.log(
-    `  ${result.processed} event(s) processed, ` +
-      `${result.notificationsCreated} notification(s) created, ` +
-      `${result.failed} failed`,
-  );
+  const outcome = await runJobNow("notifications.dispatch", {
+    env: { ...process.env, NOTIFICATION_BATCH_SIZE: String(limit) },
+    signal: controller.signal,
+  });
+  if (outcome.busy) {
+    console.log("  a worker is dispatching right now; nothing to do here\n");
+    return;
+  }
+
+  const detail = outcome.detail ?? {};
+  console.log(`  ${outcome.status}: ${outcome.processed} event(s) processed, ${detail.notificationsCreated ?? 0} notification(s) created, ${detail.failed ?? 0} failed`);
+  if (outcome.error) console.error(`  ${outcome.errorCode}: ${outcome.error}`);
 
   // A backlog that never drains is the failure worth seeing from a log line.
-  const pending = await prisma.notificationEventOutbox.count({ where: { status: "PENDING" } });
-  const failed = await prisma.notificationEventOutbox.count({ where: { status: "FAILED" } });
-  console.log(`  ${pending} still pending, ${failed} gave up after retries\n`);
+  const [pending, failed] = await Promise.all([
+    prisma.notificationEventOutbox.count({ where: { status: { in: ["PENDING", "PROCESSING"] } } }),
+    prisma.notificationEventOutbox.count({ where: { status: "FAILED" } }),
+  ]);
+  console.log(`  ${pending} still pending, ${failed} gave up after retries (pnpm worker --retry-failed)\n`);
+  if (outcome.status !== "success") process.exitCode = 1;
 }
 
 main()
   .catch((error) => {
-    console.error(
-      "Notification dispatch failed:",
-      error instanceof Error ? error.message : error,
-    );
-    process.exit(1);
+    console.error("Notification dispatch failed:", error instanceof Error ? error.message : error);
+    process.exitCode = 1;
   })
-  .then(() => process.exit(0));
+  .finally(async () => {
+    await prisma.$disconnect();
+    process.exit();
+  });

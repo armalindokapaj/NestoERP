@@ -50,9 +50,30 @@ import { setMeetingReminders } from "@/lib/modules/calendar/calendar.service";
  * audit entry and its notifications.
  */
 
+/**
+ * How far ahead a series exists as real meetings (PRD #40 §226, PRD #51 §73):
+ * `createMeeting` generates this far, and the `meetings.series` job keeps every
+ * open series topped up to it. The one setting for the rolling horizon — longer
+ * means more rows per series, never an unbounded number (SERIES_OCCURRENCES_MAX
+ * caps a single generation).
+ */
 export const SERIES_HORIZON_DAYS = 90;
 const DAY_MS = 86_400_000;
 const TX = { timeout: 30_000, maxWait: 10_000 } as const;
+
+/**
+ * Holds a series until the transaction ends.
+ *
+ * Taken first by everything that decides what a series' later meetings are:
+ * the series job before it reads the latest occurrence, and a "this and later"
+ * edit or cancel before it reads the meetings it will change. Whichever comes
+ * second sees what the first committed — without it, a cancel could stop the
+ * series while the job was adding meetings the cancel never saw, and those
+ * would stay scheduled (PRD #51 §75, §148).
+ */
+export async function lockSeries(tx: Prisma.TransactionClient, seriesId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "meeting_series" WHERE id = ${seriesId} FOR UPDATE`;
+}
 
 export type ParticipantInput = { memberId: string; role: Exclude<MeetingParticipantRole, "ORGANIZER">; required: boolean };
 
@@ -484,6 +505,7 @@ export async function updateMeeting(context: UserContext, meetingId: string, inp
   };
 
   const occurrences = await prisma.$transaction(async (tx) => {
+    if (future) await lockSeries(tx, existing.seriesId!);
     const result = await tx.meeting.updateMany({
       where: { id: meetingId, version: input.version, archivedAt: null },
       data: { ...fields, startsAt, endsAt, version: { increment: 1 } },
@@ -650,6 +672,7 @@ export async function cancelMeeting(context: UserContext, meetingId: string, inp
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
+    if (future) await lockSeries(tx, existing.seriesId!);
     const result = await tx.meeting.updateMany({
       where: { id: meetingId, status: existing.status, archivedAt: null },
       data: { status: "CANCELLED", cancelledAt: now, cancelledByMemberId: context.membershipId, cancelReason: input.reason, version: { increment: 1 } },

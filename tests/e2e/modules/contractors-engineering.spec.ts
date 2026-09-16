@@ -281,6 +281,7 @@ test("an insurance certificate expiring in 14 days reaches Legal, who renews it 
   // As on the day before the job noticed: on file, expiring in 14 days, nobody told yet.
   await db.contractorComplianceItem.update({ where: { id: itemId }, data: { status: "VALID", statusChangedAt: null } });
   await db.notificationEventOutbox.deleteMany({ where: { entityId: itemId } });
+  await db.jobIdempotencyKey.deleteMany({ where: { jobKey: "contractors.compliance", key: { startsWith: `${itemId}:` } } });
   await db.attentionItem.deleteMany({ where: { entityId: itemId } });
 
   await runJob("contractors.compliance");

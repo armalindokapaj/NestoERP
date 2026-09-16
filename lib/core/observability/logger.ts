@@ -42,6 +42,7 @@ function emit(level: LogLevel, event: string, context: LogContext = {}): void {
           correlationId: request.correlationId,
           ...(request.companyId ? { companyId: request.companyId } : {}),
           ...(request.memberId ? { memberId: request.memberId } : {}),
+          ...(request.jobKey ? { jobKey: request.jobKey, workerId: request.workerId } : {}),
         }
       : {}),
     environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? "development",

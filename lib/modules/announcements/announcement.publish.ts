@@ -4,15 +4,20 @@ import { AccessError, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordSystemAction, recordUserAction } from "@/lib/core/audit/audit.service";
+import { JobError } from "@/lib/core/jobs/job.errors";
+import { claimIdempotencyKey, idempotencyKeyClaimed } from "@/lib/core/jobs/job.idempotency";
+import { jobStopRequested } from "@/lib/core/jobs/job.context";
+import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
+import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { resolveProductivitySettings } from "@/lib/modules/productivity/productivity.settings";
 import { excerpt } from "./announcement.body";
 import { ACTIVITY_ENTITY, canAddress, MODULE, RECORD } from "./announcement.permissions";
-import { audienceMemberIds, fail, findManageableAnnouncement, resolveAnnouncementAttentionFor, validateAudience, type AnnouncementRow } from "./announcement.service";
+import { audienceMemberIds, fail, findManageableAnnouncement, resolveAnnouncementAttentionFor, ROW_SELECT, validateAudience, type AnnouncementRow } from "./announcement.service";
 import { PINNED_LIMIT } from "./announcement.types";
 
 /**
@@ -62,11 +67,6 @@ async function publishInTransaction(tx: Tx, row: AnnouncementRow, actor: Actor, 
     await recordSystemAction(row.companyId, audit, { tx });
   }
   return true;
-}
-
-async function reload(id: string) {
-  const { ROW_SELECT } = await import("./announcement.service");
-  return prisma.announcement.findUniqueOrThrow({ where: { id }, select: ROW_SELECT });
 }
 
 export async function publishAnnouncement(context: UserContext, announcementId: string, input: { expectedVersion: number }): Promise<{ status: "PUBLISHED" }> {
@@ -169,74 +169,211 @@ export async function setPinned(context: UserContext, announcementId: string, pi
 /* Workers                                                                     */
 /* -------------------------------------------------------------------------- */
 
+const SCHEDULE_JOB = "announcements.schedule";
+const REMINDER_JOB = "announcements.reminders";
+/** Rows a worker reads at a time; a company with more is walked by cursor, never cut off (PRD #51 §133-§138). */
+const WORKER_BATCH = 100;
+
+type Cursor = { at: Date; id: string };
+
+/** The rows after `cursor` in (time, id) order. */
+function pastCursor(field: "publishAt" | "publishedAt" | "expiresAt", cursor: Cursor | null): Prisma.AnnouncementWhereInput {
+  if (!cursor) return {};
+  return { OR: [{ [field]: { gt: cursor.at } }, { [field]: cursor.at, id: { gt: cursor.id } }] } as Prisma.AnnouncementWhereInput;
+}
+
+/**
+ * Hands every row `read` pages through to `handle`, a batch at a time, until
+ * there are none left or the run is told to stop (PRD #51 §57, §133-§138).
+ *
+ * The pages are a keyset in (time, id) order rather than a fresh "first N": a
+ * row that failed stays where it was, and the next page steps over it instead
+ * of reading it first again — on every page and every run, ahead of everything
+ * due behind it. Its failure is logged by id and counted, so the company's run
+ * fails once the others have had their turn (§30-§36).
+ */
+async function eachAnnouncement<T extends { id: string }>(
+  log: { event: string; companyId: string },
+  read: (cursor: Cursor | null) => Promise<T[]>,
+  timeOf: (row: T) => Date | null,
+  handle: (row: T) => Promise<void>,
+): Promise<number> {
+  let failed = 0;
+  let cursor: Cursor | null = null;
+  for (;;) {
+    const rows = await read(cursor);
+    for (const row of rows) {
+      if (jobStopRequested()) return failed;
+      try {
+        await handle(row);
+      } catch (error) {
+        failed += 1;
+        logger.error(log.event, { companyId: log.companyId, announcementId: row.id, ...serialiseError(error) });
+      }
+    }
+    if (rows.length < WORKER_BATCH) return failed;
+    const last = rows[rows.length - 1];
+    cursor = { at: timeOf(last)!, id: last.id };
+  }
+}
+
+type ScheduleTotals = { published: number; expired: number; returnedToDraft: number };
+
 /**
  * Job `announcements.schedule` (§51-§53): publishes scheduled announcements
  * that are due and expires published ones past their expiry. Each transition
- * is guarded by the status it leaves, so a retry — or two workers — changes
- * each announcement once.
+ * is guarded by the state and version it read, so a retry — or two workers —
+ * changes each announcement once, with one audit entry and one notification.
+ *
+ * One company at a time and only active ones (PRD #51 §10, §145): a suspended
+ * company's schedule would go out to an audience the dispatcher then drops,
+ * and nobody would be told once it is reactivated. Its schedules wait, and go
+ * out on the first run after reactivation if they have not expired by then.
  */
-export async function runAnnouncementSchedule(now = new Date()): Promise<{ published: number; expired: number }> {
-  let published = 0;
-  let expired = 0;
-  const due = await prisma.announcement.findMany({ where: { status: "SCHEDULED", publishAt: { lte: now } }, orderBy: { publishAt: "asc" }, take: 200, select: { id: true } });
-  for (const { id } of due) {
-    const row = await reload(id);
-    if (row.status !== "SCHEDULED") continue;
-    try {
-      if (row.expiresAt && row.expiresAt <= now) {
-        // It expired before it could go out: kept as a draft for its author to decide.
-        await prisma.announcement.updateMany({ where: { id: row.id, status: "SCHEDULED", version: row.version }, data: { status: "DRAFT", version: { increment: 1 } } });
-        continue;
-      }
-      if (await prisma.$transaction((tx) => publishInTransaction(tx, row, { system: true }, now))) {
-        published += 1;
-        incrementCounter(Metric.ANNOUNCEMENT_PUBLISH_SUCCESS);
-      }
-    } catch {
-      incrementCounter(Metric.ANNOUNCEMENT_PUBLISH_FAILURE);
-    }
-  }
+export async function runAnnouncementSchedule(now = new Date()): Promise<ScheduleTotals> {
+  const totals: ScheduleTotals = { published: 0, expired: 0, returnedToDraft: 0 };
+  const run = await forEachCompany(SCHEDULE_JOB, async ({ companyId }) => {
+    const log = { event: `${SCHEDULE_JOB}.item_failed`, companyId };
+    // A company that has switched announcements off shows nobody a feed, so a
+    // schedule there waits rather than notify people of what they cannot open.
+    // Expiry still runs: it only takes things away.
+    const { announcementsEnabled } = await resolveProductivitySettings(companyId);
 
-  const ending = await prisma.announcement.findMany({ where: { status: "PUBLISHED", expiresAt: { lte: now } }, take: 500, select: { id: true, companyId: true, title: true, projectId: true } });
-  for (const row of ending) {
-    const moved = await prisma.$transaction(async (tx) => {
-      const changed = await tx.announcement.updateMany({ where: { id: row.id, status: "PUBLISHED" }, data: { status: "EXPIRED", expiredAt: now, pinned: false, version: { increment: 1 } } });
-      if (changed.count) await recordSystemAction(row.companyId, { actionKey: AuditAction.ANNOUNCEMENT_EXPIRED, entity: { type: RECORD, id: row.id, label: row.title }, projectId: row.projectId, after: { status: "EXPIRED" } }, { tx });
-      return changed.count;
-    });
-    if (moved) {
-      expired += 1;
-      await resolveAnnouncementAttentionFor(row.companyId, row.id);
-    }
-  }
-  if (expired) incrementCounter(Metric.ANNOUNCEMENT_EXPIRE_SUCCESS, {}, expired);
-  return { published, expired };
+    const unpublished = await eachAnnouncement(
+      log,
+      (cursor) =>
+        prisma.announcement.findMany({
+          where: { AND: [{ companyId, status: "SCHEDULED", publishAt: { lte: now } }, pastCursor("publishAt", cursor)] },
+          orderBy: [{ publishAt: "asc" }, { id: "asc" }],
+          take: WORKER_BATCH,
+          select: ROW_SELECT,
+        }),
+      (row) => row.publishAt,
+      async (row) => {
+        if (row.expiresAt && row.expiresAt <= now) {
+          if (await returnExpiredScheduleToDraft(row)) totals.returnedToDraft += 1;
+        } else if (announcementsEnabled && (await prisma.$transaction((tx) => publishInTransaction(tx, row, { system: true }, now)))) {
+          totals.published += 1;
+          incrementCounter(Metric.ANNOUNCEMENT_PUBLISH_SUCCESS);
+        }
+      },
+    );
+    if (unpublished) incrementCounter(Metric.ANNOUNCEMENT_PUBLISH_FAILURE, {}, unpublished);
+
+    const unexpired = await eachAnnouncement(
+      log,
+      (cursor) =>
+        prisma.announcement.findMany({
+          where: { AND: [{ companyId, status: "PUBLISHED", expiresAt: { lte: now } }, pastCursor("expiresAt", cursor)] },
+          orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
+          take: WORKER_BATCH,
+          select: { id: true, title: true, projectId: true, expiresAt: true },
+        }),
+      (row) => row.expiresAt,
+      async (row) => {
+        const moved = await prisma.$transaction(async (tx) => {
+          // Bound to the expiry as well as the state: one a person has just moved later is not overtaken.
+          const changed = await tx.announcement.updateMany({ where: { id: row.id, companyId, status: "PUBLISHED", expiresAt: { lte: now } }, data: { status: "EXPIRED", expiredAt: now, pinned: false, version: { increment: 1 } } });
+          if (changed.count) await recordSystemAction(companyId, { actionKey: AuditAction.ANNOUNCEMENT_EXPIRED, entity: { type: RECORD, id: row.id, label: row.title }, projectId: row.projectId, after: { status: "EXPIRED" } }, { tx });
+          return changed.count > 0;
+        });
+        if (!moved) return;
+        totals.expired += 1;
+        await resolveAnnouncementAttentionFor(companyId, row.id);
+      },
+    );
+
+    if (unpublished + unexpired) throw new JobError("PARTIAL_FAILURE", `${unpublished + unexpired} announcements could not be published or expired`);
+  });
+  if (totals.expired) incrementCounter(Metric.ANNOUNCEMENT_EXPIRE_SUCCESS, {}, totals.expired);
+  assertEveryCompanySucceeded(SCHEDULE_JOB, run);
+  return totals;
+}
+
+/**
+ * A schedule whose expiry passed before it could go out is kept as a draft for
+ * its author to decide. It is the move a person makes with Unschedule, and is
+ * written the same way: `publishAt` cleared, guarded on the state and version
+ * read, and audited — as the system (PRD #51 §148, §149).
+ */
+async function returnExpiredScheduleToDraft(row: AnnouncementRow): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const moved = await tx.announcement.updateMany({ where: { id: row.id, companyId: row.companyId, status: "SCHEDULED", version: row.version }, data: { status: "DRAFT", publishAt: null, version: { increment: 1 } } });
+    if (!moved.count) return false;
+    await recordSystemAction(
+      row.companyId,
+      {
+        actionKey: AuditAction.ANNOUNCEMENT_SCHEDULED,
+        entity: { type: RECORD, id: row.id, label: row.title },
+        projectId: row.projectId,
+        before: { status: "SCHEDULED", publishAt: row.publishAt?.toISOString() ?? null },
+        after: { status: "DRAFT", publishAt: null },
+        reason: "Its expiry passed before it was published.",
+      },
+      { tx },
+    );
+    return true;
+  });
 }
 
 /**
  * Job `announcements.reminders` (§46): the targets who have not acknowledged,
  * reminded once every few days (the company's setting) while it is live.
+ *
+ * Every live announcement is reached, oldest first, however many a company
+ * has accumulated. A round is claimed in the idempotency ledger in the
+ * transaction that enqueues it, so two runs — or a run after retention has
+ * purged the first reminder from the outbox — never remind the same round
+ * twice (PRD #51 §15-§19). A suspended company is skipped; once reactivated,
+ * its members are reminded for the round they are in, not the ones they missed.
  */
 export async function runAcknowledgmentReminders(now = new Date()): Promise<{ reminded: number }> {
   let reminded = 0;
-  const rows = await prisma.announcement.findMany({
-    where: { status: "PUBLISHED", requiresAcknowledgment: true, publishedAt: { not: null }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-    take: 500,
-    select: { id: true, companyId: true, title: true, priority: true, projectId: true, publishedAt: true },
-  });
-  for (const row of rows) {
-    const settings = await resolveProductivitySettings(row.companyId);
+  const run = await forEachCompany(REMINDER_JOB, async ({ companyId }) => {
+    const settings = await resolveProductivitySettings(companyId);
+    // Switched off: nobody can open an announcement to acknowledge it.
+    if (!settings.announcementsEnabled) return;
     const period = settings.announcementAckReminderDays * 86_400_000;
-    const round = Math.floor((now.getTime() - row.publishedAt!.getTime()) / period);
-    if (round < 1) continue;
-    const already = await prisma.notificationEventOutbox.count({ where: { eventType: NotificationEvent.ANNOUNCEMENT_REMINDER, entityType: RECORD, entityId: row.id, payloadJson: { path: ["round"], equals: String(round) } } });
-    if (already) continue;
-    const acknowledged = new Set((await prisma.announcementAcknowledgment.findMany({ where: { announcementId: row.id }, select: { memberId: true } })).map((entry) => entry.memberId));
-    const memberIds = (await prisma.announcementTarget.findMany({ where: { announcementId: row.id }, select: { memberId: true } })).map((entry) => entry.memberId).filter((memberId) => !acknowledged.has(memberId));
-    if (!memberIds.length) continue;
-    await prisma.$transaction((tx) => enqueueNotificationEvent(tx, { companyId: row.companyId, eventType: NotificationEvent.ANNOUNCEMENT_REMINDER, moduleKey: MODULE, entityType: RECORD, entityId: row.id, actorMemberId: null, projectId: row.projectId, payload: { memberIds, title: row.title, round: String(round), priority: row.priority } }));
-    reminded += memberIds.length;
-  }
+    const failed = await eachAnnouncement(
+      { event: `${REMINDER_JOB}.item_failed`, companyId },
+      (cursor) =>
+        prisma.announcement.findMany({
+          where: {
+            AND: [
+              // Out for at least one period: its first round is due.
+              { companyId, status: "PUBLISHED", requiresAcknowledgment: true, publishedAt: { lte: new Date(now.getTime() - period) }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+              pastCursor("publishedAt", cursor),
+            ],
+          },
+          orderBy: [{ publishedAt: "asc" }, { id: "asc" }],
+          take: WORKER_BATCH,
+          select: { id: true, title: true, priority: true, projectId: true, publishedAt: true },
+        }),
+      (row) => row.publishedAt,
+      async (row) => {
+        const count = await remindRound(companyId, row, Math.floor((now.getTime() - row.publishedAt!.getTime()) / period));
+        reminded += count;
+      },
+    );
+    if (failed) throw new JobError("PARTIAL_FAILURE", `${failed} announcements could not be reminded`);
+  });
   if (reminded) incrementCounter(Metric.ANNOUNCEMENT_ACK_REMINDER_SENT, {}, reminded);
+  assertEveryCompanySucceeded(REMINDER_JOB, run);
   return { reminded };
+}
+
+/** One round of one announcement, to whoever has still not acknowledged it. Returns how many were reminded. */
+async function remindRound(companyId: string, row: { id: string; title: string; priority: AnnouncementRow["priority"]; projectId: string | null }, round: number): Promise<number> {
+  const claim = { companyId, jobKey: REMINDER_JOB, key: `${row.id}:${round}` };
+  // Most live announcements were settled for their round on an earlier run: one key read, not every target.
+  if (await idempotencyKeyClaimed(prisma, claim)) return 0;
+  return prisma.$transaction(async (tx) => {
+    // Claimed even when everybody has acknowledged: the round is settled, and not re-read every hour until the next.
+    if (!(await claimIdempotencyKey(tx, claim))) return 0;
+    const acknowledged = new Set((await tx.announcementAcknowledgment.findMany({ where: { announcementId: row.id }, select: { memberId: true } })).map((entry) => entry.memberId));
+    const memberIds = (await tx.announcementTarget.findMany({ where: { announcementId: row.id }, select: { memberId: true } })).map((entry) => entry.memberId).filter((memberId) => !acknowledged.has(memberId));
+    if (!memberIds.length) return 0;
+    await enqueueNotificationEvent(tx, { companyId, eventType: NotificationEvent.ANNOUNCEMENT_REMINDER, moduleKey: MODULE, entityType: RECORD, entityId: row.id, actorMemberId: null, projectId: row.projectId, payload: { memberIds, title: row.title, round: String(round), priority: row.priority } });
+    return memberIds.length;
+  });
 }

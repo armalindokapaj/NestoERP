@@ -88,7 +88,8 @@ export function assertObjectReadable(document: AccessibleDocument): void {
           : "DOCUMENT_NOT_AVAILABLE",
       );
     case "FAILED":
-      throw new StorageError("STORAGE_OBJECT_MISSING");
+      // A scanner that never gave a verdict is not a file that never arrived (PRD #51 §35).
+      throw new StorageError(document.rejectionReason === "FILE_SCAN_FAILED" ? "FILE_SCAN_FAILED" : "STORAGE_OBJECT_MISSING");
     case "ARCHIVED":
       throw new StorageError("DOCUMENT_ARCHIVED");
   }

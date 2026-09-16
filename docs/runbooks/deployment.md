@@ -25,7 +25,7 @@ Per PRD #34 §92, §132, §317.
    an instance takes traffic (PRD #34 §127, §129).
 4. **Deploy workers** once the schema they expect is live (PRD #34 §109):
    `pnpm worker --group=notifications`, `--group=documents`, `--group=scheduled`
-   (or one `pnpm worker`). See `workers.md`.
+   (or one `pnpm worker`). See `docs/worker-operations.md`.
 5. **Run post-deploy smoke** — see `Post-deploy checks` below.
 
 ## Post-deploy checks

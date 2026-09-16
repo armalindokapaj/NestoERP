@@ -22,7 +22,7 @@ export function DocumentFilePanel({ document }: { document: DocumentDetailDTO })
   const file = document.file;
 
   if (file.storageStatus === "REJECTED") return <RejectedState reason={file.rejectionReason} />;
-  if (file.storageStatus === "FAILED") return <FailedState />;
+  if (file.storageStatus === "FAILED") return <FailedState reason={file.rejectionReason} />;
   if (!file.available && file.storageStatus !== "ARCHIVED") {
     return <ProcessingState message={file.storageMessage} />;
   }
@@ -189,14 +189,16 @@ function RejectedState({ reason }: { reason: string | null }) {
 }
 
 /** The upload never completed, or the object went missing (PRD #29 §165). */
-function FailedState() {
+function FailedState({ reason }: { reason: string | null }) {
   return (
     <div className="flex items-start gap-3 rounded-md border border-warning/40 bg-warning-soft px-4 py-3.5">
       <FileWarning aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
       <div>
         <p className="text-table font-medium text-fg">File processing failed.</p>
         <p className="mt-0.5 text-meta text-fg-muted">
-          The document record exists, but its file did not arrive. Upload it again.
+          {reason === "FILE_SCAN_FAILED"
+            ? "The file could not be checked for malware, so it was never made available. Upload it again."
+            : "The document record exists, but its file did not arrive. Upload it again."}
         </p>
       </div>
     </div>

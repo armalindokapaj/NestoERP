@@ -29,6 +29,7 @@ import { createLeaveSchema } from "@/lib/modules/hr/hr.schema";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
 import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { rememberTrail } from "../jobs/reminder-trail";
 
 /**
  * The Unified Approvals Center, against the real database (PRD #41 §259-§300).
@@ -634,9 +635,16 @@ describe("document review (§22, §62, §265, §268)", () => {
     const { documentId, reviews } = await reviewedDocument([architect], "2026-01-02");
     await prisma.documentReview.update({ where: { id: reviews[0] }, data: { dueAt: new Date(`${yesterday}T12:00:00.000Z`) } });
 
-    await remindOverdueApprovals();
-    await remindOverdueApprovals();
-    expect(await prisma.notificationEventOutbox.count({ where: { entityId: documentId, eventType: "APPROVAL_OVERDUE" } })).toBe(1);
+    // The job also reminds about seeded approvals overdue today, and claims each
+    // in its ledger (PRD #51 §15-§19); what these runs add is taken away again.
+    const forgetTrail = await rememberTrail("approvals.overdue", ["APPROVAL_OVERDUE"]);
+    try {
+      await remindOverdueApprovals();
+      await remindOverdueApprovals();
+      expect(await prisma.notificationEventOutbox.count({ where: { entityId: documentId, eventType: "APPROVAL_OVERDUE" } })).toBe(1);
+    } finally {
+      await forgetTrail();
+    }
 
     await reconcileAttention({ companyId: architect.companyId });
     expect(await prisma.attentionItem.count({ where: { recipientMemberId: architect.membershipId, entityId: documentId, conditionKey: "APPROVAL_OVERDUE", status: "ACTIVE" } })).toBe(1);

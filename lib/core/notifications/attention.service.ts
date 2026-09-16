@@ -27,62 +27,6 @@ export type AttentionItemDTO = {
   entity: { entityType: string; entityId: string };
 };
 
-/**
- * Creates or refreshes an active condition.
- *
- * Priority may escalate as a deadline approaches, and the copy may change with
- * it — the item is the same item throughout (PRD #25 §196, §197).
- */
-export async function upsertAttention(
-  tx: Prisma.TransactionClient,
-  input: {
-    companyId: string;
-    recipientMemberId: string;
-    conditionKey: string;
-    moduleKey: string;
-    entityType: string;
-    entityId: string;
-    projectId?: string | null;
-    title: string;
-    body?: string | null;
-    priority?: "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
-    dismissible?: boolean;
-    dedupeKey: string;
-  },
-): Promise<void> {
-  await tx.attentionItem.upsert({
-    where: {
-      companyId_recipientMemberId_dedupeKey: {
-        companyId: input.companyId,
-        recipientMemberId: input.recipientMemberId,
-        dedupeKey: input.dedupeKey,
-      },
-    },
-    update: {
-      title: input.title,
-      body: input.body ?? null,
-      priority: input.priority ?? "NORMAL",
-      status: "ACTIVE",
-      lastEvaluatedAt: new Date(),
-      resolvedAt: null,
-    },
-    create: {
-      companyId: input.companyId,
-      recipientMemberId: input.recipientMemberId,
-      conditionKey: input.conditionKey,
-      moduleKey: input.moduleKey,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      projectId: input.projectId ?? null,
-      title: input.title,
-      body: input.body ?? null,
-      priority: input.priority ?? "NORMAL",
-      dismissible: input.dismissible ?? true,
-      dedupeKey: input.dedupeKey,
-    },
-  });
-}
-
 /** The condition stopped being true (PRD #25 §15). */
 export async function resolveAttention(
   tx: Prisma.TransactionClient,

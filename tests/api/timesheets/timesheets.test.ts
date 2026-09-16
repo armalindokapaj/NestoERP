@@ -74,6 +74,8 @@ async function cleanup() {
     await prisma.attentionItem.deleteMany({ where: { entityId: { in: empties.map((row) => row.id) } } });
     await prisma.timesheet.deleteMany({ where: { id: { in: empties.map((row) => row.id) } } });
   }
+  // Reminders are claimed per member and week (PRD #51 §17); without this the next run of the file finds last week already reminded.
+  await prisma.jobIdempotencyKey.deleteMany({ where: { companyId: "company_demo_a", jobKey: "timesheets.reminders" } });
   await prisma.leaveRequest.deleteMany({ where: { id: { in: extra.leave } } });
   await prisma.attendanceRecord.deleteMany({ where: { id: { in: extra.attendance } } });
   extra.leave = [];

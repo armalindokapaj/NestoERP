@@ -13,7 +13,7 @@ import { prisma } from "../../helpers";
  */
 
 const RECIPIENT = "mail-delivery-test@nesto.test";
-const ENV_KEYS = ["APP_ENV", "MAIL_PROVIDER", "MAIL_ALLOWED_RECIPIENTS"] as const;
+const ENV_KEYS = ["APP_ENV", "MAIL_PROVIDER", "MAIL_ALLOWED_RECIPIENTS", "MAIL_DELIVERY"] as const;
 const saved = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 
 function scripted(results: Array<{ status: "SENT" | "FAILED"; errorCode?: string; retryable?: boolean }>) {
@@ -132,6 +132,21 @@ describe("sendMail", () => {
     const outcome = await sendMail(message());
     expect(outcome).toMatchObject({ status: "FAILED", errorCode: "MAIL_PROVIDER_NOT_CONFIGURED" });
     expect(readOutbox()).toHaveLength(0);
+  });
+});
+
+describe("mail delivery switched off (PRD #51 §212, §215)", () => {
+  it("records the message as suppressed and sends nothing, even in production on a sink", async () => {
+    process.env.MAIL_DELIVERY = "disabled";
+    process.env.APP_ENV = "production";
+    process.env.MAIL_PROVIDER = "memory";
+    setMailProvider(null);
+
+    const outcome = await sendMail(message());
+    expect(outcome).toMatchObject({ status: "SUPPRESSED", errorCode: "MAIL_DELIVERY_DISABLED" });
+    expect(readOutbox()).toHaveLength(0);
+    const row = await prisma.mailDelivery.findUniqueOrThrow({ where: { id: outcome.deliveryId } });
+    expect(row).toMatchObject({ status: "SUPPRESSED", errorCode: "MAIL_DELIVERY_DISABLED", sentAt: null });
   });
 });
 

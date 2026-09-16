@@ -8,7 +8,6 @@ import {
   attentionConditionDefinitions,
   attentionDedupeKey,
   findAttentionCondition,
-  startOfDay,
 } from "@/lib/core/notifications/attention.conditions";
 import {
   findNotificationEvent,
@@ -117,10 +116,6 @@ describe("attention condition registry", () => {
     expect(key).toBe("OVERDUE_TASK:task:t1:2026-09-01");
     expect(attentionDedupeKey("OVERDUE_TASK", { entityType: "task", entityId: "t1", episode: "2026-09-08" })).not.toBe(key);
   });
-
-  it("treats today as not yet overdue", () => {
-    expect(startOfDay(new Date("2026-09-14T17:30:00Z")).toISOString()).toBe("2026-09-14T00:00:00.000Z");
-  });
 });
 
 describe("job registry", () => {
@@ -130,7 +125,8 @@ describe("job registry", () => {
       expect(JOB_HANDLERS[job.key], job.key).toBeTypeOf("function");
       expect(WORKER_GROUPS).toContain(job.group);
       expect(job.leaseSeconds, job.key).toBeGreaterThan(0);
-      expect(job.staleAfterSeconds, job.key).toBeGreaterThan(job.intervalSeconds);
+      // A MANUAL job has no schedule to fall behind (PRD #51 §163).
+      if (job.trigger !== "MANUAL") expect(job.staleAfterSeconds, job.key).toBeGreaterThan(job.intervalSeconds);
     }
     expect(Object.keys(JOB_HANDLERS).sort()).toEqual(JOBS.map((job) => job.key).sort());
   });

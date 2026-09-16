@@ -28,16 +28,28 @@ export async function resolveDailyLogSettings(companyId: string, projectId?: str
     ensureCompanySettings(companyId),
     projectId ? prisma.projectDailyLogSettings.findFirst({ where: { companyId, projectId } }) : Promise.resolve(null),
   ]);
-  const companyDays = company.workingDays?.length ? company.workingDays : [1, 2, 3, 4, 5];
+  const rules = projectRules({ logsRequired: row.logsRequired, workingDays: company.workingDays?.length ? company.workingDays : [1, 2, 3, 4, 5] }, project);
   return {
-    logsRequired: project?.logsRequired ?? row.logsRequired,
+    logsRequired: rules.logsRequired,
     projectRequired: project?.logsRequired ?? null,
     backdateDays: row.backdateDays,
     reviewerRequired: row.reviewerRequired,
     timezone: company.timezone,
-    workingDays: project?.workingDays?.length ? project.workingDays : companyDays,
+    workingDays: rules.workingDays,
     reviewerMemberId: project?.reviewerMemberId ?? null,
   };
+}
+
+/**
+ * A project's own rules over its company's (§89, §248): whether it needs logs,
+ * when it said so, and its working days, when it named any. Pure, so a job
+ * walking every project resolves the company once and applies this to each.
+ */
+export function projectRules(
+  company: { logsRequired: boolean; workingDays: number[] },
+  project: { logsRequired: boolean | null; workingDays: number[] } | null,
+): { logsRequired: boolean; workingDays: number[] } {
+  return { logsRequired: project?.logsRequired ?? company.logsRequired, workingDays: project?.workingDays.length ? project.workingDays : company.workingDays };
 }
 
 export async function updateDailyLogSettings(context: UserContext, input: z.infer<typeof settingsSchema>): Promise<DailyLogSettingsDTO> {

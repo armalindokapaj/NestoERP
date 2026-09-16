@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { UserContext } from "@/lib/context/types";
+import { jobStopRequested } from "@/lib/core/jobs/job.context";
 import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
@@ -75,21 +76,74 @@ export async function clearRecentWork(context: UserContext): Promise<number> {
   return removed.count;
 }
 
-/** Job `recentwork.prune` (§104, §105): older than the company's retention, and past the hundred newest per member. */
-export async function pruneRecentWork(now = new Date()): Promise<{ pruned: number }> {
+const PRUNE_JOB = "recentwork.prune";
+/** Rows deleted per statement past retention, so a long-neglected company is never one huge delete (PRD #51 §132-§134). */
+const PRUNE_BATCH = 500;
+
+/**
+ * Job `recentwork.prune` (§104, §105): older than the company's retention, and
+ * past the hundred newest per member.
+ *
+ * Housekeeping, so suspended companies are pruned too. A record a member opens
+ * while the job runs is never what it removes: each delete is bound to the
+ * access time it decided on, and an open moves that time past it. With
+ * `dryRun` it counts what it would remove and removes nothing (PRD #51 §165).
+ */
+export async function pruneRecentWork(now = new Date(), options: { dryRun?: boolean } = {}): Promise<{ pruned: number; dryRun: boolean }> {
+  const dryRun = options.dryRun ?? false;
   let pruned = 0;
-  const companyRun = await forEachCompany("recentwork.prune", async (system) => {
-    const company = { id: system.companyId };
-    const settings = await resolveProductivitySettings(company.id);
-    const cutoff = new Date(now.getTime() - settings.recentWorkRetentionDays * 86_400_000);
-    pruned += (await prisma.recentItem.deleteMany({ where: { companyId: company.id, lastAccessedAt: { lt: cutoff } } })).count;
-    const crowded = await prisma.recentItem.groupBy({ by: ["memberId"], where: { companyId: company.id }, _count: { _all: true }, having: { memberId: { _count: { gt: RECENT_CAP } } } });
-    for (const member of crowded) {
-      const keep = await prisma.recentItem.findMany({ where: { companyId: company.id, memberId: member.memberId }, orderBy: { lastAccessedAt: "desc" }, take: RECENT_CAP, select: { id: true } });
-      pruned += (await prisma.recentItem.deleteMany({ where: { companyId: company.id, memberId: member.memberId, id: { notIn: keep.map((row) => row.id) } } })).count;
-    }
-  }, { includeInactive: true });
-  if (pruned) incrementCounter(Metric.RECENT_WORK_PRUNED, {}, pruned);
-  assertEveryCompanySucceeded("recentwork.prune", companyRun);
-  return { pruned };
+  const companyRun = await forEachCompany(
+    PRUNE_JOB,
+    async ({ companyId }) => {
+      // Read, not resolved: resolving creates the row, and a dry run writes nothing. Recording
+      // recent work resolves it first, so a company without one has nothing to prune.
+      const settings = await prisma.productivitySettings.findUnique({ where: { companyId }, select: { recentWorkRetentionDays: true } });
+      if (!settings) return;
+      const cutoff = new Date(now.getTime() - settings.recentWorkRetentionDays * 86_400_000);
+      const expired = await pruneExpired(companyId, cutoff, dryRun);
+      pruned += expired;
+      const crowded = await pruneCrowded(companyId, cutoff, dryRun);
+      pruned += crowded;
+    },
+    { includeInactive: true },
+  );
+  if (pruned && !dryRun) incrementCounter(Metric.RECENT_WORK_PRUNED, {}, pruned);
+  assertEveryCompanySucceeded(PRUNE_JOB, companyRun);
+  return { pruned, dryRun };
+}
+
+async function pruneExpired(companyId: string, cutoff: Date, dryRun: boolean): Promise<number> {
+  const where = { companyId, lastAccessedAt: { lt: cutoff } };
+  if (dryRun) return prisma.recentItem.count({ where });
+  let removed = 0;
+  while (!jobStopRequested()) {
+    const batch = await prisma.recentItem.findMany({ where, orderBy: { id: "asc" }, take: PRUNE_BATCH, select: { id: true } });
+    if (batch.length === 0) break;
+    // The cutoff is part of the delete as well as the read: a record opened in between is inside retention again.
+    removed += (await prisma.recentItem.deleteMany({ where: { ...where, id: { in: batch.map((row) => row.id) } } })).count;
+    if (batch.length < PRUNE_BATCH) break;
+  }
+  return removed;
+}
+
+/**
+ * Past the hundred newest per member (§105). The line is drawn at the hundredth
+ * newest row (ties broken by id), and the delete removes only what is older
+ * than that row — never "everything not in the hundred just read", which would
+ * take a record opened a moment after the read with it.
+ * Rows past retention are left to `pruneExpired`, so a dry run does not count
+ * them twice.
+ */
+async function pruneCrowded(companyId: string, cutoff: Date, dryRun: boolean): Promise<number> {
+  const retained = { companyId, lastAccessedAt: { gte: cutoff } };
+  const crowded = await prisma.recentItem.groupBy({ by: ["memberId"], where: retained, _count: { _all: true }, having: { memberId: { _count: { gt: RECENT_CAP } } }, orderBy: { memberId: "asc" } });
+  let removed = 0;
+  for (const { memberId } of crowded) {
+    if (jobStopRequested()) break;
+    const [oldestKept] = await prisma.recentItem.findMany({ where: { ...retained, memberId }, orderBy: [{ lastAccessedAt: "desc" }, { id: "desc" }], skip: RECENT_CAP - 1, take: 1, select: { id: true, lastAccessedAt: true } });
+    if (!oldestKept) continue;
+    const where = { ...retained, memberId, OR: [{ lastAccessedAt: { lt: oldestKept.lastAccessedAt } }, { lastAccessedAt: oldestKept.lastAccessedAt, id: { lt: oldestKept.id } }] };
+    removed += dryRun ? await prisma.recentItem.count({ where }) : (await prisma.recentItem.deleteMany({ where })).count;
+  }
+  return removed;
 }

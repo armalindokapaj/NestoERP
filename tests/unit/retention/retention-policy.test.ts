@@ -43,6 +43,26 @@ describe("retention policy registry", () => {
     }
   });
 
+  /** Failed work is what an operator investigates; it outlives work that went through (PRD #51 §227). */
+  it("keeps failed events and their failure history longer than delivered events", () => {
+    const processed = findRetentionPolicy("notification-outbox.processed")!.retentionDays!;
+    const failed = findRetentionPolicy("notification-outbox.failed")!.retentionDays!;
+    const failures = findRetentionPolicy("job-failures")!.retentionDays!;
+    expect(failed).toBeGreaterThan(processed);
+    expect(failures).toBeGreaterThanOrEqual(failed);
+  });
+
+  /**
+   * A job's record of what it already sent must outlive the notification it
+   * sent, or a condition still true a year on is announced again while the
+   * first notice can still be read (PRD #51 §15-§19).
+   */
+  it("keeps job idempotency keys past the purge of read notifications", () => {
+    const keys = findRetentionPolicy("job-idempotency-keys")!;
+    expect(keys.deleteMode).toBe("HARD_DELETE");
+    expect(keys.retentionDays!).toBeGreaterThan(findRetentionPolicy("notifications.read")!.retentionDays!);
+  });
+
   it("gives every purging policy a bounded batch size", () => {
     for (const policy of retentionPolicies().filter((p) => p.deleteMode !== "NONE")) {
       expect(policy.batchSize, policy.key).toBeGreaterThan(0);

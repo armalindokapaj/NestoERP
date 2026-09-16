@@ -2,14 +2,18 @@ import type { z } from "zod";
 
 import { AccessError, assertModule } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { jobStopRequested } from "@/lib/core/jobs/job.context";
+import { JobError } from "@/lib/core/jobs/job.errors";
+import { claimIdempotencyKey, idempotencyKeyClaimed } from "@/lib/core/jobs/job.idempotency";
 import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
+import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { dailyLogsOpen, MODULE, projectDoor, readableDailyLogWhere } from "./daily-log.permissions";
 import type { reportQuerySchema } from "./daily-log.schema";
-import { resolveDailyLogSettings } from "./daily-log.settings";
+import { projectRules, resolveDailyLogSettings } from "./daily-log.settings";
 import { addLocalDays, businessInstant, dateLabel, dateOf, isoWeekday, localDate, previousWorkingDay } from "./daily-log.time";
 import { DELAY_CATEGORIES, type DelayCategory, type DelayImpact } from "./daily-log.types";
 
@@ -204,53 +208,115 @@ export async function siteToday(context: UserContext, limit = 5): Promise<SiteTo
 
 export type MissingLog = { companyId: string; projectId: string; projectName: string; date: string; projectManagerMemberId: string | null };
 
+const JOB = "dailylogs.missing";
+/** Projects read at a time; a company with more is walked by cursor, never cut off (PRD #51 §133-§138). */
+const PROJECT_BATCH = 100;
+
+/**
+ * Hands the company's missing logs to `visit` a page of projects at a time, in
+ * id order, until every project has been seen or `visit` returns false.
+ *
+ * The company's settings are resolved once and each project's own rules laid
+ * over them in memory, and each page asks for its logs in one query — not a
+ * settings upsert and a count per project every hour (PRD #51 §139).
+ */
+async function eachMissingPage(companyId: string, now: Date, visit: (missing: MissingLog[]) => Promise<boolean>): Promise<void> {
+  const company = await resolveDailyLogSettings(companyId);
+  const today = localDate(now, company.timezone);
+  // Null follows the company: when it requires logs, only a project that opted out is left out.
+  const required = company.logsRequired ? { NOT: { dailyLogSettings: { is: { logsRequired: false } } } } : { dailyLogSettings: { is: { logsRequired: true } } };
+  for (let after: string | undefined; ; ) {
+    const projects = await prisma.project.findMany({
+      where: { companyId, status: "ACTIVE", archivedAt: null, ...required, ...(after ? { id: { gt: after } } : {}) },
+      orderBy: { id: "asc" },
+      take: PROJECT_BATCH,
+      select: { id: true, name: true, startDate: true, endDate: true, projectManagerMemberId: true, dailyLogSettings: { select: { logsRequired: true, workingDays: true } } },
+    });
+    const due = projects.flatMap((project) => {
+      const rules = projectRules(company, project.dailyLogSettings);
+      const day = rules.logsRequired ? previousWorkingDay(today, rules.workingDays) : null;
+      if (!day) return [];
+      if (project.startDate && dateOf(project.startDate) > day) return [];
+      if (project.endDate && dateOf(project.endDate) < day) return [];
+      return [{ project, day }];
+    });
+    const logged = due.length
+      ? await prisma.dailyLog.findMany({
+          where: { companyId, projectId: { in: due.map((entry) => entry.project.id) }, workDate: { in: [...new Set(due.map((entry) => entry.day))].map(businessInstant) }, status: { not: "VOID" } },
+          select: { projectId: true, workDate: true },
+        })
+      : [];
+    const have = new Set(logged.map((row) => `${row.projectId}:${dateOf(row.workDate)}`));
+    const missing = due
+      .filter((entry) => !have.has(`${entry.project.id}:${entry.day}`))
+      .map((entry): MissingLog => ({ companyId, projectId: entry.project.id, projectName: entry.project.name, date: entry.day, projectManagerMemberId: entry.project.projectManagerMemberId }));
+    if (!(await visit(missing)) || projects.length < PROJECT_BATCH) return;
+    after = projects[projects.length - 1]!.id;
+  }
+}
+
 /** Active projects that require logs and have none for their last working day (§103-§107, §249, §250). */
 export async function missingYesterday(companyId: string, now: Date): Promise<MissingLog[]> {
-  const settings = await resolveDailyLogSettings(companyId);
-  const projectRows = await prisma.projectDailyLogSettings.findMany({ where: { companyId, logsRequired: true }, select: { projectId: true } });
-  const projects = await prisma.project.findMany({
-    where: {
-      companyId, status: "ACTIVE", archivedAt: null,
-      ...(settings.logsRequired ? { NOT: { dailyLogSettings: { is: { logsRequired: false } } } } : { id: { in: projectRows.map((row) => row.projectId) } }),
-    },
-    take: 1_000,
-    select: { id: true, name: true, startDate: true, endDate: true, projectManagerMemberId: true },
-  });
-  const today = localDate(now, settings.timezone);
   const result: MissingLog[] = [];
-  for (const project of projects) {
-    const projectSettings = await resolveDailyLogSettings(companyId, project.id);
-    if (!projectSettings.logsRequired) continue;
-    const day = previousWorkingDay(today, projectSettings.workingDays);
-    if (!day) continue;
-    if (project.startDate && dateOf(project.startDate) > day) continue;
-    if (project.endDate && dateOf(project.endDate) < day) continue;
-    const exists = await prisma.dailyLog.count({ where: { companyId, projectId: project.id, workDate: businessInstant(day), status: { not: "VOID" } } });
-    if (!exists) result.push({ companyId, projectId: project.id, projectName: project.name, date: day, projectManagerMemberId: project.projectManagerMemberId });
-  }
+  await eachMissingPage(companyId, now, async (missing) => {
+    result.push(...missing);
+    return true;
+  });
   return result;
 }
 
-/** Reminds each required project's people once about a missing log (job `dailylogs.missing`, §107, §110). */
+/**
+ * Sends one reminder unless this project was already reminded about this work
+ * date, and says whether it went.
+ *
+ * The ledger row is claimed in the transaction that enqueues the event, so two
+ * runs at once, or a run after retention has purged the first event from the
+ * outbox, still send it once (PRD #51 §15-§19). A reminder with nobody to tell
+ * claims nothing: a manager named before the next run still hears.
+ */
+async function sendMissingLogReminder(missing: MissingLog): Promise<boolean> {
+  const claim = { companyId: missing.companyId, jobKey: JOB, key: `${missing.projectId}:${missing.date}` };
+  if (await idempotencyKeyClaimed(prisma, claim)) return false;
+  const members = await prisma.projectMember.findMany({ where: { companyId: missing.companyId, projectId: missing.projectId, status: "ACTIVE" }, select: { companyMemberId: true } });
+  const memberIds = [...new Set([...(missing.projectManagerMemberId ? [missing.projectManagerMemberId] : []), ...members.map((row) => row.companyMemberId)])];
+  if (!memberIds.length) return false;
+  return prisma.$transaction(async (tx) => {
+    if (!(await claimIdempotencyKey(tx, claim))) return false;
+    await enqueueNotificationEvent(tx, {
+      companyId: missing.companyId, eventType: NotificationEvent.DAILY_LOG_MISSING_REMINDER, moduleKey: MODULE, entityType: "project", entityId: missing.projectId, actorMemberId: null, projectId: missing.projectId,
+      payload: { memberIds, projectName: missing.projectName, workDate: missing.date, dateLabel: dateLabel(missing.date) },
+    });
+    return true;
+  });
+}
+
+/**
+ * Reminds each required project's people once about a missing log (job
+ * `dailylogs.missing`, §107, §110). Nothing is written to the project or its
+ * logs: a missing log is only told about, never made up (PRD #51 §90).
+ *
+ * Every project in the company is reached, and one that fails is logged by id
+ * and stepped over; the company's run then fails, after every other project
+ * has been reminded (PRD #51 §30-§36, §133-§138).
+ */
 export async function remindMissingDailyLogs(now = new Date()): Promise<{ reminded: number }> {
   let reminded = 0;
-  const companyRun = await forEachCompany("dailylogs.missing", async (system) => {
-    const company = { id: system.companyId };
-    for (const missing of await missingYesterday(company.id, now)) {
-      const already = await prisma.notificationEventOutbox.count({ where: { companyId: company.id, eventType: NotificationEvent.DAILY_LOG_MISSING_REMINDER, entityType: "project", entityId: missing.projectId, payloadJson: { path: ["workDate"], equals: missing.date } } });
-      if (already) continue;
-      const members = await prisma.projectMember.findMany({ where: { projectId: missing.projectId, status: "ACTIVE" }, select: { companyMemberId: true } });
-      const memberIds = [...new Set([...(missing.projectManagerMemberId ? [missing.projectManagerMemberId] : []), ...members.map((row) => row.companyMemberId)])];
-      await prisma.$transaction((tx) =>
-        enqueueNotificationEvent(tx, {
-          companyId: company.id, eventType: NotificationEvent.DAILY_LOG_MISSING_REMINDER, moduleKey: MODULE, entityType: "project", entityId: missing.projectId, actorMemberId: null, projectId: missing.projectId,
-          payload: { memberIds, projectName: missing.projectName, workDate: missing.date, dateLabel: dateLabel(missing.date) },
-        }),
-      );
-      reminded += 1;
-    }
+  const companyRun = await forEachCompany(JOB, async ({ companyId }) => {
+    let failed = 0;
+    await eachMissingPage(companyId, now, async (missing) => {
+      for (const entry of missing) {
+        try {
+          if (await sendMissingLogReminder(entry)) reminded += 1;
+        } catch (error) {
+          failed += 1;
+          logger.error(`${JOB}.item_failed`, { companyId, projectId: entry.projectId, workDate: entry.date, ...serialiseError(error) });
+        }
+      }
+      return !jobStopRequested();
+    });
+    if (failed) throw new JobError("PARTIAL_FAILURE", `${failed} missing daily log reminders could not be sent`);
   }, { moduleKey: MODULE });
   if (reminded) incrementCounter(Metric.DAILY_LOG_MISSING, {}, reminded);
-  assertEveryCompanySucceeded("dailylogs.missing", companyRun);
+  assertEveryCompanySucceeded(JOB, companyRun);
   return { reminded };
 }

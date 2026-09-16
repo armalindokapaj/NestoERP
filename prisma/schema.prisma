@@ -931,6 +931,7 @@ model Company {
   notifications      Notification[]
   attentionItems     AttentionItem[]
   notificationOutbox NotificationEventOutbox[]
+  jobIdempotencyKeys JobIdempotencyKey[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1588,6 +1589,11 @@ model Document {
   scanStatus          DocumentScanStatus    @default(NOT_REQUIRED)
   scanProvider        String?
   scanCompletedAt     DateTime?
+  /// When the scan in hand was claimed, and how many have been. A claim older
+  /// than the scan lease belongs to a worker that died; past the attempt limit
+  /// the file is FAILED rather than scanned forever (PRD #51 §27, §29, §34).
+  scanStartedAt       DateTime?
+  scanAttempts        Int                   @default(0)
   previewStatus       DocumentPreviewStatus @default(NOT_REQUIRED)
   previewMimeType     String?
   /// Derived objects live under the original's prefix and are just as private
@@ -1659,6 +1665,8 @@ model Document {
   @@index([extension])
   @@index([updatedAt])
   @@index([companyId, storageStatus])
+  /// The scan sweep's queue, read every 15 seconds across companies (PRD #51 §133).
+  @@index([storageStatus, scanStatus])
   @@index([checksum])
   @@map("documents")
 }
@@ -1746,6 +1754,9 @@ model DocumentVersion {
   scanStatus      DocumentScanStatus    @default(NOT_REQUIRED)
   scanProvider    String?
   scanCompletedAt DateTime?
+  /// As on Document (PRD #51 §27, §29, §34).
+  scanStartedAt   DateTime?
+  scanAttempts    Int                   @default(0)
   previewStatus   DocumentPreviewStatus @default(NOT_REQUIRED)
   previewMimeType String?
   rejectionReason String?
@@ -5003,10 +5014,21 @@ model NotificationEventOutbox {
   lockedAt       DateTime?
   lockedBy       String?
   leaseExpiresAt DateTime?
+  /// Attempts started, counted when the row is claimed — so a worker that
+  /// crashes mid-event still spends one, and a poison event reaches FAILED
+  /// instead of being claimed forever (PRD #51 §34, §272).
   attemptCount   Int                      @default(0)
   nextAttemptAt  DateTime?
   processedAt    DateTime?
   lastError      String?
+  /// A normalised failure code (PRD #51 §123); the history of every failed
+  /// attempt is in `job_failures`, which a manual retry never erases (§39).
+  lastErrorCode  String?
+  failedAt       DateTime?
+  manualRetries  Int                      @default(0)
+  /// The payload's shape. A worker refuses, visibly, a version newer than it
+  /// understands, and leaves it for a worker that does (PRD #51 §223-§225).
+  schemaVersion  Int                      @default(1)
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
@@ -6903,28 +6925,118 @@ model Subscription {
 /// (PRD #38 §97). Health and metrics read it; nothing else does.
 model WorkerHeartbeat {
   /// A job key: notifications.dispatch, documents.scan, attention.reconcile, …
-  job            String    @id
-  lastRunAt      DateTime?
-  lastSuccessAt  DateTime?
-  lastFailureAt  DateTime?
-  lastError      String?
-  lastDurationMs Int?
+  job                 String    @id
+  lastRunAt           DateTime?
+  lastSuccessAt       DateTime?
+  lastFailureAt       DateTime?
+  lastError           String?
+  lastDurationMs      Int?
   /// The job's own count of what it handled on its last run.
-  lastProcessed  Int       @default(0)
-  runs           Int       @default(0)
-  failures       Int       @default(0)
+  lastProcessed       Int       @default(0)
+  runs                Int       @default(0)
+  failures            Int       @default(0)
   /// Which process ran it last — host and pid, never a secret.
-  instance       String?
+  instance            String?
   /// The lease: one worker runs a scheduled job at a time, and a crashed
   /// worker's claim expires on its own (PRD #38 §96).
-  leaseOwner     String?
-  leaseExpiresAt DateTime?
+  leaseOwner          String?
+  leaseExpiresAt      DateTime?
   /// Not due again before this.
-  nextRunAt      DateTime?
+  nextRunAt           DateTime?
+  /// Runs claimed, and how each ended (PRD #51 §119). `runs` counts runs that
+  /// finished either way; `retries` counts runs started after a failure.
+  started             Int       @default(0)
+  successes           Int       @default(0)
+  retries             Int       @default(0)
+  timeouts            Int       @default(0)
+  /// Failures since the last success. At the job's `maxAttempts` the job is
+  /// FAILED: health says so, and it stops retrying early (PRD #51 §34, §35).
+  consecutiveFailures Int       @default(0)
+  lastErrorCode       String?
+  /// When the run holding the lease began, and the correlation id it carries.
+  runStartedAt        DateTime?
+  lastCorrelationId   String?
 
   updatedAt DateTime @updatedAt
 
   @@map("worker_heartbeats")
+}
+
+enum WorkerProcessStatus {
+  RUNNING
+  STOPPING
+  STOPPED
+}
+
+/// One worker process, alive or recently gone (PRD #51 §25, §116-§118).
+///
+/// A job's heartbeat row says when the job last ran; this says whether
+/// anything is running at all. A process writes it on start, on a fixed beat
+/// whether or not a job is due, and on the way out — so an idle worker is
+/// visibly alive and a deployment with no worker for a group is visibly not.
+model WorkerProcess {
+  /// host:pid:random — unique per process start.
+  workerId        String              @id
+  hostname        String
+  pid             Int
+  /// The deployed build, so a rolling deploy's overlap can be seen (§60, §197).
+  version         String
+  groups          String[]
+  status          WorkerProcessStatus @default(RUNNING)
+  currentJob      String?
+  startedAt       DateTime            @default(now())
+  lastHeartbeatAt DateTime            @default(now())
+  stoppedAt       DateTime?
+
+  @@index([lastHeartbeatAt])
+  @@map("worker_processes")
+}
+
+/// Every failed attempt of a job or of an outbox event (PRD #51 §36, §39).
+///
+/// Technical history, never a payload: a code, a message already stripped of
+/// query arguments, and the ids needed to find the work item again (§37).
+/// A manual retry marks the rows it retried and deletes none of them.
+model JobFailure {
+  id            String    @id @default(cuid())
+  jobKey        String
+  companyId     String?
+  /// What failed: `job` for a scheduled run, `notification_event` for an outbox row.
+  sourceType    String
+  sourceId      String?
+  attempt       Int
+  errorCode     String
+  errorMessage  String
+  retryable     Boolean
+  correlationId String?
+  workerId      String?
+  failedAt      DateTime  @default(now())
+  retriedAt     DateTime?
+  retriedBy     String?
+
+  @@index([jobKey, failedAt])
+  @@index([sourceType, sourceId])
+  @@index([failedAt])
+  @@map("job_failures")
+}
+
+/// "This job has already done this, for this company" (PRD #51 §16, §19).
+///
+/// The key is the job's logical work item — a reminder's record and date, a
+/// member's week — written in the same transaction as the effect it guards.
+/// Two runs, two workers or two versions of a worker racing each other insert
+/// one row between them, and only the one that inserted goes on to act.
+model JobIdempotencyKey {
+  companyId String
+  jobKey    String
+  key       String
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([companyId, jobKey, key])
+  @@index([createdAt])
+  @@map("job_idempotency_keys")
 }
 
 /**

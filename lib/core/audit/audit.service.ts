@@ -69,6 +69,8 @@ async function write(
 
   const snapshot = policy.snapshotMode;
   const changes = snapshot === "NONE" ? null : diffFields(before, after);
+  // A job's audit names the job, so "System" is never the whole answer to who did it (PRD #51 §13).
+  const jobKey = context.actor.type === "SYSTEM" ? currentRequestContext()?.jobKey : undefined;
 
   return client.auditEvent.create({
     data: {
@@ -76,7 +78,7 @@ async function write(
       actorType: context.actor.type,
       actorUserId: context.actor.userId ?? null,
       actorMemberId: context.actor.memberId ?? null,
-      actorDisplayNameSnapshot: context.actor.displayNameSnapshot ?? null,
+      actorDisplayNameSnapshot: context.actor.displayNameSnapshot ?? (jobKey ? `System (${jobKey})` : null),
       actorRoleSnapshot: context.actor.roleSnapshot ?? null,
       moduleKey: policy.moduleKey,
       category: policy.category,

@@ -51,7 +51,7 @@ deployment built with `NODE_ENV=development` still refuses the role switcher.
 ## Workers
 
 Every environment beyond a laptop runs the worker (`pnpm worker`, see
-`runbooks/workers.md`) against its own database. Staging and production each have
+`worker-operations.md`) against its own database. Staging and production each have
 their own workers; a worker never points at another environment's database, bucket,
 scanner or mail provider (PRD #38 §103).
 

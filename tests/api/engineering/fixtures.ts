@@ -28,6 +28,8 @@ export async function restoreEngineering(): Promise<void> {
     await prisma.activity.deleteMany({ where: { entityId: { in: ids } } });
     await prisma.task.deleteMany({ where: { id: { in: ids } } });
   }
+  // The seed takes back every reminder these records were sent; the jobs' ledger has to forget them too, or none is sent again (PRD #51 §15-§19).
+  await prisma.jobIdempotencyKey.deleteMany({ where: { companyId: { in: [COMPANY_A, COMPANY_B] }, jobKey: { in: ["contractors.compliance", "engineering.reminders"] } } });
   const rows = await prisma.companyMember.findMany({ select: { id: true, userId: true } });
   await seedContractorEngineeringRecords(prisma, new Map(rows.map((row) => [row.userId, row.id])));
   const files = await prisma.document.findMany({ where: { id: { startsWith: "test46_" } }, select: { id: true } });

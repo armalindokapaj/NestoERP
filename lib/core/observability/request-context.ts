@@ -17,6 +17,9 @@ export type RequestContext = {
   method?: string;
   companyId?: string;
   memberId?: string;
+  /** Set when the work is a background job's, not a request's (PRD #51 §12-§14, §121). */
+  jobKey?: string;
+  workerId?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestContext>();

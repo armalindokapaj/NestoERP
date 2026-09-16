@@ -85,6 +85,8 @@ export const AuditAction = {
   DOCUMENT_RESTORED: "DOCUMENT_RESTORED",
   /** A file a scanner refused. Worth evidence in its own right (PRD #29 §63). */
   DOCUMENT_REJECTED_MALWARE: "DOCUMENT_REJECTED_MALWARE",
+  /** A file the scanner never vouched for, given up on after its last attempt (PRD #51 §34, §35). */
+  DOCUMENT_SCAN_FAILED: "DOCUMENT_SCAN_FAILED",
 
   // Document versions and review (PRD #38 §156)
   DOCUMENT_VERSION_CREATED: "DOCUMENT_VERSION_CREATED",
@@ -329,6 +331,9 @@ const POLICIES: AuditPolicy[] = [
   // Required: a file refused for malware is evidence, and a refusal nobody can
   // later find is not much of a control (PRD #28 §49, PRD #29 §63).
   { actionKey: AuditAction.DOCUMENT_REJECTED_MALWARE, moduleKey: "documents", category: "DOCUMENT", severity: "CRITICAL", snapshotMode: "NONE", allowFields: [], required: true },
+  // Required alike: a file that will never be served, because nothing could
+  // prove it clean, is a decision somebody will ask about (PRD #51 §35, §149).
+  { actionKey: AuditAction.DOCUMENT_SCAN_FAILED, moduleKey: "documents", category: "DOCUMENT", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: true },
 
   /* Document versions and review ---------------------------------------- */
   { actionKey: AuditAction.DOCUMENT_VERSION_CREATED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["versionNumber", "sizeBytes", "checksumSha256"], required: false },
