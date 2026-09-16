@@ -14,15 +14,20 @@ type ErrorKey = Parameters<ReturnType<typeof useTranslations<"settings">>>[0];
 
 /**
  * The editable half of Profile (PRD #38 §20): the person's own name and phone.
- * Email stays read-only — changing the address you sign in with needs a
- * verified flow, which V0.1 does not have.
+ *
+ * The username is shown and never editable — it is what the account signs in
+ * with, and an identifier that can be changed by its holder is one that cannot
+ * be relied on in an audit trail (PRD #50 §6, §63). Email is contact metadata
+ * and may be absent entirely (§67).
  */
 export function ProfileForm({
   initial,
+  username,
   email,
 }: {
   initial: { firstName: string; lastName: string; phone: string | null };
-  email: string;
+  username: string;
+  email: string | null;
 }) {
   const t = useTranslations("settings");
   const router = useRouter();
@@ -79,11 +84,15 @@ export function ProfileForm({
         {field("firstName", t("profile.firstName"), "given-name")}
         {field("lastName", t("profile.lastName"), "family-name")}
         <div className="space-y-1.5">
-          <Label htmlFor="profile-email">{t("profile.email")}</Label>
-          <Input id="profile-email" value={email} readOnly disabled aria-describedby="profile-email-hint" />
-          <p id="profile-email-hint" className="text-meta text-fg-subtle">
-            {t("profile.emailHint")}
+          <Label htmlFor="profile-username">{t("profile.username")}</Label>
+          <Input id="profile-username" value={username} readOnly disabled aria-describedby="profile-username-hint" />
+          <p id="profile-username-hint" className="text-meta text-fg-subtle">
+            {t("profile.usernameHint")}
           </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-email">{t("profile.email")}</Label>
+          <Input id="profile-email" value={email ?? ""} placeholder="—" readOnly disabled />
         </div>
         {field("phone", t("profile.phone"), "tel")}
       </div>

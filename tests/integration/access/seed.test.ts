@@ -191,6 +191,7 @@ describe("unique constraints (PRD #9 §194)", () => {
     await expect(
       prisma.user.create({
         data: {
+          username: "duplicate.probe",
           email: "owner@nesto.test",
           firstName: "Duplicate",
           lastName: "User",

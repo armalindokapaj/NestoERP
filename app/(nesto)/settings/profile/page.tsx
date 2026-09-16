@@ -72,6 +72,7 @@ export default async function ProfileSettingsPage() {
         <div className="mt-4">
           <ProfileForm
             initial={{ firstName: profile.firstName, lastName: profile.lastName, phone: profile.phone }}
+            username={profile.username}
             email={profile.email}
           />
         </div>

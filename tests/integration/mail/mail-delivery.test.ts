@@ -31,8 +31,8 @@ function scripted(results: Array<{ status: "SENT" | "FAILED"; errorCode?: string
 
 const message = (key?: string) => ({
   to: RECIPIENT,
-  templateKey: "auth.password_reset" as const,
-  variables: { firstName: "Test", resetUrl: "https://nesto.example/reset-password?token=abc" },
+  templateKey: "collaboration.mention" as const,
+  variables: { actorName: "Test", recordLabel: "a task", link: "https://nesto.example/tasks/abc" },
   idempotencyKey: key,
   entity: { type: "MailTest", id: "mail-test" },
 });
@@ -61,11 +61,11 @@ describe("sendMail", () => {
     expect(outcome.status).toBe("SENT");
 
     const row = await prisma.mailDelivery.findUniqueOrThrow({ where: { id: outcome.deliveryId } });
-    expect(row).toMatchObject({ status: "SENT", templateKey: "auth.password_reset", attempts: 1, provider: "memory" });
+    expect(row).toMatchObject({ status: "SENT", templateKey: "collaboration.mention", attempts: 1, provider: "memory" });
     expect(row.sentAt).not.toBeNull();
     expect(JSON.stringify(row)).not.toContain("token=abc");
     expect(readOutbox()).toHaveLength(1);
-    expect(counterValue(Metric.MAIL_SEND_SUCCESS, { template: "auth.password_reset", provider: "memory" })).toBe(1);
+    expect(counterValue(Metric.MAIL_SEND_SUCCESS, { template: "collaboration.mention", provider: "memory" })).toBe(1);
   });
 
   it("sends once for a repeated idempotency key (PRD #38 §155)", async () => {
@@ -99,7 +99,7 @@ describe("sendMail", () => {
     expect(sent).toHaveLength(2);
     const row = await prisma.mailDelivery.findUniqueOrThrow({ where: { id: outcome.deliveryId } });
     expect(row.attempts).toBe(2);
-    expect(counterValue(Metric.MAIL_RETRY, { template: "auth.password_reset" })).toBe(1);
+    expect(counterValue(Metric.MAIL_RETRY, { template: "collaboration.mention" })).toBe(1);
   });
 
   it("gives up after bounded attempts and leaves a visible FAILED delivery", async () => {
@@ -112,7 +112,7 @@ describe("sendMail", () => {
     expect(sent).toHaveLength(3);
     const row = await prisma.mailDelivery.findUniqueOrThrow({ where: { id: outcome.deliveryId } });
     expect(row).toMatchObject({ status: "FAILED", attempts: 3, errorCode: "HTTP_503" });
-    expect(counterValue(Metric.MAIL_SEND_FAILURE, { template: "auth.password_reset", provider: "scripted" })).toBe(1);
+    expect(counterValue(Metric.MAIL_SEND_FAILURE, { template: "collaboration.mention", provider: "scripted" })).toBe(1);
   });
 
   it("does not retry a failure the provider says is final", async () => {

@@ -1,3 +1,5 @@
+import { setTemporaryPassword } from "@/lib/auth/identity";
+import { generateTemporaryPassword, temporaryPasswordExpiry } from "@/lib/auth/temporary-password";
 import { revokeSessions } from "@/lib/auth/session-store";
 import { Prisma, type MembershipStatus } from "@prisma/client";
 
@@ -612,9 +614,12 @@ async function assertAnotherActiveOwner(
  * somebody's life elsewhere and must not reach whoever typed their address into
  * an invite form.
  */
-function invitedIdentity(row: { status: string; user: { email: string } }) {
+function invitedIdentity(row: { status: string; user: { email: string | null; username: string } }) {
   if (row.status !== "INVITED") return null;
-  return { firstName: row.user.email, lastName: "", fullName: row.user.email };
+  // The address if the company has one, the username otherwise — either way an
+  // identifier the company already knows, never the person's real name.
+  const label = row.user.email ?? row.user.username;
+  return { firstName: label, lastName: "", fullName: label };
 }
 
 export function toSummaryDTO(
@@ -714,4 +719,92 @@ function toDetailDTO(
     },
     guards,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Password reset by an administrator                                          */
+/* -------------------------------------------------------------------------- */
+
+export type PasswordResetResult = {
+  username: string;
+  temporaryPassword: string;
+  expiresAt: Date;
+  sessionsRevoked: number;
+};
+
+/**
+ * Give somebody a way back into an account they are locked out of
+ * (PRD #50 §20-§23).
+ *
+ * This is the whole of account recovery in V0.1: there is no self-service
+ * reset, no link in an inbox, and no mail transport involved — an
+ * administrator issues a temporary password and passes it on however that
+ * organisation already passes such things on (§18, §268).
+ *
+ * Three things happen together or not at all. The password is replaced, the
+ * account is held at the change screen until its holder chooses their own, and
+ * every existing session is revoked: whoever was signed in as this account —
+ * including whoever the reset is protecting against — stops being signed in.
+ *
+ * The temporary password is returned to the caller **once**. It is not stored
+ * in readable form, not written to the audit trail, and not logged.
+ */
+export async function resetMemberPassword(
+  context: UserContext,
+  memberId: string,
+): Promise<PasswordResetResult> {
+  assertModule(context, "team");
+  assertPermission(context, "team.member.password.reset");
+
+  const member = assertFound(
+    await prisma.companyMember.findFirst({
+      where: { id: memberId, companyId: context.companyId },
+      select: { id: true, userId: true, user: { select: { username: true } } },
+    }),
+  );
+
+  // Resetting your own password is the change-password flow, which asks for
+  // the current one. Going through here instead would let somebody holding an
+  // unlocked screen take the account over without knowing it (§22).
+  if (member.id === context.membershipId) {
+    throw new AccessError("VALIDATION_ERROR", "Change your own password from your profile instead.", {
+      code: "SELF_RESET",
+    });
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  const expiresAt = temporaryPasswordExpiry();
+
+  const sessionsRevoked = await prisma.$transaction(async (tx) => {
+    // Auth owns the credential and what forces its replacement (PRD #48 §11).
+    await setTemporaryPassword(tx, member.userId, temporaryPassword, expiresAt);
+    const revoked = await revokeSessions(tx, { userId: member.userId });
+
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.TEAM_MEMBER_PASSWORD_RESET,
+        entity: { type: ENTITY, id: member.id, label: member.user.username },
+        after: {
+          username: member.user.username,
+          mustChangePassword: true,
+          sessionsRevoked: revoked,
+          expiresAt: expiresAt.toISOString(),
+        },
+      },
+      { tx },
+    );
+
+    await recordActivity(tx, context, {
+      module: "team",
+      entityType: "CompanyMember",
+      entityId: member.id,
+      action: "MEMBER_PASSWORD_RESET",
+      message: "issued a temporary password",
+    });
+
+    return revoked;
+  });
+
+  return { username: member.user.username, temporaryPassword, expiresAt, sessionsRevoked };
 }

@@ -62,18 +62,6 @@ const TEMPLATES: Record<MailTemplateKey, TemplateDefinition> = {
     action: () => "Set up your account",
     footnote: () => "If you were not expecting this, contact the person who set up the workspace.",
   },
-  "auth.password_reset": {
-    variables: ["firstName", "resetUrl"],
-    linkVariable: "resetUrl",
-    subject: () => "Reset your NESTO password",
-    heading: () => "Reset your password",
-    paragraphs: (v) => [
-      `Hello ${v.firstName},`,
-      "Use the link below to choose a new password. It expires in one hour and can only be used once.",
-    ],
-    action: () => "Choose a new password",
-    footnote: () => "If you didn't ask for this, you can ignore this message. Your password has not changed.",
-  },
   "collaboration.mention": {
     variables: ["actorName", "recordLabel", "link"],
     linkVariable: "link",

@@ -523,3 +523,67 @@ from resurrecting the file.
 - **Reason text is validated, not placed.** `requiresReason` refuses a blank
   reason; which column it lands in is the owner service's business, because
   domains store it under different names.
+
+---
+
+## 14. PRD #50 — Local authentication (package 4A)
+
+V0.1 signs in with a username and a password. Email is contact metadata that
+nothing authenticates by, and no flow requires mail to be delivered — not
+sign-in, not account recovery, not startup. `docs/authentication-local.md` is
+the contract, with `docs/session-security.md` and
+`docs/account-administration.md` beside it.
+
+### 14.1 What changed
+
+| Before | Now |
+|---|---|
+| Sign in with an email address | Sign in with `username`, normalised trim/NFKC/lowercase |
+| `User.email` required and unique | `User.username` required and unique; `email` optional |
+| Forgotten password → emailed reset link | Forgotten password → contact your administrator |
+| `/reset-password` token page | Removed, route and template with it |
+| — | Temporary passwords with a 72-hour expiry and a forced change |
+| — | `team.member.password.reset`: temporary password, forced change, all sessions revoked |
+
+Migration `20260916160000_user_username_identity` is expand-and-contract: the
+column arrives nullable, is backfilled from the address people already signed in
+with, is de-duplicated deterministically, and only then becomes required and
+unique. It was replayed from zero into an empty database and applied to a
+restored copy of the development database before it went near the real one; all
+25 accounts kept a username matching the name they knew.
+
+### 14.2 The evidence
+
+Full vitest 2 106 passed. `pnpm test:auth` covers 65 of those directly:
+username normalisation including homograph folding, the shape and reserved-name
+rules, sign-in by username, refusal of the address as an identifier, an account
+with **no** email signing in exactly like any other, temporary-password expiry,
+and administrator reset — that it revokes every session, invalidates the old
+password, and writes an audit record containing neither the password nor its
+hash.
+
+The by-id authorization baseline fell 340 → 300, mostly from PRD #49's
+transitions now binding `companyId`.
+
+### 14.3 Limits, stated plainly
+
+- **This is package 4A of seven.** 4B (session lifecycle hardening), 4C
+  (internal account creation replacing the invitation flow), 4D (workers), 4E
+  (migrations), 4F (production security) and 4G (health and operations) are not
+  done. PRD #50 is a 339-section document and this is the identity change at
+  the front of it.
+- **Invitations still exist and still key on an email address.** §58 replaces
+  them with an administrator creating the account directly and handing over a
+  temporary password. Until that lands, an invited account gets a username
+  derived from the person's name and the invitation still carries an address.
+  Nothing *requires* the mail to arrive — the invite link works without it —
+  but the flow is not yet the one §58 describes.
+- **Reserved usernames govern what may be chosen, not what already exists.**
+  The demo company's administrator was migrated as `admin`, which is on the
+  reserved list. Enforcing it retroactively would have renamed a live account
+  to satisfy a rule about new ones.
+- **bcrypt, not Argon2id.** §10 names Argon2id as preferred. bcrypt at cost 12
+  is used because it needs no native build step; the hash is behind one module
+  and swapping it changes only that file.
+- **Password history and rotation (§14, §15) are not implemented.** Nothing
+  stops somebody reusing their previous password.

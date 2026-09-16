@@ -75,7 +75,7 @@ describe.skipIf(!RUN)("timesheets at 500 members × 52 weeks (§265)", () => {
     ]);
 
     await prisma.user.createMany({
-      data: Array.from({ length: MEMBERS }, (_, index) => ({ id: `${PREFIX}_user_${index}`, firstName: "Perf", lastName: `Member ${String(index).padStart(3, "0")}`, email: `${PREFIX}_${index}@nesto.test`, passwordHash: template.passwordHash })),
+      data: Array.from({ length: MEMBERS }, (_, index) => ({ id: `${PREFIX}_user_${index}`, username: `${PREFIX}.${index}`, firstName: "Perf", lastName: `Member ${String(index).padStart(3, "0")}`, email: `${PREFIX}_${index}@nesto.test`, passwordHash: template.passwordHash })),
     });
     await prisma.companyMember.createMany({
       data: Array.from({ length: MEMBERS }, (_, index) => ({ id: `${PREFIX}_member_${index}`, companyId: COMPANY, userId: `${PREFIX}_user_${index}`, roleId: role.id, departmentId: engineering.id, status: "ACTIVE" as const })),

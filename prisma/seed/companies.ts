@@ -114,6 +114,7 @@ export async function seedCompanies(prisma: PrismaClient) {
       update: {
         firstName: spec.firstName,
         lastName: spec.lastName,
+        username: spec.username,
         email: spec.email,
         phone: spec.phone,
         passwordHash,
@@ -123,6 +124,7 @@ export async function seedCompanies(prisma: PrismaClient) {
         id: spec.id,
         firstName: spec.firstName,
         lastName: spec.lastName,
+        username: spec.username,
         email: spec.email,
         phone: spec.phone,
         passwordHash,
@@ -169,6 +171,7 @@ export async function seedCompanies(prisma: PrismaClient) {
     await createMember(
       {
         id: negative.id,
+        username: negative.username,
         email: negative.email,
         firstName: negative.firstName,
         lastName: negative.lastName,
@@ -188,6 +191,7 @@ export async function seedCompanies(prisma: PrismaClient) {
   await createMember(
     {
       id: SUSPENDED_COMPANY_USER.id,
+      username: SUSPENDED_COMPANY_USER.username,
       email: SUSPENDED_COMPANY_USER.email,
       firstName: SUSPENDED_COMPANY_USER.firstName,
       lastName: SUSPENDED_COMPANY_USER.lastName,
@@ -205,6 +209,7 @@ export async function seedCompanies(prisma: PrismaClient) {
   await createMember(
     {
       id: MULTI_COMPANY_USER.id,
+      username: MULTI_COMPANY_USER.username,
       email: MULTI_COMPANY_USER.email,
       firstName: MULTI_COMPANY_USER.firstName,
       lastName: MULTI_COMPANY_USER.lastName,
@@ -221,6 +226,7 @@ export async function seedCompanies(prisma: PrismaClient) {
   await createMember(
     {
       id: MULTI_COMPANY_USER.id,
+      username: MULTI_COMPANY_USER.username,
       email: MULTI_COMPANY_USER.email,
       firstName: MULTI_COMPANY_USER.firstName,
       lastName: MULTI_COMPANY_USER.lastName,

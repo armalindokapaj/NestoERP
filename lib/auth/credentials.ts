@@ -10,14 +10,19 @@ import { SignInRateLimited } from "./errors";
 import { recordAuthEvent } from "./events";
 import { verifyPassword } from "./password";
 import { credentialsSchema } from "./schema";
+import { normaliseUsername } from "./username";
 import { createSession } from "./session-store";
 import { recordSignIn } from "./identity";
 
-export type AuthenticatedUser = { id: string; email: string; sessionId: string };
+export type AuthenticatedUser = { id: string; username: string; sessionId: string; mustChangePassword: boolean };
 
 /**
  * The credentials check behind every way into NESTO (PRD #6 §6-§10,
- * PRD #38 §17).
+ * PRD #38 §17, PRD #50 §6, §24).
+ *
+ * The identifier is the username, not an address: nothing here reads `email`,
+ * and an account with no address signs in exactly like one that has an
+ * address (PRD #50 §66, §325).
  *
  * Auth.js calls this from `authorize`, whether sign-in arrived through the
  * login form's server action, the invitation flow, or a direct POST to the
@@ -34,10 +39,10 @@ export async function authenticateCredentials(
   const parsed = credentialsSchema.safeParse(rawCredentials);
   if (!parsed.success) return null;
 
-  const email = parsed.data.email.toLowerCase();
+  const username = normaliseUsername(parsed.data.username);
   const ipAddress = clientAddress(requestHeaders);
   const userAgent = userAgentOf(requestHeaders);
-  const throttleSubjects = { account: email, ip: ipAddress };
+  const throttleSubjects = { account: username, ip: ipAddress };
 
   // Checked before the password, so a locked account costs an attacker
   // nothing to learn and the server no bcrypt round (PRD #38 §17).
@@ -47,12 +52,12 @@ export async function authenticateCredentials(
     throw new SignInRateLimited();
   }
 
-  // Every failure counts, including an address nobody has registered, so
+  // Every failure counts, including a username nobody has registered, so
   // the lockout itself cannot be used to discover accounts.
   const failed = () => hitThrottle("AUTH_LOGIN", throttleSubjects);
 
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { username },
     include: {
       memberships: {
         where: { status: "ACTIVE" },
@@ -66,7 +71,7 @@ export async function authenticateCredentials(
   // whether an account exists (PRD #6 §8).
   if (!user) {
     await failed();
-    await recordAuthEvent({ type: "LOGIN_FAILED", ipAddress, userAgent, metadata: { email } });
+    await recordAuthEvent({ type: "LOGIN_FAILED", ipAddress, userAgent, metadata: { username } });
     return null;
   }
 
@@ -77,6 +82,15 @@ export async function authenticateCredentials(
   if (!passwordMatches) {
     await failed();
     await recordAuthEvent({ type: "LOGIN_FAILED", userId: user.id, ipAddress, userAgent });
+    return null;
+  }
+
+  // A temporary password stops working when it lapses, whether or not
+  // anybody used it (PRD #50 §17). Checked after the hash comparison so the
+  // answer is the same generic refusal either way.
+  if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt.getTime() <= Date.now()) {
+    await failed();
+    await recordAuthEvent({ type: "LOGIN_FAILED", userId: user.id, ipAddress, userAgent, metadata: { reason: "TEMPORARY_PASSWORD_EXPIRED" } });
     return null;
   }
 
@@ -106,7 +120,7 @@ export async function authenticateCredentials(
 
   // The right password clears the account's failures; the address keeps
   // its count, so one good account cannot launder a spray.
-  await clearThrottle("AUTH_LOGIN", { account: email });
+  await clearThrottle("AUTH_LOGIN", { account: username });
 
   await recordSignIn(prisma, user.id);
 
@@ -121,7 +135,10 @@ export async function authenticateCredentials(
 
   return {
     id: user.id,
-    email: user.email,
+    username: user.username,
     sessionId: session.id,
+    // The caller sends them to choose a password of their own before
+    // anything else (PRD #50 §16, §270).
+    mustChangePassword: user.mustChangePassword,
   };
 }

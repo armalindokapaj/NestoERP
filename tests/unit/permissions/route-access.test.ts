@@ -16,7 +16,7 @@ import {
  */
 describe("isPublicRoute", () => {
   it("admits the pages an anonymous visitor must reach", () => {
-    for (const path of ["/", "/login", "/forgot-password", "/reset-password", "/pricing"]) {
+    for (const path of ["/", "/login", "/forgot-password", "/pricing"]) {
       expect(isPublicRoute(path), path).toBe(true);
     }
   });
@@ -56,7 +56,7 @@ describe("isPublicRoute", () => {
 
 describe("redirectsWhenAuthenticated", () => {
   it("moves a signed-in visitor off the sign-in pages", () => {
-    for (const path of ["/login", "/forgot-password", "/reset-password"]) {
+    for (const path of ["/login", "/forgot-password"]) {
       expect(redirectsWhenAuthenticated(path), path).toBe(true);
     }
   });

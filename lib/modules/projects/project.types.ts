@@ -51,7 +51,7 @@ export type ProjectMemberDTO = {
   id: string;
   companyMemberId: string;
   fullName: string;
-  email: string;
+  email: string | null;
   avatarUrl: string | null;
   roleLabel: string;
   department: string | null;

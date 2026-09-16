@@ -56,7 +56,7 @@ export async function exportHr(
         result.data.map((row) => [
           row.name.fullName,
           row.employeeNumber ?? "",
-          row.email,
+          row.email ?? "",
           row.jobTitle ?? "",
           row.department?.name ?? "",
           row.manager?.fullName ?? "",

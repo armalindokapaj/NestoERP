@@ -10,7 +10,7 @@ export type DemoAccountOption = {
   role: string;
   code: string;
   label: string;
-  email: string;
+  username: string;
 };
 
 /**
@@ -112,7 +112,7 @@ export function DemoAccounts({
                         {account.label}
                       </span>
                       <span className="block truncate font-mono text-micro text-fg-subtle">
-                        {account.email}
+                        {account.username}
                       </span>
                     </span>
                     <LogIn

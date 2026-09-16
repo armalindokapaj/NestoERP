@@ -91,7 +91,7 @@ export default async function LoginPage({
                   role: account.role,
                   code: roles[account.role].code,
                   label: roles[account.role].label,
-                  email: account.email,
+                  username: account.username,
                 }))}
                 password={DEMO_PASSWORD}
               />

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { accessLevelLabels, dataScopeLabels } from "@/config/access";
 import { MODULE_KEYS, modules } from "@/config/modules";
 import { ROLE_KEYS, roles } from "@/config/roles";
-import { credentialsSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/auth/schema";
+import { changePasswordSchema, credentialsSchema } from "@/lib/auth/schema";
 import { LOCALES } from "@/lib/i18n/config";
 import { messages } from "@/lib/i18n/messages";
 import { en } from "@/lib/i18n/messages/en";
@@ -83,13 +83,10 @@ describe("English source", () => {
   // translateAuthError finds server messages by their English wording.
   it("holds every message the auth schemas can return, word for word", () => {
     const issues = [
-      credentialsSchema.safeParse({ email: "", password: "" }),
-      credentialsSchema.safeParse({ email: "not-an-email", password: "x" }),
-      forgotPasswordSchema.safeParse({ email: "" }),
-      forgotPasswordSchema.safeParse({ email: "not-an-email" }),
-      resetPasswordSchema.safeParse({ token: "t", password: "short", confirmPassword: "" }),
-      resetPasswordSchema.safeParse({ token: "t", password: "x".repeat(201), confirmPassword: "y" }),
-      resetPasswordSchema.safeParse({ token: "t", password: "long enough 1", confirmPassword: "other" }),
+      credentialsSchema.safeParse({ username: "", password: "" }),
+      changePasswordSchema.safeParse({ currentPassword: "", password: "short", confirmPassword: "" }),
+      changePasswordSchema.safeParse({ currentPassword: "x", password: "x".repeat(201), confirmPassword: "y" }),
+      changePasswordSchema.safeParse({ currentPassword: "x", password: "long enough 1", confirmPassword: "other" }),
     ].flatMap((result) => result.error?.issues.map((issue) => issue.message) ?? []);
 
     const known = new Set(Object.values(en.auth.errors));

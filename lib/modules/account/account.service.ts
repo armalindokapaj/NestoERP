@@ -32,14 +32,17 @@ export type AccountSessionDTO = {
 export type ProfileDTO = {
   firstName: string;
   lastName: string;
-  email: string;
+  /** What the account signs in with (PRD #50 §6). Never editable here. */
+  username: string;
+  /** Contact metadata, and absent on accounts that were never given one (§67). */
+  email: string | null;
   phone: string | null;
 };
 
 export async function getProfile(context: UserContext): Promise<ProfileDTO> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: context.userId },
-    select: { firstName: true, lastName: true, email: true, phone: true },
+    select: { firstName: true, lastName: true, username: true, email: true, phone: true },
   });
   return user;
 }
@@ -54,7 +57,7 @@ export async function updateProfile(context: UserContext, input: UpdateProfileIn
     const user = await tx.user.update({
       where: { id: context.userId },
       data: { firstName: input.firstName, lastName: input.lastName, phone: input.phone },
-      select: { firstName: true, lastName: true, email: true, phone: true },
+      select: { firstName: true, lastName: true, username: true, email: true, phone: true },
     });
 
     await recordUserAction(

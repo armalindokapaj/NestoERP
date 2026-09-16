@@ -28,6 +28,8 @@ export const AuditAction = {
   TEAM_MEMBER_DEACTIVATED: "TEAM_MEMBER_DEACTIVATED",
   TEAM_MEMBER_SUSPENDED: "TEAM_MEMBER_SUSPENDED",
   TEAM_MEMBER_ROLE_CHANGED: "TEAM_MEMBER_ROLE_CHANGED",
+  /** An administrator issued a temporary password (PRD #50 §23). */
+  TEAM_MEMBER_PASSWORD_RESET: "TEAM_MEMBER_PASSWORD_RESET",
   TEAM_MEMBER_DEPARTMENT_CHANGED: "TEAM_MEMBER_DEPARTMENT_CHANGED",
 
   // Configuration (PRD #28 §98)
@@ -262,6 +264,9 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.TEAM_INVITATION_RESENT, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["email", "deliveryStatus"], required: false },
   { actionKey: AuditAction.TEAM_INVITATION_CANCELLED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["email", "status"], required: false },
   { actionKey: AuditAction.TEAM_MEMBER_ACTIVATED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  // The password itself is never a field here, and neither is its hash
+  // (PRD #50 §23). What is kept: who did it, to whom, and what it forced.
+  { actionKey: AuditAction.TEAM_MEMBER_PASSWORD_RESET, moduleKey: "team", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["username", "mustChangePassword", "sessionsRevoked", "expiresAt"], required: true },
   { actionKey: AuditAction.TEAM_MEMBER_DEACTIVATED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.TEAM_MEMBER_SUSPENDED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   // Owner transfer is the single highest-risk access change there is (PRD #28 §97).

@@ -37,11 +37,22 @@ export function demoEmail(role: RoleKey): string {
   return EMAIL_FOR_ROLE[role];
 }
 
+/** What a seeded role signs in with (PRD #50 §6). */
+export function demoUsername(role: RoleKey): string {
+  return EMAIL_FOR_ROLE[role].split("@")[0];
+}
+
 const createdSessions: string[] = [];
 
-/** Creates a real session row for a seeded account and resolves its context. */
+/**
+ * Creates a real session row for a seeded account and resolves its context.
+ *
+ * Takes the address because that is how the demo roster is keyed here; the
+ * account is found by it, not authenticated by it — signing in is by username
+ * (PRD #50 §6), which `authenticateCredentials` covers in its own tests.
+ */
 export async function loginAsEmail(email: string): Promise<UserContext> {
-  const user = await prisma.user.findUnique({
+  const user = await prisma.user.findFirst({
     where: { email },
     include: { memberships: { where: { status: "ACTIVE" }, take: 1 } },
   });
@@ -77,12 +88,14 @@ export function resolveSession(sessionId: string, expectedUserId?: string) {
   return resolveContextForSession(sessionId, { expectedUserId });
 }
 
-export async function createRawSession(email: string) {
-  const user = await prisma.user.findUnique({
-    where: { email },
+export async function createRawSession(identifier: string) {
+  // Either an address or a username: the callers here are fixtures naming a
+  // seeded account, not a login path.
+  const user = await prisma.user.findFirst({
+    where: identifier.includes("@") ? { email: identifier } : { username: identifier },
     include: { memberships: { take: 1 } },
   });
-  if (!user) throw new Error(`No seeded user for ${email}`);
+  if (!user) throw new Error(`No seeded user for ${identifier}`);
   const membership = user.memberships[0];
 
   const session = await prisma.session.create({

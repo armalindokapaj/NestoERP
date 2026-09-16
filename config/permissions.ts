@@ -982,6 +982,10 @@ export const PERMISSIONS = [
   "team.member.reactivate",
   "team.member.suspend",
   "team.member.unsuspend",
+  // Issuing a temporary password and signing the account out everywhere
+  // (PRD #50 §20, §21). Its own grant: managing somebody's role is not the
+  // same authority as taking over their credential.
+  "team.member.password.reset",
   // Assigning OWNER is its own grant: Admin is not Owner (PRD #14 §95, §96).
   "team.owner.assign",
   // Last-login is security metadata, not directory data (PRD #14 §49).
