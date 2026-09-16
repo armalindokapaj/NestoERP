@@ -1,4 +1,4 @@
-import { firstValue } from "@/lib/modules/shared/list-query";
+import { DEFAULT_LIMIT, firstValue, MAX_LIMIT } from "@/lib/modules/shared/list-query";
 import {
   LEAD_SORT_KEYS,
   LEAD_SOURCES,
@@ -152,4 +152,21 @@ export function parseProposalQuery(
     limit: limit(params),
     sort: sortKey(read(params, "sort"), PROPOSAL_SORT_KEYS, defaults.sort ?? "updated-desc"),
   });
+}
+
+/**
+ * Pagination a service accepts from any caller.
+ *
+ * The routes parse `page` and `limit` loosely, and a service is also reached
+ * from pages and actions — so the bound lives where the query is run. A page
+ * of ten thousand rows, or a negative `take` that Prisma reads backwards, is
+ * not a page.
+ */
+export function boundedPage(value: number | undefined): number {
+  return value !== undefined && Number.isInteger(value) && value > 0 ? value : 1;
+}
+
+export function boundedLimit(value: number | undefined): number {
+  if (value === undefined || !Number.isInteger(value) || value < 1) return DEFAULT_LIMIT;
+  return Math.min(value, MAX_LIMIT);
 }

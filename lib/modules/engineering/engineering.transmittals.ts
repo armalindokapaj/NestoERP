@@ -6,7 +6,7 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
-import { loadRecord } from "@/lib/core/records/record.registry";
+import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { loadEngineeringProject } from "./engineering.documents";
@@ -129,6 +129,15 @@ export async function getTransmittal(context: UserContext, id: string): Promise<
       ? (await prisma.engineeringDocument.findMany({ where: { AND: [readableEngineeringDocumentWhere(context), { id: { in: items.map((item) => item.engineeringDocumentId).filter((value): value is string => Boolean(value)) } }] }, select: { id: true } })).map((doc) => doc.id)
       : [],
   );
+  /*
+   * A file's name is shown only to a reader who could open that file
+   * (PRD #46 §249, §253, PRD #47 §62): `document.view` alone is not enough.
+   * A file listed under a register entry is read through that entry's door; a
+   * loose file through its own parent, as the Documents module decides.
+   */
+  const looseFiles = files ? items.filter((item) => !item.engineeringDocumentId).map((item) => item.documentId) : [];
+  const readableLooseFiles = new Set(looseFiles.length ? await recordDefinition("document")!.reachable(context, looseFiles) : []);
+  const fileVisible = (item: (typeof items)[number]) => files && (item.engineeringDocumentId ? readableDocs.has(item.engineeringDocumentId) : readableLooseFiles.has(item.documentId));
   const live = !projectArchived(row.project);
   return {
     ...toRow(row),
@@ -138,9 +147,9 @@ export async function getTransmittal(context: UserContext, id: string): Promise<
     voidReason: row.voidReason,
     items: items.map((item): TransmittalItemDTO => ({
       id: item.id,
-      document: files ? { id: item.document.id, name: item.document.name, href: `/documents/${item.document.id}` } : null,
+      document: fileVisible(item) ? { id: item.document.id, name: item.document.name, href: `/documents/${item.document.id}` } : null,
       engineeringDocument: item.engineeringDocument && readableDocs.has(item.engineeringDocument.id) ? { id: item.engineeringDocument.id, label: `${item.engineeringDocument.documentNumber} · ${item.engineeringDocument.title}`, href: `/projects/${item.engineeringDocument.projectId}/engineering/documents/${item.engineeringDocument.id}` } : null,
-      revisionCode: item.engineeringRevision?.revisionCode ?? null,
+      revisionCode: item.engineeringDocumentId && !readableDocs.has(item.engineeringDocumentId) ? null : (item.engineeringRevision?.revisionCode ?? null),
       versionNumber: item.documentVersionId ? (versionById.get(item.documentVersionId) ?? null) : item.document.latestVersionNumber || null,
       remarks: item.remarks,
     })),
@@ -192,7 +201,7 @@ export async function createTransmittal(context: UserContext, projectId: string,
   const project = await loadEngineeringProject(context, projectId, "transmittal.view");
   assertPermission(context, "transmittal.create");
   assertProjectWritable(project);
-  const [scope, items] = await Promise.all([resolveProjectContext(context.companyId, project.id, input, { newWork: true }), resolveItems(context, project.id, input.items)]);
+  const [scope, items] = await Promise.all([resolveProjectContext(context, project.id, input, { newWork: true }), resolveItems(context, project.id, input.items)]);
   return withNumber("transmittalNumber", input.transmittalNumber, { code: "TRANSMITTAL_NUMBER_TAKEN", message: "That transmittal number is already used on this project." }, () =>
     prisma.$transaction(async (tx) => {
       const transmittalNumber = await projectNumber(tx, {
@@ -232,7 +241,7 @@ async function findDraft(context: UserContext, id: string, permission: "transmit
 export async function updateTransmittal(context: UserContext, id: string, input: UpdateTransmittalInput): Promise<{ id: string }> {
   const row = await findDraft(context, id, "transmittal.create");
   const [scope, items] = await Promise.all([
-    resolveProjectContext(context.companyId, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
+    resolveProjectContext(context, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
     resolveItems(context, row.projectId, input.items),
   ]);
   await prisma.$transaction(async (tx) => {
@@ -247,7 +256,7 @@ export async function updateTransmittal(context: UserContext, id: string, input:
 
 export async function issueTransmittal(context: UserContext, id: string, input: { issuedAt: string | null }): Promise<{ id: string }> {
   const row = await findDraft(context, id, "transmittal.issue");
-  const items = await prisma.documentTransmittalItem.findMany({ where: { transmittalId: row.id }, select: { id: true, documentId: true, engineeringDocument: { select: { responsibleMemberId: true } }, document: { select: { currentVersionId: true, storageStatus: true, status: true } } } });
+  const items = await prisma.documentTransmittalItem.findMany({ where: { transmittalId: row.id }, select: { id: true, documentId: true, engineeringDocument: { select: { responsibleMemberId: true } }, engineeringRevision: { select: { documentVersionId: true } }, document: { select: { currentVersionId: true, storageStatus: true, status: true } } } });
   if (!items.length) throw fail("TRANSMITTAL_EMPTY", "Add at least one document before issuing.", "CONFLICT");
   if (items.some((item) => item.document.status !== "ACTIVE" || item.document.storageStatus !== "AVAILABLE")) throw fail("TRANSMITTAL_FILE_NOT_READY", "One of the files is still being processed or is no longer available.", "CONFLICT");
   const { today } = await companyToday(context.companyId);
@@ -255,8 +264,17 @@ export async function issueTransmittal(context: UserContext, id: string, input: 
   await prisma.$transaction(async (tx) => {
     const moved = await tx.documentTransmittal.updateMany({ where: { id: row.id, status: "DRAFT" }, data: { status: "ISSUED", issuedAt: at(issuedDate), issuedByMemberId: context.membershipId } });
     if (!moved.count) throw fail("TRANSMITTAL_ISSUED_LOCKED", "This transmittal was already issued.", "CONFLICT");
-    // The version each file carried at issue, for good (§122, §123).
-    for (const item of items) await tx.documentTransmittalItem.update({ where: { id: item.id }, data: { documentVersionId: item.document.currentVersionId } });
+    /*
+     * The version each file carried at issue, for good (§122, §123). An item
+     * that names a revision carries the version that revision was submitted
+     * with — not whatever the file holds now, which a late upload could have
+     * moved (PRD #47 §87). Only a revision that pinned no version (older
+     * records) falls back to the file's current one.
+     */
+    for (const item of items) {
+      const documentVersionId = item.engineeringRevision?.documentVersionId ?? item.document.currentVersionId;
+      await tx.documentTransmittalItem.update({ where: { id: item.id }, data: { documentVersionId } });
+    }
     await recordUserAction(context, { actionKey: AuditAction.TRANSMITTAL_ISSUED, entity: { type: TRANSMITTAL_RECORD, id: row.id, label: row.transmittalNumber }, projectId: row.projectId, before: { status: "DRAFT" }, after: { status: "ISSUED", issuedAt: issuedDate, items: items.length } }, { tx });
     await recordActivity(tx, context, { module: MODULE, entityType: TRANSMITTAL_ACTIVITY, entityId: row.id, action: "TRANSMITTAL_ISSUED", message: `issued transmittal ${row.transmittalNumber}` });
     await notifyEngineering(tx, {

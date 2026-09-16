@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
@@ -94,6 +94,8 @@ const DOCUMENT_SELECT = {
 type DocumentRow = Prisma.EngineeringDocumentGetPayload<{ select: typeof DOCUMENT_SELECT }>;
 
 const AWAITING = ["SUBMITTED", "UNDER_REVIEW"] as const;
+/** A revision with the reviewer, or an approved document: its title and type are what was reviewed. */
+const DETAILS_FROZEN: string[] = [...AWAITING, "APPROVED", "APPROVED_WITH_COMMENTS"];
 
 async function toRows(context: UserContext, rows: DocumentRow[]): Promise<EngineeringDocumentRowDTO[]> {
   const [names, { today }] = await Promise.all([people(context.companyId, rows.map((row) => row.reviewerMemberId)), companyToday(context.companyId)]);
@@ -202,7 +204,7 @@ export async function createEngineeringDocument(context: UserContext, projectId:
   assertPermission(context, "engineering_document.create");
   assertProjectWritable(project);
   const [scope] = await Promise.all([
-    resolveProjectContext(context.companyId, project.id, input, { newWork: true }),
+    resolveProjectContext(context, project.id, input, { newWork: true }),
     assertResponsible(context.companyId, project.id, input.responsibleMemberId, "engineering_document.view", "responsibleMemberId"),
     assertResponsible(context.companyId, project.id, input.reviewerMemberId, "engineering_document.review", "reviewerMemberId"),
   ]);
@@ -251,12 +253,17 @@ async function findWritableDocument(context: UserContext, id: string) {
 export async function updateEngineeringDocument(context: UserContext, id: string, input: UpdateEngineeringDocumentInput): Promise<{ id: string; version: number }> {
   const row = await findWritableDocument(context, id);
   const [scope] = await Promise.all([
-    resolveProjectContext(context.companyId, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
+    resolveProjectContext(context, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
     input.responsibleMemberId !== row.responsibleMemberId ? assertResponsible(context.companyId, row.projectId, input.responsibleMemberId, "engineering_document.view", "responsibleMemberId") : undefined,
     input.reviewerMemberId !== row.reviewerMemberId ? assertResponsible(context.companyId, row.projectId, input.reviewerMemberId, "engineering_document.review", "reviewerMemberId") : undefined,
   ]);
   // The number a submitted revision was issued under does not quietly change (§64, §69).
   if (input.documentNumber !== row.documentNumber && row._count.revisions > 0 && row.status !== "DRAFT") throw fail("ENGINEERING_DOCUMENT_NUMBER_LOCKED", "The number is fixed once a revision has been submitted.", "CONFLICT", { field: "documentNumber" });
+  // Nor does what the reviewer is reviewing, or what they approved (PRD #47 §85, §87).
+  if (DETAILS_FROZEN.includes(row.status) && (input.title !== row.title || input.documentType !== row.documentType)) {
+    const when = (AWAITING as readonly string[]).includes(row.status) ? "while a revision is under review" : "once it has been approved";
+    throw stateDenied(`The title and type cannot change ${when}.`, { code: "ENGINEERING_DOCUMENT_DETAILS_FROZEN", field: input.title !== row.title ? "title" : "documentType" });
+  }
   try {
     await prisma.$transaction(async (tx) => {
       const moved = await tx.engineeringDocument.updateMany({

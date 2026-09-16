@@ -7,6 +7,7 @@ import { can } from "@/lib/access/can";
 import { createBudgetAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
 import { prisma } from "@/lib/database/prisma";
+import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import { buildFinanceProjectWhere } from "@/lib/modules/finance/finance.scope";
 
 export const metadata: Metadata = { title: "New budget" };
@@ -28,13 +29,18 @@ export default async function NewBudgetPage({
     orderBy: { name: "asc" },
   });
 
+  // The query string is a claim: only a project this reader can offer is
+  // preselected, and its budget is read through the finance scope — otherwise
+  // `?projectId=` would confirm another company's approved budget and its
+  // currency (PRD #47 §17, §40).
+  const projectId = projects.some((project) => project.id === params.projectId)
+    ? params.projectId
+    : undefined;
+
   // Once a project has an approved budget its currency is settled, because its
   // costs are already recorded in it (PRD #15 §117).
-  const approved = params.projectId
-    ? await prisma.projectBudget.findFirst({
-        where: { projectId: params.projectId, status: "APPROVED" },
-        select: { currency: true },
-      })
+  const approvedCurrency = projectId
+    ? await budgets.approvedBudgetCurrency(context, projectId)
     : null;
 
   async function action(formData: FormData) {
@@ -61,17 +67,17 @@ export default async function NewBudgetPage({
           label: `${project.name} (${project.code})`,
         }))}
         values={
-          params.projectId
+          projectId
             ? {
-                projectId: params.projectId,
+                projectId,
                 name: null,
-                currency: approved?.currency ?? "EUR",
+                currency: approvedCurrency ?? "EUR",
                 notes: null,
                 lineItems: [],
               }
             : undefined
         }
-        lockedCurrency={approved?.currency ?? null}
+        lockedCurrency={approvedCurrency}
         cancelHref="/finance/budgets"
         submitLabel="Create budget"
         pendingLabel="Creating…"

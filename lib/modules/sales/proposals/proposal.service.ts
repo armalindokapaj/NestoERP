@@ -1,7 +1,7 @@
 import { Prisma, type ProposalStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -272,6 +272,7 @@ export async function submitProposal(context: UserContext, proposalId: string): 
   }
 
   await prisma.$transaction(async (tx) => {
+    await assertOpportunityOpen(tx, context, existing.opportunityId);
     await moveStatus(tx, context, existing, "PENDING_APPROVAL");
     await approvals.openApproval(tx, context, "PROPOSAL", proposalId);
 
@@ -300,6 +301,7 @@ export async function approveProposal(
     const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
+    await assertOpportunityOpen(tx, context, existing.opportunityId);
     await moveStatus(tx, context, existing, "APPROVED");
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
@@ -389,6 +391,7 @@ export async function markProposalSent(context: UserContext, proposalId: string)
   const existing = assertFound(await repository.findProposalInScope(context, proposalId));
 
   await prisma.$transaction(async (tx) => {
+    await assertOpportunityOpen(tx, context, existing.opportunityId);
     await moveStatus(tx, context, existing, "SENT", { sentAt: new Date() });
 
     await recordActivity(tx, context, {
@@ -421,6 +424,7 @@ export async function acceptProposal(context: UserContext, proposalId: string): 
     // checking it: without this, two acceptances land at once and the
     // opportunity ends up with two agreed prices (PRD #17 §186, §258).
     await lockOpportunity(tx, existing.opportunityId);
+    await assertOpportunityOpen(tx, context, existing.opportunityId, { locked: true });
 
     const alreadyAccepted = await tx.proposal.findFirst({
       where: {
@@ -663,6 +667,41 @@ async function resolveOpportunity(context: UserContext, opportunityId: string) {
   }
 
   return opportunity;
+}
+
+/**
+ * A proposal moves forward only while its deal is still being fought for
+ * (PRD #17 §109, PRD #47 §85).
+ *
+ * The same rule that stops a proposal being raised on a closed or archived
+ * opportunity, applied to every forward step: submitting, approving, sending
+ * and accepting a quote for a deal already won, lost or filed away would put a
+ * price on record for a negotiation that has ended. Declining, cancelling and
+ * an approver's reject or return stay available — they close work out.
+ *
+ * The opportunity row is locked first, so a "mark lost" landing at the same
+ * moment is seen rather than raced.
+ */
+async function assertOpportunityOpen(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  opportunityId: string,
+  options: { locked?: boolean } = {},
+): Promise<void> {
+  if (!options.locked) await lockOpportunity(tx, opportunityId);
+
+  const opportunity = await tx.opportunity.findFirst({
+    where: { id: opportunityId, companyId: context.companyId },
+    select: { stage: true, archivedAt: true },
+  });
+
+  if (!opportunity || opportunity.archivedAt || isClosedStage(opportunity.stage)) {
+    throw stateDenied(
+      opportunity && !opportunity.archivedAt
+        ? `This proposal's opportunity is already ${opportunity.stage.toLowerCase()}, so the proposal cannot move forward.`
+        : "This proposal's opportunity is archived, so the proposal cannot move forward.",
+    );
+  }
 }
 
 /**

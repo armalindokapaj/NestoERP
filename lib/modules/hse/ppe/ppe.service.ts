@@ -102,6 +102,7 @@ export async function listPpeChecks(context: UserContext, query: PpeListQuery) {
   ]);
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.checkedByMemberId, row.subjectMemberId]),
   );
 
@@ -125,7 +126,7 @@ export async function getPpeCheck(
     }),
   );
 
-  const members = await loadMembers([row.checkedByMemberId, row.subjectMemberId]);
+  const members = await loadMembers(context.companyId, [row.checkedByMemberId, row.subjectMemberId]);
   return toDTO(row, members);
 }
 
@@ -144,6 +145,7 @@ export async function listForProject(
   });
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.checkedByMemberId, row.subjectMemberId]),
   );
   return rows.map((row) => toDTO(row, members));
@@ -253,9 +255,28 @@ export async function updatePpeCheck(
   const existing = assertFound(
     await prisma.ppeCheck.findFirst({
       where: { AND: [buildPpeScopeWhere(context), { id: checkId }] },
-      select: { id: true, checkNumber: true },
+      select: { id: true, checkNumber: true, checkedByMemberId: true, subjectMemberId: true },
     }),
   );
+
+  /*
+   * The person a check is about sees it (PRD #22 §161) but does not correct it
+   * (PRD #47 §85). The row stays credited to whoever did the check, so a
+   * subject re-posting their own FAIL as a PASS would put the checker's name to
+   * a finding the checker never made. The checker corrects their own
+   * observation; HSE management can correct anybody's.
+   */
+  if (
+    existing.subjectMemberId === context.membershipId &&
+    existing.checkedByMemberId !== context.membershipId &&
+    !can(context, "hse.manage")
+  ) {
+    throw new AccessError(
+      "FORBIDDEN",
+      "This check is about you, so somebody else has to correct it.",
+      { code: "SELF_CORRECTION" },
+    );
+  }
 
   if (input.projectId) await requireProject(context, input.projectId);
   if (input.subjectMemberId) await requireMember(context, input.subjectMemberId);

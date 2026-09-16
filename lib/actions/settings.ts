@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
-import type { ModuleKey } from "@/config/modules";
+import { MODULE_KEYS } from "@/config/modules";
 import { requireUserContext } from "@/lib/context/current-user";
 import {
   companySettingsSchema,
@@ -46,22 +47,43 @@ async function run(fn: () => Promise<unknown>, paths: string[]): Promise<ActionR
     for (const path of paths) revalidatePath(path);
     return { ok: true };
   } catch (error) {
-    if (error instanceof AccessError) throw error;
+    if (error instanceof AccessError) {
+      // A business rule the form can explain — a locked currency, a blocked
+      // integration — comes back as a message. Anything about who the caller
+      // is still surfaces as the error it is.
+      if (error.code === "CONFLICT" || error.code === "VALIDATION_ERROR") {
+        return { ok: false, message: MESSAGES[detailCode(error)] ?? error.message };
+      }
+      throw error;
+    }
     const code = error instanceof Error ? error.message : "";
     return { ok: false, message: MESSAGES[code] ?? "That change could not be saved." };
   }
 }
 
+function detailCode(error: AccessError): string {
+  const details = error.details as { code?: unknown } | undefined;
+  return typeof details?.code === "string" ? details.code : "";
+}
+
+/** A form field that is not on the page is not a value: absent stays absent. */
+function field(formData: FormData, name: string): string | undefined {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : undefined;
+}
+
 export async function updateCompanySettingsAction(formData: FormData): Promise<ActionResult> {
   const context = await requireUserContext();
+  // The finance fields are only on the form for somebody who may see them, so
+  // a missing one means "unchanged" rather than a value (PRD #47 §61).
   const input = companySettingsSchema.parse({
     locale: formData.get("locale"),
     timezone: formData.get("timezone"),
     dateFormat: formData.get("dateFormat"),
-    baseCurrency: formData.get("baseCurrency"),
-    fiscalYearStartMonth: formData.get("fiscalYearStartMonth"),
-    defaultPaymentTermsDays: formData.get("defaultPaymentTermsDays"),
-    defaultTaxRate: formData.get("defaultTaxRate") ?? undefined,
+    baseCurrency: field(formData, "baseCurrency"),
+    fiscalYearStartMonth: field(formData, "fiscalYearStartMonth"),
+    defaultPaymentTermsDays: field(formData, "defaultPaymentTermsDays"),
+    defaultTaxRate: field(formData, "defaultTaxRate"),
   });
   return run(() => updateCompanySettings(context, input), ["/settings/localization", "/finance"]);
 }
@@ -76,12 +98,20 @@ export async function updateIntegrationSettingsAction(formData: FormData): Promi
   return run(() => updateIntegrationSettings(context, input), ["/settings/integrations"]);
 }
 
+/**
+ * A server action's arguments are whatever the caller posts, so the module key
+ * is checked against the registry rather than cast into one (PRD #47 §64).
+ */
+const moduleToggleArgs = z.object({ moduleKey: z.enum(MODULE_KEYS), enabled: z.boolean() });
+
 export async function setModuleEnabledAction(
   moduleKey: string,
   enabled: boolean,
 ): Promise<ActionResult> {
   const context = await requireUserContext();
-  return run(() => setModuleEnabled(context, moduleKey as ModuleKey, enabled), [
+  const parsed = moduleToggleArgs.safeParse({ moduleKey, enabled });
+  if (!parsed.success) return { ok: false, message: MESSAGES.MODULE_NOT_FOUND };
+  return run(() => setModuleEnabled(context, parsed.data.moduleKey, parsed.data.enabled), [
     "/settings/modules",
     "/dashboard",
   ]);

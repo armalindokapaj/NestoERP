@@ -2,7 +2,7 @@ import { apiOk, readJson, withContext } from "@/lib/api/respond";
 import { obligationTaskSchema } from "@/lib/modules/contracts/obligations/obligation.schema";
 import * as obligations from "@/lib/modules/contracts/obligations/obligation.service";
 
-type Params = { params: Promise<{ obligationId: string }> };
+type Params = { params: Promise<{ contractId: string; obligationId: string }> };
 
 /**
  * Raises the work that satisfies an obligation (PRD #18 §154, §431).
@@ -12,7 +12,9 @@ type Params = { params: Promise<{ obligationId: string }> };
  */
 export async function POST(request: Request, { params }: Params) {
   return withContext(async (context) => {
-    const { obligationId } = await params;
+    const { contractId, obligationId } = await params;
+    // The child must belong to the contract in the path (PRD #47 §17).
+    await obligations.assertObligationOnContract(context, contractId, obligationId);
     const input = obligationTaskSchema.parse(await readJson(request));
     return apiOk(
       { data: await obligations.createTaskForObligation(context, obligationId, input) },

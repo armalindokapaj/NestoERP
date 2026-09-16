@@ -361,8 +361,12 @@ export async function saveObligationAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    if (obligationId) await obligations.updateObligation(context, obligationId, parsed.data);
-    else await obligations.createObligation(context, contractId, parsed.data);
+    if (obligationId) {
+      await obligations.assertObligationOnContract(context, contractId, obligationId);
+      await obligations.updateObligation(context, obligationId, parsed.data);
+    } else {
+      await obligations.createObligation(context, contractId, parsed.data);
+    }
   } catch (error) {
     return toResult(error);
   }
@@ -380,6 +384,7 @@ export async function closeObligationAction(
   const context = await requireUserContext();
 
   try {
+    await obligations.assertObligationOnContract(context, contractId, obligationId);
     if (action === "complete") {
       await obligations.completeObligation(context, obligationId, note ?? null);
     } else {
@@ -405,6 +410,7 @@ export async function createObligationTaskAction(
 
   let id: string;
   try {
+    await obligations.assertObligationOnContract(context, contractId, obligationId);
     const task = await obligations.createTaskForObligation(context, obligationId, parsed.data);
     id = task.id;
   } catch (error) {
@@ -438,6 +444,7 @@ export async function saveAmendmentAction(
   let id = amendmentId;
   try {
     if (amendmentId) {
+      await amendments.assertAmendmentOnContract(context, contractId, amendmentId);
       await amendments.updateAmendment(context, amendmentId, parsed.data);
     } else {
       const created = await amendments.createAmendment(context, contractId, parsed.data);
@@ -468,6 +475,7 @@ export async function amendmentLifecycleAction(
   const context = await requireUserContext();
 
   try {
+    await amendments.assertAmendmentOnContract(context, contractId, amendmentId);
     if (action === "submit") await amendments.submitAmendment(context, amendmentId);
     else if (action === "approve") {
       await amendments.approveAmendment(context, amendmentId, note ?? null);
@@ -495,6 +503,7 @@ export async function rejectAmendmentAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
+    await amendments.assertAmendmentOnContract(context, contractId, amendmentId);
     await amendments.rejectAmendment(context, amendmentId, parsed.data.note);
   } catch (error) {
     return toResult(error);
@@ -515,6 +524,7 @@ export async function markAmendmentSignedAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
+    await amendments.assertAmendmentOnContract(context, contractId, amendmentId);
     await amendments.markAmendmentSigned(context, amendmentId, parsed.data);
   } catch (error) {
     return toResult(error);

@@ -9,6 +9,7 @@ import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { boundedLimit, boundedPage } from "../sales.query";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
 import { buildProposalScopeWhere } from "../sales.scope";
 import type { MemberRef, SalesApprovalDTO } from "../sales.types";
@@ -236,8 +237,8 @@ export async function listApprovals(
   assertModule(context, MODULE);
   assertPermission(context, "sales.proposal.view");
 
-  const page = options.page ?? 1;
-  const limit = options.limit ?? 25;
+  const page = boundedPage(options.page);
+  const limit = boundedLimit(options.limit);
 
   const reachable = await reachableProposalIds(context);
 

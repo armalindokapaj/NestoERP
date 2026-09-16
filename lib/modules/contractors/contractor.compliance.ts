@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordSystemAction, recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
@@ -235,9 +236,18 @@ export async function archiveComplianceItem(context: UserContext, id: string): P
   return { id: row.id };
 }
 
-/** Evidence this writer may pick: documents filed on the contractor or on the item (§47). */
+/**
+ * Evidence this writer may pick: documents filed on the contractor or on the
+ * item (§47). The item comes from the query string, so it is read inside the
+ * writer's compliance scope and must belong to this contractor — otherwise
+ * another contractor's evidence would be listed under this one (PRD #47 §50).
+ */
 export async function complianceDocumentOptions(context: UserContext, contractorId: string, itemId: string | null) {
   const contractor = await findReadableContractor(context, contractorId);
+  if (itemId) {
+    const item = await prisma.contractorComplianceItem.findFirst({ where: { AND: [readableComplianceWhere(context), { id: itemId, contractorId: contractor.id }] }, select: { id: true } });
+    if (!item) throw fail("COMPLIANCE_NOT_FOUND", "That compliance item could not be found.", "NOT_FOUND");
+  }
   if (!filesOpen(context) || !can(context, "contractor_compliance.manage")) return [];
   const rows = await prisma.document.findMany({
     where: { companyId: context.companyId, status: "ACTIVE", OR: [{ entityType: "contractor", entityId: contractor.id }, ...(itemId ? [{ entityType: COMPLIANCE_RECORD, entityId: itemId }] : [])] },
@@ -269,10 +279,10 @@ const WORKER_ROW = { id: true, companyId: true, contractorId: true, type: true, 
  * guarded by the status it leaves; each item notifies once per expiry date.
  */
 export async function runComplianceExpiry(now = new Date()): Promise<{ expiring: number; expired: number }> {
-  const companies = await prisma.company.findMany({ where: { status: "ACTIVE", modules: { some: { enabled: true, module: { key: MODULE } } } }, select: { id: true } });
   let expiring = 0;
   let expired = 0;
-  for (const company of companies) {
+  const companyRun = await forEachCompany("contractors.compliance", async (system) => {
+    const company = { id: system.companyId };
     const settings = await resolveEngineeringSettings(company.id);
     const todayDate = localDate(now, settings.timezone);
     const horizon = addLocalDays(todayDate, settings.contractorComplianceReminderDays);
@@ -312,9 +322,10 @@ export async function runComplianceExpiry(now = new Date()): Promise<{ expiring:
         else expiring += 1;
       });
     }
-  }
+  }, { moduleKey: MODULE });
   if (expiring) incrementCounter(Metric.COMPLIANCE_EXPIRING, {}, expiring);
   if (expired) incrementCounter(Metric.COMPLIANCE_EXPIRED, {}, expired);
+  assertEveryCompanySucceeded("contractors.compliance", companyRun);
   return { expiring, expired };
 }
 

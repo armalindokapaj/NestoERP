@@ -148,7 +148,9 @@ describe("sections (§26-§61, §186-§191, §254-§258)", () => {
     expect(() => parse("visitors", { name: "Visitor", arrivedTime: "10:00", departedTime: "09:00" })).toThrow();
     expect(() => parse("delays", { category: "OTHER", title: "Stop", startedTime: "10:00", endedTime: "10:00" })).toThrow();
     await expect(addEntry(engineer, id, "workforce", parse("workforce", { organizationName: "Crew", supplierId: "supplier_b_steel", headcount: 2 }))).rejects.toMatchObject(code("DAILY_LOG_SUPPLIER_INVALID"));
-    await expect(addEntry(engineer, id, "deliveries", parse("deliveries", { description: "Rebar", purchaseOrderId: "order_001" }))).rejects.toMatchObject(code("DAILY_LOG_PURCHASE_ORDER_PROJECT_MISMATCH"));
+    // The Engineer cannot open purchase orders, so an order id is refused like a missing one; the Owner can, and is told why (PRD #47 §50).
+    await expect(addEntry(engineer, id, "deliveries", parse("deliveries", { description: "Rebar", purchaseOrderId: "order_001" }))).rejects.toMatchObject(code("DAILY_LOG_PURCHASE_ORDER_INVALID"));
+    await expect(addEntry(owner, id, "deliveries", parse("deliveries", { description: "Rebar", purchaseOrderId: "order_001" }))).rejects.toMatchObject(code("DAILY_LOG_PURCHASE_ORDER_PROJECT_MISMATCH"));
     await expect(addEntry(engineer, id, "activities", parse("activities", { title: "Pour", linkedTaskId: COMPANY_B_TASK }))).rejects.toMatchObject(code("DAILY_LOG_TASK_INVALID"));
     await expect(addEntry(engineer, id, "activities", parse("activities", { title: "Pour", linkedTaskId: "task_006" }))).rejects.toMatchObject(code("DAILY_LOG_TASK_PROJECT_MISMATCH"));
     await expect(linkTask(engineer, id, { taskId: COMPANY_B_TASK, linkType: "RELATED" })).rejects.toMatchObject(code("DAILY_LOG_TASK_INVALID"));

@@ -7,6 +7,7 @@ import {
   assertModule,
   assertPermission,
 } from "@/lib/access/guards";
+import { assertCompanyMembers } from "@/lib/access/references";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -175,7 +176,7 @@ export async function listRiskAssessments(
     prisma.hseRiskAssessment.count({ where }),
   ]);
 
-  const members = await loadMembers(rows.map((row) => row.ownerMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.ownerMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members)),
@@ -198,12 +199,12 @@ export async function getRiskAssessment(
   );
 
   const [members, createdBy, actions, pending] = await Promise.all([
-    loadMembers([
+    loadMembers(context.companyId, [
       row.ownerMemberId,
       row.approvedByMemberId,
       ...row.items.map((item) => item.responsibleMemberId),
     ]),
-    loadMemberRef(row.createdByMemberId),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     can(context, "hse.action.view")
       ? import("../actions/action.service").then((m) =>
           m.listForParent(context, { riskAssessmentId: assessmentId }),
@@ -243,7 +244,7 @@ export async function listForProject(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.ownerMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.ownerMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
@@ -305,6 +306,7 @@ export async function createRiskAssessment(
 
   if (input.projectId) await requireProject(context, input.projectId);
   if (input.ownerMemberId) await requireMember(context, input.ownerMemberId);
+  await assertItemResponsibles(context, input);
 
   const items = input.items.map(toItemData);
 
@@ -377,6 +379,7 @@ export async function updateRiskAssessment(
 
   if (input.projectId) await requireProject(context, input.projectId);
   if (input.ownerMemberId) await requireMember(context, input.ownerMemberId);
+  await assertItemResponsibles(context, input);
 
   const items = input.items.map(toItemData);
 
@@ -625,6 +628,21 @@ export async function archiveRiskAssessment(
 /* -------------------------------------------------------------------------- */
 /* Internals                                                                   */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Each line's responsible person is a colleague (PRD #47 §20).
+ *
+ * The owner was always checked; the per-hazard responsible member came straight
+ * off the form, so a line could name another company's member and the detail
+ * page would print that stranger's name against the control.
+ */
+async function assertItemResponsibles(context: UserContext, input: RiskAssessmentInput) {
+  await assertCompanyMembers(
+    context.companyId,
+    "items",
+    input.items.map((item) => item.responsibleMemberId),
+  );
+}
 
 function toItemData(item: RiskAssessmentInput["items"][number], index: number) {
   const risk = assessRisk(item.likelihood, item.severity);

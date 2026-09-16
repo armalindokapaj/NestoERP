@@ -1,7 +1,7 @@
 import { Prisma, type OpportunityStage } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -147,6 +147,11 @@ export async function createOpportunity(
 ): Promise<OpportunityDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "sales.opportunity.create");
+
+  // Opening a deal in somebody else's name is assigning it to them, so it needs
+  // the same grant as reassigning one through the edit form (PRD #17 §47,
+  // PRD #47 §62).
+  if (input.ownerMemberId !== context.membershipId) assertCanAssign(context);
 
   const { ownerMemberId, clientId, contactId } = await validateRelationships(context, input);
 
@@ -602,6 +607,15 @@ export async function linkProject(
     throw new AccessError("CONFLICT", "Only a won opportunity hands over to a project.");
   }
 
+  // This is for a deal won before its project existed. Once a deal has been
+  // handed over, pointing it at another project would silently move its
+  // invoices' and contracts' lineage — so an existing link is not overwritten
+  // (PRD #17 §423, PRD #47 §85).
+  if (existing.convertedProjectId) {
+    if (existing.convertedProjectId === projectId) return;
+    throw stateDenied("This opportunity is already linked to its delivery project.");
+  }
+
   const project = await resolveProject(context, projectId);
   if (project.clientId && project.clientId !== existing.clientId) {
     throw new AccessError(
@@ -611,10 +625,15 @@ export async function linkProject(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.opportunity.update({
-      where: { id: opportunityId },
+    // Conditional on still being unlinked, so two people linking at once
+    // cannot both write.
+    const linked = await tx.opportunity.updateMany({
+      where: { id: opportunityId, companyId: context.companyId, convertedProjectId: null },
       data: { convertedProjectId: project.id, updatedByMemberId: context.membershipId },
     });
+    if (linked.count === 0) {
+      throw stateDenied("This opportunity is already linked to its delivery project.");
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,

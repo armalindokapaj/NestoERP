@@ -6,7 +6,9 @@ import {
   assertFound,
   assertModule,
   assertPermission,
+  invalidRecordLink,
 } from "@/lib/access/guards";
+import { assertSameProject } from "@/lib/access/references";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -163,6 +165,7 @@ export async function listPermits(context: UserContext, query: PermitListQuery) 
   ]);
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.requestedByMemberId, row.responsibleMemberId]),
   );
 
@@ -187,8 +190,8 @@ export async function getPermit(
   );
 
   const [members, createdBy, actions, pending] = await Promise.all([
-    loadMembers([row.requestedByMemberId, row.responsibleMemberId, row.approvedByMemberId]),
-    loadMemberRef(row.createdByMemberId),
+    loadMembers(context.companyId, [row.requestedByMemberId, row.responsibleMemberId, row.approvedByMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     can(context, "hse.action.view")
       ? import("../actions/action.service").then((m) => m.listForParent(context, { permitId }))
       : Promise.resolve([]),
@@ -242,6 +245,7 @@ export async function listForProject(
   });
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.requestedByMemberId, row.responsibleMemberId]),
   );
   return rows.map((row) => toSummaryDTO(row, members, new Date()));
@@ -270,6 +274,7 @@ export async function expiringPermits(
   });
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.requestedByMemberId, row.responsibleMemberId]),
   );
   return rows.map((row) => toSummaryDTO(row, members, now));
@@ -329,7 +334,9 @@ export async function createPermit(
 
   await requireProject(context, input.projectId);
   if (input.responsibleMemberId) await requireMember(context, input.responsibleMemberId);
-  if (input.riskAssessmentId) await requireAssessment(context, input.riskAssessmentId);
+  if (input.riskAssessmentId) {
+    await requireAssessment(context, input.riskAssessmentId, input.projectId, { mustBeApproved: true });
+  }
 
   const id = await prisma.$transaction(async (tx) => {
     const permitNumber = await nextHseNumber(tx, "hseWorkPermit", context.companyId);
@@ -394,7 +401,13 @@ export async function updatePermit(
 
   await requireProject(context, input.projectId);
   if (input.responsibleMemberId) await requireMember(context, input.responsibleMemberId);
-  if (input.riskAssessmentId) await requireAssessment(context, input.riskAssessmentId);
+  if (input.riskAssessmentId) {
+    // A link the draft already had may since have been superseded; it still has
+    // to be for this site, but only a newly chosen one must be approved today.
+    await requireAssessment(context, input.riskAssessmentId, input.projectId, {
+      mustBeApproved: input.riskAssessmentId !== existing.riskAssessmentId,
+    });
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.hseWorkPermit.update({
@@ -481,7 +494,7 @@ export async function approvePermit(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "WORK_PERMIT", permitId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId, existing.requestedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
@@ -524,7 +537,7 @@ export async function rejectPermit(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "WORK_PERMIT", permitId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId, existing.requestedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);
 
@@ -733,7 +746,14 @@ async function requirePermit(context: UserContext, permitId: string) {
   return assertFound(
     await prisma.hseWorkPermit.findFirst({
       where: { AND: [buildPermitScopeWhere(context), { id: permitId }] },
-      select: { id: true, permitNumber: true, status: true, updatedAt: true },
+      select: {
+        id: true,
+        permitNumber: true,
+        status: true,
+        requestedByMemberId: true,
+        riskAssessmentId: true,
+        updatedAt: true,
+      },
     }),
   );
 }
@@ -768,16 +788,39 @@ async function requireMember(context: UserContext, memberId: string) {
   return member;
 }
 
-async function requireAssessment(context: UserContext, assessmentId: string) {
+/**
+ * The risk assessment a permit relies on (PRD #22 §146, PRD #47 §51).
+ *
+ * It has to be one the requester can see, for this permit's site — or a
+ * company-level assessment that names no project, such as a standard method
+ * statement — and approved. A draft or another site's assessment would put a
+ * permit-to-work on paper that nobody signed off for this job.
+ */
+async function requireAssessment(
+  context: UserContext,
+  assessmentId: string,
+  projectId: string,
+  options: { mustBeApproved: boolean },
+) {
   const assessment = await prisma.hseRiskAssessment.findFirst({
     where: { AND: [buildRiskAssessmentScopeWhere(context), { id: assessmentId }] },
-    select: { id: true },
+    select: { id: true, projectId: true, status: true },
   });
 
   if (!assessment) {
     throw new AccessError("VALIDATION_ERROR", "That risk assessment does not exist.", {
       code: "INVALID_RISK_ASSESSMENT",
     });
+  }
+
+  assertSameProject("riskAssessmentId", projectId, assessment.projectId, { allowUnlinked: true });
+
+  if (options.mustBeApproved && assessment.status !== "APPROVED") {
+    throw invalidRecordLink(
+      "riskAssessmentId",
+      "SCOPE_DENIED",
+      "A permit relies on an approved risk assessment.",
+    );
   }
 
   return assessment;
@@ -825,8 +868,7 @@ function capabilitiesFor(
   submittedByMemberId: string | null,
   now: Date,
 ) {
-  const notSelf =
-    submittedByMemberId !== context.membershipId || can(context, "hse.approval.self");
+  const notSelf = !approvals.isSelfDecision(context, submittedByMemberId, row.requestedByMemberId);
   const effective = effectivePermitStatus(row.status, row.validUntil, now);
 
   return {

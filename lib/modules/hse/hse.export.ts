@@ -1,5 +1,6 @@
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { toCsv } from "@/lib/utils/csv";
 import * as actions from "./actions/action.service";
 import * as environment from "./environment/environment.service";
 import * as hazards from "./hazards/hazard.service";
@@ -28,15 +29,23 @@ import * as inspections from "./inspections/inspection.service";
 import * as permits from "./permits/permit.service";
 import * as risk from "./risk-assessments/risk.service";
 import * as toolbox from "./toolbox/toolbox.service";
-import type {
-  ActionListQuery,
-  HazardListQuery,
-  IncidentListQuery,
-  InspectionListQuery,
-  ObservationListQuery,
-  PermitListQuery,
-  RiskAssessmentListQuery,
-  ToolboxListQuery,
+import {
+  actionListSchema,
+  hazardListSchema,
+  incidentListSchema,
+  inspectionListSchema,
+  observationListSchema,
+  permitListSchema,
+  riskAssessmentListSchema,
+  toolboxListSchema,
+  type ActionListQuery,
+  type HazardListQuery,
+  type IncidentListQuery,
+  type InspectionListQuery,
+  type ObservationListQuery,
+  type PermitListQuery,
+  type RiskAssessmentListQuery,
+  type ToolboxListQuery,
 } from "./hse.schema";
 
 /**
@@ -66,16 +75,6 @@ export type HseExportKind =
   | "permits"
   | "environment";
 
-function csvCell(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return "";
-  const text = String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function toCsv(headers: string[], rows: (string | number | null)[][]): string {
-  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-}
-
 function day(value: string | null): string | null {
   return value ? value.slice(0, 10) : null;
 }
@@ -95,16 +94,32 @@ export type HseExportQueries = {
   environment: ObservationListQuery;
 };
 
+/**
+ * Only the query for the kind being exported is needed (PRD #47 §69). The route
+ * parses just that one: parsing all eight made a filter meaningful to one list
+ * — an incident severity, say — fail another list's schema and turn a
+ * perfectly good export into a 422.
+ */
 export async function exportHse(
   context: UserContext,
   kind: HseExportKind,
-  queries: HseExportQueries,
+  given: Partial<HseExportQueries>,
 ): Promise<{ filename: string; csv: string }> {
   assertModule(context, "hse");
   assertPermission(context, "hse.export");
 
   const stamp = new Date().toISOString().slice(0, 10);
   const cap = { limit: EXPORT_ROW_CAP, page: 1 };
+  const queries: HseExportQueries = {
+    inspections: given.inspections ?? inspectionListSchema.parse({}),
+    hazards: given.hazards ?? hazardListSchema.parse({}),
+    incidents: given.incidents ?? incidentListSchema.parse({}),
+    riskAssessments: given.riskAssessments ?? riskAssessmentListSchema.parse({}),
+    actions: given.actions ?? actionListSchema.parse({}),
+    toolbox: given.toolbox ?? toolboxListSchema.parse({}),
+    permits: given.permits ?? permitListSchema.parse({}),
+    environment: given.environment ?? observationListSchema.parse({}),
+  };
 
   switch (kind) {
     case "inspections": {

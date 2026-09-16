@@ -130,7 +130,7 @@ export async function listToolboxTalks(context: UserContext, query: ToolboxListQ
     prisma.toolboxTalk.count({ where }),
   ]);
 
-  const members = await loadMembers(rows.map((row) => row.conductedByMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.conductedByMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members)),
@@ -153,11 +153,11 @@ export async function getToolboxTalk(
   );
 
   const [members, createdBy] = await Promise.all([
-    loadMembers([
+    loadMembers(context.companyId, [
       row.conductedByMemberId,
       ...row.participants.map((participant) => participant.companyMemberId),
     ]),
-    loadMemberRef(row.createdByMemberId),
+    loadMemberRef(context.companyId, row.createdByMemberId),
   ]);
 
   const participants: ToolboxParticipantDTO[] = row.participants.map((participant) => ({
@@ -205,7 +205,7 @@ export async function listForProject(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.conductedByMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.conductedByMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 

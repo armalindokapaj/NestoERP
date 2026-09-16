@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { BudgetForm } from "@/components/finance/budget-form";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { updateBudgetAction } from "@/lib/actions/finance";
-import { prisma } from "@/lib/database/prisma";
+import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import { budgetBreadcrumbs, budgetLabel, loadBudget } from "../budget-context";
 
 type Params = { params: Promise<{ budgetId: string }> };
@@ -14,14 +14,11 @@ export const metadata: Metadata = { title: "Edit budget" };
 /** An approved budget is never edited — a revision is a new version (PRD #15 §111). */
 export default async function EditBudgetPage({ params }: Params) {
   const { budgetId } = await params;
-  const { budget } = await loadBudget(budgetId);
+  const { context, budget } = await loadBudget(budgetId);
 
   if (!budget.capabilities.canEdit) redirect(`/finance/budgets/${budgetId}`);
 
-  const approved = await prisma.projectBudget.findFirst({
-    where: { projectId: budget.project.id, status: "APPROVED" },
-    select: { currency: true },
-  });
+  const approvedCurrency = await budgets.approvedBudgetCurrency(context, budget.project.id);
 
   async function action(formData: FormData) {
     "use server";
@@ -53,7 +50,7 @@ export default async function EditBudgetPage({ params }: Params) {
             plannedAmount: line.plannedAmount,
           })),
         }}
-        lockedCurrency={approved?.currency ?? null}
+        lockedCurrency={approvedCurrency}
         versionUpdatedAt={budget.updatedAt}
         cancelHref={`/finance/budgets/${budget.id}`}
         submitLabel="Save changes"

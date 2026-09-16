@@ -8,7 +8,9 @@ import {
   assertFound,
   assertModule,
   assertPermission,
+  invalidRecordLink,
 } from "@/lib/access/guards";
+import { assertSameProject } from "@/lib/access/references";
 import { buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
@@ -168,7 +170,7 @@ export async function listActions(context: UserContext, query: ActionListQuery) 
     prisma.hseAction.count({ where }),
   ]);
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(context, row, members)),
@@ -191,8 +193,8 @@ export async function getAction(
   );
 
   const [members, createdBy, tasks] = await Promise.all([
-    loadMembers([row.assignedToMemberId, row.completedByMemberId, row.verifiedByMemberId]),
-    loadMemberRef(row.createdByMemberId),
+    loadMembers(context.companyId, [row.assignedToMemberId, row.completedByMemberId, row.verifiedByMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     linkedTasks(context, actionId),
   ]);
 
@@ -228,7 +230,7 @@ export async function listForParent(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(context, row, members));
 }
 
@@ -246,7 +248,7 @@ export async function listForProject(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(context, row, members));
 }
 
@@ -306,6 +308,7 @@ export async function createAction(
   await requireMember(context, input.assignedToMemberId);
 
   const parent = await resolveParent(context, input);
+  const projectId = actionProjectFor(parent.field ? parent : null, input.projectId);
 
   const id = await prisma.$transaction(async (tx) => {
     const actionNumber = await nextHseNumber(tx, "hseAction", context.companyId);
@@ -317,14 +320,17 @@ export async function createAction(
         actionType: input.actionType,
         title: input.title,
         description: input.description,
-        projectId: input.projectId ?? parent.projectId ?? null,
-        hazardId: input.hazardId ?? null,
-        incidentId: input.incidentId ?? null,
-        inspectionId: input.inspectionId ?? null,
-        riskAssessmentId: input.riskAssessmentId ?? null,
-        environmentalObservationId: input.environmentalObservationId ?? null,
-        stopWorkId: input.stopWorkId ?? null,
-        permitId: input.permitId ?? null,
+        projectId,
+        // Only the one parent that was checked is written (PRD #47 §20): the
+        // other six ids stay null whatever the form carried.
+        hazardId: parent.field === "hazardId" ? parent.id : null,
+        incidentId: parent.field === "incidentId" ? parent.id : null,
+        inspectionId: parent.field === "inspectionId" ? parent.id : null,
+        riskAssessmentId: parent.field === "riskAssessmentId" ? parent.id : null,
+        environmentalObservationId:
+          parent.field === "environmentalObservationId" ? parent.id : null,
+        stopWorkId: parent.field === "stopWorkId" ? parent.id : null,
+        permitId: parent.field === "permitId" ? parent.id : null,
         assignedToMemberId: input.assignedToMemberId,
         priority: input.priority,
         status: "OPEN",
@@ -338,11 +344,16 @@ export async function createAction(
      * An incident with actions against it moves on by itself (PRD #22 §93):
      * "under investigation" stops being true the moment there is something to
      * do, and a status somebody has to remember to change is a status that goes
-     * stale.
+     * stale. The company is in the condition as well as the scoped lookup
+     * above, so this write can never move anybody else's incident (PRD #47 §20).
      */
-    if (input.incidentId) {
+    if (parent.field === "incidentId") {
       await tx.hseIncident.updateMany({
-        where: { id: input.incidentId, status: { in: ["OPEN", "UNDER_INVESTIGATION"] } },
+        where: {
+          id: parent.id,
+          companyId: context.companyId,
+          status: { in: ["OPEN", "UNDER_INVESTIGATION"] },
+        },
         data: { status: "ACTIONS_OPEN" },
       });
     }
@@ -362,7 +373,7 @@ export async function createAction(
       entityType: "hse_action",
       entityId: action.id,
       actorMemberId: context.membershipId,
-      projectId: input.projectId ?? parent.projectId ?? null,
+      projectId,
       payload: { assigneeMemberId: input.assignedToMemberId, actionNumber: action.actionNumber, title: input.title, assignmentVersion: new Date().toISOString() },
     });
 
@@ -393,6 +404,34 @@ export async function updateAction(
   if (input.projectId) await requireProject(context, input.projectId);
   await requireMember(context, input.assignedToMemberId);
 
+  /*
+   * Reassigning is its own grant (PRD #47 §85): the edit form is not a way
+   * round `hse.action.assign` for somebody who holds only `update`.
+   */
+  if (input.assignedToMemberId !== existing.assignedToMemberId) {
+    assertPermission(context, "hse.action.assign");
+  }
+
+  /*
+   * A critical action is what holds a stop-work shut (PRD #22 §174). Lowering
+   * one is a judgement that the danger is less than first thought, and it takes
+   * the same APPROVE-level grant as saying the control is in — otherwise
+   * anybody who may edit the text could reprioritise the action to LOW and
+   * release the job with the cause still open (PRD #47 §85).
+   */
+  if (existing.priority === "CRITICAL" && input.priority !== "CRITICAL") {
+    if (!can(context, "hse.action.verify")) {
+      throw new AccessError(
+        "FORBIDDEN",
+        "Lowering a critical action needs somebody who can verify safety actions.",
+        { code: "PRIORITY_LOCKED" },
+      );
+    }
+  }
+
+  // The parent never changes on an edit, so neither does the project it lends.
+  const projectId = actionProjectFor(existing.parent, input.projectId);
+
   await prisma.$transaction(async (tx) => {
     await tx.hseAction.update({
       where: { id: actionId },
@@ -400,7 +439,7 @@ export async function updateAction(
         actionType: input.actionType,
         title: input.title,
         description: input.description,
-        projectId: input.projectId ?? null,
+        projectId,
         assignedToMemberId: input.assignedToMemberId,
         priority: input.priority,
         dueDate: input.dueDate ?? null,
@@ -416,7 +455,7 @@ export async function updateAction(
         entityType: "hse_action",
         entityId: actionId,
         actorMemberId: context.membershipId,
-        projectId: input.projectId ?? null,
+        projectId,
         payload: { assigneeMemberId: input.assignedToMemberId, actionNumber: existing.actionNumber, title: input.title, assignmentVersion: new Date().toISOString() },
       });
     }
@@ -781,12 +820,32 @@ function assertNotSelfVerification(
 }
 
 async function requireAction(context: UserContext, actionId: string) {
-  return assertFound(
+  const row = assertFound(
     await prisma.hseAction.findFirst({
       where: { AND: [buildActionScopeWhere(context), { id: actionId }] },
-      select: { id: true, actionNumber: true, status: true, assignedToMemberId: true, updatedAt: true },
+      select: {
+        id: true,
+        actionNumber: true,
+        status: true,
+        priority: true,
+        assignedToMemberId: true,
+        updatedAt: true,
+        hazard: { select: { projectId: true } },
+        incident: { select: { projectId: true } },
+        inspection: { select: { projectId: true } },
+        riskAssessment: { select: { projectId: true } },
+        environmentalObservation: { select: { projectId: true } },
+        stopWork: { select: { projectId: true } },
+        permit: { select: { projectId: true } },
+      },
     }),
   );
+
+  const linked =
+    row.hazard ?? row.incident ?? row.inspection ?? row.riskAssessment ??
+    row.environmentalObservation ?? row.stopWork ?? row.permit;
+
+  return { ...row, parent: linked ? { projectId: linked.projectId } : null };
 }
 
 async function requireProject(context: UserContext, projectId: string) {
@@ -819,95 +878,131 @@ async function requireMember(context: UserContext, memberId: string) {
   return member;
 }
 
+const PARENT_FIELDS = [
+  "hazardId",
+  "incidentId",
+  "inspectionId",
+  "riskAssessmentId",
+  "environmentalObservationId",
+  "stopWorkId",
+  "permitId",
+] as const;
+
+type ParentField = (typeof PARENT_FIELDS)[number];
+
+type ResolvedParent =
+  | { field: ParentField; id: string; projectId: string | null }
+  | { field: null; id: null; projectId: null };
+
+/**
+ * The project an action belongs to, given the record it hangs off (§239).
+ *
+ * An action with a parent is on the parent's project, full stop: the form may
+ * leave the project blank to borrow it, or name the same one, but naming a
+ * different project is refused rather than filed on a site whose people never
+ * see the hazard it came from (PRD #47 §51). A standalone action keeps whatever
+ * project was chosen.
+ */
+function actionProjectFor(
+  parent: { projectId: string | null } | null,
+  requested: string | null | undefined,
+): string | null {
+  if (!parent) return requested ?? null;
+  if (requested) assertSameProject("projectId", parent.projectId, requested);
+  return parent.projectId;
+}
+
 /**
  * Checks the parent is real and in reach, and borrows its project.
  *
  * An action raised from a hazard on Riverside belongs to Riverside whether or
  * not the form said so — otherwise it drops out of that site's action list and
  * nobody there ever sees it (PRD #22 §239).
+ *
+ * An action hangs off exactly one record. The form only ever sends one; a body
+ * naming two is refused outright instead of checking the first and writing the
+ * rest unchecked (PRD #47 §20), which is how another company's incident could
+ * be moved to "actions open" or held shut by an action it never saw.
  */
 async function resolveParent(
   context: UserContext,
   input: ActionInput,
-): Promise<{ projectId: string | null }> {
+): Promise<ResolvedParent> {
+  const supplied = PARENT_FIELDS.filter((field) => Boolean(input[field]));
+
+  // A standalone action is allowed (PRD #22 §239) — HSE raises preventive work
+  // that no single incident prompted.
+  if (supplied.length === 0) return { field: null, id: null, projectId: null };
+
+  if (supplied.length > 1) {
+    throw invalidRecordLink(
+      supplied[1]!,
+      "SCOPE_DENIED",
+      "An action is raised against one record.",
+    );
+  }
+
+  const field = supplied[0]!;
+  const id = input[field]!;
   const { buildHazardScopeWhere, buildIncidentScopeWhere, buildInspectionScopeWhere,
     buildObservationScopeWhere, buildPermitScopeWhere, buildRiskAssessmentScopeWhere,
     buildStopWorkScopeWhere } = await import("../hse.scope");
 
-  if (input.hazardId) {
-    const row = await prisma.hseHazard.findFirst({
-      where: { AND: [buildHazardScopeWhere(context), { id: input.hazardId }] },
-      select: { projectId: true },
-    });
-    if (!row) throw invalidParent();
-    return { projectId: row.projectId };
+  const select = { projectId: true } as const;
+  let row: { projectId: string | null } | null = null;
+
+  switch (field) {
+    case "hazardId":
+      row = await prisma.hseHazard.findFirst({
+        where: { AND: [buildHazardScopeWhere(context), { id }] },
+        select,
+      });
+      break;
+    case "incidentId":
+      row = await prisma.hseIncident.findFirst({
+        where: { AND: [buildIncidentScopeWhere(context), { id }] },
+        select,
+      });
+      break;
+    case "inspectionId":
+      row = await prisma.hseInspection.findFirst({
+        where: { AND: [buildInspectionScopeWhere(context), { id }] },
+        select,
+      });
+      break;
+    case "riskAssessmentId":
+      row = await prisma.hseRiskAssessment.findFirst({
+        where: { AND: [buildRiskAssessmentScopeWhere(context), { id }] },
+        select,
+      });
+      break;
+    case "environmentalObservationId":
+      row = await prisma.environmentalObservation.findFirst({
+        where: { AND: [buildObservationScopeWhere(context), { id }] },
+        select,
+      });
+      break;
+    case "stopWorkId":
+      row = await prisma.stopWorkRecord.findFirst({
+        where: { AND: [buildStopWorkScopeWhere(context), { id }] },
+        select,
+      });
+      break;
+    case "permitId":
+      row = await prisma.hseWorkPermit.findFirst({
+        where: { AND: [buildPermitScopeWhere(context), { id }] },
+        select,
+      });
+      break;
   }
 
-  if (input.incidentId) {
-    const row = await prisma.hseIncident.findFirst({
-      where: { AND: [buildIncidentScopeWhere(context), { id: input.incidentId }] },
-      select: { projectId: true },
-    });
-    if (!row) throw invalidParent();
-    return { projectId: row.projectId };
-  }
-
-  if (input.inspectionId) {
-    const row = await prisma.hseInspection.findFirst({
-      where: { AND: [buildInspectionScopeWhere(context), { id: input.inspectionId }] },
-      select: { projectId: true },
-    });
-    if (!row) throw invalidParent();
-    return { projectId: row.projectId };
-  }
-
-  if (input.riskAssessmentId) {
-    const row = await prisma.hseRiskAssessment.findFirst({
-      where: { AND: [buildRiskAssessmentScopeWhere(context), { id: input.riskAssessmentId }] },
-      select: { projectId: true },
-    });
-    if (!row) throw invalidParent();
-    return { projectId: row.projectId };
-  }
-
-  if (input.environmentalObservationId) {
-    const row = await prisma.environmentalObservation.findFirst({
-      where: {
-        AND: [buildObservationScopeWhere(context), { id: input.environmentalObservationId }],
-      },
-      select: { projectId: true },
-    });
-    if (!row) throw invalidParent();
-    return { projectId: row.projectId };
-  }
-
-  if (input.stopWorkId) {
-    const row = await prisma.stopWorkRecord.findFirst({
-      where: { AND: [buildStopWorkScopeWhere(context), { id: input.stopWorkId }] },
-      select: { projectId: true },
-    });
-    if (!row) throw invalidParent();
-    return { projectId: row.projectId };
-  }
-
-  if (input.permitId) {
-    const row = await prisma.hseWorkPermit.findFirst({
-      where: { AND: [buildPermitScopeWhere(context), { id: input.permitId }] },
-      select: { projectId: true },
-    });
-    if (!row) throw invalidParent();
-    return { projectId: row.projectId };
-  }
-
-  // A standalone action is allowed (PRD #22 §239) — HSE raises preventive work
-  // that no single incident prompted.
-  return { projectId: null };
+  if (!row) throw invalidParent(field);
+  return { field, id, projectId: row.projectId };
 }
 
-function invalidParent() {
-  return new AccessError("VALIDATION_ERROR", "That record does not exist.", {
-    code: "INVALID_PARENT",
-  });
+/** Out of reach and non-existent read the same, so the answer cannot be used to probe. */
+function invalidParent(field: ParentField) {
+  return invalidRecordLink(field, "SCOPE_DENIED", "That record does not exist.");
 }
 
 /** The canonical Tasks raised to discharge this action (PRD #22 §127). */

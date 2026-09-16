@@ -68,7 +68,9 @@ describe("engineering document register (§59-§65, §76-§81, §288)", () => {
     const created = await createEngineeringDocument(engineer, "project_a", input);
     await expect(createEngineeringDocument(engineer, "project_a", input)).rejects.toMatchObject(code("ENGINEERING_DOCUMENT_NUMBER_TAKEN"));
     expect((await createEngineeringDocument(pm, "project_b", { ...input, reviewerMemberId: null })).id).not.toBe(created.id);
-    await expect(createEngineeringDocument(engineer, "project_a", { ...input, documentNumber: "X-1", workPackageId: S.workPackages.towerBasement })).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_PROJECT_MISMATCH"));
+    // The Engineer cannot open the Tower, so its work package answers like a missing id; the PM can, and is told why (PRD #47 §51).
+    await expect(createEngineeringDocument(engineer, "project_a", { ...input, documentNumber: "X-1", workPackageId: S.workPackages.towerBasement })).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_INVALID"));
+    await expect(createEngineeringDocument(pm, "project_a", { ...input, documentNumber: "X-1", reviewerMemberId: null, workPackageId: S.workPackages.towerBasement })).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_PROJECT_MISMATCH"));
     await expect(createEngineeringDocument(engineer, "project_a", { ...input, documentNumber: "X-2", contractorId: S.contractors.northgate })).rejects.toMatchObject(code("ENGINEERING_CONTRACTOR_NOT_ASSIGNED"));
     await expect(createEngineeringDocument(engineer, "project_a", { ...input, documentNumber: "X-3", reviewerMemberId: finance.membershipId })).rejects.toMatchObject(code("ENGINEERING_MEMBER_INVALID"));
     // A work package lends its contractor (§38).

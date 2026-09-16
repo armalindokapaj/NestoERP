@@ -77,11 +77,14 @@ export function buildTeamListWhere(
   const search = searchClause(query.search, ["jobTitle"]);
   if (search) {
     const term = query.search!.trim();
+    // An invitee's account name is not shown for their row (PRD #47 §59), so it
+    // must not be searchable either — a match would confirm it just the same.
+    const joined: Prisma.CompanyMemberWhereInput = { status: { not: "INVITED" } };
     filters.push({
       OR: [
         ...search.OR.map((clause) => clause as Prisma.CompanyMemberWhereInput),
-        { user: { firstName: { contains: term, mode: "insensitive" } } },
-        { user: { lastName: { contains: term, mode: "insensitive" } } },
+        { ...joined, user: { firstName: { contains: term, mode: "insensitive" } } },
+        { ...joined, user: { lastName: { contains: term, mode: "insensitive" } } },
         { user: { email: { contains: term, mode: "insensitive" } } },
         { department: { name: { contains: term, mode: "insensitive" } } },
         { role: { name: { contains: term, mode: "insensitive" } } },

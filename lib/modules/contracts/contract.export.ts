@@ -1,5 +1,6 @@
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { toCsv } from "@/lib/utils/csv";
 import { canSeeCommercial, canSeeConfidential } from "./contract.dto";
 import { contractStatusLabels } from "./contracts/contract.status";
 import { contractTypeLabels } from "./contracts/contract.schema";
@@ -18,21 +19,14 @@ import type { ObligationListQuery } from "./obligations/obligation.schema";
  * receives the same redacted DTOs — so a reader without commercial permission
  * gets a file with no value column rather than a file with the values in it
  * (PRD #18 §226, §227, §441).
+ *
+ * Cells go through the shared CSV writer, so a contract title or counterparty
+ * typed as a formula stays text in the spreadsheet (PRD #47 §69).
  */
 
 export const EXPORT_ROW_CAP = 10_000;
 
 export type ContractExportType = "contracts" | "obligations" | "amendments";
-
-function csvCell(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return "";
-  const text = String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function toCsv(headers: string[], rows: (string | number | null)[][]): string {
-  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-}
 
 export async function exportContracts(
   context: UserContext,

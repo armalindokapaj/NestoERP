@@ -476,6 +476,19 @@ export function isIncidentEditable(status: HseIncidentStatus): boolean {
   return status !== "CLOSED" && status !== "CANCELLED";
 }
 
+/**
+ * Whether the incident's facts and findings may still change (PRD #47 §85).
+ *
+ * Put up for closure, the incident is being decided on what it says now — the
+ * severity, the root cause, the investigation. Rewriting those while the
+ * approver reads them would have the closure signed against a record that no
+ * longer exists. Actions and stop-work stay available: a new danger never
+ * waits on a decision.
+ */
+export function isIncidentRecordEditable(status: HseIncidentStatus): boolean {
+  return isIncidentEditable(status) && status !== "PENDING_CLOSE";
+}
+
 export function isIncidentInvestigable(status: HseIncidentStatus): boolean {
   return status === "OPEN" || status === "REOPENED" || status === "UNDER_INVESTIGATION";
 }

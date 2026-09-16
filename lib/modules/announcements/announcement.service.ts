@@ -481,8 +481,19 @@ async function audienceFor(row: AnnouncementRow): Promise<string[]> {
 }
 
 /** Counts for the author and the audience's managers; never a ranking of people (§48, §131-§134, §260). */
+/**
+ * A draft has gone to nobody, so it has no audience to measure (PRD #45 §57,
+ * PRD #47 §175): the same rule as `canViewMetrics`, enforced where the figures
+ * are read rather than only on the button. Otherwise a draft's "audience" is a
+ * live headcount of whoever it would reach.
+ */
+function assertMeasurable(row: { status: AnnouncementRow["status"] }) {
+  if (row.status === "DRAFT") throw fail("ANNOUNCEMENT_NOT_PUBLISHED", "A draft has no readers yet.", "CONFLICT");
+}
+
 export async function announcementMetrics(context: UserContext, announcementId: string): Promise<AnnouncementMetricsDTO> {
   const row = await findManageableAnnouncement(context, announcementId);
+  assertMeasurable(row);
   const audience = await audienceFor(row);
   const [read, acknowledged] = await Promise.all([
     prisma.announcementRead.count({ where: { announcementId: row.id, memberId: { in: audience } } }),
@@ -501,6 +512,7 @@ export async function announcementMetrics(context: UserContext, announcementId: 
 
 export async function acknowledgmentList(context: UserContext, announcementId: string): Promise<AcknowledgmentRowDTO[]> {
   const row = await findManageableAnnouncement(context, announcementId);
+  assertMeasurable(row);
   const audience = await audienceFor(row);
   const [people, reads, acks] = await Promise.all([
     prisma.companyMember.findMany({ where: { companyId: context.companyId, id: { in: audience } }, select: { id: true, user: { select: { firstName: true, lastName: true } } } }),

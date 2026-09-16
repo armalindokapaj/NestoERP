@@ -2,7 +2,7 @@ import type { MeetingActionItemStatus, Prisma } from "@prisma/client";
 
 import { can, canAccessModule } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
-import { buildTaskScopeWhere, canAccessProject } from "@/lib/access/scope";
+import { buildProjectScopeWhere, buildTaskScopeWhere, canAccessProject } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
@@ -231,9 +231,12 @@ export async function convertActionToTask(context: UserContext, meetingId: strin
 export async function listActionItems(context: UserContext, query: ActionListQuery): Promise<{ data: MyActionItemDTO[]; pagination: ReturnType<typeof paginationMeta> }> {
   assertModule(context, MODULE);
   assertPermission(context, "meeting.view");
+  // A project filter goes through the project's own door, like the meeting list's (PRD #47 §175).
+  const projectDoor = canAccessModule(context, "projects") && can(context, "project.view") ? buildProjectScopeWhere(context) : null;
+  const byProject: Prisma.MeetingWhereInput = query.projectId ? (projectDoor ? { projectId: query.projectId, project: { is: projectDoor } } : { id: { in: [] } }) : {};
   const where: Prisma.MeetingActionItemWhereInput = {
     companyId: context.companyId,
-    meeting: { AND: [readableMeetingWhere(context), { archivedAt: null, ...(query.projectId ? { projectId: query.projectId } : {}) }] },
+    meeting: { AND: [readableMeetingWhere(context), { archivedAt: null }, byProject] },
     ...(query.mine ? { ownerMemberId: context.membershipId } : {}),
     ...(query.status === "open" ? { status: { in: OPEN } } : query.status === "done" ? { status: "DONE" } : {}),
   };
@@ -265,6 +268,17 @@ export async function listActionItems(context: UserContext, query: ActionListQue
         )
       : new Set<string>();
 
+  /*
+   * A meeting's project is named only to somebody who can open that project —
+   * being invited to the meeting, or being able to see it, is not that
+   * (PRD #40 §266, PRD #47 §175). The same rule as the meeting list.
+   */
+  const projectIds = [...new Set(rows.map((row) => row.meeting.project?.id).filter((id): id is string => Boolean(id)))];
+  const openProjects =
+    projectIds.length && projectDoor
+      ? new Set((await prisma.project.findMany({ where: { AND: [projectDoor, { id: { in: projectIds } }] }, select: { id: true } })).map((row) => row.id))
+      : new Set<string>();
+
   return {
     data: rows.map((row) => ({
       ...actionDTO(context, row, {
@@ -276,7 +290,7 @@ export async function listActionItems(context: UserContext, query: ActionListQue
         minutesFinal: true,
       }),
       meeting: { id: row.meeting.id, title: row.meeting.title, startsAt: row.meeting.startsAt.toISOString(), href: `/meetings/${row.meeting.id}` },
-      project: row.meeting.project,
+      project: row.meeting.project && openProjects.has(row.meeting.project.id) ? row.meeting.project : null,
     })),
     pagination: paginationMeta(total, query.page, query.limit),
   };

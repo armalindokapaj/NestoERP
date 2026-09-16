@@ -2,12 +2,13 @@ import type { z } from "zod";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
+import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.service";
-import { MODULE } from "./daily-log.permissions";
+import { dailyLogsOpen, MODULE, projectDoor } from "./daily-log.permissions";
 import type { projectSettingsSchema, settingsSchema } from "./daily-log.schema";
 import type { DailyLogSettingsDTO } from "./daily-log.types";
 
@@ -59,29 +60,54 @@ export async function updateDailyLogSettings(context: UserContext, input: z.infe
   return resolveDailyLogSettings(context.companyId);
 }
 
-/** A project's own rules: the project manager's, or whoever manages daily log settings (§89, §248). */
+/**
+ * Whether a member could review this project's logs (§88, §89, §233): the same
+ * test `resolveReviewer` applies when a log is submitted — an active member of
+ * this company, with daily logs open and the review grant, who can open the
+ * project. A name the submission would skip is refused here rather than
+ * saved and silently ignored.
+ */
+async function canReviewProjectLogs(companyId: string, projectId: string, memberId: string): Promise<boolean> {
+  const memberContext = (await buildMemberContexts(companyId, [memberId])).get(memberId);
+  if (!memberContext || !dailyLogsOpen(memberContext) || !can(memberContext, "daily_log.review")) return false;
+  const door = projectDoor(memberContext);
+  return door ? (await prisma.project.count({ where: { AND: [door, { id: projectId, companyId }] } })) > 0 : false;
+}
+
+/**
+ * A project's own rules: the project manager's, or whoever manages daily log
+ * settings (§89, §248).
+ *
+ * The project is read through the daily logs door before any permission is
+ * decided (PRD #47 §47, §60): a project the writer cannot open answers like
+ * one that does not exist, and a project-scoped grant reaches only the
+ * projects in that scope. An archived project's rules are history (§273).
+ */
 export async function updateProjectDailyLogSettings(context: UserContext, projectId: string, input: z.infer<typeof projectSettingsSchema>) {
   assertModule(context, MODULE);
-  const project = await prisma.project.findFirst({ where: { id: projectId, companyId: context.companyId }, select: { id: true, projectManagerMemberId: true } });
-  if (!project) throw new AccessError("NOT_FOUND");
+  const door = dailyLogsOpen(context) ? projectDoor(context) : null;
+  const project = door ? await prisma.project.findFirst({ where: { AND: [door, { id: projectId, companyId: context.companyId }] }, select: { id: true, status: true, archivedAt: true, projectManagerMemberId: true } }) : null;
+  if (!project) throw new AccessError("NOT_FOUND", "That project could not be found.", { code: "DAILY_LOG_PROJECT_NOT_FOUND" });
   const allowed = can(context, "daily_log.settings.manage") || (project.projectManagerMemberId === context.membershipId && can(context, "daily_log.review"));
   if (!allowed) throw new AccessError("FORBIDDEN");
-  if (input.reviewerMemberId) {
-    const reviewer = await prisma.companyMember.findFirst({ where: { id: input.reviewerMemberId, companyId: context.companyId, status: "ACTIVE" }, select: { id: true } });
-    if (!reviewer) throw new AccessError("VALIDATION_ERROR", "Choose an active member of the company.", { code: "DAILY_LOG_REVIEWER_INVALID" });
+  if (project.archivedAt || project.status === "ARCHIVED") throw new AccessError("CONFLICT", "That project is archived.", { code: "DAILY_LOG_PROJECT_ARCHIVED" }, "STATE_DENIED");
+  // A reviewer kept as it was is not re-judged: the submission skips one who no longer qualifies (§88).
+  const current = await prisma.projectDailyLogSettings.findFirst({ where: { companyId: context.companyId, projectId: project.id }, select: { reviewerMemberId: true } });
+  if (input.reviewerMemberId && input.reviewerMemberId !== current?.reviewerMemberId && !(await canReviewProjectLogs(context.companyId, project.id, input.reviewerMemberId))) {
+    throw new AccessError("VALIDATION_ERROR", "Choose someone who can review this project's daily logs.", { code: "DAILY_LOG_REVIEWER_INVALID", reviewerMemberId: ["Choose someone who can review this project's daily logs."] }, "SCOPE_DENIED");
   }
   await prisma.$transaction(async (tx) => {
     await tx.projectDailyLogSettings.upsert({
-      where: { projectId },
-      create: { companyId: context.companyId, projectId, logsRequired: input.logsRequired, reviewerMemberId: input.reviewerMemberId, workingDays: input.workingDays, updatedByMemberId: context.membershipId },
+      where: { projectId: project.id },
+      create: { companyId: context.companyId, projectId: project.id, logsRequired: input.logsRequired, reviewerMemberId: input.reviewerMemberId, workingDays: input.workingDays, updatedByMemberId: context.membershipId },
       update: { logsRequired: input.logsRequired, reviewerMemberId: input.reviewerMemberId, workingDays: input.workingDays, updatedByMemberId: context.membershipId },
     });
     await recordUserAction(
       context,
-      { actionKey: AuditAction.DAILY_LOG_SETTINGS_UPDATED, entity: { type: "Project", id: projectId, label: "Project daily log settings" }, after: { ...input } },
+      { actionKey: AuditAction.DAILY_LOG_SETTINGS_UPDATED, entity: { type: "Project", id: project.id, label: "Project daily log settings" }, after: { ...input } },
       { tx },
     );
   });
-  return resolveDailyLogSettings(context.companyId, projectId);
+  return resolveDailyLogSettings(context.companyId, project.id);
 }
 

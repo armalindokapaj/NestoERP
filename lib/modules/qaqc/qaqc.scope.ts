@@ -1,8 +1,9 @@
 import type { Prisma } from "@prisma/client";
 
-import { can, getModuleScope } from "@/lib/access/can";
+import { can, canAccessModule, getModuleScope } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { buildReceiptScopeWhere } from "@/lib/modules/procurement/procurement.scope";
 
 /**
  * Who can see which quality records (PRD #21 §226–§232).
@@ -195,6 +196,33 @@ export function buildQaqcProjectWhere(context: UserContext): Prisma.ProjectWhere
   }
 
   return { AND: [buildProjectScopeWhere(context), live] };
+}
+
+/**
+ * Deliveries a quality record may be raised against (PRD #21 §4, §183,
+ * PRD #47 §20, §62).
+ *
+ * Choosing a delivery is part of the quality act, so it is not gated on
+ * Procurement access — but it is gated on reach. The quality function (company
+ * scope) inspects whatever arrived; a site reader reaches deliveries for the
+ * projects they are on, plus whatever their own Procurement scope already
+ * shows them. A delivery to another site, or a head-office delivery with no
+ * project, is not a site engineer's to name — and a picker listing every
+ * delivery in the company with its supplier was a way to read the buying book.
+ */
+export function buildQaqcReceiptWhere(context: UserContext): Prisma.GoodsReceiptWhereInput {
+  const base = { companyId: context.companyId };
+  if (hasCompanyQaqcScope(context)) return base;
+
+  const procurementDoor =
+    canAccessModule(context, "procurement") && can(context, "procurement.receipt.view")
+      ? [buildReceiptScopeWhere(context)]
+      : [];
+
+  return {
+    ...base,
+    OR: [{ projectId: { not: null }, project: buildProjectScopeWhere(context) }, ...procurementDoor],
+  };
 }
 
 /** Colleagues a quality record may name as inspector, owner or assignee. */

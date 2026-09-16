@@ -405,6 +405,19 @@ export function isNcrEditable(status: NCRStatus): boolean {
   return status !== "CLOSED" && status !== "CANCELLED";
 }
 
+/**
+ * Whether the NCR's own content may still change (PRD #47 §85).
+ *
+ * Once it is up for closure — waiting on the decision, or approved and waiting
+ * to be closed — the approver has signed against what it says: the root cause,
+ * the category, the severity. Rewriting those afterwards would close an NCR
+ * nobody approved. A rejection sends it back to IN_PROGRESS, where it is
+ * editable again.
+ */
+export function isNcrRecordEditable(status: NCRStatus): boolean {
+  return isNcrEditable(status) && status !== "PENDING_APPROVAL" && status !== "APPROVED_FOR_CLOSE";
+}
+
 export function isNcrOpenable(status: NCRStatus): boolean {
   return status === "DRAFT";
 }

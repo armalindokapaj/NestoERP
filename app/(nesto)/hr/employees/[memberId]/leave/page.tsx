@@ -48,7 +48,8 @@ export default async function EmployeeLeaveTabPage({ params }: Params) {
         subtitle={orDash(employee.jobTitle)}
         status={employee.employmentStatus}
         actions={
-          can(context, "hr.leave.balance.manage") ? (
+          // Nobody sets their own entitlement (PRD #47 §98).
+          can(context, "hr.leave.balance.manage") && memberId !== context.membershipId ? (
             <LeaveBalanceForm
               memberId={memberId}
               year={year}

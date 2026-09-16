@@ -8,6 +8,7 @@ import {
   type SignedUrlClaims,
 } from "@/lib/core/storage/url-signing";
 import { amzDates, presignQuery, presignUrl, uriEncode } from "@/lib/core/storage/providers/sigv4";
+import { S3StorageProvider } from "@/lib/core/storage/providers/s3.provider";
 
 /**
  * Signed URLs (PRD #29 §72, §310, §312, §360, §370).
@@ -178,5 +179,47 @@ describe("S3 presigning", () => {
     });
     expect(url).toContain("https://bucket.example.com/companies/c1/documents/d1/obj.pdf?");
     expect(url).toContain("X-Amz-Signature=");
+  });
+
+  /**
+   * An upload grant is single use (PRD #47 §83): the bucket must refuse to
+   * overwrite an object the server has already verified, and the condition
+   * must be signed so the holder of the URL cannot leave it off.
+   */
+  it("binds If-None-Match into an upload grant, and returns it as a header to send", async () => {
+    const provider = new S3StorageProvider({
+      endpoint: "https://s3.example.com",
+      region: "us-east-1",
+      bucket: "nesto",
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+      forcePathStyle: false,
+    });
+    const grant = await provider.createUploadUrl({
+      storageKey: "companies/c1/documents/d1/obj.pdf",
+      contentType: "application/pdf",
+      maxBytes: 1024,
+      expiresInSeconds: 60,
+    });
+
+    expect(grant.headers["If-None-Match"]).toBe("*");
+    expect(new URL(grant.url).searchParams.get("X-Amz-SignedHeaders")).toBe("host;if-none-match");
+  });
+
+  it("changes the signature with a signed header, and leaves the host-only form untouched", () => {
+    const base = {
+      method: "PUT" as const,
+      host: "bucket.example.com",
+      path: "/k.pdf",
+      expiresInSeconds: 60,
+      now: new Date("2026-09-12T00:00:00Z"),
+    };
+    const plain = new URLSearchParams(presignQuery(config, base));
+    const empty = new URLSearchParams(presignQuery(config, { ...base, signedHeaders: {} }));
+    const conditional = new URLSearchParams(presignQuery(config, { ...base, signedHeaders: { "If-None-Match": "*" } }));
+
+    expect(plain.get("X-Amz-SignedHeaders")).toBe("host");
+    expect(empty.get("X-Amz-Signature")).toBe(plain.get("X-Amz-Signature"));
+    expect(conditional.get("X-Amz-Signature")).not.toBe(plain.get("X-Amz-Signature"));
   });
 });

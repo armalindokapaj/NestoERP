@@ -4,8 +4,10 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { loadRecord, moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
+import type { RecordSummary } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 import { readableComplianceWhere } from "@/lib/modules/contractors/contractor.permissions";
+import { classifyDocumentParent } from "@/lib/modules/documents/document.parent-access";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
 import { createTaskFromContext } from "@/lib/modules/tasks/task.service";
 import { findReadableWorkPackage } from "@/lib/modules/work-packages/work-package.service";
@@ -60,11 +62,61 @@ async function loadSource(context: UserContext, type: TaskSourceType, id: string
   }
 }
 
-/** The project a target belongs to — through its contract for obligations and amendments (§305). */
-async function targetProjectId(context: UserContext, type: LinkableType, id: string, summaryProjectId: string | null): Promise<string | null> {
-  if (type === "obligation") return (await prisma.contractObligation.findFirst({ where: { id, companyId: context.companyId }, select: { contract: { select: { projectId: true } } } }))?.contract.projectId ?? null;
-  if (type === "amendment") return (await prisma.contractAmendment.findFirst({ where: { id, companyId: context.companyId }, select: { contract: { select: { projectId: true } } } }))?.contract.projectId ?? null;
-  return summaryProjectId;
+/**
+ * Where a linked record really sits: `{ projectId }` — null for a record that
+ * belongs to no project at all — or null when that cannot be shown to this
+ * writer (PRD #46 §305, PRD #47 §50, §51).
+ *
+ * The registry summary's own `projectId` is not always the whole answer:
+ *
+ *  - a file uploaded onto a contract, NCR, inspection, daily log or RFI carries
+ *    no project of its own — its parent does. Reading the column off the
+ *    document waved through a file on another project's contract, so a
+ *    document is placed by its parent, read through the registry in the
+ *    writer's own scope. Only a file with no parent at all is company-level;
+ *    one filed on a client, or on a record that sits on no project, is not
+ *    this project's either;
+ *  - an obligation or amendment sits on its contract's project;
+ *  - a task raised from a record, without a project of its own, sits on that
+ *    record's.
+ *
+ * A parent the writer cannot open proves nothing, so it places nothing.
+ */
+export async function linkedRecordProject(context: UserContext, record: RecordSummary, depth = 0): Promise<{ projectId: string | null } | null> {
+  if (depth > 2) return null;
+  const companyId = context.companyId;
+  switch (record.type) {
+    case "obligation": {
+      const row = await prisma.contractObligation.findFirst({ where: { id: record.id, companyId }, select: { contract: { select: { projectId: true } } } });
+      return row ? { projectId: row.contract.projectId } : null;
+    }
+    case "amendment": {
+      const row = await prisma.contractAmendment.findFirst({ where: { id: record.id, companyId }, select: { contract: { select: { projectId: true } } } });
+      return row ? { projectId: row.contract.projectId } : null;
+    }
+    case "document": {
+      const row = await prisma.document.findFirst({ where: { id: record.id, companyId }, select: { projectId: true, clientId: true, module: true, entityType: true, entityId: true } });
+      if (!row) return null;
+      const parent = classifyDocumentParent(row);
+      if (parent.kind === "company") return { projectId: null };
+      if (parent.kind === "project") return { projectId: parent.projectId };
+      if (parent.kind !== "record") return null;
+      const owner = await loadRecord(context, parent.type, parent.id);
+      const placed = owner ? await linkedRecordProject(context, owner, depth + 1) : null;
+      if (!placed?.projectId) return null;
+      // A file whose own project disagrees with its parent's is not trusted either way.
+      return row.projectId && row.projectId !== placed.projectId ? null : placed;
+    }
+    case "task": {
+      if (record.projectId) return { projectId: record.projectId };
+      const row = await prisma.task.findFirst({ where: { id: record.id, companyId }, select: { entityType: true, entityId: true } });
+      if (!row?.entityType || !row.entityId) return { projectId: null };
+      const owner = await loadRecord(context, row.entityType, row.entityId);
+      return owner ? linkedRecordProject(context, owner, depth + 1) : null;
+    }
+    default:
+      return { projectId: record.projectId };
+  }
 }
 
 export async function listLinks(context: UserContext, sourceType: LinkSourceType, sourceId: string): Promise<LinkedRecordDTO[]> {
@@ -95,8 +147,9 @@ export async function linkRecord(context: UserContext, sourceType: LinkSourceTyp
   const definition = recordDefinition(input.type);
   const target = definition ? await loadRecord(context, input.type, input.recordId) : null;
   if (!definition || !target || target.companyId !== context.companyId) throw fail("ENGINEERING_LINK_INVALID", "You cannot link that record.", "NOT_FOUND");
-  const projectId = await targetProjectId(context, input.type, target.id, target.projectId);
-  if (projectId && projectId !== source.projectId) throw fail("ENGINEERING_LINK_PROJECT_MISMATCH", "That record belongs to another project.");
+  const placed = await linkedRecordProject(context, target);
+  if (!placed) throw fail("ENGINEERING_LINK_PROJECT_MISMATCH", "Choose a record from this project.", "VALIDATION_ERROR", { field: "recordId" }, "CROSS_PROJECT_REFERENCE");
+  if (placed.projectId && placed.projectId !== source.projectId) throw fail("ENGINEERING_LINK_PROJECT_MISMATCH", "That record belongs to another project.", "VALIDATION_ERROR", { field: "recordId" }, "CROSS_PROJECT_REFERENCE");
 
   return prisma.$transaction(async (tx) => {
     const key = `${sourceType}:${source.id}:${input.type}:${target.id}`;

@@ -25,7 +25,11 @@ export async function taskFormOptions(context: UserContext, selectedProjectId?: 
     orderBy: { name: "asc" },
   });
 
-  const assignees = await loadAssignees(context, mayAssignOthers, selectedProjectId ?? null);
+  const assignees = await loadAssignees(
+    context,
+    mayAssignOthers,
+    await projectInScope(context, selectedProjectId ?? null),
+  );
 
   return {
     projects: projects.map((project) => ({
@@ -35,6 +39,23 @@ export async function taskFormOptions(context: UserContext, selectedProjectId?: 
     assignees,
     mayAssignOthers,
   };
+}
+
+/**
+ * The selected project, only when the reader can reach it (PRD #47 §62).
+ *
+ * The id arrives from a query string. Listing "the team of project X" for an id
+ * the reader cannot open would publish that team to anybody who guessed or
+ * copied the id, so an out-of-scope project is treated as no project at all.
+ * Archived projects stay in: editing a task on one still needs its team.
+ */
+async function projectInScope(context: UserContext, projectId: string | null): Promise<string | null> {
+  if (!projectId) return null;
+  const project = await prisma.project.findFirst({
+    where: { AND: [buildProjectScopeWhere(context), { id: projectId }] },
+    select: { id: true },
+  });
+  return project?.id ?? null;
 }
 
 async function loadAssignees(

@@ -136,7 +136,7 @@ export async function getTemplate(
     }),
   );
 
-  const createdBy = await loadMemberRef(row.createdByMemberId);
+  const createdBy = await loadMemberRef(context.companyId, row.createdByMemberId);
 
   return {
     ...toSummaryDTO(row),

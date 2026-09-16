@@ -299,7 +299,7 @@ export async function getRelease(
     heldQuantity: quantityString(row.heldQuantity),
     unit: row.unit,
     status: row.status,
-    releasedBy: await loadMemberRef(row.releasedByMemberId),
+    releasedBy: await loadMemberRef(context.companyId, row.releasedByMemberId),
     releasedAt: row.releasedAt.toISOString(),
     revokedAt: dateString(row.revokedAt),
     revocationReason: row.revocationReason,

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
@@ -28,7 +29,12 @@ export type MilestoneRef = { id: string; companyId: string; projectId: string; n
 const ACTIVE_PROJECT = { archivedAt: null, status: "ACTIVE" as const };
 const OPEN_MILESTONE = { archivedAt: null, status: { notIn: ["COMPLETED", "CANCELLED"] as Array<"COMPLETED" | "CANCELLED"> } };
 
-/** The CEO and Owner, when the company asked for them to hear about critical committed milestones (§165, §253). */
+/**
+ * The CEO and Owner, when the company asked for them to hear about critical
+ * committed milestones (§165, §253). Recipient targeting by role key, not
+ * authorization: the dispatcher re-reads the milestone in each recipient's own
+ * context before anything is delivered (PRD #47 §32).
+ */
 export async function executiveMemberIds(tx: Tx | typeof prisma, companyId: string): Promise<string[]> {
   const rows = await tx.companyMember.findMany({ where: { companyId, status: "ACTIVE", role: { key: { in: ["OWNER", "CEO"] } } }, select: { id: true } });
   return rows.map((row) => row.id);
@@ -152,10 +158,10 @@ export async function settleMilestoneAttention(companyId: string, milestoneId: s
  * forecast starts a new reminder, running the job again does not.
  */
 export async function runMilestoneReminders(now = new Date()): Promise<{ dueSoon: number; overdue: number }> {
-  const companies = await prisma.company.findMany({ where: { status: "ACTIVE", modules: { some: { enabled: true, module: { key: MODULE } } } }, select: { id: true } });
   let dueSoon = 0;
   let overdue = 0;
-  for (const company of companies) {
+  const companyRun = await forEachCompany("planning.milestones", async (system) => {
+    const company = { id: system.companyId };
     const settings = await resolvePlanningSettings(company.id);
     const today = localDate(now, settings.timezone);
     const horizon = new Date(`${today}T12:00:00.000Z`);
@@ -192,7 +198,8 @@ export async function runMilestoneReminders(now = new Date()): Promise<{ dueSoon
         else overdue += 1;
       }
     }
-  }
+  }, { moduleKey: MODULE });
   if (overdue) incrementCounter(Metric.MILESTONE_OVERDUE, {}, overdue);
+  assertEveryCompanySucceeded("planning.milestones", companyRun);
   return { dueSoon, overdue };
 }

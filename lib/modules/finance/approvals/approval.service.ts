@@ -274,18 +274,11 @@ export async function listApprovals(
   const page = options.page ?? 1;
   const limit = options.limit ?? 25;
 
-  const reachable = await reachableRecordIds(context);
-
   const where: Prisma.FinanceApprovalWhereInput = {
     companyId: context.companyId,
     ...(options.status === "PENDING" ? { status: "PENDING" } : {}),
     ...(options.status === "DECIDED" ? { status: { not: "PENDING" } } : {}),
-    OR: [
-      { recordType: "INVOICE", recordId: { in: reachable.INVOICE } },
-      { recordType: "EXPENSE", recordId: { in: reachable.EXPENSE } },
-      { recordType: "BUDGET", recordId: { in: reachable.BUDGET } },
-      { recordType: "COMMITMENT", recordId: { in: reachable.COMMITMENT } },
-    ],
+    OR: reachableApprovalClauses(await reachableRecordIds(context)),
   };
 
   const [rows, total] = await Promise.all([
@@ -301,6 +294,25 @@ export async function listApprovals(
 
   const data = await hydrate(context, rows);
   return { data, pagination: paginationMeta(total, page, limit) };
+}
+
+/**
+ * How many approvals wait on records this reader can reach.
+ *
+ * The same reachability as the queue, so the overview's counter never exceeds
+ * the list it links to — a company-wide pending count would tell a
+ * project-scoped reader how much is waiting outside their projects
+ * (PRD #15 §143, PRD #47 §73).
+ */
+export async function countPendingApprovals(context: UserContext): Promise<number> {
+  if (!can(context, "finance.approval.view")) return 0;
+  return prisma.financeApproval.count({
+    where: {
+      companyId: context.companyId,
+      status: "PENDING",
+      OR: reachableApprovalClauses(await reachableRecordIds(context)),
+    },
+  });
 }
 
 /** Every approval cycle for one record, newest first (PRD #15 §145). */
@@ -357,6 +369,17 @@ async function reachableRecordIds(context: UserContext) {
     BUDGET: budgets.map((row) => row.id),
     COMMITMENT: commitments.map((row) => row.id),
   };
+}
+
+function reachableApprovalClauses(
+  reachable: Awaited<ReturnType<typeof reachableRecordIds>>,
+): Prisma.FinanceApprovalWhereInput[] {
+  return [
+    { recordType: "INVOICE", recordId: { in: reachable.INVOICE } },
+    { recordType: "EXPENSE", recordId: { in: reachable.EXPENSE } },
+    { recordType: "BUDGET", recordId: { in: reachable.BUDGET } },
+    { recordType: "COMMITMENT", recordId: { in: reachable.COMMITMENT } },
+  ];
 }
 
 /** Attaches the record summary and the member names each approval refers to. */

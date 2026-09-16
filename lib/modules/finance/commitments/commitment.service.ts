@@ -1,7 +1,7 @@
 import { Prisma, type CommitmentStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -301,8 +301,10 @@ export async function updateCommitment(
   const project = await validateProject(context, input.projectId, input.currency);
 
   await prisma.$transaction(async (tx) => {
-    await tx.commitment.update({
-      where: { id: commitmentId },
+    // Conditional on the status the edit was checked against, so a commitment
+    // submitted or approved in the meantime is not rewritten (PRD #47 §66).
+    const written = await tx.commitment.updateMany({
+      where: { id: commitmentId, companyId: context.companyId, status: existing.status },
       data: {
         projectId: project?.id ?? null,
         reference: input.reference ?? null,
@@ -316,6 +318,9 @@ export async function updateCommitment(
         updatedByMemberId: context.membershipId,
       },
     });
+    if (written.count === 0) {
+      throw stateDenied("This commitment changed while you were working on it. Refresh and review it.");
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,

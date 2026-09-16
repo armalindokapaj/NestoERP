@@ -1,12 +1,14 @@
 import { can } from "@/lib/access/can";
 import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
+import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { logger } from "@/lib/core/observability/logger";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
 import { prisma } from "@/lib/database/prisma";
 import {
   attentionConditionDefinitions,
   attentionDedupeKey,
+  readerAllowed,
   type AttentionCandidate,
   type AttentionConditionDefinition,
 } from "./attention.conditions";
@@ -54,20 +56,20 @@ const pairKey = (memberId: string, dedupeKey: string) => `${memberId}|${dedupeKe
 
 export async function reconcileAttention(options: { companyId?: string; now?: Date } = {}): Promise<ReconcileResult> {
   const now = options.now ?? new Date();
-  const companies = await prisma.company.findMany({
-    where: { status: "ACTIVE", ...(options.companyId ? { id: options.companyId } : {}) },
-    select: { id: true },
-  });
-
   const result: ReconcileResult = { companies: 0, created: 0, refreshed: 0, resolved: 0, failedConditions: [] };
-  for (const company of companies) {
-    const outcome = await reconcileCompany(company.id, now);
-    result.companies += 1;
-    result.created += outcome.created;
-    result.refreshed += outcome.refreshed;
-    result.resolved += outcome.resolved;
-    result.failedConditions.push(...outcome.failedConditions);
-  }
+  const run = await forEachCompany(
+    "attention.reconcile",
+    async ({ companyId }) => {
+      const outcome = await reconcileCompany(companyId, now);
+      result.companies += 1;
+      result.created += outcome.created;
+      result.refreshed += outcome.refreshed;
+      result.resolved += outcome.resolved;
+      result.failedConditions.push(...outcome.failedConditions);
+    },
+    options.companyId ? { companyIds: [options.companyId] } : {},
+  );
+  assertEveryCompanySucceeded("attention.reconcile", run);
   return result;
 }
 
@@ -198,6 +200,7 @@ async function resolveRecipients(
       for (const memberId of members) {
         const context = contexts.get(memberId);
         if (!context) continue;
+        if (!readerAllowed(context, definition)) continue;
         if (!(await canOpen(context, candidate.entityType, candidate.entityId))) continue;
         desired.push({
           recipientMemberId: memberId,

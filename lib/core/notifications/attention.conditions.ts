@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 
 import type { ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
+import { can } from "@/lib/access/can";
+import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { OPEN_HAZARD_STATUSES, OPEN_INCIDENT_STATUSES } from "@/lib/modules/hse/hse.status";
@@ -83,9 +85,33 @@ export type AttentionCandidate = {
 export type AttentionConditionDefinition = {
   key: AttentionConditionKey;
   moduleKey: ModuleKey;
+  /**
+   * For a condition whose record is not its subject — a missing daily log is
+   * filed against its project, because there is no log to point at — opening
+   * the record is not enough. Every recipient must also reach the condition's
+   * own module and hold all of these, when the item is written and again
+   * whenever it is shown (PRD #47 §26, §77).
+   */
+  readerPermissions?: Permission[];
   collect(companyId: string, now: Date): Promise<AttentionCandidate[]>;
   holds(companyId: string, entityType: string, entityId: string, now: Date): Promise<boolean>;
 };
+
+/** Whether this reader passes a condition's own module and permission floor, beyond the record. */
+export function readerAllowed(
+  context: Pick<UserContext, "permissions" | "moduleAccess">,
+  condition: Pick<AttentionConditionDefinition, "moduleKey" | "readerPermissions">,
+): boolean {
+  if (!condition.readerPermissions) return true;
+  const access = context.moduleAccess[condition.moduleKey];
+  if (!access?.enabled || access.accessLevel === "NONE") return false;
+  return condition.readerPermissions.every((permission) => can(context, permission));
+}
+
+/** Whether the company has a switchable module turned on — a condition about it is not raised otherwise. */
+async function companyModuleEnabled(companyId: string, moduleKey: ModuleKey): Promise<boolean> {
+  return (await prisma.company.count({ where: { id: companyId, modules: { some: { enabled: true, module: { key: moduleKey } } } } })) > 0;
+}
 
 const LIMIT = 500;
 const DAY_MS = 86_400_000;
@@ -538,7 +564,12 @@ const timesheetApprovalOverdue: AttentionConditionDefinition = {
 const dailyLogMissing: AttentionConditionDefinition = {
   key: "DAILY_LOG_MISSING",
   moduleKey: "dailyLogs",
+  // The item points at a project, which a manager can open without Daily Logs:
+  // the module and the grant to read logs are asked for separately.
+  readerPermissions: ["daily_log.view"],
   async collect(companyId, now) {
+    // A company that has switched Daily Logs off is not missing any.
+    if (!(await companyModuleEnabled(companyId, "dailyLogs"))) return [];
     const { missingYesterday } = await import("@/lib/modules/daily-logs/daily-log.reports");
     const { dateLabel } = await import("@/lib/modules/daily-logs/daily-log.time");
     return (await missingYesterday(companyId, now)).map((row): AttentionCandidate => ({
@@ -548,7 +579,7 @@ const dailyLogMissing: AttentionConditionDefinition = {
     }));
   },
   async holds(companyId, type, id, now) {
-    if (type !== "project") return false;
+    if (type !== "project" || !(await companyModuleEnabled(companyId, "dailyLogs"))) return false;
     const { missingYesterday } = await import("@/lib/modules/daily-logs/daily-log.reports");
     return (await missingYesterday(companyId, now)).some((row) => row.projectId === id);
   },

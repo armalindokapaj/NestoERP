@@ -21,8 +21,9 @@ export async function GET(request: Request) {
     return apiOk(
       await globalSearch(context, params.get("q") ?? "", {
         moduleKeys: modules.length > 0 ? modules : undefined,
-        limitPerProvider: Number(params.get("limitPerProvider") ?? 5),
-        totalLimit: Number(params.get("limit") ?? 20),
+        // Passed as written; the service clamps both, so no caller can widen them (PRD #47 §175).
+        limitPerProvider: params.get("limitPerProvider"),
+        totalLimit: params.get("limit"),
       }),
     );
   });

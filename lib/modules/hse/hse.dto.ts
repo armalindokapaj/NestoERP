@@ -26,10 +26,20 @@ export function toMemberRef(row: MemberRow | undefined): MemberRef | null {
   };
 }
 
-export async function loadMemberRef(memberId: string | null): Promise<MemberRef | null> {
+/**
+ * Names are read inside the reader's company only (PRD #47 §20, §62).
+ *
+ * The ids come off the reader's own rows, but a row written before link checks
+ * existed — or one somebody planted — could name another company's member, and
+ * a loader keyed on the id alone would print that stranger's name.
+ */
+export async function loadMemberRef(
+  companyId: string,
+  memberId: string | null,
+): Promise<MemberRef | null> {
   if (!memberId) return null;
-  const row = await prisma.companyMember.findUnique({
-    where: { id: memberId },
+  const row = await prisma.companyMember.findFirst({
+    where: { id: memberId, companyId },
     select: { id: true, status: true, user: { select: { firstName: true, lastName: true } } },
   });
   return toMemberRef(row);
@@ -37,13 +47,14 @@ export async function loadMemberRef(memberId: string | null): Promise<MemberRef 
 
 /** Loads several members at once, so a list does not fire one query per row. */
 export async function loadMembers(
+  companyId: string,
   ids: (string | null | undefined)[],
 ): Promise<Map<string, MemberRef>> {
   const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   if (wanted.length === 0) return new Map();
 
   const rows = await prisma.companyMember.findMany({
-    where: { id: { in: wanted } },
+    where: { id: { in: wanted }, companyId },
     select: { id: true, status: true, user: { select: { firstName: true, lastName: true } } },
   });
 

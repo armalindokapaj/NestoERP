@@ -4,6 +4,7 @@ import { LocalStorageProvider } from "@/lib/core/storage/providers/local.provide
 import { decodeClaims, verifyClaims } from "@/lib/core/storage/url-signing";
 import { contentDisposition, isWellFormedKey } from "@/lib/core/storage";
 import { logger } from "@/lib/core/observability/logger";
+import { uploadSessionAcceptsBytes } from "@/lib/modules/documents/storage/upload.service";
 
 type Params = { params: Promise<{ key: string[] }> };
 
@@ -19,9 +20,12 @@ type Params = { params: Promise<{ key: string[] }> };
  *   issued by the upload or download service after the full permission check
  *   (PRD #29 §72).
  *
- * So the only things checked are: the signature verifies, it was issued for
- * this exact key and this exact method, it has not expired, and the body is no
- * larger than was authorised (PRD #29 §310, §360, §370).
+ * So the things checked are: the signature verifies, it was issued for this
+ * exact key and this exact method, it has not expired, and the body is no
+ * larger than was authorised (PRD #29 §310, §360, §370). An upload grant is
+ * also single use: it is refused once its upload session has closed, and it
+ * never overwrites an object already at the key — the same condition the S3
+ * adapter signs in as `If-None-Match: *` (PRD #47 §83).
  *
  * Nothing here is reachable with `STORAGE_DRIVER=s3` — the browser talks to
  * the bucket directly then, and this route is never signed for.
@@ -70,6 +74,21 @@ export async function PUT(request: Request, { params }: Params) {
   if (!authorised.ok) return authorised.response;
 
   const claims = authorised.claims!.claims;
+
+  // A declared length over the ceiling is refused before a byte is buffered;
+  // the measured body is checked again below, since the header is a claim.
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (claims.maxBytes !== undefined && Number.isFinite(declaredLength) && declaredLength > claims.maxBytes) {
+    return deny(413);
+  }
+
+  // A spent grant answers like an expired one (PRD #29 §370): the session
+  // behind this key has completed, failed, been aborted or timed out.
+  if (!(await uploadSessionAcceptsBytes(storageKey))) {
+    logger.warn("storage.object.refused", { reason: "UPLOAD_SESSION_CLOSED", method: "PUT" });
+    return deny(403);
+  }
+
   const body = new Uint8Array(await request.arrayBuffer());
 
   // The size ceiling was bound into the signature, so a browser cannot send
@@ -79,7 +98,9 @@ export async function PUT(request: Request, { params }: Params) {
   }
   if (body.byteLength === 0) return deny(400);
 
-  await provider().putObject(storageKey, body, claims.contentType ?? "application/octet-stream");
+  const written = await provider().putObjectIfAbsent(storageKey, body, claims.contentType ?? "application/octet-stream");
+  // Something is already there: what S3 answers to a failed If-None-Match.
+  if (!written) return deny(412);
 
   return new Response(null, { status: 200 });
 }

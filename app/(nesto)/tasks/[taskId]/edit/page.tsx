@@ -24,6 +24,11 @@ export default async function EditTaskPage({ params }: Params) {
   if (!task.capabilities.canEdit) notFound();
 
   const options = await taskFormOptions(context, task.project?.id ?? null);
+  // A task raised from another record stays on that record's project, so the
+  // picker offers no other (PRD #47 §51); the service refuses a move regardless.
+  const projects = task.context.entityId
+    ? options.projects.filter((option) => option.value === task.project?.id)
+    : options.projects;
 
   async function action(formData: FormData) {
     "use server";
@@ -42,7 +47,7 @@ export default async function EditTaskPage({ params }: Params) {
       <TaskForm
         mode="edit"
         cancelHref={`/tasks/${task.id}`}
-        projects={options.projects}
+        projects={projects}
         assignees={options.assignees}
         mayAssignOthers={options.mayAssignOthers}
         versionUpdatedAt={task.updatedAt}

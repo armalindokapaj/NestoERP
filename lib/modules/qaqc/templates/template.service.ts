@@ -143,7 +143,7 @@ export async function getTemplate(
     ...toSummaryDTO(row),
     description: row.description,
     items: row.items.map(toItemDTO),
-    createdBy: await loadMemberRef(row.createdByMemberId),
+    createdBy: await loadMemberRef(context.companyId, row.createdByMemberId),
     createdAt: row.createdAt.toISOString(),
     archivedAt: row.archivedAt?.toISOString() ?? null,
     capabilities: capabilitiesFor(context, row),

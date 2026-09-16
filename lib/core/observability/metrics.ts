@@ -94,6 +94,12 @@ export const Metric = {
   COMPLIANCE_EXPIRING: "contractor_compliance_expiring_count",
   COMPLIANCE_EXPIRED: "contractor_compliance_expired_count",
   RECENT_WORK_PRUNED: "recent_work_pruned_count",
+  // Authorization (PRD #47 §196)
+  AUTHORIZATION_DENIED: "authorization_denied_total",
+  CROSS_COMPANY_DENIED: "cross_company_denied_total",
+  CROSS_PROJECT_DENIED: "cross_project_denied_total",
+  MODULE_DISABLED_DENIED: "module_disabled_denied_total",
+  PERMISSION_DENIED: "permission_denied_total",
 } as const;
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];

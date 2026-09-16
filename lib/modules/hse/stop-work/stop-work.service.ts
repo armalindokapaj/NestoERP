@@ -7,6 +7,7 @@ import {
   assertModule,
   assertPermission,
 } from "@/lib/access/guards";
+import { assertSameProject } from "@/lib/access/references";
 import type { UserContext } from "@/lib/context/types";
 import { notifyCriticalSafety } from "@/lib/core/notifications/safety-notifications";
 import { prisma } from "@/lib/database/prisma";
@@ -125,6 +126,7 @@ export async function listStopWorks(context: UserContext, query: StopWorkListQue
   ]);
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.issuedByMemberId, row.releasedByMemberId]),
   );
 
@@ -149,8 +151,8 @@ export async function getStopWork(
   );
 
   const [members, createdBy, actions] = await Promise.all([
-    loadMembers([row.issuedByMemberId, row.releasedByMemberId]),
-    loadMemberRef(row.createdByMemberId),
+    loadMembers(context.companyId, [row.issuedByMemberId, row.releasedByMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     can(context, "hse.action.view")
       ? import("../actions/action.service").then((m) => m.listForParent(context, { stopWorkId }))
       : Promise.resolve([]),
@@ -243,8 +245,20 @@ export async function createStopWork(
   assertPermission(context, "hse.stop_work.create");
 
   await requireProject(context, input.projectId);
-  if (input.hazardId) await requireHazard(context, input.hazardId);
-  if (input.incidentId) await requireIncident(context, input.incidentId);
+
+  /*
+   * The hazard or incident that caused the halt is on the job being halted
+   * (PRD #47 §51). One with no project at all is a company-level record and
+   * may still be the cause; one from another site is not.
+   */
+  if (input.hazardId) {
+    const hazard = await requireHazard(context, input.hazardId);
+    assertSameProject("hazardId", input.projectId, hazard.projectId, { allowUnlinked: true });
+  }
+  if (input.incidentId) {
+    const incident = await requireIncident(context, input.incidentId);
+    assertSameProject("incidentId", input.projectId, incident.projectId, { allowUnlinked: true });
+  }
 
   const id = await prisma.$transaction(async (tx) => {
     const stopWorkNumber = await nextHseNumber(tx, "stopWorkRecord", context.companyId);
@@ -307,7 +321,11 @@ export async function releaseStopWork(
         id: true,
         stopWorkNumber: true,
         status: true,
-        actions: { select: { status: true, priority: true } },
+        // Only this company's actions count towards the release (PRD #47 §20).
+        actions: {
+          where: { companyId: context.companyId },
+          select: { status: true, priority: true },
+        },
       },
     }),
   );
@@ -359,12 +377,37 @@ export async function cancelStopWork(
   const existing = assertFound(
     await prisma.stopWorkRecord.findFirst({
       where: { AND: [buildStopWorkScopeWhere(context), { id: stopWorkId }] },
-      select: { id: true, stopWorkNumber: true, status: true },
+      select: {
+        id: true,
+        stopWorkNumber: true,
+        status: true,
+        actions: {
+          where: { companyId: context.companyId },
+          select: { status: true, priority: true },
+        },
+      },
     }),
   );
 
   if (!isStopWorkCancellable(existing.status)) {
     throw new AccessError("CONFLICT", "This stop-work is not active.", { code: "NOT_ACTIVE" });
+  }
+
+  /*
+   * Cancelling sends people back to the job just as a release does. With a
+   * critical action still outstanding that would be a release without the
+   * release rule (PRD #22 §174), so it is left to whoever manages HSE — the
+   * stop-work issued in error — rather than to anybody holding `release`
+   * (PRD #47 §85).
+   */
+  const blocking = stopWorkReleaseGaps({ releaseReason: "cancel", actions: existing.actions });
+  if (blocking.includes("UNRESOLVED_CRITICAL_ACTION") && !can(context, "hse.manage")) {
+    throw new AccessError(
+      "CONFLICT",
+      "A critical action against this stop-work is still open. Verify it, or ask HSE management to cancel.",
+      { code: "RELEASE_BLOCKED", gaps: ["UNRESOLVED_CRITICAL_ACTION"] },
+      "STATE_DENIED",
+    );
   }
 
   await prisma.$transaction(async (tx) => {
@@ -403,6 +446,7 @@ async function listBy(
   });
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.issuedByMemberId, row.releasedByMemberId]),
   );
   return rows.map((row) => toSummaryDTO(row, members));
@@ -426,7 +470,7 @@ async function requireProject(context: UserContext, projectId: string) {
 async function requireHazard(context: UserContext, hazardId: string) {
   const hazard = await prisma.hseHazard.findFirst({
     where: { AND: [buildHazardScopeWhere(context), { id: hazardId }] },
-    select: { id: true },
+    select: { id: true, projectId: true },
   });
 
   if (!hazard) {
@@ -441,7 +485,7 @@ async function requireHazard(context: UserContext, hazardId: string) {
 async function requireIncident(context: UserContext, incidentId: string) {
   const incident = await prisma.hseIncident.findFirst({
     where: { AND: [buildIncidentScopeWhere(context), { id: incidentId }] },
-    select: { id: true },
+    select: { id: true, projectId: true },
   });
 
   if (!incident) {
@@ -489,7 +533,10 @@ function capabilitiesFor(
   return {
     canRelease:
       isStopWorkReleasable(row.status) && can(context, "hse.stop_work.release") && !blocked,
-    canCancel: isStopWorkCancellable(row.status) && can(context, "hse.stop_work.release"),
+    canCancel:
+      isStopWorkCancellable(row.status) &&
+      can(context, "hse.stop_work.release") &&
+      (!blocked || can(context, "hse.manage")),
     canRaiseAction: row.status === "ACTIVE" && can(context, "hse.action.create"),
     canViewActivity: can(context, "hse.activity.view"),
   };

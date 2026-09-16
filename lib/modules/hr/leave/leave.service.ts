@@ -795,6 +795,14 @@ export async function setLeaveBalance(
   assertModule(context, MODULE);
   assertPermission(context, "hr.leave.balance.manage");
 
+  // An entitlement is set for somebody, not by them: HR adding days to their
+  // own balance is the self-approval the leave workflow already refuses
+  // (PRD #16 §81, PRD #47 §98). Repairing a balance stays open — it only
+  // recounts approved leave.
+  if (memberId === context.membershipId) {
+    throw new AccessError("FORBIDDEN", "Your own leave entitlement is set by somebody else in HR.");
+  }
+
   const profile = await requireProfile(context, memberId);
 
   await prisma.$transaction(async (tx) => {

@@ -119,47 +119,64 @@ export async function listInvitations(
 /* Invite                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export async function inviteMember(
+/**
+ * The grants an invitation needs, and the role and department it names
+ * (PRD #14 §61, §96, PRD #47 §58).
+ *
+ * Shared by the first invite and every resend: a resend issues a fresh
+ * credential for the same role, so it must be exactly as authorised as sending
+ * the invitation in the first place — an Admin cannot revive an expired Owner
+ * invitation that only an Owner could have sent.
+ */
+async function resolveInviteGrants(
   context: UserContext,
-  input: InviteMemberInput,
-): Promise<InviteResult> {
-  assertModule(context, MODULE);
+  roleId: string,
+  departmentId: string | null | undefined,
+) {
   assertPermission(context, "team.member.invite");
   assertPermission(context, "team.member.role.assign");
 
-  const email = normalizeEmail(input.email);
   const role = await prisma.role.findUnique({
-    where: { id: input.roleId },
+    where: { id: roleId },
     select: { id: true, key: true, name: true },
   });
   if (!role) throw new AccessError("VALIDATION_ERROR", "That role does not exist.");
   // Only an Owner may create another Owner (PRD #14 §96).
   if (role.key === "OWNER") assertPermission(context, "team.owner.assign");
 
-  const department = input.departmentId
+  const department = departmentId
     ? await prisma.department.findFirst({
-        where: { id: input.departmentId, companyId: context.companyId, status: { not: "ARCHIVED" } },
+        where: { id: departmentId, companyId: context.companyId, status: { not: "ARCHIVED" } },
         select: { id: true },
       })
     : null;
-  if (input.departmentId && !department) {
+  if (departmentId && !department) {
     throw new AccessError("VALIDATION_ERROR", "That department does not exist.");
   }
   if (department) assertPermission(context, "team.member.department.assign");
 
+  return { role, department };
+}
+
+export async function inviteMember(
+  context: UserContext,
+  input: InviteMemberInput,
+): Promise<InviteResult> {
+  assertModule(context, MODULE);
+
+  const email = normalizeEmail(input.email);
+  const { role, department } = await resolveInviteGrants(context, input.roleId, input.departmentId);
+
+  /*
+   * Whether the address already has a NESTO account — and whether that account
+   * is active — is not this company's business, so neither changes the answer
+   * (PRD #47 §59). A disabled account is still refused where it matters: it
+   * cannot sign in, and acceptance checks the account again (PRD #14 §320).
+   */
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, status: true },
+    select: { id: true },
   });
-
-  // An account that is itself disabled is an account-level problem; inviting it
-  // into a company must not quietly re-enable it (PRD #14 §320).
-  if (user && user.status !== "ACTIVE") {
-    throw new AccessError(
-      "CONFLICT",
-      "That account is not active. It has to be resolved before an invitation can be accepted.",
-    );
-  }
 
   const existingMembership = user
     ? await prisma.companyMember.findFirst({
@@ -207,6 +224,22 @@ export async function inviteMember(
       where: { companyId: context.companyId, email, status: "PENDING" },
       data: { status: "EXPIRED" },
     });
+
+    // A re-invitation after the last one lapsed carries the new role and
+    // department, so the pending row never describes the terms of an older,
+    // retired invitation (PRD #47 §58).
+    if (existingMembership) {
+      await tx.companyMember.update({
+        where: { id: existingMembership.id },
+        data: {
+          roleId: role.id,
+          departmentId: department?.id ?? null,
+          jobTitle: input.jobTitle ?? null,
+          invitedAt: new Date(),
+          invitedByMemberId: context.membershipId,
+        },
+      });
+    }
 
     const membership =
       existingMembership ??
@@ -294,7 +327,7 @@ export async function resendInvitation(
   const invite = assertFound(
     await prisma.companyInvite.findFirst({
       where: { id: inviteId, companyId: context.companyId },
-      select: { id: true, email: true, status: true },
+      select: { id: true, email: true, status: true, roleId: true, departmentId: true, createdAt: true },
     }),
   );
 
@@ -303,6 +336,38 @@ export async function resendInvitation(
   }
   if (invite.status === "CANCELLED") {
     throw new AccessError("CONFLICT", "That invitation was cancelled.");
+  }
+
+  // Resending is issuing the invitation again, so it needs every grant the
+  // original did — for the role it names today (PRD #47 §58).
+  await resolveInviteGrants(context, invite.roleId, invite.departmentId);
+
+  /*
+   * An expired row that a newer invitation replaced is history, not something
+   * to revive: bringing it back would put two live tokens, possibly for two
+   * different roles, on one address (PRD #14 §79, PRD #47 §58).
+   */
+  const newer = await prisma.companyInvite.findFirst({
+    where: {
+      companyId: context.companyId,
+      email: invite.email,
+      id: { not: invite.id },
+      createdAt: { gt: invite.createdAt },
+    },
+    select: { id: true },
+  });
+  if (newer) {
+    throw new AccessError("CONFLICT", "A newer invitation exists for that address. Resend that one instead.");
+  }
+
+  // Somebody who has since joined, or whose membership was removed, is no
+  // longer waiting on this invitation.
+  const membership = await prisma.companyMember.findFirst({
+    where: { companyId: context.companyId, user: { email: invite.email } },
+    select: { status: true },
+  });
+  if (membership && membership.status !== "INVITED") {
+    throw new AccessError("CONFLICT", "That invitation no longer applies. Send a new one if it is still needed.");
   }
 
   // Per invitation and per sender: a resend is an email to a real person, and
@@ -560,26 +625,62 @@ export async function acceptInvite(
       });
     }
 
-    const membership = invite.companyMemberId
-      ? await tx.companyMember.update({
-          where: { id: invite.companyMemberId },
-          data: { status: "ACTIVE", joinedAt: new Date(), deactivatedAt: null },
+    /*
+     * The terms are the invitation's, applied now (PRD #47 §58): the role,
+     * department and title the inviter chose, not whatever an older invitation
+     * left on the membership. A department archived in the meantime is dropped
+     * rather than joined.
+     */
+    const department = invite.departmentId
+      ? await tx.department.findFirst({
+          where: { id: invite.departmentId, companyId: invite.companyId, status: { not: "ARCHIVED" }, archivedAt: null },
           select: { id: true },
         })
-      : await tx.companyMember.upsert({
+      : null;
+    const terms = { roleId: invite.roleId, departmentId: department?.id ?? null, jobTitle: invite.jobTitle };
+
+    const existing = invite.companyMemberId
+      ? await tx.companyMember.findFirst({
+          where: { id: invite.companyMemberId, companyId: invite.companyId },
+          select: { id: true, userId: true, status: true },
+        })
+      : await tx.companyMember.findUnique({
           where: { companyId_userId: { companyId: invite.companyId, userId: user.id } },
-          update: { status: "ACTIVE", joinedAt: new Date(), deactivatedAt: null },
-          create: {
-            companyId: invite.companyId,
-            userId: user.id,
-            roleId: invite.roleId,
-            departmentId: invite.departmentId,
-            jobTitle: invite.jobTitle,
-            status: "ACTIVE",
-            joinedAt: new Date(),
-          },
-          select: { id: true },
+          select: { id: true, userId: true, status: true },
         });
+
+    let membership: { id: string };
+    if (existing) {
+      /*
+       * Acceptance activates an invitation, and nothing else. A membership that
+       * was deactivated or suspended after the link was sent stays that way —
+       * the link is not a way round the decision (PRD #47 §58). The status is
+       * part of the update's own condition, so a deactivation committing at the
+       * same moment cannot be overwritten either.
+       */
+      const activated =
+        existing.userId === user.id
+          ? await tx.companyMember.updateMany({
+              where: { id: existing.id, status: "INVITED" },
+              data: { ...terms, status: "ACTIVE", joinedAt: new Date(), deactivatedAt: null },
+            })
+          : { count: 0 };
+      if (activated.count === 0) {
+        throw new AccessError("NOT_FOUND", "This invitation is invalid or has expired.");
+      }
+      membership = { id: existing.id };
+    } else {
+      membership = await tx.companyMember.create({
+        data: {
+          companyId: invite.companyId,
+          userId: user.id,
+          ...terms,
+          status: "ACTIVE",
+          joinedAt: new Date(),
+        },
+        select: { id: true },
+      });
+    }
 
     // Consuming the token is what makes the link single-use (PRD #14 §239).
     const consumed = await tx.companyInvite.updateMany({

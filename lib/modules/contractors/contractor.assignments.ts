@@ -13,7 +13,7 @@ import type { Option } from "@/lib/modules/engineering/engineering.types";
 import { RFI_OPEN_STATUSES } from "@/lib/modules/engineering/engineering.types";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { assertLinkableContract, linkableContractOptions, visibleContracts } from "./contractor.commercial";
-import { ACTIVITY_ENTITY, contractorDirectoryWhere, contractorProjectDoor, MODULE, RECORD, readableAssignmentWhere, readableComplianceWhere, readableWorkPackageWhere } from "./contractor.permissions";
+import { ACTIVITY_ENTITY, contractorDirectoryWhere, contractorProjectDoor, contractorsOpen, MODULE, RECORD, readableAssignmentWhere, readableComplianceWhere, readableWorkPackageWhere } from "./contractor.permissions";
 import type { CreateAssignmentInput, UpdateAssignmentInput } from "./contractor.schema";
 import { findReadableContractor } from "./contractor.service";
 import { COMPLIANCE_ALERT_STATUSES, INACTIVE_CONTRACTOR_STATUSES, OPEN_WORK_PACKAGE_STATUSES, type AssignmentDTO, type AssignmentStatus } from "./contractor.types";
@@ -52,6 +52,13 @@ type AssignmentRow = Prisma.ProjectContractorAssignmentGetPayload<{ select: type
 
 const SUBMITTAL_OPEN = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "REVISION_REQUIRED"] as const;
 
+/**
+ * The people who work for a contractor are shown only to readers holding
+ * `contractor_contact.view` (PRD #46 §20, §179, PRD #47 §62) — managing an
+ * assignment does not include reading the contractor's address book.
+ */
+const contactsVisible = (context: UserContext) => contractorsOpen(context, "contractor_contact.view");
+
 async function toDTOs(context: UserContext, rows: AssignmentRow[]): Promise<AssignmentDTO[]> {
   if (!rows.length) return [];
   const pairs = rows.map((row) => ({ projectId: row.projectId, contractorId: row.contractorId }));
@@ -68,6 +75,7 @@ async function toDTOs(context: UserContext, rows: AssignmentRow[]): Promise<Assi
   const [packageCounts, rfiCounts, submittalCounts] = [count(packages), count(rfis), count(submittals)];
   const complianceCounts = new Map(compliance.map((row) => [row.contractorId, row._count._all]));
   const canManage = contractorProjectDoor(context, "project_contractor.manage") !== null;
+  const contacts = contactsVisible(context);
   return rows.map((row) => ({
     id: row.id,
     project: { id: row.project.id, label: row.project.name, href: `/projects/${row.project.id}/contractors`, code: row.project.code, archived: projectArchived(row.project) },
@@ -76,7 +84,7 @@ async function toDTOs(context: UserContext, rows: AssignmentRow[]): Promise<Assi
     scopeSummary: row.scopeSummary,
     contract: row.contractId ? (contracts.get(row.contractId) ?? null) : null,
     internalManager: personOf(names, row.internalManagerMemberId),
-    primaryContact: row.primaryContact,
+    primaryContact: contacts ? row.primaryContact : null,
     startDate: dateOf(row.startDate),
     endDate: dateOf(row.endDate),
     terminatedAt: row.terminatedAt?.toISOString() ?? null,
@@ -131,6 +139,7 @@ export async function createAssignment(context: UserContext, projectId: string, 
   const contractor = await prisma.contractorProfile.findFirst({ where: { AND: [contractorDirectoryWhere(context), { id: input.contractorId }] }, select: { id: true, legalName: true, status: true } });
   if (!contractor) throw fail("CONTRACTOR_NOT_FOUND", "That contractor could not be found.", "VALIDATION_ERROR", { field: "contractorId" });
   if (INACTIVE_CONTRACTOR_STATUSES.includes(contractor.status)) throw fail("CONTRACTOR_INACTIVE", "That contractor is not available for new projects.", "VALIDATION_ERROR", { field: "contractorId" });
+  if (input.primaryContractorContactId && !contactsVisible(context)) throw fail("ASSIGNMENT_CONTACT_INVALID", "You cannot choose the contractor's contact.", "VALIDATION_ERROR", { field: "primaryContractorContactId" }, "SCOPE_DENIED");
   await Promise.all([
     assertLinkableContract(context, input.contractId, project.id),
     assertResponsible(context.companyId, project.id, input.internalManagerMemberId, "project_contractor.view", "internalManagerMemberId"),
@@ -181,6 +190,8 @@ export async function createAssignment(context: UserContext, projectId: string, 
 
 export async function updateAssignment(context: UserContext, id: string, input: UpdateAssignmentInput): Promise<{ id: string; version: number }> {
   const row = await findManageableAssignment(context, id);
+  // A manager who cannot see contacts was never shown this one, so their edit keeps it as it is.
+  if (!contactsVisible(context)) input = { ...input, primaryContractorContactId: row.primaryContractorContactId };
   await Promise.all([
     assertLinkableContract(context, input.contractId, row.projectId, row.contractId),
     input.internalManagerMemberId !== row.internalManagerMemberId ? assertResponsible(context.companyId, row.projectId, input.internalManagerMemberId, "project_contractor.view", "internalManagerMemberId") : undefined,
@@ -258,8 +269,9 @@ export async function assignmentOptions(context: UserContext, projectId: string)
     linkableContractOptions(context, project.id),
   ]);
   const taken = new Set(assigned.map((row) => row.contractorId));
+  const contacts = contactsVisible(context);
   return {
-    contractors: contractors.map((row) => ({ id: row.id, label: row.legalName, status: row.status, assigned: taken.has(row.id), contacts: row.contacts.map((contact) => ({ id: contact.id, label: contact.roleTitle ? `${contact.name} · ${contact.roleTitle}` : contact.name })) })),
+    contractors: contractors.map((row) => ({ id: row.id, label: row.legalName, status: row.status, assigned: taken.has(row.id), contacts: contacts ? row.contacts.map((contact) => ({ id: contact.id, label: contact.roleTitle ? `${contact.name} · ${contact.roleTitle}` : contact.name })) : [] })),
     members,
     contracts,
   };

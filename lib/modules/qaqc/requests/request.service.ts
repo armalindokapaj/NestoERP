@@ -147,6 +147,7 @@ export async function listRequests(context: UserContext, query: RequestListQuery
   ]);
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.requestedByMemberId, row.assignedInspectorMemberId]),
   );
 
@@ -171,8 +172,8 @@ export async function getRequest(
   );
 
   const [members, createdBy, inspections] = await Promise.all([
-    loadMembers([row.requestedByMemberId, row.assignedInspectorMemberId]),
-    loadMemberRef(row.createdByMemberId),
+    loadMembers(context.companyId, [row.requestedByMemberId, row.assignedInspectorMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     listInspectionsForRequest(context, requestId),
   ]);
 

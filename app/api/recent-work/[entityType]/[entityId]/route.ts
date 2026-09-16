@@ -9,7 +9,6 @@ export async function DELETE(_request: Request, { params }: Params) {
   const raw = await params;
   return withContext(async (context) => {
     const ref = entityRefSchema.parse(raw);
-    await removeRecentItem(context, ref.entityType, ref.entityId);
-    return apiOk({ data: { removed: true } });
+    return apiOk({ data: { removed: await removeRecentItem(context, ref.entityType, ref.entityId) } });
   });
 }

@@ -1,5 +1,6 @@
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { toCsv as toSharedCsv } from "@/lib/utils/csv";
 import * as attendance from "./attendance/attendance.service";
 import * as employees from "./employees/employee.service";
 import {
@@ -118,8 +119,11 @@ export async function exportHr(
  * A name with a comma in it, or a note with a line break, is ordinary data —
  * and a spreadsheet that splits one row into two is a worse answer than a file
  * with more quotation marks in it than strictly necessary.
+ *
+ * The shared writer also keeps a cell that begins like a formula as text, so
+ * a value typed as `=HYPERLINK(…)` cannot run in the reader's spreadsheet
+ * (PRD #47 §69).
  */
 function toCsv(headers: string[], rows: string[][]): string {
-  const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
-  return [headers, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+  return toSharedCsv(headers, rows, { quoteAll: true, lineBreak: "\r\n" });
 }

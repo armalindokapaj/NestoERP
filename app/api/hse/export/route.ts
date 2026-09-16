@@ -1,7 +1,7 @@
 import { withContext } from "@/lib/api/respond";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { exportHse, type HseExportKind } from "@/lib/modules/hse/hse.export";
+import { exportHse, type HseExportKind, type HseExportQueries } from "@/lib/modules/hse/hse.export";
 import {
   actionListSchema,
   hazardListSchema,
@@ -58,51 +58,76 @@ export async function GET(request: Request) {
       projectId: params.get("projectId") ?? undefined,
     };
 
-    const { filename, csv } = await exportHse(context, kind, {
-      inspections: inspectionListSchema.parse({
-        ...shared,
-        status: list(params, "status"),
-        result: list(params, "result"),
-        inspectionType: list(params, "inspectionType"),
-        assignedInspectorMemberId: params.get("assignedInspectorMemberId") ?? undefined,
-      }),
-      hazards: hazardListSchema.parse({
-        ...shared,
-        status: list(params, "status"),
-        riskLevel: list(params, "riskLevel"),
-        hazardCategory: list(params, "hazardCategory"),
-        assignedToMemberId: params.get("assignedToMemberId") ?? undefined,
-      }),
-      incidents: incidentListSchema.parse({
-        ...shared,
-        status: list(params, "status"),
-        incidentType: list(params, "incidentType"),
-        severity: list(params, "severity"),
-      }),
-      riskAssessments: riskAssessmentListSchema.parse({
-        ...shared,
-        status: list(params, "status"),
-      }),
-      actions: actionListSchema.parse({
-        ...shared,
-        status: list(params, "status"),
-        actionType: list(params, "actionType"),
-        priority: list(params, "priority"),
-        assignedToMemberId: params.get("assignedToMemberId") ?? undefined,
-      }),
-      toolbox: toolboxListSchema.parse({ ...shared, status: list(params, "status") }),
-      permits: permitListSchema.parse({
-        ...shared,
-        status: list(params, "status"),
-        permitType: list(params, "permitType"),
-      }),
-      environment: observationListSchema.parse({
-        ...shared,
-        status: list(params, "status"),
-        category: list(params, "category"),
-        severity: list(params, "severity"),
-      }),
-    });
+    /*
+     * Only the requested kind's filters are parsed (PRD #47 §69). Each list has
+     * its own enums, and the export link carries whichever list it came from —
+     * parsing all eight schemas turned `?kind=incidents&severity=HIGH` into a
+     * 422 from the hazard schema.
+     */
+    const queries: Partial<HseExportQueries> = {};
+    switch (kind) {
+      case "inspections":
+        queries.inspections = inspectionListSchema.parse({
+          ...shared,
+          status: list(params, "status"),
+          result: list(params, "result"),
+          inspectionType: list(params, "inspectionType"),
+          assignedInspectorMemberId: params.get("assignedInspectorMemberId") ?? undefined,
+        });
+        break;
+      case "hazards":
+        queries.hazards = hazardListSchema.parse({
+          ...shared,
+          status: list(params, "status"),
+          riskLevel: list(params, "riskLevel"),
+          hazardCategory: list(params, "hazardCategory"),
+          assignedToMemberId: params.get("assignedToMemberId") ?? undefined,
+        });
+        break;
+      case "incidents":
+        queries.incidents = incidentListSchema.parse({
+          ...shared,
+          status: list(params, "status"),
+          incidentType: list(params, "incidentType"),
+          severity: list(params, "severity"),
+        });
+        break;
+      case "risk-assessments":
+        queries.riskAssessments = riskAssessmentListSchema.parse({
+          ...shared,
+          status: list(params, "status"),
+        });
+        break;
+      case "actions":
+        queries.actions = actionListSchema.parse({
+          ...shared,
+          status: list(params, "status"),
+          actionType: list(params, "actionType"),
+          priority: list(params, "priority"),
+          assignedToMemberId: params.get("assignedToMemberId") ?? undefined,
+        });
+        break;
+      case "toolbox-talks":
+        queries.toolbox = toolboxListSchema.parse({ ...shared, status: list(params, "status") });
+        break;
+      case "permits":
+        queries.permits = permitListSchema.parse({
+          ...shared,
+          status: list(params, "status"),
+          permitType: list(params, "permitType"),
+        });
+        break;
+      case "environment":
+        queries.environment = observationListSchema.parse({
+          ...shared,
+          status: list(params, "status"),
+          category: list(params, "category"),
+          severity: list(params, "severity"),
+        });
+        break;
+    }
+
+    const { filename, csv } = await exportHse(context, kind, queries);
 
     /*
      * Who took a copy of company data, and which one (PRD #28 §130). The row

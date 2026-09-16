@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { UserContext } from "@/lib/context/types";
+import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { canNavigate, isNavigableType, resolveNavigable, type NavigableEntityDTO } from "./navigable.registry";
@@ -63,8 +64,10 @@ export async function listRecentWork(context: UserContext, options: { limit?: nu
   return items.slice(0, options.limit ?? RECENT_CAP).map((item) => ({ ...item, lastAccessedAt: accessed.get(`${item.entityType}:${item.entityId}`)! }));
 }
 
-export async function removeRecentItem(context: UserContext, entityType: string, entityId: string): Promise<void> {
-  await prisma.recentItem.deleteMany({ where: { companyId: context.companyId, memberId: context.membershipId, entityType, entityId } });
+/** Forgets one recent record of this member's, and says whether there was one (PRD #47 §76). */
+export async function removeRecentItem(context: UserContext, entityType: string, entityId: string): Promise<boolean> {
+  const { count } = await prisma.recentItem.deleteMany({ where: { companyId: context.companyId, memberId: context.membershipId, entityType, entityId } });
+  return count > 0;
 }
 
 export async function clearRecentWork(context: UserContext): Promise<number> {
@@ -75,8 +78,8 @@ export async function clearRecentWork(context: UserContext): Promise<number> {
 /** Job `recentwork.prune` (§104, §105): older than the company's retention, and past the hundred newest per member. */
 export async function pruneRecentWork(now = new Date()): Promise<{ pruned: number }> {
   let pruned = 0;
-  const companies = await prisma.company.findMany({ select: { id: true } });
-  for (const company of companies) {
+  const companyRun = await forEachCompany("recentwork.prune", async (system) => {
+    const company = { id: system.companyId };
     const settings = await resolveProductivitySettings(company.id);
     const cutoff = new Date(now.getTime() - settings.recentWorkRetentionDays * 86_400_000);
     pruned += (await prisma.recentItem.deleteMany({ where: { companyId: company.id, lastAccessedAt: { lt: cutoff } } })).count;
@@ -85,7 +88,8 @@ export async function pruneRecentWork(now = new Date()): Promise<{ pruned: numbe
       const keep = await prisma.recentItem.findMany({ where: { companyId: company.id, memberId: member.memberId }, orderBy: { lastAccessedAt: "desc" }, take: RECENT_CAP, select: { id: true } });
       pruned += (await prisma.recentItem.deleteMany({ where: { companyId: company.id, memberId: member.memberId, id: { notIn: keep.map((row) => row.id) } } })).count;
     }
-  }
+  }, { includeInactive: true });
   if (pruned) incrementCounter(Metric.RECENT_WORK_PRUNED, {}, pruned);
+  assertEveryCompanySucceeded("recentwork.prune", companyRun);
   return { pruned };
 }

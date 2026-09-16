@@ -131,6 +131,7 @@ export async function listObservations(context: UserContext, query: ObservationL
   ]);
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.reportedByMemberId, row.assignedToMemberId]),
   );
 
@@ -155,8 +156,8 @@ export async function getObservation(
   );
 
   const [members, createdBy, actions] = await Promise.all([
-    loadMembers([row.reportedByMemberId, row.assignedToMemberId, row.closedByMemberId]),
-    loadMemberRef(row.createdByMemberId),
+    loadMembers(context.companyId, [row.reportedByMemberId, row.assignedToMemberId, row.closedByMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     can(context, "hse.action.view")
       ? import("../actions/action.service").then((m) =>
           m.listForParent(context, { environmentalObservationId: observationId }),
@@ -203,6 +204,7 @@ export async function listForProject(
   });
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.reportedByMemberId, row.assignedToMemberId]),
   );
   return rows.map((row) => toSummaryDTO(row, members));
@@ -370,7 +372,8 @@ export async function closeObservation(
         id: true,
         observationNumber: true,
         status: true,
-        actions: { select: { status: true } },
+        // Only this company's actions count towards closing (PRD #47 §20).
+        actions: { where: { companyId: context.companyId }, select: { status: true } },
       },
     }),
   );

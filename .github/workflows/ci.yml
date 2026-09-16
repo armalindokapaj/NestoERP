@@ -84,6 +84,22 @@ jobs:
       - name: API authorisation tests
         run: pnpm test:api
 
+      - name: Authorisation static gates
+        # Every route classified and wrapped, every server action resolving a
+        # context, no role-name authorisation, no server-owned field accepted
+        # from a request body (PRD #47 §107, §158, §162-§166).
+        run: pnpm verify:authorization
+
+      - name: API security matrix
+        # Fails when the matrix is stale, or when a company-scoped endpoint
+        # reaches no permission, module or record check at all (PRD #47 §105-§107, §157).
+        run: pnpm security:matrix --check
+
+      - name: Security isolation tests
+        # Company A/B, project A/B, disabled modules, session and membership
+        # state, against every route and server action (PRD #47 §131-§139, §158, §258).
+        run: pnpm test:security
+
       - name: Build
         run: pnpm build
 
@@ -105,6 +121,17 @@ jobs:
 
       - name: End-to-end tests
         run: pnpm test:e2e
+
+      - name: Cross-company link tests
+        # Destructive: it writes through every write endpoint it can, so it runs
+        # last, on the disposable CI database only — the suite itself refuses to
+        # start against a development database (PRD #47 §21, §132).
+        run: pnpm test:security:links
+
+      - name: Company integrity
+        # After every suite has written what it writes: no row anywhere may
+        # reference another company's record (PRD #47 §187-§189, §265).
+        run: pnpm verify:company-integrity
 
       - name: Upload failure artefacts
         if: failure()

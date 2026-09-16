@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
+import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import type { ClientListQuery, ClientSortKey } from "./client.schema";
 
@@ -217,14 +218,21 @@ export async function clientInScopeExists(
   return Boolean(found);
 }
 
-/** Counts shown on the client detail page, all narrowed to this viewer. */
+/**
+ * Counts shown on the client detail page, all narrowed to this viewer.
+ *
+ * Documents are counted through document access (PRD #47 §63): a client's
+ * files include ones filed under modules and records the reader cannot open,
+ * and a count is a disclosure too.
+ */
 export async function clientCounts(context: UserContext, clientId: string) {
+  const documentAccess = await buildDocumentAccessWhere(context);
   const [visibleProjects, visibleDocuments, activeContacts] = await Promise.all([
     prisma.project.count({
       where: { AND: [buildProjectScopeWhere(context), { clientId }] },
     }),
     prisma.document.count({
-      where: { companyId: context.companyId, clientId, status: "ACTIVE" },
+      where: { AND: [documentAccess, { companyId: context.companyId, clientId, status: "ACTIVE" }] },
     }),
     prisma.contact.count({
       where: { companyId: context.companyId, clientId, status: "ACTIVE", archivedAt: null },

@@ -12,7 +12,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { notifyInvited, notifyResponse } from "./meeting.notifications";
 import { canManageParticipants, canRecordAttendance, canRespond } from "./meeting.permissions";
-import { ENTITY, getMeeting, MODULE, RECORD, requireReadableMeeting, type MeetingDetailRow } from "./meeting.repository";
+import { ENTITY, getMeeting, laterOccurrencesInReach, MODULE, RECORD, requireReadableMeeting, type MeetingDetailRow } from "./meeting.repository";
 import { PARTICIPANTS_MAX } from "./meeting.schema";
 import { requireMembers, type ParticipantInput } from "./meeting.service";
 import type { MeetingDetailDTO } from "./meeting.types";
@@ -35,14 +35,15 @@ async function reminderOffsets(meeting: Pick<MeetingDetailRow, "id" | "organizer
   return [...new Set(rows.map((row) => row.minutesBefore))];
 }
 
-/** The later, still-to-happen meetings of the same series, for a "this and later" change. */
-async function laterOccurrences(meeting: MeetingDetailRow): Promise<string[]> {
-  if (!meeting.seriesId) return [];
-  const rows = await prisma.meeting.findMany({
-    where: { seriesId: meeting.seriesId, occurrenceIndex: { gt: meeting.occurrenceIndex ?? 0 }, status: { in: ["DRAFT", "SCHEDULED"] }, archivedAt: null },
-    select: { id: true },
-  });
-  return rows.map((row) => row.id);
+/**
+ * The later, still-to-happen meetings of the same series, for a "this and
+ * later" change — only those whose people this caller could change one by one
+ * (PRD #47 §20, §62). New occurrences copy the latest meeting's people, so a
+ * later meeting out of reach keeps its own list.
+ */
+async function laterOccurrences(context: UserContext, meeting: MeetingDetailRow): Promise<string[]> {
+  const later = await laterOccurrencesInReach(context, meeting, canManageParticipants);
+  return later.meetings.map((row) => row.id);
 }
 
 export async function addParticipants(
@@ -62,7 +63,7 @@ export async function addParticipants(
   }
   if (added.length === 0) return getMeeting(context, meetingId);
 
-  const meetingIds = [meetingId, ...(input.scope === "FUTURE" ? await laterOccurrences(meeting) : [])];
+  const meetingIds = [meetingId, ...(input.scope === "FUTURE" ? await laterOccurrences(context, meeting) : [])];
   const offsets = await reminderOffsets(meeting);
   const invitedAt = meeting.status === "DRAFT" ? null : new Date();
 
@@ -155,7 +156,7 @@ export async function removeParticipant(context: UserContext, meetingId: string,
     throw new AccessError("CONFLICT", "The organizer cannot be removed. Transfer the organizer role first.", { code: "ORGANIZER_NOT_REMOVABLE" });
   }
 
-  const meetingIds = [meetingId, ...(scope === "FUTURE" ? await laterOccurrences(meeting) : [])];
+  const meetingIds = [meetingId, ...(scope === "FUTURE" ? await laterOccurrences(context, meeting) : [])];
   await prisma.$transaction(async (tx) => {
     await tx.meetingParticipant.deleteMany({ where: { meetingId: { in: meetingIds }, memberId, role: { not: "ORGANIZER" } } });
     await tx.calendarReminder.deleteMany({ where: { meetingId: { in: meetingIds }, memberId } });

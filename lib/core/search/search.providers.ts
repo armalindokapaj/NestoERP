@@ -9,6 +9,7 @@ import {
   buildRequestScopeWhere,
   buildSupplierWhere,
 } from "@/lib/modules/procurement/procurement.scope";
+import { buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
 import { buildItemScopeWhere } from "@/lib/modules/inventory/inventory.scope";
 import {
   buildInspectionScopeWhere as buildQaqcInspectionScopeWhere,
@@ -18,6 +19,8 @@ import {
   buildIncidentScopeWhere,
   buildPermitScopeWhere,
 } from "@/lib/modules/hse/hse.scope";
+import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
+import { buildTeamScopeWhere } from "@/lib/modules/team/team.scope";
 import { SCORE, scoreMatch, type GlobalSearchProvider, type GlobalSearchQuery, type GlobalSearchResultDTO } from "./search.types";
 
 /**
@@ -201,15 +204,21 @@ const teamProvider: GlobalSearchProvider = {
     if (!available(context, "team", "team.view")) return [];
 
     // Safe directory fields only — never pay, leave reasons or HR files
-    // (PRD #26 §74, §75).
+    // (PRD #26 §74, §75). And only the people the Team directory itself would
+    // list for this reader: a project-scoped member searching a name must not
+    // find colleagues their directory hides (PRD #14 §145, PRD #47 §175).
     const rows = await prisma.companyMember.findMany({
       where: {
-        companyId: context.companyId,
-        status: "ACTIVE",
-        OR: [
-          { user: { firstName: { contains: query.text, mode: "insensitive" } } },
-          { user: { lastName: { contains: query.text, mode: "insensitive" } } },
-          { jobTitle: { contains: query.text, mode: "insensitive" } },
+        AND: [
+          buildTeamScopeWhere(context),
+          {
+            status: "ACTIVE",
+            OR: [
+              { user: { firstName: { contains: query.text, mode: "insensitive" } } },
+              { user: { lastName: { contains: query.text, mode: "insensitive" } } },
+              { jobTitle: { contains: query.text, mode: "insensitive" } },
+            ],
+          },
         ],
       },
       select: {
@@ -242,12 +251,20 @@ const invoiceProvider: GlobalSearchProvider = {
   async search(context, query) {
     if (!available(context, "finance", "finance.invoice.view")) return [];
 
+    // Finance's own invoice scope: a project-scoped reader finds invoices on
+    // their projects only, and an archived invoice is out of the index like
+    // every other archived record (PRD #15 §210, PRD #47 §175).
     const rows = await prisma.invoice.findMany({
       where: {
-        companyId: context.companyId,
-        OR: [
-          { invoiceNumber: { contains: query.text, mode: "insensitive" } },
-          { client: { name: { contains: query.text, mode: "insensitive" } } },
+        AND: [
+          buildInvoiceScopeWhere(context),
+          {
+            archivedAt: null,
+            OR: [
+              { invoiceNumber: { contains: query.text, mode: "insensitive" } },
+              { client: { name: { contains: query.text, mode: "insensitive" } } },
+            ],
+          },
         ],
       },
       select: {
@@ -278,10 +295,14 @@ const opportunityProvider: GlobalSearchProvider = {
   async search(context, query) {
     if (!available(context, "sales", "sales.opportunity.view")) return [];
 
+    // The Sales pipeline's own scope: an owner-scoped seller does not find a
+    // colleague's deal by typing its name (PRD #17 §412, PRD #47 §175).
     const rows = await prisma.opportunity.findMany({
       where: {
-        companyId: context.companyId,
-        name: { contains: query.text, mode: "insensitive" },
+        AND: [
+          buildOpportunityScopeWhere(context),
+          { archivedAt: null, name: { contains: query.text, mode: "insensitive" } },
+        ],
       },
       select: { id: true, name: true, stage: true, client: { select: { name: true } } },
       take: query.limitPerProvider,

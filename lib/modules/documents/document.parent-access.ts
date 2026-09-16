@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { AccessError } from "@/lib/access/guards";
 import { can, getModuleScope } from "@/lib/access/can";
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
+import type { Permission } from "@/config/permissions";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
@@ -98,19 +99,74 @@ function reachableModules(context: UserContext): ModuleKey[] {
  * A company-level document has no project or client to narrow it, so it needs
  * company-level access to the module it was filed under. That is what keeps
  * "Company Financial Summary.pdf" away from an Architect whose Finance access
- * is scoped to their own projects (PRD #13 §39, §46, §202, §283).
+ * is scoped to their own projects (PRD #13 §39, §46, §202, §283) — and, being
+ * built from `documentModules`, it carries the module's document grant too, so
+ * "Employee HR Record.pdf" stays away from an Administrator who reaches HR at
+ * company level without `hr.document.view` (PRD #47 §98).
  */
 function companyLevelModules(context: UserContext): ModuleKey[] {
-  return reachableModules(context).filter((key) => {
+  return documentModules(context).filter((key) => {
     const scope = getModuleScope(context, key);
     return scope === "COMPANY" || scope === "SYSTEM";
   });
 }
 
-function moduleAllowed(context: UserContext, moduleName: string | null): boolean {
-  if (moduleName === null) return true;
-  if (!isModuleKey(moduleName)) return false; // fail closed on an unknown module
-  return reachableModules(context).includes(moduleName);
+/**
+ * The document-read grant each filing module adds on top of reaching the
+ * module (PRD #13 §46, PRD #47 §81, §98, §99).
+ *
+ * Reaching a module is not reading its files. An Administrator who opens HR to
+ * look after its settings has not been handed the employee file drawer, and a
+ * Project Manager whose Sales access is project-scoped has not been handed the
+ * proposals filed against a client. A document filed under a module — hanging
+ * off a project, a client, or nothing at all — needs that module's own
+ * document grant as well.
+ *
+ * A module with no entry takes no such documents: anything filed under it
+ * fails closed. Record documents are the exception only in where the grant is
+ * written down — their registry definition names it (`documents.view`).
+ */
+const MODULE_DOCUMENT_VIEW: Partial<Record<ModuleKey, Permission>> = {
+  projects: "project.document.view",
+  clients: "client.document.view",
+  finance: "finance.document.view",
+  hr: "hr.document.view",
+  sales: "sales.document.view",
+  contracts: "legal.document.view",
+  procurement: "procurement.document.view",
+  inventory: "inventory.document.view",
+  qaqc: "qaqc.document.view",
+  hse: "hse.document.view",
+  meetings: "meeting.document.view",
+  // Site evidence is read with the log itself; the module has no separate file grant (PRD #43 §74).
+  dailyLogs: "daily_log.view",
+  // Company-wide files are what the company-document grant exists for (PRD #13 §39, §47).
+  company: "document.company.view",
+};
+
+/** Modules whose filed documents the caller may read: reachable, and the module's document grant held. */
+function documentModules(context: UserContext): ModuleKey[] {
+  return reachableModules(context).filter((key) => {
+    const permission = MODULE_DOCUMENT_VIEW[key];
+    return permission !== undefined && can(context, permission);
+  });
+}
+
+/**
+ * The filing-module half of the formula for one document.
+ *
+ * A record document labelled with its own record's module is governed by that
+ * record's definition, which already requires its document grant; anything else
+ * — a project, client or company document, or a record document filed under a
+ * different module — needs the filing module's document grant.
+ */
+function filingModuleAllowed(context: UserContext, ref: DocumentParentRef, parent: DocumentParentKind): boolean {
+  if (ref.module === null) return true;
+  if (!isModuleKey(ref.module)) return false; // fail closed on an unknown module
+  if (parent.kind === "record" && parent.definition.moduleKey === ref.module) {
+    return reachableModules(context).includes(ref.module);
+  }
+  return documentModules(context).includes(ref.module);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -141,6 +197,20 @@ async function selfDoorOpen(context: UserContext, definition: RecordDefinition, 
 }
 
 /**
+ * A project or client parent as this caller may read its files: the record's
+ * own view permission, its document grant, and the record inside the reader's
+ * scope — the same gate its documents tab applies (PRD #47 §81).
+ */
+async function readableContainer(
+  context: UserContext,
+  parent: Extract<DocumentParentKind, { kind: "project" | "client" }>,
+): Promise<RecordSummary | null> {
+  const definition = recordDefinition(parent.kind);
+  if (!definition || !recordDocumentReadHeld(context, definition)) return null;
+  return definition.find(context, parent.kind === "project" ? parent.projectId : parent.clientId);
+}
+
+/**
  * Can this caller reach the record a document hangs off?
  *
  * Company isolation is applied by the caller (every document query carries the
@@ -150,14 +220,13 @@ export async function canReachDocumentParent(
   context: UserContext,
   ref: DocumentParentRef,
 ): Promise<boolean> {
-  if (!moduleAllowed(context, ref.module)) return false;
-
   const parent = classifyDocumentParent(ref);
+  if (!filingModuleAllowed(context, ref, parent)) return false;
+
   switch (parent.kind) {
     case "project":
-      return (await loadRecord(context, "project", parent.projectId)) !== null;
     case "client":
-      return (await loadRecord(context, "client", parent.clientId)) !== null;
+      return (await readableContainer(context, parent)) !== null;
     case "record": {
       if (await selfDoorOpen(context, parent.definition, parent.id)) return true;
       if (!recordDocumentReadHeld(context, parent.definition)) return false;
@@ -165,6 +234,7 @@ export async function canReachDocumentParent(
     }
     case "company":
       if (parent.module === null) return can(context, "document.company.view");
+      // Company-level reach of the filing module, and its document grant.
       return isModuleKey(parent.module) && companyLevelModules(context).includes(parent.module);
     case "unregistered":
       return false;
@@ -177,8 +247,9 @@ export async function loadDocumentParentRecord(
   ref: DocumentParentRef,
 ): Promise<RecordSummary | null> {
   const parent = classifyDocumentParent(ref);
-  if (parent.kind === "project") return loadRecord(context, "project", parent.projectId);
-  if (parent.kind === "client") return loadRecord(context, "client", parent.clientId);
+  if (parent.kind === "project" || parent.kind === "client") {
+    return filingModuleAllowed(context, ref, parent) ? readableContainer(context, parent) : null;
+  }
   if (parent.kind === "record") {
     if (!(await canReachDocumentParent(context, ref))) return null;
     // The self door reads the record without the reader's HR grant, so the
@@ -230,8 +301,13 @@ export async function canAttachToDocumentParent(
       return record !== null && !record.archived && !record.filesClosed;
     }
     case "project":
-    case "client":
-      return canReachDocumentParent(context, ref);
+    case "client": {
+      // An archived project or client keeps its files readable but takes no
+      // new ones, the same rule a record parent follows (PRD #47 §85).
+      if (!filingModuleAllowed(context, ref, parent)) return false;
+      const record = await readableContainer(context, parent);
+      return record !== null && !record.archived;
+    }
   }
 }
 
@@ -285,10 +361,18 @@ export async function findReadableDocument(context: UserContext, documentId: str
  */
 export async function buildDocumentAccessWhere(context: UserContext): Promise<Prisma.DocumentWhereInput> {
   const reachable = reachableModules(context);
+  const readableModules = documentModules(context);
   const companyLevel = companyLevelModules(context);
 
-  const moduleGate = (allowed: ModuleKey[]): Prisma.DocumentWhereInput => ({
-    OR: [{ module: null }, { module: { in: allowed } }],
+  // The list-clause form of `filingModuleAllowed`: a module label needs that
+  // module's document grant, unless it is the record's own module, which the
+  // record's definition already governed when it let the type in.
+  const moduleGate = (ownModule?: ModuleKey): Prisma.DocumentWhereInput => ({
+    OR: [
+      { module: null },
+      { module: { in: readableModules } },
+      ...(ownModule && reachable.includes(ownModule) ? [{ module: ownModule }] : []),
+    ],
   });
 
   const notARecord: Prisma.DocumentWhereInput = {
@@ -297,15 +381,17 @@ export async function buildDocumentAccessWhere(context: UserContext): Promise<Pr
 
   const branches: Prisma.DocumentWhereInput[] = [];
 
-  if (moduleAndPermissions(context, "projects", ["project.view"])) {
+  const projectDefinition = recordDefinition("project");
+  if (projectDefinition && recordDocumentReadHeld(context, projectDefinition)) {
     branches.push({
-      AND: [notARecord, { projectId: { not: null } }, { project: buildProjectScopeWhere(context) }, moduleGate(reachable)],
+      AND: [notARecord, { projectId: { not: null } }, { project: buildProjectScopeWhere(context) }, moduleGate()],
     });
   }
 
-  if (moduleAndPermissions(context, "clients", ["client.view"])) {
+  const clientDefinition = recordDefinition("client");
+  if (clientDefinition && recordDocumentReadHeld(context, clientDefinition)) {
     branches.push({
-      AND: [notARecord, { projectId: null, clientId: { not: null } }, { client: buildClientScopeWhere(context) }, moduleGate(reachable)],
+      AND: [notARecord, { projectId: null, clientId: { not: null } }, { client: buildClientScopeWhere(context) }, moduleGate()],
     });
   }
 
@@ -332,14 +418,14 @@ export async function buildDocumentAccessWhere(context: UserContext): Promise<Pr
 
     const reachableByType = await Promise.all(
       readableTypes.map(async (definition) => ({
-        type: definition.type,
+        definition,
         ids: await definition.reachable(context, idsByType.get(definition.type) ?? []),
       })),
     );
 
-    for (const { type, ids } of reachableByType) {
+    for (const { definition, ids } of reachableByType) {
       if (ids.length === 0) continue;
-      branches.push({ AND: [{ entityType: type, entityId: { in: ids } }, moduleGate(reachable)] });
+      branches.push({ AND: [{ entityType: definition.type, entityId: { in: ids } }, moduleGate(definition.moduleKey)] });
     }
   }
 
@@ -349,11 +435,12 @@ export async function buildDocumentAccessWhere(context: UserContext): Promise<Pr
     const self = definition.documents?.self;
     if (!self || !can(context, self.permission) || !self.isSelf(context, context.membershipId)) continue;
     if (!context.moduleAccess[definition.moduleKey]?.enabled) continue;
-    branches.push({ AND: [{ entityType: definition.type, entityId: context.membershipId }, moduleGate(reachable)] });
+    branches.push({ AND: [{ entityType: definition.type, entityId: context.membershipId }, moduleGate(definition.moduleKey)] });
   }
 
-  // A company document needs company-level access to its filing module, or the
-  // dedicated company-document grant when it has no module at all.
+  // A company document needs company-level access to its filing module and
+  // that module's document grant, or the dedicated company-document grant when
+  // it has no module at all.
   if (can(context, "document.company.view")) {
     branches.push({ projectId: null, clientId: null, entityType: null, module: null });
   }

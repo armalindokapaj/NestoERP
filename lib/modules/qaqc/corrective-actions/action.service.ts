@@ -160,7 +160,7 @@ export async function listActions(
     prisma.correctiveAction.count({ where }),
   ]);
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members)),
@@ -183,8 +183,8 @@ export async function getAction(
   );
 
   const [members, createdBy] = await Promise.all([
-    loadMembers([row.assignedToMemberId, row.completedByMemberId, row.verifiedByMemberId]),
-    loadMemberRef(row.createdByMemberId),
+    loadMembers(context.companyId, [row.assignedToMemberId, row.completedByMemberId, row.verifiedByMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
   ]);
 
   return {
@@ -225,7 +225,7 @@ export async function listForParent(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
@@ -243,7 +243,7 @@ export async function listForProject(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 

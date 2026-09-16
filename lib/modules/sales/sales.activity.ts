@@ -5,6 +5,7 @@ import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { boundedLimit, boundedPage } from "./sales.query";
 import type { SalesActivityDTO } from "./sales.types";
 
 /**
@@ -24,8 +25,8 @@ export async function listRecordActivity(
   assertModule(context, "sales");
   assertPermission(context, "sales.activity.view");
 
-  const page = options.page ?? 1;
-  const limit = options.limit ?? 25;
+  const page = boundedPage(options.page);
+  const limit = boundedLimit(options.limit);
 
   const where: Prisma.ActivityWhereInput = {
     companyId: context.companyId,

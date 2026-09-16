@@ -64,11 +64,12 @@ export function documentReviewable(document: { projectId: string | null; clientI
   return parent.kind !== "unregistered";
 }
 
-async function memberNames(ids: string[]): Promise<Map<string, string>> {
+async function memberNames(companyId: string, ids: string[]): Promise<Map<string, string>> {
   const unique = [...new Set(ids.filter(Boolean))];
   if (unique.length === 0) return new Map();
   const rows = await prisma.companyMember.findMany({
-    where: { id: { in: unique } },
+    // Company first, like every other lookup: an id from elsewhere names nobody (PRD #47 §16, §17).
+    where: { id: { in: unique }, companyId },
     select: { id: true, user: { select: { firstName: true, lastName: true } } },
   });
   return new Map(rows.map((row) => [row.id, `${row.user.firstName} ${row.user.lastName}`]));
@@ -87,6 +88,7 @@ export async function listVersions(context: UserContext, documentId: string): Pr
   const current = await prisma.document.findUnique({ where: { id: document.id }, select: { currentVersionId: true } });
 
   const names = await memberNames(
+    context.companyId,
     versions.flatMap((version) => [
       version.uploadedByMemberId,
       ...version.reviews.flatMap((review) => [review.reviewerMemberId, review.requestedByMemberId]),
@@ -157,6 +159,11 @@ export async function createVersionDownloadGrant(
 ): Promise<DownloadGrant> {
   const document = await requireDocument(context, documentId);
   if (!can(context, "document.download")) throw new AccessError("FORBIDDEN");
+  // History is not a side door: an archived document's versions refuse a
+  // download exactly as its current file does (PRD #29 §136, PRD #47 §82).
+  if (document.status === "ARCHIVED" || document.archivedAt !== null || document.storageStatus === "ARCHIVED") {
+    throw new StorageError("DOCUMENT_ARCHIVED");
+  }
 
   const version = await prisma.documentVersion.findFirst({
     where: { id: versionId, documentId: document.id, companyId: context.companyId },

@@ -73,6 +73,15 @@ export async function addFavorite(context: UserContext, ref: EntityRef): Promise
   }
 }
 
-export async function removeFavorite(context: UserContext, ref: EntityRef): Promise<void> {
-  await prisma.userFavorite.deleteMany({ where: { companyId: context.companyId, memberId: context.membershipId, entityType: ref.entityType, entityId: ref.entityId } });
+/**
+ * Un-stars a record, and says whether anything was actually un-starred.
+ *
+ * Only this member's own favourites in their own company are ever touched, so
+ * a request naming somebody else's record removes nothing — and answers `false`
+ * rather than claiming a removal that never happened. Repeating the call is
+ * still safe and still 200: a second click is not an error (PRD #47 §75).
+ */
+export async function removeFavorite(context: UserContext, ref: EntityRef): Promise<boolean> {
+  const { count } = await prisma.userFavorite.deleteMany({ where: { companyId: context.companyId, memberId: context.membershipId, entityType: ref.entityType, entityId: ref.entityId } });
+  return count > 0;
 }

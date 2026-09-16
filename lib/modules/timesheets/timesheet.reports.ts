@@ -3,9 +3,9 @@ import type { z } from "zod";
 
 import { permissionsForRole } from "@/config/role-defaults";
 import { ROLE_KEYS } from "@/config/roles";
-import { can } from "@/lib/access/can";
+import { can, canAccessModule } from "@/lib/access/can";
 import { AccessError, assertModule } from "@/lib/access/guards";
-import { buildProjectScopeWhere } from "@/lib/access/scope";
+import { buildProjectScopeWhere, buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
@@ -27,6 +27,9 @@ import type { ProjectTimeSummaryDTO, TeamTimesheetListDTO, TeamTimesheetRowDTO, 
  * shows hours to anybody who may report on the project, and what people wrote
  * only to team readers. Nothing here scores anybody (§174).
  */
+
+/** What a task the reader cannot open is called: acknowledged, never described. */
+const NEUTRAL_TASK = "Task";
 
 const TEAM_LIMIT = 500;
 const ENTRY_LIMIT = 200;
@@ -213,7 +216,7 @@ export async function projectTimeSummary(context: UserContext, query: z.infer<ty
       select: {
         id: true, workDate: true, workType: true, minutes: true, description: true, billable: true, overtimeFlag: true, updatedAt: true,
         project: { select: { id: true, name: true, code: true } },
-        task: { select: { id: true, title: true } },
+        taskId: true,
         member: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
         timesheet: { select: { status: true } },
       },
@@ -223,10 +226,18 @@ export async function projectTimeSummary(context: UserContext, query: z.infer<ty
   ]);
 
   const nameIds = new Set<string>([...byMemberRaw.map((row) => row.memberId), ...memberOptions.map((row) => row.memberId)]);
-  const taskIds = new Set<string>([...byTaskRaw, ...taskOptions].map((row) => row.taskId).filter((id): id is string => Boolean(id)));
+  const taskIds = new Set<string>([...byTaskRaw, ...taskOptions, ...entryRows].map((row) => row.taskId).filter((id): id is string => Boolean(id)));
+  /*
+   * Hours are the project's to report; a task's title is the task's. Somebody
+   * reporting on a project — Finance, HR — may not be able to open every task
+   * the hours were logged against, so a task outside their task scope is
+   * counted under a neutral "Task" and never named (PRD #42 §126, PRD #47 §175).
+   * The totals do not change: only the label does.
+   */
+  const tasksOpen = canAccessModule(context, "tasks") && can(context, "task.view");
   const [people, tasks] = await Promise.all([
     nameIds.size ? prisma.companyMember.findMany({ where: { companyId: context.companyId, id: { in: [...nameIds] } }, select: { id: true, user: { select: { firstName: true, lastName: true } } } }) : [],
-    taskIds.size ? prisma.task.findMany({ where: { companyId: context.companyId, id: { in: [...taskIds] } }, select: { id: true, title: true } }) : [],
+    taskIds.size && tasksOpen ? prisma.task.findMany({ where: { AND: [buildTaskScopeWhere(context), { id: { in: [...taskIds] } }] }, select: { id: true, title: true } }) : [],
   ]);
   const personById = new Map(people.map((row) => [row.id, person(row)]));
   const taskById = new Map(tasks.map((row) => [row.id, row.title]));
@@ -276,7 +287,7 @@ export async function projectTimeSummary(context: UserContext, query: z.infer<ty
     billable: row.billable,
     overtimeFlag: row.overtimeFlag,
     project: row.project ? { id: row.project.id, name: row.project.name, code: row.project.code } : null,
-    task: row.task ? { id: row.task.id, title: row.task.title } : null,
+    task: row.taskId ? { id: row.taskId, title: taskById.get(row.taskId) ?? NEUTRAL_TASK } : null,
     updatedAt: row.updatedAt.toISOString(),
     member: person(row.member),
     status: row.timesheet.status,
@@ -293,7 +304,7 @@ export async function projectTimeSummary(context: UserContext, query: z.infer<ty
     byProject: [...byProject.values()].sort((a, b) => b.minutes - a.minutes),
     byMember: [...byMember.values()].sort((a, b) => b.minutes - a.minutes),
     byTask: byTaskRaw
-      .map((row) => ({ taskId: row.taskId, title: row.taskId ? (taskById.get(row.taskId) ?? "Task") : "No task", minutes: row._sum.minutes ?? 0 }))
+      .map((row) => ({ taskId: row.taskId, title: row.taskId ? (taskById.get(row.taskId) ?? NEUTRAL_TASK) : "No task", minutes: row._sum.minutes ?? 0 }))
       .sort((a, b) => b.minutes - a.minutes)
       .slice(0, 50),
     byWeek: [...byWeek.values()].sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
@@ -303,7 +314,7 @@ export async function projectTimeSummary(context: UserContext, query: z.infer<ty
     projects,
     members: memberOptions.map((row) => personById.get(row.memberId)).filter((row): row is TimesheetPerson => Boolean(row)).sort((a, b) => a.name.localeCompare(b.name)),
     tasks: taskOptions
-      .map((row) => (row.taskId ? { id: row.taskId, title: taskById.get(row.taskId) ?? "Task" } : null))
+      .map((row) => (row.taskId ? { id: row.taskId, title: taskById.get(row.taskId) ?? NEUTRAL_TASK } : null))
       .filter((row): row is { id: string; title: string } => Boolean(row))
       .sort((a, b) => a.title.localeCompare(b.title)),
   };

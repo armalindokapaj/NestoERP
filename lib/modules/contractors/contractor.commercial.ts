@@ -70,8 +70,9 @@ export async function contractorLegalSummary(context: UserContext, contractorId:
   const reachable = await definition.reachable(context, [...via.keys()]);
   if (!reachable.length) return { contracts: [], obligations: [], amendments: [] };
   const { buildAmendmentScopeWhere, buildObligationScopeWhere } = await import("@/lib/modules/contracts/contract.scope");
-  const { can } = await import("@/lib/access/can");
-  const commercial = can(context, "legal.commercial.view") || can(context, "finance.view");
+  // Legal's own curtain, and only Legal's: `finance.view` is not a licence to read contract values (PRD #18 §495, PRD #47 §62).
+  const { canSeeCommercial } = await import("@/lib/modules/contracts/contract.dto");
+  const commercial = canSeeCommercial(context);
   const [contracts, obligations, amendments] = await Promise.all([
     prisma.contract.findMany({ where: { companyId: context.companyId, id: { in: reachable } }, orderBy: { contractNumber: "asc" }, select: { id: true, contractNumber: true, title: true, contractType: true, status: true, effectiveDate: true, expiryDate: true, contractValue: true, currency: true, project: { select: { name: true } } } }),
     prisma.contractObligation.findMany({ where: { AND: [buildObligationScopeWhere(context), { contractId: { in: reachable }, status: "OPEN" }] }, orderBy: { dueDate: { sort: "asc", nulls: "last" } }, take: 50, select: { id: true, title: true, dueDate: true, status: true, contractId: true, contract: { select: { contractNumber: true } } } }),

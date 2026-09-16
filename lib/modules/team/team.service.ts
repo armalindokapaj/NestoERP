@@ -26,7 +26,8 @@ import type {
  * enforced here and nowhere else:
  *
  *   1. The company never loses its last active Owner (PRD #14 §93).
- *   2. Only an Owner may create another Owner (PRD #14 §95, §96).
+ *   2. Only an Owner may create another Owner — or demote, suspend, remove or
+ *      restore one (PRD #14 §95, §96, PRD #47 §57).
  *   3. Removing access takes effect at once, by revoking the sessions that
  *      carry it, not by waiting for them to expire (PRD #14 §242, §243).
  */
@@ -202,6 +203,15 @@ export async function updateMember(
   if (departmentChanged) assertPermission(context, "team.member.department.assign");
 
   await prisma.$transaction(async (tx) => {
+    if (roleChanged && nextRole.key !== "OWNER") {
+      await assertAnotherActiveOwner(
+        tx,
+        context.companyId,
+        memberId,
+        "Assign another active Owner before changing this member's role.",
+      );
+    }
+
     await tx.companyMember.update({
       where: { id: memberId },
       data: {
@@ -322,11 +332,19 @@ export async function suspendMember(context: UserContext, memberId: string): Pro
   });
 }
 
+/**
+ * `INACTIVE → ACTIVE`, and nothing else (PRD #14 §109, PRD #47 §58).
+ *
+ * A suspension is lifted by `unsuspendMember`, and a pending invitation is
+ * activated only by the invited person accepting it — never by an
+ * administrator pressing Reactivate on somebody who has not agreed to join.
+ */
 export async function reactivateMember(context: UserContext, memberId: string): Promise<void> {
   await changeMembershipStatus(context, memberId, "ACTIVE", {
     permission: "team.member.reactivate",
     action: "MEMBER_REACTIVATED",
     message: "restored their company access",
+    from: ["INACTIVE"],
   });
 }
 
@@ -365,6 +383,12 @@ async function changeMembershipStatus(
   assertPermission(context, options.permission);
 
   const existing = assertFound(await repository.findMemberInScope(context, memberId));
+
+  // An Owner's access is the Owner grant's to change, in either direction.
+  // The last-Owner rule alone is not enough: with two active Owners it never
+  // fires, and an Admin could otherwise suspend one Owner or restore a removed
+  // one (PRD #14 §95, §96, PRD #47 §57).
+  if (existing.role.key === "OWNER") assertPermission(context, "team.owner.assign");
 
   // A person removing their own access could lock themselves out of the
   // company by accident (PRD #14 §167).
@@ -406,6 +430,15 @@ async function changeMembershipStatus(
   }
 
   await prisma.$transaction(async (tx) => {
+    if (next !== "ACTIVE") {
+      await assertAnotherActiveOwner(
+        tx,
+        context.companyId,
+        memberId,
+        "Assign another active Owner before changing this member's access.",
+      );
+    }
+
     await tx.companyMember.update({
       where: { id: memberId },
       data: {
@@ -420,6 +453,14 @@ async function changeMembershipStatus(
     // (PRD #14 §242, §243).
     if (next !== "ACTIVE") {
       await tx.session.deleteMany({ where: { membershipId: memberId } });
+
+      // A pending invitation is access waiting to be claimed. Removing the
+      // membership it would activate withdraws the invitation with it, so the
+      // link cannot quietly undo the deactivation (PRD #47 §58).
+      await tx.companyInvite.updateMany({
+        where: { companyId: context.companyId, companyMemberId: memberId, status: "PENDING" },
+        data: { status: "CANCELLED", cancelledAt: new Date() },
+      });
     }
 
     await recordActivity(tx, context, {
@@ -496,17 +537,21 @@ async function validateDepartment(context: UserContext, departmentId: string | u
 }
 
 /**
- * Role-change guards (PRD #14 §93–§96, §164).
+ * Role-change guards (PRD #14 §93–§96, §164, PRD #47 §57).
  *
- * Two separate rules: creating an Owner needs its own grant, and the last
- * active Owner cannot be demoted out of existence.
+ * Two separate rules: the Owner role is the Owner grant's to give *and* to
+ * take away, and the last active Owner cannot be demoted out of existence.
+ * The count below answers early with a friendly refusal; the binding check is
+ * repeated under a lock inside the write (`assertAnotherActiveOwner`).
  */
 async function assertRoleChangeAllowed(
   context: UserContext,
   existing: repository.TeamMemberDetailRow,
   nextRoleKey: string,
 ): Promise<void> {
-  if (nextRoleKey === "OWNER") assertPermission(context, "team.owner.assign");
+  if (nextRoleKey === "OWNER" || existing.role.key === "OWNER") {
+    assertPermission(context, "team.owner.assign");
+  }
 
   if (existing.role.key === "OWNER" && nextRoleKey !== "OWNER") {
     const owners = await repository.activeOwnerCount(context.companyId);
@@ -524,32 +569,78 @@ async function assertRoleChangeAllowed(
   }
 }
 
+/**
+ * The last-Owner rule, evaluated where it cannot race (PRD #14 §93, PRD #47 §57).
+ *
+ * A count taken before the transaction lets two administrators each see two
+ * Owners and each demote one, leaving none. The company row is locked first,
+ * so changes that could remove an Owner run one at a time per company, and the
+ * member is re-read under that lock — the second writer counts what the first
+ * one committed.
+ */
+async function assertAnotherActiveOwner(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  memberId: string,
+  message: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "companies" WHERE id = ${companyId} FOR UPDATE`;
+
+  const member = await tx.companyMember.findFirst({
+    where: { id: memberId, companyId },
+    select: { status: true, role: { select: { key: true } } },
+  });
+  if (member?.status !== "ACTIVE" || member.role.key !== "OWNER") return;
+
+  const others = await tx.companyMember.count({
+    where: { companyId, id: { not: memberId }, status: "ACTIVE", role: { key: "OWNER" } },
+  });
+  if (others === 0) throw new AccessError("CONFLICT", message);
+}
+
 /* -------------------------------------------------------------------------- */
 /* DTO mapping                                                                 */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * What an invited, not-yet-joined membership may show (PRD #47 §59).
+ *
+ * The invitation was addressed to an email, and until that person accepts, the
+ * address is all this company has been given. The account behind it belongs to
+ * NESTO, not to the company: its name, photo, phone and last sign-in describe
+ * somebody's life elsewhere and must not reach whoever typed their address into
+ * an invite form.
+ */
+function invitedIdentity(row: { status: string; user: { email: string } }) {
+  if (row.status !== "INVITED") return null;
+  return { firstName: row.user.email, lastName: "", fullName: row.user.email };
+}
 
 export function toSummaryDTO(
   row: repository.TeamMemberRow,
   projectCount: number,
   showSecurity: boolean,
 ): TeamMemberSummaryDTO {
+  const invited = invitedIdentity(row);
+
   return {
     id: row.id,
     userId: row.userId,
-    name: {
+    name: invited ?? {
       firstName: row.user.firstName,
       lastName: row.user.lastName,
       fullName: `${row.user.firstName} ${row.user.lastName}`,
     },
     email: row.user.email,
-    avatarUrl: row.user.avatarUrl,
+    avatarUrl: invited ? null : row.user.avatarUrl,
     role: row.role,
     department: row.department,
     jobTitle: row.jobTitle,
     status: row.status,
     projectCount,
-    // Last login is security metadata, not directory data (PRD #14 §49, §234).
-    lastLoginAt: showSecurity ? (row.user.lastLoginAt?.toISOString() ?? null) : null,
+    // Last login is security metadata, not directory data (PRD #14 §49, §234),
+    // and an invitee's is not this company's to read at all (PRD #47 §59).
+    lastLoginAt: showSecurity && !invited ? (row.user.lastLoginAt?.toISOString() ?? null) : null,
     joinedAt: row.joinedAt?.toISOString() ?? null,
   };
 }
@@ -562,18 +653,24 @@ function toDetailDTO(
 ): TeamMemberDetailDTO {
   const self = row.id === context.membershipId;
   const showSecurity = can(context, "team.member.security_metadata.view");
+  const invited = invitedIdentity(row);
+  // An Owner's role and access are only offered to somebody who may change
+  // them; the service enforces the same grant (PRD #47 §57).
+  const ownerLocked = row.role.key === "OWNER" && !can(context, "team.owner.assign");
 
   return {
     id: row.id,
     userId: row.userId,
     updatedAt: row.updatedAt.toISOString(),
     profile: {
-      firstName: row.user.firstName,
-      lastName: row.user.lastName,
-      fullName: `${row.user.firstName} ${row.user.lastName}`,
+      ...(invited ?? {
+        firstName: row.user.firstName,
+        lastName: row.user.lastName,
+        fullName: `${row.user.firstName} ${row.user.lastName}`,
+      }),
       email: row.user.email,
-      phone: row.user.phone,
-      avatarUrl: row.user.avatarUrl,
+      phone: invited ? null : row.user.phone,
+      avatarUrl: invited ? null : row.user.avatarUrl,
     },
     membership: {
       role: row.role,
@@ -586,24 +683,32 @@ function toDetailDTO(
     },
     counts: { visibleProjects },
     ...(showSecurity
-      ? { securityMetadata: { lastLoginAt: row.user.lastLoginAt?.toISOString() ?? null } }
+      ? {
+          securityMetadata: {
+            lastLoginAt: invited ? null : (row.user.lastLoginAt?.toISOString() ?? null),
+          },
+        }
       : {}),
     capabilities: {
       canEditMembership: can(context, "team.member.update"),
-      canAssignRole: can(context, "team.member.role.assign") && !self,
+      canAssignRole: can(context, "team.member.role.assign") && !self && !ownerLocked,
       canAssignDepartment: can(context, "team.member.department.assign"),
       canDeactivate:
         can(context, "team.member.deactivate") &&
         !self &&
+        !ownerLocked &&
         row.status !== "INACTIVE" &&
         !guards.lastActiveOwner,
-      canReactivate: can(context, "team.member.reactivate") && row.status === "INACTIVE",
+      canReactivate:
+        can(context, "team.member.reactivate") && !ownerLocked && row.status === "INACTIVE",
       canSuspend:
         can(context, "team.member.suspend") &&
         !self &&
+        !ownerLocked &&
         row.status === "ACTIVE" &&
         !guards.lastActiveOwner,
-      canUnsuspend: can(context, "team.member.unsuspend") && row.status === "SUSPENDED",
+      canUnsuspend:
+        can(context, "team.member.unsuspend") && !ownerLocked && row.status === "SUSPENDED",
       canViewActivity: can(context, "team.activity.view"),
     },
     guards,

@@ -1,4 +1,4 @@
-import { can, canAccessModule } from "@/lib/access/can";
+import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
@@ -18,12 +18,25 @@ import type { ConflictDTO } from "./calendar.types";
 
 export type BusyInterval = { startsAt: Date; endsAt: Date };
 
+/** Which modules may contribute busy time: only those the company has switched on. */
+export type BusySources = { meetings: boolean; leave: boolean };
+
+/**
+ * A module the company switched off takes its records out of free/busy too
+ * (PRD #7 §59, PRD #47 §175). Approved leave in a company without HR, or a
+ * meeting in one without Meetings, is data nobody can open — and a "busy"
+ * built from it still says something about it.
+ */
+export function busySourcesFor(context: UserContext): BusySources {
+  return { meetings: isModuleEnabled(context, "meetings"), leave: isModuleEnabled(context, "hr") };
+}
+
 /** Busy intervals per member over a range, merged and sorted. */
 export async function busyIntervals(
   companyId: string,
   memberIds: readonly string[],
   range: { from: Date; to: Date },
-  options: { excludeEventId?: string; excludeMeetingId?: string; timezone: string },
+  options: { excludeEventId?: string; excludeMeetingId?: string; timezone: string; sources: BusySources },
 ): Promise<Map<string, BusyInterval[]>> {
   const result = new Map<string, BusyInterval[]>(memberIds.map((id) => [id, []]));
   if (memberIds.length === 0) return result;
@@ -71,37 +84,41 @@ export async function busyIntervals(
   }
 
   // A meeting keeps somebody busy unless they declined it (PRD #40 §27, §256).
-  const meetings = await prisma.meeting.findMany({
-    where: {
-      companyId,
-      archivedAt: null,
-      status: { in: ["SCHEDULED", "IN_PROGRESS"] },
-      ...(options.excludeMeetingId ? { id: { not: options.excludeMeetingId } } : {}),
-      startsAt: { lt: range.to },
-      endsAt: { gt: range.from },
-      participants: { some: { memberId: { in: members }, response: { not: "DECLINED" } } },
-    },
-    select: {
-      startsAt: true,
-      endsAt: true,
-      participants: { where: { memberId: { in: members }, response: { not: "DECLINED" } }, select: { memberId: true } },
-    },
-    take: 2_000,
-  });
+  const meetings = options.sources.meetings
+    ? await prisma.meeting.findMany({
+        where: {
+          companyId,
+          archivedAt: null,
+          status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+          ...(options.excludeMeetingId ? { id: { not: options.excludeMeetingId } } : {}),
+          startsAt: { lt: range.to },
+          endsAt: { gt: range.from },
+          participants: { some: { memberId: { in: members }, response: { not: "DECLINED" } } },
+        },
+        select: {
+          startsAt: true,
+          endsAt: true,
+          participants: { where: { memberId: { in: members }, response: { not: "DECLINED" } }, select: { memberId: true } },
+        },
+        take: 2_000,
+      })
+    : [];
   for (const meeting of meetings) {
     for (const participant of meeting.participants) result.get(participant.memberId)?.push({ startsAt: meeting.startsAt, endsAt: meeting.endsAt });
   }
 
-  const leave = await prisma.leaveRequest.findMany({
-    where: {
-      companyId,
-      companyMemberId: { in: members },
-      status: "APPROVED",
-      startDate: { lt: new Date(range.to.getTime() + 86_400_000) },
-      endDate: { gt: new Date(range.from.getTime() - 86_400_000) },
-    },
-    select: { companyMemberId: true, startDate: true, endDate: true },
-  });
+  const leave = options.sources.leave
+    ? await prisma.leaveRequest.findMany({
+        where: {
+          companyId,
+          companyMemberId: { in: members },
+          status: "APPROVED",
+          startDate: { lt: new Date(range.to.getTime() + 86_400_000) },
+          endDate: { gt: new Date(range.from.getTime() - 86_400_000) },
+        },
+        select: { companyMemberId: true, startDate: true, endDate: true },
+      })
+    : [];
   for (const row of leave) {
     const span = allDaySpan(businessDate(row.startDate), businessDate(row.endDate), options.timezone);
     result.get(row.companyMemberId)?.push(span);
@@ -146,7 +163,7 @@ export async function getAvailability(
   const names = await sameCompanyMembers(context.companyId, input.memberIds);
   // A member of another company is simply absent from the answer.
   const known = input.memberIds.filter((id) => names.has(id));
-  const busy = await busyIntervals(context.companyId, known, { from: input.from, to: input.to }, { excludeEventId: input.excludeEventId, excludeMeetingId: input.excludeMeetingId, timezone });
+  const busy = await busyIntervals(context.companyId, known, { from: input.from, to: input.to }, { excludeEventId: input.excludeEventId, excludeMeetingId: input.excludeMeetingId, timezone, sources: busySourcesFor(context) });
   return known.map((memberId) => ({
     memberId,
     fullName: names.get(memberId)!,
@@ -164,7 +181,7 @@ export async function findConflicts(
   if (memberIds.length === 0 || !can(context, "calendar.availability.view")) return [];
   if (window.endsAt <= window.startsAt) return [];
   const names = await sameCompanyMembers(context.companyId, memberIds);
-  const busy = await busyIntervals(context.companyId, [...names.keys()], { from: window.startsAt, to: window.endsAt }, options);
+  const busy = await busyIntervals(context.companyId, [...names.keys()], { from: window.startsAt, to: window.endsAt }, { ...options, sources: busySourcesFor(context) });
   return [...busy.entries()]
     .filter(([, intervals]) => intervals.length > 0)
     .map(([memberId, intervals]) => ({
