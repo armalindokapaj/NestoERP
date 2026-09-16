@@ -1,8 +1,14 @@
 import { Prisma, type ContractStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
-import { buildProjectScopeWhere } from "@/lib/access/scope";
+import {
+  AccessError,
+  assertFound,
+  assertModule,
+  assertPermission,
+  stateDenied,
+} from "@/lib/access/guards";
+import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -11,6 +17,7 @@ import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
   canSeeCommercial,
+  canSeeConfidential,
   commercialDTO,
   confidential,
   dateString,
@@ -80,7 +87,7 @@ export async function listContracts(context: UserContext, query: ContractListQue
   assertPermission(context, "legal.contract.view");
 
   const today = new Date();
-  const { rows, total } = await repository.listContracts(context, query, today);
+  const { rows, total } = await repository.listContracts(context, withoutCommercialQuery(context, query), today);
   const overdue = await overdueObligationCounts(rows.map((row) => row.id), today);
 
   return {
@@ -160,7 +167,27 @@ export async function getContract(
 export async function contractFilterOptions(context: UserContext) {
   assertModule(context, MODULE);
   assertPermission(context, "legal.contract.view");
-  return repository.contractFilterOptions(context);
+  const options = await repository.contractFilterOptions(context);
+  // Which currencies the company contracts in is commercial information too.
+  return canSeeCommercial(context) ? options : { ...options, currencies: [] };
+}
+
+/**
+ * A list query with its commercial questions removed for a reader who may not
+ * ask them (PRD #18 §22, PRD #47 §70).
+ *
+ * Sorting by value orders rows by a figure the reader cannot see, and
+ * filtering by currency narrows them by one — either way the list itself
+ * answers "which contract is worth more". Without `legal.commercial.view`
+ * both are ignored and the list reads as if they had not been asked.
+ */
+function withoutCommercialQuery(context: UserContext, query: ContractListQuery): ContractListQuery {
+  if (canSeeCommercial(context)) return query;
+  return {
+    ...query,
+    currency: undefined,
+    sort: query.sort === "value-desc" ? "updated-desc" : query.sort,
+  };
 }
 
 /**
@@ -345,8 +372,28 @@ export async function updateContract(
   const existing = assertFound(await repository.findContractInScope(context, contractId));
   assertEditable(existing.status, "FULL");
   assertVersion(existing.updatedAt, input.versionUpdatedAt);
+  assertOwnerChangeAllowed(context, existing.ownerMemberId, input.ownerMemberId);
 
   const related = await resolveRelated(context, input);
+
+  /*
+   * Fields behind a curtain are written only by somebody standing on the other
+   * side of it. The form leaves the commercial and confidential sections out
+   * for a reader without the grant, so their values arrive empty — and writing
+   * that emptiness would blank a price or a legal assessment the editor was
+   * never shown. Without the grant the stored values are kept as they are
+   * (PRD #18 §22, §23, PRD #47 §66, §100).
+   */
+  const commercial: Prisma.ContractUncheckedUpdateInput = canSeeCommercial(context)
+    ? {
+        currency: input.currency ?? null,
+        contractValue: input.contractValue ? new Prisma.Decimal(input.contractValue) : null,
+        commercialNotes: input.commercialNotes ?? null,
+      }
+    : {};
+  const confidentialTerms: Prisma.ContractUncheckedUpdateInput = canSeeConfidential(context)
+    ? { legalNotes: input.legalNotes ?? null }
+    : {};
 
   await prisma.$transaction(async (tx) => {
     await assertNumberIsFree(tx, context, input.contractNumber, contractId);
@@ -354,6 +401,8 @@ export async function updateContract(
     await tx.contract.update({
       where: { id: contractId },
       data: {
+        ...commercial,
+        ...confidentialTerms,
         contractNumber: input.contractNumber,
         title: input.title,
         contractType: input.contractType,
@@ -363,8 +412,6 @@ export async function updateContract(
         proposalId: related.proposalId,
         ownerMemberId: related.ownerMemberId,
         counterpartyName: input.counterpartyName ?? null,
-        currency: input.currency ?? null,
-        contractValue: input.contractValue ? new Prisma.Decimal(input.contractValue) : null,
         effectiveDate: input.effectiveDate ?? null,
         expiryDate: input.expiryDate ?? null,
         signedDate: input.signedDate ?? null,
@@ -374,8 +421,6 @@ export async function updateContract(
         governingLaw: input.governingLaw ?? null,
         jurisdiction: input.jurisdiction ?? null,
         summary: input.summary ?? null,
-        commercialNotes: input.commercialNotes ?? null,
-        legalNotes: input.legalNotes ?? null,
         updatedByMemberId: context.membershipId,
       },
     });
@@ -413,6 +458,7 @@ export async function updateContractMetadata(
   const existing = assertFound(await repository.findContractInScope(context, contractId));
   assertEditable(existing.status, "METADATA");
   assertVersion(existing.updatedAt, input.versionUpdatedAt);
+  assertOwnerChangeAllowed(context, existing.ownerMemberId, input.ownerMemberId);
 
   const owner = await resolveOwner(context, input.ownerMemberId);
 
@@ -480,6 +526,7 @@ export async function assignOwner(
 export async function submitForReview(context: UserContext, contractId: string): Promise<void> {
   await runTransition(context, contractId, {
     permission: "legal.contract.submit_review",
+    from: ["DRAFT"],
     next: "IN_REVIEW",
     action: "LEGAL_CONTRACT_SUBMITTED_REVIEW",
     message: (contract) => `sent contract ${contract.contractNumber} for review`,
@@ -493,6 +540,7 @@ export async function returnToDraft(
 ): Promise<void> {
   await runTransition(context, contractId, {
     permission: "legal.contract.review",
+    from: ["IN_REVIEW"],
     next: "DRAFT",
     action: "LEGAL_CONTRACT_RETURNED_DRAFT",
     message: (contract) => `returned contract ${contract.contractNumber} to draft`,
@@ -935,6 +983,14 @@ export async function restoreContract(context: UserContext, contractId: string):
 
 type TransitionSpec = {
   permission: Parameters<typeof assertPermission>[1];
+  /**
+   * The statuses this action starts from, when narrower than the transition
+   * table. PENDING_APPROVAL → IN_REVIEW and → DRAFT exist for the approver's
+   * reject and return, which close the approval cycle as they move; reaching
+   * them through "send for review" or "return to draft" would leave that cycle
+   * pending on a contract no longer waiting for it (PRD #47 §85).
+   */
+  from?: ContractStatus[];
   next: ContractStatus;
   extra?: Prisma.ContractUpdateInput;
   action: string;
@@ -952,6 +1008,14 @@ async function runTransition(
 
   const existing = assertFound(await repository.findContractInScope(context, contractId));
   assertNotArchived(existing.archivedAt);
+
+  if (spec.from && !spec.from.includes(existing.status)) {
+    throw stateDenied(
+      existing.status === "PENDING_APPROVAL"
+        ? "This contract is waiting for a decision. The approver can return it or reject it."
+        : `A contract cannot move from ${existing.status} to ${spec.next}.`,
+    );
+  }
 
   await prisma.$transaction(async (tx) => {
     await moveStatus(tx, context, existing, spec.next, spec.extra);
@@ -1000,6 +1064,22 @@ async function moveStatus(
   if (result.count === 0) {
     throw new AccessError("CONFLICT", "This contract changed while you were working on it.");
   }
+}
+
+/**
+ * Reassigning a contract is its own permission (PRD #18 §52, §323).
+ *
+ * The edit forms carry the owner field, so an edit that keeps the current owner
+ * is an ordinary save; one that changes it is a reassignment and needs
+ * `legal.contract.owner.assign`, exactly as the dedicated action does
+ * (PRD #47 §62).
+ */
+function assertOwnerChangeAllowed(
+  context: UserContext,
+  currentOwnerId: string,
+  nextOwnerId: string,
+): void {
+  if (nextOwnerId !== currentOwnerId) assertPermission(context, "legal.contract.owner.assign");
 }
 
 function assertNotArchived(archivedAt: Date | null): void {
@@ -1152,8 +1232,10 @@ async function resolveOwner(context: UserContext, ownerMemberId: string): Promis
 }
 
 async function resolveClient(context: UserContext, clientId: string) {
+  // Inside the caller's client scope, like the project: a contract must not
+  // attach an agreement to a client they cannot open (PRD #47 §20, §64).
   const client = await prisma.client.findFirst({
-    where: { id: clientId, companyId: context.companyId, archivedAt: null },
+    where: { AND: [buildClientScopeWhere(context), { id: clientId, archivedAt: null }] },
     select: { id: true, name: true, legalName: true },
   });
   if (!client) throw new AccessError("VALIDATION_ERROR", "That client does not exist.");

@@ -8,7 +8,7 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { WINDOW } from "./approvals.cycle-provider";
 import { afterCursor, completeItem, decodeCursor, encodeCursor, sortItems, sortKey } from "./approvals.order";
-import { approvalError, type ApprovalProvider, type ProviderItem, type ProviderQuery } from "./approvals.provider";
+import { approvalError, providerUnavailable, type ApprovalProvider, type ProviderItem, type ProviderQuery } from "./approvals.provider";
 import { approvalProviders, type ApprovalProviderRegistry } from "./approvals.registry";
 import type { ApprovalQuery } from "./approvals.schema";
 import type {
@@ -191,7 +191,7 @@ export async function getApprovalDetail(context: UserContext, providerKey: strin
   const registry = options.registry ?? approvalProviders;
   const provider = registry.getProvider(providerKey);
   // A module switched off takes its approvals with it; a deep link is not a way back in (§198, §232).
-  if (!provider.available(context)) throw approvalError("APPROVAL_PROVIDER_UNAVAILABLE", "This approval's module is not available to you.", "FORBIDDEN");
+  if (!provider.available(context)) throw providerUnavailable();
   const detail = await provider.detail(context, approvalId);
   if (!detail) throw approvalError("APPROVAL_NOT_FOUND", "You no longer have access to this approval.", "NOT_FOUND");
   return { ...detail, item: completeItem(detail.item, options.now ?? new Date()) };
@@ -238,7 +238,7 @@ export async function decideApproval(
   }
   const registry = options.registry ?? approvalProviders;
   const provider = registry.getProvider(providerKey);
-  if (!provider.available(context)) throw approvalError("APPROVAL_PROVIDER_UNAVAILABLE", "This approval's module is not available to you.", "FORBIDDEN");
+  if (!provider.available(context)) throw providerUnavailable();
 
   const key = options.idempotencyKey ?? null;
   if (key) {

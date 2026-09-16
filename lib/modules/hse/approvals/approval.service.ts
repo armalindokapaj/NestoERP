@@ -93,15 +93,41 @@ export function assertCanReject(context: UserContext, type: HseApprovalRecordTyp
  * `hse.approval.self` exists so a one-person company can still operate, and is
  * held by nobody by default. Separation of duties is the rule; the grant is the
  * documented exception.
+ *
+ * The submitter is not the only person with a stake in the answer. A permit's
+ * requester and an inspection's inspector are named by the caller too, so the
+ * person who asked for the hot work cannot approve it just because a colleague
+ * pressed submit (PRD #47 §85).
  */
-export function assertNotSelfApproval(context: UserContext, submittedByMemberId: string): void {
-  if (submittedByMemberId !== context.membershipId) return;
+export function assertNotSelfApproval(
+  context: UserContext,
+  submittedByMemberId: string,
+  ...alsoConflicted: (string | null | undefined)[]
+): void {
+  if (!isConflicted(context, submittedByMemberId, alsoConflicted)) return;
   if (can(context, "hse.approval.self")) return;
   throw new AccessError(
     "FORBIDDEN",
     "You submitted this, so somebody else has to decide on it.",
     { code: "SELF_APPROVAL" },
   );
+}
+
+function isConflicted(
+  context: UserContext,
+  submittedByMemberId: string | null,
+  alsoConflicted: (string | null | undefined)[],
+): boolean {
+  return [submittedByMemberId, ...alsoConflicted].includes(context.membershipId);
+}
+
+/** Whether a reader named on the record is barred from deciding it (§182). */
+export function isSelfDecision(
+  context: UserContext,
+  submittedByMemberId: string | null,
+  ...alsoConflicted: (string | null | undefined)[]
+): boolean {
+  return isConflicted(context, submittedByMemberId, alsoConflicted) && !can(context, "hse.approval.self");
 }
 
 /** Whether this reader could decide, used to withhold buttons (§182). */
@@ -427,6 +453,7 @@ export async function listApprovalQueue(
   ]);
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId]),
   );
 
@@ -457,6 +484,47 @@ export async function listApprovalQueue(
   return { data, pagination: paginationMeta(total, page, limit) };
 }
 
+/**
+ * How many decisions are waiting on records this reader could open (PRD #22
+ * §181, PRD #47 §62).
+ *
+ * The overview's "waiting for a decision" card used to count every pending row
+ * in the company, which told a site engineer how many permits were queued on
+ * sites they cannot see. Pending rows are few, so they are read first and each
+ * kept only if its record passes the reader's scope for that kind.
+ */
+export async function countPendingApprovals(context: UserContext): Promise<number> {
+  if (!can(context, "hse.approval.view")) return 0;
+
+  const pending = await prisma.hseApproval.findMany({
+    where: { companyId: context.companyId, status: "PENDING" },
+    select: { recordType: true, recordId: true },
+  });
+  if (pending.length === 0) return 0;
+
+  const idsOf = (type: HseApprovalRecordType) =>
+    pending.filter((row) => row.recordType === type).map((row) => row.recordId);
+
+  const [inspections, assessments, permits, incidents] = await Promise.all([
+    prisma.hseInspection.count({
+      where: { AND: [buildInspectionScopeWhere(context), { id: { in: idsOf("INSPECTION") } }] },
+    }),
+    prisma.hseRiskAssessment.count({
+      where: {
+        AND: [buildRiskAssessmentScopeWhere(context), { id: { in: idsOf("RISK_ASSESSMENT") } }],
+      },
+    }),
+    prisma.hseWorkPermit.count({
+      where: { AND: [buildPermitScopeWhere(context), { id: { in: idsOf("WORK_PERMIT") } }] },
+    }),
+    prisma.hseIncident.count({
+      where: { AND: [buildIncidentScopeWhere(context), { id: { in: idsOf("INCIDENT_CLOSE") } }] },
+    }),
+  ]);
+
+  return inspections + assessments + permits + incidents;
+}
+
 /** Every cycle one record has been through, newest first (PRD #22 §465). */
 export async function historyFor(
   context: UserContext,
@@ -472,6 +540,7 @@ export async function historyFor(
   });
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId]),
   );
 

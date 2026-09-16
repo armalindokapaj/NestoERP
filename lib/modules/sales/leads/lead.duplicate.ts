@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/database/prisma";
+import { can, isModuleEnabled } from "@/lib/access/can";
 import { buildClientScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { buildLeadScopeWhere } from "../sales.scope";
@@ -34,6 +35,10 @@ export type LeadDuplicateInput = {
   excludeLeadId?: string;
 };
 
+function canSeeClients(context: UserContext): boolean {
+  return isModuleEnabled(context, "clients") && can(context, "client.view");
+}
+
 export async function findLeadDuplicates(
   context: UserContext,
   input: LeadDuplicateInput,
@@ -65,8 +70,11 @@ export async function findLeadDuplicates(
         })
       : Promise.resolve([]),
     // Clients are matched through the Clients scope, so the warning cannot
-    // reveal a customer this reader may not otherwise see (PRD #17 §218).
-    email || clientName
+    // reveal a customer this reader may not otherwise see (PRD #17 §218) —
+    // and only for a reader who may see clients at all, with the module on:
+    // a scope clause without `client.view` still describes the company's
+    // customers (PRD #47 §70).
+    (email || clientName) && canSeeClients(context)
       ? prisma.client.findMany({
           where: {
             AND: [

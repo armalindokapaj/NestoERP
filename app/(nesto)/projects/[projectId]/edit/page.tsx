@@ -30,7 +30,10 @@ export default async function EditProjectPage({ params }: Params) {
     redirect(`/projects/${project.id}`);
   }
 
-  const options = await projectFormOptions(context);
+  const options = await projectFormOptions(context, {
+    clientId: project.client?.id ?? null,
+    managerMemberId: project.projectManager?.memberId ?? null,
+  });
 
   async function action(formData: FormData) {
     "use server";

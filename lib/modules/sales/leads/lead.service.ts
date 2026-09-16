@@ -128,6 +128,12 @@ export async function createLead(
   assertModule(context, MODULE);
   assertPermission(context, "sales.lead.create");
 
+  // Creating a lead for somebody else is assigning it to them, so it needs the
+  // same grant as reassigning one through the edit form (PRD #17 §47,
+  // PRD #47 §62). Taking it yourself, or leaving it unowned, does not.
+  if (input.ownerMemberId && input.ownerMemberId !== context.membershipId) {
+    assertCanAssign(context, "sales.lead.assign");
+  }
   const ownerMemberId = await resolveOwner(context, input.ownerMemberId);
 
   if (!options.acceptDuplicate) {

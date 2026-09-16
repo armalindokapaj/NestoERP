@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { buildClientScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -283,9 +284,10 @@ async function clearPrimary(
   });
 }
 
+/** A client inside the caller's own Clients scope, not merely the company (PRD #47 §20, §64). */
 async function resolveClient(context: UserContext, clientId: string): Promise<string> {
   const client = await prisma.client.findFirst({
-    where: { id: clientId, companyId: context.companyId },
+    where: { AND: [buildClientScopeWhere(context), { id: clientId }] },
     select: { id: true },
   });
   if (!client) {

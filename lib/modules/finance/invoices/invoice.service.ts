@@ -5,7 +5,13 @@ import { linkIntegration } from "@/lib/core/integrations/integration.service";
 
 import { can } from "@/lib/access/can";
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import {
+  AccessError,
+  assertFound,
+  assertModule,
+  assertPermission,
+  stateDenied,
+} from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -16,7 +22,8 @@ import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { businessDateString } from "../finance.fields";
 import { toAmountString, toRateString } from "../finance.money";
-import { buildInvoiceScopeWhere } from "../finance.scope";
+import { buildProposalScopeWhere } from "@/lib/modules/sales/sales.scope";
+import { buildInvoiceScopeWhere, hasCompanyFinanceScope } from "../finance.scope";
 import { resolveFinanceSettings } from "../finance.settings";
 import { paidByInvoice, settlementFor } from "../finance.settlement";
 import type { InvoiceDetailDTO, InvoiceSummaryDTO, RecordCapabilities } from "../finance.types";
@@ -253,6 +260,13 @@ export async function createInvoice(
  * applies to contracts: a second invoice is allowed, and the handoff shows the
  * ones already drawn so a second click meets the first rather than making a
  * duplicate by accident (PRD #18 §213).
+ *
+ * The proposal is Sales' record, so it is read through Sales' door — the
+ * module, `sales.proposal.view` and the proposal scope — and the client and
+ * delivery project it carries are held to the same checks as a typed-in
+ * invoice. Otherwise any proposal id in the company would copy its lines,
+ * client and project into an invoice the caller could never have drafted
+ * (PRD #47 §44, §64).
  */
 export async function createInvoiceFromProposal(
   context: UserContext,
@@ -260,10 +274,12 @@ export async function createInvoiceFromProposal(
 ): Promise<InvoiceDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "finance.invoice.create");
+  assertModule(context, "sales");
+  assertPermission(context, "sales.proposal.view");
 
   const proposal = assertFound(
     await prisma.proposal.findFirst({
-      where: { id: proposalId, companyId: context.companyId, archivedAt: null },
+      where: { AND: [buildProposalScopeWhere(context), { id: proposalId, archivedAt: null }] },
       select: {
         id: true,
         proposalNumber: true,
@@ -298,6 +314,14 @@ export async function createInvoiceFromProposal(
     throw new AccessError("VALIDATION_ERROR", "That proposal has no lines to invoice.");
   }
 
+  // The delivery project, when the opportunity was handed over to one — which
+  // must be a project this caller's finance access reaches, and without one
+  // the invoice is company-level, which needs company finance scope.
+  const { client, project } = await validateRelationships(context, {
+    clientId: proposal.clientId,
+    projectId: proposal.opportunity?.convertedProjectId ?? undefined,
+  });
+
   const settings = await resolveFinanceSettings(context.companyId);
   const issueDate = new Date();
   const dueDate = new Date(
@@ -328,9 +352,8 @@ export async function createInvoiceFromProposal(
       data: {
         companyId: context.companyId,
         invoiceNumber,
-        clientId: proposal.clientId,
-        // The delivery project, when the opportunity was handed over to one.
-        projectId: proposal.opportunity?.convertedProjectId ?? null,
+        clientId: client.id,
+        projectId: project?.id ?? null,
         sourceProposalId: proposal.id,
         issueDate,
         dueDate,
@@ -437,6 +460,12 @@ export async function updateInvoice(
   const invoiceNumber = input.invoiceNumber ?? existing.invoiceNumber;
 
   await prisma.$transaction(async (tx) => {
+    // The edit is only allowed because the invoice was editable when read.
+    // Claiming the row on that same status — and holding its lock to the end
+    // of the transaction — means a submit or approval that landed in between
+    // turns this save into a conflict, never into a rewrite of an invoice that
+    // is already awaiting approval (PRD #15 §278, PRD #47 §66).
+    await claimEditable(tx, context, existing);
     await assertNumberIsFree(tx, context, invoiceNumber, invoiceId);
 
     // Lines are replaced rather than diffed: an invoice's lines are one
@@ -819,6 +848,22 @@ async function moveStatus(
   }
 }
 
+/** Locks an invoice for an edit, provided it still has the status the edit was checked against. */
+async function claimEditable(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  existing: { id: string; status: InvoiceStatus },
+): Promise<void> {
+  const result = await tx.invoice.updateMany({
+    where: { id: existing.id, companyId: context.companyId, status: existing.status },
+    data: { updatedByMemberId: context.membershipId },
+  });
+
+  if (result.count === 0) {
+    throw stateDenied("This invoice changed while you were working on it. Refresh and review it.");
+  }
+}
+
 /**
  * Validates the client and project an invoice names (PRD #15 §48, §49, §50).
  *
@@ -839,7 +884,21 @@ async function validateRelationships(
   });
   if (!client) throw new AccessError("VALIDATION_ERROR", "That client does not exist.");
 
-  if (!input.projectId) return { client, project: null };
+  if (!input.projectId) {
+    // A company-level invoice needs company-level finance scope, as for
+    // expenses and commitments: a project-scoped user has no project to
+    // authorise it against, and could not open the invoice once saved
+    // (PRD #15 §211, PRD #47 §64).
+    if (!hasCompanyFinanceScope(context)) {
+      throw new AccessError(
+        "FORBIDDEN",
+        "Your finance access is limited to your projects, so an invoice needs a project.",
+        undefined,
+        "SCOPE_DENIED",
+      );
+    }
+    return { client, project: null };
+  }
 
   const project = await prisma.project.findFirst({
     where: {

@@ -78,6 +78,13 @@ export type NotificationEventDefinition = {
   recipients(tx: Prisma.TransactionClient, event: OutboxEvent, payload: Payload): Promise<string[]>;
   /** Permissions every recipient must hold (all of them) as well as reading the record. */
   permission?(event: OutboxEvent, payload: Payload): Permission | Permission[] | null;
+  /**
+   * A message out of a record's discussion. Reading the record is not enough to
+   * hear it: the recipient must be able to take part in that discussion — the
+   * registry's `collaboration.requires` for the record type — exactly as the
+   * thread itself would let them in (PRD #38 §28, §30, PRD #47 §78).
+   */
+  discussion?: boolean;
   title(payload: Payload): string;
   body?(payload: Payload): string | null;
   dedupe(event: OutboxEvent, memberId: string, payload: Payload): string;
@@ -292,6 +299,7 @@ const DEFINITIONS: NotificationEventDefinition[] = [
   /* Collaboration --------------------------------------------------------- */
   {
     eventType: NotificationEvent.COMMENT_MENTIONED,
+    discussion: true,
     category: "mentions",
     priority: "NORMAL",
     // Validated when the comment was written, and re-checked here: a member
@@ -315,6 +323,7 @@ const DEFINITIONS: NotificationEventDefinition[] = [
   },
   {
     eventType: NotificationEvent.COMMENT_REPLY,
+    discussion: true,
     category: "comments",
     priority: "NORMAL",
     async recipients(_tx, _event, payload) {
@@ -326,6 +335,7 @@ const DEFINITIONS: NotificationEventDefinition[] = [
   },
   {
     eventType: NotificationEvent.COMMENT_ADDED,
+    discussion: true,
     category: "comments",
     priority: "LOW",
     async recipients(tx, event, payload) {

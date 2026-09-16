@@ -10,8 +10,9 @@ import {
 
 /** Membership and department lifecycle rules (PRD #14 §109, §110, §128). */
 describe("membership transitions (PRD #14 §109)", () => {
-  it("lets an invitation become an active membership", () => {
-    expect(canTransitionMembershipStatus("INVITED", "ACTIVE")).toBe(true);
+  it("never activates an invitation by administration — only acceptance does (PRD #47 §58)", () => {
+    expect(canTransitionMembershipStatus("INVITED", "ACTIVE")).toBe(false);
+    expect(canTransitionMembershipStatus("INVITED", "INACTIVE")).toBe(true);
   });
 
   it("never pushes an active member back into INVITED", () => {

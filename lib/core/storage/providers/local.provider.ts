@@ -166,6 +166,39 @@ export class LocalStorageProvider implements StorageProvider {
     };
   }
 
+  /**
+   * A browser upload's write: creates the object, and refuses — returning null —
+   * when one is already at that key (PRD #47 §83).
+   *
+   * The local twin of the `If-None-Match: *` the S3 adapter signs into its
+   * upload grants. The exclusive create is atomic, so two PUTs racing on the
+   * same grant cannot both land, and bytes that `/complete` has verified can
+   * never be replaced through the grant that brought them.
+   */
+  async putObjectIfAbsent(
+    storageKey: string,
+    data: Uint8Array,
+    contentType: string,
+  ): Promise<StorageObjectMetadata | null> {
+    const target = this.resolve(storageKey);
+    await mkdir(path.dirname(target), { recursive: true });
+    try {
+      await writeFile(target, data, { flag: "wx" });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") return null;
+      throw error;
+    }
+
+    const written = await stat(target);
+    return {
+      storageKey,
+      sizeBytes: written.size,
+      contentType,
+      etag: `${written.size.toString(16)}-${written.mtimeMs.toString(16)}`,
+      checksumSha256: createHash("sha256").update(data).digest("hex"),
+    };
+  }
+
   async deleteObject(storageKey: string): Promise<void> {
     await rm(this.resolve(storageKey), { force: true });
   }

@@ -14,7 +14,7 @@ import { prisma } from "@/lib/database/prisma";
 import { addLocalDays } from "@/lib/modules/calendar/calendar.time";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { loadEngineeringProject } from "./engineering.documents";
-import { tasksFromRecord } from "./engineering.links";
+import { linkedRecordProject, tasksFromRecord } from "./engineering.links";
 import { notifyEngineering } from "./engineering.notify";
 import { engineeringOpen, filesOpen, filesWritable, MODULE, readableEngineeringDocumentWhere, readableRfiWhere, readableSubmittalWhere, RFI_ACTIVITY, RFI_RECORD } from "./engineering.permissions";
 import type { CreateRfiInput, RfiListQuery, UpdateRfiInput } from "./engineering.schema";
@@ -255,7 +255,7 @@ export async function createRfi(context: UserContext, projectId: string, input: 
   if (input.open) assertPermission(context, "rfi.open");
   assertProjectWritable(project);
   const [scope] = await Promise.all([
-    resolveProjectContext(context.companyId, project.id, input, { newWork: true }),
+    resolveProjectContext(context, project.id, input, { newWork: true }),
     assertResponsible(context.companyId, project.id, input.assignedToMemberId, "rfi.respond", "assignedToMemberId"),
   ]);
   const { settings, today } = await companyToday(context.companyId);
@@ -311,7 +311,7 @@ export async function updateRfi(context: UserContext, id: string, input: UpdateR
   }
   const reassigned = input.assignedToMemberId !== row.assignedToMemberId;
   const [scope] = await Promise.all([
-    resolveProjectContext(context.companyId, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
+    resolveProjectContext(context, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
     reassigned ? assertResponsible(context.companyId, row.projectId, input.assignedToMemberId, "rfi.respond", "assignedToMemberId") : undefined,
   ]);
   if (row.status !== "DRAFT" && !input.dueAt) throw fail("RFI_DUE_REQUIRED", "An open RFI keeps a due date.", "VALIDATION_ERROR", { field: "dueAt" });
@@ -423,13 +423,21 @@ async function findReferenceableRfi(context: UserContext, id: string) {
   return row;
 }
 
-/** A reference is to a record on the same project that the writer can open (§91, §305). */
+/**
+ * A reference is to a record on the same project that the writer can open
+ * (§91, §305). The project is where the record really sits — a file on
+ * another project's contract carries no project of its own, and is placed by
+ * that contract (PRD #47 §51); only a record on no project at all, such as a
+ * company-level file with no parent, is referenced from any project.
+ */
 export async function addRfiReference(context: UserContext, id: string, input: { referenceType: RfiReferenceType; referenceId: string; note: string | null }): Promise<{ id: string }> {
   const row = await findReferenceableRfi(context, id);
   if (input.referenceType === "OTHER") throw fail("RFI_REFERENCE_INVALID", "Choose the record the RFI refers to.");
   const record = await loadRecord(context, REGISTRY_TYPE[input.referenceType], input.referenceId);
   if (!record || record.companyId !== context.companyId) throw fail("RFI_REFERENCE_INVALID", "You cannot reference that record.", "NOT_FOUND");
-  if (record.projectId && record.projectId !== row.projectId) throw fail("RFI_REFERENCE_PROJECT_MISMATCH", "That record belongs to another project.");
+  const placed = await linkedRecordProject(context, record);
+  if (!placed) throw fail("RFI_REFERENCE_PROJECT_MISMATCH", "Choose a record from this RFI's project.", "VALIDATION_ERROR", { field: "referenceId" }, "CROSS_PROJECT_REFERENCE");
+  if (placed.projectId && placed.projectId !== row.projectId) throw fail("RFI_REFERENCE_PROJECT_MISMATCH", "That record belongs to another project.", "VALIDATION_ERROR", { field: "referenceId" }, "CROSS_PROJECT_REFERENCE");
   if (input.referenceType === "DRAWING") {
     const drawing = await prisma.engineeringDocument.count({ where: { id: record.id, documentType: { in: DRAWING_TYPES } } });
     if (!drawing) throw fail("RFI_REFERENCE_INVALID", "That document is not a drawing.");

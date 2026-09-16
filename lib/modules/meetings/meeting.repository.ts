@@ -122,6 +122,62 @@ export async function requireMeetingRef(context: UserContext, meetingId: string)
   return row;
 }
 
+/** What the change checks in `meeting.permissions` need to know about a later occurrence. */
+const PERMISSION_REF_SELECT = {
+  id: true,
+  startsAt: true,
+  organizerMemberId: true,
+  status: true,
+  minutesStatus: true,
+  visibility: true,
+  departmentId: true,
+  archivedAt: true,
+  participants: { select: { memberId: true, role: true } },
+} satisfies Prisma.MeetingSelect;
+
+type MeetingPermissionRef = Prisma.MeetingGetPayload<{ select: typeof PERMISSION_REF_SELECT }>;
+
+/**
+ * The later, still-to-happen meetings of a series that a "this and later"
+ * change may reach (PRD #40 §228, PRD #47 §20, §62).
+ *
+ * Being allowed to change one occurrence says nothing about the next. An
+ * organizer handed a single Monday, or a `meeting.manage` holder who can see
+ * one occurrence, used to rewrite every later meeting picked out by series and
+ * number alone — visibility, people, cancellation — including ones they could
+ * not even open. Each later meeting is now read in the caller's own scope and
+ * passed through the same check the caller would face on that meeting's own
+ * page. `complete` says whether every later meeting passed: only then does the
+ * change speak for the rest of the series, and the series itself may follow.
+ */
+export async function laterOccurrencesInReach(
+  context: UserContext,
+  meeting: { seriesId: string | null; occurrenceIndex: number | null },
+  allowed: (context: UserContext, meeting: MeetingPermissionRef) => boolean,
+  client: Prisma.TransactionClient = prisma,
+): Promise<{ meetings: Array<{ id: string; startsAt: Date }>; complete: boolean; organizesSeries: boolean }> {
+  if (!meeting.seriesId) return { meetings: [], complete: true, organizesSeries: false };
+  const later: Prisma.MeetingWhereInput = {
+    companyId: context.companyId,
+    seriesId: meeting.seriesId,
+    occurrenceIndex: { gt: meeting.occurrenceIndex ?? 0 },
+    status: { in: ["DRAFT", "SCHEDULED"] },
+    archivedAt: null,
+  };
+  const [readable, total, latest] = await Promise.all([
+    client.meeting.findMany({ where: { AND: [readableMeetingWhere(context), later] }, select: PERMISSION_REF_SELECT }),
+    client.meeting.count({ where: later }),
+    // New occurrences copy the latest one, so its organizer is the series' organizer (PRD #40 §226).
+    client.meeting.findFirst({ where: { companyId: context.companyId, seriesId: meeting.seriesId }, orderBy: { occurrenceIndex: "desc" }, select: { organizerMemberId: true } }),
+  ]);
+  const reachable = readable.filter((row) => allowed(context, row));
+  return {
+    meetings: reachable.map((row) => ({ id: row.id, startsAt: row.startsAt })),
+    complete: reachable.length === total,
+    organizesSeries: can(context, "meeting.manage") || latest?.organizerMemberId === context.membershipId,
+  };
+}
+
 async function projectReadable(context: UserContext, projectId: string): Promise<boolean> {
   if (!canAccessModule(context, "projects") || !can(context, "project.view")) return false;
   const found = await prisma.project.findFirst({ where: { AND: [buildProjectScopeWhere(context), { id: projectId }] }, select: { id: true } });

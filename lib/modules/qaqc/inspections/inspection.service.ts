@@ -223,7 +223,7 @@ export async function listInspections(
     prisma.qualityInspection.count({ where }),
   ]);
 
-  const members = await loadMembers(rows.map((row) => row.assignedInspectorMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedInspectorMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members)),
@@ -253,13 +253,13 @@ export async function getInspection(
   );
 
   const [members, createdBy, pending, related, reinspections] = await Promise.all([
-    loadMembers([
+    loadMembers(context.companyId, [
       row.assignedInspectorMemberId,
       row.executedByMemberId,
       row.approvedByMemberId,
       row.rejectedByMemberId,
     ]),
-    loadMemberRef(row.createdByMemberId),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     approvals.pendingFor(context, "INSPECTION", inspectionId),
     loadRelated(context, inspectionId),
     listReinspections(context, inspectionId),
@@ -330,7 +330,7 @@ async function listReinspections(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedInspectorMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedInspectorMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 

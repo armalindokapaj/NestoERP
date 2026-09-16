@@ -62,6 +62,11 @@ export type PresignInput = {
   path: string;
   /** Extra query parameters to bind into the signature. */
   query?: Record<string, string>;
+  /**
+   * Request headers, beyond `host`, the caller must send exactly as given for
+   * the signature to verify — a condition the holder of the URL cannot drop.
+   */
+  signedHeaders?: Record<string, string>;
   expiresInSeconds: number;
   now?: Date;
 };
@@ -69,15 +74,27 @@ export type PresignInput = {
 /**
  * Produces the signed query string for one request.
  *
- * Only `host` is signed. Binding more headers would mean the browser had to
+ * `host` is always signed. Binding more headers means the browser has to
  * reproduce them exactly, and a mismatch there is indistinguishable from an
  * attack — so the size and type conditions are enforced on verification
- * instead (PRD #29 §311).
+ * instead (PRD #29 §311). The exception is a condition that must survive a
+ * hostile holder of the URL, such as an upload's `If-None-Match: *`, which the
+ * provider returns to the browser as a header it has to send
+ * (PRD #47 §83).
  */
 export function presignQuery(config: SigV4Config, input: PresignInput): string {
   const now = input.now ?? new Date();
   const { amzDate, dateStamp } = amzDates(now);
   const scope = `${dateStamp}/${config.region}/${config.service}/aws4_request`;
+
+  // Canonical headers: lower-case names, sorted, values trimmed (SigV4 §4).
+  const headers = new Map<string, string>([["host", input.host]]);
+  for (const [name, value] of Object.entries(input.signedHeaders ?? {})) {
+    headers.set(name.toLowerCase(), value.trim());
+  }
+  const headerNames = [...headers.keys()].sort();
+  const signedHeaderList = headerNames.join(";");
+  const canonicalHeaders = headerNames.map((name) => `${name}:${headers.get(name)}\n`).join("");
 
   const params: Record<string, string> = {
     ...(input.query ?? {}),
@@ -85,7 +102,7 @@ export function presignQuery(config: SigV4Config, input: PresignInput): string {
     "X-Amz-Credential": `${config.accessKeyId}/${scope}`,
     "X-Amz-Date": amzDate,
     "X-Amz-Expires": String(input.expiresInSeconds),
-    "X-Amz-SignedHeaders": "host",
+    "X-Amz-SignedHeaders": signedHeaderList,
   };
   if (config.sessionToken) params["X-Amz-Security-Token"] = config.sessionToken;
 
@@ -98,8 +115,8 @@ export function presignQuery(config: SigV4Config, input: PresignInput): string {
     input.method,
     uriEncode(input.path, false),
     canonicalQuery,
-    `host:${input.host}\n`,
-    "host",
+    canonicalHeaders,
+    signedHeaderList,
     UNSIGNED_PAYLOAD,
   ].join("\n");
 

@@ -122,6 +122,15 @@ export function approvalError(code: string, message: string, status: "CONFLICT" 
 export const notFound = () => approvalError("APPROVAL_NOT_FOUND", "This approval could not be found.", "NOT_FOUND");
 
 /**
+ * An approval whose module the company switched off answers "not found", like
+ * any record the reader cannot reach — a 403 would confirm the approval is
+ * there behind the switch (PRD #41 §198, §232, PRD #47 §175). The reason stays
+ * in the security log.
+ */
+export const providerUnavailable = (message = "This approval's module is not available to you.") =>
+  new AccessError("NOT_FOUND", message, { code: "APPROVAL_PROVIDER_UNAVAILABLE" }, "MODULE_DISABLED");
+
+/**
  * Translates what a module's service refused into the Center's error
  * vocabulary (§193, §194), keeping the module's own words where they are the
  * clearer answer.
@@ -142,7 +151,7 @@ export function translateSourceError(error: unknown): never {
       throw error;
     }
     if (error.code === "NOT_FOUND") throw approvalError("APPROVAL_NOT_FOUND", "You no longer have access to this approval.", "NOT_FOUND");
-    if (error.code === "MODULE_UNAVAILABLE") throw approvalError("APPROVAL_PROVIDER_UNAVAILABLE", "This approval's module is switched off.", "FORBIDDEN");
+    if (error.code === "MODULE_UNAVAILABLE") throw providerUnavailable("This approval's module is switched off.");
   }
   throw error;
 }

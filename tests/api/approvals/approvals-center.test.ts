@@ -232,7 +232,7 @@ describe("queue (§114, §192, §253)", () => {
     expect(result.items.length).toBeGreaterThan(0);
   });
 
-  it("hides a switched-off module's approvals and refuses to decide them (§232, §272)", async () => {
+  it("hides a switched-off module's approvals and refuses to decide them, as not found (§232, §272, PRD #47 §175)", async () => {
     const { approvalId } = await submittedExpense();
     const ceo = await loginAs("CEO");
     const off: UserContext = {
@@ -241,8 +241,8 @@ describe("queue (§114, §192, §253)", () => {
       enabledModules: ceo.enabledModules.filter((key) => key !== "finance"),
     };
     expect((await queue(off, "waiting")).items.some((item) => item.providerKey === "finance")).toBe(false);
-    await expectCode(getApprovalDetail(off, "finance", approvalId), "FORBIDDEN", "APPROVAL_PROVIDER_UNAVAILABLE");
-    await expectCode(decideApproval(off, "finance", approvalId, "APPROVE", { note: null }), "FORBIDDEN", "APPROVAL_PROVIDER_UNAVAILABLE");
+    await expectCode(getApprovalDetail(off, "finance", approvalId), "NOT_FOUND", "APPROVAL_PROVIDER_UNAVAILABLE");
+    await expectCode(decideApproval(off, "finance", approvalId, "APPROVE", { note: null }), "NOT_FOUND", "APPROVAL_PROVIDER_UNAVAILABLE");
     expect((await prisma.financeApproval.findUniqueOrThrow({ where: { id: approvalId } })).status).toBe("PENDING");
   });
 

@@ -2,6 +2,7 @@ import { Prisma, type TaskPriority, type TaskStatus } from "@prisma/client";
 
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
+import { assertSameProject } from "@/lib/access/references";
 import { canAccessProject } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
@@ -211,6 +212,19 @@ export async function createTask(
 
   const trustedParent = await resolveTaskParent(context, parent);
   const projectId = await validateProject(context, input.projectId);
+
+  /*
+   * Work raised from a project record lives on that record's project
+   * (PRD #47 §51). Otherwise a hazard on Project A could file a task on
+   * Project B — or on no project at all, outside every project gate — and the
+   * task would carry A's context to people who were never given A. A parent
+   * with no project of its own (an obligation, an opportunity) leaves the
+   * task's project to the caller.
+   */
+  if (trustedParent) {
+    assertSameProject("projectId", projectId, trustedParent.projectId, { allowUnlinked: true });
+  }
+
   const assigneeMemberId = await resolveAssignee(context, input.assigneeMemberId, projectId, null);
 
   const status = input.status as TaskStatus;
@@ -329,12 +343,23 @@ export async function updateTask(
 
   const projectId = await validateProject(context, input.projectId);
   const projectChanged = projectId !== existing.projectId;
+  // A task raised from another record belongs where that record is; moving it
+  // would detach the work from its source's project (PRD #47 §51).
+  if (projectChanged && existing.entityType && existing.entityId) {
+    throw new AccessError(
+      "VALIDATION_ERROR",
+      "This task belongs to the project of the record it was raised from.",
+      { projectId: ["This task belongs to the project of the record it was raised from."] },
+      "CROSS_PROJECT_REFERENCE",
+    );
+  }
 
   const assigneeMemberId = await resolveAssignee(
     context,
     input.assigneeMemberId,
     projectId,
     existing.assigneeMemberId,
+    { projectChanged },
   );
   const assigneeChanged = assigneeMemberId !== existing.assigneeMemberId;
 
@@ -783,17 +808,24 @@ async function validateProject(
  * With `task.create` but not `task.assign`, a user may leave a task unassigned
  * or take it themselves — but not hand work to somebody else (PRD #11 §51,
  * §122).
+ *
+ * An unchanged assignee is only waved through while the project stays put. A
+ * task moved to another project is re-checked against that project's team, or
+ * the move would quietly put somebody on work — and in front of a project —
+ * they were never added to (PRD #11 §48, PRD #47 §51).
  */
 async function resolveAssignee(
   context: UserContext,
   assigneeMemberId: string | undefined,
   projectId: string | null,
   currentAssigneeId: string | null,
+  options: { projectChanged?: boolean } = {},
 ): Promise<string | null> {
   const next = assigneeMemberId ?? null;
-  if (next === currentAssigneeId) return next;
+  const assigneeChanged = next !== currentAssigneeId;
+  if (!assigneeChanged && !options.projectChanged) return next;
 
-  if (next !== null && next !== context.membershipId) {
+  if (assigneeChanged && next !== null && next !== context.membershipId) {
     assertPermission(context, "task.assign");
   }
   // Clearing somebody else's assignment is also a reassignment.

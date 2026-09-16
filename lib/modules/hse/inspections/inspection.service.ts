@@ -192,7 +192,7 @@ export async function listInspections(context: UserContext, query: InspectionLis
   ]);
 
   const failed = new Map(failedCounts.map((row) => [row.inspectionId, row._count._all]));
-  const members = await loadMembers(rows.map((row) => row.assignedInspectorMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedInspectorMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members, failed.get(row.id) ?? 0)),
@@ -215,13 +215,13 @@ export async function getInspection(
   );
 
   const [members, createdBy, hazards, actions, pending] = await Promise.all([
-    loadMembers([
+    loadMembers(context.companyId, [
       row.assignedInspectorMemberId,
       row.executedByMemberId,
       row.approvedByMemberId,
       row.rejectedByMemberId,
     ]),
-    loadMemberRef(row.createdByMemberId),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     can(context, "hse.hazard.view")
       ? import("../hazards/hazard.service").then((m) =>
           m.listForInspection(context, inspectionId),
@@ -276,7 +276,7 @@ export async function listForProject(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedInspectorMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedInspectorMemberId));
   return rows.map((row) => toSummaryDTO(row, members, 0));
 }
 
@@ -419,6 +419,11 @@ export async function updateInspection(
 
   if (input.projectId) await requireProject(context, input.projectId);
   await requireMember(context, input.assignedInspectorMemberId);
+
+  // Changing the inspector is `assign`, not `create` (PRD #47 §85).
+  if (input.assignedInspectorMemberId !== existing.assignedInspectorMemberId) {
+    assertPermission(context, "hse.inspection.assign");
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.hseInspection.update({
@@ -694,7 +699,7 @@ export async function approveInspection(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "INSPECTION", inspectionId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId, existing.executedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
@@ -738,7 +743,7 @@ export async function rejectInspection(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "INSPECTION", inspectionId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    approvals.assertNotSelfApproval(context, approval.submittedByMemberId, existing.executedByMemberId);
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);
 
@@ -786,7 +791,13 @@ export async function closeInspection(
         inspectionNumber: true,
         status: true,
         result: true,
-        _count: { select: { hazards: true, actions: true } },
+        // A follow-up counts only if it is this company's (PRD #47 §20).
+        _count: {
+          select: {
+            hazards: { where: { companyId: context.companyId } },
+            actions: { where: { companyId: context.companyId } },
+          },
+        },
       },
     }),
   );
@@ -903,7 +914,14 @@ async function requireInspection(context: UserContext, inspectionId: string) {
   return assertFound(
     await prisma.hseInspection.findFirst({
       where: { AND: [buildInspectionScopeWhere(context), { id: inspectionId }] },
-      select: { id: true, inspectionNumber: true, status: true, updatedAt: true },
+      select: {
+        id: true,
+        inspectionNumber: true,
+        status: true,
+        assignedInspectorMemberId: true,
+        executedByMemberId: true,
+        updatedAt: true,
+      },
     }),
   );
 }
@@ -1009,8 +1027,7 @@ function capabilitiesFor(
 ) {
   // Withheld from whoever submitted it, so nobody is offered a button that is
   // certain to fail (PRD #22 §52, §182).
-  const notSelf =
-    submittedByMemberId !== context.membershipId || can(context, "hse.approval.self");
+  const notSelf = !approvals.isSelfDecision(context, submittedByMemberId, row.executedByMemberId);
 
   return {
     canEdit: isInspectionEditable(row.status) && can(context, "hse.inspection.create"),

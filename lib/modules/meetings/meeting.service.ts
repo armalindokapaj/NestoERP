@@ -2,7 +2,7 @@ import type { MeetingParticipantRole, MeetingStatus, Prisma } from "@prisma/clie
 
 import { can, canAccessModule } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
-import { canAccessProject } from "@/lib/access/scope";
+import { buildProjectScopeWhere, canAccessProject } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
@@ -27,6 +27,7 @@ import {
 import {
   ENTITY,
   getMeeting,
+  laterOccurrencesInReach,
   LIST_SELECT,
   listItemDTOs,
   meetingTimezone,
@@ -207,7 +208,14 @@ export async function listMeetings(context: UserContext, query: MeetingListQuery
   if (query.myOnly && query.section !== "mine") filters.push(mine);
   if (query.from) filters.push({ endsAt: { gt: new Date(query.from) } });
   if (query.to) filters.push({ startsAt: { lt: new Date(query.to) } });
-  if (query.projectId) filters.push({ projectId: query.projectId });
+  /*
+   * Filtering or searching by project reads the project, so it goes through the
+   * project's own door: otherwise a guessed project id, or a typed project
+   * name, sorts meetings the reader was invited to by a project they cannot
+   * open — and says the project exists (PRD #40 §266, PRD #47 §175).
+   */
+  const projectDoor = canAccessModule(context, "projects") && can(context, "project.view") ? buildProjectScopeWhere(context) : null;
+  if (query.projectId) filters.push(projectDoor ? { projectId: query.projectId, project: { is: projectDoor } } : { id: { in: [] } });
   if (query.type?.length) filters.push({ meetingType: { in: query.type } });
   if (query.status?.length) filters.push({ status: { in: query.status } });
   if (query.organizerId) filters.push({ organizerMemberId: query.organizerId });
@@ -218,7 +226,7 @@ export async function listMeetings(context: UserContext, query: MeetingListQuery
     filters.push({
       OR: [
         { title: term },
-        { project: { is: { OR: [{ name: term }, { code: term }] } } },
+        ...(projectDoor ? [{ project: { is: { AND: [projectDoor, { OR: [{ name: term }, { code: term }] }] } } }] : []),
         { organizer: { user: { OR: [{ firstName: term }, { lastName: term }] } } },
         { participants: { some: { displayName: term } } },
       ],
@@ -488,25 +496,28 @@ export async function updateMeeting(context: UserContext, meetingId: string, inp
 
     let count = 1;
     if (future) {
-      const later = await tx.meeting.findMany({
-        where: { seriesId: existing.seriesId, occurrenceIndex: { gt: existing.occurrenceIndex ?? 0 }, status: { in: ["DRAFT", "SCHEDULED"] }, archivedAt: null },
-        select: { id: true, startsAt: true },
-      });
-      for (const occurrence of later) {
+      // Only the later meetings this caller could change one by one (PRD #47 §20, §62).
+      const later = await laterOccurrencesInReach(context, existing, canEditMeeting, tx);
+      for (const occurrence of later.meetings) {
         const day = localDate(occurrence.startsAt, zone);
         const times = toInstants(day, input.startTime, input.endTime, zone);
         await tx.meeting.update({ where: { id: occurrence.id }, data: { ...fields, ...times, version: { increment: 1 } } });
       }
-      count += later.length;
-      const series = await tx.meetingSeries.findUniqueOrThrow({ where: { id: existing.seriesId! }, select: { firstStartsAt: true } });
-      await tx.meetingSeries.update({
-        where: { id: existing.seriesId! },
-        data: {
-          ...fields,
-          firstStartsAt: instantFromLocal(localDate(series.firstStartsAt, zone), input.startTime, zone),
-          durationMinutes: Math.round((endsAt.getTime() - startsAt.getTime()) / 60_000),
-        },
-      });
+      count += later.meetings.length;
+      // The series is the template for meetings not yet generated: it changes
+      // only when this change reached every later meeting and the caller runs
+      // the series, never on the word of one occurrence's organizer.
+      if (later.complete && later.organizesSeries) {
+        const series = await tx.meetingSeries.findUniqueOrThrow({ where: { id: existing.seriesId! }, select: { firstStartsAt: true } });
+        await tx.meetingSeries.update({
+          where: { id: existing.seriesId! },
+          data: {
+            ...fields,
+            firstStartsAt: instantFromLocal(localDate(series.firstStartsAt, zone), input.startTime, zone),
+            durationMinutes: Math.round((endsAt.getTime() - startsAt.getTime()) / 60_000),
+          },
+        });
+      }
     }
 
     await recordUserAction(
@@ -651,12 +662,17 @@ export async function cancelMeeting(context: UserContext, meetingId: string, inp
 
     let occurrences = 1;
     if (future) {
+      // Only the later meetings this caller could cancel one by one (PRD #47 §20, §62).
+      const reach = await laterOccurrencesInReach(context, existing, canCancelMeeting, tx);
       const later = await tx.meeting.updateMany({
-        where: { seriesId: existing.seriesId, occurrenceIndex: { gt: existing.occurrenceIndex ?? 0 }, status: { in: ["DRAFT", "SCHEDULED"] }, archivedAt: null },
+        where: { id: { in: reach.meetings.map((row) => row.id) }, companyId: context.companyId, status: { in: ["DRAFT", "SCHEDULED"] }, archivedAt: null },
         data: { status: "CANCELLED", cancelledAt: now, cancelledByMemberId: context.membershipId, cancelReason: input.reason, version: { increment: 1 } },
       });
       occurrences += later.count;
-      await tx.meetingSeries.update({ where: { id: existing.seriesId! }, data: { cancelledAt: now } });
+      // Stopping the series stops meetings not yet generated — somebody else's, if any later one was out of reach.
+      if (reach.complete && reach.organizesSeries) {
+        await tx.meetingSeries.update({ where: { id: existing.seriesId! }, data: { cancelledAt: now } });
+      }
     }
 
     await recordUserAction(

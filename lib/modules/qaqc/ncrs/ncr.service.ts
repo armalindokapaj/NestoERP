@@ -21,6 +21,13 @@ import {
   procurementLink,
   toProjectRef,
 } from "../qaqc.dto";
+import {
+  assertLinkOnProject,
+  requireLinkedDefect,
+  requireLinkedInspection,
+  requireLinkedReceipt,
+  requireLinkedReceiptItem,
+} from "../qaqc.links";
 import { nextQualityNumber } from "../qaqc.numbering";
 import {
   buildNcrScopeWhere,
@@ -33,6 +40,7 @@ import {
   isNcrCloseable,
   isNcrDecidable,
   isNcrEditable,
+  isNcrRecordEditable,
   isNcrOpenable,
   isNcrReopenable,
   isNcrSubmittable,
@@ -179,7 +187,7 @@ export async function listNcrs(context: UserContext, query: NcrListQuery) {
     prisma.nonConformanceReport.count({ where }),
   ]);
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members)),
@@ -199,14 +207,14 @@ export async function getNcr(context: UserContext, ncrId: string): Promise<NcrDe
   );
 
   const [members, createdBy, pending, actions] = await Promise.all([
-    loadMembers([
+    loadMembers(context.companyId, [
       row.assignedToMemberId,
       row.ownerMemberId,
       row.approvedByMemberId,
       row.rejectedByMemberId,
       row.closedByMemberId,
     ]),
-    loadMemberRef(row.createdByMemberId),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     approvals.pendingFor(context, "NCR", ncrId),
     can(context, "qaqc.corrective_action.view")
       ? import("../corrective-actions/action.service").then((m) =>
@@ -264,7 +272,7 @@ export async function listForInspection(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
@@ -280,7 +288,7 @@ export async function listForDefect(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
@@ -298,7 +306,7 @@ export async function listForProject(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
@@ -371,6 +379,7 @@ export async function createNcr(
   const projectId = input.projectId ? (await requireProject(context, input.projectId)).id : null;
   if (input.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
   if (input.ownerMemberId) await requireMember(context, input.ownerMemberId);
+  const links = await resolveLinks(context, input, projectId, null);
 
   const id = await prisma.$transaction(async (tx) => {
     const ncrNumber = await nextQualityNumber(tx, "nonConformanceReport", context.companyId);
@@ -382,10 +391,7 @@ export async function createNcr(
         title: input.title,
         description: input.description,
         projectId,
-        inspectionId: input.inspectionId ?? null,
-        goodsReceiptId: input.goodsReceiptId ?? null,
-        goodsReceiptItemId: input.goodsReceiptItemId ?? null,
-        sourceDefectId: input.sourceDefectId ?? null,
+        ...links,
         category: input.category,
         severity: input.severity,
         status: "DRAFT",
@@ -428,11 +434,21 @@ export async function updateNcr(
     throw new AccessError("CONFLICT", "A closed NCR cannot be edited.", { code: "NCR_CLOSED" });
   }
 
+  if (!isNcrRecordEditable(existing.status)) {
+    throw new AccessError(
+      "CONFLICT",
+      "This NCR is up for closure, so it cannot be edited. Reject the closure to change it.",
+      { code: "NCR_PENDING_CLOSE" },
+      "STATE_DENIED",
+    );
+  }
+
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
   const projectId = input.projectId ? (await requireProject(context, input.projectId)).id : null;
   if (input.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
   if (input.ownerMemberId) await requireMember(context, input.ownerMemberId);
+  const links = await resolveLinks(context, input, projectId, existing);
 
   await prisma.$transaction(async (tx) => {
     await tx.nonConformanceReport.update({
@@ -441,10 +457,7 @@ export async function updateNcr(
         title: input.title,
         description: input.description,
         projectId,
-        inspectionId: input.inspectionId ?? null,
-        goodsReceiptId: input.goodsReceiptId ?? null,
-        goodsReceiptItemId: input.goodsReceiptItemId ?? null,
-        sourceDefectId: input.sourceDefectId ?? null,
+        ...links,
         category: input.category,
         severity: input.severity,
         assignedToMemberId: input.assignedToMemberId ?? null,
@@ -555,7 +568,8 @@ export async function submitNcr(context: UserContext, ncrId: string): Promise<vo
         severity: true,
         rootCause: true,
         closureNote: true,
-        correctiveActions: { select: { status: true } },
+        // Only this company's actions count towards closure (PRD #47 §20).
+        correctiveActions: { where: { companyId: context.companyId }, select: { status: true } },
       },
     }),
   );
@@ -735,7 +749,8 @@ export async function closeNcr(
         severity: true,
         rootCause: true,
         closureNote: true,
-        correctiveActions: { select: { status: true } },
+        // Only this company's actions count towards closure (PRD #47 §20).
+        correctiveActions: { where: { companyId: context.companyId }, select: { status: true } },
       },
     }),
   );
@@ -901,6 +916,16 @@ export async function escalateDefect(
     });
   }
 
+  // A closed defect was fixed and signed off; reopen it first (PRD #47 §85).
+  if (defect.status === "CLOSED") {
+    throw new AccessError(
+      "CONFLICT",
+      "A closed defect cannot be escalated. Reopen it first.",
+      { code: "DEFECT_CLOSED" },
+      "STATE_DENIED",
+    );
+  }
+
   const existing = await prisma.nonConformanceReport.findFirst({
     where: { companyId: context.companyId, sourceDefectId: defectId, status: { not: "CANCELLED" } },
     select: { id: true },
@@ -972,9 +997,77 @@ async function requireNcr(context: UserContext, ncrId: string) {
   return assertFound(
     await prisma.nonConformanceReport.findFirst({
       where: { AND: [buildNcrScopeWhere(context), { id: ncrId }] },
-      select: { id: true, ncrNumber: true, status: true, updatedAt: true },
+      select: {
+        id: true,
+        ncrNumber: true,
+        status: true,
+        updatedAt: true,
+        projectId: true,
+        inspectionId: true,
+        goodsReceiptId: true,
+        goodsReceiptItemId: true,
+        sourceDefectId: true,
+      },
     }),
   );
+}
+
+type NcrLinks = {
+  inspectionId: string | null;
+  goodsReceiptId: string | null;
+  goodsReceiptItemId: string | null;
+  sourceDefectId: string | null;
+};
+
+/**
+ * The inspection, defect and delivery an NCR points at (PRD #47 §20, §51).
+ *
+ * Each is resolved through the reader's scope for that record type, and a
+ * project NCR's links have to be on its project. On an edit, a link that is
+ * already on the NCR and has not changed is kept without being re-resolved —
+ * whoever wrote it had the reach at the time — unless the NCR is moving to a
+ * different project, when every link has to fit the new one.
+ */
+async function resolveLinks(
+  context: UserContext,
+  input: NcrInput,
+  projectId: string | null,
+  existing: (NcrLinks & { projectId: string | null }) | null,
+): Promise<NcrLinks> {
+  const moved = existing !== null && existing.projectId !== projectId;
+  const fresh = (field: keyof NcrLinks) =>
+    Boolean(input[field]) && (existing === null || moved || input[field] !== existing[field]);
+
+  if (fresh("inspectionId")) {
+    const inspection = await requireLinkedInspection(context, "inspectionId", input.inspectionId!);
+    assertLinkOnProject("inspectionId", projectId, inspection.projectId);
+  }
+
+  if (fresh("sourceDefectId")) {
+    const defect = await requireLinkedDefect(context, "sourceDefectId", input.sourceDefectId!);
+    assertLinkOnProject("sourceDefectId", projectId, defect.projectId);
+  }
+
+  if (fresh("goodsReceiptId")) {
+    const receipt = await requireLinkedReceipt(context, "goodsReceiptId", input.goodsReceiptId!);
+    assertLinkOnProject("goodsReceiptId", projectId, receipt.projectId);
+  }
+
+  // The line is checked whenever either it or its delivery changed.
+  if (input.goodsReceiptItemId && (fresh("goodsReceiptItemId") || fresh("goodsReceiptId"))) {
+    await requireLinkedReceiptItem(
+      "goodsReceiptItemId",
+      input.goodsReceiptItemId,
+      input.goodsReceiptId ?? null,
+    );
+  }
+
+  return {
+    inspectionId: input.inspectionId ?? null,
+    goodsReceiptId: input.goodsReceiptId ?? null,
+    goodsReceiptItemId: input.goodsReceiptItemId ?? null,
+    sourceDefectId: input.sourceDefectId ?? null,
+  };
 }
 
 async function requireProject(context: UserContext, projectId: string) {
@@ -1052,7 +1145,7 @@ function capabilitiesFor(
     isNcrDecidable(row.status) && (!selfSubmitted || can(context, "qaqc.approval.self"));
 
   return {
-    canEdit: isNcrEditable(row.status) && can(context, "qaqc.ncr.update"),
+    canEdit: isNcrRecordEditable(row.status) && can(context, "qaqc.ncr.update"),
     canOpen: isNcrOpenable(row.status) && can(context, "qaqc.ncr.update"),
     canAssign: isNcrEditable(row.status) && can(context, "qaqc.ncr.assign"),
     // Offered only when the closure requirements are actually met, so the

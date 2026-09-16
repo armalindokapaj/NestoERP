@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { can, canAccessModule } from "@/lib/access/can";
-import { AccessError, assertModule } from "@/lib/access/guards";
+import { AccessError, assertModule, type SecurityReasonCode } from "@/lib/access/guards";
 import { buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
@@ -63,8 +63,9 @@ import type {
  * browser; every read goes through the project door.
  */
 
-export function fail(code: string, message: string, status: "VALIDATION_ERROR" | "CONFLICT" | "NOT_FOUND" | "FORBIDDEN" = "VALIDATION_ERROR", extra: Record<string, unknown> = {}): AccessError {
-  return new AccessError(status, message, { code, ...extra });
+/** `reason` is the security reason a refusal is logged under (PRD #47 §118); the response keeps code and message. */
+export function fail(code: string, message: string, status: "VALIDATION_ERROR" | "CONFLICT" | "NOT_FOUND" | "FORBIDDEN" = "VALIDATION_ERROR", extra: Record<string, unknown> = {}, reason?: SecurityReasonCode): AccessError {
+  return new AccessError(status, message, { code, ...extra }, reason);
 }
 
 export const PROJECT_SELECT = {

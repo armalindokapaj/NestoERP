@@ -170,8 +170,17 @@ async function dispatchOne(row: ClaimedRow): Promise<{ created: number; emailed:
     .filter((memberId) => memberId !== event.actorMemberId);
   if (candidates.length === 0) return { created: 0, emailed: 0 };
 
+  /*
+   * A discussion message needs a discussion to take part in. A record type with
+   * none tells nobody, and a confidential one (an HR record) tells only those
+   * its thread admits — never everybody who can merely read the record
+   * (PRD #38 §28, §30, PRD #47 §78).
+   */
+  if (definition.discussion && !recordType.collaboration) return { created: 0, emailed: 0 };
+  const discussionPermissions = definition.discussion ? (recordType.collaboration?.requires ?? []) : [];
+
   const contexts = await buildMemberContexts(event.companyId, candidates);
-  const permissions = [definition.permission?.(event, payload) ?? []].flat();
+  const permissions = [...[definition.permission?.(event, payload) ?? []].flat(), ...discussionPermissions];
 
   const entitled: string[] = [];
   let recordName: string | null = null;

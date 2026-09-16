@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { auth, signIn } from "@/lib/auth";
+import { signIn } from "@/lib/auth";
 import { AccessError } from "@/lib/access/guards";
 import { requireUserContext } from "@/lib/context/current-user";
+import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import { clientAddress, hitThrottle } from "@/lib/core/security/throttle";
 import * as departments from "@/lib/modules/team/departments/department.service";
 import * as invitations from "@/lib/modules/team/invitations/invite.service";
@@ -220,14 +221,22 @@ export async function acceptInviteAction(formData: FormData): Promise<TeamAction
  * proving control of that account rather than by choosing a new password. The
  * service compares the signed-in user against the invited address and refuses a
  * mismatch (PRD #14 §76).
+ *
+ * "Signed in" means the session row, not the cookie alone: a signed token keeps
+ * its claims after the session behind it was revoked or its account disabled,
+ * so the identity is resolved from the database the way every request is
+ * (PRD #6 §79, PRD #47 §22).
  */
 export async function acceptInviteAsCurrentUserAction(token: string): Promise<TeamActionResult> {
-  const session = await auth();
-  const userId = session?.user?.id;
+  if (typeof token !== "string" || token.length === 0) {
+    return { ok: false, error: "This invitation is invalid or has expired." };
+  }
 
-  if (!userId) {
+  const resolved = await resolveUserContext();
+  if (!resolved.ok) {
     return { ok: false, error: "Sign in to accept this invitation." };
   }
+  const userId = resolved.context.userId;
 
   const refused = await acceptAllowed(token);
   if (refused) return refused;

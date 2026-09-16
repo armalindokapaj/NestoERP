@@ -9,7 +9,7 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { settleMilestoneAttention } from "./planning.attention";
 import { wouldCreateCycle } from "./planning.graph";
-import { RECORD } from "./planning.permissions";
+import { readableMilestoneWhere, RECORD } from "./planning.permissions";
 import type { dependencySchema } from "./planning.schema";
 import { assertWritable, fail, findReadableMilestone } from "./planning.service";
 
@@ -31,10 +31,15 @@ export async function addDependency(context: UserContext, successorId: string, i
   if (successor.archivedAt) throw fail("MILESTONE_ARCHIVED", "That milestone is archived.", "CONFLICT");
   if (input.predecessorMilestoneId === successor.id) throw fail("DEPENDENCY_SELF", "A milestone cannot depend on itself.", "VALIDATION_ERROR", { field: "predecessorMilestoneId" });
 
-  // Read in the same company only: an id from another company or project is simply not a candidate (§36, §226, §227).
-  const predecessor = await prisma.projectMilestone.findFirst({ where: { id: input.predecessorMilestoneId, companyId: context.companyId, archivedAt: null }, select: { id: true, name: true, projectId: true } });
-  if (!predecessor) throw fail("DEPENDENCY_MILESTONE_INVALID", "That milestone could not be found.", "VALIDATION_ERROR", { field: "predecessorMilestoneId" });
-  if (predecessor.projectId !== successor.projectId) throw fail("DEPENDENCY_CROSS_PROJECT", "Dependencies stay within one project.", "VALIDATION_ERROR", { field: "predecessorMilestoneId" });
+  /*
+   * Read through the writer's own plan door (§36, §226, §227, PRD #47 §50,
+   * §51): a milestone from another company, or on a project they cannot open,
+   * is simply not a candidate and answers like an id that does not exist. Only
+   * a milestone they can already see is refused for being on another project.
+   */
+  const predecessor = await prisma.projectMilestone.findFirst({ where: { AND: [readableMilestoneWhere(context), { id: input.predecessorMilestoneId, archivedAt: null }] }, select: { id: true, name: true, projectId: true } });
+  if (!predecessor) throw fail("DEPENDENCY_MILESTONE_INVALID", "Choose a milestone you have access to.", "VALIDATION_ERROR", { field: "predecessorMilestoneId" }, "SCOPE_DENIED");
+  if (predecessor.projectId !== successor.projectId) throw fail("DEPENDENCY_CROSS_PROJECT", "Dependencies stay within one project.", "VALIDATION_ERROR", { field: "predecessorMilestoneId" }, "CROSS_PROJECT_REFERENCE");
 
   try {
     const created = await prisma.$transaction(

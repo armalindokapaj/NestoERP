@@ -52,6 +52,8 @@ const SELECT = {
   source: true,
   sourceEntityType: true,
   sourceEntityId: true,
+  createdByMemberId: true,
+  updatedByMemberId: true,
   updatedAt: true,
   employeeProfile: {
     select: {
@@ -245,7 +247,7 @@ export async function updateAttendance(
   if (isSystemGenerated(existing)) {
     assertPermission(context, "hr.attendance.update");
   } else if (!can(context, "hr.attendance.update")) {
-    if (!(own && can(context, "hr.self.attendance"))) {
+    if (!(own && can(context, "hr.self.attendance") && isSelfEntered(context, existing))) {
       assertPermission(context, "hr.attendance.update");
     }
   }
@@ -298,6 +300,24 @@ export async function updateAttendance(
 /* -------------------------------------------------------------------------- */
 /* Internals                                                                   */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * A day the employee wrote and nobody else has since corrected (PRD #47 §85, §98).
+ *
+ * Self-service is for keeping your own entries right. A day HR recorded — or
+ * a self-entered day HR has since corrected — is HR's record: letting the
+ * employee rewrite it would leave a row that still reads as HR's word while
+ * saying whatever the employee typed.
+ */
+function isSelfEntered(
+  context: UserContext,
+  row: { createdByMemberId: string; updatedByMemberId: string | null },
+): boolean {
+  return (
+    row.createdByMemberId === context.membershipId &&
+    (row.updatedByMemberId === null || row.updatedByMemberId === context.membershipId)
+  );
+}
 
 async function requireRecord(
   context: UserContext,
@@ -412,7 +432,8 @@ function toDTO(context: UserContext, row: AttendanceRow): AttendanceDTO {
     capabilities: {
       canEdit: fromLeave
         ? can(context, "hr.attendance.update")
-        : can(context, "hr.attendance.update") || (own && can(context, "hr.self.attendance")),
+        : can(context, "hr.attendance.update") ||
+          (own && can(context, "hr.self.attendance") && isSelfEntered(context, row)),
     },
   };
 }

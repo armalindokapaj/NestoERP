@@ -285,6 +285,11 @@ describe("dependencies (§32-§39, §158-§163, §285, §296)", () => {
     await expect(addDependency(pm, a, { predecessorMilestoneId: c, lagDays: 0 })).rejects.toMatchObject(code("DEPENDENCY_CYCLE"));
     await expect(addDependency(pm, a, { predecessorMilestoneId: M.structure, lagDays: 0 })).rejects.toMatchObject(code("DEPENDENCY_CROSS_PROJECT"));
     await expect(addDependency(pm, a, { predecessorMilestoneId: M.companyB, lagDays: 0 })).rejects.toMatchObject(code("DEPENDENCY_MILESTONE_INVALID"));
+    // Marina is not the PM's project: its milestone answers like a missing id, never "another project" (PRD #47 §51).
+    const marina = (await createMilestone(owner, COPY_TARGET, createMilestoneSchema.parse({ name: "Marina milestone" }))).id;
+    const refused = await addDependency(pm, a, { predecessorMilestoneId: marina, lagDays: 0 }).catch((error: unknown) => error);
+    expect(refused).toMatchObject({ ...code("DEPENDENCY_MILESTONE_INVALID"), reason: "SCOPE_DENIED" });
+    expect((refused as Error).message).not.toMatch(/project/i);
     await expect(addDependency(without(pm, "project_planning.dependencies.manage"), a, { predecessorMilestoneId: b, lagDays: 0 })).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const overview = await getPlanningOverview(pm, SITE);

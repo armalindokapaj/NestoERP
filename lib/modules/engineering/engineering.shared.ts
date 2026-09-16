@@ -1,7 +1,9 @@
 import { Prisma } from "@prisma/client";
 
 import type { Permission } from "@/config/permissions";
-import { AccessError } from "@/lib/access/guards";
+import { AccessError, type SecurityReasonCode } from "@/lib/access/guards";
+import { buildProjectScopeWhere } from "@/lib/access/scope";
+import type { UserContext } from "@/lib/context/types";
 import { allocateNumber } from "@/lib/core/numbering/numbering.service";
 import { prisma } from "@/lib/database/prisma";
 import { daysBetween } from "@/lib/modules/calendar/calendar.time";
@@ -22,8 +24,12 @@ export { businessInstant, dateLabel, dateOf };
 
 export type FailStatus = "VALIDATION_ERROR" | "CONFLICT" | "NOT_FOUND" | "FORBIDDEN";
 
-export function fail(code: string, message: string, status: FailStatus = "VALIDATION_ERROR", extra: Record<string, unknown> = {}): AccessError {
-  return new AccessError(status, message, { code, ...extra });
+/**
+ * `reason` is the security reason a refusal is logged under (PRD #47 §118) —
+ * internal only; the response keeps the code and the message.
+ */
+export function fail(code: string, message: string, status: FailStatus = "VALIDATION_ERROR", extra: Record<string, unknown> = {}, reason?: SecurityReasonCode): AccessError {
+  return new AccessError(status, message, { code, ...extra }, reason);
 }
 
 export const at = (date: string | null | undefined) => (date ? businessInstant(date) : null);
@@ -120,27 +126,33 @@ export async function holders(db: Db, companyId: string, permission: Permission)
  * contractor who was never assigned here, or one whose assignment has ended
  * (for new work) is refused; a work package lends its contractor when none is
  * given, and may not contradict one that is.
+ *
+ * The work package is looked up inside the writer's own project scope first
+ * (PRD #47 §50, §51): one on a project they cannot open answers exactly like an
+ * id that does not exist, and "belongs to another project" is said only about
+ * a work package on a project they can already see.
  */
 export async function resolveProjectContext(
-  companyId: string,
+  context: UserContext,
   projectId: string,
   input: { contractorId: string | null; workPackageId: string | null },
   options: { newWork: boolean },
 ): Promise<{ contractorId: string | null; workPackageId: string | null }> {
+  const companyId = context.companyId;
   let contractorId = input.contractorId;
   if (input.workPackageId) {
-    const workPackage = await prisma.workPackage.findFirst({ where: { id: input.workPackageId, companyId }, select: { id: true, projectId: true, contractorId: true, archivedAt: true, status: true } });
-    if (!workPackage) throw fail("ENGINEERING_WORK_PACKAGE_INVALID", "That work package could not be found.", "VALIDATION_ERROR", { field: "workPackageId" });
-    if (workPackage.projectId !== projectId) throw fail("ENGINEERING_WORK_PACKAGE_PROJECT_MISMATCH", "That work package belongs to another project.", "VALIDATION_ERROR", { field: "workPackageId" });
+    const workPackage = await prisma.workPackage.findFirst({ where: { id: input.workPackageId, companyId, project: { is: buildProjectScopeWhere(context) } }, select: { id: true, projectId: true, contractorId: true, archivedAt: true, status: true } });
+    if (!workPackage) throw fail("ENGINEERING_WORK_PACKAGE_INVALID", "Choose a work package you have access to.", "VALIDATION_ERROR", { field: "workPackageId" }, "SCOPE_DENIED");
+    if (workPackage.projectId !== projectId) throw fail("ENGINEERING_WORK_PACKAGE_PROJECT_MISMATCH", "That work package belongs to another project.", "VALIDATION_ERROR", { field: "workPackageId" }, "CROSS_PROJECT_REFERENCE");
     if (options.newWork && (workPackage.archivedAt || workPackage.status === "CANCELLED")) throw fail("ENGINEERING_WORK_PACKAGE_CLOSED", "That work package is closed to new work.", "VALIDATION_ERROR", { field: "workPackageId" });
     if (workPackage.contractorId && contractorId && workPackage.contractorId !== contractorId) throw fail("ENGINEERING_CONTRACTOR_MISMATCH", "That work package belongs to a different contractor.", "VALIDATION_ERROR", { field: "contractorId" });
     contractorId = contractorId ?? workPackage.contractorId;
   }
   if (contractorId) {
     const contractor = await prisma.contractorProfile.findFirst({ where: { id: contractorId, companyId }, select: { id: true, status: true, projectAssignments: { where: { projectId }, select: { status: true } } } });
-    if (!contractor) throw fail("ENGINEERING_CONTRACTOR_INVALID", "That contractor could not be found.", "VALIDATION_ERROR", { field: "contractorId" });
+    if (!contractor) throw fail("ENGINEERING_CONTRACTOR_INVALID", "That contractor could not be found.", "VALIDATION_ERROR", { field: "contractorId" }, "CROSS_COMPANY_REFERENCE");
     const assignment = contractor.projectAssignments[0];
-    if (!assignment) throw fail("ENGINEERING_CONTRACTOR_NOT_ASSIGNED", "That contractor is not assigned to this project.", "VALIDATION_ERROR", { field: "contractorId" });
+    if (!assignment) throw fail("ENGINEERING_CONTRACTOR_NOT_ASSIGNED", "That contractor is not assigned to this project.", "VALIDATION_ERROR", { field: "contractorId" }, "CROSS_PROJECT_REFERENCE");
     if (options.newWork && assignment.status === "TERMINATED") throw fail("ENGINEERING_ASSIGNMENT_TERMINATED", "That contractor's assignment on this project has been terminated.", "VALIDATION_ERROR", { field: "contractorId" });
     if (options.newWork && (contractor.status === "ARCHIVED" || contractor.status === "OFFBOARDED")) throw fail("ENGINEERING_CONTRACTOR_INACTIVE", "That contractor is no longer active.", "VALIDATION_ERROR", { field: "contractorId" });
   }

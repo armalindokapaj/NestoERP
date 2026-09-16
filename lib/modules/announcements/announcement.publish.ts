@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-import { assertPermission } from "@/lib/access/guards";
+import { AccessError, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordSystemAction, recordUserAction } from "@/lib/core/audit/audit.service";
@@ -11,7 +11,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { resolveProductivitySettings } from "@/lib/modules/productivity/productivity.settings";
 import { excerpt } from "./announcement.body";
-import { ACTIVITY_ENTITY, MODULE, RECORD } from "./announcement.permissions";
+import { ACTIVITY_ENTITY, canAddress, MODULE, RECORD } from "./announcement.permissions";
 import { audienceMemberIds, fail, findManageableAnnouncement, resolveAnnouncementAttentionFor, validateAudience, type AnnouncementRow } from "./announcement.service";
 import { PINNED_LIMIT } from "./announcement.types";
 
@@ -116,8 +116,19 @@ export async function unscheduleAnnouncement(context: UserContext, announcementI
   return { status: "DRAFT" };
 }
 
+/**
+ * Managing an announcement needs the reach to address its audience now, not
+ * only once (PRD #45 §33, §157, PRD #47 §62). An author who has since lost the
+ * company or project grant still reads what they wrote, but no longer archives
+ * or pins it — the same rule `capabilitiesFor` applies to the buttons.
+ */
+function assertStillAddresses(context: UserContext, row: { audienceType: AnnouncementRow["audienceType"] }) {
+  if (!canAddress(context, row.audienceType)) throw new AccessError("FORBIDDEN", "You cannot manage this announcement.", { code: "ANNOUNCEMENT_AUDIENCE_FORBIDDEN" });
+}
+
 export async function archiveAnnouncement(context: UserContext, announcementId: string, input: { expectedVersion: number }): Promise<{ status: "ARCHIVED" }> {
   const row = await findManageableAnnouncement(context, announcementId);
+  assertStillAddresses(context, row);
   assertPermission(context, "announcement.archive");
   if (row.status === "ARCHIVED") return { status: "ARCHIVED" };
   await prisma.$transaction(async (tx) => {
@@ -132,6 +143,7 @@ export async function archiveAnnouncement(context: UserContext, announcementId: 
 /** Above the ordinary feed, and at most three per audience (§24, §25). */
 export async function setPinned(context: UserContext, announcementId: string, pinned: boolean, input: { expectedVersion: number }): Promise<{ pinned: boolean }> {
   const row = await findManageableAnnouncement(context, announcementId);
+  assertStillAddresses(context, row);
   assertPermission(context, "announcement.pin");
   if (row.status === "ARCHIVED" || row.status === "EXPIRED") throw fail("ANNOUNCEMENT_READ_ONLY", "Expired and archived announcements are not pinned.", "CONFLICT");
   if (row.pinned === pinned) return { pinned };

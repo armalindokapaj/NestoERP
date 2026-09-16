@@ -75,12 +75,14 @@ export class S3StorageProvider implements StorageProvider {
     storageKey: string,
     expiresInSeconds: number,
     query?: Record<string, string>,
+    signedHeaders?: Record<string, string>,
   ): string {
     return presignUrl(this.sigv4, {
       method,
       host: this.host,
       path: this.objectPath(storageKey),
       query,
+      signedHeaders,
       expiresInSeconds,
       protocol: this.protocol,
     });
@@ -89,16 +91,26 @@ export class S3StorageProvider implements StorageProvider {
   async createUploadUrl(input: CreateUploadUrlInput): Promise<SignedUpload> {
     const expiresAt = new Date(Date.now() + input.expiresInSeconds * 1000);
 
+    /*
+     * Single use (PRD #47 §83). The grant outlives the upload it was issued
+     * for, so without a condition its holder could PUT different bytes over an
+     * object after /complete had verified — and scanned — the first ones.
+     * `If-None-Match: *` makes the bucket refuse to overwrite an existing
+     * object (S3, R2 and MinIO all honour it on PutObject), and signing it
+     * means the header cannot simply be left off.
+     */
+    const condition = { "If-None-Match": "*" };
+
     return {
       method: "PUT",
-      url: this.presign("PUT", input.storageKey, input.expiresInSeconds),
+      url: this.presign("PUT", input.storageKey, input.expiresInSeconds, undefined, condition),
       /*
        * The type is sent but not signed. Presigned-PUT support for a
        * content-length condition varies by provider, so the authoritative
        * checks are the HEAD and magic-byte verification after the upload —
        * which is what §311 says to do, and what §27 requires anyway.
        */
-      headers: { "Content-Type": input.contentType },
+      headers: { "Content-Type": input.contentType, ...condition },
       expiresAt,
     };
   }

@@ -9,7 +9,8 @@ export async function DELETE(_request: Request, { params }: Params) {
   const raw = await params;
   return withContext(async (context) => {
     const ref = entityRefSchema.parse(raw);
-    await removeFavorite(context, ref);
-    return apiOk({ data: { removed: true } });
+    // `removed` reports what happened rather than what was asked for: a star
+    // that was never this member's comes back false (PRD #47 §75).
+    return apiOk({ data: { removed: await removeFavorite(context, ref) } });
   });
 }

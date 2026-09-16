@@ -1,7 +1,13 @@
 import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import {
+  AccessError,
+  assertFound,
+  assertModule,
+  assertPermission,
+  stateDenied,
+} from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -271,6 +277,12 @@ export async function createTaskForObligation(
   assertPermission(context, "legal.task.create");
 
   const obligation = assertFound(await findInScope(context, obligationId));
+  // Work is raised for an obligation still owed. A completed or cancelled one
+  // has nothing left to do, and the record page offers no button for it
+  // (PRD #18 §154, PRD #47 §85).
+  if (obligation.status !== "OPEN") {
+    throw stateDenied(`This obligation is already ${obligation.status.toLowerCase()}.`);
+  }
   const contract = await prisma.contract.findUnique({
     where: { id: obligation.contractId },
     select: { projectId: true },
@@ -345,6 +357,27 @@ async function closeObligation(
       metadata: { obligationId, ...(spec.note ? { note: spec.note } : {}) } as Prisma.InputJsonValue,
     });
   });
+}
+
+/**
+ * Confirms an obligation named in a URL belongs to the contract named beside it
+ * (PRD #47 §17, §47).
+ *
+ * `/contracts/A/obligations/X` must not act on X when X belongs to contract B:
+ * the path is what the caller and the audit trail read, so a mismatch answers
+ * "not found" rather than quietly acting on another contract's obligation.
+ */
+export async function assertObligationOnContract(
+  context: UserContext,
+  contractId: string,
+  obligationId: string,
+): Promise<void> {
+  assertFound(
+    await prisma.contractObligation.findFirst({
+      where: { id: obligationId, contractId, contract: { is: buildContractScopeWhere(context) } },
+      select: { id: true },
+    }),
+  );
 }
 
 function findInScope(context: UserContext, obligationId: string) {

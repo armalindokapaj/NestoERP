@@ -9,7 +9,7 @@ import {
 } from "@/lib/core/storage";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
-import { promoteVersion } from "./version.promote";
+import { frozenFileReason, promoteVersion } from "./version.promote";
 // Registers the ClamAV engine: server-only, so it is loaded here, where scans run.
 import "@/lib/core/storage/clamav-scanner";
 
@@ -245,6 +245,22 @@ export async function runScanForVersion(versionId: string): Promise<void> {
   if (result.verdict === "CLEAN") {
     assertTransition("SCANNING", "AVAILABLE");
     await prisma.$transaction(async (tx) => {
+      /*
+       * Clean is not the same as allowed. A revision submitted or a transmittal
+       * issued while this version waited on the scanner froze the document's
+       * file, and the scan must not swap it underneath that record
+       * (PRD #46 §69, §123, PRD #47 §85). The version is refused instead; the
+       * document keeps the file the record carries.
+       */
+      const frozen = await frozenFileReason(version.documentId);
+      if (frozen) {
+        assertTransition("SCANNING", "REJECTED");
+        await tx.documentVersion.updateMany({
+          where: { id: versionId, storageStatus: "SCANNING" },
+          data: { storageStatus: "REJECTED", scanStatus: "CLEAN", scanCompletedAt: new Date(), rejectionReason: "ENGINEERING_FILE_FROZEN" },
+        });
+        return;
+      }
       const settled = await tx.documentVersion.updateMany({
         where: { id: versionId, storageStatus: "SCANNING" },
         data: { storageStatus: "AVAILABLE", scanStatus: "CLEAN", scanCompletedAt: new Date(), availableAt: new Date() },

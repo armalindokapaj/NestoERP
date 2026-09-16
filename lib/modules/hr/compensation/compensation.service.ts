@@ -126,6 +126,13 @@ export async function recordCompensation(
   assertModule(context, MODULE);
   assertPermission(context, "hr.compensation.update");
 
+  // Nobody sets their own pay. HR's grant is over other people's records; a
+  // raise for the person holding it is somebody else's decision, or it is a
+  // decision nobody checked (PRD #16 §67, PRD #47 §98).
+  if (memberId === context.membershipId) {
+    throw new AccessError("FORBIDDEN", "Your own compensation is recorded by somebody else in HR.");
+  }
+
   const profile = await requireProfile(context, memberId);
   const effectiveFrom = toBusinessDate(input.effectiveFrom);
 

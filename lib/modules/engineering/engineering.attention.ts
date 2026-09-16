@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
@@ -81,9 +82,9 @@ async function alreadySent(companyId: string, eventType: string, entityType: str
  * overdue notices for RFIs and submittal reviews.
  */
 export async function runEngineeringReminders(now = new Date()): Promise<{ rfiDueSoon: number; rfiOverdue: number; submittalDueSoon: number; submittalOverdue: number }> {
-  const companies = await prisma.company.findMany({ where: { status: "ACTIVE", modules: { some: { enabled: true, module: { key: MODULE } } } }, select: { id: true } });
   const counts = { rfiDueSoon: 0, rfiOverdue: 0, submittalDueSoon: 0, submittalOverdue: 0 };
-  for (const company of companies) {
+  const companyRun = await forEachCompany("engineering.reminders", async (system) => {
+    const company = { id: system.companyId };
     const { settings, today } = await todayFor(company.id, now);
     const horizon = addLocalDays(today, settings.dueSoonDays);
 
@@ -127,9 +128,10 @@ export async function runEngineeringReminders(now = new Date()): Promise<{ rfiDu
         else counts.submittalOverdue += 1;
       }
     }
-  }
+  }, { moduleKey: MODULE });
   if (counts.rfiOverdue) incrementCounter(Metric.RFI_OVERDUE, {}, counts.rfiOverdue);
   if (counts.submittalOverdue) incrementCounter(Metric.SUBMITTAL_OVERDUE, {}, counts.submittalOverdue);
+  assertEveryCompanySucceeded("engineering.reminders", companyRun);
   return counts;
 }
 

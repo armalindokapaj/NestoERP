@@ -4,6 +4,7 @@ import { can } from "@/lib/access/can";
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { countPendingApprovals } from "../approvals/approval.service";
 import { clampAtZero, subtract, toAmountString, ZERO, type Money } from "../finance.money";
 import {
   buildCommitmentScopeWhere,
@@ -194,11 +195,7 @@ async function overviewCounts(
     can(context, "finance.invoice.view")
       ? prisma.invoice.count({ where: { AND: [invoiceScope, { status: "DRAFT" }] } })
       : Promise.resolve(0),
-    visible.approvals
-      ? prisma.financeApproval.count({
-          where: { companyId: context.companyId, status: "PENDING" },
-        })
-      : Promise.resolve(0),
+    visible.approvals ? countPendingApprovals(context) : Promise.resolve(0),
     can(context, "finance.invoice.view")
       ? prisma.invoice.count({
           where: { AND: [invoiceScope, { status: "SENT", dueDate: { lt: now } }] },

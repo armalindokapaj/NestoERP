@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
-import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertModule, assertPermission, type SecurityReasonCode } from "@/lib/access/guards";
 import { buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
@@ -48,8 +48,9 @@ import {
 export const ACTIVITY_ENTITY = "DailyLog";
 export const RECORD_LINK_TYPE = "DAILY_LOG_RECORD";
 
-export function fail(code: string, message: string, status: "VALIDATION_ERROR" | "CONFLICT" | "NOT_FOUND" | "FORBIDDEN" = "VALIDATION_ERROR", extra: Record<string, unknown> = {}): AccessError {
-  return new AccessError(status, message, { code, ...extra });
+/** `reason` is the security reason a refusal is logged under (PRD #47 §118); the response keeps code and message. */
+export function fail(code: string, message: string, status: "VALIDATION_ERROR" | "CONFLICT" | "NOT_FOUND" | "FORBIDDEN" = "VALIDATION_ERROR", extra: Record<string, unknown> = {}, reason?: SecurityReasonCode): AccessError {
+  return new AccessError(status, message, { code, ...extra }, reason);
 }
 
 const decimal = (value: Prisma.Decimal | null) => (value === null ? null : Number(value.toString()));

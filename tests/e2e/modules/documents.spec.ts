@@ -317,8 +317,20 @@ test.describe("Archive keeps the binary (PRD #29 §384)", () => {
    * brings both back. Archive is a visibility state, never a deletion.
    */
   test("archiving keeps the stored object, and restoring brings it back", async ({ page }) => {
+    // Not a file an engineering revision or an issued transmittal carries:
+    // those are frozen, and archiving one is refused on purpose
+    // (PRD #46 §69, §123, PRD #47 §85). Project A's drawings are exactly that,
+    // and `findFirst` used to land on one or another depending on row order.
     const document = await db.document.findFirstOrThrow({
-      where: { projectId: "project_a", status: "ACTIVE", storageStatus: "AVAILABLE" },
+      where: {
+        projectId: "project_a",
+        status: "ACTIVE",
+        storageStatus: "AVAILABLE",
+        engineeringRevisions: { none: { status: { notIn: ["DRAFT", "VOID"] } } },
+        submittalRevisions: { none: { status: { notIn: ["DRAFT", "VOID"] } } },
+        transmittalItems: { none: { transmittal: { status: "ISSUED" } } },
+      },
+      orderBy: { id: "asc" },
       select: { id: true, storageKey: true },
     });
 

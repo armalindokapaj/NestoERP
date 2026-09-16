@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { can, canAccessModule } from "@/lib/access/can";
-import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
@@ -228,7 +228,7 @@ export async function createSubmittal(context: UserContext, projectId: string, i
   const settings = await resolveEngineeringSettings(context.companyId);
   if (settings.requireSubmittalDueDate && !input.dueAt) throw fail("SUBMITTAL_DUE_REQUIRED", "Give the review a due date.", "VALIDATION_ERROR", { field: "dueAt" });
   const [scope] = await Promise.all([
-    resolveProjectContext(context.companyId, project.id, input, { newWork: true }),
+    resolveProjectContext(context, project.id, input, { newWork: true }),
     assertResponsible(context.companyId, project.id, input.assignedReviewerMemberId, "submittal.review", "assignedReviewerMemberId"),
     assertSupplier(context, input.supplierId),
   ]);
@@ -267,15 +267,37 @@ async function findWritableSubmittal(context: UserContext, id: string) {
   return row;
 }
 
+/** With the reviewer, or decided: what is being (or was) reviewed. */
+const FROZEN_DETAIL_STATUSES: SubmittalStatus[] = [...SUBMITTAL_IN_REVIEW, "APPROVED", "APPROVED_WITH_COMMENTS", "REJECTED"];
+const FROZEN_DETAIL_FIELDS = ["submittalType", "specificationReference", "manufacturer", "productName", "modelNumber", "supplierId"] as const;
+
+/**
+ * What the reviewer is looking at — the product, its make and model, the
+ * specification clause, the supplier and the kind of submittal — does not
+ * change under them, nor after they decided (PRD #46 §102, §117, PRD #47 §85,
+ * §87). An approval of one product is never quietly carried over to another:
+ * a changed product is a new revision after "revision required", or a new
+ * submittal.
+ */
+function assertDetailsUnfrozen(row: SubmittalRow, input: UpdateSubmittalInput) {
+  if (!FROZEN_DETAIL_STATUSES.includes(row.status)) return;
+  const changed = FROZEN_DETAIL_FIELDS.filter((field) => (input[field] ?? null) !== (row[field] ?? null));
+  if (!changed.length) return;
+  const when = SUBMITTAL_IN_REVIEW.includes(row.status) ? "while it is under review" : "once it has been decided";
+  throw stateDenied(`The submitted product details cannot change ${when}.`, { code: "SUBMITTAL_DETAILS_FROZEN", fields: changed });
+}
+
 export async function updateSubmittal(context: UserContext, id: string, input: UpdateSubmittalInput): Promise<{ id: string; version: number }> {
   const row = await findWritableSubmittal(context, id);
+  assertDetailsUnfrozen(row, input);
   const reassigned = input.assignedReviewerMemberId !== row.assignedReviewerMemberId;
   const [scope] = await Promise.all([
-    resolveProjectContext(context.companyId, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
+    resolveProjectContext(context, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
     reassigned ? assertResponsible(context.companyId, row.projectId, input.assignedReviewerMemberId, "submittal.review", "assignedReviewerMemberId") : undefined,
     assertSupplier(context, input.supplierId, row.supplierId),
   ]);
   await prisma.$transaction(async (tx) => {
+    // The version guard also keeps the freeze honest: a decision in between moves the version on.
     const moved = await tx.technicalSubmittal.updateMany({ where: { id: row.id, version: input.expectedVersion, status: { notIn: ["VOID", "CLOSED"] } }, data: { ...detailData(input), contractorId: scope.contractorId, workPackageId: scope.workPackageId, version: { increment: 1 } } });
     if (!moved.count) throw fail("SUBMITTAL_STALE", "This submittal changed since you opened it. Reload to see the latest.", "CONFLICT");
     await recordUserAction(

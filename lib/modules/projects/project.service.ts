@@ -1,8 +1,16 @@
 import { Prisma, type ProjectStatus } from "@prisma/client";
 
 import { roleLabel, isRoleKey } from "@/config/roles";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import {
+  AccessError,
+  assertFound,
+  assertModule,
+  assertPermission,
+  invalidRecordLink,
+  stateDenied,
+} from "@/lib/access/guards";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
+import { buildClientScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -145,8 +153,15 @@ export async function createProject(
   assertModule(context, MODULE);
   assertPermission(context, "project.create");
 
-  const clientId = await validateClient(context, input.clientId);
+  const clientId = await validateClient(context, input.clientId, null);
   const managerMemberId = await validateManager(context, input.projectManagerMemberId);
+
+  // Naming somebody else as manager is the manager grant's decision on create
+  // exactly as on update — taking the project yourself, or leaving it
+  // unmanaged, is not (PRD #10 §118, PRD #47 §57).
+  if (managerMemberId && managerMemberId !== context.membershipId) {
+    assertPermission(context, "project.manager.assign");
+  }
 
   const project = await prisma
     .$transaction((tx) =>
@@ -269,7 +284,7 @@ export async function updateProject(
     );
   }
 
-  const clientId = await validateClient(context, input.clientId);
+  const clientId = await validateClient(context, input.clientId, existing.clientId);
   const managerMemberId = await validateManager(context, input.projectManagerMemberId);
 
   const managerChanged = managerMemberId !== existing.projectManagerMemberId;
@@ -511,7 +526,13 @@ export async function updateMember(
   input: UpdateProjectMemberInput,
 ): Promise<void> {
   assertPermission(context, "project.member.update");
-  await assertProjectInScope(context, projectId);
+  const project = await assertProjectInScope(context, projectId);
+
+  // An archived project's team is part of its record, like everything else on
+  // it: restore first, as `addMember` already requires (PRD #10 §58, PRD #47 §87).
+  if (isProjectArchived(project)) {
+    throw stateDenied("Restore this project before changing its team.");
+  }
 
   const record = assertFound(
     await prisma.projectMember.findFirst({
@@ -547,6 +568,10 @@ export async function removeMember(
 ): Promise<void> {
   assertPermission(context, "project.member.remove");
   const project = await assertProjectInScope(context, projectId);
+
+  if (isProjectArchived(project)) {
+    throw stateDenied("Restore this project before changing its team.");
+  }
 
   const record = assertFound(
     await prisma.projectMember.findFirst({
@@ -603,9 +628,16 @@ export async function openTasksForMember(
   });
 }
 
-/** Company members who could be added to the project (PRD #10 §73). */
+/**
+ * Company members who could be added to the project (PRD #10 §73).
+ *
+ * The project is loaded in the caller's scope first, whoever calls this: the
+ * list says who is *not* on a project, which for a project the caller cannot
+ * open is still a statement about its team (PRD #47 §62).
+ */
 export async function assignableMembers(context: UserContext, projectId: string) {
   assertPermission(context, "project.member.view");
+  await assertProjectInScope(context, projectId);
 
   return prisma.companyMember.findMany({
     where: {
@@ -632,19 +664,36 @@ export async function assignableMembers(context: UserContext, projectId: string)
  * Prisma foreign keys cannot guarantee that two records share a company, so
  * every related id is re-read inside the current company before use
  * (PRD #10 §94).
+ *
+ * A client is read through the caller's own client scope, not merely the
+ * company (PRD #47 §50, §62). Linking matters beyond the form: a scoped user
+ * reaches clients *through* their projects, so an engineer who could attach
+ * any company client to their project would thereby widen their own client
+ * scope to it. The client a project already has stays acceptable as it is —
+ * editing the name of a project must not fail over a link somebody else made.
  */
 async function validateClient(
   context: UserContext,
   clientId: string | undefined,
+  currentClientId: string | null,
 ): Promise<string | null> {
   if (!clientId) return null;
+  if (clientId === currentClientId) return clientId;
 
   const client = await prisma.client.findFirst({
-    where: { id: clientId, companyId: context.companyId },
+    where: { AND: [buildClientScopeWhere(context), { id: clientId }] },
     select: { id: true },
   });
 
-  if (!client) throw new AccessError("VALIDATION_ERROR", "That client is not available.");
+  if (!client) {
+    // One answer either way; the reason only reaches the security log.
+    const inCompany = await prisma.client.count({ where: { id: clientId, companyId: context.companyId } });
+    throw invalidRecordLink(
+      "clientId",
+      inCompany > 0 ? "SCOPE_DENIED" : "CROSS_COMPANY_REFERENCE",
+      "That client is not available.",
+    );
+  }
   return client.id;
 }
 

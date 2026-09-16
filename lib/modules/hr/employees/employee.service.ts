@@ -1,7 +1,7 @@
 import { Prisma, type EmploymentStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -163,6 +163,13 @@ export async function updateEmployeeProfile(
 
   const existing = assertFound(await repository.findEmployeeByMember(context, memberId));
 
+  // Ended employment is history: its dates, type and manager are what was
+  // true while the person worked here. It reopens through a rehire, and the
+  // record page offers no edit for it (PRD #16 §56, PRD #47 §85).
+  if (existing.employmentStatus === "ENDED") {
+    throw stateDenied("Ended employment is not edited. Rehire to reopen it.");
+  }
+
   if (
     input.versionUpdatedAt &&
     existing.updatedAt.getTime() !== input.versionUpdatedAt.getTime()
@@ -185,8 +192,10 @@ export async function updateEmployeeProfile(
       await assertNumberIsFree(tx, context, input.employeeNumber, existing.id);
     }
 
-    await tx.employeeProfile.update({
-      where: { id: existing.id },
+    // Conditional on the status that was read, so employment ended a moment
+    // ago is not rewritten by an edit that started before it.
+    const written = await tx.employeeProfile.updateMany({
+      where: { id: existing.id, companyId: context.companyId, employmentStatus: existing.employmentStatus },
       data: {
         employeeNumber: input.employeeNumber ?? null,
         employmentType: input.employmentType,
@@ -201,6 +210,9 @@ export async function updateEmployeeProfile(
         updatedByMemberId: context.membershipId,
       },
     });
+    if (written.count === 0) {
+      throw stateDenied("This record changed while you were working on it. Refresh and review it.");
+    }
 
     if (managerChanged) {
       await recordActivity(tx, context, {
@@ -569,7 +581,8 @@ function toDetailDTO(
       // Pay is its own decision, and seeing your own is not implied either
       // (PRD #16 §67).
       canViewCompensation: can(context, "hr.compensation.view"),
-      canEditCompensation: can(context, "hr.compensation.update"),
+      // …and nobody records their own (PRD #47 §98).
+      canEditCompensation: !own && can(context, "hr.compensation.update"),
       canViewLeave:
         can(context, "hr.leave.view") || (own && can(context, "hr.self.leave")),
       canViewAttendance:

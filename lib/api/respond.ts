@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { AccessError, type ApiErrorCode, errorStatus } from "@/lib/access/guards";
+import { recordAuthorizationDenial } from "@/lib/access/security-log";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import type { UserContext } from "@/lib/context/types";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
@@ -78,11 +79,15 @@ async function handleRequest(
 
   if (!result.ok) {
     if (result.reason === "UNAUTHENTICATED" || result.reason === "SESSION_EXPIRED") {
+      recordAuthorizationDenial({ code: "UNAUTHENTICATED" });
       return apiError("UNAUTHENTICATED");
     }
     // An inactive user, membership or company is authenticated but has no
-    // workspace to act in.
-    return apiError("FORBIDDEN", "Your workspace is unavailable.");
+    // workspace to act in. The code says which, since it is the caller's own
+    // state and discloses nothing about anybody else (PRD #47 §22, §23, §225).
+    const code = result.reason === "COMPANY_UNAVAILABLE" ? "COMPANY_INACTIVE" : "MEMBERSHIP_INACTIVE";
+    recordAuthorizationDenial({ code });
+    return apiError(code);
   }
 
   // Diagnostic identity, never anything the caller could not already see.
@@ -95,6 +100,7 @@ async function handleRequest(
     return await handler(result.context);
   } catch (error) {
     if (error instanceof AccessError) {
+      recordAuthorizationDenial({ code: error.code, reason: error.reason });
       return apiError(error.code, error.message, error.details);
     }
 

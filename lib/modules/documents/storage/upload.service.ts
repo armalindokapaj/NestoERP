@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, type DocumentStorageStatus } from "@prisma/client";
 
-import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { logger } from "@/lib/core/observability/logger";
@@ -25,7 +25,7 @@ import {
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { canAttachToDocumentParent, resolveDocumentParent } from "../document.parent-access";
 import * as quota from "./quota.service";
-import { promoteVersion } from "./version.promote";
+import { frozenFileReason, promoteVersion } from "./version.promote";
 import { runScanForDocument } from "./scan.service";
 import type { CompleteDocumentUploadInput, CreateDocumentUploadInput } from "./storage.schema";
 import type { CreateUploadResponse } from "./storage.types";
@@ -228,6 +228,27 @@ export async function createUploadSession(
       expiresAt: upload.expiresAt.toISOString(),
     },
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* 2. Receive (local adapter only)                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Whether bytes may still be put at this key (PRD #29 §9, PRD #47 §83).
+ *
+ * A signed upload URL outlives the upload it was issued for. Once the session
+ * behind the key has completed, failed, been aborted or run out of time, the
+ * grant is spent — even if its signature has minutes left — so a verified
+ * object cannot be swapped for unverified bytes through the same URL.
+ */
+export async function uploadSessionAcceptsBytes(storageKey: string, now = new Date()): Promise<boolean> {
+  const session = await prisma.documentUploadSession.findUnique({
+    where: { storageKey },
+    select: { status: true, expiresAt: true },
+  });
+  if (!session) return false;
+  return (session.status === "CREATED" || session.status === "UPLOADING") && session.expiresAt.getTime() > now.getTime();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -661,8 +682,7 @@ export async function createVersionUploadSession(
   }
   // A file carried by a submitted engineering revision or an issued transmittal
   // is part of that record: a correction is a new revision (PRD #46 §69, §123).
-  const { frozenDocumentReason } = await import("@/lib/modules/engineering/engineering.revisions");
-  const frozen = await frozenDocumentReason(document.id);
+  const frozen = await frozenFileReason(document.id);
   if (frozen) throw new AccessError("CONFLICT", frozen, { code: "ENGINEERING_FILE_FROZEN" });
 
   const name = checkFileName(input.fileName);
@@ -784,6 +804,25 @@ async function completeVersionUpload(
     throw new StorageError("UPLOAD_SESSION_EXPIRED");
   }
 
+  /*
+   * The authority that opened this upload is asked again before it can replace
+   * anything (PRD #47 §83, §85). Minutes pass between the two: the uploader may
+   * have lost the record, the document may have been archived, or the file may
+   * have been frozen by a submitted revision. Nothing is changed by a refusal
+   * here — the session stays open to be aborted, or to expire.
+   */
+  const { findDocumentInScope } = await import("../document.repository");
+  const document = await findDocumentInScope(context, session.documentId);
+  if (!document) throw new AccessError("NOT_FOUND");
+  if (document.status === "ARCHIVED" || document.archivedAt) {
+    throw stateDenied("Restore this document before adding a version.");
+  }
+  if (!(await canAttachToDocumentParent(context, document))) {
+    throw new AccessError("FORBIDDEN", "You cannot add files to that record.");
+  }
+  const frozen = await frozenFileReason(document.id);
+  if (frozen) throw stateDenied(frozen, { code: "ENGINEERING_FILE_FROZEN" });
+
   const provider = storageProvider();
   const metadata = await provider.headObject(session.storageKey);
   if (!metadata) throw new StorageError("STORAGE_OBJECT_MISSING");
@@ -824,7 +863,13 @@ async function completeVersionUpload(
         data: { status: "COMPLETED", completedAt: new Date(), reservedBytes: BigInt(0) },
       });
       await quota.addUsage(tx, context.companyId, metadata.sizeBytes);
-      if (!scanNeeded) await promoteVersion(tx, version.id);
+      if (!scanNeeded) {
+        // Asked again at the swap itself: a revision submitted while the bytes
+        // were being verified freezes the file just as surely (PRD #46 §69).
+        const frozenNow = await frozenFileReason(session.documentId);
+        if (frozenNow) throw stateDenied(frozenNow, { code: "ENGINEERING_FILE_FROZEN" });
+        await promoteVersion(tx, version.id);
+      }
 
       await recordActivity(tx, context, {
         module: MODULE,
@@ -855,7 +900,12 @@ async function completeVersionUpload(
     const final = await prisma.documentVersion.findUnique({ where: { id: version.id }, select: { storageStatus: true } });
     return { documentId: session.documentId, status: final?.storageStatus ?? "VERIFYING" };
   } catch (error) {
-    const reason = error instanceof StorageError ? error.storageCode : "STORAGE_PROVIDER_ERROR";
+    const reason =
+      error instanceof StorageError
+        ? error.storageCode
+        : error instanceof AccessError && error.reason === "STATE_DENIED"
+          ? "ENGINEERING_FILE_FROZEN"
+          : "STORAGE_PROVIDER_ERROR";
     await provider.deleteObject(session.storageKey).catch(() => undefined);
     await prisma.$transaction(async (tx) => {
       await tx.documentVersion.updateMany({

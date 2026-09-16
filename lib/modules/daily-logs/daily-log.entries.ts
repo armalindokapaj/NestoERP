@@ -4,6 +4,8 @@ import type { z } from "zod";
 import { can, canAccessModule } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { buildTaskScopeWhere } from "@/lib/access/scope";
+import { buildReceiptScopeWhere as buildInventoryReceiptScopeWhere } from "@/lib/modules/inventory/inventory.scope";
+import { buildOrderScopeWhere, buildReceiptScopeWhere as buildGoodsReceiptScopeWhere } from "@/lib/modules/procurement/procurement.scope";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
@@ -65,28 +67,50 @@ export async function assertTask(context: UserContext, log: ReadableLog, taskId:
 async function contractorContext(context: UserContext, log: ReadableLog, input: { contractorId: string | null; workPackageId: string | null }) {
   if (!input.contractorId && !input.workPackageId) return { contractorId: null, workPackageId: null };
   const { resolveProjectContext } = await import("@/lib/modules/engineering/engineering.shared");
-  return resolveProjectContext(context.companyId, log.projectId, input, { newWork: false });
+  return resolveProjectContext(context, log.projectId, input, { newWork: false });
 }
 
-/** Procurement and inventory documents of this company, on this project where they name one (§47, §48, §116, §117, §191). */
-async function assertDeliveryLinks(context: UserContext, log: ReadableLog, input: SectionInput<"deliveries">) {
+type DeliveryLinks = { purchaseOrderId: string | null; goodsReceiptId: string | null; inventoryReceiptId: string | null };
+
+/**
+ * Procurement and inventory documents of this company, on this project where
+ * they name one (§47, §48, §116, §117, §191).
+ *
+ * Each is read inside the writer's own procurement or inventory door — module,
+ * view grant and scope, the same test the form's options pass (PRD #47 §50,
+ * §62) — so a purchase order id typed by somebody who cannot open purchase
+ * orders is refused like one that does not exist, and a delivery never tells
+ * its writer which orders exist or which project they are for. A link the
+ * entry already carries is kept without being re-read: somebody editing the
+ * delivery's description does not lose the order a buyer attached.
+ */
+async function assertDeliveryLinks(context: UserContext, log: ReadableLog, input: SectionInput<"deliveries">, kept: DeliveryLinks | null = null) {
   await assertSupplier(context, input.supplierId);
+  const procurementOpen = canAccessModule(context, "procurement");
   let orderSupplier: string | null = null;
-  if (input.purchaseOrderId) {
-    const order = await prisma.purchaseOrder.findFirst({ where: { id: input.purchaseOrderId, companyId: context.companyId }, select: { projectId: true, supplierId: true } });
-    if (!order) throw fail("DAILY_LOG_PURCHASE_ORDER_INVALID", "That purchase order is not one of your company's.", "VALIDATION_ERROR", { field: "purchaseOrderId" });
-    if (order.projectId && order.projectId !== log.projectId) throw fail("DAILY_LOG_PURCHASE_ORDER_PROJECT_MISMATCH", "That purchase order is for another project.", "VALIDATION_ERROR", { field: "purchaseOrderId" });
+  if (input.purchaseOrderId && input.purchaseOrderId !== kept?.purchaseOrderId) {
+    const order = procurementOpen && can(context, "procurement.order.view")
+      ? await prisma.purchaseOrder.findFirst({ where: { AND: [buildOrderScopeWhere(context), { id: input.purchaseOrderId, companyId: context.companyId }] }, select: { projectId: true, supplierId: true } })
+      : null;
+    if (!order) throw fail("DAILY_LOG_PURCHASE_ORDER_INVALID", "Choose a purchase order you have access to.", "VALIDATION_ERROR", { field: "purchaseOrderId" }, "SCOPE_DENIED");
+    if (order.projectId && order.projectId !== log.projectId) throw fail("DAILY_LOG_PURCHASE_ORDER_PROJECT_MISMATCH", "That purchase order is for another project.", "VALIDATION_ERROR", { field: "purchaseOrderId" }, "CROSS_PROJECT_REFERENCE");
     orderSupplier = order.supplierId;
+  } else if (input.purchaseOrderId) {
+    orderSupplier = (await prisma.purchaseOrder.findFirst({ where: { id: input.purchaseOrderId, companyId: context.companyId }, select: { supplierId: true } }))?.supplierId ?? null;
   }
-  if (input.goodsReceiptId) {
-    const receipt = await prisma.goodsReceipt.findFirst({ where: { id: input.goodsReceiptId, companyId: context.companyId }, select: { purchaseOrderId: true, projectId: true } });
-    if (!receipt) throw fail("DAILY_LOG_GOODS_RECEIPT_INVALID", "That goods receipt is not one of your company's.", "VALIDATION_ERROR", { field: "goodsReceiptId" });
+  if (input.goodsReceiptId && (input.goodsReceiptId !== kept?.goodsReceiptId || input.purchaseOrderId !== kept?.purchaseOrderId)) {
+    const receipt = procurementOpen && can(context, "procurement.receipt.view")
+      ? await prisma.goodsReceipt.findFirst({ where: { AND: [buildGoodsReceiptScopeWhere(context), { id: input.goodsReceiptId, companyId: context.companyId }] }, select: { purchaseOrderId: true, projectId: true } })
+      : null;
+    if (!receipt) throw fail("DAILY_LOG_GOODS_RECEIPT_INVALID", "Choose a goods receipt you have access to.", "VALIDATION_ERROR", { field: "goodsReceiptId" }, "SCOPE_DENIED");
     if (input.purchaseOrderId && receipt.purchaseOrderId !== input.purchaseOrderId) throw fail("DAILY_LOG_GOODS_RECEIPT_ORDER_MISMATCH", "That goods receipt belongs to another purchase order.", "VALIDATION_ERROR", { field: "goodsReceiptId" });
-    if (receipt.projectId && receipt.projectId !== log.projectId) throw fail("DAILY_LOG_GOODS_RECEIPT_PROJECT_MISMATCH", "That goods receipt is for another project.", "VALIDATION_ERROR", { field: "goodsReceiptId" });
+    if (receipt.projectId && receipt.projectId !== log.projectId) throw fail("DAILY_LOG_GOODS_RECEIPT_PROJECT_MISMATCH", "That goods receipt is for another project.", "VALIDATION_ERROR", { field: "goodsReceiptId" }, "CROSS_PROJECT_REFERENCE");
   }
-  if (input.inventoryReceiptId) {
-    const stock = await prisma.inventoryReceipt.count({ where: { id: input.inventoryReceiptId, companyId: context.companyId } });
-    if (!stock) throw fail("DAILY_LOG_INVENTORY_RECEIPT_INVALID", "That inventory receipt is not one of your company's.", "VALIDATION_ERROR", { field: "inventoryReceiptId" });
+  if (input.inventoryReceiptId && input.inventoryReceiptId !== kept?.inventoryReceiptId) {
+    const stock = canAccessModule(context, "inventory") && can(context, "inventory.receipt.view")
+      ? await prisma.inventoryReceipt.count({ where: { AND: [buildInventoryReceiptScopeWhere(context), { id: input.inventoryReceiptId, companyId: context.companyId }] } })
+      : 0;
+    if (!stock) throw fail("DAILY_LOG_INVENTORY_RECEIPT_INVALID", "Choose an inventory receipt you have access to.", "VALIDATION_ERROR", { field: "inventoryReceiptId" }, "SCOPE_DENIED");
   }
   if (orderSupplier && input.supplierId && orderSupplier !== input.supplierId) {
     throw fail("DAILY_LOG_SUPPLIER_ORDER_MISMATCH", "The supplier differs from the purchase order's.", "VALIDATION_ERROR", { field: "supplierId" });
@@ -95,7 +119,7 @@ async function assertDeliveryLinks(context: UserContext, log: ReadableLog, input
 }
 
 /** What a section's input becomes on its row; ids already validated. */
-async function toData(context: UserContext, log: ReadableLog, section: SectionKey, input: SectionInput<SectionKey>, zone: string): Promise<Record<string, unknown>> {
+async function toData(context: UserContext, log: ReadableLog, section: SectionKey, input: SectionInput<SectionKey>, zone: string, kept: DeliveryLinks | null = null): Promise<Record<string, unknown>> {
   const workDate = dateOf(log.workDate);
   switch (section) {
     case "weather": {
@@ -132,7 +156,7 @@ async function toData(context: UserContext, log: ReadableLog, section: SectionKe
     }
     case "deliveries": {
       const value = input as SectionInput<"deliveries">;
-      const orderSupplier = await assertDeliveryLinks(context, log, value);
+      const orderSupplier = await assertDeliveryLinks(context, log, value, kept);
       const date = value.deliveredDate ?? (value.deliveredTime ? workDate : null);
       return {
         description: value.description, supplierId: value.supplierId ?? orderSupplier, purchaseOrderId: value.purchaseOrderId, goodsReceiptId: value.goodsReceiptId, inventoryReceiptId: value.inventoryReceiptId,
@@ -228,7 +252,8 @@ export async function addEntry<K extends SectionKey>(context: UserContext, daily
 
 export async function updateEntry<K extends SectionKey>(context: UserContext, dailyLogId: string, section: K, entryId: string, input: SectionInput<K> & { updatedAt?: string }): Promise<{ id: string; version: number }> {
   const { log, zone } = await prepare(context, dailyLogId, section);
-  const data = await toData(context, log, section, input, zone);
+  const kept = section === "deliveries" ? await prisma.dailyLogDeliveryEntry.findFirst({ where: { id: entryId, dailyLogId: log.id }, select: { purchaseOrderId: true, goodsReceiptId: true, inventoryReceiptId: true } }) : null;
+  const data = await toData(context, log, section, input, zone, kept);
   return prisma.$transaction(async (tx) => {
     const current = await delegate(tx, section).findFirst({ where: { id: entryId, dailyLogId: log.id }, select: { id: true, updatedAt: true } });
     if (!current) throw fail("DAILY_LOG_ENTRY_NOT_FOUND", "That entry could not be found.", "NOT_FOUND");

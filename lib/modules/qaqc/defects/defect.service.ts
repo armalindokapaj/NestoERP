@@ -141,7 +141,7 @@ export async function listDefects(context: UserContext, query: DefectListQuery) 
     prisma.qualityDefect.count({ where }),
   ]);
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members)),
@@ -164,8 +164,8 @@ export async function getDefect(
   );
 
   const [members, createdBy, ncrs, actions] = await Promise.all([
-    loadMembers([row.assignedToMemberId, row.resolvedByMemberId, row.closedByMemberId]),
-    loadMemberRef(row.createdByMemberId),
+    loadMembers(context.companyId, [row.assignedToMemberId, row.resolvedByMemberId, row.closedByMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     can(context, "qaqc.ncr.view")
       ? import("../ncrs/ncr.service").then((m) => m.listForDefect(context, defectId))
       : Promise.resolve([]),
@@ -207,7 +207,7 @@ export async function listForInspection(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
@@ -225,7 +225,7 @@ export async function listForProject(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 

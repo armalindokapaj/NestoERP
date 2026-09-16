@@ -133,6 +133,12 @@ records the divergence rather than hiding it.
 - Cross-company reads, writes, archive, download, export and search are covered
   by per-module company-isolation tests and by `integration/access/scope`.
 
+**Superseded by PRD #47 (§11).** The counts above are from the #36 audit. The
+current position is stronger and measured differently: all 464 API routes and
+322 server actions are classified and swept from both companies, and the data
+itself is scanned for cross-company references. See §11 and
+`docs/security/authorization-model.md`.
+
 ---
 
 ## 5. Known defects and open findings
@@ -319,3 +325,64 @@ exercised every job against the development database.
 close is closed and tested. What remains is operational and cannot be proven from
 this repository: a live mail provider, a deployed private bucket and clamd, the
 deployed worker processes, a staging environment, and the restore drill.
+
+---
+
+## 11. PRD #47 — Authorization & Company Isolation Hardening
+
+The authorization chain of §275 — context → active member → active company →
+module → permission → scope → record → state — is now one contract with one
+implementation, documented in `docs/security/authorization-model.md`, and
+enforced by gates rather than by review habit.
+
+### 11.1 What is enforced now
+
+| Area | Position |
+|---|---|
+| UserContext | One resolver, re-read from the database on every request; an inactive user, membership or company yields no context at all, so suspension takes effect on the next request (§264) |
+| Company isolation | Every business query starts from `companyId`; linked ids in request bodies are resolved against the caller's company and project through `lib/access/references.ts` (§265) |
+| Module activation | Folded into the context: a disabled module's permissions are not held, so routes, providers, search, calendar, reporting and counts all exclude it (§266) |
+| Permissions | Permission keys only; the eleven places a role name still decides something are listed, reviewed and gate-enforced (§267) |
+| Scopes | Applied in the database by shared builders; filters may only narrow (§268) |
+| Record access | The record registry resolves module + permission + scoped load; parent-inherited records use their parent (§269) |
+| Documents | Filing-module document grants are required on top of reaching the module (§270) |
+| State | Domain services own transitions and answer 409 (§85, §86) |
+| Errors | 404 for anything out of scope; internal reason codes, denial counters and a security log that carries no record content (§116-§119, §224) |
+| Workers | `SystemContext`: one company at a time, named job, correlation id (§92-§94) |
+
+### 11.2 Evidence
+
+| Check | Result |
+|---|---|
+| `pnpm test:security` | 25 passed, 1 skipped (the destructive suite) |
+| Cross-company sweep, both directions | ~900 calls each; no 2xx, no foreign identifier in any response, no row changed in the other company |
+| Project isolation sweep | every route and action of the narrow-scope modules, against other projects' records |
+| Module-disabled suite | routes, providers, search, calendar and counts absent |
+| Session lifecycle | no session, suspended membership, suspended company all refused with the right code and counter |
+| `pnpm test:security:links` | 55 write endpoints, 21 link fields poisoned with another company's ids; none taken up |
+| `pnpm verify:company-integrity` | no row in any table references another company's record |
+| `pnpm verify:authorization` | 464 routes, 322 server actions, role checks, request schemas, by-id ratchet — clean |
+| `pnpm security:matrix --check` | 830 endpoints inventoried; none company-scoped with no check on its path |
+| Full vitest | 2 007 passed, 7 skipped, 113 files |
+
+CI gains five gates: the two static ones, the isolation suites, the destructive
+link suite and the integrity scan (the last two after E2E, since they write).
+
+### 11.3 Defects found and fixed
+
+Found by the sweeps rather than by reading: the announcement audience and
+compliance paths that accepted another company's ids, filing-module document
+grants that let a company-scoped reader reach another module's files, search
+limits that were unbounded from the query string, and denial counters that
+never moved because the reason code defaulted only for 404. Each has a test.
+
+### 11.4 Limits, stated plainly
+
+- Link poisoning covers the write endpoints whose valid body can be synthesized
+  (55), not all of them; Company B's seed is thinner than Company A's, so some
+  fields are exercised with an id of another kind.
+- The `by-id` baseline (348 call sites) was reviewed in aggregate — every
+  mutation sits behind a scoped load or runs in a system context — not site by
+  site. It is a ratchet against growth; the suites are the behavioural proof.
+- The API security matrix is static evidence: a check is on the path, not
+  necessarily on every branch.

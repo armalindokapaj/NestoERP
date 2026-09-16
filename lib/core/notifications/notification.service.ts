@@ -6,6 +6,7 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { currentRequestContext } from "@/lib/core/observability/request-context";
 import { loadRecord } from "@/lib/core/records/record.registry";
+import { countReadableAttention } from "./attention.service";
 import { normaliseEntityType } from "./notification.dispatch";
 
 /**
@@ -105,6 +106,9 @@ export async function listNotifications(
       // Both, always: a notification belongs to one member in one company.
       companyId: context.companyId,
       recipientMemberId: context.membershipId,
+      // The panel agrees with the badge: nothing from a module this reader
+      // cannot open any more (PRD #25 §279, PRD #47 §26).
+      moduleKey: { in: openModuleKeys(context) },
       ...(options.readState ? { readState: options.readState } : {}),
       ...(anchor
         ? { OR: [{ createdAt: { lt: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { lt: anchor.id } }] }
@@ -180,33 +184,37 @@ export function approvalLink(recordType: string, recordId: string): string {
   return `/approvals?record=${encodeURIComponent(`${recordType}:${recordId}`)}`;
 }
 
+/**
+ * The badge counts (PRD #25 §148, PRD #47 §26, §77, §175).
+ *
+ * Notification counts stay indexed counts, narrowed to modules the reader can
+ * open right now: a module the company switched off stops counting the moment
+ * it is off, not when somebody clears its rows. Following any notification
+ * still re-reads its record (§74). Attention counts come from the readable
+ * set, because an attention item is a live claim that something waits on this
+ * person.
+ */
 export async function getUnreadCount(context: UserContext): Promise<UnreadCountDTO> {
-  const [unread, criticalUnread, activeAttention, criticalAttention] = await Promise.all([
-    prisma.notification.count({
-      where: { companyId: context.companyId, recipientMemberId: context.membershipId, readState: "UNREAD" },
-    }),
-    prisma.notification.count({
-      where: {
-        companyId: context.companyId,
-        recipientMemberId: context.membershipId,
-        readState: "UNREAD",
-        priority: "CRITICAL",
-      },
-    }),
-    prisma.attentionItem.count({
-      where: { companyId: context.companyId, recipientMemberId: context.membershipId, status: "ACTIVE" },
-    }),
-    prisma.attentionItem.count({
-      where: {
-        companyId: context.companyId,
-        recipientMemberId: context.membershipId,
-        status: "ACTIVE",
-        priority: "CRITICAL",
-      },
-    }),
+  const unreadWhere: Prisma.NotificationWhereInput = {
+    companyId: context.companyId,
+    recipientMemberId: context.membershipId,
+    readState: "UNREAD",
+    moduleKey: { in: openModuleKeys(context) },
+  };
+  const [unread, criticalUnread, attention] = await Promise.all([
+    prisma.notification.count({ where: unreadWhere }),
+    prisma.notification.count({ where: { ...unreadWhere, priority: "CRITICAL" } }),
+    countReadableAttention(context),
   ]);
 
-  return { unread, criticalUnread, activeAttention, criticalAttention };
+  return { unread, criticalUnread, activeAttention: attention.active, criticalAttention: attention.critical };
+}
+
+/** Modules enabled for the company and not NONE for this reader's role. */
+function openModuleKeys(context: UserContext): string[] {
+  return Object.entries(context.moduleAccess)
+    .filter(([, access]) => access.enabled && access.accessLevel !== "NONE")
+    .map(([key]) => key);
 }
 
 /** Only the recipient may change their own read state (PRD #25 §157, §165). */

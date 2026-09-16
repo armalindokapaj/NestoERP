@@ -4,8 +4,9 @@ import { dashboardForRole } from "@/config/dashboards";
 import { kpis } from "@/config/kpis";
 import { quickActions } from "@/config/quick-actions";
 import { widgets } from "@/config/widgets";
+import type { Permission } from "@/config/permissions";
 import { listReadableAttention } from "@/lib/core/notifications/attention.service";
-import { can } from "@/lib/access/can";
+import { can, canAccessModule } from "@/lib/access/can";
 import {
   buildClientScopeWhere,
   buildProjectLinkedScopeWhere,
@@ -14,8 +15,14 @@ import {
 } from "@/lib/access/scope";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import * as financeKpis from "@/lib/modules/finance/finance.kpis";
-import { buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
-import { buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
+import { buildBudgetScopeWhere, buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
+import { buildHrMemberScopeWhere, buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
+import {
+  buildBalanceScopeWhere,
+  buildMovementScopeWhere,
+  canSeeStockFigures,
+} from "@/lib/modules/inventory/inventory.scope";
+import { buildTeamScopeWhere } from "@/lib/modules/team/team.scope";
 import { buildContractScopeWhere } from "@/lib/modules/contracts/contract.scope";
 import { EXPIRING_SOON_DAYS } from "@/lib/modules/contracts/contracts/contract.status";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
@@ -39,6 +46,7 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
+import { loadRecentActivity } from "./dashboard.activity";
 import type {
   ResolvedDashboard,
   ResolvedKpi,
@@ -63,7 +71,12 @@ export async function resolveDashboard(context: UserContext): Promise<ResolvedDa
 
   const visibleKpis = config.kpis
     .map((key) => kpis[key])
-    .filter((definition) => definition && can(context, definition.permission));
+    .filter(
+      (definition) =>
+        definition &&
+        can(context, definition.permission) &&
+        (KPI_ALSO_REQUIRES[definition.key] ?? []).every((permission) => can(context, permission)),
+    );
 
   const visibleWidgets = config.widgets
     .map((key) => widgets[key])
@@ -105,6 +118,19 @@ export async function resolveDashboard(context: UserContext): Promise<ResolvedDa
 /* -------------------------------------------------------------------------- */
 /* KPIs                                                                        */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Grants a KPI needs beyond the one its configuration names.
+ *
+ * "Project Invoiced" is a sum of invoices. `finance.project_budget.view` lets
+ * somebody read a project's budget, not what was billed on it — a Project
+ * Manager is refused the invoices themselves — so the figure also needs the
+ * invoice grant (PRD #47 §59, §175). Checked here as well as in `loadKpi`, so
+ * the tile is absent rather than blank.
+ */
+const KPI_ALSO_REQUIRES: Partial<Record<string, Permission[]>> = {
+  projectInvoiced: ["finance.invoice.view"],
+};
 
 async function loadKpi(context: UserContext, key: string): Promise<string> {
   switch (key) {
@@ -192,6 +218,7 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
       return formatKpi(await financeKpis.invoicedValueKpi(context));
 
     case "projectInvoiced": {
+      if (!can(context, "finance.invoice.view")) return "—";
       const { currency, rows } = await financeKpis.invoicedByProject(context);
       const total = rows.reduce(
         (sum, row) => sum.plus(row._sum.totalAmount ?? 0),
@@ -200,10 +227,13 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
       return formatKpi({ amount: total, currency });
     }
 
+    // The people whose employment records the reader may see, counted through
+    // HR's own scope — a department-scoped reader gets their department, not
+    // the company (PRD #16 §164, PRD #47 §175).
     case "headcount":
       return String(
         await prisma.companyMember.count({
-          where: { companyId: context.companyId, status: "ACTIVE" },
+          where: { AND: [buildHrMemberScopeWhere(context), { status: "ACTIVE" }] },
         }),
       );
 
@@ -293,7 +323,8 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
        */
       const held = await prisma.inventoryBalance.groupBy({
         by: ["inventoryItemId"],
-        where: { companyId: context.companyId, onHandQuantity: { gt: 0 } },
+        // Stock is scoped by where it sits (PRD #20 §246).
+        where: { AND: [buildBalanceScopeWhere(context), { companyId: context.companyId, onHandQuantity: { gt: 0 } }] },
       });
       return String(held.length);
     }
@@ -372,7 +403,7 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
     case "teamSize":
       return String(
         await prisma.companyMember.count({
-          where: { companyId: context.companyId, status: "ACTIVE" },
+          where: { AND: [buildTeamScopeWhere(context), { status: "ACTIVE" }] },
         }),
       );
 
@@ -380,6 +411,9 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
       return String(context.enabledModules.length);
 
     case "openSupportCount":
+      // Support requests have no narrower scope than the company; the list's
+      // own door is the module and the request grant.
+      if (!supportOpen(context)) return "—";
       return String(
         await prisma.supportRequest.count({
           where: { companyId: context.companyId, status: { in: ["OPEN", "IN_PROGRESS"] } },
@@ -430,36 +464,9 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       };
     }
 
-    case "recentActivity": {
-      const visibleModules = Object.values(context.moduleAccess)
-        .filter((access) => access.enabled && access.accessLevel !== "NONE")
-        .map((access) => access.module);
-
-      const rows = await prisma.activity.findMany({
-        where: { companyId: context.companyId, module: { in: visibleModules } },
-        orderBy: { createdAt: "desc" },
-        take: 8,
-        select: {
-          id: true,
-          message: true,
-          action: true,
-          createdAt: true,
-          actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
-        },
-      });
-
-      return {
-        kind: "activity",
-        items: rows.map((row) => ({
-          id: row.id,
-          actor: row.actorMember
-            ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}`
-            : "NESTO",
-          message: row.message ?? row.action,
-          createdAt: formatRelativeTime(row.createdAt),
-        })),
-      };
-    }
+    case "recentActivity":
+      // Row by row, only what the reader could open (PRD #47 §59, §175).
+      return { kind: "activity", items: await loadRecentActivity(context) };
 
     case "myProjects": {
       const rows = await prisma.project.findMany({
@@ -810,6 +817,16 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     }
 
     case "projectBudgets": {
+      /*
+       * Invoiced value is invoice data. A reader who holds the project budget
+       * grant but not `finance.invoice.view` — the Project Manager — sees each
+       * project's approved budget instead, never what was billed on it
+       * (PRD #15 §210, PRD #47 §59).
+       */
+      if (!can(context, "finance.invoice.view")) {
+        return { kind: "list", items: await projectBudgetItems(context, 6) };
+      }
+
       const { currency: projectCurrency, rows: grouped } =
         await financeKpis.invoicedByProject(context);
 
@@ -888,7 +905,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "workforce": {
       const grouped = await prisma.companyMember.groupBy({
         by: ["departmentId"],
-        where: { companyId: context.companyId, status: "ACTIVE" },
+        where: { AND: [buildHrMemberScopeWhere(context), { status: "ACTIVE" }] },
         _count: { _all: true },
       });
 
@@ -1071,13 +1088,16 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "lowStock": {
       const rows = await lowStockItems(context, 6);
 
+      // Quantities are a separate grant from the catalogue (PRD #20 §31).
+      const figures = canSeeStockFigures(context);
+
       return {
         kind: "list",
         items: rows.map((row) => ({
           id: row.id,
           title: row.name,
           subtitle: row.sku,
-          meta: `${row.onHand} ${row.baseUnit} on hand · reorder at ${row.reorder}`,
+          meta: figures ? `${row.onHand} ${row.baseUnit} on hand · reorder at ${row.reorder}` : "At or below reorder level",
           status: row.onHand === 0 ? "BLOCKED" : "PENDING",
           href: `/inventory/items/${row.id}`,
         })),
@@ -1086,7 +1106,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
 
     case "recentMovements": {
       const rows = await prisma.stockMovement.findMany({
-        where: { companyId: context.companyId },
+        where: { AND: [buildMovementScopeWhere(context), { companyId: context.companyId }] },
         orderBy: { occurredAt: "desc" },
         take: 6,
         select: {
@@ -1256,8 +1276,9 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     }
 
     case "teamDirectory": {
+      // The directory's own scope, so the widget never lists somebody the Team page would not (PRD #14 §145).
       const rows = await prisma.companyMember.findMany({
-        where: { companyId: context.companyId, status: "ACTIVE" },
+        where: { AND: [buildTeamScopeWhere(context), { status: "ACTIVE" }] },
         orderBy: { user: { firstName: "asc" } },
         take: 6,
         select: {
@@ -1283,7 +1304,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "userDirectory": {
       const grouped = await prisma.companyMember.groupBy({
         by: ["roleId"],
-        where: { companyId: context.companyId, status: "ACTIVE" },
+        where: { AND: [buildTeamScopeWhere(context), { status: "ACTIVE" }] },
         _count: { _all: true },
       });
 
@@ -1343,6 +1364,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     }
 
     case "supportRequests": {
+      if (!supportOpen(context)) return { kind: "list", items: [] };
       const rows = await prisma.supportRequest.findMany({
         where: { companyId: context.companyId },
         orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -1655,6 +1677,43 @@ function formatKpi(kpi: { amount: Prisma.Decimal; currency: string }): string {
   return formatCurrency(kpi.amount.toNumber(), kpi.currency);
 }
 
+/** The Support module's own door: support requests have no scope narrower than the company. */
+function supportOpen(context: UserContext): boolean {
+  return canAccessModule(context, "support") && can(context, "support.request.view");
+}
+
+/**
+ * Approved budgets on the reader's projects, for a reader who may see budgets
+ * but not invoices. The budget's own finance scope and the project scope both
+ * apply, as they do on the project's Finance tab (PRD #15 §210).
+ */
+async function projectBudgetItems(context: UserContext, take: number) {
+  const rows = await prisma.projectBudget.findMany({
+    where: {
+      AND: [
+        buildBudgetScopeWhere(context),
+        { isCurrent: true, status: "APPROVED", project: { AND: [buildProjectScopeWhere(context), { archivedAt: null }] } },
+      ],
+    },
+    orderBy: { updatedAt: "desc" },
+    take,
+    select: {
+      currency: true,
+      totalAmount: true,
+      project: { select: { id: true, name: true, code: true, status: true } },
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.project.id,
+    title: row.project.name,
+    subtitle: row.project.code,
+    meta: `Budget ${formatKpi({ amount: row.totalAmount, currency: row.currency })}`,
+    status: row.project.status,
+    href: `/projects/${row.project.id}`,
+  }));
+}
+
 /**
  * At risk (PRD #10 §15): past the planned end date while not complete, or
  * carrying a critical task that is overdue or blocked. No predictive engine.
@@ -1700,7 +1759,7 @@ async function countProjectsAtRisk(context: UserContext): Promise<number> {
  * in a filter, so the comparison happens after a narrow select rather than by
  * loading the whole table.
  */
-async function lowStockRows(context: UserContext) {
+export async function lowStockRows(context: UserContext) {
   const items = await prisma.inventoryItem.findMany({
     where: {
       companyId: context.companyId,
@@ -1714,9 +1773,18 @@ async function lowStockRows(context: UserContext) {
 
   if (items.length === 0) return [];
 
+  // Summed over the locations the reader can see, the way the Inventory pages
+  // count it: stock in a project store they cannot open is not theirs to
+  // count, and an item low only there is not low for them (PRD #20 §246,
+  // PRD #47 §175).
   const balances = await prisma.inventoryBalance.groupBy({
     by: ["inventoryItemId"],
-    where: { companyId: context.companyId, inventoryItemId: { in: items.map((i) => i.id) } },
+    where: {
+      AND: [
+        buildBalanceScopeWhere(context),
+        { companyId: context.companyId, inventoryItemId: { in: items.map((i) => i.id) } },
+      ],
+    },
     _sum: { onHandQuantity: true },
   });
 

@@ -8,6 +8,9 @@ import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import { buildEmployeeScopeWhere } from "./hr.scope";
 import type { HrActivityDTO } from "./hr.types";
 
+/** The entity type compensation writes its activity under. */
+const COMPENSATION_ENTITY = "Compensation";
+
 /**
  * HR activity (PRD #16 §136–§138).
  *
@@ -48,6 +51,14 @@ export async function listEmployeeActivity(
       { entityType: "EmployeeProfile", entityId: memberId },
       { metadata: { path: ["memberId"], equals: memberId } },
     ],
+    // Pay events carry no figure, but "whose pay changed, and when" is still
+    // compensation information. `hr.activity.view` does not imply
+    // `hr.compensation.view` — an Admin or CEO can hold the first without the
+    // second — so those events are left out of the trail unless the reader may
+    // see compensation itself (PRD #16 §137, PRD #47 §98).
+    ...(can(context, "hr.compensation.view")
+      ? {}
+      : { NOT: [{ entityType: COMPENSATION_ENTITY }, { action: { startsWith: "HR_COMPENSATION" } }] }),
   };
 
   const [rows, total] = await Promise.all([

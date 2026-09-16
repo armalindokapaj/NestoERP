@@ -7,6 +7,7 @@ import {
   assertModule,
   assertPermission,
 } from "@/lib/access/guards";
+import { assertSameProject } from "@/lib/access/references";
 import type { UserContext } from "@/lib/context/types";
 import { notifyCriticalSafety } from "@/lib/core/notifications/safety-notifications";
 import { prisma } from "@/lib/database/prisma";
@@ -166,7 +167,7 @@ export async function listHazards(context: UserContext, query: HazardListQuery) 
     prisma.hseHazard.count({ where }),
   ]);
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members)),
@@ -189,9 +190,9 @@ export async function getHazard(
   );
 
   const [members, createdBy, reportedBy, actions, stopWorks] = await Promise.all([
-    loadMembers([row.assignedToMemberId, row.closedByMemberId]),
-    loadMemberRef(row.createdByMemberId),
-    loadMemberRef(row.reportedByMemberId),
+    loadMembers(context.companyId, [row.assignedToMemberId, row.closedByMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
+    loadMemberRef(context.companyId, row.reportedByMemberId),
     can(context, "hse.action.view")
       ? import("../actions/action.service").then((m) => m.listForParent(context, { hazardId }))
       : Promise.resolve([]),
@@ -239,7 +240,7 @@ export async function listForInspection(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
@@ -257,7 +258,7 @@ export async function listForProject(
     select: LIST_SELECT,
   });
 
-  const members = await loadMembers(rows.map((row) => row.assignedToMemberId));
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
@@ -315,7 +316,19 @@ export async function createHazard(
 
   if (input.projectId) await requireProject(context, input.projectId);
   if (input.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
-  if (input.inspectionId) await requireInspection(context, input.inspectionId);
+
+  /*
+   * A hazard found on an inspection is on that inspection's site. It borrows
+   * the project when the form left it blank, and naming a different one is
+   * refused (PRD #47 §51) — otherwise the finding lands on a job whose people
+   * never ran the inspection and the inspection's own close check counts it.
+   */
+  let projectId = input.projectId ?? null;
+  if (input.inspectionId) {
+    const inspection = await requireInspection(context, input.inspectionId);
+    projectId = projectId ?? inspection.projectId;
+    assertSameProject("inspectionId", projectId, inspection.projectId);
+  }
 
   const risk = assessRisk(input.likelihood, input.severity);
 
@@ -342,7 +355,7 @@ export async function createHazard(
         hazardNumber,
         title: input.title,
         description: input.description,
-        projectId: input.projectId ?? null,
+        projectId,
         inspectionId: input.inspectionId ?? null,
         hazardCategory: input.hazardCategory,
         likelihood: input.likelihood,
@@ -371,7 +384,7 @@ export async function createHazard(
     });
 
     if (risk.riskLevel === "CRITICAL") {
-      await notifyCriticalSafety(tx, context, { recordType: "hazard", recordId: hazard.id, projectId: input.projectId ?? null, noun: "Critical hazard" });
+      await notifyCriticalSafety(tx, context, { recordType: "hazard", recordId: hazard.id, projectId, noun: "Critical hazard" });
     }
 
     return hazard.id;
@@ -400,6 +413,19 @@ export async function updateHazard(
 
   if (input.projectId) await requireProject(context, input.projectId);
   if (input.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
+
+  /*
+   * Reassigning and re-scoring are their own grants (PRD #22 §70, PRD #47 §85).
+   * The edit form carries both fields so a reporter can correct a typo, and
+   * that must not make it a way round `hse.hazard.assign` or
+   * `hse.hazard.assess` — an unchanged value needs neither.
+   */
+  if ((input.assignedToMemberId ?? null) !== existing.assignedToMemberId) {
+    assertPermission(context, "hse.hazard.assign");
+  }
+  if (input.likelihood !== existing.likelihood || input.severity !== existing.severityScore) {
+    assertPermission(context, "hse.hazard.assess");
+  }
 
   const risk = assessRisk(input.likelihood, input.severity);
 
@@ -606,7 +632,8 @@ export async function closeHazard(
         riskScore: true,
         controlMeasure: true,
         residualRiskScore: true,
-        actions: { select: { status: true } },
+        // Only this company's actions count towards closing (PRD #47 §20).
+        actions: { where: { companyId: context.companyId }, select: { status: true } },
       },
     }),
   );
@@ -749,7 +776,16 @@ async function requireHazard(context: UserContext, hazardId: string) {
   return assertFound(
     await prisma.hseHazard.findFirst({
       where: { AND: [buildHazardScopeWhere(context), { id: hazardId }] },
-      select: { id: true, hazardNumber: true, status: true, riskLevel: true, updatedAt: true },
+      select: {
+        id: true,
+        hazardNumber: true,
+        status: true,
+        riskLevel: true,
+        likelihood: true,
+        severityScore: true,
+        assignedToMemberId: true,
+        updatedAt: true,
+      },
     }),
   );
 }
@@ -787,7 +823,7 @@ async function requireMember(context: UserContext, memberId: string) {
 async function requireInspection(context: UserContext, inspectionId: string) {
   const inspection = await prisma.hseInspection.findFirst({
     where: { AND: [buildInspectionScopeWhere(context), { id: inspectionId }] },
-    select: { id: true },
+    select: { id: true, projectId: true },
   });
 
   if (!inspection) {

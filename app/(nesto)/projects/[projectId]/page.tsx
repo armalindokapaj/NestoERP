@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import { canAddress } from "@/lib/modules/announcements/announcement.permissions";
+import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import * as projects from "@/lib/modules/projects/project.service";
 import { dateLabel } from "@/lib/modules/project-planning/planning.dates";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
@@ -69,9 +70,13 @@ export default async function ProjectOverviewPage({ params }: Params) {
     ? await projects.getProjectTaskSummary(context, projectId)
     : null;
 
+  // Through document access, not the project alone: an HSE incident photo or a
+  // procurement quote filed on this project is listed only for somebody who
+  // could open it — and not at all while its module is switched off
+  // (PRD #13 §283, PRD #47 §63).
   const recentDocuments = actions.canViewDocuments
     ? await prisma.document.findMany({
-        where: { companyId: context.companyId, projectId, status: "ACTIVE" },
+        where: { AND: [await buildDocumentAccessWhere(context), { companyId: context.companyId, projectId, status: "ACTIVE" }] },
         orderBy: { createdAt: "desc" },
         take: 4,
         select: { id: true, name: true, createdAt: true },

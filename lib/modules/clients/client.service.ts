@@ -1,6 +1,6 @@
 import { Prisma, type ClientStatus, type ClientType, type ContactStatus } from "@prisma/client";
 
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import { can, isModuleEnabled } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
@@ -499,7 +499,7 @@ export async function updateContact(
 ): Promise<ContactDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "contact.update");
-  await assertClientInScope(context, clientId);
+  await assertClientWritable(context, clientId);
 
   const existing = assertFound(await repository.findContact(context, clientId, contactId));
   if (isContactArchived(existing)) {
@@ -574,7 +574,7 @@ export async function makePrimaryContact(
 ): Promise<ContactDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "contact.update");
-  await assertClientInScope(context, clientId);
+  await assertClientWritable(context, clientId);
 
   const existing = assertFound(await repository.findContact(context, clientId, contactId));
   if (isContactArchived(existing)) {
@@ -614,7 +614,7 @@ export async function archiveContact(
 ): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "contact.archive");
-  await assertClientInScope(context, clientId);
+  await assertClientWritable(context, clientId);
 
   const existing = assertFound(await repository.findContact(context, clientId, contactId));
   if (isContactArchived(existing)) {
@@ -654,7 +654,7 @@ export async function restoreContact(
 ): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "contact.restore");
-  await assertClientInScope(context, clientId);
+  await assertClientWritable(context, clientId);
 
   const existing = assertFound(await repository.findContact(context, clientId, contactId));
   if (!isContactArchived(existing)) {
@@ -718,6 +718,21 @@ async function clearPrimary(
 async function assertClientInScope(context: UserContext, clientId: string): Promise<void> {
   if (!(await repository.clientInScopeExists(context, clientId))) {
     throw new AccessError("NOT_FOUND");
+  }
+}
+
+/**
+ * The client, in scope and not archived, before any change to its contacts.
+ *
+ * An archived client is read-only, and its contacts are part of that record:
+ * editing, promoting, archiving or restoring one would change a client that has
+ * to be restored first — the same rule `createContact` already applies
+ * (PRD #12 §60, PRD #47 §87).
+ */
+async function assertClientWritable(context: UserContext, clientId: string): Promise<void> {
+  const client = assertFound(await repository.findClientInScope(context, clientId));
+  if (isClientArchived(client)) {
+    throw stateDenied("Restore this client before changing its contacts.");
   }
 }
 

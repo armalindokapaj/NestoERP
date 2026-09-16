@@ -256,6 +256,7 @@ export async function historyFor(
   });
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId]),
   );
 
@@ -371,7 +372,7 @@ export async function listApprovals(context: UserContext, query: ApprovalListQue
           select: { id: true, ncrNumber: true, title: true },
         })
       : Promise.resolve([]),
-    loadMembers(rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId])),
+    loadMembers(context.companyId, rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId])),
   ]);
 
   const refs = new Map<string, RecordRef>();

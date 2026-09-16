@@ -499,6 +499,8 @@ export async function frozenDocumentReason(documentId: string): Promise<string |
 export async function setSharingClassification(context: UserContext, kind: RevisionKind, parentId: string, documentId: string, classification: SharingClassification) {
   const parent = await loadRevisionParent(context, kind, parentId);
   assertPermission(context, KIND[kind].edit);
+  // A void or closed record, or one on an archived project, is history: its files' metadata is too (PRD #47 §85).
+  assertLive(parent);
   if (!filesOpen(context)) throw new AccessError("FORBIDDEN", "You cannot change documents.");
   const document = await prisma.document.findFirst({ where: { id: documentId, companyId: context.companyId, entityType: KIND[kind].record, entityId: parent.id }, select: { id: true, sharingClassification: true } });
   if (!document) throw fail("REVISION_FILE_INVALID", "That file is not on this record.", "NOT_FOUND");

@@ -1,7 +1,13 @@
 import { Prisma, type ContractAmendmentStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import {
+  AccessError,
+  assertFound,
+  assertModule,
+  assertPermission,
+  stateDenied,
+} from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -141,12 +147,13 @@ export async function listAllAmendments(context: UserContext) {
 export async function createAmendment(
   context: UserContext,
   contractId: string,
-  input: AmendmentInput,
+  submitted: AmendmentInput,
 ): Promise<ContractAmendmentDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "legal.amendment.create");
 
   const contract = await requireAmendableContract(context, contractId);
+  const input = withoutUnseenValue(context, submitted);
   assertReductionAcknowledged(contract, input);
 
   const amendmentId = await prisma.$transaction(async (tx) => {
@@ -215,7 +222,8 @@ export async function updateAmendment(
   }
 
   const contract = await loadContractFacts(context, existing.contractId);
-  assertReductionAcknowledged(contract, input);
+  const commercial = canSeeCommercial(context);
+  assertReductionAcknowledged(contract, withoutUnseenValue(context, input));
 
   await prisma.$transaction(async (tx) => {
     await assertNumberIsFree(tx, existing.contractId, input.amendmentNumber, amendmentId);
@@ -227,10 +235,18 @@ export async function updateAmendment(
         title: input.title,
         summary: input.summary,
         effectiveDate: input.effectiveDate ?? null,
-        newContractValue: input.newContractValue
-          ? new Prisma.Decimal(input.newContractValue)
-          : null,
-        valueDelta: deltaFor(contract.contractValue, input.newContractValue),
+        // The new value is written only by somebody who can read it; for
+        // anybody else the stored figure and its delta stay as they were,
+        // rather than being blanked by a form that never showed them
+        // (PRD #18 §22, PRD #47 §66, §100).
+        ...(commercial
+          ? {
+              newContractValue: input.newContractValue
+                ? new Prisma.Decimal(input.newContractValue)
+                : null,
+              valueDelta: deltaFor(contract.contractValue, input.newContractValue),
+            }
+          : {}),
         newExpiryDate: input.newExpiryDate ?? null,
         updatedByMemberId: context.membershipId,
       },
@@ -418,9 +434,29 @@ export async function activateAmendment(context: UserContext, amendmentId: strin
     const contract = assertFound(
       await tx.contract.findUnique({
         where: { id: existing.contractId },
-        select: { id: true, contractNumber: true, contractValue: true, expiryDate: true },
+        select: {
+          id: true,
+          contractNumber: true,
+          contractValue: true,
+          expiryDate: true,
+          status: true,
+          archivedAt: true,
+        },
       }),
     );
+
+    /*
+     * Read under the lock, so a termination landing at the same moment is
+     * seen. An amendment changes an agreement still in force — or on its way
+     * to being so; a terminated, expired, cancelled or archived contract is
+     * history, and rewriting its value or expiry would change what the record
+     * says was agreed (PRD #18 §165, PRD #47 §85).
+     */
+    if (contract.archivedAt || !acceptsAmendments(contract.status)) {
+      throw stateDenied(
+        "This contract is no longer in force, so the amendment cannot be applied to it.",
+      );
+    }
 
     await moveStatus(tx, context, existing, "ACTIVE", {
       activatedAt: new Date(),
@@ -596,6 +632,36 @@ async function moveStatus(
  */
 async function lockContract(tx: Prisma.TransactionClient, contractId: string): Promise<void> {
   await tx.$queryRaw`SELECT id FROM "contracts" WHERE id = ${contractId} FOR UPDATE`;
+}
+
+/**
+ * Confirms an amendment named in a URL belongs to the contract named beside it
+ * (PRD #47 §17, §47).
+ *
+ * `/contracts/A/amendments/X` must not act on X when X amends contract B: a
+ * mismatch answers "not found", as the record page already does.
+ */
+export async function assertAmendmentOnContract(
+  context: UserContext,
+  contractId: string,
+  amendmentId: string,
+): Promise<void> {
+  assertFound(
+    await prisma.contractAmendment.findFirst({
+      where: { id: amendmentId, contractId, contract: { is: buildContractScopeWhere(context) } },
+      select: { id: true },
+    }),
+  );
+}
+
+/**
+ * The amendment input with its new value removed for a reader who cannot see
+ * contract values. The value is theirs neither to set nor to be told about:
+ * the "this reduces the contract value" check would otherwise answer a
+ * question about a figure they may not read (PRD #18 §22, PRD #47 §66, §100).
+ */
+function withoutUnseenValue(context: UserContext, input: AmendmentInput): AmendmentInput {
+  return canSeeCommercial(context) ? input : { ...input, newContractValue: undefined };
 }
 
 function findInScope(context: UserContext, amendmentId: string) {

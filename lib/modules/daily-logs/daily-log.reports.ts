@@ -2,6 +2,7 @@ import type { z } from "zod";
 
 import { AccessError, assertModule } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
@@ -232,11 +233,11 @@ export async function missingYesterday(companyId: string, now: Date): Promise<Mi
 
 /** Reminds each required project's people once about a missing log (job `dailylogs.missing`, §107, §110). */
 export async function remindMissingDailyLogs(now = new Date()): Promise<{ reminded: number }> {
-  const companies = await prisma.company.findMany({ where: { status: "ACTIVE", modules: { some: { enabled: true, module: { key: MODULE } } } }, select: { id: true } });
   let reminded = 0;
-  for (const company of companies) {
+  const companyRun = await forEachCompany("dailylogs.missing", async (system) => {
+    const company = { id: system.companyId };
     for (const missing of await missingYesterday(company.id, now)) {
-      const already = await prisma.notificationEventOutbox.count({ where: { eventType: NotificationEvent.DAILY_LOG_MISSING_REMINDER, entityType: "project", entityId: missing.projectId, payloadJson: { path: ["workDate"], equals: missing.date } } });
+      const already = await prisma.notificationEventOutbox.count({ where: { companyId: company.id, eventType: NotificationEvent.DAILY_LOG_MISSING_REMINDER, entityType: "project", entityId: missing.projectId, payloadJson: { path: ["workDate"], equals: missing.date } } });
       if (already) continue;
       const members = await prisma.projectMember.findMany({ where: { projectId: missing.projectId, status: "ACTIVE" }, select: { companyMemberId: true } });
       const memberIds = [...new Set([...(missing.projectManagerMemberId ? [missing.projectManagerMemberId] : []), ...members.map((row) => row.companyMemberId)])];
@@ -248,7 +249,8 @@ export async function remindMissingDailyLogs(now = new Date()): Promise<{ remind
       );
       reminded += 1;
     }
-  }
+  }, { moduleKey: MODULE });
   if (reminded) incrementCounter(Metric.DAILY_LOG_MISSING, {}, reminded);
+  assertEveryCompanySucceeded("dailylogs.missing", companyRun);
   return { reminded };
 }

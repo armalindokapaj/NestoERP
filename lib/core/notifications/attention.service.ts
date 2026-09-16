@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import type { RecordSummary } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 
 /**
@@ -94,12 +95,30 @@ export async function resolveAttention(
   });
 }
 
+/**
+ * Modules this reader can open right now: enabled for the company, and not
+ * NONE for their role. An item filed under anything else is not theirs to see,
+ * whatever the table still says (PRD #25 §279, PRD #47 §26).
+ */
+function reachableModuleKeys(context: UserContext): string[] {
+  return Object.entries(context.moduleAccess)
+    .filter(([, access]) => access.enabled && access.accessLevel !== "NONE")
+    .map(([key]) => key);
+}
+
+/**
+ * The raw active rows for this member — a note written when a condition was
+ * detected, not a statement of current access. Never served as it stands:
+ * `listReadableAttention` and `countReadableAttention` re-read each record
+ * first (PRD #47 §77).
+ */
 export async function listActiveAttention(context: UserContext, limit = 25): Promise<AttentionItemDTO[]> {
   const rows = await prisma.attentionItem.findMany({
     where: {
       companyId: context.companyId,
       recipientMemberId: context.membershipId,
       status: "ACTIVE",
+      moduleKey: { in: reachableModuleKeys(context) },
     },
     // Most urgent first, then oldest unresolved (PRD #25 §156).
     orderBy: [{ priority: "desc" }, { firstDetectedAt: "asc" }],
@@ -142,6 +161,10 @@ export async function dismissAttention(context: UserContext, id: string): Promis
  * When a module is switched off or access is withdrawn, its outstanding
  * attention goes quiet rather than pointing at something unreachable
  * (PRD #25 §279, §281).
+ *
+ * Belongs in the module switch in Company Settings. Until it is called there,
+ * the read side does not depend on it: lists and counts drop items for modules
+ * the reader cannot reach, and reconciliation resolves them on its next run.
  */
 export async function suppressModuleAttention(companyId: string, moduleKey: string): Promise<number> {
   const result = await prisma.attentionItem.updateMany({
@@ -160,6 +183,26 @@ function approvalLink(recordType: string, recordId: string): string {
 }
 
 /**
+ * Whether this reader may be shown the item now: the condition's own reader
+ * permissions (when the record is not the condition's subject), and the record
+ * itself, read through the registry in their context. Null when not.
+ */
+async function readableRecord(context: UserContext, item: AttentionItemDTO, cache: Map<string, RecordSummary | null>): Promise<RecordSummary | null> {
+  const { loadRecord } = await import("@/lib/core/records/record.registry");
+  const { normaliseEntityType } = await import("./notification.dispatch");
+  const { findAttentionCondition, readerAllowed } = await import("./attention.conditions");
+
+  const condition = findAttentionCondition(item.conditionKey);
+  if (condition && !readerAllowed(context, condition)) return null;
+
+  const type = normaliseEntityType(item.entity.entityType);
+  const key = `${type}:${item.entity.entityId}`;
+  if (!cache.has(key)) cache.set(key, await loadRecord(context, type, item.entity.entityId));
+  const record = cache.get(key) ?? null;
+  return record && !record.archived ? record : null;
+}
+
+/**
  * Active attention the reader can still act on, each with a link resolved now
  * (PRD #38 §82, §86).
  *
@@ -169,7 +212,6 @@ function approvalLink(recordType: string, recordId: string): string {
  * title included — until reconciliation resolves it.
  */
 export async function listReadableAttention(context: UserContext, limit = 25): Promise<ReadableAttentionDTO[]> {
-  const { loadRecord } = await import("@/lib/core/records/record.registry");
   const { normaliseEntityType } = await import("./notification.dispatch");
   const { findAttentionCondition } = await import("./attention.conditions");
 
@@ -177,6 +219,7 @@ export async function listReadableAttention(context: UserContext, limit = 25): P
   const items = await listActiveAttention(context, Math.min(limit * 2, 100));
   const readable: ReadableAttentionDTO[] = [];
   const ended: string[] = [];
+  const records = new Map<string, RecordSummary | null>();
   for (const item of items) {
     const type = normaliseEntityType(item.entity.entityType);
     // The condition is asked again first: a task completed a minute ago is not
@@ -186,8 +229,8 @@ export async function listReadableAttention(context: UserContext, limit = 25): P
       ended.push(item.id);
       continue;
     }
-    const record = await loadRecord(context, type, item.entity.entityId);
-    if (!record || record.archived) continue;
+    const record = await readableRecord(context, item, records);
+    if (!record) continue;
     // Waiting approvals open in the Approvals Center's drawer (PRD #41 §42).
     const href = APPROVAL_CONDITIONS.has(item.conditionKey) && can(context, "approvals.view") ? approvalLink(record.type, record.id) : record.href;
     readable.push({ ...item, href });
@@ -200,4 +243,31 @@ export async function listReadableAttention(context: UserContext, limit = 25): P
     });
   }
   return readable;
+}
+
+/** How many active items the count looks at — enough for any badge, bounded for a poll. */
+export const ATTENTION_COUNT_WINDOW = 100;
+
+/**
+ * The attention counts, taken from what the reader could actually be shown
+ * (PRD #47 §77, §175).
+ *
+ * Counts are data: a count of rows would tell somebody who lost a record — or
+ * whose company switched its module off — that something about it is still
+ * waiting. Each item's record is re-read in this reader's context, over a
+ * bounded window of the most urgent items. Unlike the list, the condition is
+ * not re-evaluated here: that is freshness, not access, and some conditions
+ * are too expensive to ask on every poll of the top bar.
+ */
+export async function countReadableAttention(context: UserContext): Promise<{ active: number; critical: number }> {
+  const items = await listActiveAttention(context, ATTENTION_COUNT_WINDOW);
+  const records = new Map<string, RecordSummary | null>();
+  let active = 0;
+  let critical = 0;
+  for (const item of items) {
+    if (!(await readableRecord(context, item, records))) continue;
+    active += 1;
+    if (item.priority === "CRITICAL") critical += 1;
+  }
+  return { active, critical };
 }

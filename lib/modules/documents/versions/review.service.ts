@@ -381,7 +381,7 @@ export async function reassignReview(
   if (!eligible) throw new AccessError("VALIDATION_ERROR", "REVIEWER_NOT_ALLOWED");
 
   const names = await prisma.companyMember.findMany({
-    where: { id: { in: [review.reviewerMemberId, target] } },
+    where: { id: { in: [review.reviewerMemberId, target] }, companyId: context.companyId },
     select: { id: true, user: { select: { firstName: true, lastName: true } } },
   });
   const nameOf = (id: string) => {

@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
@@ -11,6 +11,7 @@ import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { fileTypeLabel, storageStatusMessage } from "@/lib/core/storage";
 import { attachDocumentFromBytes } from "./storage/upload.service";
 import { readDocumentBytes } from "./storage/download.service";
+import { frozenFileReason } from "./storage/version.promote";
 import * as repository from "./document.repository";
 import { classifyDocumentParent, loadDocumentParentRecord } from "./document.parent-access";
 import { recordPath } from "@/lib/core/records/record.registry";
@@ -260,6 +261,11 @@ export async function archiveDocument(context: UserContext, documentId: string):
   if (existing.storageStatus !== "AVAILABLE") {
     throw new AccessError("CONFLICT", "This file is still being processed.");
   }
+  // A file a submitted revision or an issued transmittal carries is part of
+  // that record, and archiving it would pull it out from under them
+  // (PRD #46 §69, §123, PRD #47 §85, §86).
+  const frozen = await frozenFileReason(existing.id);
+  if (frozen) throw stateDenied(frozen, { code: "ENGINEERING_FILE_FROZEN" });
 
   await prisma.$transaction(async (tx) => {
     /*

@@ -9,6 +9,7 @@ import {
   buildInspectionScopeWhere,
   buildObservationScopeWhere,
   buildPermitScopeWhere,
+  buildRiskAssessmentScopeWhere,
   buildStopWorkScopeWhere,
   buildToolboxScopeWhere,
 } from "../hse.scope";
@@ -393,9 +394,10 @@ async function buildAttention(
   }
 
   if (can(context, "hse.approval.view")) {
-    const pending = await prisma.hseApproval.count({
-      where: { companyId: context.companyId, status: "PENDING" },
-    });
+    // The same records the queue itself would list, not every pending row in
+    // the company (PRD #22 §181, PRD #47 §62).
+    const { countPendingApprovals } = await import("../approvals/approval.service");
+    const pending = await countPendingApprovals(context);
     if (pending > 0) {
       attention.push({
         id: "pending-approvals",
@@ -410,7 +412,7 @@ async function buildAttention(
   if (can(context, "hse.risk.view")) {
     const reviewDue = await prisma.hseRiskAssessment.count({
       where: {
-        companyId: context.companyId,
+        ...buildRiskAssessmentScopeWhere(context),
         status: "APPROVED",
         reviewDate: { lte: now },
       },

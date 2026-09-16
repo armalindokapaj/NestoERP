@@ -2,7 +2,7 @@ import { Prisma, type BudgetStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -223,6 +223,32 @@ export async function getProjectFinanceSummary(
 /* Writes                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The currency a project's approved budget has settled, for the budget form
+ * (PRD #15 §117).
+ *
+ * Read through the budget scope, never by project id alone: the form takes its
+ * project from the query string, and an unscoped lookup would confirm that
+ * another company's — or another team's — project has an approved budget, and
+ * in which currency (PRD #47 §17, §40). A project out of reach reads as having
+ * none.
+ */
+export async function approvedBudgetCurrency(
+  context: UserContext,
+  projectId: string,
+): Promise<string | null> {
+  assertModule(context, MODULE);
+  if (!can(context, "finance.budget.create") && !can(context, "finance.budget.update")) {
+    throw new AccessError("FORBIDDEN");
+  }
+
+  const approved = await prisma.projectBudget.findFirst({
+    where: { AND: [buildBudgetScopeWhere(context), { projectId, status: "APPROVED" }] },
+    select: { currency: true },
+  });
+  return approved?.currency ?? null;
+}
+
 export async function createBudget(
   context: UserContext,
   input: CreateBudgetInput,
@@ -318,6 +344,17 @@ export async function updateBudget(
   const total = calculateBudgetTotal(input.lineItems);
 
   await prisma.$transaction(async (tx) => {
+    // Claimed on the status it was read with, and locked to the end of the
+    // transaction: a budget submitted or approved in the meantime turns this
+    // save into a conflict instead of rewriting its lines (PRD #47 §66).
+    const claimed = await tx.projectBudget.updateMany({
+      where: { id: budgetId, companyId: context.companyId, status: existing.status },
+      data: { updatedByMemberId: context.membershipId },
+    });
+    if (claimed.count === 0) {
+      throw stateDenied("This budget changed while you were working on it. Refresh and review it.");
+    }
+
     await assertCurrencyIsFixed(tx, existing.projectId, input.currency, existing.id);
 
     await tx.projectBudgetLineItem.deleteMany({ where: { budgetId } });

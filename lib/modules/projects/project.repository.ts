@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/database/prisma";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import type { ProjectListQuery, ProjectSortKey } from "./project.schema";
 
@@ -158,8 +159,16 @@ export async function findProjectInScope(
   });
 }
 
-/** Counts for the detail page, computed in the database (PRD #10 §164). */
+/**
+ * Counts for the detail page, computed in the database (PRD #10 §164).
+ *
+ * The document count runs through document access, not just the project: an
+ * incident photo or a supplier quote filed on the project is counted only for
+ * somebody who could open it, so the number never announces files the reader
+ * may not see (PRD #13 §283, PRD #47 §63).
+ */
 export async function projectCounts(context: UserContext, projectId: string) {
+  const documentAccess = await buildDocumentAccessWhere(context);
   const [members, openTasks, documents] = await Promise.all([
     prisma.projectMember.count({ where: { projectId, status: "ACTIVE" } }),
     prisma.task.count({
@@ -171,7 +180,7 @@ export async function projectCounts(context: UserContext, projectId: string) {
       },
     }),
     prisma.document.count({
-      where: { companyId: context.companyId, projectId, status: "ACTIVE" },
+      where: { AND: [documentAccess, { companyId: context.companyId, projectId, status: "ACTIVE" }] },
     }),
   ]);
 

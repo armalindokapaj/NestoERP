@@ -58,6 +58,28 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const day = (instant: Date) => `${instant.getUTCDate()} ${MONTHS[instant.getUTCMonth()]} ${instant.getUTCFullYear()}`;
 const inIds = (ids: string[]) => ({ id: { in: ids } });
 
+/**
+ * Of these project ids, the ones the reader can open — and none at all without
+ * the Projects door (PRD #47 §175).
+ *
+ * A record the reader may open does not hand them its project: a Company IT
+ * member invited to a project meeting, or a finance reader with an invoice in
+ * scope, can open that record while the project stays closed to them. The
+ * project is then neither named nor linked — the rule the meeting page and the
+ * calendar already follow (PRD #39 §46, PRD #40 §266).
+ */
+async function openProjectIds(context: UserContext, ids: ReadonlyArray<string | null | undefined>): Promise<Set<string>> {
+  const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  if (wanted.length === 0 || !canAccessModule(context, "projects") || !can(context, "project.view")) return new Set();
+  const rows = await prisma.project.findMany({ where: { AND: [buildProjectScopeWhere(context), inIds(wanted)] }, select: { id: true } });
+  return new Set(rows.map((row) => row.id));
+}
+
+/** The project reference, when the reader can open it. */
+function projectRef(project: { id: string; name: string } | null | undefined, open: Set<string>): { id: string; name: string } | undefined {
+  return project && open.has(project.id) ? project : undefined;
+}
+
 const PROVIDERS: Provider[] = [
   {
     key: "project",
@@ -84,7 +106,11 @@ const PROVIDERS: Provider[] = [
     permissions: ["task.view"],
     async resolveMany(context, ids) {
       const rows = await prisma.task.findMany({ where: { AND: [buildTaskScopeWhere(context), inIds(ids)] }, select: { id: true, title: true, status: true, project: { select: { id: true, name: true } } } });
-      return rows.map((row) => ({ entityType: "task", entityId: row.id, title: row.title, subtitle: row.project ? `Task · ${row.project.name}` : "Task", href: `/tasks/${row.id}`, iconKey: "task", status: row.status, project: row.project ?? undefined }));
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => {
+        const project = projectRef(row.project, open);
+        return { entityType: "task", entityId: row.id, title: row.title, subtitle: project ? `Task · ${project.name}` : "Task", href: `/tasks/${row.id}`, iconKey: "task", status: row.status, project };
+      });
     },
   },
   {
@@ -94,7 +120,11 @@ const PROVIDERS: Provider[] = [
     async resolveMany(context, ids) {
       const { readableMeetingWhere } = await import("@/lib/modules/meetings/meeting.permissions");
       const rows = await prisma.meeting.findMany({ where: { AND: [readableMeetingWhere(context), inIds(ids)] }, select: { id: true, title: true, status: true, startsAt: true, project: { select: { id: true, name: true } } } });
-      return rows.map((row) => ({ entityType: "meeting", entityId: row.id, title: row.title, subtitle: [`Meeting · ${day(row.startsAt)}`, row.project?.name].filter(Boolean).join(" · "), href: `/meetings/${row.id}`, iconKey: "meeting", status: row.status, project: row.project ?? undefined }));
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => {
+        const project = projectRef(row.project, open);
+        return { entityType: "meeting", entityId: row.id, title: row.title, subtitle: [`Meeting · ${day(row.startsAt)}`, project?.name].filter(Boolean).join(" · "), href: `/meetings/${row.id}`, iconKey: "meeting", status: row.status, project };
+      });
     },
   },
   {
@@ -124,7 +154,11 @@ const PROVIDERS: Provider[] = [
       // A document is readable through its parent, decided in one where-clause.
       const { buildDocumentAccessWhere } = await import("@/lib/modules/documents/document.parent-access");
       const rows = await prisma.document.findMany({ where: { AND: [await buildDocumentAccessWhere(context), inIds(ids)] }, select: { id: true, name: true, status: true, extension: true, project: { select: { id: true, name: true } } } });
-      return rows.map((row) => ({ entityType: "document", entityId: row.id, title: row.name, subtitle: [row.extension ? row.extension.toUpperCase() : "Document", row.project?.name].filter(Boolean).join(" · "), href: `/documents/${row.id}`, iconKey: "document", status: row.status, project: row.project ?? undefined }));
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => {
+        const project = projectRef(row.project, open);
+        return { entityType: "document", entityId: row.id, title: row.name, subtitle: [row.extension ? row.extension.toUpperCase() : "Document", project?.name].filter(Boolean).join(" · "), href: `/documents/${row.id}`, iconKey: "document", status: row.status, project };
+      });
     },
   },
   {
@@ -144,7 +178,8 @@ const PROVIDERS: Provider[] = [
     async resolveMany(context, ids) {
       const { buildOrderScopeWhere } = await import("@/lib/modules/procurement/procurement.scope");
       const rows = await prisma.purchaseOrder.findMany({ where: { AND: [buildOrderScopeWhere(context), inIds(ids)] }, select: { id: true, poNumber: true, status: true, supplier: { select: { name: true } }, project: { select: { id: true, name: true } } } });
-      return rows.map((row) => ({ entityType: "purchase_order", entityId: row.id, title: row.poNumber, subtitle: ["Purchase order", row.supplier?.name].filter(Boolean).join(" · "), href: `/procurement/orders/${row.id}`, iconKey: "purchase_order", status: row.status, project: row.project ?? undefined }));
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => ({ entityType: "purchase_order", entityId: row.id, title: row.poNumber, subtitle: ["Purchase order", row.supplier?.name].filter(Boolean).join(" · "), href: `/procurement/orders/${row.id}`, iconKey: "purchase_order", status: row.status, project: projectRef(row.project, open) }));
     },
   },
   {
@@ -154,7 +189,8 @@ const PROVIDERS: Provider[] = [
     async resolveMany(context, ids) {
       const { buildInvoiceScopeWhere } = await import("@/lib/modules/finance/finance.scope");
       const rows = await prisma.invoice.findMany({ where: { AND: [buildInvoiceScopeWhere(context), inIds(ids)] }, select: { id: true, invoiceNumber: true, status: true, client: { select: { name: true } }, project: { select: { id: true, name: true } } } });
-      return rows.map((row) => ({ entityType: "invoice", entityId: row.id, title: `Invoice ${row.invoiceNumber}`, subtitle: row.client?.name ?? "Invoice", href: `/finance/invoices/${row.id}`, iconKey: "invoice", status: row.status, project: row.project ?? undefined }));
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => ({ entityType: "invoice", entityId: row.id, title: `Invoice ${row.invoiceNumber}`, subtitle: row.client?.name ?? "Invoice", href: `/finance/invoices/${row.id}`, iconKey: "invoice", status: row.status, project: projectRef(row.project, open) }));
     },
   },
 ];

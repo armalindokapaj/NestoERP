@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { assertPermission } from "@/lib/access/guards";
+import { AccessError, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
@@ -100,8 +100,12 @@ export async function updateIntegrationSettings(
 
   for (const [key, value] of Object.entries(input) as Array<[keyof IntegrationSettingsInput, boolean]>) {
     const turningOn = value && !current[key];
+    // A refused business rule, not a server fault: a 409 the form can explain,
+    // never a 500 (PRD #47 §116).
     if (turningOn && blockers.some((b) => b.key === key)) {
-      throw new Error("INTEGRATION_DEPENDENCY_BLOCKED");
+      throw new AccessError("CONFLICT", "That integration needs its modules enabled first.", {
+        code: "INTEGRATION_DEPENDENCY_BLOCKED",
+      });
     }
   }
 

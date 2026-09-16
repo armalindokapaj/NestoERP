@@ -1,13 +1,19 @@
 import type { CompanyMember, DepartmentStatus, MembershipStatus } from "@prisma/client";
 
 /**
- * Membership status rules (PRD #14 §109, §110).
+ * Membership status rules an administrator may apply (PRD #14 §109, §110).
  *
  * There is no `ACTIVE → INVITED`: an invitation is how somebody arrives, not a
  * state they can be pushed back into (PRD #14 §109).
+ *
+ * Nor is there `INVITED → ACTIVE`. Only the invited person accepting activates
+ * an invitation — the acceptance path in `invite.service.ts` does it, bound to
+ * their token and their account. An administrator "reactivating" a pending
+ * invitation would hand company access to somebody who never agreed to join
+ * and may not even control the address (PRD #47 §58).
  */
 const TRANSITIONS: Record<MembershipStatus, MembershipStatus[]> = {
-  INVITED: ["ACTIVE", "INACTIVE"],
+  INVITED: ["INACTIVE"],
   ACTIVE: ["INACTIVE", "SUSPENDED"],
   INACTIVE: ["ACTIVE", "SUSPENDED"],
   SUSPENDED: ["ACTIVE", "INACTIVE"],

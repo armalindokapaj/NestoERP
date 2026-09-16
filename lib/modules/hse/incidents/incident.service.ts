@@ -34,6 +34,7 @@ import {
   isIncidentCancellable,
   isIncidentClosable,
   isIncidentEditable,
+  isIncidentRecordEditable,
   isIncidentInvestigable,
   isIncidentReopenable,
   isIncidentSubmittableForClose,
@@ -168,6 +169,7 @@ export async function listIncidents(context: UserContext, query: IncidentListQue
   ]);
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.reportedByMemberId, row.investigatorMemberId]),
   );
 
@@ -192,8 +194,8 @@ export async function getIncident(
   );
 
   const [members, createdBy, actions, stopWorks, pending] = await Promise.all([
-    loadMembers([row.reportedByMemberId, row.investigatorMemberId, row.closedByMemberId]),
-    loadMemberRef(row.createdByMemberId),
+    loadMembers(context.companyId, [row.reportedByMemberId, row.investigatorMemberId, row.closedByMemberId]),
+    loadMemberRef(context.companyId, row.createdByMemberId),
     can(context, "hse.action.view")
       ? import("../actions/action.service").then((m) => m.listForParent(context, { incidentId }))
       : Promise.resolve([]),
@@ -248,6 +250,7 @@ export async function listForProject(
   });
 
   const members = await loadMembers(
+    context.companyId,
     rows.flatMap((row) => [row.reportedByMemberId, row.investigatorMemberId]),
   );
   return rows.map((row) => toSummaryDTO(context, row, members));
@@ -379,6 +382,15 @@ export async function updateIncident(
     });
   }
 
+  if (!isIncidentRecordEditable(existing.status)) {
+    throw new AccessError(
+      "CONFLICT",
+      "This incident is waiting on a closure decision and cannot be edited now.",
+      { code: "PENDING_CLOSE" },
+      "STATE_DENIED",
+    );
+  }
+
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
   if (input.projectId) await requireProject(context, input.projectId);
@@ -504,6 +516,15 @@ export async function recordInvestigation(
     throw new AccessError("CONFLICT", "A closed incident cannot be investigated further.", {
       code: "INCIDENT_CLOSED",
     });
+  }
+
+  if (!isIncidentRecordEditable(existing.status)) {
+    throw new AccessError(
+      "CONFLICT",
+      "This incident is waiting on a closure decision and its findings cannot change now.",
+      { code: "PENDING_CLOSE" },
+      "STATE_DENIED",
+    );
   }
 
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
@@ -758,7 +779,8 @@ async function loadForClosure(context: UserContext, incidentId: string) {
         rootCause: true,
         investigationSummary: true,
         closureNote: true,
-        actions: { select: { status: true } },
+        // Only this company's actions count towards closing (PRD #47 §20).
+        actions: { where: { companyId: context.companyId }, select: { status: true } },
       },
     }),
   );
@@ -842,10 +864,10 @@ function capabilitiesFor(
     submittedByMemberId !== context.membershipId || can(context, "hse.approval.self");
 
   return {
-    canEdit: isIncidentEditable(row.status) && can(context, "hse.incident.update"),
+    canEdit: isIncidentRecordEditable(row.status) && can(context, "hse.incident.update"),
     canAssign: isIncidentEditable(row.status) && can(context, "hse.incident.assign"),
     canInvestigate:
-      isIncidentEditable(row.status) && can(context, "hse.incident.investigate"),
+      isIncidentRecordEditable(row.status) && can(context, "hse.incident.investigate"),
     canSubmitClose:
       isIncidentSubmittableForClose(row.status) && can(context, "hse.incident.submit_close"),
     canClose: isIncidentClosable(row.status) && can(context, "hse.incident.close") && notSelf,

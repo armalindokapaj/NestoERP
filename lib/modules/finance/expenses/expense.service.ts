@@ -3,7 +3,7 @@ import { allocateNumber } from "@/lib/core/numbering/numbering.service";
 
 import { can } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
-import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -235,8 +235,10 @@ export async function updateExpense(
       await assertNumberIsFree(tx, context, input.expenseNumber, expenseId);
     }
 
-    await tx.expense.update({
-      where: { id: expenseId },
+    // Conditional on the status the edit was checked against, so an expense
+    // submitted or approved in the meantime is not rewritten (PRD #47 §66).
+    const written = await tx.expense.updateMany({
+      where: { id: expenseId, companyId: context.companyId, status: existing.status },
       data: {
         expenseNumber: input.expenseNumber ?? null,
         projectId: project?.id ?? null,
@@ -252,6 +254,9 @@ export async function updateExpense(
         updatedByMemberId: context.membershipId,
       },
     });
+    if (written.count === 0) {
+      throw stateDenied("This expense changed while you were working on it. Refresh and review it.");
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,

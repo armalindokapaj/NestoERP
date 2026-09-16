@@ -129,7 +129,8 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return rows.map((row) => row.id);
     },
-    documents: { view: [], upload: [], tabHref: recordDocumentsTab, reviewable: true },
+    // The project documents tab is gated on this grant; the file itself has to be too (PRD #47 §81).
+    documents: { view: ["project.document.view"], upload: [], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
   },
   {
@@ -157,7 +158,7 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return rows.map((row) => row.id);
     },
-    documents: { view: [], upload: [], tabHref: recordDocumentsTab, reviewable: true },
+    documents: { view: ["client.document.view"], upload: [], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
   },
   {
@@ -186,6 +187,7 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return rows.map((row) => row.id);
     },
+    // Tasks have no document grant of their own: a task's files are read by whoever reads the task.
     documents: { view: [], upload: [], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
   },
@@ -243,7 +245,7 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return rows.map((row) => row.id);
     },
-    documents: { view: [], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
+    documents: { view: ["finance.document.view"], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
   },
   {
@@ -272,7 +274,7 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return rows.map((row) => row.id);
     },
-    documents: { view: [], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
+    documents: { view: ["finance.document.view"], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
   },
   {
@@ -300,7 +302,7 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return rows.map((row) => row.id);
     },
-    documents: { view: [], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
+    documents: { view: ["finance.document.view"], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
   },
   {
@@ -329,7 +331,7 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return rows.map((row) => row.id);
     },
-    documents: { view: [], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
+    documents: { view: ["finance.document.view"], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
   },
 
@@ -405,6 +407,8 @@ const DEFINITIONS: RecordDefinition[] = [
       return rows.map((row) => row.id);
     },
     documents: { view: ["hr.document.view"], upload: ["hr.document.create"], tabHref: recordPage, reviewable: false },
+    // A leave request is settled between the employee and their approver through its own note
+    // and decision; a thread would widen who learns of somebody's absence (PRD #16, PRD #38 §28).
     collaboration: null,
   },
 
@@ -725,6 +729,8 @@ const DEFINITIONS: RecordDefinition[] = [
       return rows.map((row) => row.id);
     },
     documents: { view: ["procurement.document.view"], upload: ["procurement.document.create"], tabHref: recordPage, reviewable: false },
+    // Master data rather than a piece of work: suppliers are discussed on the requests, RFQs and
+    // orders that use them (PRD #38 §28).
     collaboration: null,
   },
 
@@ -785,6 +791,7 @@ const DEFINITIONS: RecordDefinition[] = [
     // Files are read on warehouses filed before this registry existed, but no
     // page offers an upload for one (PRD #38 §54).
     documents: { view: ["inventory.document.view"], upload: null, tabHref: recordPage, reviewable: false },
+    // A place, not a piece of work — nothing on it waits for anyone, so there is nothing to discuss.
     collaboration: null,
   },
   {
@@ -1166,6 +1173,7 @@ const DEFINITIONS: RecordDefinition[] = [
       return rows.map((row) => row.id);
     },
     documents: { view: ["hse.document.view"], upload: ["hse.document.create"], tabHref: recordPage, reviewable: false },
+    // A signed briefing record: evidence of what was said, not an open matter (PRD #38 §28).
     collaboration: null,
   },
   {
@@ -1224,6 +1232,7 @@ const DEFINITIONS: RecordDefinition[] = [
       return rows.map((row) => row.id);
     },
     documents: { view: ["hse.document.view"], upload: ["hse.document.create"], tabHref: recordPage, reviewable: false },
+    // Follow-up is raised as an HSE action, and the action carries the discussion (PRD #38 §28).
     collaboration: null,
   },
   {
@@ -1674,6 +1683,7 @@ const DEFINITIONS: RecordDefinition[] = [
       return rows.map((row) => row.id);
     },
     documents: { view: [], upload: ["transmittal.create"], tabHref: (summary) => summary.href, reviewable: false },
+    // Issued transmittals are immutable (PRD #47 §86); a question about one is raised as an RFI.
     collaboration: null,
   },
 

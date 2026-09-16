@@ -266,8 +266,17 @@ describe("membership status (PRD #14 §97–§111, §163, §167)", () => {
     });
     expect(owners).toBe(1);
 
-    await expectError(team.deactivateMember(admin, owner!.id), "CONFLICT");
-    await expectError(team.suspendMember(admin, owner!.id), "CONFLICT");
+    // Without the Owner grant an Admin may not change an Owner's access at
+    // all, however many Owners there are (PRD #47 §57).
+    await expectError(team.deactivateMember(admin, owner!.id), "FORBIDDEN");
+    await expectError(team.suspendMember(admin, owner!.id), "FORBIDDEN");
+
+    // Even a holder of that grant cannot remove the last one. No seeded role
+    // but the Owner holds it, and the Owner cannot change their own access, so
+    // the grant is added to a real Admin context for this one check.
+    const delegated = { ...admin, permissions: [...admin.permissions, "team.owner.assign" as const] };
+    await expectError(team.deactivateMember(delegated, owner!.id), "CONFLICT");
+    await expectError(team.suspendMember(delegated, owner!.id), "CONFLICT");
   });
 
   it("revokes live sessions when access is removed (PRD #14 §242, §243)", async () => {
