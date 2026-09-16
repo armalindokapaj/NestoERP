@@ -21,10 +21,9 @@ import * as projects from "@/lib/modules/projects/project.service";
  */
 
 /**
- * Archiving or editing a project changes what /projects/all,
- * /projects/my-projects and /projects/archived each contain, not only the
- * record's own page — so the whole module subtree is revalidated rather than a
- * single path (PRD #10 §235).
+ * Archiving or editing a project changes what the Projects page and
+ * /projects/archived contain, not only the record's own page — so the whole
+ * module subtree is revalidated rather than a single path (PRD #10 §235).
  */
 function revalidateProjects(projectId?: string) {
   revalidatePath("/projects", "layout");

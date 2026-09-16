@@ -984,7 +984,7 @@ describe("winning a deal (PRD #17 §323)", () => {
       select: { clientId: true, status: true },
     });
     expect(project.clientId).toBe("client_acme");
-    expect(project.status).toBe("DRAFT");
+    expect(project.status).toBe("PENDING");
   });
 
   it("blocks a project that belongs to a different client (PRD #17 §89, §323)", async () => {

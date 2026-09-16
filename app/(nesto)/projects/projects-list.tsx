@@ -8,32 +8,27 @@ import type { UserContext } from "@/lib/context/types";
 import { parseProjectListQuery } from "@/lib/modules/projects/project.query";
 import { projectFilterOptions } from "@/lib/modules/projects/project.repository";
 import * as projects from "@/lib/modules/projects/project.service";
-import { can } from "@/lib/access/can";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
 /**
- * The shared list body behind All Projects, My Projects and Archived
- * (PRD #10 §16, §28, §29).
+ * The archived projects list (PRD #10 §29).
  *
- * The three sections differ by one query flag, not by three implementations —
- * scope, search, filters and pagination are identical (PRD #10 §99).
+ * All Projects and My Projects used to share this body; E-05A folded them into
+ * the Projects page, which discovers live projects only. Archived projects stay
+ * here, inside the session's company, until a future filter brings them onto
+ * the page (E-05A §10, §55).
  */
 export async function ProjectsList({
   context,
   searchParams,
-  variant,
   basePath,
 }: {
   context: UserContext;
   searchParams: SearchParams;
-  variant: "all" | "mine" | "archived";
   basePath: string;
 }) {
-  const query = parseProjectListQuery(searchParams, {
-    mine: variant === "mine",
-    archived: variant === "archived",
-  });
+  const query = parseProjectListQuery(searchParams, { archived: true });
 
   const [result, options] = await Promise.all([
     projects.listProjects(context, query),
@@ -49,10 +44,9 @@ export async function ProjectsList({
       param: "status",
       label: "Status",
       options: [
-        { value: "DRAFT", label: "Draft" },
+        { value: "PENDING", label: "Pending" },
         { value: "ACTIVE", label: "Active" },
-        { value: "ON_HOLD", label: "On hold" },
-        { value: "COMPLETED", label: "Completed" },
+        { value: "FINISHED", label: "Finished" },
       ],
     },
     {
@@ -120,13 +114,8 @@ export async function ProjectsList({
         ) : (
           <EmptyState
             icon={<FolderKanban />}
-            title={emptyTitle(variant)}
-            description={emptyDescription(variant)}
-            action={
-              variant !== "archived" && can(context, "project.create")
-                ? { label: "New project", href: "/projects/new" }
-                : undefined
-            }
+            title="No archived projects."
+            description="Projects removed from the Projects page will appear here."
           />
         )
       ) : (
@@ -137,16 +126,4 @@ export async function ProjectsList({
       )}
     </div>
   );
-}
-
-function emptyTitle(variant: "all" | "mine" | "archived"): string {
-  if (variant === "mine") return "No projects assigned to you.";
-  if (variant === "archived") return "No archived projects.";
-  return "No projects yet.";
-}
-
-function emptyDescription(variant: "all" | "mine" | "archived"): string {
-  if (variant === "mine") return "Projects you manage or are assigned to will appear here.";
-  if (variant === "archived") return "Projects removed from active lists will appear here.";
-  return "Projects created by your company will appear here.";
 }

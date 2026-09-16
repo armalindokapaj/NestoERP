@@ -1,5 +1,6 @@
 import { Prisma, type ProjectStatus } from "@prisma/client";
 
+import { projectTypeLabel } from "@/config/project-types";
 import { roleLabel, isRoleKey } from "@/config/roles";
 import {
   AccessError,
@@ -16,16 +17,22 @@ import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { applyTransition, assertTransitionAllowed } from "@/lib/core/state/transition";
+import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
+import { isThumbnailableMimeType } from "@/lib/modules/documents/storage/thumbnail.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
+import { projectMachine, statusActionFor } from "./project.machine";
+import { contextForCompany } from "./project.portfolio";
 import * as repository from "./project.repository";
 import type {
   AddProjectMemberInput,
+  ChangeProjectStatusInput,
   CreateProjectInput,
   ProjectListQuery,
   UpdateProjectInput,
   UpdateProjectMemberInput,
 } from "./project.schema";
-import { canTransitionProjectStatus, isProjectArchived } from "./project.status";
+import { isProjectArchived, projectStatusLabels } from "./project.status";
 import type {
   ProjectActivityDTO,
   ProjectDetailDTO,
@@ -73,6 +80,14 @@ export async function getProject(
   const counts = await repository.projectCounts(context, projectId);
 
   return toDetailDTO(project, counts);
+}
+
+/** The cover document a project points at, read inside the caller's project scope (E-05A §8). */
+export async function projectCoverDocumentId(context: UserContext, projectId: string): Promise<string | null> {
+  assertModule(context, MODULE);
+  assertPermission(context, "project.view");
+  const project = assertFound(await repository.findProjectInScope(context, projectId));
+  return project.coverImageDocumentId;
 }
 
 export async function getProjectTaskSummary(context: UserContext, projectId: string) {
@@ -147,9 +162,18 @@ export async function listActivity(
 /* -------------------------------------------------------------------------- */
 
 export async function createProject(
-  context: UserContext,
+  session: UserContext,
   input: CreateProjectInput,
 ): Promise<ProjectDetailDTO> {
+  // The project is created in the company the person chose, with their
+  // membership there — never the session's company by default when another
+  // was named, and never a company where they lack the permission (E-05A §30,
+  // §39, §54).
+  const context =
+    input.companyId && input.companyId !== session.companyId
+      ? await contextForCompany(session, input.companyId, "project.create")
+      : session;
+
   assertModule(context, MODULE);
   assertPermission(context, "project.create");
 
@@ -188,12 +212,17 @@ export async function createProject(
 export async function createProjectRecord(
   tx: Prisma.TransactionClient,
   context: UserContext,
-  input: Omit<CreateProjectInput, "clientId" | "projectManagerMemberId"> & {
+  input: Omit<CreateProjectInput, "clientId" | "projectManagerMemberId" | "companyId" | "projectType"> & {
     clientId: string | null;
     projectManagerMemberId: string | null;
+    projectType?: string;
   },
 ): Promise<{ id: string; code: string; name: string }> {
   assertPermission(context, "project.create");
+
+  // Pending is where a new project starts. Starting it anywhere else is the
+  // status decision, and needs the status permission (E-05A §31, §71).
+  if (input.status !== "PENDING") assertPermission(context, "project.status.manage");
 
   const created = await tx.project.create({
     data: {
@@ -205,6 +234,7 @@ export async function createProjectRecord(
       projectManagerMemberId: input.projectManagerMemberId,
       status: input.status as ProjectStatus,
       priority: input.priority ?? null,
+      projectType: input.projectType ?? null,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
       address: input.address ?? null,
@@ -243,7 +273,7 @@ export async function createProjectRecord(
       actionKey: AuditAction.PROJECT_CREATED,
       entity: { type: "Project", id: created.id, label: created.name },
       projectId: created.id,
-      after: { code: created.code, name: created.name },
+      after: { code: created.code, name: created.name, status: input.status, projectType: input.projectType ?? null },
     },
     { tx },
   );
@@ -276,16 +306,20 @@ export async function updateProject(
     );
   }
 
-  const nextStatus = input.status as ProjectStatus;
-  if (!canTransitionProjectStatus(existing.status, nextStatus)) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      `A project cannot move from ${existing.status} to ${nextStatus}.`,
-    );
+  // A different status is a move on the project machine, under the status
+  // permission rather than the edit one (E-05A §11, §12).
+  const nextStatus = input.status ?? existing.status;
+  const statusAction = nextStatus === existing.status ? null : requireStatusAction(existing.status, nextStatus);
+  if (statusAction) {
+    assertTransitionAllowed(projectMachine, { currentState: existing.status, action: statusAction, context });
   }
 
   const clientId = await validateClient(context, input.clientId, existing.clientId);
   const managerMemberId = await validateManager(context, input.projectManagerMemberId);
+  const coverImageDocumentId =
+    input.coverImageDocumentId === undefined
+      ? existing.coverImageDocumentId
+      : await validateCover(context, projectId, input.coverImageDocumentId, existing.coverImageDocumentId);
 
   const managerChanged = managerMemberId !== existing.projectManagerMemberId;
   if (managerChanged) {
@@ -294,23 +328,54 @@ export async function updateProject(
     assertPermission(context, "project.manager.assign");
   }
 
+  const before = detailsOf(existing);
+  const after = {
+    code: input.code.trim(),
+    name: input.name,
+    description: input.description ?? null,
+    clientId,
+    priority: input.priority ?? null,
+    projectType: input.projectType ?? null,
+    startDate: input.startDate ?? null,
+    endDate: input.endDate ?? null,
+    address: input.address ?? null,
+    city: input.city ?? null,
+    country: input.country ?? null,
+    coverImageDocumentId,
+  };
+  const changed = changedFields(before, after);
+
   await prisma
     .$transaction(async (tx) => {
+      if (statusAction) {
+        await applyTransition(tx, {
+          machine: projectMachine,
+          action: statusAction,
+          id: projectId,
+          context,
+          from: existing.status,
+          data: { updatedBy: context.userId },
+        });
+      }
+
       await tx.project.update({
         where: { id: projectId },
+        // Spelled out rather than spread, so the state gate can read that the
+        // status is not among them — it moves only through the machine above.
         data: {
-          code: input.code.trim(),
-          name: input.name,
-          description: input.description ?? null,
-          clientId,
-          projectManagerMemberId: managerMemberId,
-          status: nextStatus,
+          code: after.code,
+          name: after.name,
+          description: after.description,
+          clientId: after.clientId,
           priority: input.priority ?? null,
-          startDate: input.startDate ?? null,
-          endDate: input.endDate ?? null,
-          address: input.address ?? null,
-          city: input.city ?? null,
-          country: input.country ?? null,
+          projectType: input.projectType ?? null,
+          startDate: after.startDate,
+          endDate: after.endDate,
+          address: after.address,
+          city: after.city,
+          country: after.country,
+          coverImageDocumentId: after.coverImageDocumentId,
+          projectManagerMemberId: managerMemberId,
           updatedBy: context.userId,
         },
       });
@@ -328,30 +393,22 @@ export async function updateProject(
         metadata: { projectId } as Prisma.InputJsonValue,
       });
 
-      if (existing.status !== nextStatus) {
-        await recordActivity(tx, context, {
-          module: MODULE,
-          entityType: "Project",
-          entityId: projectId,
-          action: "PROJECT_STATUS_CHANGED",
-          message: `changed the status from ${existing.status} to ${nextStatus}`,
-          metadata: {
-            projectId,
-            ...(changeMetadata({ status: { from: existing.status, to: nextStatus } }) as object),
-          } as Prisma.InputJsonValue,
-        });
-
+      if (Object.keys(changed.before).length > 0) {
         await recordUserAction(
           context,
           {
-            actionKey: AuditAction.PROJECT_STATUS_CHANGED,
+            actionKey: AuditAction.PROJECT_UPDATED,
             entity: { type: "Project", id: projectId, label: existing.name },
             projectId,
-            before: { status: existing.status },
-            after: { status: nextStatus },
+            before: changed.before,
+            after: changed.after,
           },
           { tx },
         );
+      }
+
+      if (statusAction) {
+        await recordStatusChange(tx, context, { id: projectId, name: existing.name }, existing.status, nextStatus, null);
       }
 
       if (managerChanged) {
@@ -382,6 +439,145 @@ export async function updateProject(
   return getProject(context, projectId);
 }
 
+/**
+ * Moves a project between Pending, Active and Finished (E-05A §11, §12, §40).
+ *
+ * Permission, then the project inside the caller's scope, then the move the
+ * machine declares — with the state the caller read in the write, so two people
+ * changing the status at once cannot both succeed. Setting the status a project
+ * already has changes nothing and writes nothing.
+ */
+export async function changeProjectStatus(
+  context: UserContext,
+  projectId: string,
+  input: ChangeProjectStatusInput,
+): Promise<ProjectDetailDTO> {
+  assertModule(context, MODULE);
+  assertPermission(context, "project.status.manage");
+
+  const existing = assertFound(await repository.findProjectInScope(context, projectId));
+  if (isProjectArchived(existing)) {
+    throw stateDenied("Restore this project before changing its status.");
+  }
+  if (existing.status === input.status) return getProject(context, projectId);
+
+  const action = requireStatusAction(existing.status, input.status);
+  assertTransitionAllowed(projectMachine, { currentState: existing.status, action, context, reason: input.reason });
+
+  await prisma.$transaction(async (tx) => {
+    await applyTransition(tx, {
+      machine: projectMachine,
+      action,
+      id: projectId,
+      context,
+      from: existing.status,
+      reason: input.reason,
+      data: { updatedBy: context.userId },
+    });
+    await recordStatusChange(tx, context, { id: projectId, name: existing.name }, existing.status, input.status, input.reason ?? null);
+  });
+
+  return getProject(context, projectId);
+}
+
+function requireStatusAction(from: ProjectStatus, to: ProjectStatus) {
+  const action = statusActionFor(from, to);
+  if (!action) {
+    throw new AccessError(
+      "VALIDATION_ERROR",
+      `A project cannot move from ${projectStatusLabels[from]} to ${projectStatusLabels[to]}.`,
+    );
+  }
+  return action;
+}
+
+/**
+ * The record of a status move (E-05A §12): an activity entry for the project's
+ * timeline and an audit event holding the previous and new state, the actor,
+ * the company, the time and the reason where one was given.
+ */
+async function recordStatusChange(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  project: { id: string; name: string },
+  from: ProjectStatus,
+  to: ProjectStatus,
+  reason: string | null,
+) {
+  await recordActivity(tx, context, {
+    module: MODULE,
+    entityType: "Project",
+    entityId: project.id,
+    action: "PROJECT_STATUS_CHANGED",
+    message: `changed the status from ${projectStatusLabels[from]} to ${projectStatusLabels[to]}`,
+    metadata: {
+      projectId: project.id,
+      ...(changeMetadata({ status: { from, to } }) as object),
+      ...(reason ? { reason } : {}),
+    } as Prisma.InputJsonValue,
+  });
+
+  await recordUserAction(
+    context,
+    {
+      actionKey: AuditAction.PROJECT_STATUS_CHANGED,
+      entity: { type: "Project", id: project.id, label: project.name },
+      projectId: project.id,
+      before: { status: from },
+      after: { status: to },
+      reason,
+    },
+    { tx },
+  );
+}
+
+type ProjectDetails = {
+  code: string;
+  name: string;
+  description: string | null;
+  clientId: string | null;
+  priority: string | null;
+  projectType: string | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  coverImageDocumentId: string | null;
+};
+
+function detailsOf(row: repository.ProjectDetailRow): ProjectDetails {
+  return {
+    code: row.code,
+    name: row.name,
+    description: row.description,
+    clientId: row.clientId,
+    priority: row.priority,
+    projectType: row.projectType,
+    startDate: row.startDate,
+    endDate: row.endDate,
+    address: row.address,
+    city: row.city,
+    country: row.country,
+    coverImageDocumentId: row.coverImageDocumentId,
+  };
+}
+
+/** Only the fields an edit actually changed, so the audit event says what happened. */
+function changedFields(before: ProjectDetails, after: ProjectDetails) {
+  const result: { before: Record<string, unknown>; after: Record<string, unknown> } = { before: {}, after: {} };
+  for (const key of Object.keys(after) as Array<keyof ProjectDetails>) {
+    const a = before[key];
+    const b = after[key];
+    const same = a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : a === b;
+    if (!same) {
+      result.before[key] = a instanceof Date ? a.toISOString() : a;
+      result.after[key] = b instanceof Date ? b.toISOString() : b;
+    }
+  }
+  return result;
+}
+
 export async function archiveProject(context: UserContext, projectId: string): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "project.archive");
@@ -390,13 +586,16 @@ export async function archiveProject(context: UserContext, projectId: string): P
   if (isProjectArchived(existing)) return;
 
   await prisma.$transaction(async (tx) => {
-    await tx.project.update({
-      where: { id: projectId },
+    await applyTransition(tx, {
+      machine: projectMachine,
+      action: "archive",
+      id: projectId,
+      context,
+      from: existing.status,
       data: {
         // Remembered so Restore returns the project where it was, rather than
         // always to Active (PRD #10 §68).
         preArchiveStatus: existing.status,
-        status: "ARCHIVED",
         archivedAt: new Date(),
         archivedBy: context.userId,
         updatedBy: context.userId,
@@ -436,11 +635,17 @@ export async function restoreProject(context: UserContext, projectId: string): P
   const existing = assertFound(await repository.findProjectInScope(context, projectId));
   if (!isProjectArchived(existing)) return;
 
+  const restoredStatus = existing.preArchiveStatus && existing.preArchiveStatus !== "ARCHIVED" ? existing.preArchiveStatus : "ACTIVE";
+
   await prisma.$transaction(async (tx) => {
-    await tx.project.update({
-      where: { id: projectId },
+    await applyTransition(tx, {
+      machine: projectMachine,
+      action: "restore",
+      id: projectId,
+      context,
+      from: "ARCHIVED",
+      to: restoredStatus,
       data: {
-        status: existing.preArchiveStatus ?? "ACTIVE",
         preArchiveStatus: null,
         archivedAt: null,
         archivedBy: null,
@@ -464,7 +669,7 @@ export async function restoreProject(context: UserContext, projectId: string): P
         entity: { type: "Project", id: projectId, label: existing.name },
         projectId,
         before: { status: "ARCHIVED" },
-        after: { status: existing.preArchiveStatus ?? "PLANNING", archivedAt: null },
+        after: { status: restoredStatus, archivedAt: null },
       },
       { tx },
     );
@@ -714,6 +919,50 @@ async function validateManager(
   return member.id;
 }
 
+/**
+ * Image documents on this project the editor can open — what a cover may be
+ * chosen from (E-05A §8, §73).
+ *
+ * Restricting covers to the project's own images, readable by the person
+ * choosing, is what keeps a cover from announcing a file somebody else could
+ * not open: everybody who can see the project can normally read its images,
+ * and anybody who cannot gets the placeholder, never the render.
+ */
+export async function coverCandidates(context: UserContext, projectId: string) {
+  assertPermission(context, "project.update");
+  await assertProjectInScope(context, projectId);
+  if (!isModuleEnabled(context, "documents") || !can(context, "document.view") || !can(context, "document.download")) return [];
+
+  const access = await buildDocumentAccessWhere(context);
+  const rows = await prisma.document.findMany({
+    where: {
+      AND: [access, { companyId: context.companyId, projectId, status: "ACTIVE", storageStatus: "AVAILABLE" }],
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+    select: { id: true, name: true, mimeType: true, detectedMimeType: true },
+  });
+  return rows
+    .filter((row) => isThumbnailableMimeType(row.detectedMimeType ?? row.mimeType))
+    .map((row) => ({ id: row.id, name: row.name }));
+}
+
+async function validateCover(
+  context: UserContext,
+  projectId: string,
+  documentId: string,
+  currentId: string | null,
+): Promise<string | null> {
+  if (documentId === "") return null;
+  if (documentId === currentId) return currentId;
+  const candidates = await coverCandidates(context, projectId);
+  if (!candidates.some((candidate) => candidate.id === documentId)) {
+    // One answer for "not an image", "another project" and "not yours to open".
+    throw new AccessError("VALIDATION_ERROR", "That image cannot be used as the project cover.", { field: "coverImageDocumentId" });
+  }
+  return documentId;
+}
+
 async function assertProjectInScope(context: UserContext, projectId: string) {
   assertModule(context, MODULE);
   return assertFound(await repository.findProjectInScope(context, projectId));
@@ -806,6 +1055,10 @@ function toDetailDTO(
       endDate: row.endDate?.toISOString() ?? null,
     },
     location: { address: row.address, city: row.city, country: row.country },
+    company: { id: row.company.id, name: row.company.name },
+    projectType: row.projectType ? { key: row.projectType, label: projectTypeLabel(row.projectType)! } : null,
+    coverImageDocumentId: row.coverImageDocumentId,
+    lastActivityAt: row.lastActivityAt.toISOString(),
     counts,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -818,6 +1071,7 @@ export function projectActions(context: UserContext) {
   return {
     canCreate: can(context, "project.create"),
     canUpdate: can(context, "project.update"),
+    canManageStatus: can(context, "project.status.manage"),
     canArchive: can(context, "project.archive"),
     canRestore: can(context, "project.restore"),
     canManageMembers: can(context, "project.member.add"),

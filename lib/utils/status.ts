@@ -54,6 +54,7 @@ const TONES: Record<string, StatusTone> = {
   APPROVED: "success",
   PAID: "success",
   COMPLETED: "success",
+  FINISHED: "success",
   CLOSED: "success",
   DELIVERED: "success",
   WON: "success",

@@ -28,6 +28,8 @@ export type ProjectFormValues = {
   projectManagerMemberId: string;
   status: string;
   priority: string;
+  projectType: string;
+  coverImageDocumentId: string;
   startDate: string;
   endDate: string;
   address: string;
@@ -87,6 +89,9 @@ export function ProjectForm({
   clients,
   managers,
   statuses,
+  projectTypes,
+  company,
+  covers,
   cancelHref,
   versionUpdatedAt,
   action,
@@ -95,7 +100,16 @@ export function ProjectForm({
   initial: ProjectFormValues;
   clients: SelectOption[];
   managers: SelectOption[];
+  /**
+   * The statuses this person may choose. Empty means the status is not theirs
+   * to set (E-05A §11): a new project starts Pending and an edit leaves it alone.
+   */
   statuses: SelectOption[];
+  projectTypes: SelectOption[];
+  /** The company a new project is created in; `changeHref` when there is a choice (E-05A §30). */
+  company?: { id: string; name: string; changeHref?: string };
+  /** Cover choices on edit: the project's own images this editor can open (E-05A §8). */
+  covers?: { options: SelectOption[]; uploadHref: string };
   cancelHref: string;
   versionUpdatedAt?: string;
   action: (formData: FormData) => Promise<ActionResult>;
@@ -152,6 +166,21 @@ export function ProjectForm({
         </p>
       ) : null}
 
+      {company ? (
+        <section className="nesto-card flex flex-wrap items-center justify-between gap-3 p-5" data-testid="project-form-company">
+          <input type="hidden" name="companyId" value={company.id} />
+          <div className="min-w-0">
+            <p className="text-meta text-fg-subtle">Company</p>
+            <p className="truncate text-card font-semibold text-fg">{company.name}</p>
+          </div>
+          {company.changeHref ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href={company.changeHref}>Change company</Link>
+            </Button>
+          ) : null}
+        </section>
+      ) : null}
+
       <Section title="Project details">
         <Field label="Project name" name="name" required error={fieldErrors.name}>
           <Input
@@ -195,15 +224,36 @@ export function ProjectForm({
           </Field>
         </div>
 
-        <Field label="Status" name="status" required error={fieldErrors.status}>
-          <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
-            {statuses.map((option) => (
+        <Field label="Project type" name="projectType" error={fieldErrors.projectType}>
+          <select id="projectType" name="projectType" defaultValue={initial.projectType} className={selectClass}>
+            <option value="">Not set</option>
+            {projectTypes.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
         </Field>
+
+        {statuses.length > 0 ? (
+          <Field label="Status" name="status" required error={fieldErrors.status}>
+            <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
+              {statuses.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Field
+            label="Status"
+            name="status"
+            hint={mode === "create" ? "New projects start as Pending." : "Changing the status needs the status permission."}
+          >
+            <p className="flex h-10 items-center text-body text-fg-muted">{statusText(initial.status)}</p>
+          </Field>
+        )}
 
         <Field label="Priority" name="priority" error={fieldErrors.priority}>
           <select
@@ -290,6 +340,40 @@ export function ProjectForm({
         </Field>
       </Section>
 
+      {covers ? (
+        <Section title="Cover image">
+          <div className="sm:col-span-2">
+            <Field
+              label="Cover"
+              name="coverImageDocumentId"
+              error={fieldErrors.coverImageDocumentId}
+              hint={
+                covers.options.length === 0
+                  ? "Upload a JPEG, PNG or WEBP render to this project's documents to use it as the cover."
+                  : "Shown on the Projects page. Choose from this project's images."
+              }
+            >
+              <select
+                id="coverImageDocumentId"
+                name="coverImageDocumentId"
+                defaultValue={initial.coverImageDocumentId}
+                className={selectClass}
+              >
+                <option value="">No cover</option>
+                {covers.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Link href={covers.uploadHref} className="mt-2 inline-block text-table font-medium text-accent-strong">
+              Open project documents
+            </Link>
+          </div>
+        </Section>
+      ) : null}
+
       <div
         className={cn(
           "flex flex-wrap items-center justify-end gap-2",
@@ -319,4 +403,10 @@ export function ProjectForm({
       </p>
     </form>
   );
+}
+
+const STATUS_TEXT: Record<string, string> = { PENDING: "Pending", ACTIVE: "Active", FINISHED: "Finished", ARCHIVED: "Archived" };
+
+function statusText(status: string): string {
+  return STATUS_TEXT[status] ?? status;
 }

@@ -1,23 +1,68 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Building2, ChevronRight } from "lucide-react";
 
 import { ProjectForm } from "@/components/projects/project-form";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { PROJECT_TYPE_KEYS, PROJECT_TYPE_LABELS } from "@/config/project-types";
+import { can } from "@/lib/access/can";
 import { createProjectAction } from "@/lib/actions/projects";
-import { requirePermission } from "@/lib/context/current-user";
+import { requireUserContext } from "@/lib/context/current-user";
+import { contextForCompany, creatableCompanies } from "@/lib/modules/projects/project.portfolio";
 import { projectFormOptions } from "@/lib/modules/projects/project.options";
-import { EDITABLE_STATUSES } from "@/lib/modules/projects/project.status";
-import { statusLabel } from "@/components/modules/status-badge";
+import { EDITABLE_STATUSES, projectStatusLabels } from "@/lib/modules/projects/project.status";
 
 export const metadata: Metadata = { title: "New project" };
 
+type Props = { searchParams: Promise<{ company?: string | string[] }> };
+
 /**
- * Create a project (PRD #10 §30).
+ * Create a project (PRD #10 §30; E-05A §30, §31).
  *
- * The route itself requires project.create, so a role without it is refused
- * even when it reaches the URL directly (PRD #10 §214).
+ * The route requires `project.create` in at least one of the person's
+ * companies. With one, it is preselected; with several, the company is chosen
+ * first, because the clients and managers the form offers belong to it. The
+ * service checks the company again on submit — the page choosing it is a
+ * convenience, not the authorisation.
  */
-export default async function NewProjectPage() {
-  const context = await requirePermission("project.create");
+export default async function NewProjectPage({ searchParams }: Props) {
+  const session = await requireUserContext();
+  const companies = await creatableCompanies(session);
+  if (companies.length === 0) redirect("/access-denied");
+
+  const requested = (await searchParams).company;
+  const chosen =
+    companies.length === 1 ? companies[0] : companies.find((company) => company.id === (typeof requested === "string" ? requested : undefined));
+
+  if (!chosen) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-5">
+        <Header description="Choose the company the project belongs to. Its clients, people and numbering come with it." />
+        <ul className="nesto-card divide-y divide-line p-0" data-testid="new-project-companies">
+          {companies.map((company) => (
+            <li key={company.id}>
+              <Link
+                href={`/projects/new?company=${encodeURIComponent(company.id)}`}
+                className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-row-hover focus-visible:bg-row-hover focus-visible:outline-none"
+              >
+                <span className="flex size-9 items-center justify-center rounded-md border border-line bg-surface-muted text-fg-subtle">
+                  <Building2 aria-hidden="true" className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-body font-medium text-fg">{company.name}</span>
+                  {company.isCurrent ? <span className="block text-meta text-fg-subtle">Current company</span> : null}
+                </span>
+                <ChevronRight aria-hidden="true" className="size-4 text-fg-subtle" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const context = await contextForCompany(session, chosen.id, "project.create");
   const options = await projectFormOptions(context);
 
   async function action(formData: FormData) {
@@ -27,31 +72,31 @@ export default async function NewProjectPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <div>
-        <Breadcrumbs items={[{ label: "Projects", href: "/projects" }, { label: "New project" }]} />
-        <h1 className="mt-3 text-page font-semibold text-fg">New project</h1>
-        <p className="mt-1.5 text-body text-fg-muted">
-          Create a project record. You can add the team and documents afterwards.
-        </p>
-      </div>
+      <Header description="Create a project record. You can add the team, documents and a cover image afterwards." />
 
       <ProjectForm
         mode="create"
-        cancelHref="/projects/all"
+        cancelHref="/projects"
+        company={{ id: chosen.id, name: chosen.name, changeHref: companies.length > 1 ? "/projects/new" : undefined }}
         clients={options.clients}
         managers={options.managers}
-        statuses={EDITABLE_STATUSES.map((status) => ({
-          value: status,
-          label: statusLabel(status),
-        }))}
+        projectTypes={PROJECT_TYPE_KEYS.map((key) => ({ value: key, label: PROJECT_TYPE_LABELS[key] }))}
+        statuses={
+          // Starting a project anywhere but Pending is the status decision (E-05A §31).
+          can(context, "project.status.manage")
+            ? EDITABLE_STATUSES.map((status) => ({ value: status, label: projectStatusLabels[status] }))
+            : []
+        }
         initial={{
           code: "",
           name: "",
           description: "",
           clientId: "",
           projectManagerMemberId: "",
-          status: "DRAFT",
+          status: "PENDING",
           priority: "",
+          projectType: "",
+          coverImageDocumentId: "",
           startDate: "",
           endDate: "",
           address: "",
@@ -60,6 +105,16 @@ export default async function NewProjectPage() {
         }}
         action={action}
       />
+    </div>
+  );
+}
+
+function Header({ description }: { description: string }) {
+  return (
+    <div>
+      <Breadcrumbs items={[{ label: "Projects", href: "/projects" }, { label: "New project" }]} />
+      <h1 className="mt-3 text-page font-semibold text-fg">New project</h1>
+      <p className="mt-1.5 text-body text-fg-muted">{description}</p>
     </div>
   );
 }

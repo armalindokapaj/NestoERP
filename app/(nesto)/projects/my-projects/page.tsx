@@ -1,42 +1,16 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
-import { ModulePage } from "@/components/modules/module-page";
-import { Button } from "@/components/ui/button";
-import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
-import { requireModule } from "@/lib/context/current-user";
-import { ProjectsList } from "../projects-list";
+import { ASSIGNED_ROLE_VALUE } from "@/lib/modules/projects/project.portfolio-url";
+import { legacyProjectsHref } from "../legacy-routes";
 
-export const metadata: Metadata = { title: "My Projects" };
-
-export default async function ProjectsSectionPage({
+/**
+ * My Projects became a filter on the Projects page: every project the person is
+ * assigned to or manages (E-05A §4, §18.2).
+ */
+export default async function MyProjectsRedirect({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const context = await requireModule("projects");
-  const experience = resolveModuleExperience(context, "projects");
-  const params = await searchParams;
-
-  return (
-    <ModulePage
-      experience={experience}
-      activeSection="my-projects"
-      actions={
-        can(context, "project.create") ? (
-          <Button asChild size="sm">
-            <Link href="/projects/new">New project</Link>
-          </Button>
-        ) : null
-      }
-    >
-      <ProjectsList
-        context={context}
-        searchParams={params}
-        variant="mine"
-        basePath="/projects/my-projects"
-      />
-    </ModulePage>
-  );
+  redirect(legacyProjectsHref(await searchParams, { role: ASSIGNED_ROLE_VALUE }));
 }

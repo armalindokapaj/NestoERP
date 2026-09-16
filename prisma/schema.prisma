@@ -69,11 +69,15 @@ enum DataScope {
   SYSTEM
 }
 
+/// A project's working lifecycle (E-05A §10). PENDING has not started, ACTIVE is
+/// being worked on, FINISHED has completed its normal life — and is still an
+/// ordinary project, not an archived one. ARCHIVED takes it out of daily
+/// discovery. Migrated from DRAFT / ON_HOLD / COMPLETED on 2026-09-16, with
+/// ON_HOLD folded into ACTIVE (E-05A §62).
 enum ProjectStatus {
-  DRAFT
+  PENDING
   ACTIVE
-  ON_HOLD
-  COMPLETED
+  FINISHED
   ARCHIVED
 }
 
@@ -213,6 +217,9 @@ enum AuthEventType {
   LOGIN_RATE_LIMITED
   PASSWORD_CHANGED
   SESSIONS_REVOKED
+  /// The session moved into another of the person's company memberships, by
+  /// opening a project that company owns (E-05A §26).
+  COMPANY_CONTEXT_SWITCHED
 }
 
 /// Where one transactional email got to (PRD #38 §13).
@@ -1265,7 +1272,7 @@ model Project {
   description            String?
   clientId               String?
   projectManagerMemberId String?
-  status                 ProjectStatus    @default(DRAFT)
+  status                 ProjectStatus    @default(PENDING)
   /// Status the project held before archiving, so Restore returns it there
   /// rather than always to ACTIVE (PRD #10 §68).
   preArchiveStatus       ProjectStatus?
@@ -1275,6 +1282,15 @@ model Project {
   address                String?
   city                   String?
   country                String?
+  /// A key of the code-defined project type list, `config/project-types.ts` (E-05A §18.3).
+  projectType            String?
+  /// The one canonical cover render. The document keeps its own file and its own
+  /// access rules; the project only points at it (E-05A §8).
+  coverImageDocumentId   String?
+  /// When meaningful work last touched the project — any activity recorded
+  /// against it — as opposed to `updatedAt`, which an administrative edit also
+  /// moves (E-05A §15). Written by the activity recorder, never by a form.
+  lastActivityAt         DateTime         @default(now())
 
   /// Planning (PRD #44 §76, §310): a locked baseline moves only with the company's planning authority.
   planningBaselineLocked Boolean @default(false)
@@ -1289,11 +1305,13 @@ model Project {
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
   client  Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
+  coverImage Document? @relation("ProjectCoverImage", fields: [coverImageDocumentId], references: [id], onDelete: SetNull)
+
   projectManager CompanyMember? @relation("ProjectManager", fields: [projectManagerMemberId], references: [id], onDelete: SetNull)
 
   members   ProjectMember[]
   tasks     Task[]
-  documents Document[]
+  documents Document[] @relation("DocumentProject")
 
   invoices          Invoice[]
   expenses          Expense[]
@@ -1355,6 +1373,8 @@ model Project {
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, updatedAt])
+  @@index([companyId, lastActivityAt])
+  @@index([coverImageDocumentId])
   @@index([clientId])
   @@index([projectManagerMemberId])
   @@index([status])
@@ -1631,8 +1651,11 @@ model Document {
   archivedAt DateTime?
 
   company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project Project? @relation("DocumentProject", fields: [projectId], references: [id], onDelete: SetNull)
   client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  /// Projects showing this document as their cover (E-05A §8).
+  coverForProjects Project[] @relation("ProjectCoverImage")
 
   uploadedBy CompanyMember? @relation("DocumentUploadedBy", fields: [uploadedByMemberId], references: [id], onDelete: SetNull)
 

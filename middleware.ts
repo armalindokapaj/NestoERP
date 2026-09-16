@@ -7,6 +7,7 @@ import {
   CSP_NONCE_HEADER,
   newCspNonce,
 } from "@/lib/core/security/csp";
+import { REQUEST_PATH_HEADER } from "@/lib/core/security/request-path";
 import { isPublicRoute, redirectsWhenAuthenticated } from "@/lib/permissions/route-access";
 
 /**
@@ -44,6 +45,8 @@ export default auth((req) => {
   const forwarded = new Headers(req.headers);
   forwarded.set(CSP_NONCE_HEADER, nonce);
   forwarded.set("Content-Security-Policy", csp);
+  // Always overwritten, so a client cannot choose it (E-05A §34).
+  forwarded.set(REQUEST_PATH_HEADER, pathname + nextUrl.search);
 
   const proceed = () => {
     const response = NextResponse.next({ request: { headers: forwarded } });

@@ -785,3 +785,91 @@ by its own id.
       running under a process manager, with `pnpm worker --health` as the healthcheck
 - [ ] `ops/alerts/workers.yml` loaded; `WorkerGroupDown` seen to fire and clear
 - [ ] `pnpm retention:dry-run` reviewed before `WORKER_RETENTION_APPLY=true`
+
+---
+
+## 16. Enhancement E-05A — Projects page, discovery and multi-company access
+
+`/projects` is one collection of every project a person may open, in every
+company they belong to: a 3:4 cover gallery (or a list), favorites first, then
+the most recently active work, searchable and filterable, with the managing
+company named on every card. Opening a project in another company moves the
+session there. `docs/projects-page.md` is the contract.
+
+### 16.1 What changed
+
+| Before | Now |
+|---|---|
+| Projects: Overview, All Projects, My Projects, Milestones, Archived | Projects (the gallery), Milestones, Archived; the two old lists redirect |
+| One company per session, no way to reach another membership | Opening a project in another of your companies moves the session, by POST, audited as `COMPANY_CONTEXT_SWITCHED` |
+| Status DRAFT / ACTIVE / ON_HOLD / COMPLETED / ARCHIVED, set on the edit form under `project.update` | PENDING / ACTIVE / FINISHED / ARCHIVED on a state machine, under `project.status.manage` |
+| Admin could only view projects; a Project Manager could create them | Admin creates, edits and moves status in its company; a Project Manager no longer creates |
+| No project type, cover or activity marker | `projectType` (code list), `coverImageDocumentId` (a document, thumbnailed), `lastActivityAt` (moved by the activity recorder) |
+| No thumbnails anywhere | 600×800 WEBP thumbnails built on first request with `sharp`, behind the download gate |
+| Project writes: 6 blind state writes | 1; archive, restore and every status move go through `applyTransition` |
+
+Migration `20260916210000_projects_page_e05a` maps the enum explicitly (DRAFT →
+PENDING, ON_HOLD → ACTIVE, COMPLETED → FINISHED, the same for
+`preArchiveStatus`), adds the three columns, backfills `lastActivityAt` from
+each project's newest activity, and adds `AuthEventType.COMPANY_CONTEXT_SWITCHED`.
+It was replayed from zero into an empty database with no drift, and applied to a
+restored copy of the development database before the real one: both on-hold
+rows, one of them the archived project's pre-archive status, became Active.
+The ON_HOLD mapping and the permission changes were decided with the product
+owner.
+
+### 16.2 The evidence
+
+Full vitest 3 182 passed, 0 failed (9 skipped: the destructive and opt-in
+suites). Of those:
+
+- `tests/api/projects/portfolio.test.ts`, 26 tests: the multi-company person
+  sees exactly their assigned project in each company from either session;
+  filter options never name a company, role or place outside the person's
+  projects; search and a company filter cannot widen scope; opening moves the
+  session and records the event, and a project the person cannot open moves
+  nothing; §65's ordering exactly, with a one-card cursor walk across the
+  favorites boundary; each filter and their AND; favorites per person; card
+  permissions decided in the project's company; a cover hidden from a reader who
+  cannot open its document and a 600×800 thumbnail for one who can; status by
+  the Project Manager on their project, refused on another and for the
+  Architect, the correction's reason, the audit's before and after; two
+  simultaneous moves, one refused; creation Pending by default, refused for the
+  Project Manager and in a company named in the body, and accepted in the second
+  company of somebody who may create in both; the activity marker leaving
+  `updatedAt` alone.
+- Both security sweeps (`cross-company-api`, `project-isolation`) cover the new
+  routes by discovery; the first run found the open endpoint answering 500 when
+  called outside Next's request scope, fixed before this record.
+- E2E against the production build: 409 passed after one pre-existing ordering
+  assumption in `hse.spec.ts` was fixed — a re-seed leaves HZ-2026-0001 on the
+  hazard list's second page, and the test now searches for it.
+- `tests/perf/projects-page.perf.test.ts`: first page, ten cursors deep, filtered
+  and filter options all ~15 ms at P95 locally for 600 visible projects in a
+  table of 5,600; query count independent of page size.
+- Gates: typecheck, lint (0 errors, 16 pre-existing warnings),
+  `verify:state` (blind state writes 92 → 87), `verify:ownership`,
+  `verify:authorization` (one reviewed schema exception: `companyId` on the
+  Projects schemas, a filter and a re-checked create target),
+  `security:matrix --check` (834 endpoints), `verify:production-guards`,
+  `verify:workers`.
+
+### 16.3 Limits, stated plainly
+
+- **A session is in one company at a time.** Opening a project elsewhere moves
+  every open tab with it; a stale form from the old company fails closed.
+- **The sidebar belongs to the session's company.** Somebody whose session is in
+  a company where they cannot open projects reaches the page by URL, not from
+  that company's sidebar. Sign-in still lands in the oldest active membership.
+- **Covers are chosen from the project's documents on the edit page**, not
+  uploaded from the page or the create form.
+- **Project codes are typed**; project types are a code list, not a
+  company-editable taxonomy.
+- **Archived projects are not on the page** and there is no Archived filter yet;
+  they remain on Archived in the session's company.
+- **No Parent Group Owner or Architecture Manager role exists**, so E-05A's rows
+  for them describe future policy, not behaviour.
+- **A Project Manager can no longer convert a won deal into a new project** —
+  a consequence of E-05A §29's defaults, accepted.
+- **The development server needs a restart** after this migration and
+  `prisma generate`: a running server keeps the old enum in its client.

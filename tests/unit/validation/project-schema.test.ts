@@ -17,7 +17,7 @@ import { parseProjectListQuery } from "@/lib/modules/projects/project.query";
 const valid = {
   code: "PRJ-100",
   name: "Harbor Offices",
-  status: "DRAFT",
+  status: "PENDING",
 };
 
 describe("createProjectSchema (PRD #10 §33–§38)", () => {
@@ -67,10 +67,23 @@ describe("createProjectSchema (PRD #10 §33–§38)", () => {
     expect(createProjectSchema.safeParse({ ...valid, status: "ARCHIVED" }).success).toBe(false);
   });
 
-  it("has no field for companyId or createdBy (PRD #10 §110)", () => {
-    const result = createProjectSchema.parse({ ...valid, companyId: "other", createdBy: "someone" });
-    expect(result).not.toHaveProperty("companyId");
+  it("has no field for createdBy (PRD #10 §110)", () => {
+    const result = createProjectSchema.parse({ ...valid, createdBy: "someone" });
     expect(result).not.toHaveProperty("createdBy");
+  });
+
+  it("carries the chosen company as a request the service checks (E-05A §30, §39)", () => {
+    expect(createProjectSchema.parse({ ...valid, companyId: "other" }).companyId).toBe("other");
+    expect(createProjectSchema.parse({ ...valid, companyId: "" }).companyId).toBeUndefined();
+  });
+
+  it("starts a project Pending when no status is given (E-05A §31)", () => {
+    expect(createProjectSchema.parse({ code: "PRJ-1", name: "No status" }).status).toBe("PENDING");
+  });
+
+  it("accepts only the project types the list defines (E-05A §18.3)", () => {
+    expect(createProjectSchema.parse({ ...valid, projectType: "HOSPITAL" }).projectType).toBe("HOSPITAL");
+    expect(createProjectSchema.safeParse({ ...valid, projectType: "CASTLE" }).success).toBe(false);
   });
 });
 
@@ -103,10 +116,10 @@ describe("project list query (PRD #10 §195)", () => {
     expect(parseProjectListQuery({ status: "NOT_A_STATUS" }).status).toBeUndefined();
   });
 
-  it("keeps known statuses only", () => {
-    expect(parseProjectListQuery({ status: "ACTIVE,NOPE,ON_HOLD" }).status).toEqual([
+  it("keeps known statuses only, reading a pre-E-05A word as the status it became", () => {
+    expect(parseProjectListQuery({ status: "ACTIVE,NOPE,COMPLETED" }).status).toEqual([
       "ACTIVE",
-      "ON_HOLD",
+      "FINISHED",
     ]);
   });
 
@@ -115,22 +128,28 @@ describe("project list query (PRD #10 §195)", () => {
   });
 });
 
-describe("project status transitions (PRD #10 §61, §62)", () => {
-  it("allows the documented transitions", () => {
-    expect(canTransitionProjectStatus("DRAFT", "ACTIVE")).toBe(true);
-    expect(canTransitionProjectStatus("ACTIVE", "ON_HOLD")).toBe(true);
-    expect(canTransitionProjectStatus("ON_HOLD", "COMPLETED")).toBe(true);
-    expect(canTransitionProjectStatus("COMPLETED", "ACTIVE")).toBe(true);
+describe("project status transitions (E-05A §12; PRD #10 §61, §62)", () => {
+  it("allows the four moves E-05A names", () => {
+    expect(canTransitionProjectStatus("PENDING", "ACTIVE")).toBe(true);
+    expect(canTransitionProjectStatus("ACTIVE", "FINISHED")).toBe(true);
+    expect(canTransitionProjectStatus("FINISHED", "ACTIVE")).toBe(true);
+    expect(canTransitionProjectStatus("PENDING", "FINISHED")).toBe(true);
+  });
+
+  it("allows the correction back to Pending", () => {
+    expect(canTransitionProjectStatus("ACTIVE", "PENDING")).toBe(true);
+    expect(canTransitionProjectStatus("FINISHED", "PENDING")).toBe(true);
   });
 
   it("refuses to leave ARCHIVED through a normal update", () => {
     expect(canTransitionProjectStatus("ARCHIVED", "ACTIVE")).toBe(false);
-    expect(canTransitionProjectStatus("ARCHIVED", "DRAFT")).toBe(false);
+    expect(canTransitionProjectStatus("ARCHIVED", "PENDING")).toBe(false);
     expect(allowedTransitions("ARCHIVED")).toEqual(["ARCHIVED"]);
   });
 
-  it("refuses a jump from DRAFT straight to COMPLETED", () => {
-    expect(canTransitionProjectStatus("DRAFT", "COMPLETED")).toBe(false);
+  it("never offers ARCHIVED as a working move", () => {
+    expect(canTransitionProjectStatus("ACTIVE", "ARCHIVED")).toBe(false);
+    expect(allowedTransitions("ACTIVE")).toEqual(["ACTIVE", "PENDING", "FINISHED"]);
   });
 
   it("treats a no-op transition as valid", () => {
@@ -159,17 +178,17 @@ describe("schedule derivation (PRD #10 §49, §50)", () => {
 
   it("reports a project with no dates as not scheduled", () => {
     expect(
-      getProjectScheduleStatus({ status: "DRAFT", startDate: null, endDate: null }, now),
+      getProjectScheduleStatus({ status: "PENDING", startDate: null, endDate: null }, now),
     ).toBe("NOT_SCHEDULED");
   });
 
-  it("lets a completed project outrank an overdue end date", () => {
+  it("lets a finished project outrank an overdue end date", () => {
     expect(
       getProjectScheduleStatus(
-        { status: "COMPLETED", startDate: new Date("2026-01-01"), endDate: new Date("2026-05-01") },
+        { status: "FINISHED", startDate: new Date("2026-01-01"), endDate: new Date("2026-05-01") },
         now,
       ),
-    ).toBe("COMPLETED");
+    ).toBe("FINISHED");
   });
 
   it("counts days remaining and overdue", () => {

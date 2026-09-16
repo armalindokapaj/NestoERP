@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ProjectForm } from "@/components/projects/project-form";
-import { statusLabel } from "@/components/modules/status-badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { PROJECT_TYPE_KEYS, PROJECT_TYPE_LABELS } from "@/config/project-types";
 import { can } from "@/lib/access/can";
+import { transitionFor } from "@/lib/core/state/machine";
 import { updateProjectAction } from "@/lib/actions/projects";
+import { projectMachine, statusActionFor } from "@/lib/modules/projects/project.machine";
 import { projectFormOptions } from "@/lib/modules/projects/project.options";
-import { allowedTransitions } from "@/lib/modules/projects/project.status";
+import { coverCandidates } from "@/lib/modules/projects/project.service";
+import { allowedTransitions, projectStatusLabels } from "@/lib/modules/projects/project.status";
 import { loadProject } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
@@ -30,10 +33,25 @@ export default async function EditProjectPage({ params }: Params) {
     redirect(`/projects/${project.id}`);
   }
 
-  const options = await projectFormOptions(context, {
-    clientId: project.client?.id ?? null,
-    managerMemberId: project.projectManager?.memberId ?? null,
-  });
+  const [options, covers] = await Promise.all([
+    projectFormOptions(context, {
+      clientId: project.client?.id ?? null,
+      managerMemberId: project.projectManager?.memberId ?? null,
+    }),
+    coverCandidates(context, project.id),
+  ]);
+
+  // The status is offered only to somebody who may move it, and only the moves
+  // the form can make without a reason — returning to Pending is corrected
+  // from Change Status on the Projects page, which asks why (E-05A §11, §12).
+  const statuses = can(context, "project.status.manage")
+    ? allowedTransitions(project.status)
+        .filter((status) => {
+          const action = status === project.status ? null : statusActionFor(project.status, status);
+          return status === project.status || (action !== null && !transitionFor(projectMachine, action)?.requiresReason);
+        })
+        .map((status) => ({ value: status, label: projectStatusLabels[status] }))
+    : [];
 
   async function action(formData: FormData) {
     "use server";
@@ -46,6 +64,7 @@ export default async function EditProjectPage({ params }: Params) {
         <Breadcrumbs
           items={[
             { label: "Projects", href: "/projects" },
+            { label: project.company.name, href: `/projects?company=${encodeURIComponent(project.company.id)}` },
             { label: project.name, href: `/projects/${project.id}` },
             { label: "Edit" },
           ]}
@@ -60,9 +79,19 @@ export default async function EditProjectPage({ params }: Params) {
         versionUpdatedAt={project.updatedAt}
         clients={options.clients}
         managers={options.managers}
-        statuses={allowedTransitions(project.status)
-          .filter((status) => status !== "ARCHIVED")
-          .map((status) => ({ value: status, label: statusLabel(status) }))}
+        statuses={statuses}
+        projectTypes={PROJECT_TYPE_KEYS.map((key) => ({ value: key, label: PROJECT_TYPE_LABELS[key] }))}
+        covers={{
+          options: [
+            ...covers.map((cover) => ({ value: cover.id, label: cover.name })),
+            // A cover somebody else chose from a file this editor cannot open
+            // stays selected, so saving the details does not remove it.
+            ...(project.coverImageDocumentId && !covers.some((cover) => cover.id === project.coverImageDocumentId)
+              ? [{ value: project.coverImageDocumentId, label: "Current cover" }]
+              : []),
+          ],
+          uploadHref: `/projects/${project.id}/documents`,
+        }}
         initial={{
           code: project.code,
           name: project.name,
@@ -71,6 +100,8 @@ export default async function EditProjectPage({ params }: Params) {
           projectManagerMemberId: project.projectManager?.memberId ?? "",
           status: project.status,
           priority: project.priority ?? "",
+          projectType: project.projectType?.key ?? "",
+          coverImageDocumentId: project.coverImageDocumentId ?? "",
           startDate: project.schedule.startDate?.slice(0, 10) ?? "",
           endDate: project.schedule.endDate?.slice(0, 10) ?? "",
           address: project.location.address ?? "",

@@ -200,8 +200,6 @@ export const siteSq: SiteCopy = {
   configLabels: {
     sections: {
       Overview: "Përmbledhje",
-      "All Projects": "Të gjitha projektet",
-      "My Projects": "Projektet e mia",
       Archived: "Të arkivuara",
       "My Tasks": "Detyrat e mia",
       Upcoming: "Në vijim",

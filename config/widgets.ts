@@ -52,7 +52,7 @@ export const widgets: Record<string, WidgetDefinition> = {
     kind: "list",
     size: "LARGE",
     priority: 2,
-    href: "/projects/my-projects",
+    href: "/projects?role=%40assigned",
     emptyMessage: "Projects assigned to you will appear here.",
   },
   activeProjects: {
@@ -64,7 +64,7 @@ export const widgets: Record<string, WidgetDefinition> = {
     kind: "breakdown",
     size: "MEDIUM",
     priority: 3,
-    href: "/projects/all",
+    href: "/projects",
     emptyMessage: "No projects are visible to you yet.",
   },
   upcomingDeadlines: {
@@ -76,7 +76,7 @@ export const widgets: Record<string, WidgetDefinition> = {
     kind: "list",
     size: "MEDIUM",
     priority: 4,
-    href: "/projects/all?sort=end-asc",
+    href: "/projects",
     emptyMessage: "No project end dates are coming up.",
   },
   upcomingMeetings: {

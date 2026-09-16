@@ -27,7 +27,7 @@ export const kpis: Record<string, KpiDefinition> = {
     permission: "project.view",
     label: "Active Projects",
     icon: "FolderKanban",
-    href: "/projects/all?status=ACTIVE",
+    href: "/projects?status=ACTIVE",
   },
   myProjectCount: {
     key: "myProjectCount",
@@ -35,7 +35,7 @@ export const kpis: Record<string, KpiDefinition> = {
     permission: "project.view",
     label: "My Projects",
     icon: "FolderKanban",
-    href: "/projects/my-projects",
+    href: "/projects?role=%40assigned",
   },
   projectsAtRisk: {
     key: "projectsAtRisk",
@@ -43,7 +43,7 @@ export const kpis: Record<string, KpiDefinition> = {
     permission: "project.view",
     label: "At Risk",
     icon: "TriangleAlert",
-    href: "/projects/all",
+    href: "/projects",
   },
   openTaskCount: {
     key: "openTaskCount",

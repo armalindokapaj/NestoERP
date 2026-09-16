@@ -26,6 +26,7 @@ const AUDIT_ACTION: Partial<Record<AuthEventType, (typeof AuditAction)[keyof typ
   LOGOUT: AuditAction.AUTH_LOGOUT,
   PASSWORD_RESET_REQUEST: AuditAction.AUTH_PASSWORD_RESET_REQUESTED,
   PASSWORD_RESET_SUCCESS: AuditAction.AUTH_PASSWORD_RESET_COMPLETED,
+  COMPANY_CONTEXT_SWITCHED: AuditAction.AUTH_COMPANY_CONTEXT_SWITCHED,
 };
 
 export async function recordAuthEvent(input: {

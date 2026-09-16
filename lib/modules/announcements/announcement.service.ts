@@ -594,7 +594,7 @@ export async function announcementOptions(context: UserContext): Promise<Announc
   const audiences = (["COMPANY", "DEPARTMENT", "PROJECT", "SELECTED_MEMBERS"] as const).filter((type) => canAddress(context, type));
   const door = projectDoor(context);
   const [projects, departments, members] = await Promise.all([
-    audiences.includes("PROJECT") && door ? prisma.project.findMany({ where: { AND: [door, { archivedAt: null, status: { in: ["ACTIVE", "ON_HOLD", "DRAFT"] } }] }, orderBy: { name: "asc" }, take: 200, select: { id: true, name: true, code: true } }) : [],
+    audiences.includes("PROJECT") && door ? prisma.project.findMany({ where: { AND: [door, { archivedAt: null, status: { in: ["ACTIVE", "PENDING"] } }] }, orderBy: { name: "asc" }, take: 200, select: { id: true, name: true, code: true } }) : [],
     audiences.includes("DEPARTMENT") ? prisma.department.findMany({ where: { companyId: context.companyId, archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : [],
     audiences.includes("SELECTED_MEMBERS") ? prisma.companyMember.findMany({ where: { companyId: context.companyId, status: "ACTIVE" }, orderBy: [{ user: { firstName: "asc" } }], take: 500, select: { id: true, user: { select: { firstName: true, lastName: true } } } }) : [],
   ]);

@@ -79,6 +79,31 @@ export async function loginAsEmail(email: string): Promise<UserContext> {
   return result.context;
 }
 
+/**
+ * A session in one named membership. A person in two companies has two, and
+ * `loginAsEmail` takes whichever the database returns first — a test about
+ * which company the session is in has to say (E-05A §28).
+ */
+export async function loginAsMembership(membershipId: string): Promise<UserContext> {
+  const membership = await prisma.companyMember.findUnique({ where: { id: membershipId } });
+  if (!membership) throw new Error(`No seeded membership ${membershipId}. Run the seed first.`);
+
+  const session = await prisma.session.create({
+    data: {
+      sessionToken: `test_${Math.random().toString(36).slice(2)}_${Date.now()}`,
+      userId: membership.userId,
+      membershipId: membership.id,
+      currentCompanyId: membership.companyId,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    },
+  });
+  createdSessions.push(session.id);
+
+  const result = await resolveContextForSession(session.id, { expectedUserId: membership.userId });
+  if (!result.ok) throw new Error(`Could not resolve context for ${membershipId}: ${result.reason}`);
+  return result.context;
+}
+
 export function loginAs(role: RoleKey): Promise<UserContext> {
   return loginAsEmail(demoEmail(role));
 }

@@ -96,12 +96,13 @@ the permission off. A transition that does not declare it refuses a step.
 
 ## What is declared
 
-Thirty-nine machines over 199 transitions: HSE and QA/QC, where this began,
-and the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
+Forty machines over 205 transitions: HSE and QA/QC, where this began,
+the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
 their own — Documents, Finance, Procurement, Inventory, Legal and
-Engineering. The tables below are generated
-from `lib/core/state/registry.ts` by `scripts/architecture/state-docs.ts`; an
-edit belongs in the machine, and the table is regenerated from it.
+Engineering — and Projects, whose status E-05A made a lifecycle of its own.
+The tables below are generated from `lib/core/state/registry.ts` by
+`scripts/architecture/state-docs.ts`; an edit belongs in the machine, and the
+table is regenerated from it.
 
 ### HSE
 
@@ -209,6 +210,24 @@ Terminal: `CANCELLED`
 | `reject` | `PENDING_VERIFICATION` | `REJECTED` | `qaqc.corrective_action.verify` | required | — |
 | `reopen` | `VERIFIED` | `REOPENED` | `qaqc.corrective_action.reopen` | required | — |
 | `cancel` | `OPEN`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `REJECTED`, `REOPENED` | `CANCELLED` | `qaqc.corrective_action.cancel` | — | — |
+
+### Projects
+
+1 machine.
+
+#### `project` — `project.status`
+
+States: `PENDING`, `ACTIVE`, `FINISHED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `activate` | `PENDING` | `ACTIVE` | `project.status.manage` | — | — |
+| `finish` | `PENDING`, `ACTIVE` | `FINISHED` | `project.status.manage` | — | — |
+| `reopen` | `FINISHED` | `ACTIVE` | `project.status.manage` | — | — |
+| `return_to_pending` | `ACTIVE`, `FINISHED` | `PENDING` | `project.status.manage` | required | — |
+| `archive` | `PENDING`, `ACTIVE`, `FINISHED` | `ARCHIVED` | `project.archive` | — | — |
+| `restore` | `ARCHIVED` | `PENDING` or `ACTIVE` or `FINISHED` | `project.restore` | — | — |
 
 ### Documents
 
@@ -649,13 +668,13 @@ Terminal: `VOID`
 ## What is not declared yet, and what is guarded without a machine
 
 **Other domains.** QA/QC's defects, NCRs, requests and templates, the rest of
-HSE, Sales, Clients, Team, Projects, Tasks, HR, Contractors, Calendar,
+HSE, Sales, Clients, Team, Tasks, HR, Contractors, Calendar,
 Meetings, and the notification, integration and mail infrastructure still
 transition through their own services. That is held, not ignored. `pnpm
 verify:state` counts every write that sets a state column without naming a
 state column in its `where`, per file, against
-`scripts/architecture/blind-state-writes.baseline.json` — 96 writes in 33
-files, none of them in the eight domains above. The count may fall and never
+`scripts/architecture/blind-state-writes.baseline.json` — 87 writes in 31
+files, none of them a status write in the domains above. The count may fall and never
 rise: a new blind write fails CI, and a domain converted to a machine ratchets
 its own entry down. The baseline is the backlog, in the order the files appear
 in it.
@@ -664,7 +683,7 @@ in it.
 name (`update({ where, data })`), hides which columns it writes, so the blind
 count cannot tell whether it sets a state. On a model with a state column such
 a write is counted against its own ratchet,
-`scripts/architecture/unreadable-state-writes.baseline.json` — 20 writes in 17
+`scripts/architecture/unreadable-state-writes.baseline.json` — 19 writes in 16
 files — unless its `where` names a state. Spelling the columns out is usually
 the fix, and is what the Legal and Inventory edits did.
 

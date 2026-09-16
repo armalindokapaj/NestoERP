@@ -1,0 +1,146 @@
+"use client";
+
+import * as React from "react";
+
+import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
+import type { PortfolioProjectDTO } from "@/lib/modules/projects/project.types";
+import { cn } from "@/lib/utils/cn";
+
+type WorkingStatus = PortfolioProjectDTO["statusMoves"][number];
+
+const CHOICES: Record<WorkingStatus, { label: string; description: string }> = {
+  PENDING: { label: "Pending", description: "Set up, but normal work has not started." },
+  ACTIVE: { label: "Active", description: "Being worked on." },
+  FINISHED: { label: "Finished", description: "Its normal working life is complete. It stays in the project list." },
+};
+
+/**
+ * Change Status (E-05A §12, §40).
+ *
+ * Offers only the moves the server said this project can make, for this
+ * person. Going back to Pending corrects a status set too early, and asks why —
+ * the same rule the server enforces.
+ */
+export function ChangeProjectStatusDialog({
+  project,
+  open,
+  onOpenChange,
+  onChanged,
+}: {
+  project: PortfolioProjectDTO | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChanged: (projectId: string, status: WorkingStatus) => void;
+}) {
+  const toast = useToast();
+  const [choice, setChoice] = React.useState<WorkingStatus | null>(null);
+  const [reason, setReason] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
+
+  // The next step first; going back to Pending is a correction, so it comes last
+  // and is never the choice the dialog opens on.
+  const moves = React.useMemo(
+    () => [...(project?.statusMoves ?? [])].sort((a, b) => Number(a === "PENDING") - Number(b === "PENDING")),
+    [project],
+  );
+
+  React.useEffect(() => {
+    if (!open) return;
+    setChoice(moves[0] ?? null);
+    setReason("");
+    setError(null);
+  }, [open, moves]);
+
+  if (!project) return null;
+  const needsReason = choice === "PENDING";
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!project || !choice) return;
+    if (needsReason && !reason.trim()) {
+      setError("Give a reason for returning this project to Pending.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      await announcementApi(`/api/projects/${project.id}/status`, { method: "PATCH", body: { status: choice, reason: reason.trim() || undefined } });
+      onChanged(project.id, choice);
+      toast({ title: `${project.name} is now ${CHOICES[choice].label}.` });
+      onOpenChange(false);
+    } catch (failure) {
+      setError(failureMessage(failure, "The status could not be changed."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form onSubmit={submit} className="space-y-5">
+          <div className="pr-6">
+            <DialogTitle>Change status</DialogTitle>
+            <DialogDescription>
+              {project.name} · {project.company.name}
+            </DialogDescription>
+          </div>
+
+          <fieldset className="space-y-2">
+            <legend className="sr-only">New status</legend>
+            {moves.map((status) => (
+              <label
+                key={status}
+                className={cn(
+                  "flex cursor-pointer items-start gap-3 rounded-lg border px-3.5 py-3 transition-colors",
+                  choice === status ? "border-accent bg-accent-soft/40" : "border-line hover:border-line-strong",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="status"
+                  value={status}
+                  checked={choice === status}
+                  onChange={() => setChoice(status)}
+                  className="mt-0.5 accent-[var(--color-accent)]"
+                />
+                <span>
+                  <span className="block text-body font-medium text-fg">{CHOICES[status].label}</span>
+                  <span className="block text-table text-fg-muted">{CHOICES[status].description}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="status-reason">
+              Reason{needsReason ? <span className="ml-0.5 text-danger-strong">*</span> : <span className="ml-1 font-normal text-fg-subtle">(optional)</span>}
+            </Label>
+            <Textarea id="status-reason" rows={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Project handover completed" />
+          </div>
+
+          {error ? (
+            <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
+              {error}
+            </p>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending || !choice}>
+              {pending ? "Saving…" : "Change status"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

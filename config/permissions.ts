@@ -203,6 +203,12 @@ export const PERMISSIONS = [
   "project.view",
   "project.create",
   "project.update",
+  /**
+   * Moving a project between Pending, Active and Finished (E-05A §11). Separate
+   * from editing it: an architect may correct a project's details without
+   * being the one who declares it started or handed over.
+   */
+  "project.status.manage",
   "project.archive",
   "project.restore",
   "project.manage",

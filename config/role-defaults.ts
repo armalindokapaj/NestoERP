@@ -208,6 +208,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     CONTRIBUTE: ["project.update"],
     MANAGE: [
       "project.create",
+      "project.status.manage",
       "project.archive",
       "project.restore",
       "project.manage",
@@ -1127,8 +1128,15 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * base currency, tax and payment terms stay with whoever holds Finance.
      */
     company: { deny: ["company.finance_settings.view", "company.finance_settings.manage"] },
-    // Administering the platform is not reading the construction plan (PRD #44 §81).
-    projects: { deny: ["project_planning.view"] },
+    /**
+     * Administering the platform is not reading the construction plan (PRD #44 §81).
+     *
+     * It is setting projects up, though: a Company Admin creates projects, keeps
+     * their details right and moves them between Pending, Active and Finished
+     * inside their company (E-05A §29, §60). Archiving stays with whoever holds
+     * the module outright.
+     */
+    projects: { deny: ["project_planning.view"], extra: ["project.create", "project.update", "project.status.manage"] },
   },
   CEO: {
     /**
@@ -1217,6 +1225,12 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     projects: { deny: ["project_planning.view"] },
   },
   PROJECT_MANAGER: {
+    /**
+     * Running projects, not opening new ones (E-05A §29, §60). A project manager
+     * keeps the status and the details of the projects they manage; which
+     * projects the company takes on is the Owner's or an Admin's call.
+     */
+    projects: { deny: ["project.create"] },
     // Void a mistaken RFI or transmittal on their own projects; company defaults stay the Owner's (PRD #46 §183).
     engineering: { extra: ["rfi.void", "transmittal.void"], deny: ["engineering.settings.manage"] },
     // Notices to the projects they run and the people on them — not the whole company (PRD #45 §234).

@@ -35,6 +35,44 @@ export async function createSession(input: {
   return session;
 }
 
+/**
+ * Moves a session into another of the same person's company memberships
+ * (E-05A §26, §34).
+ *
+ * The session row is what every request resolves its company from, so this is
+ * the whole of a company switch: the next request is in the other company, with
+ * that membership's role, permissions and scope, and nothing from the first
+ * company comes with it. The cookie is untouched — it only ever carried the
+ * session id.
+ *
+ * The target is re-read here rather than trusted from the caller: it must be
+ * this user's own membership, active, in an active company. Anything else moves
+ * nothing and answers false, whatever the caller already checked.
+ */
+export async function moveSessionToMembership(input: {
+  sessionId: string;
+  userId: string;
+  membershipId: string;
+}): Promise<{ moved: boolean; companyId: string | null }> {
+  const membership = await prisma.companyMember.findFirst({
+    where: {
+      id: input.membershipId,
+      userId: input.userId,
+      status: "ACTIVE",
+      company: { status: "ACTIVE" },
+      user: { status: "ACTIVE" },
+    },
+    select: { id: true, companyId: true },
+  });
+  if (!membership) return { moved: false, companyId: null };
+
+  const { count } = await prisma.session.updateMany({
+    where: { id: input.sessionId, userId: input.userId, expiresAt: { gt: new Date() } },
+    data: { membershipId: membership.id, currentCompanyId: membership.companyId },
+  });
+  return { moved: count === 1, companyId: membership.companyId };
+}
+
 export async function revokeSession(sessionId: string): Promise<void> {
   await revokeSessions(prisma, { sessionId });
 }

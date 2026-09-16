@@ -11,6 +11,7 @@ import type { PrismaClient } from "@prisma/client";
 import { normalizeName } from "../../lib/modules/clients/client.duplicate";
 import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
 import { seedStoredDocument } from "./document-objects";
+import { seedProjectCovers } from "./project-covers";
 
 type Members = Map<string, string>;
 
@@ -54,7 +55,7 @@ const CONTACTS = [
 const PROJECTS = [
   {
     id: PROJECT_IDS.a, code: "PRJ-001", name: "Riverside Residences",
-    client: "client_acme", status: "ACTIVE", priority: "HIGH",
+    client: "client_acme", status: "ACTIVE", priority: "HIGH", type: "MIXED_USE",
     manager: "user_pm", start: -120, end: 240,
     city: "Tiranë",
     description: "Mixed-use riverside development of 96 apartments across three blocks.",
@@ -62,7 +63,7 @@ const PROJECTS = [
   },
   {
     id: PROJECT_IDS.b, code: "PRJ-002", name: "Central Office Tower",
-    client: "client_beta", status: "ACTIVE", priority: "MEDIUM",
+    client: "client_beta", status: "ACTIVE", priority: "MEDIUM", type: "COMMERCIAL",
     manager: "user_pm", start: -60, end: 400,
     city: "Durrës",
     description: "Eighteen-storey commercial tower with two basement levels.",
@@ -70,7 +71,7 @@ const PROJECTS = [
   },
   {
     id: PROJECT_IDS.c, code: "PRJ-003", name: "Marina Apartments",
-    client: "client_meridian", status: "ACTIVE", priority: "HIGH",
+    client: "client_meridian", status: "ACTIVE", priority: "HIGH", type: "RESIDENTIAL",
     manager: "user_owner", start: -30, end: 300,
     city: "Vlorë",
     description: "Waterfront residential scheme with a public promenade.",
@@ -78,15 +79,15 @@ const PROJECTS = [
   },
   {
     id: PROJECT_IDS.d, code: "PRJ-004", name: "Logistics Hub",
-    client: "client_atlas", status: "ON_HOLD", priority: "CRITICAL",
+    client: "client_atlas", status: "ACTIVE", priority: "CRITICAL", type: "INDUSTRIAL",
     manager: "user_owner", start: -200, end: -10,
     city: "Tiranë",
-    description: "Distribution centre and vehicle yard, paused pending permits.",
+    description: "Distribution centre and vehicle yard, working through its permits.",
     team: ["user_engineer", "user_qaqc", "user_hse"],
   },
   {
     id: PROJECT_IDS.e, code: "PRJ-005", name: "Greenline Villas",
-    client: "client_greenline", status: "DRAFT", priority: "LOW",
+    client: "client_greenline", status: "PENDING", priority: "LOW", type: "RESIDENTIAL",
     manager: null, start: 30, end: 420,
     city: "Elbasan",
     description: "Twelve low-energy villas, currently at feasibility stage.",
@@ -94,7 +95,7 @@ const PROJECTS = [
   },
   {
     id: PROJECT_IDS.f, code: "PRJ-006", name: "Completed Retail Center",
-    client: "client_urban", status: "COMPLETED", priority: "MEDIUM",
+    client: "client_urban", status: "FINISHED", priority: "MEDIUM", type: "COMMERCIAL",
     manager: "user_owner", start: -700, end: -90,
     city: "Tiranë",
     description: "Retail and leisure centre, handed over last quarter.",
@@ -168,7 +169,9 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
 
     await prisma.project.upsert({
       where: { id: project.id },
-      update: {},
+      // The type is discovery metadata added after these rows first existed
+      // (E-05A §18.3), so a re-seed fills it in rather than leaving it empty.
+      update: { projectType: project.type },
       create: {
         id: project.id,
         companyId: COMPANY_A,
@@ -179,6 +182,7 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
         projectManagerMemberId: managerMemberId,
         status: project.status,
         priority: project.priority,
+        projectType: project.type,
         startDate: daysFromNow(project.start),
         endDate: daysFromNow(project.end),
         city: project.city,
@@ -221,7 +225,7 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
       clientId: "client_archive",
       projectManagerMemberId: owner,
       status: "ARCHIVED",
-      preArchiveStatus: "ON_HOLD",
+      preArchiveStatus: "ACTIVE",
       priority: "LOW",
       startDate: daysFromNow(-500),
       endDate: daysFromNow(-200),
@@ -241,6 +245,9 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
 
   /* Company B --------------------------------------------------------------- */
   await seedCompanyB(prisma, members);
+
+  /* Cover renders (E-05A §8) ------------------------------------------------ */
+  await seedProjectCovers(prisma, (userId) => members.get(userId)!);
 }
 
 function projectRoleFor(userId: string): string {
@@ -455,14 +462,14 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
   }
 
   const projects = [
-    { id: "project_b_one", code: "B-PRJ-001", name: "Munich Workspace Fitout", client: "client_b_muc" },
-    { id: "project_b_two", code: "B-PRJ-002", name: "Isarvorstadt Studio Refit", client: "client_b_alp" },
+    { id: "project_b_one", code: "B-PRJ-001", name: "Munich Workspace Fitout", client: "client_b_muc", type: "COMMERCIAL", city: "Munich" },
+    { id: "project_b_two", code: "B-PRJ-002", name: "Isarvorstadt Studio Refit", client: "client_b_alp", type: "COMMERCIAL", city: "Munich" },
   ];
 
   for (const project of projects) {
     await prisma.project.upsert({
       where: { id: project.id },
-      update: {},
+      update: { projectType: project.type, city: project.city },
       create: {
         id: project.id,
         companyId: COMPANY_B,
@@ -473,8 +480,10 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
         projectManagerMemberId: ownerB,
         status: "ACTIVE",
         priority: "MEDIUM",
+        projectType: project.type,
         startDate: daysFromNow(-40),
         endDate: daysFromNow(160),
+        city: project.city,
         country: "Germany",
         createdBy: "user_owner_b",
       },
@@ -495,6 +504,21 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
         },
       });
     }
+  }
+
+  // The multi-company person is on one project in each of their companies —
+  // an architect in A, a project manager in B — so the Projects page has a
+  // portfolio that crosses companies to show and to test (E-05A §28.1).
+  const crossCompany = [
+    { companyId: COMPANY_A, projectId: PROJECT_IDS.e, companyMemberId: "member_multicompany_a", projectRole: "Architect" },
+    { companyId: COMPANY_B, projectId: "project_b_two", companyMemberId: "member_multicompany_b", projectRole: "Project Manager" },
+  ];
+  for (const assignment of crossCompany) {
+    await prisma.projectMember.upsert({
+      where: { projectId_companyMemberId: { projectId: assignment.projectId, companyMemberId: assignment.companyMemberId } },
+      update: {},
+      create: { ...assignment, status: "ACTIVE", joinedAt: daysFromNow(-20) },
+    });
   }
 
   const tasks = [

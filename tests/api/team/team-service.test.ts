@@ -330,7 +330,7 @@ describe("membership status (PRD #14 §97–§111, §163, §167)", () => {
       where: {
         projectManagerMemberId: manager.id,
         archivedAt: null,
-        status: { in: ["DRAFT", "ACTIVE", "ON_HOLD"] },
+        status: { in: ["PENDING", "ACTIVE"] },
       },
     });
     expect(managed).toBeGreaterThan(0);
