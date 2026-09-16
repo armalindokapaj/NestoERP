@@ -459,3 +459,67 @@ because the caller remembered, not because the database refused.
 - `runInTransaction` is adopted on the cross-domain operations, not on all 517
   transactions. The rest are single-domain and already atomic; what they lack
   is the named metric, not the boundary.
+
+---
+
+## 13. PRD #49 — Documents, Audit & State Integrity
+
+The foundation is in place and two domains are on it. A controlled record now
+moves by a declared transition, and the state it moves from is part of the
+write rather than an `if` above it. The contract is `docs/state-machines.md`;
+`docs/document-lifecycle.md` and `docs/audit-model.md` write down what was
+already built by PRDs #13, #28 and #29 and had never been stated in one place.
+
+### 13.1 What is enforced
+
+| Gate | What it refuses |
+|---|---|
+| `pnpm verify:state` | A machine governing a model its domain does not own; a machine file nothing registers; any file gaining a state write that does not name a state column in its `where`. |
+| `pnpm test:architecture` | The same rules from the test runner, plus a named test for each claim the machines make about the code. |
+| `pnpm test:state` | A guarded transition against the real database: the stale case, the simultaneous case, the foreign-company case, the replay. |
+
+### 13.2 The evidence
+
+Full vitest 2 077 passed. Seven machines over 43 transitions. 122 guarded state
+writes; 176 blind ones recorded in `scripts/architecture/blind-state-writes.baseline.json`,
+which the gate lets fall and never rise. The API security matrix regenerated
+byte-identical, which is the result worth having: the transitions were
+rewritten without moving the security surface an inch.
+
+### 13.3 What the audit found
+
+Of 423 writes to a state column, 223 named no state in their `where`. Most were
+not wrong so much as unprotected: the service read the record, checked the move
+was legal, and then wrote by id — correct until two people act at once, because
+Postgres takes no lock on a plain read. HSE's inspections were the clearest
+case. Two people pressing *Start* on the same inspection both passed the check
+and both wrote, and the second silently took over `executedByMemberId` and
+`inspectionDate`.
+
+Three domains were already doing it properly and needed nothing: procurement's
+purchase orders bind `status: existing.status`, daily logs bind the status and
+the row version, and the document storage worker binds `storageStatus` before
+writing `scanStatus` — which is what stops a scan finishing after an archive
+from resurrecting the file.
+
+### 13.4 Limits, stated plainly
+
+- **Two domains of about twenty are on machines.** HSE and QA/QC were chosen
+  because a lost transition on a safety or quality record loses the evidence
+  that something was dealt with. Everything else still transitions through its
+  own service, held by the ratchet rather than converted. The baseline is the
+  backlog, and it is 176 writes across 55 files.
+- **`applyTransition` reaches its table through a delegate name**, which PRD
+  #48's ownership scanner cannot see. The registry plus the first gate rule is
+  what puts those writes back under the ownership rule; without both, a domain
+  could use a machine to write another domain's table unnoticed.
+- **The permission on a transition is the floor, not the whole gate.** Services
+  keep their own richer checks — self-approval rules, approval guards — and
+  those are not expressed in the machine.
+- **Audit and document integrity were largely already true.** §68-§88 and most
+  of §9-§53 describe what PRDs #13, #28, #29 and #47 built; this PRD verified
+  and documented them rather than changing them. The claims in those two
+  documents were each checked against the code, not carried over from the PRD.
+- **Reason text is validated, not placed.** `requiresReason` refuses a blank
+  reason; which column it lands in is the owner service's business, because
+  domains store it under different names.

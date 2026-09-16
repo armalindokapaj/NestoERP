@@ -114,6 +114,10 @@ function bodyOf(declaration: ts.Declaration): ts.Node | null {
   return null;
 }
 
+function isStateMachineTable(node: ts.Node): boolean {
+  return ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "defineStateMachine";
+}
+
 function analyse(node: ts.Node, depth: number): Evidence {
   const cached = memo.get(node);
   if (cached) return cached;
@@ -121,6 +125,12 @@ function analyse(node: ts.Node, depth: number): Evidence {
   memo.set(node, evidence); // a cycle sees what has been gathered so far
 
   const visit = (current: ts.Node) => {
+    // A state machine table names the permission each of its transitions
+    // requires. That is a declaration of the domain's rules, not a check this
+    // endpoint's path performs — descending into it would credit every
+    // hazard endpoint with every hazard permission (PRD #49 §156).
+    if (ts.isCallExpression(current) && ts.isIdentifier(current.expression) && current.expression.text === "defineStateMachine") return;
+
     if (ts.isStringLiteralLike(current) && PERMISSION_SET.has(current.text)) evidence.permissions.add(current.text);
 
     if (ts.isCallExpression(current)) {
@@ -149,6 +159,10 @@ function analyse(node: ts.Node, depth: number): Evidence {
     if (ts.isIdentifier(current) && !ts.isCallExpression(current.parent) && depth < MAX_DEPTH) {
       for (const declaration of declarationsOf(current)) {
         if (ts.isVariableDeclaration(declaration) && declaration.initializer && !ts.isArrowFunction(declaration.initializer) && !ts.isFunctionExpression(declaration.initializer)) {
+          // A state machine table is a declaration of the domain's rules, not
+          // a check on this endpoint's path: reading it would credit every
+          // hazard endpoint with every hazard permission (PRD #49 §156).
+          if (isStateMachineTable(declaration.initializer)) continue;
           const scan = (inner: ts.Node) => {
             if (ts.isStringLiteralLike(inner) && PERMISSION_SET.has(inner.text)) evidence.permissions.add(inner.text);
             ts.forEachChild(inner, scan);

@@ -1,3 +1,5 @@
+import { applyTransition } from "@/lib/core/state/transition";
+import { hseActionMachine } from "./action.machine";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { Prisma } from "@prisma/client";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
@@ -492,14 +494,27 @@ export async function assignAction(
   const member = await requireMember(context, memberId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseAction.update({
-      where: { id: actionId },
-      data: {
-        assignedToMemberId: member.id,
-        status: existing.status === "OPEN" ? "IN_PROGRESS" : existing.status,
-        updatedByMemberId: context.membershipId,
-      },
-    });
+    // Naming somebody starts an action nobody had started; for one already
+    // under way it is an assignment and nothing more. Both writes carry the
+    // state they were decided from, so neither can land on a moved record.
+    if (existing.status === "OPEN") {
+      await applyTransition(tx, {
+        machine: hseActionMachine,
+        action: "start",
+        id: actionId,
+        context,
+        from: existing.status,
+        data: { assignedToMemberId: member.id, updatedByMemberId: context.membershipId },
+      });
+    } else {
+      const moved = await tx.hseAction.updateMany({
+        where: { id: actionId, companyId: context.companyId, status: existing.status },
+        data: { assignedToMemberId: member.id, updatedByMemberId: context.membershipId },
+      });
+      if (moved.count === 0) {
+        throw new AccessError("CONFLICT", "This action changed since you opened it. Reload to see the latest.", { code: "HSE_ACTION_STALE" });
+      }
+    }
 
     if (member.id !== existing.assignedToMemberId) {
       await enqueueNotificationEvent(tx, {
@@ -540,10 +555,13 @@ export async function completeAction(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseAction.update({
-      where: { id: actionId },
+    await applyTransition(tx, {
+      machine: hseActionMachine,
+      action: "complete",
+      id: actionId,
+      context,
+      from: existing.status,
       data: {
-        status: "PENDING_VERIFICATION",
         completionNote,
         completedAt: new Date(),
         completedByMemberId: context.membershipId,
@@ -594,10 +612,13 @@ export async function verifyAction(
   assertNotSelfVerification(context, existing.completedByMemberId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseAction.update({
-      where: { id: actionId },
+    await applyTransition(tx, {
+      machine: hseActionMachine,
+      action: "verify",
+      id: actionId,
+      context,
+      from: existing.status,
       data: {
-        status: "VERIFIED",
         verificationNote,
         verifiedAt: new Date(),
         verifiedByMemberId: context.membershipId,
@@ -640,10 +661,13 @@ export async function rejectAction(
   assertNotSelfVerification(context, existing.completedByMemberId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseAction.update({
-      where: { id: actionId },
+    await applyTransition(tx, {
+      machine: hseActionMachine,
+      action: "reject",
+      id: actionId,
+      context,
+      from: existing.status,
       data: {
-        status: "REJECTED",
         verificationNote,
         verifiedAt: new Date(),
         verifiedByMemberId: context.membershipId,
@@ -676,10 +700,14 @@ export async function reopenAction(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseAction.update({
-      where: { id: actionId },
+    await applyTransition(tx, {
+      machine: hseActionMachine,
+      action: "reopen",
+      id: actionId,
+      context,
+      from: existing.status,
+      reason,
       data: {
-        status: "REOPENED",
         verifiedAt: null,
         verifiedByMemberId: null,
         updatedByMemberId: context.membershipId,
@@ -714,10 +742,13 @@ export async function cancelAction(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseAction.update({
-      where: { id: actionId },
+    await applyTransition(tx, {
+      machine: hseActionMachine,
+      action: "cancel",
+      id: actionId,
+      context,
+      from: existing.status,
       data: {
-        status: "CANCELLED",
         cancelledAt: new Date(),
         updatedByMemberId: context.membershipId,
       },

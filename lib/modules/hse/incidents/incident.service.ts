@@ -1,3 +1,5 @@
+import { applyTransition } from "@/lib/core/state/transition";
+import { hseIncidentMachine } from "./incident.machine";
 import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
@@ -482,10 +484,13 @@ export async function startInvestigation(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseIncident.update({
-      where: { id: incidentId },
+    await applyTransition(tx, {
+      machine: hseIncidentMachine,
+      action: "investigate",
+      id: incidentId,
+      context,
+      from: existing.status,
       data: {
-        status: "UNDER_INVESTIGATION",
         investigatorMemberId: existing.investigatorMemberId ?? context.membershipId,
         updatedByMemberId: context.membershipId,
       },
@@ -530,16 +535,33 @@ export async function recordInvestigation(
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseIncident.update({
-      where: { id: incidentId },
-      data: {
-        investigationSummary: input.investigationSummary ?? null,
-        rootCause: input.rootCause ?? null,
-        lessonsLearned: input.lessonsLearned ?? null,
-        status: existing.status === "OPEN" ? "UNDER_INVESTIGATION" : existing.status,
-        updatedByMemberId: context.membershipId,
-      },
-    });
+    // Writing up findings opens the investigation if it was not open; for one
+    // already under way it changes the write-up alone. Either way the write
+    // carries the state it was decided from.
+    const findings = {
+      investigationSummary: input.investigationSummary ?? null,
+      rootCause: input.rootCause ?? null,
+      lessonsLearned: input.lessonsLearned ?? null,
+      updatedByMemberId: context.membershipId,
+    };
+    if (existing.status === "OPEN" || existing.status === "REOPENED") {
+      await applyTransition(tx, {
+        machine: hseIncidentMachine,
+        action: "investigate",
+        id: incidentId,
+        context,
+        from: existing.status,
+        data: findings,
+      });
+    } else {
+      const moved = await tx.hseIncident.updateMany({
+        where: { id: incidentId, companyId: context.companyId, status: existing.status },
+        data: findings,
+      });
+      if (moved.count === 0) {
+        throw new AccessError("CONFLICT", "This incident changed since you opened it. Reload to see the latest.", { code: "HSE_INCIDENT_STALE" });
+      }
+    }
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -592,10 +614,13 @@ export async function submitIncidentClose(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseIncident.update({
-      where: { id: incidentId },
+    await applyTransition(tx, {
+      machine: hseIncidentMachine,
+      action: "submit_close",
+      id: incidentId,
+      context,
+      from: existing.status,
       data: {
-        status: "PENDING_CLOSE",
         closureNote,
         submittedForCloseAt: new Date(),
         updatedByMemberId: context.membershipId,
@@ -652,10 +677,13 @@ export async function closeIncident(
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
-    await tx.hseIncident.update({
-      where: { id: incidentId },
+    await applyTransition(tx, {
+      machine: hseIncidentMachine,
+      action: "close",
+      id: incidentId,
+      context,
+      from: existing.status,
       data: {
-        status: "CLOSED",
         closedAt: new Date(),
         closedByMemberId: context.membershipId,
         updatedByMemberId: context.membershipId,
@@ -687,10 +715,14 @@ export async function reopenIncident(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.hseIncident.update({
-      where: { id: incidentId },
+    await applyTransition(tx, {
+      machine: hseIncidentMachine,
+      action: "reopen",
+      id: incidentId,
+      context,
+      from: existing.status,
+      reason,
       data: {
-        status: "REOPENED",
         closedAt: null,
         closedByMemberId: null,
         submittedForCloseAt: null,
@@ -728,10 +760,13 @@ export async function cancelIncident(
   await prisma.$transaction(async (tx) => {
     await approvals.cancelPendingApprovals(tx, context, "INCIDENT_CLOSE", incidentId);
 
-    await tx.hseIncident.update({
-      where: { id: incidentId },
+    await applyTransition(tx, {
+      machine: hseIncidentMachine,
+      action: "cancel",
+      id: incidentId,
+      context,
+      from: existing.status,
       data: {
-        status: "CANCELLED",
         cancelledAt: new Date(),
         updatedByMemberId: context.membershipId,
       },

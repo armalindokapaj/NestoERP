@@ -1,3 +1,5 @@
+import { applyTransition } from "@/lib/core/state/transition";
+import { qualityInspectionMachine } from "./inspection.machine";
 import { Prisma, type QualityInspectionStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
@@ -706,10 +708,13 @@ export async function saveChecklist(
     }
 
     if (existing.status === "DRAFT") {
-      await tx.qualityInspection.update({
-        where: { id: inspectionId },
+      await applyTransition(tx, {
+        machine: qualityInspectionMachine,
+        action: "start",
+        id: inspectionId,
+        context,
+        from: existing.status,
         data: {
-          status: "IN_PROGRESS",
           executedByMemberId: context.membershipId,
           inspectionDate: new Date(),
           updatedByMemberId: context.membershipId,
@@ -951,10 +956,13 @@ export async function reworkInspection(
   await prisma.$transaction(async (tx) => {
     // The rejection stays on the record: rework does not erase who said no
     // and why (PRD #21 §82).
-    await tx.qualityInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: qualityInspectionMachine,
+      action: "rework",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "IN_PROGRESS",
         result: "NOT_SET",
         submittedAt: null,
         updatedByMemberId: context.membershipId,
@@ -1023,10 +1031,13 @@ export async function closeInspection(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.qualityInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: qualityInspectionMachine,
+      action: "close",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "CLOSED",
         closedAt: new Date(),
         closedByMemberId: context.membershipId,
         decisionNote: note ?? existing.decisionNote,
@@ -1065,10 +1076,13 @@ export async function cancelInspection(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.qualityInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: qualityInspectionMachine,
+      action: "cancel",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "CANCELLED",
         cancelledAt: new Date(),
         updatedByMemberId: context.membershipId,
       },
@@ -1112,10 +1126,13 @@ export async function reopenInspection(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.qualityInspection.update({
-      where: { id: inspectionId },
+    await applyTransition(tx, {
+      machine: qualityInspectionMachine,
+      action: "reopen",
+      id: inspectionId,
+      context,
+      from: existing.status,
       data: {
-        status: "APPROVED",
         closedAt: null,
         closedByMemberId: null,
         updatedByMemberId: context.membershipId,

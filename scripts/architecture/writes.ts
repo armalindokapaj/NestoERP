@@ -30,6 +30,13 @@ export type WriteSite = {
    * and an exception scoped to fields then does not apply.
    */
   fields: string[] | null;
+  /**
+   * The top-level keys the call's `where` names, which is how a guarded
+   * transition is told from a blind one (PRD #49 §64, §277): a write that
+   * names the state column in its `where` cannot move a record that has
+   * already moved. Null when the clause is spread, computed or a variable.
+   */
+  where: string[] | null;
 };
 
 export function sourceFiles(): string[] {
@@ -49,7 +56,7 @@ export function writeSites(files = sourceFiles()): WriteSite[] {
           const root = delegate.expression;
           const clientName = ts.isIdentifier(root) ? root.text : ts.isPropertyAccessExpression(root) ? root.name.text : "";
           if (CLIENTS.has(clientName) && /^[a-z]/.test(delegate.name.text)) {
-            sites.push({ file, line: lineOf(source, node), model: delegate.name.text, op, fields: writtenFields(node) });
+            sites.push({ file, line: lineOf(source, node), model: delegate.name.text, op, fields: writtenFields(node), where: whereFields(node) });
           }
         }
       }
@@ -90,4 +97,41 @@ function writtenFields(call: ts.CallExpression): string[] | null {
     }
   }
   return [...fields].sort();
+}
+
+/**
+ * The columns a mutation's `where` names — the guard side of the same read
+ * (PRD #49 §277). `create` and `createMany` carry no `where`, and report an
+ * empty set rather than null: they are unguarded by construction, not
+ * unreadable.
+ */
+function whereFields(call: ts.CallExpression): string[] | null {
+  const argument = call.arguments[0];
+  if (!argument || !ts.isObjectLiteralExpression(argument)) return null;
+
+  const property = argument.properties.find(
+    (candidate): candidate is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(candidate) && (ts.isIdentifier(candidate.name) || ts.isStringLiteral(candidate.name)) && candidate.name.text === "where",
+  );
+  if (!property) return [];
+  const value = property.initializer;
+  if (!ts.isObjectLiteralExpression(value)) return null;
+
+  const fields = new Set<string>();
+  const collect = (object: ts.ObjectLiteralExpression): boolean => {
+    for (const entry of object.properties) {
+      if (ts.isSpreadAssignment(entry)) return false;
+      const name = entry.name;
+      if (!name || !(ts.isIdentifier(name) || ts.isStringLiteral(name))) return false;
+      fields.add(name.text);
+      // `AND: [{ status: … }]` and `OR: […]` hide guards one level down.
+      if ((name.text === "AND" || name.text === "OR") && ts.isPropertyAssignment(entry) && ts.isArrayLiteralExpression(entry.initializer)) {
+        for (const element of entry.initializer.elements) {
+          if (ts.isObjectLiteralExpression(element) && !collect(element)) return false;
+        }
+      }
+    }
+    return true;
+  };
+  return collect(value) ? [...fields].sort() : null;
 }
