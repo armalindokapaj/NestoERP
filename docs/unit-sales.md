@@ -143,10 +143,10 @@ action's permission — never a role name.
 
 | Role | See sales | Price, status, reserve, extend, release, sell | Reopen, correct |
 | --- | --- | --- | --- |
-| Owner, Admin, Sales Manager | yes | yes | yes |
+| Owner; Sales as a company department manager or group head | yes | yes | yes |
 | Sales | yes | yes | no |
 | CEO, Project Manager, Finance, Legal, Viewer | yes | no | no |
-| Architect, Architecture Manager, Engineer, others | commercial status on the unit only | no | no |
+| Architect (any position), Engineer, others | commercial status on the unit only | no | no |
 
 Client and deal names are shown, and searched, only for readers with the Clients
 module and `client.view`, or the Sales module and `sales.opportunity.view` (§32).
@@ -237,7 +237,7 @@ B's **OF-001** is Reserved for Isarwerk Holding on its own deal.
 | `tests/api/sales/unit-sales.test.ts` | Price history and price per m²; status moves and eligibility; reserving with existing and new client and deal, the refusals and messages, the duplicate client offered back; exactly one of two concurrent reservations; extend and release with history; a multi-unit deal releasing one unit; Sold, the agreed price, the expired-reservation guard, reopen both ways; publishing and deletion guards; access for each role and Company B; the inventory's filters, search, counts and hidden names; the settings |
 | `tests/api/jobs/sales.unit-reservations.test.ts` | Expires once and audits as the system; warns once per expiry date; an extension saved mid-run wins; two overlapping runs; company isolation; suspended companies and Projects switched off; one failing reservation rolls back alone |
 | `tests/security/*` | Every new route swept both ways between companies: 17 foreign-id calls each way, all 404 |
-| `tests/e2e/modules/unit-sales.spec.ts` | Sales prices, puts on sale, reserves for a new client and deal, extends and sells; the Sales Manager reopens, reserves for an existing client and releases; the inventory's quick filter and search; a draft unit cannot be offered; an Architect sees the status and not the sale |
+| `tests/e2e/modules/unit-sales.spec.ts` | Sales prices, puts on sale, reserves for a new client and deal, extends and sells; the Head of Group Sales reopens, reserves for an existing client and releases; the inventory's quick filter and search; a draft unit cannot be offered; an Architect sees the status and not the sale |
 | `tests/e2e/responsive/unit-sales-mobile.spec.ts` | Reserved units as cards on a phone and a card's Release opening the dialog, without horizontal scroll |
 
 ## Limits

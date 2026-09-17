@@ -73,8 +73,7 @@ invited to.
 | Role | Calendar access | What they see besides company events |
 |---|---|---|
 | Owner | Manage — company events and holidays | everything their modules allow |
-| Admin | Manage company events | only modules the matrix gives an Admin |
-| Company IT | Contribute | technical/shared events; no business-data escalation |
+| Group IT | Contribute | technical/shared events; no business-data escalation |
 | HR | Manage | leave with types, holidays, company events |
 | CEO / Director | Contribute | broad planning through module permissions; leave as "Unavailable" |
 | Project Manager | Contribute | their projects' tasks, QA/QC, HSE, deliveries, contract dates; team absences as "Unavailable" |

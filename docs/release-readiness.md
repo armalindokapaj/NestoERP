@@ -1349,3 +1349,138 @@ suites), after the fix in §20.3 — the first full run had one failure,
   predates the migration and still selects `payments.invoiceId`, which no longer
   exists, so Finance's payment and invoice pages fail on it until it restarts.
   `pnpm db:seed` (or `pnpm access:sync`) grants the new permissions.
+
+## 21. Enhancement E-06 — Parent group, company provisioning, group departments, user lifecycle and a five-company demo
+
+NESTO's business root is now a **parent group**. Its companies, its group
+departments and each company's branch of them are rows, and a person's place
+in a department is a **position**: member, company department manager or group
+department head. A position widens the role the person already works as. The
+**Platform Admin** implements a group from outside it and hands it over. **HR**
+records a person before any login. **Group IT** creates the login from an
+approved request without retyping anyone. **Department managers** put their
+people on projects. The demo is one group of five companies, one project each,
+with the test fixtures in a hidden group of their own. `docs/organization.md`
+is the contract.
+
+Delivered in five commits: `c1a6ebe` (the group, roles and positions, the demo),
+`aff75b4` (recruitment and provisioning), `95cb4c2` (departments, appointments,
+project assignment, switcher, group dashboards), `e381f7c` (the platform), and
+this record's commit (the sibling-company sweep and the documents).
+
+### 21.1 What changed
+
+| Before | Now |
+|---|---|
+| A company was the root; nothing sat above it | `ParentGroup` (IMPLEMENTING → READY_FOR_VALIDATION → ACTIVE) owns its companies; `Company.parentGroupId` never changes |
+| Departments were each company's own list | `GroupDepartment` once per group; a company `Department` is a branch of one |
+| 18 roles, among them Admin, Company IT, Architecture Manager, Sales Manager | 16 roles. Group IT replaces Company IT, with Admin's technical authority; project setup goes to the Owner and the CEO; the two managers become positions held by an Architect or a Sales member; Platform Admin stands outside every company |
+| A manager was a role | `DepartmentAssignment` positions; `permissionsForRole(role, position)`; `positionFor` elevates only the role the position is held with; GROUP scope reads company-wide inside the session's company |
+| A person was a login | `PersonProfile` behind every account and employment; `CandidateProfile`; `EmployeeProfile` may predate a membership; `UserProvisioningRequest` (new `user_provisioning_request` machine, 7 transitions) |
+| Accounts were invited or reset by a company administrator | HR requests; the Head of Group HR or the Owner approves (never the requester); Group IT provisions in one transaction (user, membership, MEMBER assignment, employment link); a person with a login gains a membership, not a second account |
+| One company per session, changed only by opening another company's project | Top-bar company switcher; `contextInCompany` for a group user acting on a sibling company's record; `GET /api/me/access-portfolio` |
+| Project teams were changed by whoever runs the project | A second door for department managers and heads, for their own people, audited with the door used; `DELETE` on the member route |
+| — | Organization → Departments (heads, branches, managers, teams and their projects), appointments by the Owner or the function's head; Organization → User provisioning; HR → Recruitment |
+| — | `/platform-admin`: create a group, add companies (the bootstrap now creates department branches and no longer requires an Owner invitation), the initial roster and first project assignments, the implementation checklist, activation; `withPlatformContext` routes, classified PLATFORM |
+| Audit events always belonged to a company | Group-level events (`parentGroupId`, no company) for the platform; 23 new audit actions |
+| One demo company with sections of a second | NESTO Demo Group: Aurelia, Meridian, Terra, Forma, Nova; group heads stacked on company manager positions; local managers; a two-company architect; recruitment in three states; fixtures in `group_fixture` |
+| — | Owner dashboard lists the group's companies; Group Finance and Group Sales see their numbers company by company |
+
+**Migration `20260918120000_parent_group_organization_e06` is not additive.**
+It gives every existing company a group of its own with the group departments
+and branches linked by key, and moves every membership, invitation and approval
+step off the four retired roles. Architecture Manager and Sales Manager members
+become Architect or Sales with a manager position. Admin members become Group
+IT, and Company IT's row is renamed (its id kept). Then it **deletes the four
+role rows** and makes `sessions.membershipId`/`currentCompanyId`,
+`audit_events.companyId` and `employee_profiles.companyMemberId` nullable.
+Rolling back needs a reverse migration that recreates the four roles and moves
+people back; the positions it created say who was a manager.
+`20260918130000_provisioning_rejection_reason_e06` is additive. Both were
+replayed into empty databases, with no drift from the schema.
+
+**The development database (`nesto_erp`) has not been migrated or reseeded.**
+The demo changed shape: companies were renamed and split, projects moved
+between companies, and the fixtures moved to their own group. So after `pnpm
+prisma migrate deploy`, the demo needs a fresh database and `pnpm db:seed`, not
+a seed on top of the old data. Everything above was verified on throwaway
+databases.
+
+### 21.2 The evidence
+
+- **Full vitest: 3 577 passed, 0 failed**, 11 skipped (the destructive and opt-in
+  suites), on a freshly seeded database. New suites: recruitment (12),
+  provisioning (8), appointments (5), group views (10), project assignment (6),
+  platform implementation (7), sibling companies (2, sweeps).
+- **E2E on the production build: 431 of 431**, in six shards against their own
+  databases. New specs: recruitment and provisioning (3), organization and the
+  switcher (4), the platform (2). The existing specs were moved onto the data
+  the demo now has; some sign in as a company's own people, some move the
+  session into another company, and unit specs build on a spare Aurelia
+  project.
+- **verify:roles: 1 614 of 1 614**, for every curated persona, the four other
+  companies' examples included.
+- **Security sweeps**: Aurelia ↔ fixture tenant (another group), more than 700
+  calls each way, 0 violations. Meridian's CEO → Aurelia, 1 006 calls, 0 violations.
+  Meridian's accountant → Terra's Finance, 69 calls, 0 violations. No row of the
+  target company changed. The security matrix covers 960 endpoints, 0
+  company-scoped routes without a check on their path.
+- `verify:authorization` (571 routes), `verify:ownership`, `verify:state` (45
+  machines), `verify:workers`, `verify:production-guards` and
+  `verify:company-integrity` pass. Typecheck is clean. Lint: 0 errors, 14
+  warnings, the same as before. No schema drift.
+
+### 21.3 Defects found
+
+- **A fresh database had no document versions for the seeded business
+  documents.** Only the PRD #38 migration ever created them, from existing
+  data. The seed creates version 1 now; the document review E2E test had
+  depended on the old database.
+- **Opening daily logs or settings for a company that had no settings row
+  crashed the page** when two first reads raced to create it (a unique
+  violation). Terra's first daily log hit it. Both resolvers now take the other
+  read's row.
+- **The first provisioning form could not submit**: the form sends an empty
+  optional field as null, and the request schemas accepted only an absent one.
+  The E2E suite caught it; null now means "not given".
+- **Group department ids contain a colon**, and the department page answered
+  404 for every link to it; the id is encoded and decoded.
+- **The company switcher stalled** after a successful switch: a client push to
+  the page it was already on never settled. It reloads the page instead.
+- **A head of one function could read another function's department team.** The
+  position gives `department.team.view` group-wide. The team is now shown only
+  to that department's managers and head, and to those who keep the group's
+  people.
+- **The platform pages had no toast or tooltip providers**, so the credentials
+  dialog crashed; the platform layout mounts both.
+- **The unit contract E2E test raced**: the draft schedule's rows made the
+  activated schedule look present, and the payment dialog opened before there
+  was anything to allocate to. It had failed two runs in three.
+- **The bootstrap test and the team authorization test** left a group or a
+  company behind when the bootstrap began creating branches; their cleanups
+  remove both.
+- **The company sweeps called the platform routes** with a company session,
+  outside any request. They skip those routes, which answer a company session
+  403 before any lookup and are tested on their own.
+
+### 21.4 Limits, stated plainly
+
+- **Nothing forces a temporary password to be changed after sign-in.** It
+  expires after 72 hours, and the account carries `mustChangePassword`, as
+  PRD #50 left it.
+- **The catalog modules stay in Aurelia.** Procurement, inventory, QA/QC, HSE,
+  timesheets, daily logs, planning, structure and unit
+  sales/finance/publishing seed their records on Riverside, because their
+  catalogs (suppliers, warehouses, templates, unit types) are company-wide.
+  Finance, sales, contracts, HR, tasks, documents, meetings and part of
+  engineering are spread over the five companies.
+- **Access grants** are modelled and resolved, but no API creates one.
+- **The Organization People and Access & Roles pages** (§127) are not built.
+- **Candidates have no job positions or interview records** — E-10's.
+- **Offboarding** (§123) is not automated. Ending employment does not
+  deactivate access, as before.
+- **The Platform Admin cannot suspend or archive a group**, and cannot create a
+  company for an Owner who is not yet in the group except through the roster.
+- **Module pages are English.** The new section names are translated.
+- **The development server on port 3000 must be restarted** after migrating. Its
+  Prisma client predates both migrations.

@@ -129,18 +129,22 @@ New projects start Pending. Creating one in any other status needs
 | Role | Create | Edit | Status | Archive |
 | --- | --- | --- | --- | --- |
 | Owner | yes | yes | yes | yes |
-| Admin | yes | yes | yes | no |
+| CEO | yes | yes | yes | no |
 | Project Manager | **no** | own projects | own projects | own projects |
 | Architect, Engineer | no | assigned | no | no |
-| CEO, Finance, Legal, Sales, others | no | no | no | no |
+| Finance, Legal, Sales, others | no | no | no | no |
 
-Admin's grants are `extra` overrides on its View cell; the Project Manager's
-loss of `project.create` is a `deny`. A Project Manager therefore cannot turn a
-won opportunity into a new project any more — they can still link one to an
-existing project. NESTO has no Parent Group Owner role; E-05A's row for it is
-policy for when it exists. The Architecture Manager (E-05D) edits projects across
-the company like an Architect on assigned ones, and — as E-05A §8 and §58 set —
-creates projects or manages their status only where a company grants it.
+E-06 retired Admin. Its project setup went to the CEO, as `extra` overrides
+on the CEO's View cell, and its technical authority to Group IT, which holds no
+project authority (`docs/organization.md`). The Project Manager's loss of
+`project.create` is a `deny`. A Project Manager therefore cannot turn a won
+opportunity into a new project any more — they can still link one to an
+existing project. The Owner is the Group Owner since E-06, a member of every
+company of the group. An Architect who manages the company's Architecture
+branch or heads Group Architecture (E-05D's Architecture Manager, a position
+since E-06) edits projects across the company like an Architect on assigned
+ones, and — as E-05A §8 and §58 set — creates projects or manages their status
+only where a company grants it.
 
 ## Ordering and pagination
 
@@ -232,8 +236,8 @@ type an administrator removed). A project points at one by `projectTypeId`.
 | Delete | `project.type.manage` | only a type no project has; a used one is retired instead |
 
 `project.type.manage` is on no module ladder — it is company configuration —
-and the Owner and Admin hold it as overrides. The section tab **Project types**
-shows only to them.
+and the Owner and the CEO hold it as overrides (Admin until E-06). The section
+tab **Project types** shows only to them.
 
 - **A new project must have a type** (§13): the create schema requires
   `projectTypeId`, and the service accepts only a type of the chosen company
@@ -271,13 +275,13 @@ one by one.
 
 ## Tests
 
-- `tests/api/projects/project-types.test.ts` — only the Owner and Admin keep
+- `tests/api/projects/project-types.test.ts` — only the Owner and the CEO keep
   the list; add, rename, retire, use again, reorder and delete, each audited;
   names unique per company whatever the case and free across companies; a used
   type cannot be deleted; another company's type is not found and never offered.
 - `tests/api/projects/portfolio.test.ts` — cross-company visibility for the
-  seeded `multicompany` person (Architect in A on Greenline Villas, Project
-  Manager in B on Isarvorstadt Studio Refit), filter options that never leak a
+  seeded `multi-architect` person (an Architect in Aurelia on Riverside
+  Residences and in Forma on Marina Apartments since E-06), filter options that never leak a
   company, search inside scope, opening and the session move, E-05A §65's
   ordering with a cursor walk across the favorites boundary, every filter,
   per-person favorites, card permissions and roles, cover visibility and the
@@ -290,7 +294,7 @@ one by one.
 - `tests/e2e/modules/projects.spec.ts` — the gallery and its 3:4 covers, filters
   and URL state with Back, chips, the result count and Clear Filters (a sort
   included), list view remembered, favorites without navigating, change status,
-  create with a type, an Admin keeping the type list and the create form
+  create with a type, the CEO keeping the type list and the create form
   following it, a Project Manager refused it; `tests/e2e/modules/projects-multi-company.spec.ts`
   — both companies on one page, opening a project in the other company, a deep
   link into its tab, and a refused project that names nothing;

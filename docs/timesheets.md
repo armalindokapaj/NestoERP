@@ -147,7 +147,7 @@ access.
 | Owner | Manage, company | Reopen, settings |
 | HR | Manage, company | Reopen, settings |
 | CEO / Director | Contribute, company | + project hours, approve, return, reject |
-| Admin, Company IT, Architect, Engineer, Legal, Sales, Procurement, Inventory, QA/QC, HSE | Contribute, self | Log and submit own time |
+| Group IT, Architect, Engineer, Legal, Sales, Procurement, Inventory, QA/QC, HSE | Contribute, self | Log and submit own time |
 | Finance | Contribute, self | + project hours (no descriptions) |
 | Project Manager | Approve, project | Team and project views for the projects they run |
 | Viewer | None | |

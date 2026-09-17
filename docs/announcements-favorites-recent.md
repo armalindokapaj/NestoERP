@@ -71,8 +71,8 @@ or department behind it.
 | Role | Addresses |
 | --- | --- |
 | Owner | Company, department, project, selected members |
-| Admin, CEO, HR | Company, department, selected members |
-| Company IT | Company (technical notices) |
+| CEO, HR | Company, department, selected members |
+| Group IT | Company (technical notices) |
 | Project Manager | Projects in their scope, selected members |
 | Everyone else | Reads and acknowledges |
 
