@@ -191,15 +191,15 @@ is no global approve permission — deciding is always the source module's grant
 | Owner | Manage |
 | HR, CEO, Finance, Legal, Sales, Procurement, QA/QC, HSE | Approve (history, delegation) |
 | Project Manager | Approve, project scope |
-| Admin, Company IT, Inventory | View |
-| Architecture Manager, Sales Manager | Approve (history, delegation) |
+| Group IT, Inventory | View |
+| Architect as company department manager or group head | Approve (history, delegation) |
 | Architect, Engineer | View, project scope |
 | Viewer | None |
 
 ## Dashboards
 
 `pendingApprovals` (top five of Waiting for me) is on the Owner, HR, CEO,
-Project Manager, Architecture Manager, Finance, Legal, Sales, Sales Manager,
+Project Manager, Architect as manager or head, Finance, Legal, Sales,
 Procurement, QA/QC and HSE dashboards.
 `approvalBottlenecks` (pending by source, oldest wait, overdue) is on the Owner
 and CEO dashboards and needs `approvals.history.view`.

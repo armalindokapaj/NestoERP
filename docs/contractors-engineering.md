@@ -53,8 +53,7 @@ in Settings → Modules).
 | Role | Contractors | Engineering |
 | --- | --- | --- |
 | Owner | Manage | Manage |
-| Admin | View | — |
-| Company IT, HR, Sales | — | — |
+| Group IT, HR, Sales | — | — |
 | CEO | View | View |
 | Project Manager | Manage (project scope) | Approve, plus void RFIs and transmittals |
 | Architect, Engineer | View | Approve (review, approve, close RFIs, issue transmittals) |

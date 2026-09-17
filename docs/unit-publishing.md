@@ -129,11 +129,10 @@ that names nothing. Then the action's permission — never a role name.
 | Role | Read | Prepare & submit | Publish, revision, unpublish, archive |
 | --- | --- | --- | --- |
 | Owner | yes | yes | yes |
-| Admin | yes | yes (override) | yes (override) |
-| Architecture Manager | every project of the company | yes (override) | yes (override) |
+| Architect as company department manager or group head | every project of the company | yes (override) | yes (override) |
 | Project Manager | own projects | yes (MANAGE rung) | no |
 | Architect | assigned projects | yes (override) | no |
-| Engineer, Sales, Sales Manager, Finance, Legal, CEO, others | in their scope | no | no |
+| Engineer, Sales, Finance, Legal, CEO, others | in their scope | no | no |
 | Viewer | assigned projects | no | no |
 
 Files follow the Documents module's own gate (§88, §102): the Documents and Media
@@ -144,11 +143,13 @@ listed only when `buildDocumentAccessWhere` lets the reader open it, uploads nee
 gate after the unit's door. Hiding a section is never the protection; every API
 repeats the check.
 
-The **Architecture Manager** and **Sales Manager** roles are new with this
-enhancement. The Architecture Manager holds the Architect's row across every
-project of the company plus publishing, the approvals inbox, and no project
-creation or status authority (E-05A §8, §58); the Sales Manager holds the Sales
-row and decides proposals, which Sales may not (E-05E §39 builds on it).
+This enhancement introduced **Architecture Manager** and **Sales Manager**
+roles; E-06 replaced both with positions (`docs/organization.md`). An Architect
+who manages the company's Architecture branch or heads Group Architecture holds
+the Architect's row across every project of the company plus publishing, the
+approvals inbox, and no project creation or status authority (E-05A §8, §58). A
+Sales member who manages or heads Sales decides proposals, which Sales may not
+(E-05E §39 builds on it).
 
 ## API
 
@@ -251,7 +252,7 @@ with the reviewer's reason; **B-101** Draft with a Sales Plan; **A-201** to
 **A-204** Published v1 with a Sales Plan and a floor plan each, the stock E-05E's
 seed sells. Company B's
 **OF-001** is Published v1 with its own files, so isolation has something to
-refuse in both directions. The Architecture Manager's inbox holds the two
+refuse in both directions. The Head of Group Architecture's inbox holds the two
 requests.
 
 ## Tests
@@ -259,9 +260,9 @@ requests.
 | Suite | Covers |
 | --- | --- |
 | `tests/unit/project-structure/publishing-rules.test.ts` | Readiness by kind of unit, hints and order; display; the snapshot's fields; what counts as an unpublished change; the machine's moves; validation; role defaults for every E-05D permission |
-| `tests/api/project-structure/unit-publishing.test.ts` | Readiness refusals; submit and one request under a race; v1 with exact file versions; unpublished changes from an edit, a revert and a move; v2; two publishers racing; readiness re-checked at publish; revision with reasons, returned changes, unpublish, archive and restore; one logical Sales Plan and its versions; project drawings attached to many units, another project's refused; archived attachments in readiness; media primary swap, the partial index, order and removal; Architect/Architecture Manager/Owner/Admin/PM/Sales/Finance capabilities; outsiders and Company B get 404; the unit list filter; the Approvals Center approving and returning |
+| `tests/api/project-structure/unit-publishing.test.ts` | Readiness refusals; submit and one request under a race; v1 with exact file versions; unpublished changes from an edit, a revert and a move; v2; two publishers racing; readiness re-checked at publish; revision with reasons, returned changes, unpublish, archive and restore; one logical Sales Plan and its versions; project drawings attached to many units, another project's refused; archived attachments in readiness; media primary swap, the partial index, order and removal; Architect as member, manager and head/Owner/PM/Sales/Finance capabilities; outsiders and Company B get 404; the unit list filter; the Approvals Center approving and returning |
 | `tests/security/*` | Every new route swept both ways between companies (34 attempts each, all 404); `linkId`, `mediaId` and `publicationId` resolve to real rows of the unit they belong to |
-| `tests/e2e/modules/unit-publishing.spec.ts` | The Architect uploads a Sales Plan and an image and submits; the Architecture Manager publishes; an edit shows as unpublished changes while v1 keeps its area; Sales reads with no actions; Publish on an incomplete unit explains what is missing; the seeded states in the unit list |
+| `tests/e2e/modules/unit-publishing.spec.ts` | The Architect uploads a Sales Plan and an image and submits; the Head of Group Architecture publishes; an edit shows as unpublished changes while v1 keeps its area; Sales reads with no actions; Publish on an incomplete unit explains what is missing; the seeded states in the unit list |
 | `tests/e2e/responsive/project-structure-mobile.spec.ts` | A published unit's page, sections, Sales Plan and history on a phone, without horizontal scroll |
 
 ## Limits

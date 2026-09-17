@@ -100,7 +100,7 @@ project (projects module + `project.view` + project scope) and hold
 | QA/QC | View, project | Read; link QA/QC records |
 | HSE | View, project | Read; link HSE records |
 | Viewer | View, assigned | Read |
-| Admin, Company IT, HR, Finance, Legal, Sales | None | — |
+| Group IT, HR, Finance, Legal, Sales | None | — |
 
 Linked records show their label only to readers who can open them; others see
 "QA/QC record", "HSE record" or "HSE incident recorded". Tasks, orders and

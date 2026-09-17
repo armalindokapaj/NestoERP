@@ -160,16 +160,17 @@ first in every `where`. Nothing is authorised by "same company" alone.
 | Role | View | Buildings, floors, units | Unit types |
 | --- | --- | --- | --- |
 | Owner | yes | yes | yes |
-| Admin | yes | yes (override) | yes (override) |
+| CEO | yes | yes (override) | yes (override) |
 | Project Manager | own projects | own projects (MANAGE rung) | no |
-| Architecture Manager | every project of the company | yes (override) | no |
+| Architect as company department manager or group head | every project of the company | yes (override) | no |
 | Architect | assigned projects | assigned projects (override) | no |
 | Engineer | assigned projects | no | no |
-| CEO, Finance, Legal, Sales, Procurement, HR, … | yes, in their scope | no | no |
+| Finance, Legal, Sales, Procurement, HR, … | yes, in their scope | no | no |
 | Viewer | assigned projects | no | no |
 
-NESTO has no Parent Group Owner role; its E-05B row is policy for when it exists.
-The Architecture Manager role arrived with E-05D and holds E-05B's row (§59). Grants are data (`config/role-defaults.ts`),
+The Owner is the Group Owner since E-06. The Architecture Manager role E-05D
+added holds E-05B's row (§59); since E-06 it is an Architect's position, and
+Admin's row went to the CEO (`docs/organization.md`). Grants are data (`config/role-defaults.ts`),
 never role names in code.
 
 **Not found, not forbidden.** A building, floor or unit id from a project the
@@ -274,7 +275,7 @@ the one page every future module opens for this unit. E-05D gave it its
 Overview, Documents, Media, Publishing and Activity sections — see
 `docs/unit-publishing.md`.
 
-**Projects → Unit types** (Owner and Admin): add with a code and category,
+**Projects → Unit types** (Owner and CEO): add with a code and category,
 rename, recode, recategorise, order, retire, use again, delete an unused one.
 
 The project overview has a **Units** card with building, floor and unit counts.

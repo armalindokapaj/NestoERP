@@ -101,7 +101,7 @@ Owning a milestone grants nothing.
 | Project Manager | Keep the plan on their projects: phases, milestones, dates, baseline, dependencies, blockers, completion, reopening, templates, lock |
 | CEO, Finance, Legal, Sales, Procurement, Inventory | Read, on the projects their project scope reaches |
 | Architect, Engineer, QA/QC, HSE, Viewer | Read their projects' plans |
-| Admin, Company IT, HR | None |
+| Group IT, HR | None |
 
 Linked tasks, meetings, daily logs and documents keep their own access: a
 reader sees "A task you cannot open" or "A daily log you cannot open" rather

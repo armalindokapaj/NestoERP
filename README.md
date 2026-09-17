@@ -119,13 +119,24 @@ disagree. Sign-in is by username. The password comes from
 | `group-engineering` | Head of Group Engineering | | `group-hse` | Head of Group HSE, manages Nova's branch |
 | `group-finance` | Head of Group Finance, manages Terra's branch | | `ceo-a` | CEO of Aurelia |
 | `pm-a` | Project Manager, Riverside Residences | | `architect-a` | Architect, Aurelia |
-| `viewer-a` | Viewer, Riverside Residences | | | |
+| `viewer-a` | Viewer, Riverside Residences | | `pm-b` | Project Manager, Central Office Tower |
+| `finance-c` | Finance, Terra | | `architect-d` | Architect, Forma |
+| `hse-e` | HSE, Nova | | | |
 
 Every other company has `ceo-b` … `ceo-e` and `pm-b` … `pm-e`, plus local
 people such as `architecture-manager-b`, `finance-manager-d` and
 `legal-manager-e`, who manage one company's branch and head nothing.
 `multi-architect` is an Architect in Aurelia and in Forma: one account, two
-memberships, never a second login.
+memberships, never a second login. Anybody with more than one company switches
+between them from the top bar.
+
+The people behind the organization's workflows are seeded in every state
+([`docs/organization.md`](docs/organization.md)). Elira Hoxha is a candidate
+for Meridian with no login (HR → Recruitment). Adrian Kola is selected for
+Terra, and the approved account request waits in Organization → User
+provisioning for `group-it` to create the login. Ermira Tafa (`finance-c`)
+went all the way. `platform-admin` signs in to `/platform-admin`, where a new
+group is created, given companies and people, and activated.
 
 **Test fixtures are not demo data.** They live in a hidden fixture group, never
 in the demo: `tenant-owner` and `tenant-viewer` in a second tenant with seven
@@ -138,8 +149,8 @@ own specific way, and each has a test that says so.
 ### Signing in quickly
 
 In development the login page shows a **demo account picker**, grouped as
-platform, group and company — one click signs you in as that persona, no
-typing. Once inside, the **role switcher** in the top bar re-renders the
+Platform, Group, Aurelia Construction and Other companies — one click signs you
+in as that persona, no typing. Once inside, the **role switcher** in the top bar re-renders the
 workspace as any of the company roles without signing out.
 
 Both are gated on `NODE_ENV`. In a production build the picker is not rendered,

@@ -244,20 +244,21 @@ the page is right between runs. The job counts what it found in
 
 ## Authorisation (§54-§56, §123, §130)
 
-| Permission | Owner | Admin | CEO | PM | Finance | Legal | Sales | Sales Manager | Viewer |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `project.unit.legal.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `project.unit.contract.request` | ✓ | ✓ | | | | | ✓ | ✓ | |
-| `project.unit.contract.{create,update,review,sign_status,cancel,documents.manage,amend}` | ✓ | | | | | ✓ | | | |
-| `project.unit.finance.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `project.unit.finance.{manage_schedule,issue_invoice,record_payment,allocate_payment,documents.manage,correct}` | ✓ | | | | ✓ | | | | |
-| `project.unit.sale.approve` | ✓ | ✓ | ✓ | | | | | ✓ | |
-| `legal.contract.complete` | ✓ | | | | | ✓ | | | |
+| Permission | Owner | CEO | PM | Finance | Legal | Sales | Sales manager or head | Viewer |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `project.unit.legal.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `project.unit.contract.request` | ✓ | | | | | ✓ | ✓ | |
+| `project.unit.contract.{create,update,review,sign_status,cancel,documents.manage,amend}` | ✓ | | | | ✓ | | | |
+| `project.unit.finance.view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `project.unit.finance.{manage_schedule,issue_invoice,record_payment,allocate_payment,documents.manage,correct}` | ✓ | | | ✓ | | | | |
+| `project.unit.sale.approve` | ✓ | ✓ | | | | | ✓ | |
+| `legal.contract.complete` | ✓ | | | | ✓ | | | |
 
-Architecture, the Architecture Manager and Engineering hold none of them: they do
-not see a unit's Legal or Finance section, and the pages send them to
-*Access denied*. Company IT, HR, Procurement, Inventory, QA/QC and HSE hold none
-either.
+"Sales manager or head" is a Sales member who manages the company's Sales
+branch or heads Group Sales — E-05E's Sales Manager, a position since E-06.
+Architects in any position and Engineering hold none of them: they do not see a
+unit's Legal or Finance section, and the pages send them to *Access denied*.
+Group IT, HR, Procurement, Inventory, QA/QC and HSE hold none either.
 
 **A module switched off is gone** (PRD #47 §25). The unit grants are Projects
 grants, so a company with **Finance** switched off has no unit finance at all —
@@ -375,9 +376,9 @@ The demo company's Sold rule is the default, Signed contract.
 
 ## Limits
 
-- **Admin does not collect or contract.** Admin may ask for a contract, approve
-  a sale and read, but holds neither the Legal nor the Finance module's acting
-  grants.
+- **The CEO does not collect or contract.** The CEO may approve a sale and read,
+  but holds neither the Legal nor the Finance module's acting grants. (E-05F
+  said this of Admin, which E-06 retired.)
 - **Finance is not notified when a contract is signed.** It finds new signed
   contracts under *Payment pending* on the project's Finance units.
 - **No "contract nearing completion" notice** (§94 lists it as recommended).
