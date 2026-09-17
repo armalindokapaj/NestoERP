@@ -96,13 +96,13 @@ the permission off. A transition that does not declare it refuses a step.
 
 ## What is declared
 
-Forty-four machines over 229 transitions: HSE and QA/QC, where this began,
+Forty-five machines over 236 transitions: HSE and QA/QC, where this began,
 the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
 their own — Documents, Finance, Procurement, Inventory, Legal and
 Engineering — Projects, whose status E-05A made a lifecycle of its own, a
 unit's publication (E-05D), a unit's sale (E-05E), and a unit sale's payment
-schedule and Sales' request for its contract (E-05F). E-05F also gave the
-contract machine `complete`.
+schedule and Sales' request for its contract (E-05F), and an account request
+from HR to Group IT (E-06). E-05F also gave the contract machine `complete`.
 The tables below are generated from `lib/core/state/registry.ts` by
 `scripts/architecture/state-docs.ts`; an edit belongs in the machine, and the
 table is regenerated from it.
@@ -213,6 +213,25 @@ Terminal: `CANCELLED`
 | `reject` | `PENDING_VERIFICATION` | `REJECTED` | `qaqc.corrective_action.verify` | required | — |
 | `reopen` | `VERIFIED` | `REOPENED` | `qaqc.corrective_action.reopen` | required | — |
 | `cancel` | `OPEN`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `REJECTED`, `REOPENED` | `CANCELLED` | `qaqc.corrective_action.cancel` | — | — |
+
+### Organization
+
+1 machine.
+
+#### `user_provisioning_request` — `userProvisioningRequest.status`
+
+States: `DRAFT`, `SUBMITTED`, `APPROVED`, `IN_PROGRESS`, `PROVISIONED`, `REJECTED`, `CANCELLED`
+Terminal: `PROVISIONED`, `REJECTED`, `CANCELLED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT` | `SUBMITTED` | `provisioning_request.submit` | — | — |
+| `approve` | `SUBMITTED` | `APPROVED` | `organization.provisioning_request.approve` | — | — |
+| `reject` | `SUBMITTED` | `REJECTED` | `organization.provisioning_request.approve` | required | — |
+| `return` | `SUBMITTED`, `APPROVED`, `IN_PROGRESS` | `DRAFT` | `organization.provisioning_request.approve` or `organization.provisioning_request.process` | required | — |
+| `start` | `APPROVED` | `IN_PROGRESS` | `organization.provisioning_request.process` | — | — |
+| `provision` | `APPROVED`, `IN_PROGRESS` | `PROVISIONED` | `organization.user.provision` | — | everything |
+| `cancel` | `DRAFT`, `SUBMITTED`, `APPROVED`, `IN_PROGRESS` | `CANCELLED` | `provisioning_request.create` or `organization.provisioning_request.process` | — | — |
 
 ### Projects
 

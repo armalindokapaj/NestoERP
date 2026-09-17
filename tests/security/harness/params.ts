@@ -54,6 +54,8 @@ const RULES: Rule[] = [
   { when: /\/meetings\/\[meetingId\]\/participants\//, param: "memberId", source: { model: "MeetingParticipant", column: "memberId" } },
   { when: /\/calendar\/events\/\[eventId\]\/participants\//, param: "memberId", source: { model: "CalendarEventParticipant", column: "memberId" } },
   { when: /\/hr\/employees\//, param: "memberId", source: { model: "EmployeeProfile", column: "companyMemberId" } },
+  // An account request is the company's the person joins (E-06 §27); not a unit's contract request.
+  { when: /\/user-provisioning-requests\//, param: "requestId", source: { model: "UserProvisioningRequest" } },
   { when: /\/projects\/\[projectId\]\/members\//, param: "projectMemberId", source: { model: "ProjectMember" } },
 ];
 

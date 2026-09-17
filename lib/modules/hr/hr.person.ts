@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { AccessError } from "@/lib/access/guards";
 import { linkPersonProfile } from "@/lib/auth/identity";
 import type { UserContext } from "@/lib/context/types";
 
@@ -87,5 +88,44 @@ export async function syncPersonFromAccount(
   await tx.personProfile.update({
     where: { id: user.personProfileId },
     data: { firstName: profile.firstName, lastName: profile.lastName, workPhone: profile.phone },
+  });
+}
+
+/**
+ * HR's door for account provisioning (E-06 §25, §28, §93).
+ *
+ * The employment HR recorded without a login gains the membership Group IT
+ * just created, and the manager the request named; the person is an employee
+ * from here on, and a candidacy still open for that company is closed as hired. An employment that already has a login, or belongs to somebody
+ * else, is refused — the request was made for that record and nothing else.
+ */
+export async function linkEmploymentToLogin(
+  tx: Prisma.TransactionClient,
+  input: {
+    employeeProfileId: string | null;
+    personProfileId: string;
+    companyId: string;
+    companyMemberId: string;
+    managerMemberId: string | null;
+  },
+): Promise<void> {
+  if (input.employeeProfileId) {
+    const linked = await tx.employeeProfile.updateMany({
+      where: { id: input.employeeProfileId, companyId: input.companyId, personProfileId: input.personProfileId, companyMemberId: null },
+      // A request without a manager leaves the employment's own manager alone.
+      data: { companyMemberId: input.companyMemberId, managerMemberId: input.managerMemberId ?? undefined },
+    });
+    if (linked.count === 0) {
+      throw new AccessError("CONFLICT", "That employment record already has a login, or belongs to somebody else.", { code: "EMPLOYMENT_LINKED" });
+    }
+  }
+  await tx.personProfile.updateMany({
+    where: { id: input.personProfileId, lifecycleStatus: { in: ["CANDIDATE", "SELECTED"] } },
+    data: { lifecycleStatus: "EMPLOYEE" },
+  });
+  // A candidacy still open for this company ends here: the person is hired.
+  await tx.candidateProfile.updateMany({
+    where: { personProfileId: input.personProfileId, targetCompanyId: input.companyId, status: { in: ["SELECTED", "OFFERED"] } },
+    data: { status: "HIRED", decidedAt: new Date() },
   });
 }

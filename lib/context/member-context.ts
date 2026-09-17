@@ -84,3 +84,23 @@ export async function buildMemberContexts(
 export async function buildMemberContext(companyId: string, memberId: string): Promise<UserContext | null> {
   return (await buildMemberContexts(companyId, [memberId])).get(memberId) ?? null;
 }
+
+/**
+ * The same person, acting in another company of their own group (E-06 §161).
+ *
+ * A group user reads a record of a sibling company from wherever their session
+ * is; changing it runs as their membership in the record's company, so that
+ * company's permissions decide it and its audit log records it. Null when they
+ * hold no active membership there — the caller answers "not found". The session
+ * id is carried over: it is still the same request by the same person.
+ */
+export async function contextInCompany(session: UserContext, companyId: string): Promise<UserContext | null> {
+  if (companyId === session.companyId) return session;
+  const membership = await prisma.companyMember.findFirst({
+    where: { userId: session.userId, companyId, company: { parentGroupId: session.parentGroupId } },
+    select: { id: true },
+  });
+  if (!membership) return null;
+  const context = await buildMemberContext(companyId, membership.id);
+  return context ? { ...context, sessionId: session.sessionId } : null;
+}

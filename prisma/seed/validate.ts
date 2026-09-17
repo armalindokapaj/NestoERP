@@ -422,4 +422,20 @@ async function validateOrganization(prisma: PrismaClient, problems: string[]) {
       SELECT "parentGroupId", lower("workEmail") FROM "person_profiles" WHERE "workEmail" IS NOT NULL GROUP BY 1, 2 HAVING count(*) > 1
     ) duplicates`;
   if ((duplicatePeople[0]?.count ?? BigInt(0)) > BigInt(0)) problems.push(`${duplicatePeople[0]!.count} work email(s) belong to more than one person in a group`);
+
+  // E-06 §135: the recruitment lifecycle, from a candidate with no login to a login with the same person behind it.
+  const interviewing = await prisma.candidateProfile.count({ where: { parentGroupId: DEMO_GROUP.id, status: "INTERVIEWING", person: { user: null } } });
+  if (interviewing === 0) problems.push("no interviewing candidate without a user account");
+  const selected = await prisma.candidateProfile.count({ where: { parentGroupId: DEMO_GROUP.id, status: "SELECTED", person: { user: null } } });
+  if (selected === 0) problems.push("no selected candidate without a user account");
+  const approved = await prisma.userProvisioningRequest.count({ where: { parentGroupId: DEMO_GROUP.id, status: "APPROVED", provisionedUserId: null } });
+  if (approved === 0) problems.push("no approved account request waiting for Group IT");
+  const provisioned = await prisma.userProvisioningRequest.findMany({
+    where: { parentGroupId: DEMO_GROUP.id, status: "PROVISIONED" },
+    select: { id: true, personProfileId: true, provisionedUser: { select: { personProfileId: true } } },
+  });
+  if (provisioned.length === 0) problems.push("no provisioned account request");
+  for (const request of provisioned) {
+    if (request.provisionedUser?.personProfileId !== request.personProfileId) problems.push(`${request.id}: the provisioned account belongs to a different person than the request`);
+  }
 }

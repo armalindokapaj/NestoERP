@@ -15,6 +15,7 @@ const HEADING: Record<string, string> = {
   inventory: "Inventory",
   contracts: "Legal",
   engineering: "Engineering",
+  organization: "Organization",
   projects: "Projects",
   "project-structure": "Project structure",
   sales: "Sales",

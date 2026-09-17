@@ -1821,6 +1821,8 @@ model UserProvisioningRequest {
   returnReason        String?
   rejectedByUserId    String?
   rejectedAt          DateTime?
+  /// Why the request was refused, shown to HR on the request (E-06 §28).
+  rejectionReason     String?
   cancelledAt         DateTime?
   provisionedUserId   String?
   provisionedByUserId String?
