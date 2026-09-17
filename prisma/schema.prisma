@@ -66,7 +66,74 @@ enum DataScope {
   PROJECT
   DEPARTMENT
   COMPANY
+  /// Every company of the parent group (E-06 §17). Company-owned business
+  /// records still start from the company; GROUP widens only group-owned records
+  /// (people, candidates, provisioning, the organization itself).
+  GROUP
   SYSTEM
+}
+
+/// A parent group's lifecycle (E-06 §8, §21). The Platform Admin implements a
+/// group while it is IMPLEMENTING; normal operation begins at ACTIVE.
+enum ParentGroupStatus {
+  IMPLEMENTING
+  READY_FOR_VALIDATION
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+/// Where a person sits in a department (E-06 §7). Management is a position held
+/// with a functional role, never a role of its own (§6.5).
+enum DepartmentPositionLevel {
+  GROUP_HEAD
+  COMPANY_MANAGER
+  MEMBER
+}
+
+/// What an explicit access grant reaches (E-06 §17, §18).
+enum AccessScopeType {
+  SYSTEM
+  GROUP
+  COMPANY
+  DEPARTMENT
+  PROJECT
+  RECORD
+  ASSIGNED
+  SELF
+}
+
+/// A person's place in the group's working life (E-06 §22, E-08 §45). Separate
+/// from candidate, employment, account and membership status (E-06 §122).
+enum PersonLifecycleStatus {
+  CANDIDATE
+  SELECTED
+  EMPLOYEE
+  FORMER_EMPLOYEE
+}
+
+/// A recruitment (E-06 §23).
+enum CandidateStatus {
+  INTERVIEWING
+  SELECTED
+  OFFERED
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+/// HR's request for a NESTO account (E-06 §27). Returning a request to HR puts it
+/// back to DRAFT with the reason. IN_PROGRESS is Group IT having picked an
+/// approved request up (E-10 §40), so a later policy without the approval step
+/// needs no new state.
+enum ProvisioningStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  IN_PROGRESS
+  PROVISIONED
+  REJECTED
+  CANCELLED
 }
 
 /// A project's working lifecycle (E-05A §10). PENDING has not started, ACTIVE is
@@ -991,6 +1058,17 @@ model User {
   passwordResetTokens PasswordResetToken[]
   authEvents          AuthEvent[]
 
+  /// The person this login belongs to (E-06 §26, E-08 §60). One login, one person;
+  /// a person may exist long before, or without, a login.
+  personProfileId String?        @unique
+  personProfile   PersonProfile? @relation(fields: [personProfileId], references: [id], onDelete: Restrict)
+
+  platformAccess          PlatformAccess?
+  parentGroupMemberships  ParentGroupMember[]
+  departmentAssignments   DepartmentAssignment[]
+  accessGrants            AccessGrant[]             @relation("AccessGrantHolder")
+  provisionedFromRequests UserProvisioningRequest[] @relation("ProvisionedUser")
+
   createdActivities Activity[] @relation("ActivityActorUser")
 
   createdAt DateTime @default(now())
@@ -1014,6 +1092,11 @@ model Company {
   phone     String?
   website   String?
   status    CompanyStatus @default(ACTIVE)
+
+  /// The business root this company belongs to (E-06 §3.1, §9). Exactly one in
+  /// V0.1, and never changed: it is part of the company's isolation boundary.
+  parentGroupId String
+  parentGroup   ParentGroup @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
 
   /// Bumped on every configuration mutation so caches and client context can
   /// be invalidated without guessing (PRD #37 §22, PRD #24 §315-§317).
@@ -1163,8 +1246,14 @@ model Company {
   documentTransmittals       DocumentTransmittal[]
   engineeringSettings        EngineeringSettings?
 
+  departmentAssignments DepartmentAssignment[]
+  provisioningRequests  UserProvisioningRequest[]
+  candidateTargets      CandidateProfile[]
+
+  @@unique([id, parentGroupId])
   @@index([status])
   @@index([name])
+  @@index([parentGroupId])
   @@map("companies")
 }
 
@@ -1190,6 +1279,16 @@ model Department {
 
   managerMember CompanyMember? @relation("DepartmentManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
 
+  /// The group department this is the company's branch of (E-06 §12, §36). Every
+  /// department created from E-06 on has one; the service refuses a branch whose
+  /// group department belongs to another parent group (§12 invariant).
+  groupDepartmentId String?
+  groupDepartment   GroupDepartment? @relation(fields: [groupDepartmentId], references: [id], onDelete: Restrict)
+
+  assignments          DepartmentAssignment[]
+  provisioningRequests UserProvisioningRequest[]
+  candidateTargets     CandidateProfile[]
+
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   purchaseRequests PurchaseRequest[]
@@ -1199,8 +1298,10 @@ model Department {
 
   @@unique([companyId, name])
   @@unique([companyId, key])
+  @@unique([id, companyId])
   @@index([companyId])
   @@index([companyId, status])
+  @@index([groupDepartmentId])
   @@index([managerMemberId])
   @@index([status])
   @@map("departments")
@@ -1440,6 +1541,305 @@ model CompanyMember {
   @@index([departmentId])
   @@index([status])
   @@map("company_members")
+}
+
+// ---------------------------------------------------------------------------
+// Parent group, organization and people (E-06)
+//
+// The parent group is the business root; companies stay the hard data-isolation
+// boundary underneath it. CompanyMember remains the identity every
+// company-owned record is written by (E-06 §15, §160) — what is added here sits
+// above it: who belongs to the group, which department position they hold, what
+// was delegated to them, and the person behind a login.
+// ---------------------------------------------------------------------------
+
+model ParentGroup {
+  id            String            @id @default(cuid())
+  slug          String            @unique
+  name          String
+  legalName     String?
+  country       String?
+  timezone      String?
+  currency      String?
+  logoUrl       String?
+  status        ParentGroupStatus @default(IMPLEMENTING)
+  /// A deterministic test tenant: kept out of the Platform Admin's group list and
+  /// the demo sign-in screen (E-06 §45, §150). Never set outside the seed.
+  isTestFixture Boolean           @default(false)
+
+  activatedAt       DateTime?
+  activatedByUserId String?
+
+  companies             Company[]
+  members               ParentGroupMember[]
+  departments           GroupDepartment[]
+  departmentAssignments DepartmentAssignment[]
+  accessGrants          AccessGrant[]
+  people                PersonProfile[]
+  candidates            CandidateProfile[]
+  provisioningRequests  UserProvisioningRequest[]
+  auditEvents           AuditEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("parent_groups")
+}
+
+/// A person who belongs to the group itself (E-06 §10): the Owner, Group IT,
+/// group department heads and anyone working across companies.
+model ParentGroupMember {
+  id            String           @id @default(cuid())
+  parentGroupId String
+  userId        String
+  status        MembershipStatus @default(ACTIVE)
+  joinedAt      DateTime?
+
+  parentGroup ParentGroup @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([parentGroupId, userId])
+  @@index([userId])
+  @@map("parent_group_members")
+}
+
+/// One of the group's functions — Finance, Architecture, HR (E-06 §11). Defined
+/// once per group; each company's `Department` is a branch of one (§12).
+model GroupDepartment {
+  id            String           @id @default(cuid())
+  parentGroupId String
+  key           String
+  name          String
+  description   String?
+  status        DepartmentStatus @default(ACTIVE)
+
+  parentGroup ParentGroup            @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+  branches    Department[]
+  assignments DepartmentAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([parentGroupId, key])
+  @@unique([id, parentGroupId])
+  @@index([parentGroupId, status])
+  @@map("group_departments")
+}
+
+/// A person's position in a department (E-06 §13, §14). A group head has no
+/// company; a company manager or member names the company and its branch. One
+/// user may hold several at once — head of Group Finance and manager of Company
+/// C Finance is two rows for the same user, never two users (§14, §51).
+///
+/// The composite keys make the database refuse an assignment whose company or
+/// group department belongs to another parent group, and a branch that belongs
+/// to another company.
+model DepartmentAssignment {
+  id                  String                  @id @default(cuid())
+  parentGroupId       String
+  userId              String
+  groupDepartmentId   String
+  companyId           String?
+  companyDepartmentId String?
+  /// The role this position is held with (E-06 §6.5): a Finance head is FINANCE
+  /// + GROUP_HEAD. Position elevation applies only where the membership's role is
+  /// this role.
+  functionalRoleKey   String
+  positionLevel       DepartmentPositionLevel
+  accessLevel         AccessLevel
+  status              MembershipStatus        @default(ACTIVE)
+  startsAt            DateTime?
+  endsAt              DateTime?
+  endedByUserId       String?
+  createdByUserId     String?
+
+  parentGroup       ParentGroup     @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+  user              User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  groupDepartment   GroupDepartment @relation(fields: [groupDepartmentId, parentGroupId], references: [id, parentGroupId], onDelete: Restrict)
+  company           Company?        @relation(fields: [companyId, parentGroupId], references: [id, parentGroupId], onDelete: Restrict)
+  companyDepartment Department?     @relation(fields: [companyDepartmentId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([parentGroupId, groupDepartmentId, positionLevel])
+  @@index([companyId, positionLevel])
+  @@index([companyDepartmentId])
+  @@map("department_assignments")
+}
+
+/// Access delegated to one person beyond their role (E-06 §18). Nobody may grant
+/// more than they hold (the grant ceiling, checked when it is made). Revoked or
+/// expired grants stay as history.
+model AccessGrant {
+  id              String          @id @default(cuid())
+  userId          String
+  parentGroupId   String
+  /// The module the grant is about, as a module key (`finance`, `contracts`).
+  functionKey     String?
+  scopeType       AccessScopeType
+  scopeId         String?
+  accessLevel     AccessLevel
+  grantedByUserId String
+  startsAt        DateTime?
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  revokedByUserId String?
+  reason          String?
+
+  user        User        @relation("AccessGrantHolder", fields: [userId], references: [id], onDelete: Restrict)
+  parentGroup ParentGroup @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, parentGroupId])
+  @@index([parentGroupId, scopeType, scopeId])
+  @@map("access_grants")
+}
+
+/// Platform-level access, outside every parent group (E-06 §19). Never a company
+/// membership: the Platform Admin implements a group without becoming part of it.
+model PlatformAccess {
+  id      String           @id @default(cuid())
+  userId  String           @unique
+  roleKey String
+  status  MembershipStatus @default(ACTIVE)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_access")
+}
+
+/// The person, before and apart from any login (E-06 §22, E-08 §3, §57). HR's
+/// record of a human being in the group: a candidate is one, an employee is one,
+/// and so is someone who never signs in. A login links to exactly one.
+///
+/// Work contact is what colleagues may see; personal contact, birth date and
+/// address are HR-private (E-08 §30).
+model PersonProfile {
+  id              String                @id @default(cuid())
+  parentGroupId   String
+  firstName       String
+  lastName        String
+  preferredName   String?
+  jobTitle        String?
+  workEmail       String?
+  workPhone       String?
+  personalEmail   String?
+  personalPhone   String?
+  dateOfBirth     DateTime?
+  address         String?
+  city            String?
+  country         String?
+  lifecycleStatus PersonLifecycleStatus @default(CANDIDATE)
+  createdByUserId String?
+
+  parentGroup          ParentGroup               @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+  user                 User?
+  candidacies          CandidateProfile[]
+  employments          EmployeeProfile[]
+  provisioningRequests UserProvisioningRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, parentGroupId])
+  @@index([parentGroupId, lastName, firstName])
+  @@index([parentGroupId, lifecycleStatus])
+  @@index([workEmail])
+  @@map("person_profiles")
+}
+
+/// One recruitment of a person (E-06 §23). The person record is kept when the
+/// candidate is selected or rejected; a later application is another candidacy.
+model CandidateProfile {
+  id                  String          @id @default(cuid())
+  parentGroupId       String
+  personProfileId     String
+  targetCompanyId     String?
+  targetDepartmentId  String?
+  targetRoleKey       String?
+  targetJobTitle      String?
+  hiringManagerUserId String?
+  status              CandidateStatus @default(INTERVIEWING)
+  interviewStage      String?
+  /// Recruitment notes are HR-private (E-08 §30).
+  notes               String?
+  decidedAt           DateTime?
+  decidedByUserId     String?
+  createdByUserId     String
+
+  parentGroup      ParentGroup   @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+  person           PersonProfile @relation(fields: [personProfileId, parentGroupId], references: [id, parentGroupId], onDelete: Restrict)
+  targetCompany    Company?      @relation(fields: [targetCompanyId, parentGroupId], references: [id, parentGroupId], onDelete: Restrict)
+  targetDepartment Department?   @relation(fields: [targetDepartmentId, targetCompanyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentGroupId, status])
+  @@index([personProfileId])
+  @@index([targetCompanyId, status])
+  @@map("candidate_profiles")
+}
+
+/// HR asking Group IT for a NESTO account for somebody HR already knows
+/// (E-06 §27-§29). Everything Group IT needs is read from here and from the
+/// person; Group IT enters only technical account fields.
+model UserProvisioningRequest {
+  id                      String             @id @default(cuid())
+  parentGroupId           String
+  personProfileId         String
+  employeeProfileId       String?
+  companyId               String
+  companyDepartmentId     String
+  functionalRoleKey       String
+  jobTitle                String?
+  managerUserId           String?
+  requestedUsername       String?
+  requestedActivationDate DateTime?
+  notes                   String?
+  status                  ProvisioningStatus @default(DRAFT)
+
+  requestedByUserId   String
+  submittedAt         DateTime?
+  approvedByUserId    String?
+  approvedAt          DateTime?
+  startedByUserId     String?
+  startedAt           DateTime?
+  returnedByUserId    String?
+  returnedAt          DateTime?
+  returnReason        String?
+  rejectedByUserId    String?
+  rejectedAt          DateTime?
+  cancelledAt         DateTime?
+  provisionedUserId   String?
+  provisionedByUserId String?
+  provisionedAt       DateTime?
+
+  parentGroup       ParentGroup      @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+  person            PersonProfile    @relation(fields: [personProfileId, parentGroupId], references: [id, parentGroupId], onDelete: Restrict)
+  employeeProfile   EmployeeProfile? @relation(fields: [employeeProfileId], references: [id], onDelete: Restrict)
+  company           Company          @relation(fields: [companyId, parentGroupId], references: [id, parentGroupId], onDelete: Restrict)
+  companyDepartment Department       @relation(fields: [companyDepartmentId, companyId], references: [id, companyId], onDelete: Restrict)
+  provisionedUser   User?            @relation("ProvisionedUser", fields: [provisionedUserId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentGroupId, status])
+  @@index([companyId, status])
+  @@index([personProfileId])
+  @@map("user_provisioning_requests")
 }
 
 // ---------------------------------------------------------------------------
@@ -2732,15 +3132,17 @@ model Session {
   id               String   @id @default(cuid())
   sessionToken     String   @unique
   userId           String
-  membershipId     String
-  currentCompanyId String
+  /// Both null for a platform session: the Platform Admin works outside every
+  /// company and has no membership to point at (E-06 §6.1, §19, §116).
+  membershipId     String?
+  currentCompanyId String?
   expiresAt        DateTime
   userAgent        String?
   ipAddress        String?
 
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  membership CompanyMember @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  company    Company       @relation(fields: [currentCompanyId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership CompanyMember? @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  company    Company?       @relation(fields: [currentCompanyId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3346,9 +3748,15 @@ model FinanceApproval {
 /// phone belong to their `User`, and their role and department to their
 /// `CompanyMember` (PRD #16 §2).
 model EmployeeProfile {
-  id              String @id @default(cuid())
+  id              String  @id @default(cuid())
   companyId       String
-  companyMemberId String @unique
+  /// The person employed (E-06 §25). Required: employment is always somebody's.
+  /// Not unique with the company — a transfer or a rehire is a new employment of
+  /// the same person (E-09 §122, §123).
+  personProfileId String
+  /// The login-side identity, once Group IT has provisioned one (E-06 §25, §28).
+  /// An employee without a NESTO account has none.
+  companyMemberId String? @unique
 
   employeeNumber   String?
   employmentStatus EmploymentStatus @default(PLANNED)
@@ -3370,8 +3778,10 @@ model EmployeeProfile {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
-  companyMember CompanyMember  @relation("EmployeeProfileMember", fields: [companyMemberId], references: [id], onDelete: Restrict)
-  managerMember CompanyMember? @relation("EmployeeProfileManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
+  companyMember        CompanyMember?            @relation("EmployeeProfileMember", fields: [companyMemberId], references: [id], onDelete: Restrict)
+  personProfile        PersonProfile             @relation(fields: [personProfileId], references: [id], onDelete: Restrict)
+  provisioningRequests UserProvisioningRequest[]
+  managerMember        CompanyMember?            @relation("EmployeeProfileManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
 
   compensations     Compensation[]
   leaveRequests     LeaveRequest[]
@@ -3383,6 +3793,7 @@ model EmployeeProfile {
 
   @@unique([companyId, employeeNumber])
   @@index([companyId])
+  @@index([personProfileId])
   @@index([companyId, employmentStatus])
   @@index([companyId, employmentType])
   @@index([managerMemberId])
@@ -5691,8 +6102,12 @@ enum AuditSeverity {
 }
 
 model AuditEvent {
-  id        String @id @default(cuid())
-  companyId String
+  id            String  @id @default(cuid())
+  /// Null for an event that belongs to no one company: creating a parent group,
+  /// appointing a group head, a person HR created before any employment
+  /// (E-06 §114). `parentGroupId` places those; a company event carries both.
+  companyId     String?
+  parentGroupId String?
 
   occurredAt DateTime @default(now())
 
@@ -5731,11 +6146,13 @@ model AuditEvent {
   ipAddress String?
   userAgent String?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  parentGroup ParentGroup? @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
 
   @@index([companyId, occurredAt, id])
+  @@index([parentGroupId, occurredAt, id])
   @@index([companyId, actionKey, occurredAt])
   @@index([companyId, moduleKey, occurredAt])
   @@index([companyId, category, occurredAt])

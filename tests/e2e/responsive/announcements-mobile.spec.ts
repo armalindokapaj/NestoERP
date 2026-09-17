@@ -55,9 +55,10 @@ test("reads and acknowledges a critical notice, then opens its attachment", asyn
 });
 
 test("stars a project and opens it from the dashboard", async ({ page }) => {
-  const engineer = await memberIdFor("engineer@nesto.test");
+  // Terra's engineer, on East Gate Logistics Hub (E-06 §45).
+  const engineer = await memberIdFor("engineer-c@nesto.test", "company_demo_c");
   try {
-    await signIn(page, "ENGINEER", { to: "/projects/project_d" });
+    await signIn(page, "ENGINEER_C", { to: "/projects/project_c" });
     // The star is optimistic: `aria-pressed` flips before the POST lands, so
     // navigating on that alone aborts the request and the dashboard has
     // nothing to show. Wait for the write, not for the paint.
@@ -68,8 +69,8 @@ test("stars a project and opens it from the dashboard", async ({ page }) => {
     await expect(page.getByTestId("favorite-button").first()).toHaveAttribute("aria-pressed", "true");
     await page.goto("/dashboard");
     await page.getByRole("region", { name: "Favorites" }).getByRole("link", { name: /Logistics Hub/ }).click();
-    await expect(page).toHaveURL(/\/projects\/project_d$/);
+    await expect(page).toHaveURL(/\/projects\/project_c$/);
   } finally {
-    await db.userFavorite.deleteMany({ where: { memberId: engineer, entityType: "project", entityId: "project_d" } });
+    await db.userFavorite.deleteMany({ where: { memberId: engineer, entityType: "project", entityId: "project_c" } });
   }
 });

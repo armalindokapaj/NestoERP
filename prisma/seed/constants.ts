@@ -1,112 +1,53 @@
 /**
- * Deterministic seed identifiers (PRD #9 §9).
+ * Deterministic seed identifiers (PRD #9 §9, E-06 §106).
  *
  * Automated tests address records by these ids, so they must never be random.
  * Running the seed on a clean database always produces the same graph.
- */
-import type { DemoUserSpec } from "../../config/demo-accounts";
-
-export { COMPANY_A_USERS, DEMO_PASSWORD } from "../../config/demo-accounts";
-export type { DemoUserSpec } from "../../config/demo-accounts";
-
-export const COMPANY_A = "company_demo_a";
-export const COMPANY_B = "company_demo_b";
-export const COMPANY_SUSPENDED = "company_demo_suspended";
-
-export const PROJECT_IDS = {
-  a: "project_a",
-  b: "project_b",
-  c: "project_c",
-  d: "project_d",
-  e: "project_e",
-  f: "project_f",
-  archived: "project_archived",
-} as const;
-
-/** Company A departments and their stable keys (PRD #9 §22, §23). */
-export const DEPARTMENTS: { key: string; name: string }[] = [
-  { key: "management", name: "Management" },
-  { key: "administration", name: "Administration" },
-  { key: "it", name: "IT" },
-  { key: "hr", name: "HR" },
-  { key: "projects", name: "Projects" },
-  { key: "architecture", name: "Architecture" },
-  { key: "engineering", name: "Engineering" },
-  { key: "finance", name: "Finance" },
-  { key: "legal", name: "Legal" },
-  { key: "sales", name: "Sales" },
-  { key: "procurement", name: "Procurement" },
-  { key: "inventory", name: "Inventory" },
-  { key: "qaqc", name: "QA/QC" },
-  { key: "hse", name: "HSE" },
-];
-
-/** Company B exists so tenant isolation can actually be proven (PRD #9 §12). */
-export const COMPANY_B_USERS: DemoUserSpec[] = [
-  { id: "user_owner_b", username: "owner-b", email: "owner-b@nesto.test", firstName: "Bruno", lastName: "Keller", role: "OWNER", department: "management", jobTitle: "Owner", phone: "+49 30 000 001" },
-  { id: "user_viewer_b", username: "viewer-b", email: "viewer-b@nesto.test", firstName: "Bea", lastName: "Hoffman", role: "VIEWER", department: "projects", jobTitle: "Observer", phone: "+49 30 000 002" },
-];
-
-/**
- * Accounts that must fail authentication in a specific way (PRD #9 §31).
- * They exist for tests, not for the demo login list.
- */
-export const NEGATIVE_USERS = [
-  { id: "user_inactive", username: "inactive-user", email: "inactive-user@nesto.test", firstName: "Ivy", lastName: "Nolan", userStatus: "INACTIVE" as const, membershipStatus: "ACTIVE" as const },
-  { id: "user_suspended", username: "suspended-user", email: "suspended-user@nesto.test", firstName: "Sean", lastName: "Doyle", userStatus: "SUSPENDED" as const, membershipStatus: "ACTIVE" as const },
-  { id: "user_membership_inactive", username: "inactive-membership", email: "inactive-membership@nesto.test", firstName: "Mila", lastName: "Frank", userStatus: "ACTIVE" as const, membershipStatus: "INACTIVE" as const },
-  { id: "user_membership_suspended", username: "suspended-membership", email: "suspended-membership@nesto.test", firstName: "Marco", lastName: "Silva", userStatus: "ACTIVE" as const, membershipStatus: "SUSPENDED" as const },
-];
-
-/**
- * Proves the schema supports a different role per company, well before the
- * company switcher exists (PRD #9 §30).
- */
-export const MULTI_COMPANY_USER = {
-  id: "user_multicompany",
-  username: "multicompany",
-  email: "multicompany@nesto.test",
-  firstName: "Mia",
-  lastName: "Vogel",
-  phone: "+351 910 000 099",
-};
-
-/** A member of a suspended company: login must be refused (PRD #9 §32). */
-export const SUSPENDED_COMPANY_USER = {
-  id: "user_suspended_company",
-  username: "suspended-company",
-  email: "suspended-company@nesto.test",
-  firstName: "Cora",
-  lastName: "Neves",
-};
-
-/**
- * Invitation fixtures (PRD #14 §304–§306).
  *
- * The pending invitation's raw token is fixed so the acceptance flow can be
- * walked end to end without reading a mailbox. It is demo data: the seed
- * refuses to run in production without an explicit opt-in, and a real
- * invitation's token is 32 random bytes that exist only in the email.
+ * The demo group's companies and projects live in `demo/projects.ts`, the test
+ * fixtures in `fixtures/constants.ts`; this file re-exports both so a module
+ * seed has one import. There is deliberately no "Company B" here that means
+ * the old second tenant: `COMPANY_B` is Meridian Developments, and the tenant
+ * isolation is proven against is `FIXTURE_TENANT`.
  */
-export const DEMO_INVITE_TOKEN = "nesto-demo-pending-invite-token";
-export const DEMO_EXISTING_ACCOUNT_INVITE_TOKEN = "nesto-demo-existing-account-invite-token";
 
-/** Has a NESTO account already, and a pending invitation to Company A. */
-export const INVITED_USER = {
-  id: "user_invited",
-  username: "invited-consultant",
-  email: "invited-consultant@nesto.test",
-  firstName: "Elira",
-  lastName: "Hoxha",
-};
+export { DEMO_PASSWORD } from "../../config/demo-accounts";
 
-export const INVITE_IDS = {
-  pending: "invite_pending",
-  existingAccount: "invite_existing_account",
-  expired: "invite_expired",
-  cancelled: "invite_cancelled",
-  accepted: "invite_accepted",
-} as const;
+export {
+  CLIENT_COMPANY,
+  COMPANY_A,
+  COMPANY_B,
+  COMPANY_C,
+  COMPANY_D,
+  COMPANY_E,
+  DEMO_COMPANIES,
+  DEMO_COMPANY_IDS,
+  DEMO_GROUP,
+  DEMO_PROJECTS,
+  PROJECT_IDS,
+  companyFor,
+  companyOfClient,
+  companyOfProject,
+  demoCompany,
+} from "./demo/projects";
+
+export {
+  COMPANY_SUSPENDED,
+  DEMO_EXISTING_ACCOUNT_INVITE_TOKEN,
+  DEMO_INVITE_TOKEN,
+  FIXTURE_GROUP,
+  FIXTURE_OWNER,
+  FIXTURE_PROJECTS,
+  FIXTURE_TENANT,
+  FIXTURE_WORKS,
+  INVITED_USER,
+  INVITE_IDS,
+  NEGATIVE_USERS,
+  SUSPENDED_COMPANY_USER,
+  TENANT_USERS,
+} from "./fixtures/constants";
+
+export type { SeedMembers } from "./demo/users";
 
 /**
  * Seed dates are generated relative to this anchor so "overdue", "due today"

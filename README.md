@@ -79,53 +79,72 @@ itself requires both `NODE_ENV !== production` and an explicit
 | `pnpm test:api` | Projects authorisation through the real service layer |
 | `pnpm test:e2e` | Browser journeys (Playwright) |
 | `pnpm test:e2e:all-browsers` | …plus Firefox, WebKit and mobile Safari |
-| `pnpm verify:roles` | Walk all 18 roles over HTTP against a running server |
+| `pnpm verify:roles` | Walk every demo persona over HTTP against a running server |
 
 ---
 
 ## Development accounts
 
-Two demo companies. **NESTO Demo Construction** is the primary workspace, with
-one account for each of the 18 roles. **NESTO Second Company** exists so tenant
-isolation can actually be proven rather than assumed — one company cannot show
-you anything about the other, and its reduced module set is how the
-"module unavailable" path is tested.
+One demo parent group, **NESTO Demo Group**, owns five companies, and each
+company has exactly one project:
 
-The roster lives in [`config/demo-accounts.ts`](config/demo-accounts.ts); the
-seed, the login page and the test helpers all read it, so they cannot disagree.
-The password comes from `NESTO_DEMO_PASSWORD` and defaults to `nesto1234` in
-development.
+| Company | Project |
+| --- | --- |
+| Aurelia Construction | Riverside Residences |
+| Meridian Developments | Central Office Tower |
+| Terra Infrastructure | East Gate Logistics Hub |
+| Forma Engineering | Marina Apartments |
+| Nova Hospitality Development | Adriatic Hotel & Residences |
 
-| Email | Role | | Email | Role |
+The group's people are members of all five companies; every company has its own
+CEO, project manager and a few local people besides. Aurelia carries the
+deepest data — procurement, inventory, QA/QC, HSE, timesheets, daily logs,
+planning, structure and the unit pages all live on Riverside Residences — while
+finance, sales, contracts, HR, tasks, documents, meetings and engineering are
+spread across the five.
+
+The roster lives in [`config/demo-accounts.ts`](config/demo-accounts.ts) and the
+people behind it in [`prisma/seed/demo/users.ts`](prisma/seed/demo/users.ts); the
+seed, the login page and the test helpers all read them, so they cannot
+disagree. Sign-in is by username. The password comes from
+`NESTO_DEMO_PASSWORD` and defaults to `nesto1234` in development.
+
+| Username | Who | | Username | Who |
 | --- | --- | --- | --- | --- |
-| `owner@nesto.test` | Owner | | `finance@nesto.test` | Finance |
-| `admin@nesto.test` | Admin | | `legal@nesto.test` | Legal |
-| `it@nesto.test` | Company IT | | `sales@nesto.test` | Sales |
-| `hr@nesto.test` | HR | | `procurement@nesto.test` | Procurement |
-| `ceo@nesto.test` | CEO / Director | | `inventory@nesto.test` | Stock / Inventory |
-| `pm@nesto.test` | Project Manager | | `qaqc@nesto.test` | QA/QC |
-| `architect@nesto.test` | Architect | | `hse@nesto.test` | HSE |
-| `engineer@nesto.test` | Engineer | | `viewer@nesto.test` | Viewer |
+| `platform-admin` | Platform Admin, in no group | | `group-legal` | Head of Group Legal |
+| `owner` | Group Owner | | `group-sales` | Head of Group Sales, manages Meridian's branch |
+| `group-it` | Head of Group IT | | `group-procurement` | Head of Group Procurement |
+| `group-hr` | Head of Group HR | | `group-inventory` | Head of Group Inventory |
+| `group-architecture` | Head of Group Architecture, manages Aurelia's branch | | `group-qaqc` | Head of Group QA/QC |
+| `group-engineering` | Head of Group Engineering | | `group-hse` | Head of Group HSE, manages Nova's branch |
+| `group-finance` | Head of Group Finance, manages Terra's branch | | `ceo-a` | CEO of Aurelia |
+| `pm-a` | Project Manager, Riverside Residences | | `architect-a` | Architect, Aurelia |
+| `viewer-a` | Viewer, Riverside Residences | | | |
 
-Company B: `owner-b@nesto.test`, `viewer-b@nesto.test`.
+Every other company has `ceo-b` … `ceo-e` and `pm-b` … `pm-e`, plus local
+people such as `architecture-manager-b`, `finance-manager-d` and
+`legal-manager-e`, who manage one company's branch and head nothing.
+`multi-architect` is an Architect in Aurelia and in Forma: one account, two
+memberships, never a second login.
 
-Fixtures that exist to be refused: `inactive-user@`, `suspended-user@`,
-`inactive-membership@`, `suspended-membership@` and `suspended-company@`. Each
-fails authentication in its own specific way, and each has a test that says so.
-
-`multicompany@nesto.test` holds two memberships — Architect in Company A,
-Project Manager in Company B — which proves the data model supports a different
-role per company well before the company switcher exists.
+**Test fixtures are not demo data.** They live in a hidden fixture group, never
+in the demo: `tenant-owner` and `tenant-viewer` in a second tenant with seven
+modules switched off, `fixture-owner` in Fixture Works with the pending, expired
+and accepted invitations, and the accounts that exist to be refused —
+`inactive-user`, `suspended-user`, `inactive-membership`,
+`suspended-membership` and `suspended-company`. Each fails authentication in its
+own specific way, and each has a test that says so.
 
 ### Signing in quickly
 
-In development the login page shows a **demo account picker** — one click signs
-you in as that role, no typing. Once inside, the **role switcher** in the top bar
-re-renders the whole workspace as any of the 18 roles without signing out.
+In development the login page shows a **demo account picker**, grouped as
+platform, group and company — one click signs you in as that persona, no
+typing. Once inside, the **role switcher** in the top bar re-renders the
+workspace as any of the company roles without signing out.
 
 Both are gated on `NODE_ENV`. In a production build the picker is not rendered,
 the switcher is not rendered, and the demo sign-in action refuses. The picker
-sends only a role key to the server — the demo password is resolved in
+sends only a curated username to the server — the demo password is resolved in
 [`lib/actions/demo.ts`](lib/actions/demo.ts) and never enters the browser
 bundle, so no credential ships to the client in any build.
 
@@ -163,7 +182,7 @@ resolveUserContext()                 lib/context — the one resolver
 User → Membership → Company → Role → Permissions → Module access → Scope
    ↓
    ├── Navigation resolver  ──→  Sidebar and drawer (one data source)
-   ├── Dashboard resolver   ──→  /dashboard for all 18 roles
+   ├── Dashboard resolver   ──→  /dashboard for all 16 roles
    └── Module resolver      ──→  Tabs, actions and scoped records
                                         ↓
                                  Server authorisation
@@ -179,7 +198,7 @@ from `config/`:
 
 | File | Owns |
 | --- | --- |
-| `config/roles.ts` | The 18 roles |
+| `config/roles.ts` | The 16 roles, and the positions they are held at |
 | `config/access.ts` | Access levels and data scopes |
 | `config/permissions.ts` | The permission registry — 109 `resource.action` keys |
 | `config/role-defaults.ts` | **The role × module access matrix** (PRD #5 §10) |
@@ -421,8 +440,8 @@ A generic `document.view` never reaches a Finance or HR file. A company-level
 document has no project or client to narrow it, so it requires *company-level*
 access to the module it was filed under — which is what keeps
 `Company Financial Summary.pdf` away from an Architect whose Finance access is
-scoped to their own projects, and away from Admin, who has no Finance access at
-all. Both are E2E release blockers.
+scoped to their own projects, and away from Group IT, which has no Finance access
+at all. Both are E2E release blockers.
 
 **Unregistered parents fail closed.** A document filed under an `entityType`
 whose module has not registered a resolver is excluded from every list and
@@ -461,8 +480,8 @@ lib/modules/team/
    suspending the only active Owner is refused, and the reason is stated in the
    confirmation before the press rather than as an error after it (§93).
 2. **Only an Owner may create another Owner.** `team.owner.assign` is an
-   override on the Owner role alone, so an Admin who manages the whole team
-   still cannot mint a peer (§95, §96). The role picker hides what the service
+   override on the Owner role alone, so a Head of Group IT who manages accounts
+   still cannot mint an Owner (§95, §96). The role picker hides what the service
    would refuse, and the service refuses regardless.
 3. **Removing access takes effect now.** Deactivate and suspend delete the
    member's `Session` rows inside the same transaction. Access ends when the
@@ -553,7 +572,7 @@ appear side by side and are never summed. A project's expenses and commitments
 must match its approved budget's currency, because otherwise its actual cost
 would be unaddable.
 
-**Finance is confidential.** Admin and Company IT have no Finance access at all:
+**Finance is confidential.** Group IT has no Finance access at all:
 administering NESTO is not financial authorisation. An Architect sees a project
 budget summary and never a payee, an invoice or company cashflow.
 
@@ -587,7 +606,7 @@ deliberately. Neither ever happens as a side effect of the other.
 **Pay is never part of an employee DTO.** Compensation has its own service, its
 own route and its own permission, and `hr.compensation.view` sits on no rung of
 the access ladder — not even MANAGE. Owner and HR hold it explicitly; everybody
-else, Admin and the CEO included, does not. Without it the compensation tab does
+else, Group IT and the CEO included, does not. Without it the compensation tab does
 not render at all, because a locked placeholder still confirms that a salary is
 on file. Amounts never reach the activity trail either: it records that pay
 changed and who changed it, never what anybody earns.
@@ -981,7 +1000,7 @@ CRM webhook, and add rate limiting by IP at the same time.
 
 ## What is real in V0.1
 
-**Fully functional, against PostgreSQL, for all 18 roles:**
+**Fully functional, against PostgreSQL, for all 16 roles:**
 
 - The public site, authentication, sign-out, session persistence, deep-link
   return, session expiry, password reset

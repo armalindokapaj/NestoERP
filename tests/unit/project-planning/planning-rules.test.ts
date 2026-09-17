@@ -28,7 +28,7 @@ describe("planning permissions by role (§80-§95)", () => {
       expect(has(role, "project_planning.view"), role).toBe(true);
       expect(permissionsForRole(role).filter((permission) => permission.startsWith("project_planning.")), role).toEqual(["project_planning.view"]);
     }
-    for (const role of ["ADMIN", "COMPANY_IT", "HR"] as const) expect(permissionsForRole(role).filter((permission) => permission.startsWith("project_planning.")), role).toEqual([]);
+    for (const role of ["PLATFORM_ADMIN", "GROUP_IT", "HR"] as const) expect(permissionsForRole(role).filter((permission) => permission.startsWith("project_planning.")), role).toEqual([]);
   });
 
   it("keeps the company's planning authority with the Owner", () => {

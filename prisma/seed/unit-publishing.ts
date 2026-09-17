@@ -244,13 +244,13 @@ export async function seedUnitPublishingRecords(prisma: PrismaClient, memberId: 
   const ownerB = memberId("user_owner_b");
   const munich = STRUCTURE_SEED.units.munichOffice1;
   const munichProject = STRUCTURE_SEED.companyBProject;
-  const planB = await unitFile(prisma, { id: "doc_unit_of001_sales_plan", companyId: "company_demo_b", unitId: munich, name: "OF-001 Sales Plan.pdf", bytes: placeholderPdf("OF-001 Sales Plan"), memberId: ownerB, createdBy: "user_owner_b", uploaded: daysAgo(10) });
+  const planB = await unitFile(prisma, { id: "doc_unit_of001_sales_plan", companyId: "company_fixture_tenant", unitId: munich, name: "OF-001 Sales Plan.pdf", bytes: placeholderPdf("OF-001 Sales Plan"), memberId: ownerB, createdBy: "user_owner_b", uploaded: daysAgo(10) });
   await prisma.projectUnit.update({ where: { id: munich }, data: { salesPlanDocumentId: planB } });
-  const imageB = await unitFile(prisma, { id: "doc_unit_of001_plan_image", companyId: "company_demo_b", unitId: munich, name: "OF-001 layout.jpg", bytes: await jpeg(floorPlanSvg("OF-001 — layout", "#6b5b95")), memberId: ownerB, createdBy: "user_owner_b", uploaded: daysAgo(10) });
-  await prisma.unitMedia.create({ data: { companyId: "company_demo_b", projectId: munichProject, unitId: munich, documentId: imageB, category: "FLOOR_PLAN_IMAGE", isPrimary: true, sortOrder: 1, createdByMemberId: ownerB } });
-  const specB = await unitFile(prisma, { id: "doc_unit_of001_spec", companyId: "company_demo_b", unitId: munich, name: "OF-001 fit-out specification.pdf", bytes: placeholderPdf("OF-001 fit-out specification"), memberId: ownerB, createdBy: "user_owner_b", uploaded: daysAgo(9) });
-  await prisma.unitDocumentLink.create({ data: { companyId: "company_demo_b", projectId: munichProject, unitId: munich, documentId: specB, category: "SPECIFICATION", createdByMemberId: ownerB } });
-  await publish(prisma, munich, 1, ownerB, daysAgo(8), "company_demo_b");
+  const imageB = await unitFile(prisma, { id: "doc_unit_of001_plan_image", companyId: "company_fixture_tenant", unitId: munich, name: "OF-001 layout.jpg", bytes: await jpeg(floorPlanSvg("OF-001 — layout", "#6b5b95")), memberId: ownerB, createdBy: "user_owner_b", uploaded: daysAgo(10) });
+  await prisma.unitMedia.create({ data: { companyId: "company_fixture_tenant", projectId: munichProject, unitId: munich, documentId: imageB, category: "FLOOR_PLAN_IMAGE", isPrimary: true, sortOrder: 1, createdByMemberId: ownerB } });
+  const specB = await unitFile(prisma, { id: "doc_unit_of001_spec", companyId: "company_fixture_tenant", unitId: munich, name: "OF-001 fit-out specification.pdf", bytes: placeholderPdf("OF-001 fit-out specification"), memberId: ownerB, createdBy: "user_owner_b", uploaded: daysAgo(9) });
+  await prisma.unitDocumentLink.create({ data: { companyId: "company_fixture_tenant", projectId: munichProject, unitId: munich, documentId: specB, category: "SPECIFICATION", createdByMemberId: ownerB } });
+  await publish(prisma, munich, 1, ownerB, daysAgo(8), "company_fixture_tenant");
 
   return { published: 2 + floorA2.length, waiting: 2, revision: 1, files: await prisma.document.count({ where: { entityType: "project_unit" } }) };
 }

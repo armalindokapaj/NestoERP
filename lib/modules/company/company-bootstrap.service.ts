@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { groupDepartmentRows } from "@/config/group-departments";
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import { defaultProjectTypeRows } from "@/config/project-types";
 import { defaultUnitTypeRows } from "@/config/unit-types";
@@ -21,7 +22,8 @@ import {
 /**
  * Production company provisioning (PRD #38 §19).
  *
- * Creates everything a company needs to function — the company, its settings,
+ * Creates everything a company needs to function — its parent group when it
+ * has none yet, the company, its settings,
  * its module switches, numbering, integration settings, storage quota, project
  * types — and an Owner invitation, without any of the demo seed. Nobody sets the Owner's
  * password here: the Owner receives an invitation and chooses it themselves,
@@ -41,6 +43,19 @@ export const bootstrapCompanySchema = z.object({
     .regex(/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/, "slug must be lowercase letters, digits and hyphens"),
   legalName: z.string().trim().max(200).optional(),
   country: z.string().trim().max(80).optional(),
+  /**
+   * The parent group the company belongs to (E-06 §8). An existing group is
+   * joined; a new one is created with the group departments. Without it the
+   * company gets a group of its own under its own slug, which is what every
+   * company that predates groups was given.
+   */
+  parentGroupSlug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/, "parent group slug must be lowercase letters, digits and hyphens")
+    .optional(),
+  parentGroupName: z.string().trim().min(2).max(120).optional(),
   ownerEmail: z.string().trim().email(),
   disabledModules: z.array(z.enum(MODULE_KEYS)).default([]),
   timezone: z.string().trim().max(64).optional(),
@@ -52,6 +67,7 @@ export type BootstrapCompanyInput = z.input<typeof bootstrapCompanySchema>;
 
 export type BootstrapCompanyResult = {
   companyId: string;
+  parentGroupId: string;
   slug: string;
   companyCreated: boolean;
   modulesEnabled: ModuleKey[];
@@ -97,11 +113,39 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
   const now = new Date();
 
   const provisioned = await prisma.$transaction(async (tx) => {
-    const existing = await tx.company.findUnique({ where: { slug: input.slug }, select: { id: true } });
+    const existing = await tx.company.findUnique({
+      where: { slug: input.slug },
+      select: { id: true, parentGroupId: true },
+    });
+
+    // A company never changes group on a rerun: moving one between groups
+    // opens group-level access, and that is decided by a person, not a script.
+    const groupSlug = input.parentGroupSlug ?? input.slug;
+    const parentGroupId =
+      existing?.parentGroupId ??
+      (await tx.parentGroup.findUnique({ where: { slug: groupSlug }, select: { id: true } }))?.id ??
+      (
+        await tx.parentGroup.create({
+          data: {
+            slug: groupSlug,
+            name: input.parentGroupName ?? input.name,
+            legalName: input.parentGroupSlug ? null : (input.legalName ?? null),
+            country: input.country ?? null,
+            ...(input.timezone ? { timezone: input.timezone } : {}),
+            ...(input.baseCurrency ? { currency: input.baseCurrency } : {}),
+            status: "ACTIVE",
+            activatedAt: now,
+          },
+          select: { id: true },
+        })
+      ).id;
+    await tx.groupDepartment.createMany({ data: groupDepartmentRows(parentGroupId), skipDuplicates: true });
+
     const company =
       existing ??
       (await tx.company.create({
         data: {
+          parentGroupId,
           slug: input.slug,
           name: input.name,
           legalName: input.legalName ?? null,
@@ -179,14 +223,21 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
           select: { id: true },
         })
       : null;
-    if (activeOwner) return { companyId, created: !existing, owner: { state: "ALREADY_ACTIVE" as const } };
+    if (activeOwner) {
+      return { companyId, parentGroupId, created: !existing, owner: { state: "ALREADY_ACTIVE" as const } };
+    }
 
     const pending = await tx.companyInvite.findFirst({
       where: { companyId, email: ownerEmail, status: "PENDING", expiresAt: { gt: now } },
       select: { id: true },
     });
     if (pending) {
-      return { companyId, created: !existing, owner: { state: "INVITATION_PENDING" as const, inviteId: pending.id } };
+      return {
+        companyId,
+        parentGroupId,
+        created: !existing,
+        owner: { state: "INVITATION_PENDING" as const, inviteId: pending.id },
+      };
     }
 
     const token = generateInviteToken();
@@ -208,12 +259,18 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
       },
       select: { id: true },
     });
-    return { companyId, created: !existing, owner: { state: "ISSUE" as const, inviteId: invite.id, token } };
+    return {
+      companyId,
+      parentGroupId,
+      created: !existing,
+      owner: { state: "ISSUE" as const, inviteId: invite.id, token },
+    };
   });
 
   const enabledKeys = moduleRows.filter((row) => !disabled.has(row.key)).map((row) => row.key as ModuleKey);
   const base = {
     companyId: provisioned.companyId,
+    parentGroupId: provisioned.parentGroupId,
     slug: input.slug,
     companyCreated: provisioned.created,
     modulesEnabled: enabledKeys,

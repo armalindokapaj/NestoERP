@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { AccessError } from "@/lib/access/guards";
 import { createProjectSchema, updateProjectSchema } from "@/lib/modules/projects/project.schema";
 import * as projects from "@/lib/modules/projects/project.service";
-import { cleanupSessions, loginAs, prisma, projectTypeId } from "../../helpers";
+import { cleanupSessions, COMPANY, loginAs, prisma, projectTypeId } from "../../helpers";
 
 /**
  * API contract tests (PRD #6 §122, PRD #10 §158).
@@ -47,7 +47,7 @@ describe("privilege claims in a request body are inert", () => {
     const context = await loginAs("OWNER");
     const code = `PRJ-CONTRACT-B-${Date.now().toString().slice(-6)}`;
 
-    const input = createProjectSchema.parse({ code, name: "Contract Test in B", companyId: "company_demo_b", projectTypeId: await projectTypeId("company_demo_b") });
+    const input = createProjectSchema.parse({ code, name: "Contract Test in B", companyId: COMPANY.tenant, projectTypeId: await projectTypeId(COMPANY.tenant) });
 
     await expect(projects.createProject(context, input)).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await prisma.project.count({ where: { code } })).toBe(0);
@@ -79,7 +79,7 @@ describe("privilege claims in a request body are inert", () => {
           status: "ACTIVE",
           archivedAt: new Date().toISOString(),
           archivedBy: "user_viewer",
-          companyId: "company_demo_b",
+          companyId: COMPANY.tenant,
         }),
       );
 

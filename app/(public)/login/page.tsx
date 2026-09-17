@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
-import { DEMO_PASSWORD, demoAccountsInRoleOrder } from "@/config/demo-accounts";
+import { DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS } from "@/config/demo-accounts";
 import { roles } from "@/config/roles";
 import { isDevMode } from "@/lib/auth/dev-role";
 import { getTranslations } from "@/lib/i18n/server";
@@ -87,10 +87,10 @@ export default async function LoginPage({
 
             {isDevMode ? (
               <DemoAccounts
-                accounts={demoAccountsInRoleOrder.map((account) => ({
-                  role: account.role,
+                accounts={PRIMARY_DEMO_ACCOUNTS.map((account) => ({
                   code: roles[account.role].code,
                   label: roles[account.role].label,
+                  assignment: account.assignment,
                   username: account.username,
                 }))}
                 password={DEMO_PASSWORD}

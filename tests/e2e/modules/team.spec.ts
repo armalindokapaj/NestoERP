@@ -152,7 +152,7 @@ test.describe("Invitation links (PRD #14 §240)", () => {
     // The seed fixes this token so the flow can be walked without a mailbox.
     await page.goto("/invite/nesto-demo-pending-invite-token");
 
-    await expect(page.getByRole("heading", { name: /Join NESTO Demo Construction/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Join Fixture Works/ })).toBeVisible();
     await expect(page.getByLabel("Email")).toHaveValue("new-engineer@nesto.test");
     await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
   });

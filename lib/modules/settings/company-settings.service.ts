@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { can } from "@/lib/access/can";
@@ -97,11 +97,15 @@ export type CompanySettingsView =
 export async function ensureCompanySettings(companyId: string) {
   const existing = await prisma.companySettings.findUnique({ where: { companyId } });
   if (existing) return existing;
-  return prisma.companySettings.upsert({
-    where: { companyId },
-    create: { companyId },
-    update: {},
-  });
+  try {
+    return await prisma.companySettings.create({ data: { companyId } });
+  } catch (error) {
+    // Two first reads at once: the other one created it.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return prisma.companySettings.findUniqueOrThrow({ where: { companyId } });
+    }
+    throw error;
+  }
 }
 
 export async function getCompanySettings(context: UserContext): Promise<CompanySettingsView> {

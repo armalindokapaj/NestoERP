@@ -16,6 +16,7 @@ import {
   buildInvoiceScopeWhere,
   buildPaymentScopeWhere,
 } from "@/lib/modules/finance/finance.scope";
+import { personName, PERSON_NAME_SELECT } from "@/lib/modules/hr/hr.person";
 import { buildEmployeeScopeWhere, buildLeaveScopeWhere, isSelf } from "@/lib/modules/hr/hr.scope";
 import {
   buildActionScopeWhere as buildHseActionScopeWhere,
@@ -385,15 +386,15 @@ const DEFINITIONS: RecordDefinition[] = [
           companyMemberId: true,
           companyId: true,
           managerMemberId: true,
-          companyMember: { select: { user: { select: { firstName: true, lastName: true } } } },
+          personProfile: PERSON_NAME_SELECT,
         },
       });
-      return row && {
+      return row?.companyMemberId ? {
         type: "employee", id: row.companyMemberId, companyId: row.companyId,
-        label: `${row.companyMember.user.firstName} ${row.companyMember.user.lastName}`,
+        label: personName(row.personProfile),
         href: `/hr/employees/${row.companyMemberId}`, projectId: null, archived: false,
         stakeholderMemberIds: [],
-      };
+      } : null;
     },
     async reachable(context, ids) {
       if (ids.length === 0) return [];
@@ -401,7 +402,7 @@ const DEFINITIONS: RecordDefinition[] = [
         where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: { in: ids }, companyId: context.companyId }] },
         select: { companyMemberId: true },
       });
-      return rows.map((row) => row.companyMemberId);
+      return rows.flatMap((row) => (row.companyMemberId ? [row.companyMemberId] : []));
     },
     documents: {
       view: ["hr.document.view"],

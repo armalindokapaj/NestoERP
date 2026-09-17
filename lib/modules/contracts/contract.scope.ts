@@ -26,7 +26,7 @@ export type ContractScopeKind = "SELF" | "DEPARTMENT" | "PROJECT" | "COMPANY";
 
 export function contractScopeKind(context: UserContext): ContractScopeKind {
   const scope = getModuleScope(context, "contracts");
-  if (scope === "COMPANY" || scope === "SYSTEM") return "COMPANY";
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM") return "COMPANY";
   if (scope === "DEPARTMENT") return "DEPARTMENT";
   if (scope === "PROJECT") return "PROJECT";
   return "SELF";

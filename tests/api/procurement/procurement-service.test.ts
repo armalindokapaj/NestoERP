@@ -17,7 +17,7 @@ import {
   rfqListQuerySchema,
   supplierListQuerySchema,
 } from "@/lib/modules/procurement/procurement.schema";
-import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
 
 /**
  * Procurement authorisation and lifecycle tests (PRD #19 §308–§340).
@@ -32,7 +32,7 @@ import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
  *   3. a supplier's price is confidential to the buying side,
  *   4. one selected quote per enquiry,
  *   5. receiving is derived from quantity, never clicked,
- *   6. Company B is unreachable by every route in and out.
+ *   6. another company is unreachable by every route in and out.
  */
 const requestQuery = requestListQuerySchema.parse({ limit: 100 });
 const orderQuery = orderListQuerySchema.parse({ limit: 100 });
@@ -241,12 +241,12 @@ describe("procurement access (PRD #19 §17, §322–§326)", () => {
     expect(result.data.length).toBeGreaterThanOrEqual(19);
   });
 
-  it("refuses Admin and Company IT by default (PRD #19 §332, §333)", async () => {
-    for (const role of ["ADMIN", "COMPANY_IT"] as const) {
-      const context = await loginAs(role);
-      expect(can(context, "procurement.request.view")).toBe(false);
-      await expect(requests.listRequests(context, requestQuery)).rejects.toBeInstanceOf(AccessError);
-    }
+  it("refuses Group IT by default (PRD #19 §332, §333)", async () => {
+    const context = await loginAs("GROUP_IT");
+    expect(can(context, "procurement.request.view")).toBe(false);
+    await expect(requests.listRequests(context, requestQuery)).rejects.toBeInstanceOf(AccessError);
+    // The Platform Admin has no company membership to reach it from at all.
+    await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow();
   });
 
   it("narrows a Project Manager to their own jobs and asks (PRD #19 §218)", async () => {
@@ -397,7 +397,7 @@ describe("purchase requests (PRD #19 §309–§311)", () => {
   it("refuses a project the caller cannot open (PRD #19 §53)", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
     const unreachable = await prisma.project.findFirst({
-      where: { companyId: "company_demo_b" },
+      where: { companyId: COMPANY.tenant },
       select: { id: true },
     });
     if (!unreachable) return;
@@ -999,14 +999,21 @@ describe("company isolation (PRD #19 §307, §334)", () => {
     for (const row of enquiries.data) expect(row.id.startsWith("rfq_b")).toBe(false);
   });
 
-  it("does not let Company B reach Company A either", async () => {
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
-    if (!can(ownerB, "procurement.request.view")) return;
+  it("does not let another company reach Company A either", async () => {
+    // The fixture tenant has Procurement switched off: refused before any lookup.
+    const tenantOwner = await loginAsEmail(DEMO_EMAIL.tenantOwner);
+    await expect(requests.getRequest(tenantOwner, SEED.orderedRequest)).rejects.toMatchObject({
+      code: "MODULE_UNAVAILABLE",
+    });
 
-    const rows = await requests.listRequests(ownerB, requestQuery);
-    expect(rows.data.every((row) => row.id.startsWith("request_b_"))).toBe(true);
+    // A sibling in the same group has it on, and still reaches none of A's.
+    const sibling = await loginAsEmail(DEMO_EMAIL.ceoB);
+    expect(can(sibling, "procurement.request.view")).toBe(true);
 
-    await expect(requests.getRequest(ownerB, SEED.orderedRequest)).rejects.toMatchObject({
+    const rows = await requests.listRequests(sibling, requestQuery);
+    expect(rows.data.some((row) => row.id === SEED.orderedRequest)).toBe(false);
+
+    await expect(requests.getRequest(sibling, SEED.orderedRequest)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   });

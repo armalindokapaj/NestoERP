@@ -1,9 +1,13 @@
 import { randomBytes } from "node:crypto";
+import type { ParentGroupStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/database/prisma";
 import { SESSION_TTL_MS } from "./constants";
 
 export { SESSION_TTL_MS };
+
+/** A group being implemented is usable; a suspended or archived one is not (E-06 §21). */
+export const USABLE_GROUP_STATUSES: ParentGroupStatus[] = ["ACTIVE", "IMPLEMENTING", "READY_FOR_VALIDATION"];
 
 /**
  * Server-side session records (PRD #6 §26, §51).
@@ -14,8 +18,9 @@ export { SESSION_TTL_MS };
  */
 export async function createSession(input: {
   userId: string;
-  membershipId: string;
-  companyId: string;
+  /** Both null for a Platform Admin, who signs in to no company (E-06 §19). */
+  membershipId: string | null;
+  companyId: string | null;
   userAgent?: string | null;
   ipAddress?: string | null;
 }): Promise<{ id: string; expiresAt: Date }> {
@@ -23,8 +28,8 @@ export async function createSession(input: {
     data: {
       sessionToken: randomBytes(32).toString("hex"),
       userId: input.userId,
-      membershipId: input.membershipId,
-      currentCompanyId: input.companyId,
+      ...(input.membershipId ? { membershipId: input.membershipId } : {}),
+      ...(input.companyId ? { currentCompanyId: input.companyId } : {}),
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
       userAgent: input.userAgent ?? null,
       ipAddress: input.ipAddress ?? null,
@@ -59,7 +64,7 @@ export async function moveSessionToMembership(input: {
       id: input.membershipId,
       userId: input.userId,
       status: "ACTIVE",
-      company: { status: "ACTIVE" },
+      company: { status: "ACTIVE", parentGroup: { status: { in: USABLE_GROUP_STATUSES } } },
       user: { status: "ACTIVE" },
     },
     select: { id: true, companyId: true },

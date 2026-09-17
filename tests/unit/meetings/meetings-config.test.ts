@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { permissionsForRole } from "@/config/role-defaults";
-import { ROLE_KEYS } from "@/config/roles";
+import { MEMBERSHIP_ROLE_KEYS, ROLE_KEYS } from "@/config/roles";
 import { planOccurrences } from "@/lib/modules/meetings/meeting.service";
 import { isSafeMeetingUrl } from "@/lib/modules/meetings/meeting.schema";
 import { AGENDA_TEMPLATES, decisionLabel, defaultVisibilityFor } from "@/lib/modules/meetings/meeting.types";
@@ -11,17 +11,17 @@ import { instantFromLocal } from "@/lib/modules/calendar/calendar.time";
  * Meetings configuration (PRD #40 §38, §88, §139-§154, §205, §224-§226, §238).
  */
 describe("meeting permissions by role (§139-§154)", () => {
-  it("lets every role but the Viewer create meetings, and every role read them", () => {
-    for (const role of ROLE_KEYS) {
+  it("lets every company role but the Viewer create meetings, and every one read them", () => {
+    for (const role of MEMBERSHIP_ROLE_KEYS) {
       const held = new Set(permissionsForRole(role));
       expect(held.has("meeting.view"), role).toBe(true);
       expect(held.has("meeting.create"), role).toBe(role !== "VIEWER");
     }
   });
 
-  it("keeps reopening final minutes and managing any meeting to Owner, Admin and CEO", () => {
+  it("keeps reopening final minutes and managing any meeting to the Owner and the CEO", () => {
     const managers = ROLE_KEYS.filter((role) => permissionsForRole(role).includes("meeting.minutes.reopen"));
-    expect([...managers].sort()).toEqual(["ADMIN", "CEO", "OWNER"]);
+    expect([...managers].sort()).toEqual(["CEO", "OWNER"]);
     for (const role of ROLE_KEYS) {
       expect(permissionsForRole(role).includes("meeting.manage"), role).toBe(managers.includes(role));
     }

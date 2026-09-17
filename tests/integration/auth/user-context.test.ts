@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { revokeSession } from "@/lib/auth/session-store";
 import { ROLE_KEYS } from "@/config/roles";
-import { cleanupSessions, createRawSession, loginAs, prisma, resolveSession } from "../../helpers";
+import { cleanupSessions, createRawSession, loginAs, loginAsPlatformAdmin, prisma, resolveSession } from "../../helpers";
 
 /**
  * User-context and session integration tests (PRD #9 §139, §140).
@@ -18,13 +18,20 @@ afterAll(async () => {
 });
 
 describe("context resolution", () => {
-  it("resolves a context for all 16 demo accounts", async () => {
-    for (const role of ROLE_KEYS) {
+  it("resolves a context for every company role's demo account", async () => {
+    for (const role of ROLE_KEYS.filter((key) => key !== "PLATFORM_ADMIN")) {
       const context = await loginAs(role);
       expect(context.role, role).toBe(role);
-      expect(context.company.name).toBe("NESTO Demo Construction");
+      expect(context.company.name).toBe("Aurelia Construction");
       expect(context.permissions.length).toBeGreaterThan(0);
     }
+  });
+
+  it("resolves no company context for the Platform Admin (E-06 §116)", async () => {
+    const platform = await loginAsPlatformAdmin();
+    const result = await resolveSession(platform.sessionId, platform.userId);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("PLATFORM_SESSION");
   });
 
   it("maps the session to the right user, membership and company", async () => {
@@ -39,7 +46,7 @@ describe("context resolution", () => {
     expect(session!.userId).toBe(context.userId);
     expect(session!.membershipId).toBe(context.membershipId);
     expect(session!.currentCompanyId).toBe(context.companyId);
-    expect(session!.membership.companyId).toBe(context.companyId);
+    expect(session!.membership?.companyId).toBe(context.companyId);
   });
 
   it("refuses a session id that does not belong to the claimed user", async () => {
@@ -141,21 +148,22 @@ describe("account and membership state (PRD #9 §139)", () => {
   });
 });
 
-describe("multi-company membership (PRD #9 §30, §165)", () => {
-  it("holds a different role in each company", async () => {
+describe("multi-company membership (PRD #9 §30, §165, E-06 §55)", () => {
+  it("holds a membership in each company, on one account", async () => {
     const memberships = await prisma.companyMember.findMany({
       where: { user: { email: "multicompany@nesto.test" } },
       include: { company: true, role: true },
     });
 
     expect(memberships).toHaveLength(2);
+    expect(new Set(memberships.map((membership) => membership.userId)).size).toBe(1);
 
     const byCompany = Object.fromEntries(
       memberships.map((membership) => [membership.company.slug, membership.role.key]),
     );
 
-    expect(byCompany["nesto-demo-construction"]).toBe("ARCHITECT");
-    expect(byCompany["nesto-second-company"]).toBe("PROJECT_MANAGER");
+    expect(byCompany["aurelia-construction"]).toBe("ARCHITECT");
+    expect(byCompany["forma-engineering"]).toBe("ARCHITECT");
   });
 });
 

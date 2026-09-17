@@ -11,6 +11,9 @@ import { prisma } from "@/lib/database/prisma";
  * hint and nothing more: `assertRoleChangeAllowed` re-checks the same grant on
  * every write (PRD #14 §96, §148).
  *
+ * Platform Admin is never offered: it is not a role anybody holds in a
+ * company (E-06 §19).
+ *
  * Departments exclude archived ones for the same reason — a form should not
  * offer a relationship that validation rejects (PRD #14 §127).
  */
@@ -19,7 +22,7 @@ export async function teamFormOptions(context: UserContext) {
 
   const [roles, departments] = await Promise.all([
     prisma.role.findMany({
-      where: mayAssignOwner ? {} : { key: { not: "OWNER" } },
+      where: { key: { notIn: mayAssignOwner ? ["PLATFORM_ADMIN"] : ["PLATFORM_ADMIN", "OWNER"] } },
       select: { id: true, key: true, name: true },
     }),
     prisma.department.findMany({

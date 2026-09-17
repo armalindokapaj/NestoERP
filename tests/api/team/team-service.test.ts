@@ -7,7 +7,7 @@ import { hashInviteToken } from "@/lib/modules/team/invitations/invite.token";
 import { teamListQuerySchema, updateMemberSchema } from "@/lib/modules/team/team.schema";
 import * as team from "@/lib/modules/team/team.service";
 import { clearOutbox, readOutbox, setMailProvider } from "@/lib/mail";
-import { cleanupSessions, loginAs, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
 
 /**
  * Team authorisation and lifecycle tests (PRD #14 §256–§280).
@@ -95,8 +95,10 @@ describe("directory scope (PRD #14 §21–§26)", () => {
     );
 
     const emails = result.data.map((member) => member.email);
-    expect(emails).not.toContain("owner-b@nesto.test");
-    expect(emails).not.toContain("viewer-b@nesto.test");
+    expect(emails).not.toContain(DEMO_EMAIL.tenantOwner);
+    expect(emails).not.toContain(DEMO_EMAIL.tenantViewer);
+    // Nor a sibling company's own people, though the Owner is a member there too.
+    expect(emails).not.toContain(DEMO_EMAIL.pmB);
   });
 
   it("answers NOT_FOUND — never FORBIDDEN — for a member outside scope (PRD #14 §160)", async () => {
@@ -234,15 +236,15 @@ describe("membership updates (PRD #14 §85–§96)", () => {
   });
 
   it("refuses to create an Owner without team.owner.assign (PRD #14 §96)", async () => {
-    // Admin manages the team but is not an Owner, which is exactly the case
+    // Group IT manages the team but is not an Owner, which is exactly the case
     // the grant exists to separate.
-    const admin = await loginAs("ADMIN");
+    const it_ = await loginAs("GROUP_IT");
     const ownerRole = await prisma.role.findUnique({ where: { key: "OWNER" } });
-    const all = await team.listMembers(admin, teamListQuerySchema.parse({ limit: 100 }));
+    const all = await team.listMembers(it_, teamListQuerySchema.parse({ limit: 100 }));
     const target = all.data.find((member) => member.email === "viewer@nesto.test")!;
 
     await expectError(
-      team.updateMember(admin, target.id, updateMemberSchema.parse({ roleId: ownerRole!.id })),
+      team.updateMember(it_, target.id, updateMemberSchema.parse({ roleId: ownerRole!.id })),
       "FORBIDDEN",
     );
   });
@@ -255,26 +257,26 @@ describe("membership status (PRD #14 §97–§111, §163, §167)", () => {
   });
 
   it("protects the last active Owner (PRD #14 §93)", async () => {
-    const admin = await loginAs("ADMIN");
+    const it_ = await loginAs("GROUP_IT");
     const owner = await prisma.companyMember.findFirst({
-      where: { companyId: admin.companyId, status: "ACTIVE", role: { key: "OWNER" } },
+      where: { companyId: it_.companyId, status: "ACTIVE", role: { key: "OWNER" } },
       select: { id: true },
     });
 
     const owners = await prisma.companyMember.count({
-      where: { companyId: admin.companyId, status: "ACTIVE", role: { key: "OWNER" } },
+      where: { companyId: it_.companyId, status: "ACTIVE", role: { key: "OWNER" } },
     });
     expect(owners).toBe(1);
 
-    // Without the Owner grant an Admin may not change an Owner's access at
+    // Without the Owner grant Group IT may not change an Owner's access at
     // all, however many Owners there are (PRD #47 §57).
-    await expectError(team.deactivateMember(admin, owner!.id), "FORBIDDEN");
-    await expectError(team.suspendMember(admin, owner!.id), "FORBIDDEN");
+    await expectError(team.deactivateMember(it_, owner!.id), "FORBIDDEN");
+    await expectError(team.suspendMember(it_, owner!.id), "FORBIDDEN");
 
     // Even a holder of that grant cannot remove the last one. No seeded role
     // but the Owner holds it, and the Owner cannot change their own access, so
-    // the grant is added to a real Admin context for this one check.
-    const delegated = { ...admin, permissions: [...admin.permissions, "team.owner.assign" as const] };
+    // the grant is added to a real Group IT context for this one check.
+    const delegated = { ...it_, permissions: [...it_.permissions, "team.owner.assign" as const] };
     await expectError(team.deactivateMember(delegated, owner!.id), "CONFLICT");
     await expectError(team.suspendMember(delegated, owner!.id), "CONFLICT");
   });
@@ -309,7 +311,8 @@ describe("membership status (PRD #14 §97–§111, §163, §167)", () => {
   });
 
   it("refuses a transition the lifecycle does not allow", async () => {
-    const owner = await loginAs("OWNER");
+    // Awkward memberships live in Fixture Works (E-06 §45).
+    const owner = await loginAsEmail(DEMO_EMAIL.fixtureOwner);
     const target = await prisma.companyMember.findFirstOrThrow({
       where: { companyId: owner.companyId, user: { email: "suspended-membership@nesto.test" } },
       select: { id: true },
@@ -505,7 +508,7 @@ describe("invitations (PRD #14 §61–§80)", () => {
   });
 
   it("reports an expired invitation as EXPIRED even while the row says PENDING (PRD #14 §236)", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAsEmail(DEMO_EMAIL.fixtureOwner);
     const rows = await invitations.listInvitations(owner);
     const lapsed = rows.find((invite) => invite.email === "lapsed-invite@nesto.test");
 
@@ -719,7 +722,7 @@ describe("departments (PRD #14 §112–§129)", () => {
   it("answers NOT_FOUND for another company's department (PRD #14 §160)", async () => {
     const owner = await loginAs("OWNER");
     const foreign = await prisma.department.findFirstOrThrow({
-      where: { companyId: { not: owner.companyId } },
+      where: { companyId: COMPANY.tenant },
       select: { id: true },
     });
 

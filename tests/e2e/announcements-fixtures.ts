@@ -1,4 +1,5 @@
 import { ANNOUNCEMENT_SEED, seedAnnouncementRecords } from "../../prisma/seed/announcements";
+import { seedMembers } from "../../prisma/seed/members";
 import { db, removeRecordTrail } from "./db";
 
 /**
@@ -12,8 +13,8 @@ import { db, removeRecordTrail } from "./db";
 
 export { ANNOUNCEMENT_SEED };
 
-export async function memberIdFor(email: string): Promise<string> {
-  const member = await db.companyMember.findFirstOrThrow({ where: { companyId: "company_demo_a", user: { email } }, select: { id: true } });
+export async function memberIdFor(email: string, companyId = "company_demo_a"): Promise<string> {
+  const member = await db.companyMember.findFirstOrThrow({ where: { companyId, user: { email } }, select: { id: true } });
   return member.id;
 }
 
@@ -27,6 +28,5 @@ export async function resetAnnouncements(): Promise<void> {
   await db.documentUploadSession.deleteMany({ where: { documentId: { in: documents.map((row) => row.id) } } });
   await db.document.deleteMany({ where: { id: { in: documents.map((row) => row.id) } } });
   await db.announcement.deleteMany({ where: { id: { in: ids } } });
-  const rows = await db.companyMember.findMany({ select: { id: true, userId: true } });
-  await seedAnnouncementRecords(db, new Map(rows.map((row) => [row.userId, row.id])));
+  await seedAnnouncementRecords(db, seedMembers());
 }

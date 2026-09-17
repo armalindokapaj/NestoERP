@@ -23,9 +23,9 @@ const JOB = "planning.milestones";
 const EVENTS = ["MILESTONE_DUE_SOON", "MILESTONE_OVERDUE"];
 const RUN = `t51pm${Date.now().toString(36)}`;
 /** An active project in each company, with a manager. */
-const SITE: Record<string, string> = { [COMPANY_A]: "project_b", [COMPANY_B]: "project_b_one" };
+const SITE: Record<string, string> = { [COMPANY_A]: "project_a", [COMPANY_B]: "project_b_one" };
 const MANAGER: Record<string, string> = { [COMPANY_A]: "member_pm", [COMPANY_B]: "member_owner_b" };
-const OWNER: Record<string, string> = { [COMPANY_A]: "member_qaqc", [COMPANY_B]: "member_multicompany_b" };
+const OWNER: Record<string, string> = { [COMPANY_A]: "member_qaqc", [COMPANY_B]: "member_viewer_b" };
 
 type Dates = { baseline?: number; planned?: number; forecast?: number };
 
@@ -165,14 +165,14 @@ describe("planning.milestones", () => {
     it("counts only the reminders it sent, and claims none it had nobody to send to", async () => {
       await invokeJob(JOB, { companyIds: [COMPANY_A] });
       const nobody = milestoneData(COMPANY_A, { planned: -2 });
-      await prisma.projectMilestone.create({ data: { ...nobody, projectId: "project_c", ownerMemberId: null } });
-      await prisma.project.update({ where: { id: "project_c" }, data: { projectManagerMemberId: null } });
+      await prisma.projectMilestone.create({ data: { ...nobody, ownerMemberId: null } });
+      await prisma.project.update({ where: { id: SITE[COMPANY_A] }, data: { projectManagerMemberId: null } });
       try {
         const run = await invokeJob(JOB, { companyIds: [COMPANY_A] });
         expect(run.detail).toEqual({ dueSoon: 0, overdue: 0 });
         expect(await claimed(nobody.id)).toEqual([]);
       } finally {
-        await prisma.project.update({ where: { id: "project_c" }, data: { projectManagerMemberId: "member_owner" } });
+        await prisma.project.update({ where: { id: SITE[COMPANY_A] }, data: { projectManagerMemberId: MANAGER[COMPANY_A] } });
       }
       // With a manager again, the next run tells them.
       expect((await invokeJob(JOB, { companyIds: [COMPANY_A] })).detail).toEqual({ dueSoon: 0, overdue: 1 });

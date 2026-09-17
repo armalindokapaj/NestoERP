@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { db } from "../db";
+import { createSpareProject, removeSpareProject } from "../structure-fixtures";
 import { mainRegion, signIn } from "../fixtures";
 
 /**
@@ -11,12 +12,13 @@ import { mainRegion, signIn } from "../fixtures";
  * and searches, a draft unit cannot be offered, and an Architect sees a unit's
  * commercial status but not its sale.
  *
- * Built on a building of its own on Marina Apartments, removed again afterwards
+ * Built on a building of its own on a spare Aurelia project, removed again afterwards
  * with every client, deal and trail the run created.
  */
 
 const COMPANY = "company_demo_a";
-const MARINA = "project_c";
+/** A bare Aurelia project of the spec's own (see createSpareProject). */
+const PROJECT = "project_e2e_harbour_05e";
 const BUILDING = "bld_e05e_e2e";
 const FLOOR = "flr_e05e_e2e_1";
 const OFFER = "unit_e05e_e2e_101";
@@ -53,26 +55,28 @@ async function clear() {
 let soldRule: "RESERVATION" | "SIGNED_CONTRACT" | "DEPOSIT_RECEIVED" | "SIGNED_CONTRACT_AND_DEPOSIT" | "MANUAL_APPROVAL" = "SIGNED_CONTRACT";
 
 test.beforeAll(async () => {
+  await createSpareProject(PROJECT, "A-E2E-05E", "Harbour Residences 05E");
   // E-05E's own Sold check is the reservation; the company's stronger rules are E-05F's, tested with it.
   soldRule = (await db.companySettings.findUniqueOrThrow({ where: { companyId: COMPANY }, select: { unitSoldRule: true } })).unitSoldRule;
   await db.companySettings.update({ where: { companyId: COMPANY }, data: { unitSoldRule: "RESERVATION" } });
   await clear();
   const apartment = await db.projectUnitType.findFirstOrThrow({ where: { companyId: COMPANY, code: "APARTMENT" }, select: { id: true } });
-  await db.projectBuilding.create({ data: { id: BUILDING, companyId: COMPANY, projectId: MARINA, name: "E05E Quay", nameKey: "E05E QUAY", sortOrder: 98, createdBy: "seed" } });
-  await db.projectFloor.create({ data: { id: FLOOR, companyId: COMPANY, projectId: MARINA, buildingId: BUILDING, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "seed" } });
-  const unit = (id: string, code: string, sortOrder: number, publicationStatus: "PUBLISHED" | "DRAFT") => ({ id, companyId: COMPANY, projectId: MARINA, floorId: FLOOR, unitCode: code, unitCodeKey: code, unitTypeId: apartment.id, sortOrder, createdBy: "seed", saleableArea: "105.00", internalArea: "90.00", bedrooms: 2, bathrooms: 1, publicationStatus });
+  await db.projectBuilding.create({ data: { id: BUILDING, companyId: COMPANY, projectId: PROJECT, name: "E05E Quay", nameKey: "E05E QUAY", sortOrder: 98, createdBy: "seed" } });
+  await db.projectFloor.create({ data: { id: FLOOR, companyId: COMPANY, projectId: PROJECT, buildingId: BUILDING, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "seed" } });
+  const unit = (id: string, code: string, sortOrder: number, publicationStatus: "PUBLISHED" | "DRAFT") => ({ id, companyId: COMPANY, projectId: PROJECT, floorId: FLOOR, unitCode: code, unitCodeKey: code, unitTypeId: apartment.id, sortOrder, createdBy: "seed", saleableArea: "105.00", internalArea: "90.00", bedrooms: 2, bathrooms: 1, publicationStatus });
   await db.projectUnit.createMany({ data: [unit(OFFER, "Q-101", 1, "PUBLISHED"), unit(SECOND, "Q-102", 2, "PUBLISHED"), unit(DRAFT, "Q-103", 3, "DRAFT")] });
   // Q-102 is already on sale, priced, for the Sales Manager's reservation.
-  await db.unitCommercialProfile.create({ data: { companyId: COMPANY, projectId: MARINA, unitId: SECOND, status: "FOR_SALE", askingPrice: "160000.00", currency: "EUR", statusChangedAt: new Date() } });
+  await db.unitCommercialProfile.create({ data: { companyId: COMPANY, projectId: PROJECT, unitId: SECOND, status: "FOR_SALE", askingPrice: "160000.00", currency: "EUR", statusChangedAt: new Date() } });
 });
 
 test.afterAll(async () => {
   await db.companySettings.update({ where: { companyId: COMPANY }, data: { unitSoldRule: soldRule } });
   await clear();
+  await removeSpareProject(PROJECT);
   await db.$disconnect();
 });
 
-const salesUrl = (unitId: string) => `/projects/${MARINA}/units/${unitId}/sales`;
+const salesUrl = (unitId: string) => `/projects/${PROJECT}/units/${unitId}/sales`;
 const status = (page: Page) => page.getByTestId("unit-sales-summary").getByTestId("commercial-status");
 const actions = (page: Page) => page.getByTestId("unit-sales-actions");
 const inFuture = (days: number) => {
@@ -130,7 +134,7 @@ test("Sales prices a unit, puts it on sale, reserves it for a new client and dea
 });
 
 test("the Sales Manager reopens the sale, reserves a unit for an existing client and releases it", async ({ page }) => {
-  await signIn(page, "SALES_MANAGER", { to: salesUrl(OFFER) });
+  await signIn(page, "SALES_HEAD", { to: salesUrl(OFFER) });
   await expect(status(page)).toHaveText("Sold");
   await actions(page).getByRole("button", { name: "Reopen sale" }).click();
   const reopen = page.getByTestId("reopen-dialog");
@@ -161,7 +165,7 @@ test("the Sales Manager reopens the sale, reserves a unit for an existing client
 });
 
 test("the inventory filters by status and searches, and a draft unit cannot be offered", async ({ page }) => {
-  await signIn(page, "SALES", { to: `/projects/${MARINA}/sales` });
+  await signIn(page, "SALES", { to: `/projects/${PROJECT}/sales` });
   await page.getByRole("searchbox", { name: "Search units" }).fill("Q-10");
   const rows = page.getByTestId("sales-table").getByTestId("sales-row");
   await expect(rows).toHaveCount(3);
@@ -180,7 +184,7 @@ test("the inventory filters by status and searches, and a draft unit cannot be o
 });
 
 test("an Architect sees a unit's commercial status, but not its sale", async ({ page }) => {
-  await signIn(page, "ARCHITECT", { to: `/projects/${MARINA}/units/${OFFER}` });
+  await signIn(page, "ARCHITECT", { to: `/projects/${PROJECT}/units/${OFFER}` });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Q-101");
   await expect(page.getByTestId("commercial-status").first()).toHaveText("For Sale");
   await expect(page.getByRole("navigation", { name: "Q-101 sections" }).getByRole("link", { name: "Sales", exact: true })).toHaveCount(0);

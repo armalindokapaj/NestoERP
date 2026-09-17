@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { AccessError, type ApiErrorCode, errorStatus } from "@/lib/access/guards";
 import { recordAuthorizationDenial } from "@/lib/access/security-log";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
+import { resolvePlatformContext, type PlatformContext } from "@/lib/context/platform-context";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import type { UserContext } from "@/lib/context/types";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
@@ -83,6 +84,12 @@ async function handleRequest(
       recordAuthorizationDenial({ code: "UNAUTHENTICATED" });
       return apiError("UNAUTHENTICATED");
     }
+    // A Platform Admin is authenticated but is nobody inside any company: a
+    // business endpoint is simply not theirs (E-06 §116).
+    if (result.reason === "PLATFORM_SESSION") {
+      recordAuthorizationDenial({ code: "FORBIDDEN", reason: "PERMISSION_DENIED" });
+      return apiError("FORBIDDEN");
+    }
     // An inactive user, membership or company is authenticated but has no
     // workspace to act in. The code says which, since it is the caller's own
     // state and discloses nothing about anybody else (PRD #47 §22, §23, §225).
@@ -100,26 +107,59 @@ async function handleRequest(
   try {
     return await handler(result.context);
   } catch (error) {
-    if (error instanceof AccessError) {
-      recordAuthorizationDenial({ code: error.code, reason: error.reason });
-      // A stale edit, a record already decided, a transition that no longer
-      // applies: the rate of these says whether two people are routinely
-      // working on the same thing (PRD #48 §181).
-      if (error.code === "CONFLICT") {
-        incrementCounter(Metric.CONFLICT, { kind: (error.details as { code?: string } | undefined)?.code ?? "unspecified" });
-      }
-      return apiError(error.code, error.message, error.details);
-    }
-
-    if (error instanceof ZodError) {
-      return apiError("VALIDATION_ERROR", undefined, error.flatten().fieldErrors);
-    }
-
-    // The full error reaches the logs; the caller gets a code and a reference
-    // (PRD #32 §53, PRD #30 §150).
-    logger.error("api.unhandled_error", serialiseError(error));
-    return apiError("INTERNAL_ERROR");
+    return translateError(error);
   }
+}
+
+function translateError(error: unknown): Response {
+  if (error instanceof AccessError) {
+    recordAuthorizationDenial({ code: error.code, reason: error.reason });
+    // A stale edit, a record already decided, a transition that no longer
+    // applies: the rate of these says whether two people are routinely
+    // working on the same thing (PRD #48 §181).
+    if (error.code === "CONFLICT") {
+      incrementCounter(Metric.CONFLICT, { kind: (error.details as { code?: string } | undefined)?.code ?? "unspecified" });
+    }
+    return apiError(error.code, error.message, error.details);
+  }
+
+  if (error instanceof ZodError) {
+    return apiError("VALIDATION_ERROR", undefined, error.flatten().fieldErrors);
+  }
+
+  // The full error reaches the logs; the caller gets a code and a reference
+  // (PRD #32 §53, PRD #30 §150).
+  logger.error("api.unhandled_error", serialiseError(error));
+  return apiError("INTERNAL_ERROR");
+}
+
+/**
+ * The platform's own guard sequence (E-06 §116): a platform session and active
+ * platform access, or nothing. A company session — an Owner's included — is
+ * refused here exactly as a Platform Admin is refused by `withContext`.
+ */
+export async function withPlatformContext(
+  handler: (context: PlatformContext) => Promise<Response>,
+): Promise<Response> {
+  return runWithRequestContext(
+    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
+    async () => {
+      const result = await resolvePlatformContext();
+      if (!result.ok) {
+        if (result.reason === "UNAUTHENTICATED" || result.reason === "SESSION_EXPIRED") {
+          recordAuthorizationDenial({ code: "UNAUTHENTICATED" });
+          return apiError("UNAUTHENTICATED");
+        }
+        recordAuthorizationDenial({ code: "FORBIDDEN", reason: "PERMISSION_DENIED" });
+        return apiError("FORBIDDEN");
+      }
+      try {
+        return await handler(result.context);
+      } catch (error) {
+        return translateError(error);
+      }
+    },
+  );
 }
 
 /** Reads and parses a JSON body, refusing anything that is not an object. */

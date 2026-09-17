@@ -22,7 +22,9 @@ import {
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { getHrOverview } from "@/lib/modules/hr/overview/overview.service";
 import * as reports from "@/lib/modules/hr/reports/reports.service";
-import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { permissionsForRole } from "@/config/role-defaults";
+import { resolveContextForSession } from "@/lib/context/build-context";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsPlatformAdmin, prisma } from "../../helpers";
 
 /**
  * HR authorisation and lifecycle tests (PRD #16 §272–§295, §342).
@@ -169,10 +171,11 @@ async function expectError(promise: Promise<unknown>, code: string) {
   await promise.catch((error: AccessError) => expect(error.code).toBe(code));
 }
 
+/** The person's membership in the company their session starts in: the oldest (E-06 §51). */
 async function memberIdFor(email: string): Promise<string> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { email },
-    select: { memberships: { where: { status: { not: "INACTIVE" } }, take: 1, select: { id: true } } },
+    select: { memberships: { where: { status: { not: "INACTIVE" } }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true } } },
   });
   return user.memberships[0]!.id;
 }
@@ -321,10 +324,15 @@ describe("employee list scope (PRD #16 §273)", () => {
   });
 
   it("keeps companies apart (PRD #16 §272, §295)", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
     const engineerMember = await memberIdFor("engineer@nesto.test");
 
-    await expectError(employees.getEmployee(contextB, engineerMember), "NOT_FOUND");
+    const tenant = await loginAsEmail(DEMO_EMAIL.tenantOwner);
+    await expectError(employees.getEmployee(tenant, engineerMember), "NOT_FOUND");
+
+    // A sibling company in the same group is another company all the same.
+    const sibling = await loginAsEmail(DEMO_EMAIL.ceoB);
+    expect(can(sibling, "hr.employee.view")).toBe(true);
+    await expectError(employees.getEmployee(sibling, engineerMember), "NOT_FOUND");
   });
 });
 
@@ -347,7 +355,7 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
     expect(can(context, "hr.compensation.view")).toBe(true);
   });
 
-  it.each(["CEO", "ADMIN", "COMPANY_IT", "PROJECT_MANAGER"] as const)(
+  it.each(["CEO", "GROUP_IT", "PROJECT_MANAGER"] as const)(
     "denies %s, who never had the compensation grant",
     async (role) => {
       const context = await loginAs(role);
@@ -746,8 +754,8 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
   });
 
   it("cannot decide leave in another company (PRD #16 §277)", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
-    await expectError(leave.getLeave(contextB, "leave_008"), "NOT_FOUND");
+    const tenant = await loginAsEmail(DEMO_EMAIL.tenantOwner);
+    await expectError(leave.getLeave(tenant, "leave_008"), "NOT_FOUND");
   });
 
   it("never lets a client set the fields that decide authority (PRD #16 §183)", async () => {
@@ -948,11 +956,11 @@ describe("attendance (PRD #16 §281, §282)", () => {
   });
 
   it("refuses to record a day for somebody in another company (PRD #16 §161)", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
+    const tenant = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     const engineerMember = await memberIdFor("engineer@nesto.test");
 
     await expectError(
-      attendance.createAttendance(contextB, attendanceInput({
+      attendance.createAttendance(tenant, attendanceInput({
         companyMemberId: engineerMember,
         date: pastWorkingDay(7),
         status: "PRESENT",
@@ -1042,16 +1050,19 @@ describe("employment lifecycle (PRD #16 §285–§287)", () => {
   it("refuses a manager from another company (PRD #16 §159)", async () => {
     const hr = await loginAs("HR");
     const memberId = await memberIdFor("engineer@nesto.test");
-    const foreignManager = await memberIdFor("owner-b@nesto.test");
 
-    await expectError(
-      employees.updateEmployeeProfile(
-        hr,
-        memberId,
-        employmentUpdate({ employmentType: "FULL_TIME", managerMemberId: foreignManager }),
-      ),
-      "VALIDATION_ERROR",
-    );
+    // Another group's company, and a sibling company HR also works in.
+    for (const email of [DEMO_EMAIL.tenantOwner, DEMO_EMAIL.pmB]) {
+      const foreignManager = await memberIdFor(email);
+      await expectError(
+        employees.updateEmployeeProfile(
+          hr,
+          memberId,
+          employmentUpdate({ employmentType: "FULL_TIME", managerMemberId: foreignManager }),
+        ),
+        "VALIDATION_ERROR",
+      );
+    }
   });
 
   it("refuses an end date before the start date", async () => {
@@ -1088,16 +1099,18 @@ describe("employment lifecycle (PRD #16 §285–§287)", () => {
   });
 
   it("never reopens ended employment with a status change (PRD #16 §56)", async () => {
-    const hr = await loginAs("HR");
+    // Ended employment is a Fixture Works record (E-06 §45), decided there by its Owner.
+    const owner = await loginAsEmail(DEMO_EMAIL.fixtureOwner);
     const endedMember = await prisma.employeeProfile.findFirstOrThrow({
-      where: { companyId: "company_demo_a", employmentStatus: "ENDED" },
+      where: { companyId: COMPANY.works, employmentStatus: "ENDED", companyMemberId: { not: null } },
       select: { companyMemberId: true },
     });
 
+    expect(can(owner, "hr.employee.status.update")).toBe(true);
     await expectError(
       employees.changeEmploymentStatus(
-        hr,
-        endedMember.companyMemberId,
+        owner,
+        endedMember.companyMemberId!,
         statusInput({ status: "ACTIVE" }),
       ),
       "VALIDATION_ERROR",
@@ -1184,7 +1197,7 @@ describe("overview and reports (PRD #16 §291, §292)", () => {
   });
 
   it("drops the employee panels for a reader with no directory access (PRD #16 §19)", async () => {
-    const overview = await getHrOverview(await loginAs("COMPANY_IT"));
+    const overview = await getHrOverview(await loginAs("GROUP_IT"));
 
     expect(overview.visible.employees).toBe(false);
     expect(overview.visible.selfOnly).toBe(true);
@@ -1280,17 +1293,17 @@ describe("overview and reports (PRD #16 §291, §292)", () => {
 /* -------------------------------------------------------------------------- */
 
 describe("role rules (PRD #16 §18, §19)", () => {
-  it("gives Admin the directory but not the employment file (PRD #16 §18)", async () => {
-    const context = await loginAs("ADMIN");
+  it("keeps the Platform Admin out of every company's HR, directory included (PRD #16 §18, E-06 §19)", async () => {
+    expect(permissionsForRole("PLATFORM_ADMIN").filter((permission) => permission.startsWith("hr."))).toEqual([]);
 
-    expect(can(context, "hr.employee.view")).toBe(true);
-    expect(can(context, "hr.document.view")).toBe(false);
-    expect(can(context, "hr.compensation.view")).toBe(false);
-    expect(can(context, "hr.leave.reason.view")).toBe(false);
+    // No membership, so no company context for any HR service to be called with.
+    const platform = await loginAsPlatformAdmin();
+    const result = await resolveContextForSession(platform.sessionId, { expectedUserId: platform.userId });
+    expect(result).toMatchObject({ ok: false, reason: "PLATFORM_SESSION" });
   });
 
-  it("leaves Company IT with self-service and no HR business data (PRD #16 §19)", async () => {
-    const context = await loginAs("COMPANY_IT");
+  it("leaves Group IT with self-service and no HR business data (PRD #16 §19)", async () => {
+    const context = await loginAs("GROUP_IT");
 
     expect(can(context, "hr.employee.view")).toBe(false);
     expect(can(context, "hr.document.view")).toBe(false);

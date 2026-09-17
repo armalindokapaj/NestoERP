@@ -18,7 +18,12 @@ import { cleanupSessions, loginAs, prisma } from "../../helpers";
  * whatever the seed looks like.
  */
 
+/** Aurelia has one project and the Project Manager is on it; this second one, and its invoice, they are not on. */
+const ELSEWHERE = { project: "test47_search_elsewhere", invoice: "test47_search_invoice" } as const;
+
 afterAll(async () => {
+  await prisma.invoice.deleteMany({ where: { id: ELSEWHERE.invoice } });
+  await prisma.project.deleteMany({ where: { id: ELSEWHERE.project } });
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -44,6 +49,10 @@ describe("scoped providers (PRD #47 §175)", () => {
     const pm = await loginAs("PROJECT_MANAGER");
     // A project-scoped finance reader: the Project Manager's own scope, with the invoice grant added.
     const scoped: UserContext = { ...pm, permissions: [...pm.permissions, "finance.invoice.view"] };
+    await prisma.project.create({ data: { id: ELSEWHERE.project, companyId: pm.companyId, code: "T47-ELSE", name: "Search Elsewhere", status: "ACTIVE", projectManagerMemberId: owner.membershipId, createdBy: "test" } });
+    await prisma.invoice.create({
+      data: { id: ELSEWHERE.invoice, companyId: pm.companyId, invoiceNumber: "INV-T47-001", clientId: "client_acme", projectId: ELSEWHERE.project, issueDate: new Date(), dueDate: new Date(), currency: "EUR", subtotal: "100.00", taxAmount: "0.00", totalAmount: "100.00", status: "SENT", createdByMemberId: pm.membershipId },
+    });
     const [outside, inside] = await Promise.all([
       prisma.invoice.findFirst({ where: { companyId: pm.companyId, archivedAt: null, projectId: { not: null }, NOT: buildInvoiceScopeWhere(scoped) }, select: { id: true, invoiceNumber: true } }),
       prisma.invoice.findFirst({ where: { AND: [buildInvoiceScopeWhere(scoped), { archivedAt: null }] }, select: { id: true, invoiceNumber: true } }),

@@ -10,11 +10,23 @@ import type { PrismaClient } from "@prisma/client";
 
 import { normalizeName } from "../../lib/modules/clients/client.duplicate";
 import { defaultProjectTypeRows } from "../../config/project-types";
-import { COMPANY_A, COMPANY_B, COMPANY_SUSPENDED, PROJECT_IDS, daysFromNow } from "./constants";
+import {
+  COMPANY_SUSPENDED,
+  DEMO_COMPANIES,
+  DEMO_PROJECTS,
+  FIXTURE_PROJECTS,
+  FIXTURE_TENANT,
+  FIXTURE_WORKS,
+  PROJECT_IDS,
+  companyFor,
+  companyOfClient,
+  daysFromNow,
+  type SeedMembers,
+} from "./constants";
 import { seedStoredDocument } from "./document-objects";
 import { seedProjectCovers } from "./project-covers";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const CLIENTS = [
   { id: "client_acme", code: "CLI-001", name: "ACME Developments", type: "COMPANY", status: "ACTIVE", city: "Tiranë" },
@@ -52,55 +64,52 @@ const CONTACTS = [
   { clientId: "client_archive", firstName: "Piro", lastName: "Nika", jobTitle: "Former Contact", isPrimary: true },
 ] as const;
 
-/** PRD #9 §38–§45: the projects and the membership matrix that scope rests on. */
+/**
+ * PRD #9 §38–§45, E-06 §44, §50: one project per company, each with its own
+ * project manager, and the membership matrix that scope rests on — a team
+ * member of a project, and a colleague in the same company who is not.
+ */
 const PROJECTS = [
   {
-    id: PROJECT_IDS.a, code: "PRJ-001", name: "Riverside Residences",
+    ...DEMO_PROJECTS.a,
     client: "client_acme", status: "ACTIVE", priority: "HIGH", type: "Mixed use",
     manager: "user_pm", start: -120, end: 240,
     city: "Tiranë",
     description: "Mixed-use riverside development of 96 apartments across three blocks.",
-    team: ["user_pm", "user_architect", "user_engineer", "user_qaqc", "user_hse", "user_viewer"],
+    team: ["user_pm", "user_architect", "user_engineer", "user_qaqc", "user_hse", "user_viewer", "user_multicompany"],
   },
   {
-    id: PROJECT_IDS.b, code: "PRJ-002", name: "Central Office Tower",
+    ...DEMO_PROJECTS.b,
     client: "client_beta", status: "ACTIVE", priority: "MEDIUM", type: "Commercial",
-    manager: "user_pm", start: -60, end: 400,
+    manager: "user_pm_b", start: -60, end: 400,
     city: "Durrës",
     description: "Eighteen-storey commercial tower with two basement levels.",
-    team: ["user_pm", "user_qaqc", "user_hse"],
+    team: ["user_pm_b", "user_qaqc_b", "user_hse", "user_architecture_manager_b"],
   },
   {
-    id: PROJECT_IDS.c, code: "PRJ-003", name: "Marina Apartments",
+    ...DEMO_PROJECTS.c,
+    client: "client_atlas", status: "ACTIVE", priority: "CRITICAL", type: "Industrial",
+    manager: "user_pm_c", start: -200, end: -10,
+    city: "Tiranë",
+    description: "Distribution centre and vehicle yard on the eastern bypass, working through its permits.",
+    team: ["user_pm_c", "user_engineer_c", "user_qaqc", "user_hse_c", "user_finance_c"],
+  },
+  {
+    ...DEMO_PROJECTS.d,
     client: "client_meridian", status: "ACTIVE", priority: "HIGH", type: "Residential",
-    manager: "user_owner", start: -30, end: 300,
+    manager: "user_pm_d", start: -30, end: 300,
     city: "Vlorë",
     description: "Waterfront residential scheme with a public promenade.",
-    team: ["user_architect"],
+    team: ["user_pm_d", "user_architect_d", "user_multicompany", "user_qaqc_d"],
   },
   {
-    id: PROJECT_IDS.d, code: "PRJ-004", name: "Logistics Hub",
-    client: "client_atlas", status: "ACTIVE", priority: "CRITICAL", type: "Industrial",
-    manager: "user_owner", start: -200, end: -10,
-    city: "Tiranë",
-    description: "Distribution centre and vehicle yard, working through its permits.",
-    team: ["user_engineer", "user_qaqc", "user_hse"],
-  },
-  {
-    id: PROJECT_IDS.e, code: "PRJ-005", name: "Greenline Villas",
-    client: "client_greenline", status: "PENDING", priority: "LOW", type: "Residential",
-    manager: null, start: 30, end: 420,
-    city: "Elbasan",
-    description: "Twelve low-energy villas, currently at feasibility stage.",
-    team: [],
-  },
-  {
-    id: PROJECT_IDS.f, code: "PRJ-006", name: "Completed Retail Center",
-    client: "client_urban", status: "FINISHED", priority: "MEDIUM", type: "Commercial",
-    manager: "user_owner", start: -700, end: -90,
-    city: "Tiranë",
-    description: "Retail and leisure centre, handed over last quarter.",
-    team: [],
+    ...DEMO_PROJECTS.e,
+    // Urban Core's: the lead, the won deal, the proposal and the contracts all lead here.
+    client: "client_urban", status: "ACTIVE", priority: "MEDIUM", type: "Hotel",
+    manager: "user_pm_e", start: -45, end: 420,
+    city: "Sarandë",
+    description: "A 140-key seafront hotel with serviced residences and a retail arcade.",
+    team: ["user_pm_e", "user_sales_e", "user_hse_e", "user_legal_manager_e"],
   },
 ] as const;
 
@@ -115,9 +124,9 @@ async function seedProjectTypes(prisma: PrismaClient, companyId: string): Promis
 }
 
 export async function seedBusinessRecords(prisma: PrismaClient, members: Members) {
-  const owner = members.get("user_owner")!;
   const actor = "user_owner";
-  const typesA = await seedProjectTypes(prisma, COMPANY_A);
+  const types = new Map<string, Map<string, string>>();
+  for (const company of Object.values(DEMO_COMPANIES)) types.set(company.id, await seedProjectTypes(prisma, company.id));
   await seedProjectTypes(prisma, COMPANY_SUSPENDED);
 
   /* Clients and contacts ---------------------------------------------------- */
@@ -128,7 +137,7 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
       update: {},
       create: {
         id: client.id,
-        companyId: COMPANY_A,
+        companyId: companyOfClient(client.id),
         code: client.code,
         name: client.name,
         legalName: client.type === "INDIVIDUAL" ? null : `${client.name} sh.p.k.`,
@@ -161,7 +170,7 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
       update: {},
       create: {
         id: `contact_${contactIndex.toString().padStart(3, "0")}`,
-        companyId: COMPANY_A,
+        companyId: companyOfClient(contact.clientId),
         clientId: contact.clientId,
         firstName: contact.firstName,
         lastName: contact.lastName,
@@ -178,16 +187,18 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
   /* Projects and membership ------------------------------------------------- */
 
   for (const project of PROJECTS) {
-    const managerMemberId = project.manager ? members.get(project.manager)! : null;
+    const companyId = project.companyId;
+    const managerMemberId = members.in(companyId, project.manager);
+    const projectTypeId = types.get(companyId)!.get(project.type)!;
 
     await prisma.project.upsert({
       where: { id: project.id },
       // The type is discovery metadata added after these rows first existed
       // (E-05A §62), so a re-seed fills it in rather than leaving it empty.
-      update: { projectTypeId: typesA.get(project.type)! },
+      update: { projectTypeId },
       create: {
         id: project.id,
-        companyId: COMPANY_A,
+        companyId,
         code: project.code,
         name: project.name,
         description: project.description,
@@ -195,7 +206,7 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
         projectManagerMemberId: managerMemberId,
         status: project.status,
         priority: project.priority,
-        projectTypeId: typesA.get(project.type)!,
+        projectTypeId,
         startDate: daysFromNow(project.start),
         endDate: daysFromNow(project.end),
         city: project.city,
@@ -205,15 +216,15 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
     });
 
     const team = new Set<string>(project.team);
-    if (project.manager) team.add(project.manager);
+    team.add(project.manager);
 
     for (const userId of team) {
-      const memberId = members.get(userId)!;
+      const memberId = members.in(companyId, userId);
       await prisma.projectMember.upsert({
         where: { projectId_companyMemberId: { projectId: project.id, companyMemberId: memberId } },
         update: {},
         create: {
-          companyId: COMPANY_A,
+          companyId,
           projectId: project.id,
           companyMemberId: memberId,
           projectRole: projectRoleFor(userId),
@@ -225,56 +236,47 @@ export async function seedBusinessRecords(prisma: PrismaClient, members: Members
     }
   }
 
-  // Archived project fixture (PRD #9 §44).
-  await prisma.project.upsert({
-    where: { id: PROJECT_IDS.archived },
-    update: {},
-    create: {
-      id: PROJECT_IDS.archived,
-      companyId: COMPANY_A,
-      code: "PRJ-099",
-      name: "Archive Test Project",
-      description: "Kept archived so exclusion, the archived list and restore can be tested.",
-      clientId: "client_archive",
-      projectManagerMemberId: owner,
-      status: "ARCHIVED",
-      preArchiveStatus: "ACTIVE",
-      priority: "LOW",
-      startDate: daysFromNow(-500),
-      endDate: daysFromNow(-200),
-      city: "Fier",
-      country: "Albania",
-      createdBy: actor,
-      archivedAt: daysFromNow(-30),
-      archivedBy: actor,
-    },
-  });
-
   /* Tasks ------------------------------------------------------------------- */
   await seedTasks(prisma, members);
 
   /* Documents --------------------------------------------------------------- */
   await seedDocuments(prisma, members);
 
-  /* Company B --------------------------------------------------------------- */
-  await seedCompanyB(prisma, members);
+  /* Test fixtures ----------------------------------------------------------- */
+  await seedFixtureWorksProjects(prisma, members);
+  await seedFixtureTenant(prisma, members);
 
   /* Cover renders (E-05A §8) ------------------------------------------------ */
-  await seedProjectCovers(prisma, (userId) => members.get(userId)!);
+  await seedProjectCovers(prisma, members);
 }
 
 function projectRoleFor(userId: string): string {
+  if (/^user_pm(_[b-e])?$/.test(userId)) return "Project Manager";
   switch (userId) {
-    case "user_pm":
-      return "Project Manager";
     case "user_architect":
+    case "user_architect_d":
       return "Lead Architect";
+    case "user_multicompany":
+    case "user_architecture_manager_b":
+      return "Architect";
     case "user_engineer":
       return "Site Engineer";
+    case "user_engineer_c":
+      return "Civil Engineer";
     case "user_qaqc":
+    case "user_qaqc_b":
+    case "user_qaqc_d":
       return "QA Lead";
     case "user_hse":
+    case "user_hse_c":
+    case "user_hse_e":
       return "HSE Officer";
+    case "user_finance_c":
+      return "Project Accountant";
+    case "user_sales_e":
+      return "Sales Lead";
+    case "user_legal_manager_e":
+      return "Legal Counsel";
     case "user_viewer":
       return "Observer";
     default:
@@ -319,24 +321,24 @@ const TASKS: {
   { title: "Complete monthly safety walk", project: PROJECT_IDS.b, assignee: "user_hse", status: "COMPLETED", priority: "MEDIUM", due: -5 },
   { title: "Verify fire strategy sign-off", project: PROJECT_IDS.b, assignee: "user_pm", status: "COMPLETED", priority: "HIGH", due: -18 },
 
-  { title: "Finalise facade package", project: PROJECT_IDS.c, assignee: "user_architect", status: "IN_PROGRESS", priority: "HIGH", due: 3, start: -10 },
-  { title: "Prepare promenade planning submission", project: PROJECT_IDS.c, assignee: "user_architect", status: "TODO", priority: "CRITICAL", due: -1 },
-  { title: "Review marina access study", project: PROJECT_IDS.c, assignee: "user_architect", status: "COMPLETED", priority: "MEDIUM", due: -25 },
-  { title: "Confirm client fit-out allowance", project: PROJECT_IDS.c, assignee: "user_owner", status: "TODO", priority: "MEDIUM", due: 18 },
-  { title: "Issue concept report", project: PROJECT_IDS.c, assignee: "user_owner", status: "COMPLETED", priority: "LOW", due: -40 },
+  { title: "Finalise facade package", project: PROJECT_IDS.d, assignee: "user_architect", status: "IN_PROGRESS", priority: "HIGH", due: 3, start: -10 },
+  { title: "Prepare promenade planning submission", project: PROJECT_IDS.d, assignee: "user_architect", status: "TODO", priority: "CRITICAL", due: -1 },
+  { title: "Review marina access study", project: PROJECT_IDS.d, assignee: "user_architect", status: "COMPLETED", priority: "MEDIUM", due: -25 },
+  { title: "Confirm client fit-out allowance", project: PROJECT_IDS.d, assignee: "user_owner", status: "TODO", priority: "MEDIUM", due: 18 },
+  { title: "Issue concept report", project: PROJECT_IDS.d, assignee: "user_owner", status: "COMPLETED", priority: "LOW", due: -40 },
 
-  { title: "Technical issue response — yard drainage", project: PROJECT_IDS.d, assignee: "user_engineer", status: "BLOCKED", priority: "CRITICAL", due: -15, start: -30, description: "Standing water in the north yard after heavy rain. Awaiting a survey level check." },
-  { title: "Reassess structural loading", project: PROJECT_IDS.d, assignee: "user_engineer", status: "IN_PROGRESS", priority: "HIGH", due: 7 },
-  { title: "Update permit expiry register", project: PROJECT_IDS.d, assignee: "user_hse", status: "TODO", priority: "HIGH", due: 2 },
-  { title: "Inspect stored materials", project: PROJECT_IDS.d, assignee: "user_qaqc", status: "TODO", priority: "MEDIUM", due: 12 },
-  { title: "Document hold-point closure", project: PROJECT_IDS.d, assignee: "user_qaqc", status: "COMPLETED", priority: "MEDIUM", due: -30 },
-  { title: "Close out demobilisation checklist", project: PROJECT_IDS.d, assignee: "user_engineer", status: "ARCHIVED", priority: "LOW", due: -80 },
+  { title: "Technical issue response — yard drainage", project: PROJECT_IDS.c, assignee: "user_engineer", status: "BLOCKED", priority: "CRITICAL", due: -15, start: -30, description: "Standing water in the north yard after heavy rain. Awaiting a survey level check." },
+  { title: "Reassess structural loading", project: PROJECT_IDS.c, assignee: "user_engineer", status: "IN_PROGRESS", priority: "HIGH", due: 7 },
+  { title: "Update permit expiry register", project: PROJECT_IDS.c, assignee: "user_hse", status: "TODO", priority: "HIGH", due: 2 },
+  { title: "Inspect stored materials", project: PROJECT_IDS.c, assignee: "user_qaqc", status: "TODO", priority: "MEDIUM", due: 12 },
+  { title: "Document hold-point closure", project: PROJECT_IDS.c, assignee: "user_qaqc", status: "COMPLETED", priority: "MEDIUM", due: -30 },
+  { title: "Close out demobilisation checklist", project: PROJECT_IDS.c, assignee: "user_engineer", status: "ARCHIVED", priority: "LOW", due: -80 },
 
   { title: "Prepare feasibility cost plan", project: PROJECT_IDS.e, assignee: "user_finance", status: "TODO", priority: "MEDIUM", due: 21 },
   { title: "Draft villa typology study", project: PROJECT_IDS.e, assignee: "user_owner", status: "TODO", priority: "LOW", due: 28 },
 
-  { title: "Collect final retention certificate", project: PROJECT_IDS.f, assignee: "user_finance", status: "COMPLETED", priority: "MEDIUM", due: -60 },
-  { title: "Archive project close-out file", project: PROJECT_IDS.f, assignee: "user_owner", status: "COMPLETED", priority: "LOW", due: -55 },
+  { title: "Collect final retention certificate", project: PROJECT_IDS.e, assignee: "user_finance", status: "COMPLETED", priority: "MEDIUM", due: -60 },
+  { title: "Archive project close-out file", project: PROJECT_IDS.e, assignee: "user_owner", status: "COMPLETED", priority: "LOW", due: -55 },
 
   /* Personal task with no project — proves SELF/assignment behaviour (§57). */
   { title: "Complete annual security training", project: null, assignee: "user_architect", status: "TODO", priority: "MEDIUM", due: 10 },
@@ -350,18 +352,20 @@ async function seedTasks(prisma: PrismaClient, members: Members) {
   for (const task of TASKS) {
     index += 1;
     const id = `task_${index.toString().padStart(3, "0")}`;
-    const assigneeMemberId = task.assignee ? (members.get(task.assignee) ?? null) : null;
+    const companyId = companyFor(task);
+    const assigneeMemberId = task.assignee ? members.in(companyId, task.assignee) : null;
+    const creator = members.userIn(companyId, "user_pm");
 
     await prisma.task.upsert({
       where: { id },
       update: {},
       create: {
         id,
-        companyId: COMPANY_A,
+        companyId,
         projectId: task.project,
         title: task.title,
         assigneeMemberId,
-        createdByMemberId: members.get("user_pm")!,
+        createdByMemberId: members.in(companyId, "user_pm"),
         description: task.description ?? null,
         status: task.status,
         priority: task.priority,
@@ -371,9 +375,9 @@ async function seedTasks(prisma: PrismaClient, members: Members) {
         module: task.source?.module ?? null,
         entityType: task.source?.entityType ?? null,
         entityId: task.source?.entityId ?? null,
-        createdBy: "user_pm",
+        createdBy: creator,
         archivedAt: task.status === "ARCHIVED" ? daysFromNow(-45) : null,
-        archivedBy: task.status === "ARCHIVED" ? "user_pm" : null,
+        archivedBy: task.status === "ARCHIVED" ? creator : null,
         // An archived task remembers where it was, so Restore in the demo puts
         // it back rather than resetting it to To Do (PRD #11 §73).
         preArchiveStatus: task.status === "ARCHIVED" ? "COMPLETED" : null,
@@ -399,12 +403,12 @@ const DOCUMENTS: {
   { name: "Office Layout.pdf", project: PROJECT_IDS.b, module: "projects" },
   { name: "Project Schedule.pdf", project: PROJECT_IDS.b, module: "projects" },
   { name: "Curtain Wall Tender Pack.pdf", project: PROJECT_IDS.b, module: "procurement" },
-  { name: "Marina Concept.pdf", project: PROJECT_IDS.c, module: "projects" },
-  { name: "Facade Study.pdf", project: PROJECT_IDS.c, module: "projects" },
-  { name: "Logistics Hub Permit.pdf", project: PROJECT_IDS.d, module: "hse" },
-  { name: "Logistics Structural Review.pdf", project: PROJECT_IDS.d, module: "projects" },
-  { name: "Greenline Feasibility.pdf", project: PROJECT_IDS.e, module: "projects" },
-  { name: "Retail Centre Handover.pdf", project: PROJECT_IDS.f, module: "projects" },
+  { name: "Marina Concept.pdf", project: PROJECT_IDS.d, module: "projects" },
+  { name: "Facade Study.pdf", project: PROJECT_IDS.d, module: "projects" },
+  { name: "Logistics Hub Permit.pdf", project: PROJECT_IDS.c, module: "hse" },
+  { name: "Logistics Structural Review.pdf", project: PROJECT_IDS.c, module: "projects" },
+  { name: "Adriatic Hotel Feasibility.pdf", project: PROJECT_IDS.e, module: "projects" },
+  { name: "Retail Centre Handover.pdf", project: PROJECT_IDS.e, module: "projects" },
   { name: "ACME Master Agreement.pdf", client: "client_acme", module: "contracts" },
   { name: "Beta Properties Proposal.pdf", client: "client_beta", module: "sales" },
   { name: "Meridian Client Brief.pdf", client: "client_meridian", module: "clients" },
@@ -419,34 +423,38 @@ const DOCUMENTS: {
 ];
 
 async function seedDocuments(prisma: PrismaClient, members: Members) {
-  const uploader = members.get("user_pm") ?? null;
   let index = 0;
 
   for (const document of DOCUMENTS) {
     index += 1;
+    const companyId = companyFor(document);
+    const uploader = members.userIn(companyId, "user_pm");
     // Real bytes, a real key and a real AVAILABLE lifecycle, so the storage
     // path the product depends on is exercised by the demo data rather than
     // stubbed around it (PRD #13 §268, PRD #29 §233).
     await seedStoredDocument(prisma, {
       id: `document_${index.toString().padStart(3, "0")}`,
-      companyId: COMPANY_A,
+      companyId,
       name: document.name,
       projectId: document.project ?? null,
       clientId: document.client ?? null,
       module: document.module ?? null,
       entityType: document.project ? "project" : document.client ? "client" : null,
       entityId: document.project ?? document.client ?? null,
-      uploadedByMemberId: uploader,
-      createdBy: "user_pm",
+      uploadedByMemberId: members.in(companyId, "user_pm"),
+      createdBy: uploader,
       archived: document.archived === true,
       archivedAt: document.archived ? daysFromNow(-35) : null,
-      archivedBy: document.archived ? "user_pm" : null,
+      archivedBy: document.archived ? uploader : null,
     });
   }
 }
 
-/** Company B business data — clearly distinct, for isolation tests (§236). */
-async function seedCompanyB(prisma: PrismaClient, members: Members) {
+/**
+ * The fixture tenant's business data — clearly distinct, for isolation tests
+ * (PRD #9 §236, E-06 §45). Nobody in the demo group can reach any of it.
+ */
+async function seedFixtureTenant(prisma: PrismaClient, members: Members) {
   const ownerB = members.get("user_owner_b")!;
   const viewerB = members.get("user_viewer_b")!;
 
@@ -462,7 +470,7 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
       update: {},
       create: {
         id: client.id,
-        companyId: COMPANY_B,
+        companyId: FIXTURE_TENANT,
         code: client.code,
         name: client.name,
         type: "COMPANY",
@@ -479,7 +487,7 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
     { id: "project_b_two", code: "B-PRJ-002", name: "Isarvorstadt Studio Refit", client: "client_b_alp", type: "Commercial", city: "Munich" },
   ];
 
-  const typesB = await seedProjectTypes(prisma, COMPANY_B);
+  const typesB = await seedProjectTypes(prisma, FIXTURE_TENANT);
 
   for (const project of projects) {
     await prisma.project.upsert({
@@ -487,10 +495,10 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
       update: { projectTypeId: typesB.get(project.type)!, city: project.city },
       create: {
         id: project.id,
-        companyId: COMPANY_B,
+        companyId: FIXTURE_TENANT,
         code: project.code,
         name: project.name,
-        description: "Company B record. Must never appear in a Company A result.",
+        description: "Fixture tenant record. Must never appear in a demo group result.",
         clientId: project.client,
         projectManagerMemberId: ownerB,
         status: "ACTIVE",
@@ -511,7 +519,7 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
         },
         update: {},
         create: {
-          companyId: COMPANY_B,
+          companyId: FIXTURE_TENANT,
           projectId: project.id,
           companyMemberId: memberId,
           status: "ACTIVE",
@@ -519,21 +527,6 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
         },
       });
     }
-  }
-
-  // The multi-company person is on one project in each of their companies —
-  // an architect in A, a project manager in B — so the Projects page has a
-  // portfolio that crosses companies to show and to test (E-05A §28.1).
-  const crossCompany = [
-    { companyId: COMPANY_A, projectId: PROJECT_IDS.e, companyMemberId: "member_multicompany_a", projectRole: "Architect" },
-    { companyId: COMPANY_B, projectId: "project_b_two", companyMemberId: "member_multicompany_b", projectRole: "Project Manager" },
-  ];
-  for (const assignment of crossCompany) {
-    await prisma.projectMember.upsert({
-      where: { projectId_companyMemberId: { projectId: assignment.projectId, companyMemberId: assignment.companyMemberId } },
-      update: {},
-      create: { ...assignment, status: "ACTIVE", joinedAt: daysFromNow(-20) },
-    });
   }
 
   const tasks = [
@@ -554,7 +547,7 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
       update: {},
       create: {
         id,
-        companyId: COMPANY_B,
+        companyId: FIXTURE_TENANT,
         projectId: index % 2 === 0 ? "project_b_two" : "project_b_one",
         title,
         assigneeMemberId: ownerB,
@@ -571,18 +564,18 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
     { name: "Munich Fitout Drawings.pdf", project: "project_b_one" },
     { name: "Munich Programme.pdf", project: "project_b_one" },
     { name: "Isarvorstadt Survey.pdf", project: "project_b_two" },
-    { name: "Company B Handbook.pdf", project: null },
+    { name: "Fixture Tenant Handbook.pdf", project: null },
   ];
 
   index = 0;
   for (const document of documents) {
     index += 1;
-    // Company B's files are real objects too. An isolation test that proves
-    // Company A cannot reach a row with no bytes behind it proves less than it
+    // The tenant's files are real objects too. An isolation test that proves
+    // the demo cannot reach a row with no bytes behind it proves less than it
     // looks (PRD #9 §236, PRD #29 §361).
     await seedStoredDocument(prisma, {
       id: `document_b_${index.toString().padStart(2, "0")}`,
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       name: document.name,
       projectId: document.project,
       module: "projects",
@@ -590,6 +583,88 @@ async function seedCompanyB(prisma: PrismaClient, members: Members) {
       entityId: document.project,
       uploadedByMemberId: ownerB,
       createdBy: "user_owner_b",
+    });
+  }
+}
+
+/**
+ * Projects the demo no longer shows (E-06 §104): a finished one and an archived
+ * one, kept in Fixture Works for the status, exclusion and restore paths.
+ */
+async function seedFixtureWorksProjects(prisma: PrismaClient, members: Members) {
+  const owner = members.get("user_fixture_owner")!;
+  const actor = "user_fixture_owner";
+  const types = await seedProjectTypes(prisma, FIXTURE_WORKS);
+
+  const client = await prisma.client.upsert({
+    where: { id: "client_fixture_works" },
+    update: {},
+    create: {
+      id: "client_fixture_works",
+      companyId: FIXTURE_WORKS,
+      code: "FX-CLI-001",
+      name: "Fixture Client",
+      type: "COMPANY",
+      status: "ACTIVE",
+      country: "Albania",
+      normalizedName: normalizeName("Fixture Client"),
+      createdBy: actor,
+    },
+    select: { id: true },
+  });
+
+  await prisma.project.upsert({
+    where: { id: FIXTURE_PROJECTS.finished },
+    update: {},
+    create: {
+      id: FIXTURE_PROJECTS.finished,
+      companyId: FIXTURE_WORKS,
+      code: "FX-PRJ-006",
+      name: "Completed Retail Center",
+      description: "Retail and leisure centre, handed over last quarter.",
+      clientId: client.id,
+      projectManagerMemberId: owner,
+      status: "FINISHED",
+      priority: "MEDIUM",
+      projectTypeId: types.get("Commercial")!,
+      startDate: daysFromNow(-700),
+      endDate: daysFromNow(-90),
+      city: "Tiranë",
+      country: "Albania",
+      createdBy: actor,
+    },
+  });
+
+  // Archived project fixture (PRD #9 §44).
+  await prisma.project.upsert({
+    where: { id: FIXTURE_PROJECTS.archived },
+    update: {},
+    create: {
+      id: FIXTURE_PROJECTS.archived,
+      companyId: FIXTURE_WORKS,
+      code: "FX-PRJ-099",
+      name: "Archive Test Project",
+      description: "Kept archived so exclusion, the archived list and restore can be tested.",
+      clientId: client.id,
+      projectManagerMemberId: owner,
+      status: "ARCHIVED",
+      preArchiveStatus: "ACTIVE",
+      priority: "LOW",
+      startDate: daysFromNow(-500),
+      endDate: daysFromNow(-200),
+      city: "Fier",
+      country: "Albania",
+      createdBy: actor,
+      archivedAt: daysFromNow(-30),
+      archivedBy: actor,
+    },
+  });
+
+  for (const projectId of [FIXTURE_PROJECTS.finished, FIXTURE_PROJECTS.archived]) {
+    await prisma.projectMember.upsert({
+      where: { projectId_companyMemberId: { projectId, companyMemberId: owner } },
+      update: {},
+      create: { companyId: FIXTURE_WORKS, projectId, companyMemberId: owner, projectRole: "Project Manager", isPrimary: true, status: "ACTIVE", joinedAt: daysFromNow(-500) },
     });
   }
 }

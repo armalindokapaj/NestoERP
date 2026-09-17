@@ -34,10 +34,10 @@
  */
 import type { PrismaClient } from "@prisma/client";
 
-import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
+import { COMPANY_A, FIXTURE_TENANT, PROJECT_IDS, daysFromNow, type SeedMembers } from "./constants";
 import { seedStoredDocument } from "./document-objects";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 /** `likelihood × severity`, banded exactly as `hse.risk.ts` does it (§64). */
 function riskOf(likelihood: number, severity: number) {
@@ -354,38 +354,38 @@ type InspectionFixture = {
 const INSPECTIONS: InspectionFixture[] = [
   { id: "hse_ins_001", number: "HSE-INS-2026-0001", template: "hse_tpl_site", project: "a", status: "CLOSED", result: "PASS", inspector: "hse", daysAgo: 60, location: "Whole site" },
   { id: "hse_ins_002", number: "HSE-INS-2026-0002", template: "hse_tpl_height", project: "a", status: "CLOSED", result: "FAIL", inspector: "hse", daysAgo: 55, location: "Level 4 east", failed: [0, 3] },
-  { id: "hse_ins_003", number: "HSE-INS-2026-0003", template: "hse_tpl_ppe", project: "b", status: "CLOSED", result: "PASS", inspector: "hse", daysAgo: 50, location: "Main gate" },
+  { id: "hse_ins_003", number: "HSE-INS-2026-0003", template: "hse_tpl_ppe", project: "a", status: "CLOSED", result: "PASS", inspector: "hse", daysAgo: 50, location: "Main gate" },
   { id: "hse_ins_004", number: "HSE-INS-2026-0004", template: "hse_tpl_elec", project: "a", status: "APPROVED", result: "CONDITIONAL", inspector: "hse", daysAgo: 40, location: "Basement plant room", failed: [1] },
-  { id: "hse_ins_005", number: "HSE-INS-2026-0005", template: "hse_tpl_exc", project: "c", status: "APPROVED", result: "PASS", inspector: "engineer", daysAgo: 35, location: "Drainage run 3" },
+  { id: "hse_ins_005", number: "HSE-INS-2026-0005", template: "hse_tpl_exc", project: "a", status: "APPROVED", result: "PASS", inspector: "engineer", daysAgo: 35, location: "Drainage run 3" },
   /*
    * The record that makes the split visible the moment the list loads: it is
    * waiting for a signature *and* it failed (§37, §38).
    */
   { id: "hse_ins_006", number: "HSE-INS-2026-0006", template: "hse_tpl_fire", project: "a", status: "PENDING_APPROVAL", result: "FAIL", inspector: "hse", daysAgo: 6, location: "Level 2 core", failed: [0, 1] },
-  { id: "hse_ins_007", number: "HSE-INS-2026-0007", template: "hse_tpl_lift", project: "b", status: "PENDING_APPROVAL", result: "PASS", inspector: "hse", daysAgo: 4, location: "Crane base" },
+  { id: "hse_ins_007", number: "HSE-INS-2026-0007", template: "hse_tpl_lift", project: "a", status: "PENDING_APPROVAL", result: "PASS", inspector: "hse", daysAgo: 4, location: "Crane base" },
   { id: "hse_ins_008", number: "HSE-INS-2026-0008", template: "hse_tpl_house", project: "a", status: "PENDING_APPROVAL", result: "CONDITIONAL", inspector: "pm", daysAgo: 3, location: "Level 1", failed: [0] },
-  { id: "hse_ins_009", number: "HSE-INS-2026-0009", template: "hse_tpl_site", project: "d", status: "REJECTED", result: "PASS", inspector: "engineer", daysAgo: 12, location: "Compound" },
+  { id: "hse_ins_009", number: "HSE-INS-2026-0009", template: "hse_tpl_site", project: "a", status: "REJECTED", result: "PASS", inspector: "engineer", daysAgo: 12, location: "Compound" },
   { id: "hse_ins_010", number: "HSE-INS-2026-0010", template: "hse_tpl_height", project: "a", status: "IN_PROGRESS", result: "NOT_SET", inspector: "hse", daysAgo: 1, location: "Level 5 west" },
-  { id: "hse_ins_011", number: "HSE-INS-2026-0011", template: "hse_tpl_ppe", project: "b", status: "IN_PROGRESS", result: "NOT_SET", inspector: "pm", daysAgo: 0, location: "Level 3" },
-  { id: "hse_ins_012", number: "HSE-INS-2026-0012", template: "hse_tpl_env", project: "c", status: "SCHEDULED", result: "NOT_SET", inspector: "hse", daysAgo: -3, location: "Fuel compound" },
+  { id: "hse_ins_011", number: "HSE-INS-2026-0011", template: "hse_tpl_ppe", project: "a", status: "IN_PROGRESS", result: "NOT_SET", inspector: "pm", daysAgo: 0, location: "Level 3" },
+  { id: "hse_ins_012", number: "HSE-INS-2026-0012", template: "hse_tpl_env", project: "a", status: "SCHEDULED", result: "NOT_SET", inspector: "hse", daysAgo: -3, location: "Fuel compound" },
   { id: "hse_ins_013", number: "HSE-INS-2026-0013", template: "hse_tpl_fire", project: "a", status: "SCHEDULED", result: "NOT_SET", inspector: "hse", daysAgo: -5, location: "All levels" },
-  { id: "hse_ins_014", number: "HSE-INS-2026-0014", template: "hse_tpl_exc", project: "c", status: "SCHEDULED", result: "NOT_SET", inspector: "engineer", daysAgo: -7, location: "Foundation pit" },
+  { id: "hse_ins_014", number: "HSE-INS-2026-0014", template: "hse_tpl_exc", project: "a", status: "SCHEDULED", result: "NOT_SET", inspector: "engineer", daysAgo: -7, location: "Foundation pit" },
   { id: "hse_ins_015", number: "HSE-INS-2026-0015", template: "hse_tpl_general", project: null, status: "DRAFT", result: "NOT_SET", inspector: "hse", daysAgo: 0, location: "Head office" },
-  { id: "hse_ins_016", number: "HSE-INS-2026-0016", template: "hse_tpl_site", project: "b", status: "DRAFT", result: "NOT_SET", inspector: "hse", daysAgo: 0, location: "Site entrance" },
+  { id: "hse_ins_016", number: "HSE-INS-2026-0016", template: "hse_tpl_site", project: "a", status: "DRAFT", result: "NOT_SET", inspector: "hse", daysAgo: 0, location: "Site entrance" },
   { id: "hse_ins_017", number: "HSE-INS-2026-0017", template: "hse_tpl_lift", project: "a", status: "CANCELLED", result: "NOT_SET", inspector: "hse", daysAgo: 20, location: "Duplicate" },
-  { id: "hse_ins_018", number: "HSE-INS-2026-0018", template: "hse_tpl_house", project: "d", status: "CLOSED", result: "PASS", inspector: "pm", daysAgo: 45, location: "Level 1" },
-  { id: "hse_ins_019", number: "HSE-INS-2026-0019", template: "hse_tpl_elec", project: "b", status: "CLOSED", result: "CONDITIONAL", inspector: "hse", daysAgo: 42, location: "Riser 2", failed: [2] },
+  { id: "hse_ins_018", number: "HSE-INS-2026-0018", template: "hse_tpl_house", project: "a", status: "CLOSED", result: "PASS", inspector: "pm", daysAgo: 45, location: "Level 1" },
+  { id: "hse_ins_019", number: "HSE-INS-2026-0019", template: "hse_tpl_elec", project: "a", status: "CLOSED", result: "CONDITIONAL", inspector: "hse", daysAgo: 42, location: "Riser 2", failed: [2] },
   { id: "hse_ins_020", number: "HSE-INS-2026-0020", template: "hse_tpl_ppe", project: "a", status: "CLOSED", result: "FAIL", inspector: "hse", daysAgo: 38, location: "Level 2", failed: [0, 4] },
-  { id: "hse_ins_021", number: "HSE-INS-2026-0021", template: "hse_tpl_env", project: "c", status: "APPROVED", result: "PASS", inspector: "hse", daysAgo: 30, location: "Wash-out area" },
-  { id: "hse_ins_022", number: "HSE-INS-2026-0022", template: "hse_tpl_site", project: "e", status: "APPROVED", result: "PASS", inspector: "pm", daysAgo: 28, location: "Whole site" },
-  { id: "hse_ins_023", number: "HSE-INS-2026-0023", template: "hse_tpl_height", project: "b", status: "APPROVED", result: "CONDITIONAL", inspector: "hse", daysAgo: 25, location: "Scaffold bay 4", failed: [2] },
-  { id: "hse_ins_024", number: "HSE-INS-2026-0024", template: "hse_tpl_fire", project: "d", status: "CLOSED", result: "PASS", inspector: "hse", daysAgo: 22, location: "Level 1" },
-  { id: "hse_ins_025", number: "HSE-INS-2026-0025", template: "hse_tpl_exc", project: "c", status: "CLOSED", result: "FAIL", inspector: "engineer", daysAgo: 18, location: "Trench B", failed: [0, 2] },
+  { id: "hse_ins_021", number: "HSE-INS-2026-0021", template: "hse_tpl_env", project: "a", status: "APPROVED", result: "PASS", inspector: "hse", daysAgo: 30, location: "Wash-out area" },
+  { id: "hse_ins_022", number: "HSE-INS-2026-0022", template: "hse_tpl_site", project: "a", status: "APPROVED", result: "PASS", inspector: "pm", daysAgo: 28, location: "Whole site" },
+  { id: "hse_ins_023", number: "HSE-INS-2026-0023", template: "hse_tpl_height", project: "a", status: "APPROVED", result: "CONDITIONAL", inspector: "hse", daysAgo: 25, location: "Scaffold bay 4", failed: [2] },
+  { id: "hse_ins_024", number: "HSE-INS-2026-0024", template: "hse_tpl_fire", project: "a", status: "CLOSED", result: "PASS", inspector: "hse", daysAgo: 22, location: "Level 1" },
+  { id: "hse_ins_025", number: "HSE-INS-2026-0025", template: "hse_tpl_exc", project: "a", status: "CLOSED", result: "FAIL", inspector: "engineer", daysAgo: 18, location: "Trench B", failed: [0, 2] },
   { id: "hse_ins_026", number: "HSE-INS-2026-0026", template: "hse_tpl_lift", project: "a", status: "APPROVED", result: "PASS", inspector: "hse", daysAgo: 15, location: "Tower crane" },
-  { id: "hse_ins_027", number: "HSE-INS-2026-0027", template: "hse_tpl_house", project: "b", status: "CLOSED", result: "CONDITIONAL", inspector: "pm", daysAgo: 14, location: "Level 4", failed: [1] },
-  { id: "hse_ins_028", number: "HSE-INS-2026-0028", template: "hse_tpl_general", project: "f", status: "CLOSED", result: "PASS", inspector: "hse", daysAgo: 10, location: "Site office" },
+  { id: "hse_ins_027", number: "HSE-INS-2026-0027", template: "hse_tpl_house", project: "a", status: "CLOSED", result: "CONDITIONAL", inspector: "pm", daysAgo: 14, location: "Level 4", failed: [1] },
+  { id: "hse_ins_028", number: "HSE-INS-2026-0028", template: "hse_tpl_general", project: "a", status: "CLOSED", result: "PASS", inspector: "hse", daysAgo: 10, location: "Site office" },
   { id: "hse_ins_029", number: "HSE-INS-2026-0029", template: "hse_tpl_site", project: "a", status: "APPROVED", result: "PASS", inspector: "hse", daysAgo: 8, location: "Perimeter" },
-  { id: "hse_ins_030", number: "HSE-INS-2026-0030", template: "hse_tpl_elec", project: "c", status: "IN_PROGRESS", result: "NOT_SET", inspector: "engineer", daysAgo: 0, location: "Temporary supply" },
+  { id: "hse_ins_030", number: "HSE-INS-2026-0030", template: "hse_tpl_elec", project: "a", status: "IN_PROGRESS", result: "NOT_SET", inspector: "engineer", daysAgo: 0, location: "Temporary supply" },
 ];
 
 async function seedInspections(
@@ -501,34 +501,34 @@ const HAZARDS: HazardFixture[] = [
   { id: "hse_hz_003", number: "HZ-2026-0003", title: "Distribution board left unlocked", category: "ELECTRICAL", likelihood: 3, severity: 4, status: "CONTROLLED", project: "a", reporter: "hse", assignee: "engineer", daysAgo: 40, inspection: "hse_ins_004", location: "Basement plant room" },
   { id: "hse_hz_004", number: "HZ-2026-0004", title: "Fire escape route blocked by materials", category: "FIRE", likelihood: 4, severity: 5, status: "IN_PROGRESS", project: "a", reporter: "hse", assignee: "pm", daysAgo: 6, inspection: "hse_ins_006", location: "Level 2 core" },
   { id: "hse_hz_005", number: "HZ-2026-0005", title: "Extinguisher out of test date", category: "FIRE", likelihood: 3, severity: 3, status: "OPEN", project: "a", reporter: "hse", assignee: "hse", daysAgo: 6, inspection: "hse_ins_006", location: "Level 2" },
-  { id: "hse_hz_006", number: "HZ-2026-0006", title: "Excavation sides unsupported", category: "EXCAVATION", likelihood: 4, severity: 5, status: "CLOSED", project: "c", reporter: "engineer", assignee: "engineer", daysAgo: 18, inspection: "hse_ins_025", residual: [1, 5], location: "Trench B" },
-  { id: "hse_hz_007", number: "HZ-2026-0007", title: "Buried services not marked", category: "EXCAVATION", likelihood: 3, severity: 5, status: "PENDING_VERIFICATION", project: "c", reporter: "engineer", assignee: "hse", daysAgo: 17, inspection: "hse_ins_025", location: "Trench B" },
+  { id: "hse_hz_006", number: "HZ-2026-0006", title: "Excavation sides unsupported", category: "EXCAVATION", likelihood: 4, severity: 5, status: "CLOSED", project: "a", reporter: "engineer", assignee: "engineer", daysAgo: 18, inspection: "hse_ins_025", residual: [1, 5], location: "Trench B" },
+  { id: "hse_hz_007", number: "HZ-2026-0007", title: "Buried services not marked", category: "EXCAVATION", likelihood: 3, severity: 5, status: "PENDING_VERIFICATION", project: "a", reporter: "engineer", assignee: "hse", daysAgo: 17, inspection: "hse_ins_025", location: "Trench B" },
   { id: "hse_hz_008", number: "HZ-2026-0008", title: "Lifting accessory without a current certificate", category: "LIFTING", likelihood: 3, severity: 5, status: "CLOSED", project: "a", reporter: "hse", assignee: "pm", daysAgo: 30, residual: [1, 5], location: "Crane base" },
-  { id: "hse_hz_009", number: "HZ-2026-0009", title: "Trailing leads across a walkway", category: "HOUSEKEEPING", likelihood: 4, severity: 2, status: "CLOSED", project: "b", reporter: "pm", assignee: "pm", daysAgo: 14, inspection: "hse_ins_027", residual: [1, 2], location: "Level 4" },
+  { id: "hse_hz_009", number: "HZ-2026-0009", title: "Trailing leads across a walkway", category: "HOUSEKEEPING", likelihood: 4, severity: 2, status: "CLOSED", project: "a", reporter: "pm", assignee: "pm", daysAgo: 14, inspection: "hse_ins_027", residual: [1, 2], location: "Level 4" },
   { id: "hse_hz_010", number: "HZ-2026-0010", title: "Walkway obstructed by stacked plasterboard", category: "HOUSEKEEPING", likelihood: 3, severity: 2, status: "OPEN", project: "a", reporter: "pm", assignee: "pm", daysAgo: 3, inspection: "hse_ins_008", location: "Level 1" },
   { id: "hse_hz_011", number: "HZ-2026-0011", title: "Operatives without helmets near the gate", category: "PPE", likelihood: 4, severity: 4, status: "CLOSED", project: "a", reporter: "hse", assignee: "hse", daysAgo: 38, inspection: "hse_ins_020", residual: [2, 4], location: "Level 2" },
   { id: "hse_hz_012", number: "HZ-2026-0012", title: "Harness inspection tags missing", category: "PPE", likelihood: 3, severity: 5, status: "IN_PROGRESS", project: "a", reporter: "hse", assignee: "hse", daysAgo: 38, inspection: "hse_ins_020", location: "Level 2" },
-  { id: "hse_hz_013", number: "HZ-2026-0013", title: "Unbunded fuel drum in the compound", category: "ENVIRONMENTAL", likelihood: 3, severity: 3, status: "CONTROLLED", project: "c", reporter: "hse", assignee: "engineer", daysAgo: 25, location: "Fuel compound" },
-  { id: "hse_hz_014", number: "HZ-2026-0014", title: "Dust from cutting with no suppression", category: "ENVIRONMENTAL", likelihood: 4, severity: 3, status: "OPEN", project: "b", reporter: "engineer", assignee: "pm", daysAgo: 5, location: "Level 3" },
+  { id: "hse_hz_013", number: "HZ-2026-0013", title: "Unbunded fuel drum in the compound", category: "ENVIRONMENTAL", likelihood: 3, severity: 3, status: "CONTROLLED", project: "a", reporter: "hse", assignee: "engineer", daysAgo: 25, location: "Fuel compound" },
+  { id: "hse_hz_014", number: "HZ-2026-0014", title: "Dust from cutting with no suppression", category: "ENVIRONMENTAL", likelihood: 4, severity: 3, status: "OPEN", project: "a", reporter: "engineer", assignee: "pm", daysAgo: 5, location: "Level 3" },
   { id: "hse_hz_015", number: "HZ-2026-0015", title: "Reversing vehicles with no banksman", category: "VEHICLE", likelihood: 3, severity: 5, status: "CONTROLLED", project: "a", reporter: "pm", assignee: "pm", daysAgo: 20, location: "Site entrance" },
-  { id: "hse_hz_016", number: "HZ-2026-0016", title: "Forklift operating close to pedestrians", category: "VEHICLE", likelihood: 3, severity: 4, status: "OPEN", project: "d", reporter: "pm", assignee: "pm", daysAgo: 9, location: "Material yard" },
-  { id: "hse_hz_017", number: "HZ-2026-0017", title: "Bench saw guard removed", category: "MACHINERY", likelihood: 4, severity: 4, status: "CLOSED", project: "b", reporter: "engineer", assignee: "engineer", daysAgo: 33, residual: [1, 4], location: "Joinery shop" },
+  { id: "hse_hz_016", number: "HZ-2026-0016", title: "Forklift operating close to pedestrians", category: "VEHICLE", likelihood: 3, severity: 4, status: "OPEN", project: "a", reporter: "pm", assignee: "pm", daysAgo: 9, location: "Material yard" },
+  { id: "hse_hz_017", number: "HZ-2026-0017", title: "Bench saw guard removed", category: "MACHINERY", likelihood: 4, severity: 4, status: "CLOSED", project: "a", reporter: "engineer", assignee: "engineer", daysAgo: 33, residual: [1, 4], location: "Joinery shop" },
   { id: "hse_hz_018", number: "HZ-2026-0018", title: "Compressor with a damaged hose", category: "MACHINERY", likelihood: 3, severity: 3, status: "PENDING_VERIFICATION", project: "a", reporter: "engineer", assignee: "engineer", daysAgo: 11, location: "Level 1" },
-  { id: "hse_hz_019", number: "HZ-2026-0019", title: "Unlabelled chemical containers", category: "CHEMICAL", likelihood: 3, severity: 4, status: "OPEN", project: "c", reporter: "hse", assignee: "hse", daysAgo: 7, location: "Store" },
+  { id: "hse_hz_019", number: "HZ-2026-0019", title: "Unlabelled chemical containers", category: "CHEMICAL", likelihood: 3, severity: 4, status: "OPEN", project: "a", reporter: "hse", assignee: "hse", daysAgo: 7, location: "Store" },
   { id: "hse_hz_020", number: "HZ-2026-0020", title: "Solvent stored beside hot work", category: "CHEMICAL", likelihood: 3, severity: 5, status: "CLOSED", project: "a", reporter: "hse", assignee: "hse", daysAgo: 27, residual: [1, 5], location: "Level 2" },
-  { id: "hse_hz_021", number: "HZ-2026-0021", title: "Manual handling of heavy kerbs", category: "ERGONOMIC", likelihood: 4, severity: 2, status: "CONTROLLED", project: "c", reporter: "engineer", assignee: "engineer", daysAgo: 21, location: "External works" },
-  { id: "hse_hz_022", number: "HZ-2026-0022", title: "Repeated overhead reaching at a workstation", category: "ERGONOMIC", likelihood: 3, severity: 2, status: "OPEN", project: "f", reporter: "pm", daysAgo: 13, location: "Site office" },
-  { id: "hse_hz_023", number: "HZ-2026-0023", title: "Scaffold tag out of date", category: "WORK_AT_HEIGHT", likelihood: 3, severity: 5, status: "REOPENED", project: "b", reporter: "hse", assignee: "pm", daysAgo: 25, inspection: "hse_ins_023", location: "Scaffold bay 4" },
-  { id: "hse_hz_024", number: "HZ-2026-0024", title: "Ladder not secured at the top", category: "WORK_AT_HEIGHT", likelihood: 4, severity: 4, status: "OPEN", project: "b", reporter: "pm", assignee: "pm", daysAgo: 4, location: "Level 2" },
-  { id: "hse_hz_025", number: "HZ-2026-0025", title: "Temporary supply without RCD protection", category: "ELECTRICAL", likelihood: 3, severity: 5, status: "IN_PROGRESS", project: "c", reporter: "engineer", assignee: "engineer", daysAgo: 1, location: "Temporary supply" },
-  { id: "hse_hz_026", number: "HZ-2026-0026", title: "Damaged extension lead in use", category: "ELECTRICAL", likelihood: 4, severity: 3, status: "CLOSED", project: "b", reporter: "hse", assignee: "hse", daysAgo: 42, inspection: "hse_ins_019", residual: [1, 3], location: "Riser 2" },
-  { id: "hse_hz_027", number: "HZ-2026-0027", title: "Skip overfull and obstructing a route", category: "HOUSEKEEPING", likelihood: 2, severity: 2, status: "CLOSED", project: "d", reporter: "pm", assignee: "pm", daysAgo: 46, residual: [1, 2], location: "Compound" },
-  { id: "hse_hz_028", number: "HZ-2026-0028", title: "Oil sheen near the wash-out area", category: "ENVIRONMENTAL", likelihood: 2, severity: 3, status: "CONTROLLED", project: "c", reporter: "hse", assignee: "hse", daysAgo: 30, location: "Wash-out area" },
+  { id: "hse_hz_021", number: "HZ-2026-0021", title: "Manual handling of heavy kerbs", category: "ERGONOMIC", likelihood: 4, severity: 2, status: "CONTROLLED", project: "a", reporter: "engineer", assignee: "engineer", daysAgo: 21, location: "External works" },
+  { id: "hse_hz_022", number: "HZ-2026-0022", title: "Repeated overhead reaching at a workstation", category: "ERGONOMIC", likelihood: 3, severity: 2, status: "OPEN", project: "a", reporter: "pm", daysAgo: 13, location: "Site office" },
+  { id: "hse_hz_023", number: "HZ-2026-0023", title: "Scaffold tag out of date", category: "WORK_AT_HEIGHT", likelihood: 3, severity: 5, status: "REOPENED", project: "a", reporter: "hse", assignee: "pm", daysAgo: 25, inspection: "hse_ins_023", location: "Scaffold bay 4" },
+  { id: "hse_hz_024", number: "HZ-2026-0024", title: "Ladder not secured at the top", category: "WORK_AT_HEIGHT", likelihood: 4, severity: 4, status: "OPEN", project: "a", reporter: "pm", assignee: "pm", daysAgo: 4, location: "Level 2" },
+  { id: "hse_hz_025", number: "HZ-2026-0025", title: "Temporary supply without RCD protection", category: "ELECTRICAL", likelihood: 3, severity: 5, status: "IN_PROGRESS", project: "a", reporter: "engineer", assignee: "engineer", daysAgo: 1, location: "Temporary supply" },
+  { id: "hse_hz_026", number: "HZ-2026-0026", title: "Damaged extension lead in use", category: "ELECTRICAL", likelihood: 4, severity: 3, status: "CLOSED", project: "a", reporter: "hse", assignee: "hse", daysAgo: 42, inspection: "hse_ins_019", residual: [1, 3], location: "Riser 2" },
+  { id: "hse_hz_027", number: "HZ-2026-0027", title: "Skip overfull and obstructing a route", category: "HOUSEKEEPING", likelihood: 2, severity: 2, status: "CLOSED", project: "a", reporter: "pm", assignee: "pm", daysAgo: 46, residual: [1, 2], location: "Compound" },
+  { id: "hse_hz_028", number: "HZ-2026-0028", title: "Oil sheen near the wash-out area", category: "ENVIRONMENTAL", likelihood: 2, severity: 3, status: "CONTROLLED", project: "a", reporter: "hse", assignee: "hse", daysAgo: 30, location: "Wash-out area" },
   { id: "hse_hz_029", number: "HZ-2026-0029", title: "Gas bottles stored horizontally", category: "FIRE", likelihood: 2, severity: 4, status: "OPEN", project: "a", reporter: "hse", assignee: "hse", daysAgo: 8, location: "Compound" },
-  { id: "hse_hz_030", number: "HZ-2026-0030", title: "Excavation edge barrier incomplete", category: "EXCAVATION", likelihood: 3, severity: 4, status: "CONTROLLED", project: "c", reporter: "engineer", assignee: "engineer", daysAgo: 16, location: "Foundation pit" },
-  { id: "hse_hz_031", number: "HZ-2026-0031", title: "Lift plan not available on site", category: "LIFTING", likelihood: 2, severity: 5, status: "CLOSED", project: "b", reporter: "hse", assignee: "hse", daysAgo: 35, residual: [1, 5], location: "Crane base" },
-  { id: "hse_hz_032", number: "HZ-2026-0032", title: "Poor lighting on a temporary stair", category: "OTHER", likelihood: 3, severity: 3, status: "OPEN", project: "e", reporter: "pm", assignee: "pm", daysAgo: 10, location: "Stair core" },
-  { id: "hse_hz_033", number: "HZ-2026-0033", title: "Noise above limits without protection", category: "OTHER", likelihood: 4, severity: 2, status: "CONTROLLED", project: "b", reporter: "qaqc", assignee: "hse", daysAgo: 19, location: "Level 3" },
+  { id: "hse_hz_030", number: "HZ-2026-0030", title: "Excavation edge barrier incomplete", category: "EXCAVATION", likelihood: 3, severity: 4, status: "CONTROLLED", project: "a", reporter: "engineer", assignee: "engineer", daysAgo: 16, location: "Foundation pit" },
+  { id: "hse_hz_031", number: "HZ-2026-0031", title: "Lift plan not available on site", category: "LIFTING", likelihood: 2, severity: 5, status: "CLOSED", project: "a", reporter: "hse", assignee: "hse", daysAgo: 35, residual: [1, 5], location: "Crane base" },
+  { id: "hse_hz_032", number: "HZ-2026-0032", title: "Poor lighting on a temporary stair", category: "OTHER", likelihood: 3, severity: 3, status: "OPEN", project: "a", reporter: "pm", assignee: "pm", daysAgo: 10, location: "Stair core" },
+  { id: "hse_hz_033", number: "HZ-2026-0033", title: "Noise above limits without protection", category: "OTHER", likelihood: 4, severity: 2, status: "CONTROLLED", project: "a", reporter: "qaqc", assignee: "hse", daysAgo: 19, location: "Level 3" },
   { id: "hse_hz_034", number: "HZ-2026-0034", title: "Duplicate report of the blocked walkway", category: "HOUSEKEEPING", likelihood: 2, severity: 2, status: "CANCELLED", project: "a", reporter: "pm", daysAgo: 3, location: "Level 1" },
   { id: "hse_hz_035", number: "HZ-2026-0035", title: "Unsecured materials at height in wind", category: "WORK_AT_HEIGHT", likelihood: 4, severity: 5, status: "OPEN", project: "a", reporter: "hse", assignee: "hse", daysAgo: 0, location: "Level 5 west" },
 ];
@@ -620,41 +620,41 @@ type IncidentFixture = {
 
 const INCIDENTS: IncidentFixture[] = [
   { id: "hse_inc_001", number: "INC-2026-0001", type: "INCIDENT", title: "Operative struck by falling batten", severity: "HIGH", status: "CLOSED", project: "a", reporter: "hse", investigator: "hse", daysAgo: 70, injury: true, firstAid: true, rootCause: "Materials were not secured at the edge before the wind picked up; the exclusion zone below was not enforced." },
-  { id: "hse_inc_002", number: "INC-2026-0002", type: "INCIDENT", title: "Slip on wet temporary stair", severity: "MEDIUM", status: "CLOSED", project: "b", reporter: "pm", investigator: "pm", daysAgo: 64, injury: true, firstAid: true, rootCause: "No drainage on the temporary stair and no anti-slip treads." },
+  { id: "hse_inc_002", number: "INC-2026-0002", type: "INCIDENT", title: "Slip on wet temporary stair", severity: "MEDIUM", status: "CLOSED", project: "a", reporter: "pm", investigator: "pm", daysAgo: 64, injury: true, firstAid: true, rootCause: "No drainage on the temporary stair and no anti-slip treads." },
   { id: "hse_inc_003", number: "INC-2026-0003", type: "FIRST_AID", title: "Grit in eye while cutting", severity: "LOW", status: "CLOSED", project: "a", reporter: "engineer", investigator: "hse", daysAgo: 58, injury: true, firstAid: true, rootCause: null },
-  { id: "hse_inc_004", number: "INC-2026-0004", type: "INCIDENT", title: "Fall from a ladder", severity: "CRITICAL", status: "CLOSED", project: "b", reporter: "hse", investigator: "hse", daysAgo: 52, injury: true, treatment: true, lostTime: true, rootCause: "Ladder was not secured and was used for work that should have been done from a tower." },
-  { id: "hse_inc_005", number: "INC-2026-0005", type: "PROPERTY_DAMAGE", title: "Excavator caught a temporary supply cable", severity: "MEDIUM", status: "CLOSED", project: "c", reporter: "engineer", investigator: "hse", daysAgo: 46, property: true, rootCause: "Services had been marked but the marks had worn off and were not refreshed." },
-  { id: "hse_inc_006", number: "INC-2026-0006", type: "ENVIRONMENTAL_EVENT", title: "Diesel spill in the compound", severity: "MEDIUM", status: "CLOSED", project: "c", reporter: "hse", investigator: "hse", daysAgo: 40, environmental: true, rootCause: "Drum was decanted outside the bund because the bunded area was full." },
+  { id: "hse_inc_004", number: "INC-2026-0004", type: "INCIDENT", title: "Fall from a ladder", severity: "CRITICAL", status: "CLOSED", project: "a", reporter: "hse", investigator: "hse", daysAgo: 52, injury: true, treatment: true, lostTime: true, rootCause: "Ladder was not secured and was used for work that should have been done from a tower." },
+  { id: "hse_inc_005", number: "INC-2026-0005", type: "PROPERTY_DAMAGE", title: "Excavator caught a temporary supply cable", severity: "MEDIUM", status: "CLOSED", project: "a", reporter: "engineer", investigator: "hse", daysAgo: 46, property: true, rootCause: "Services had been marked but the marks had worn off and were not refreshed." },
+  { id: "hse_inc_006", number: "INC-2026-0006", type: "ENVIRONMENTAL_EVENT", title: "Diesel spill in the compound", severity: "MEDIUM", status: "CLOSED", project: "a", reporter: "hse", investigator: "hse", daysAgo: 40, environmental: true, rootCause: "Drum was decanted outside the bund because the bunded area was full." },
   { id: "hse_inc_007", number: "INC-2026-0007", type: "VEHICLE_EVENT", title: "Delivery lorry clipped a gate post", severity: "LOW", status: "CLOSED", project: "a", reporter: "pm", investigator: "pm", daysAgo: 36, property: true, rootCause: null },
-  { id: "hse_inc_008", number: "INC-2026-0008", type: "FIRE_EVENT", title: "Small fire in a waste skip", severity: "HIGH", status: "CLOSED", project: "b", reporter: "hse", investigator: "hse", daysAgo: 32, property: true, rootCause: "Hot work was carried out beside the skip without a fire watch." },
-  { id: "hse_inc_009", number: "INC-2026-0009", type: "INCIDENT", title: "Hand laceration from an unguarded saw", severity: "HIGH", status: "PENDING_CLOSE", project: "b", reporter: "engineer", investigator: "hse", daysAgo: 28, injury: true, treatment: true, rootCause: "The guard had been removed to speed up repeat cuts and was not replaced." },
+  { id: "hse_inc_008", number: "INC-2026-0008", type: "FIRE_EVENT", title: "Small fire in a waste skip", severity: "HIGH", status: "CLOSED", project: "a", reporter: "hse", investigator: "hse", daysAgo: 32, property: true, rootCause: "Hot work was carried out beside the skip without a fire watch." },
+  { id: "hse_inc_009", number: "INC-2026-0009", type: "INCIDENT", title: "Hand laceration from an unguarded saw", severity: "HIGH", status: "PENDING_CLOSE", project: "a", reporter: "engineer", investigator: "hse", daysAgo: 28, injury: true, treatment: true, rootCause: "The guard had been removed to speed up repeat cuts and was not replaced." },
   { id: "hse_inc_010", number: "INC-2026-0010", type: "INCIDENT", title: "Operative overcome by fumes in a riser", severity: "CRITICAL", status: "ACTIONS_OPEN", project: "a", reporter: "hse", investigator: "hse", daysAgo: 20, injury: true, treatment: true, lostTime: true, rootCause: "Coating was applied in an unventilated riser with no confined-space permit." },
   /*
    * Deliberately without a root cause, so the closure rule is visible without
    * anybody having to break one first (§95, §363).
    */
-  { id: "hse_inc_011", number: "INC-2026-0011", type: "INCIDENT", title: "Scaffold board slipped underfoot", severity: "HIGH", status: "UNDER_INVESTIGATION", project: "b", reporter: "pm", investigator: "hse", daysAgo: 12, injury: true, firstAid: true, rootCause: null },
+  { id: "hse_inc_011", number: "INC-2026-0011", type: "INCIDENT", title: "Scaffold board slipped underfoot", severity: "HIGH", status: "UNDER_INVESTIGATION", project: "a", reporter: "pm", investigator: "hse", daysAgo: 12, injury: true, firstAid: true, rootCause: null },
   { id: "hse_inc_012", number: "INC-2026-0012", type: "INCIDENT", title: "Material dropped from level 3", severity: "HIGH", status: "OPEN", project: "a", reporter: "hse", daysAgo: 5, property: true, rootCause: null },
-  { id: "hse_inc_013", number: "INC-2026-0013", type: "PROPERTY_DAMAGE", title: "Window unit cracked during handling", severity: "LOW", status: "OPEN", project: "d", reporter: "pm", daysAgo: 4, property: true, rootCause: null },
-  { id: "hse_inc_014", number: "INC-2026-0014", type: "FIRST_AID", title: "Splinter requiring first aid", severity: "LOW", status: "CLOSED", project: "c", reporter: "engineer", investigator: "pm", daysAgo: 24, injury: true, firstAid: true, rootCause: null },
-  { id: "hse_inc_015", number: "INC-2026-0015", type: "ENVIRONMENTAL_EVENT", title: "Silty water discharged to a drain", severity: "MEDIUM", status: "ACTIONS_OPEN", project: "c", reporter: "hse", investigator: "hse", daysAgo: 16, environmental: true, rootCause: "Settlement tank was bypassed while it was being cleaned." },
-  { id: "hse_inc_016", number: "INC-2026-0016", type: "VEHICLE_EVENT", title: "Dumper tipped on soft ground", severity: "HIGH", status: "REOPENED", project: "c", reporter: "engineer", investigator: "hse", daysAgo: 44, property: true, rootCause: "Haul route was not maintained after heavy rain." },
+  { id: "hse_inc_013", number: "INC-2026-0013", type: "PROPERTY_DAMAGE", title: "Window unit cracked during handling", severity: "LOW", status: "OPEN", project: "a", reporter: "pm", daysAgo: 4, property: true, rootCause: null },
+  { id: "hse_inc_014", number: "INC-2026-0014", type: "FIRST_AID", title: "Splinter requiring first aid", severity: "LOW", status: "CLOSED", project: "a", reporter: "engineer", investigator: "pm", daysAgo: 24, injury: true, firstAid: true, rootCause: null },
+  { id: "hse_inc_015", number: "INC-2026-0015", type: "ENVIRONMENTAL_EVENT", title: "Silty water discharged to a drain", severity: "MEDIUM", status: "ACTIONS_OPEN", project: "a", reporter: "hse", investigator: "hse", daysAgo: 16, environmental: true, rootCause: "Settlement tank was bypassed while it was being cleaned." },
+  { id: "hse_inc_016", number: "INC-2026-0016", type: "VEHICLE_EVENT", title: "Dumper tipped on soft ground", severity: "HIGH", status: "REOPENED", project: "a", reporter: "engineer", investigator: "hse", daysAgo: 44, property: true, rootCause: "Haul route was not maintained after heavy rain." },
   { id: "hse_inc_017", number: "INC-2026-0017", type: "OTHER", title: "Aggressive behaviour at the site gate", severity: "MEDIUM", status: "CLOSED", project: "a", reporter: "pm", investigator: "pm", daysAgo: 50, rootCause: null },
-  { id: "hse_inc_018", number: "INC-2026-0018", type: "INCIDENT", title: "Duplicate report of the skip fire", severity: "LOW", status: "CANCELLED", project: "b", reporter: "qaqc", daysAgo: 32, rootCause: null },
+  { id: "hse_inc_018", number: "INC-2026-0018", type: "INCIDENT", title: "Duplicate report of the skip fire", severity: "LOW", status: "CANCELLED", project: "a", reporter: "qaqc", daysAgo: 32, rootCause: null },
 
   /* Near misses — the same model, which is the whole point (§82). */
   { id: "hse_nm_001", number: "INC-2026-0019", type: "NEAR_MISS", title: "Brick fell inside the exclusion zone", severity: "HIGH", status: "CLOSED", project: "a", reporter: "hse", investigator: "hse", daysAgo: 62, rootCause: "Debris netting had a tear that was not picked up on the scaffold check." },
   { id: "hse_nm_002", number: "INC-2026-0020", type: "NEAR_MISS", title: "Operative stepped back towards an open riser", severity: "CRITICAL", status: "CLOSED", project: "a", reporter: "pm", investigator: "hse", daysAgo: 54, rootCause: "The riser cover had been lifted for a delivery and not replaced." },
   { id: "hse_nm_003", number: "INC-2026-0021", type: "NEAR_MISS", title: "Reversing lorry with nobody banking", severity: "HIGH", status: "CLOSED", project: "a", reporter: "pm", investigator: "pm", daysAgo: 48, rootCause: "The banksman had been pulled onto another task." },
-  { id: "hse_nm_004", number: "INC-2026-0022", type: "NEAR_MISS", title: "Load swung close to the scaffold", severity: "HIGH", status: "ACTIONS_OPEN", project: "b", reporter: "hse", investigator: "hse", daysAgo: 26, rootCause: "Tag lines were not used on a long load." },
-  { id: "hse_nm_005", number: "INC-2026-0023", type: "NEAR_MISS", title: "Live cable found in a wall being chased", severity: "CRITICAL", status: "UNDER_INVESTIGATION", project: "b", reporter: "engineer", investigator: "hse", daysAgo: 18, rootCause: null },
+  { id: "hse_nm_004", number: "INC-2026-0022", type: "NEAR_MISS", title: "Load swung close to the scaffold", severity: "HIGH", status: "ACTIONS_OPEN", project: "a", reporter: "hse", investigator: "hse", daysAgo: 26, rootCause: "Tag lines were not used on a long load." },
+  { id: "hse_nm_005", number: "INC-2026-0023", type: "NEAR_MISS", title: "Live cable found in a wall being chased", severity: "CRITICAL", status: "UNDER_INVESTIGATION", project: "a", reporter: "engineer", investigator: "hse", daysAgo: 18, rootCause: null },
   { id: "hse_nm_006", number: "INC-2026-0024", type: "NEAR_MISS", title: "Gas bottle toppled in the compound", severity: "MEDIUM", status: "OPEN", project: "a", reporter: "hse", daysAgo: 8, rootCause: null },
-  { id: "hse_nm_007", number: "INC-2026-0025", type: "NEAR_MISS", title: "Trench edge crumbled with nobody inside", severity: "HIGH", status: "OPEN", project: "c", reporter: "engineer", daysAgo: 7, rootCause: null },
-  { id: "hse_nm_008", number: "INC-2026-0026", type: "NEAR_MISS", title: "Scissor lift moved with the guardrail down", severity: "MEDIUM", status: "CLOSED", project: "d", reporter: "pm", investigator: "pm", daysAgo: 34, rootCause: null },
-  { id: "hse_nm_009", number: "INC-2026-0027", type: "NEAR_MISS", title: "Slip on spilled adhesive", severity: "LOW", status: "CLOSED", project: "b", reporter: "engineer", investigator: "pm", daysAgo: 30, rootCause: null },
-  { id: "hse_nm_010", number: "INC-2026-0028", type: "NEAR_MISS", title: "Angle grinder kicked back", severity: "MEDIUM", status: "OPEN", project: "b", reporter: "engineer", daysAgo: 6, rootCause: null },
-  { id: "hse_nm_011", number: "INC-2026-0029", type: "NEAR_MISS", title: "Pedestrian crossed a plant route", severity: "MEDIUM", status: "CLOSED", project: "c", reporter: "pm", investigator: "pm", daysAgo: 22, rootCause: null },
-  { id: "hse_nm_012", number: "INC-2026-0030", type: "NEAR_MISS", title: "Unsecured ladder shifted in use", severity: "HIGH", status: "PENDING_CLOSE", project: "e", reporter: "hse", investigator: "hse", daysAgo: 14, rootCause: "Ladder was footed rather than tied because no tie point was available." },
+  { id: "hse_nm_007", number: "INC-2026-0025", type: "NEAR_MISS", title: "Trench edge crumbled with nobody inside", severity: "HIGH", status: "OPEN", project: "a", reporter: "engineer", daysAgo: 7, rootCause: null },
+  { id: "hse_nm_008", number: "INC-2026-0026", type: "NEAR_MISS", title: "Scissor lift moved with the guardrail down", severity: "MEDIUM", status: "CLOSED", project: "a", reporter: "pm", investigator: "pm", daysAgo: 34, rootCause: null },
+  { id: "hse_nm_009", number: "INC-2026-0027", type: "NEAR_MISS", title: "Slip on spilled adhesive", severity: "LOW", status: "CLOSED", project: "a", reporter: "engineer", investigator: "pm", daysAgo: 30, rootCause: null },
+  { id: "hse_nm_010", number: "INC-2026-0028", type: "NEAR_MISS", title: "Angle grinder kicked back", severity: "MEDIUM", status: "OPEN", project: "a", reporter: "engineer", daysAgo: 6, rootCause: null },
+  { id: "hse_nm_011", number: "INC-2026-0029", type: "NEAR_MISS", title: "Pedestrian crossed a plant route", severity: "MEDIUM", status: "CLOSED", project: "a", reporter: "pm", investigator: "pm", daysAgo: 22, rootCause: null },
+  { id: "hse_nm_012", number: "INC-2026-0030", type: "NEAR_MISS", title: "Unsecured ladder shifted in use", severity: "HIGH", status: "PENDING_CLOSE", project: "a", reporter: "hse", investigator: "hse", daysAgo: 14, rootCause: "Ladder was footed rather than tied because no tie point was available." },
 ];
 
 async function seedIncidents(prisma: PrismaClient, people: Record<string, string>) {
@@ -742,7 +742,7 @@ const ASSESSMENTS: AssessmentFixture[] = [
     ],
   },
   {
-    id: "hse_ra_002", number: "RA-2026-0002", title: "Deep excavation", activity: "Groundworks", status: "APPROVED", project: "c", owner: "engineer", daysAgo: 80, reviewInDays: -5,
+    id: "hse_ra_002", number: "RA-2026-0002", title: "Deep excavation", activity: "Groundworks", status: "APPROVED", project: "a", owner: "engineer", daysAgo: 80, reviewInDays: -5,
     items: [
       { hazard: "Collapse of unsupported sides", likelihood: 3, severity: 5, residual: [1, 5] },
       { hazard: "Strike on buried services", likelihood: 3, severity: 5, residual: [1, 5] },
@@ -767,35 +767,35 @@ const ASSESSMENTS: AssessmentFixture[] = [
     ],
   },
   {
-    id: "hse_ra_005", number: "RA-2026-0005", title: "Scaffold erection and dismantling", activity: "Scaffolding", status: "APPROVED", project: "b", owner: "hse", daysAgo: 55, reviewInDays: 90,
+    id: "hse_ra_005", number: "RA-2026-0005", title: "Scaffold erection and dismantling", activity: "Scaffolding", status: "APPROVED", project: "a", owner: "hse", daysAgo: 55, reviewInDays: 90,
     items: [
       { hazard: "Falls during erection", likelihood: 3, severity: 5, residual: [1, 5] },
       { hazard: "Falling components", likelihood: 3, severity: 4, residual: [1, 4] },
     ],
   },
   {
-    id: "hse_ra_006", number: "RA-2026-0006", title: "Temporary electrical distribution", activity: "Electrical", status: "APPROVED", project: "c", owner: "engineer", daysAgo: 50, reviewInDays: 120,
+    id: "hse_ra_006", number: "RA-2026-0006", title: "Temporary electrical distribution", activity: "Electrical", status: "APPROVED", project: "a", owner: "engineer", daysAgo: 50, reviewInDays: 120,
     items: [
       { hazard: "Electric shock from damaged equipment", likelihood: 3, severity: 5, residual: [1, 5] },
       { hazard: "Fire from overloaded circuits", likelihood: 2, severity: 4, residual: [1, 4] },
     ],
   },
   {
-    id: "hse_ra_007", number: "RA-2026-0007", title: "Manual handling of kerbs and slabs", activity: "External works", status: "APPROVED", project: "c", owner: "engineer", daysAgo: 45, reviewInDays: 150,
+    id: "hse_ra_007", number: "RA-2026-0007", title: "Manual handling of kerbs and slabs", activity: "External works", status: "APPROVED", project: "a", owner: "engineer", daysAgo: 45, reviewInDays: 150,
     items: [
       { hazard: "Back injury from repeated lifting", likelihood: 4, severity: 2, residual: [2, 2] },
       { hazard: "Crush injury to hands and feet", likelihood: 3, severity: 3, residual: [1, 3] },
     ],
   },
   {
-    id: "hse_ra_008", number: "RA-2026-0008", title: "Working over water", activity: "Riverside works", status: "PENDING_APPROVAL", project: "b", owner: "hse", daysAgo: 10,
+    id: "hse_ra_008", number: "RA-2026-0008", title: "Working over water", activity: "Riverside works", status: "PENDING_APPROVAL", project: "a", owner: "hse", daysAgo: 10,
     items: [
       { hazard: "Drowning after a fall", likelihood: 2, severity: 5, residual: [1, 5] },
       { hazard: "Cold water shock", likelihood: 2, severity: 4 },
     ],
   },
   {
-    id: "hse_ra_009", number: "RA-2026-0009", title: "Demolition of internal walls", activity: "Strip-out", status: "PENDING_APPROVAL", project: "d", owner: "pm", daysAgo: 6,
+    id: "hse_ra_009", number: "RA-2026-0009", title: "Demolition of internal walls", activity: "Strip-out", status: "PENDING_APPROVAL", project: "a", owner: "pm", daysAgo: 6,
     items: [
       { hazard: "Uncontrolled collapse", likelihood: 2, severity: 5 },
       { hazard: "Dust and silica exposure", likelihood: 4, severity: 3, residual: [2, 3] },
@@ -810,7 +810,7 @@ const ASSESSMENTS: AssessmentFixture[] = [
     ],
   },
   {
-    id: "hse_ra_011", number: "RA-2026-0011", title: "Site traffic management", activity: "Logistics", status: "DRAFT", project: "e", owner: "pm", daysAgo: 2,
+    id: "hse_ra_011", number: "RA-2026-0011", title: "Site traffic management", activity: "Logistics", status: "DRAFT", project: "a", owner: "pm", daysAgo: 2,
     items: [{ hazard: "Pedestrian struck by plant", likelihood: 3, severity: 5 }],
   },
   {
@@ -908,18 +908,18 @@ type PermitFixture = {
 const PERMITS: PermitFixture[] = [
   { id: "hse_ptw_001", number: "PTW-2026-0001", type: "HOT_WORK", title: "Welding to level 4 steel", status: "ACTIVE", project: "a", requester: "pm", responsible: "hse", from: -2, until: 6, assessment: "hse_ra_003", location: "Level 4 east" },
   { id: "hse_ptw_002", number: "PTW-2026-0002", type: "CONFINED_SPACE", title: "Coating the east riser", status: "ACTIVE", project: "a", requester: "hse", responsible: "hse", from: -1, until: 10, assessment: "hse_ra_004", location: "East riser, level 2" },
-  { id: "hse_ptw_003", number: "PTW-2026-0003", type: "EXCAVATION", title: "Drainage run 3", status: "ACTIVE", project: "c", requester: "engineer", responsible: "engineer", from: -4, until: 30, assessment: "hse_ra_002", location: "Drainage run 3" },
+  { id: "hse_ptw_003", number: "PTW-2026-0003", type: "EXCAVATION", title: "Drainage run 3", status: "ACTIVE", project: "a", requester: "engineer", responsible: "engineer", from: -4, until: 30, assessment: "hse_ra_002", location: "Drainage run 3" },
   /*
    * Stored ACTIVE with a window that closed yesterday. This is the only way to
    * see §151 working without waiting for a permit to lapse.
    */
-  { id: "hse_ptw_004", number: "PTW-2026-0004", type: "WORK_AT_HEIGHT", title: "Scaffold alteration bay 4", status: "ACTIVE", project: "b", requester: "hse", responsible: "pm", from: -30, until: -6, assessment: "hse_ra_005", location: "Scaffold bay 4" },
-  { id: "hse_ptw_005", number: "PTW-2026-0005", type: "ELECTRICAL", title: "Live testing of the temporary board", status: "SUSPENDED", project: "c", requester: "engineer", responsible: "engineer", from: -12, until: 24, assessment: "hse_ra_006", location: "Temporary supply" },
+  { id: "hse_ptw_004", number: "PTW-2026-0004", type: "WORK_AT_HEIGHT", title: "Scaffold alteration bay 4", status: "ACTIVE", project: "a", requester: "hse", responsible: "pm", from: -30, until: -6, assessment: "hse_ra_005", location: "Scaffold bay 4" },
+  { id: "hse_ptw_005", number: "PTW-2026-0005", type: "ELECTRICAL", title: "Live testing of the temporary board", status: "SUSPENDED", project: "a", requester: "engineer", responsible: "engineer", from: -12, until: 24, assessment: "hse_ra_006", location: "Temporary supply" },
   { id: "hse_ptw_006", number: "PTW-2026-0006", type: "LIFTING", title: "Plant lift to level 5", status: "APPROVED", project: "a", requester: "pm", responsible: "hse", from: 12, until: 36, location: "Tower crane" },
   { id: "hse_ptw_007", number: "PTW-2026-0007", type: "HOT_WORK", title: "Pipe brazing in the plant room", status: "PENDING_APPROVAL", project: "a", requester: "engineer", responsible: "engineer", from: 24, until: 48, assessment: "hse_ra_003", location: "Basement plant room" },
-  { id: "hse_ptw_008", number: "PTW-2026-0008", type: "CONFINED_SPACE", title: "Tank inspection", status: "PENDING_APPROVAL", project: "b", requester: "hse", responsible: "hse", from: 36, until: 60, assessment: "hse_ra_004", location: "Attenuation tank" },
-  { id: "hse_ptw_009", number: "PTW-2026-0009", type: "GENERAL", title: "Out-of-hours delivery", status: "DRAFT", project: "d", requester: "pm", from: 48, until: 72, location: "Main gate" },
-  { id: "hse_ptw_010", number: "PTW-2026-0010", type: "EXCAVATION", title: "Trial holes", status: "CLOSED", project: "c", requester: "engineer", responsible: "engineer", from: -240, until: -216, assessment: "hse_ra_002", location: "North boundary" },
+  { id: "hse_ptw_008", number: "PTW-2026-0008", type: "CONFINED_SPACE", title: "Tank inspection", status: "PENDING_APPROVAL", project: "a", requester: "hse", responsible: "hse", from: 36, until: 60, assessment: "hse_ra_004", location: "Attenuation tank" },
+  { id: "hse_ptw_009", number: "PTW-2026-0009", type: "GENERAL", title: "Out-of-hours delivery", status: "DRAFT", project: "a", requester: "pm", from: 48, until: 72, location: "Main gate" },
+  { id: "hse_ptw_010", number: "PTW-2026-0010", type: "EXCAVATION", title: "Trial holes", status: "CLOSED", project: "a", requester: "engineer", responsible: "engineer", from: -240, until: -216, assessment: "hse_ra_002", location: "North boundary" },
   { id: "hse_ptw_011", number: "PTW-2026-0011", type: "WORK_AT_HEIGHT", title: "Roof edge survey", status: "CLOSED", project: "a", requester: "hse", responsible: "hse", from: -190, until: -180, location: "Roof" },
   { id: "hse_ptw_012", number: "PTW-2026-0012", type: "OTHER", title: "Cancelled — superseded by PTW-2026-0006", status: "CANCELLED", project: "a", requester: "pm", from: 12, until: 36, location: "Tower crane" },
 ];
@@ -1001,20 +1001,20 @@ type ObservationFixture = {
 };
 
 const OBSERVATIONS: ObservationFixture[] = [
-  { id: "hse_env_001", number: "ENV-2026-0001", category: "SPILL", title: "Diesel spill at the fuel point", severity: "HIGH", status: "CLOSED", project: "c", reporter: "hse", assignee: "engineer", daysAgo: 40 },
-  { id: "hse_env_002", number: "ENV-2026-0002", category: "SPILL", title: "Hydraulic oil under a parked excavator", severity: "MEDIUM", status: "CLOSED", project: "c", reporter: "engineer", assignee: "engineer", daysAgo: 34 },
+  { id: "hse_env_001", number: "ENV-2026-0001", category: "SPILL", title: "Diesel spill at the fuel point", severity: "HIGH", status: "CLOSED", project: "a", reporter: "hse", assignee: "engineer", daysAgo: 40 },
+  { id: "hse_env_002", number: "ENV-2026-0002", category: "SPILL", title: "Hydraulic oil under a parked excavator", severity: "MEDIUM", status: "CLOSED", project: "a", reporter: "engineer", assignee: "engineer", daysAgo: 34 },
   { id: "hse_env_003", number: "ENV-2026-0003", category: "WASTE", title: "Mixed waste in the inert skip", severity: "LOW", status: "CLOSED", project: "a", reporter: "pm", assignee: "pm", daysAgo: 28 },
-  { id: "hse_env_004", number: "ENV-2026-0004", category: "WASTE", title: "Packaging blowing off site", severity: "MEDIUM", status: "IN_PROGRESS", project: "b", reporter: "pm", assignee: "pm", daysAgo: 9 },
-  { id: "hse_env_005", number: "ENV-2026-0005", category: "DUST", title: "Visible dust plume from cutting", severity: "MEDIUM", status: "OPEN", project: "b", reporter: "engineer", assignee: "hse", daysAgo: 5 },
-  { id: "hse_env_006", number: "ENV-2026-0006", category: "DUST", title: "Haul road generating dust in dry weather", severity: "LOW", status: "CLOSED", project: "c", reporter: "engineer", assignee: "engineer", daysAgo: 24 },
+  { id: "hse_env_004", number: "ENV-2026-0004", category: "WASTE", title: "Packaging blowing off site", severity: "MEDIUM", status: "IN_PROGRESS", project: "a", reporter: "pm", assignee: "pm", daysAgo: 9 },
+  { id: "hse_env_005", number: "ENV-2026-0005", category: "DUST", title: "Visible dust plume from cutting", severity: "MEDIUM", status: "OPEN", project: "a", reporter: "engineer", assignee: "hse", daysAgo: 5 },
+  { id: "hse_env_006", number: "ENV-2026-0006", category: "DUST", title: "Haul road generating dust in dry weather", severity: "LOW", status: "CLOSED", project: "a", reporter: "engineer", assignee: "engineer", daysAgo: 24 },
   { id: "hse_env_007", number: "ENV-2026-0007", category: "NOISE", title: "Breaking outside permitted hours", severity: "HIGH", status: "CLOSED", project: "a", reporter: "hse", assignee: "pm", daysAgo: 20 },
-  { id: "hse_env_008", number: "ENV-2026-0008", category: "NOISE", title: "Generator running overnight", severity: "MEDIUM", status: "PENDING_VERIFICATION", project: "d", reporter: "pm", assignee: "pm", daysAgo: 12 },
-  { id: "hse_env_009", number: "ENV-2026-0009", category: "WATER", title: "Silty water reaching the surface drain", severity: "HIGH", status: "IN_PROGRESS", project: "c", reporter: "hse", assignee: "engineer", daysAgo: 16 },
-  { id: "hse_env_010", number: "ENV-2026-0010", category: "WATER", title: "Concrete wash-out close to a watercourse", severity: "CRITICAL", status: "CLOSED", project: "c", reporter: "hse", assignee: "hse", daysAgo: 30 },
-  { id: "hse_env_011", number: "ENV-2026-0011", category: "SOIL", title: "Stained ground near the plant store", severity: "MEDIUM", status: "OPEN", project: "c", reporter: "engineer", assignee: "hse", daysAgo: 4 },
+  { id: "hse_env_008", number: "ENV-2026-0008", category: "NOISE", title: "Generator running overnight", severity: "MEDIUM", status: "PENDING_VERIFICATION", project: "a", reporter: "pm", assignee: "pm", daysAgo: 12 },
+  { id: "hse_env_009", number: "ENV-2026-0009", category: "WATER", title: "Silty water reaching the surface drain", severity: "HIGH", status: "IN_PROGRESS", project: "a", reporter: "hse", assignee: "engineer", daysAgo: 16 },
+  { id: "hse_env_010", number: "ENV-2026-0010", category: "WATER", title: "Concrete wash-out close to a watercourse", severity: "CRITICAL", status: "CLOSED", project: "a", reporter: "hse", assignee: "hse", daysAgo: 30 },
+  { id: "hse_env_011", number: "ENV-2026-0011", category: "SOIL", title: "Stained ground near the plant store", severity: "MEDIUM", status: "OPEN", project: "a", reporter: "engineer", assignee: "hse", daysAgo: 4 },
   { id: "hse_env_012", number: "ENV-2026-0012", category: "EMISSIONS", title: "Plant left idling for long periods", severity: "LOW", status: "CLOSED", project: "a", reporter: "pm", assignee: "pm", daysAgo: 18 },
-  { id: "hse_env_013", number: "ENV-2026-0013", category: "BIODIVERSITY", title: "Nesting birds found in scrub to be cleared", severity: "HIGH", status: "REOPENED", project: "e", reporter: "hse", assignee: "hse", daysAgo: 22 },
-  { id: "hse_env_014", number: "ENV-2026-0014", category: "OTHER", title: "Mud tracked onto the public road", severity: "MEDIUM", status: "OPEN", project: "c", reporter: "pm", assignee: "pm", daysAgo: 2 },
+  { id: "hse_env_013", number: "ENV-2026-0013", category: "BIODIVERSITY", title: "Nesting birds found in scrub to be cleared", severity: "HIGH", status: "REOPENED", project: "a", reporter: "hse", assignee: "hse", daysAgo: 22 },
+  { id: "hse_env_014", number: "ENV-2026-0014", category: "OTHER", title: "Mud tracked onto the public road", severity: "MEDIUM", status: "OPEN", project: "a", reporter: "pm", assignee: "pm", daysAgo: 2 },
 ];
 
 async function seedEnvironmental(prisma: PrismaClient, people: Record<string, string>) {
@@ -1077,8 +1077,8 @@ const STOP_WORKS: StopWorkFixture[] = [
    */
   { id: "hse_sw_001", number: "SW-2026-0001", title: "All work on level 5 west", status: "ACTIVE", project: "a", issuer: "hse", daysAgo: 0, hazard: "hse_hz_035" },
   { id: "hse_sw_002", number: "SW-2026-0002", title: "Riser coating stopped", status: "ACTIVE", project: "a", issuer: "hse", daysAgo: 20, incident: "hse_inc_010" },
-  { id: "hse_sw_003", number: "SW-2026-0003", title: "Excavation work halted", status: "RELEASED", project: "c", issuer: "engineer", daysAgo: 18, hazard: "hse_hz_006" },
-  { id: "hse_sw_004", number: "SW-2026-0004", title: "Ladder access to level 2 stopped", status: "RELEASED", project: "b", issuer: "hse", daysAgo: 52, incident: "hse_inc_004" },
+  { id: "hse_sw_003", number: "SW-2026-0003", title: "Excavation work halted", status: "RELEASED", project: "a", issuer: "engineer", daysAgo: 18, hazard: "hse_hz_006" },
+  { id: "hse_sw_004", number: "SW-2026-0004", title: "Ladder access to level 2 stopped", status: "RELEASED", project: "a", issuer: "hse", daysAgo: 52, incident: "hse_inc_004" },
   { id: "hse_sw_005", number: "SW-2026-0005", title: "Issued in error — duplicate", status: "CANCELLED", project: "a", issuer: "pm", daysAgo: 15 },
 ];
 
@@ -1264,18 +1264,18 @@ const TOOLBOX: {
 }[] = [
   { id: "hse_tbt_001", number: "TBT-2026-0001", title: "Working at height", topic: "Working at height", status: "COMPLETED", project: "a", conductor: "hse", daysAgo: 56, attendees: 3, external: 2 },
   { id: "hse_tbt_002", number: "TBT-2026-0002", title: "Lifting operations", topic: "Lifting", status: "COMPLETED", project: "a", conductor: "hse", daysAgo: 49, attendees: 2, external: 3 },
-  { id: "hse_tbt_003", number: "TBT-2026-0003", title: "PPE and why it matters", topic: "PPE", status: "COMPLETED", project: "b", conductor: "pm", daysAgo: 42, attendees: 3, external: 1, absent: 1 },
+  { id: "hse_tbt_003", number: "TBT-2026-0003", title: "PPE and why it matters", topic: "PPE", status: "COMPLETED", project: "a", conductor: "pm", daysAgo: 42, attendees: 3, external: 1, absent: 1 },
   { id: "hse_tbt_004", number: "TBT-2026-0004", title: "Housekeeping", topic: "Housekeeping", status: "COMPLETED", project: "a", conductor: "pm", daysAgo: 35, attendees: 2, external: 2 },
-  { id: "hse_tbt_005", number: "TBT-2026-0005", title: "Electrical safety on site", topic: "Electrical safety", status: "COMPLETED", project: "c", conductor: "engineer", daysAgo: 28, attendees: 3, external: 1 },
+  { id: "hse_tbt_005", number: "TBT-2026-0005", title: "Electrical safety on site", topic: "Electrical safety", status: "COMPLETED", project: "a", conductor: "engineer", daysAgo: 28, attendees: 3, external: 1 },
   { id: "hse_tbt_006", number: "TBT-2026-0006", title: "Fire safety and escape routes", topic: "Fire safety", status: "COMPLETED", project: "a", conductor: "hse", daysAgo: 21, attendees: 3, external: 2 },
-  { id: "hse_tbt_007", number: "TBT-2026-0007", title: "Excavation safety", topic: "Excavations", status: "COMPLETED", project: "c", conductor: "engineer", daysAgo: 18, attendees: 2, external: 2 },
-  { id: "hse_tbt_008", number: "TBT-2026-0008", title: "Manual handling", topic: "Manual handling", status: "COMPLETED", project: "c", conductor: "engineer", daysAgo: 14, attendees: 2, external: 3 },
-  { id: "hse_tbt_009", number: "TBT-2026-0009", title: "Dust and respiratory protection", topic: "Dust", status: "COMPLETED", project: "b", conductor: "hse", daysAgo: 11, attendees: 3, external: 1 },
-  { id: "hse_tbt_010", number: "TBT-2026-0010", title: "Site traffic and pedestrians", topic: "Site traffic", status: "COMPLETED", project: "d", conductor: "pm", daysAgo: 8, attendees: 2, external: 2 },
+  { id: "hse_tbt_007", number: "TBT-2026-0007", title: "Excavation safety", topic: "Excavations", status: "COMPLETED", project: "a", conductor: "engineer", daysAgo: 18, attendees: 2, external: 2 },
+  { id: "hse_tbt_008", number: "TBT-2026-0008", title: "Manual handling", topic: "Manual handling", status: "COMPLETED", project: "a", conductor: "engineer", daysAgo: 14, attendees: 2, external: 3 },
+  { id: "hse_tbt_009", number: "TBT-2026-0009", title: "Dust and respiratory protection", topic: "Dust", status: "COMPLETED", project: "a", conductor: "hse", daysAgo: 11, attendees: 3, external: 1 },
+  { id: "hse_tbt_010", number: "TBT-2026-0010", title: "Site traffic and pedestrians", topic: "Site traffic", status: "COMPLETED", project: "a", conductor: "pm", daysAgo: 8, attendees: 2, external: 2 },
   { id: "hse_tbt_011", number: "TBT-2026-0011", title: "Learning from the riser incident", topic: "Confined spaces", status: "COMPLETED", project: "a", conductor: "hse", daysAgo: 5, attendees: 3, external: 2 },
   { id: "hse_tbt_012", number: "TBT-2026-0012", title: "Near-miss reporting", topic: "Reporting", status: "COMPLETED", project: "a", conductor: "hse", daysAgo: 2, attendees: 3, external: 1 },
-  { id: "hse_tbt_013", number: "TBT-2026-0013", title: "Winter working", topic: "Weather", status: "DRAFT", project: "b", conductor: "hse", daysAgo: 0, attendees: 2, external: 0 },
-  { id: "hse_tbt_014", number: "TBT-2026-0014", title: "Cancelled — site closed", topic: "Housekeeping", status: "CANCELLED", project: "e", conductor: "pm", daysAgo: 7, attendees: 1, external: 0 },
+  { id: "hse_tbt_013", number: "TBT-2026-0013", title: "Winter working", topic: "Weather", status: "DRAFT", project: "a", conductor: "hse", daysAgo: 0, attendees: 2, external: 0 },
+  { id: "hse_tbt_014", number: "TBT-2026-0014", title: "Cancelled — site closed", topic: "Housekeeping", status: "CANCELLED", project: "a", conductor: "pm", daysAgo: 7, attendees: 1, external: 0 },
 ];
 
 const EXTERNAL_NAMES = [
@@ -1364,7 +1364,7 @@ async function seedToolbox(prisma: PrismaClient, people: Record<string, string>)
 /* -------------------------------------------------------------------------- */
 
 async function seedPpe(prisma: PrismaClient, people: Record<string, string>) {
-  const projects: (keyof typeof PROJECT_IDS)[] = ["a", "b", "c", "d"];
+  const projects: (keyof typeof PROJECT_IDS)[] = ["a"];
   const checkers = [people.hse!, people.pm!, people.engineer!];
   const subjects = [people.engineer!, people.pm!, null, null];
 
@@ -1502,26 +1502,26 @@ const DOCUMENTS: {
   { id: "hse_doc_001", name: "Level 4 edge protection — before.jpg", entityType: "hazard", entityId: "hse_hz_001", project: "a" },
   { id: "hse_doc_002", name: "Level 4 edge protection — after.jpg", entityType: "hazard", entityId: "hse_hz_001", project: "a" },
   { id: "hse_doc_003", name: "Blocked escape route.jpg", entityType: "hazard", entityId: "hse_hz_004", project: "a" },
-  { id: "hse_doc_004", name: "Trench B — unsupported sides.jpg", entityType: "hazard", entityId: "hse_hz_006", project: "c" },
+  { id: "hse_doc_004", name: "Trench B — unsupported sides.jpg", entityType: "hazard", entityId: "hse_hz_006", project: "a" },
   { id: "hse_doc_005", name: "Fire safety walk — signed checklist.pdf", entityType: "hse_inspection", entityId: "hse_ins_006", project: "a" },
   { id: "hse_doc_006", name: "Work at height walk — signed checklist.pdf", entityType: "hse_inspection", entityId: "hse_ins_002", project: "a" },
   { id: "hse_doc_007", name: "Electrical inspection photos.pdf", entityType: "hse_inspection", entityId: "hse_ins_004", project: "a" },
   { id: "hse_doc_008", name: "Riser incident — investigation report.pdf", entityType: "incident", entityId: "hse_inc_010", project: "a" },
-  { id: "hse_doc_009", name: "Ladder fall — investigation report.pdf", entityType: "incident", entityId: "hse_inc_004", project: "b" },
-  { id: "hse_doc_010", name: "Saw incident — guard photographs.pdf", entityType: "incident", entityId: "hse_inc_009", project: "b" },
+  { id: "hse_doc_009", name: "Ladder fall — investigation report.pdf", entityType: "incident", entityId: "hse_inc_004", project: "a" },
+  { id: "hse_doc_010", name: "Saw incident — guard photographs.pdf", entityType: "incident", entityId: "hse_inc_009", project: "a" },
   { id: "hse_doc_011", name: "Steel erection risk assessment.pdf", entityType: "risk_assessment", entityId: "hse_ra_001", project: "a" },
-  { id: "hse_doc_012", name: "Deep excavation risk assessment.pdf", entityType: "risk_assessment", entityId: "hse_ra_002", project: "c" },
+  { id: "hse_doc_012", name: "Deep excavation risk assessment.pdf", entityType: "risk_assessment", entityId: "hse_ra_002", project: "a" },
   { id: "hse_doc_013", name: "Hot work risk assessment.pdf", entityType: "risk_assessment", entityId: "hse_ra_003", project: "a" },
   { id: "hse_doc_014", name: "Confined space risk assessment v2.pdf", entityType: "risk_assessment", entityId: "hse_ra_004", project: "a" },
   { id: "hse_doc_015", name: "Hot work permit — signed.pdf", entityType: "work_permit", entityId: "hse_ptw_001", project: "a" },
   { id: "hse_doc_016", name: "Confined space permit — signed.pdf", entityType: "work_permit", entityId: "hse_ptw_002", project: "a" },
-  { id: "hse_doc_017", name: "Excavation permit — signed.pdf", entityType: "work_permit", entityId: "hse_ptw_003", project: "c" },
-  { id: "hse_doc_018", name: "Method statement — drainage.pdf", entityType: "work_permit", entityId: "hse_ptw_003", project: "c" },
+  { id: "hse_doc_017", name: "Excavation permit — signed.pdf", entityType: "work_permit", entityId: "hse_ptw_003", project: "a" },
+  { id: "hse_doc_018", name: "Method statement — drainage.pdf", entityType: "work_permit", entityId: "hse_ptw_003", project: "a" },
   { id: "hse_doc_019", name: "Working at height — attendance sheet.pdf", entityType: "toolbox_talk", entityId: "hse_tbt_001", project: "a" },
   { id: "hse_doc_020", name: "Lifting — attendance sheet.pdf", entityType: "toolbox_talk", entityId: "hse_tbt_002", project: "a" },
   { id: "hse_doc_021", name: "Confined spaces — attendance sheet.pdf", entityType: "toolbox_talk", entityId: "hse_tbt_011", project: "a" },
-  { id: "hse_doc_022", name: "Diesel spill — cleanup evidence.jpg", entityType: "environmental_observation", entityId: "hse_env_001", project: "c" },
-  { id: "hse_doc_023", name: "Wash-out area — remediation.pdf", entityType: "environmental_observation", entityId: "hse_env_010", project: "c" },
+  { id: "hse_doc_022", name: "Diesel spill — cleanup evidence.jpg", entityType: "environmental_observation", entityId: "hse_env_001", project: "a" },
+  { id: "hse_doc_023", name: "Wash-out area — remediation.pdf", entityType: "environmental_observation", entityId: "hse_env_010", project: "a" },
   { id: "hse_doc_024", name: "Waste transfer note.pdf", entityType: "environmental_observation", entityId: "hse_env_003", project: "a" },
   { id: "hse_doc_025", name: "Edge protection sign-off.pdf", entityType: "hse_action", entityId: "hse_act_001", project: "a" },
   { id: "hse_doc_026", name: "Harness register.xlsx", entityType: "hse_action", entityId: "hse_act_012", project: "a" },
@@ -1568,7 +1568,7 @@ async function seedCompanyBHse(prisma: PrismaClient, members: Members) {
     update: {},
     create: {
       id: "hse_hz_b_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       hazardNumber: "HZ-2026-0001",
       title: "Company B — unguarded stair opening",
       description: "Belongs to the other tenant. Company A must never see this row.",
@@ -1590,7 +1590,7 @@ async function seedCompanyBHse(prisma: PrismaClient, members: Members) {
     update: {},
     create: {
       id: "hse_inc_b_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       incidentNumber: "INC-2026-0001",
       incidentType: "NEAR_MISS",
       title: "Company B — near miss on the loading bay",

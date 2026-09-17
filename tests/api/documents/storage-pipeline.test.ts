@@ -28,7 +28,7 @@ import {
 import * as quota from "@/lib/modules/documents/storage/quota.service";
 import { createDocumentUploadSchema } from "@/lib/modules/documents/storage/storage.schema";
 import { globalSearch } from "@/lib/core/search/search.service";
-import { cleanupSessions, loginAs, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, loginAs, PROJECT, prisma } from "../../helpers";
 
 /**
  * The upload, download and preview pipeline (PRD #29 §360-§378).
@@ -43,9 +43,13 @@ import { cleanupSessions, loginAs, PROJECT, prisma } from "../../helpers";
 
 let storageRoot: string;
 const created: string[] = [];
+/** Another of Aurelia's projects, run by the Project Manager: the demo gives each company only one. */
+const OTHER_PROJECT = "test29_storage_other_project";
 
 beforeAll(async () => {
   storageRoot = await mkdtemp(path.join(tmpdir(), "nesto-storage-"));
+  const pm = await loginAs("PROJECT_MANAGER");
+  await prisma.project.create({ data: { id: OTHER_PROJECT, companyId: COMPANY.a, code: "T29-STORE", name: "Storage Elsewhere", status: "ACTIVE", projectManagerMemberId: pm.membershipId, createdBy: "test" } });
   process.env.STORAGE_URL_SECRET = "test-storage-signing-secret-value";
   setStorageProvider(new LocalStorageProvider({ root: storageRoot, baseUrl: "http://localhost:3000" }));
 });
@@ -88,6 +92,7 @@ afterEach(async () => {
 afterAll(async () => {
   setStorageProvider(null);
   await rm(storageRoot, { recursive: true, force: true });
+  await prisma.project.deleteMany({ where: { id: OTHER_PROJECT } });
 
   /*
    * These tests delete their documents directly rather than through the
@@ -568,9 +573,9 @@ describe("parent access (PRD #29 §362, §363)", () => {
   /** Project scope, not role, decides (PRD #29 §363). */
   it("a project member cannot download a document from a project they are not on", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
-    const upload = await uploadFile(pm, PDF, { projectId: PROJECT.b });
+    const upload = await uploadFile(pm, PDF, { projectId: OTHER_PROJECT });
 
-    // The Architect works on projects A and C, never B.
+    // The Architect works on Riverside, never on the other project.
     const architect = await loginAs("ARCHITECT");
     await expectStorageError(createDownloadGrant(architect, upload.documentId), "DOCUMENT_NOT_FOUND");
   });
@@ -584,7 +589,7 @@ describe("parent access (PRD #29 §362, §363)", () => {
    */
   it("the uploader gets no standing of their own", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
-    const upload = await uploadFile(pm, PDF, { projectId: PROJECT.b });
+    const upload = await uploadFile(pm, PDF, { projectId: OTHER_PROJECT });
 
     const row = await prisma.document.findUniqueOrThrow({ where: { id: upload.documentId } });
     expect(row.uploadedByMemberId).toBe(pm.membershipId);
@@ -1196,7 +1201,7 @@ describe("global search cannot bypass parent access (PRD #29 §248, §249)", () 
     const allowed = await globalSearch(finance, financeDocument.name, { totalLimit: 20 });
     expect(titlesOf(allowed)).toContain(financeDocument.name);
 
-    for (const role of ["ENGINEER", "ARCHITECT", "ADMIN"] as const) {
+    for (const role of ["ENGINEER", "ARCHITECT", "GROUP_IT"] as const) {
       const context = await loginAs(role);
       const hits = await globalSearch(context, financeDocument.name, { totalLimit: 20 });
       expect(titlesOf(hits), `${role} found it`).not.toContain(financeDocument.name);

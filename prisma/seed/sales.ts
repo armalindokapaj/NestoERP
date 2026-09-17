@@ -26,30 +26,33 @@
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
 
-import { COMPANY_A, PROJECT_IDS, daysFromNow } from "./constants";
+import { COMPANY_A, COMPANY_B, COMPANY_C, COMPANY_D, COMPANY_E, DEMO_COMPANY_IDS, PROJECT_IDS, companyFor, daysFromNow, type SeedMembers } from "./constants";
 import { seedStoredDocument } from "./document-objects";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const EUR = "EUR";
 
+/**
+ * An opportunity is created in its project's company, or its client's; a lead
+ * in the company it was pitched to; a proposal, approval, task or file follows
+ * the record it belongs to. The salesperson is each company's own — or the
+ * group's head of Sales where a company has none (E-06 §105, §111).
+ */
 export async function seedSalesRecords(prisma: PrismaClient, members: Members) {
-  const sales = members.get("user_sales")!;
-  const owner = members.get("user_owner")!;
-  const ceo = members.get("user_ceo")!;
+  await seedLeads(prisma, members);
+  await seedOpportunities(prisma, members);
+  await seedProposals(prisma, members);
+  await seedApprovals(prisma, members);
+  await seedSalesTasks(prisma, members);
+  await seedSalesDocuments(prisma, members);
 
-  await seedLeads(prisma, sales, owner);
-  await seedOpportunities(prisma, { sales, owner, ceo });
-  await seedProposals(prisma, sales);
-  await seedApprovals(prisma, sales, ceo);
-  await seedSalesTasks(prisma, sales);
-  await seedSalesDocuments(prisma);
-
+  const demo = { companyId: { in: DEMO_COMPANY_IDS } };
   return {
-    leads: await prisma.lead.count({ where: { companyId: COMPANY_A } }),
-    opportunities: await prisma.opportunity.count({ where: { companyId: COMPANY_A } }),
-    proposals: await prisma.proposal.count({ where: { companyId: COMPANY_A } }),
-    approvals: await prisma.salesApproval.count({ where: { companyId: COMPANY_A } }),
+    leads: await prisma.lead.count({ where: demo }),
+    opportunities: await prisma.opportunity.count({ where: demo }),
+    proposals: await prisma.proposal.count({ where: demo }),
+    approvals: await prisma.salesApproval.count({ where: demo }),
   };
 }
 
@@ -98,16 +101,34 @@ const LEADS: LeadFixture[] = [
   { id: "lead_020", name: "Ardit Meta", companyName: "Urban Core", email: "ardit@urbancore.test", phone: "+355 69 200 0020", source: "REFERRAL", status: "CONVERTED", value: 780000, age: 120 },
 ];
 
-async function seedLeads(prisma: PrismaClient, sales: string, owner: string) {
+/**
+ * The company a lead was pitched to. Most came to Aurelia; the converted one
+ * became Nova's client, and a handful fit another company's line of business.
+ */
+const LEAD_COMPANY: Record<string, string> = {
+  lead_002: COMPANY_C,
+  lead_003: COMPANY_E,
+  lead_004: COMPANY_B,
+  lead_011: COMPANY_C,
+  lead_018: COMPANY_D,
+  lead_020: COMPANY_E,
+};
+
+const leadCompany = (leadId: string) => LEAD_COMPANY[leadId] ?? COMPANY_A;
+
+async function seedLeads(prisma: PrismaClient, members: Members) {
   for (const lead of LEADS) {
     const archived = lead.status === "ARCHIVED";
+    const companyId = leadCompany(lead.id);
+    const sales = members.in(companyId, "user_sales");
+    const owner = members.in(companyId, "user_owner");
 
     await prisma.lead.upsert({
       where: { id: lead.id },
       update: {},
       create: {
         id: lead.id,
-        companyId: COMPANY_A,
+        companyId,
         name: lead.name,
         companyName: lead.companyName ?? null,
         email: lead.email ?? null,
@@ -165,7 +186,7 @@ const OPPORTUNITIES: OpportunityFixture[] = [
   { id: "opportunity_002", name: "Beta head office refurb", client: "client_beta", contact: "contact_003", owner: "sales", stage: "PROPOSAL", value: 640000, close: 30, nextStep: "Send revised proposal.", stageAge: 5 },
   { id: "opportunity_003", name: "Meridian marina retail", client: "client_meridian", owner: "sales", stage: "QUALIFIED", value: 920000, close: 90, nextStep: "Book site visit.", stageAge: 14 },
   // The full canonical chain: lead → opportunity → client → project (§311).
-  { id: "opportunity_004", name: "Urban Core plaza", client: "client_urban", owner: "sales", stage: "WON", value: 780000, close: -20, sourceLead: "lead_020", project: PROJECT_IDS.f, wonReason: "Existing relationship and the fastest programme.", stageAge: 20 },
+  { id: "opportunity_004", name: "Urban Core plaza", client: "client_urban", owner: "sales", stage: "WON", value: 780000, close: -20, sourceLead: "lead_020", project: PROJECT_IDS.e, wonReason: "Existing relationship and the fastest programme.", stageAge: 20 },
   { id: "opportunity_005", name: "Atlas cold storage", client: "client_atlas", owner: "owner", stage: "PROSPECTING", value: 430000, close: 120, stageAge: 3 },
   { id: "opportunity_006", name: "Nova Living block A", client: "client_nova", contact: "contact_008", owner: "sales", stage: "PROPOSAL", value: 1200000, close: 60, nextStep: "Chase the commercial director.", stageAge: 11 },
   { id: "opportunity_007", name: "Horizon coastal villas", client: "client_horizon", owner: "sales", stage: "DISCOVERY", value: 2100000, close: 150, nextStep: "Workshop the phasing options.", stageAge: 6 },
@@ -197,19 +218,26 @@ const OPPORTUNITIES: OpportunityFixture[] = [
   { id: "opportunity_025", name: "Central Office Tower fit-out", client: "client_beta", owner: "sales", stage: "WON", value: 1120000, close: -110, project: PROJECT_IDS.b, wonReason: "Incumbent contractor on the shell and core.", stageAge: 110 },
 ];
 
-async function seedOpportunities(
-  prisma: PrismaClient,
-  owners: { sales: string; owner: string; ceo: string },
-) {
+const OPPORTUNITY_COMPANY = new Map(OPPORTUNITIES.map((opportunity) => [opportunity.id, companyFor(opportunity)]));
+
+const opportunityCompany = (opportunityId: string) => OPPORTUNITY_COMPANY.get(opportunityId)!;
+
+async function seedOpportunities(prisma: PrismaClient, members: Members) {
   for (const opportunity of OPPORTUNITIES) {
     const closed = opportunity.stage === "WON" || opportunity.stage === "LOST";
+    const companyId = opportunityCompany(opportunity.id);
+    const owners = {
+      sales: members.in(companyId, "user_sales"),
+      owner: members.in(companyId, "user_owner"),
+      ceo: members.in(companyId, "user_ceo"),
+    };
 
     await prisma.opportunity.upsert({
       where: { id: opportunity.id },
       update: {},
       create: {
         id: opportunity.id,
-        companyId: COMPANY_A,
+        companyId,
         name: opportunity.name,
         clientId: opportunity.client,
         contactId: opportunity.contact ?? null,
@@ -350,9 +378,14 @@ function calculate(lines: ProposalLine[]) {
   return { lines: calculated, subtotal, taxAmount, totalAmount };
 }
 
-async function seedProposals(prisma: PrismaClient, sales: string) {
+const proposalCompany = (proposalId: string) =>
+  opportunityCompany(PROPOSALS.find((proposal) => proposal.id === proposalId)!.opportunity);
+
+async function seedProposals(prisma: PrismaClient, members: Members) {
   for (const proposal of PROPOSALS) {
     const totals = calculate(proposal.lines);
+    const companyId = opportunityCompany(proposal.opportunity);
+    const sales = members.in(companyId, "user_sales");
     const sent = ["SENT", "ACCEPTED", "DECLINED"].includes(proposal.status);
 
     await prisma.proposal.upsert({
@@ -360,7 +393,7 @@ async function seedProposals(prisma: PrismaClient, sales: string) {
       update: {},
       create: {
         id: proposal.id,
-        companyId: COMPANY_A,
+        companyId,
         proposalNumber: proposal.number,
         opportunityId: proposal.opportunity,
         clientId: proposal.client,
@@ -394,16 +427,19 @@ const APPROVALS = [
   { id: "sales_approval_005", proposal: "proposal_010", status: "REJECTED" as const, note: "Too far above the client's stated budget — reprice." },
 ];
 
-async function seedApprovals(prisma: PrismaClient, sales: string, ceo: string) {
+async function seedApprovals(prisma: PrismaClient, members: Members) {
   for (const approval of APPROVALS) {
     const decided = approval.status !== "PENDING";
+    const companyId = proposalCompany(approval.proposal);
+    const sales = members.in(companyId, "user_sales");
+    const ceo = members.in(companyId, "user_ceo");
 
     await prisma.salesApproval.upsert({
       where: { id: approval.id },
       update: {},
       create: {
         id: approval.id,
-        companyId: COMPANY_A,
+        companyId,
         recordType: "PROPOSAL",
         recordId: approval.proposal,
         status: approval.status,
@@ -443,18 +479,27 @@ const SALES_TASKS = [
   { title: "Close out the Urban Core handover", entityType: "opportunity", entityId: "opportunity_004", status: "COMPLETED", due: -18 },
 ];
 
-async function seedSalesTasks(prisma: PrismaClient, sales: string) {
+/** The company of the sales record a task or file hangs off. */
+function recordCompany(entityType: string, entityId: string): string {
+  if (entityType === "lead") return leadCompany(entityId);
+  if (entityType === "proposal") return proposalCompany(entityId);
+  return opportunityCompany(entityId);
+}
+
+async function seedSalesTasks(prisma: PrismaClient, members: Members) {
   let index = 0;
   for (const task of SALES_TASKS) {
     index += 1;
     const id = `task_sales_${index.toString().padStart(3, "0")}`;
+    const companyId = recordCompany(task.entityType, task.entityId);
+    const sales = members.in(companyId, "user_sales");
 
     await prisma.task.upsert({
       where: { id },
       update: {},
       create: {
         id,
-        companyId: COMPANY_A,
+        companyId,
         projectId: null,
         title: task.title,
         assigneeMemberId: sales,
@@ -466,7 +511,7 @@ async function seedSalesTasks(prisma: PrismaClient, sales: string) {
         module: "sales",
         entityType: task.entityType,
         entityId: task.entityId,
-        createdBy: "user_sales",
+        createdBy: members.userIn(companyId, "user_sales"),
       },
     });
   }
@@ -487,24 +532,20 @@ const SALES_DOCUMENTS = [
   { name: "Harbor enquiry notes.pdf", entityType: "lead", entityId: "lead_001" },
 ];
 
-async function seedSalesDocuments(prisma: PrismaClient) {
-  const uploader = await prisma.companyMember.findFirst({
-    where: { companyId: COMPANY_A, user: { email: "sales@nesto.test" } },
-    select: { id: true },
-  });
-
+async function seedSalesDocuments(prisma: PrismaClient, members: Members) {
   let index = 0;
   for (const document of SALES_DOCUMENTS) {
     index += 1;
+    const companyId = recordCompany(document.entityType, document.entityId);
     await seedStoredDocument(prisma, {
       id: `document_sales_${index.toString().padStart(2, "0")}`,
-      companyId: COMPANY_A,
+      companyId,
       name: document.name,
       module: "sales",
       entityType: document.entityType,
       entityId: document.entityId,
-      uploadedByMemberId: uploader?.id ?? null,
-      createdBy: "user_sales",
+      uploadedByMemberId: members.in(companyId, "user_sales"),
+      createdBy: members.userIn(companyId, "user_sales"),
     });
   }
 }

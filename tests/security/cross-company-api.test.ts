@@ -5,23 +5,24 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { UserContext } from "@/lib/context/types";
 import { listApprovals } from "@/lib/modules/approvals/approvals.service";
 import { approvalQuerySchema } from "@/lib/modules/approvals/approvals.schema";
-import { cleanupSessions, createRawSession, loginAsEmail, prisma } from "../helpers";
+import { cleanupSessions, createRawSession, DEMO_EMAIL, loginAsEmail, prisma } from "../helpers";
 import { actAs } from "./harness/actor";
-import { COMPANY_A, COMPANY_B, withAllModulesEnabled } from "./harness/companies";
+import { COMPANY_A, COMPANY_TENANT, COMPANY_WORKS, withAllModulesEnabled } from "./harness/companies";
 import { companyIdentifiers, companySnapshot, snapshotDifferences } from "./harness/company-data";
 import { sweepRoutes } from "./harness/sweep";
 
 vi.mock("@/lib/context/resolve-user-context", () => import("./harness/actor"));
 
 /**
- * Company A / Company B, through every API route (PRD #47 §131-§138, §155, §209).
+ * Company A / the fixture tenant, through every API route (PRD #47 §131-§138,
+ * §155, §209; E-06 §117, §118).
  *
  * The Owner of one company — every permission, the widest scope, every module
  * switched on — calls every session-authenticated route handler in the
- * repository with real record ids from the other company: every method, every
- * dynamic segment, a body the route's own validator accepts. Collection routes
- * are read with the other company's ids in their filters, its project name as
- * the search text, and a calendar range.
+ * repository with real record ids from the other company, in another parent
+ * group: every method, every dynamic segment, a body the route's own validator
+ * accepts. Collection routes are read with the other company's ids in their
+ * filters, its project name as the search text, and a calendar range.
  *
  * The Owner is the strongest attacker there is inside a tenant: no permission
  * check stands between them and the record, so the only thing that can refuse
@@ -41,12 +42,12 @@ const report: Record<string, unknown> = {};
 let restoreModules: (() => Promise<void>) | null = null;
 
 beforeAll(async () => {
-  // Company B runs with modules switched off on purpose (PRD #9 §13); here they
-  // are switched on, so a refusal comes from the company boundary rather than
-  // from the module guard.
-  restoreModules = await withAllModulesEnabled(COMPANY_B);
+  // The fixture tenant runs with modules switched off on purpose (PRD #9 §13);
+  // here they are switched on, so a refusal comes from the company boundary
+  // rather than from the module guard.
+  restoreModules = await withAllModulesEnabled(COMPANY_TENANT);
   ownerA = await loginAsEmail("owner@nesto.test");
-  ownerB = await loginAsEmail("owner-b@nesto.test");
+  ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
 }, 120_000);
 
 afterAll(async () => {
@@ -70,15 +71,15 @@ async function approvalsOf(owner: UserContext) {
 
 const only = process.env.SWEEP_ONLY ? new RegExp(process.env.SWEEP_ONLY) : null;
 
-describe("Company A / Company B isolation across every API route (PRD #47 §209)", () => {
+describe("Company A / fixture tenant isolation across every API route (PRD #47 §209)", () => {
   it("detects a leak when there is one: a company's own Owner trips the check", async () => {
     // Without this, a harness that silently reached no data would pass.
     const result = await sweepRoutes(ownerA, { companyId: COMPANY_A, approvals: [], sessionId: null, foreign: await companyIdentifiers(COMPANY_A) }, { only: (pattern) => pattern === "/api/tasks/[taskId]" });
     expect(result.violations.map((violation) => violation.kind)).toContain("leak");
   });
 
-  it("gives Company B's Owner nothing of Company A's", async () => {
-    const session = await createRawSession("admin@nesto.test");
+  it("gives the fixture tenant's Owner nothing of Company A's", async () => {
+    const session = await createRawSession("ceo@nesto.test");
     const approvals = await approvalsOf(ownerA);
     const before = await companySnapshot(COMPANY_A);
     const result = await sweepRoutes(ownerB, { companyId: COMPANY_A, approvals, sessionId: session.session.id, foreign: await companyIdentifiers(COMPANY_A) }, { only: only ? (pattern) => only.test(pattern) : undefined });
@@ -90,15 +91,28 @@ describe("Company A / Company B isolation across every API route (PRD #47 §209)
     expect(changed).toEqual([]);
   }, 900_000);
 
-  it("gives Company A's Owner nothing of Company B's", async () => {
-    const session = await createRawSession("viewer-b@nesto.test");
+  it("gives Company A's Owner nothing of the fixture tenant's", async () => {
+    const session = await createRawSession(DEMO_EMAIL.tenantViewer);
     const approvals = await approvalsOf(ownerB);
-    const before = await companySnapshot(COMPANY_B);
-    const result = await sweepRoutes(ownerA, { companyId: COMPANY_B, approvals, sessionId: session.session.id, foreign: await companyIdentifiers(COMPANY_B) }, { only: only ? (pattern) => only.test(pattern) : undefined });
-    const changed = snapshotDifferences(before, await companySnapshot(COMPANY_B));
+    const before = await companySnapshot(COMPANY_TENANT);
+    const result = await sweepRoutes(ownerA, { companyId: COMPANY_TENANT, approvals, sessionId: session.session.id, foreign: await companyIdentifiers(COMPANY_TENANT) }, { only: only ? (pattern) => only.test(pattern) : undefined });
+    const changed = snapshotDifferences(before, await companySnapshot(COMPANY_TENANT));
     report.aToB = { ...result, changed };
 
     expect(result.violations).toEqual([]);
     expect(changed).toEqual([]);
   }, 900_000);
+
+  it("gives Company A's Owner none of another group's invitations", async () => {
+    // Every invitation is seeded in Fixture Works, so neither sweep above meets one.
+    const before = await companySnapshot(COMPANY_WORKS);
+    const result = await sweepRoutes(ownerA, { companyId: COMPANY_WORKS, approvals: [], sessionId: null, foreign: await companyIdentifiers(COMPANY_WORKS) }, { only: (pattern) => pattern.startsWith("/api/team/invitations/") });
+    const changed = snapshotDifferences(before, await companySnapshot(COMPANY_WORKS));
+    report.aToWorks = { ...result, changed };
+
+    expect(result.uncovered).toEqual([]);
+    expect(result.calls).toBeGreaterThan(0);
+    expect(result.violations).toEqual([]);
+    expect(changed).toEqual([]);
+  }, 300_000);
 });

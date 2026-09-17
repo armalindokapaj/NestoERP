@@ -17,7 +17,7 @@ import { reopenTimesheet, submitTimesheet } from "@/lib/modules/timesheets/times
 import { businessInstant, weekStartOf } from "@/lib/modules/timesheets/timesheet.time";
 import { copyDay, createWorkLog, deleteWorkLog, setCell, updateWorkLog } from "@/lib/modules/timesheets/timesheet.worklogs";
 import { setApprover } from "@/lib/modules/timesheets/timesheet.approvers";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Timesheets & Work Logs, against the real database (PRD #42 §246-§260).
@@ -30,7 +30,7 @@ import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../h
 
 const ZONE = "Europe/Tirane";
 const TASK_A = "task_009"; // project_a, assigned to HSE
-const TASK_B = "task_017"; // project_b
+const TASK_B = "task_007"; // project_a, assigned to the Engineer
 const COMPANY_B_TASK = "task_b_01";
 
 let hse: UserContext;
@@ -130,7 +130,7 @@ describe("work logs (§247, §250-§252)", () => {
     expect(() => log({ minutes: 3 })).toThrow();
     expect(() => log({ minutes: 1.5 })).toThrow();
     await expect(createWorkLog(hse, log({ projectId: null, taskId: null }))).rejects.toMatchObject(code("TIMESHEET_PROJECT_REQUIRED"));
-    await expect(createWorkLog(hse, log({ projectId: PROJECT.b, taskId: TASK_A }))).rejects.toMatchObject(code("TIMESHEET_TASK_PROJECT_MISMATCH"));
+    await expect(createWorkLog(hse, log({ workType: "INTERNAL", projectId: null, taskId: TASK_A }))).rejects.toMatchObject(code("TIMESHEET_TASK_PROJECT_MISMATCH"));
     await expect(createWorkLog(hse, log({ workDate: addLocalDays(today(), 1) }))).rejects.toMatchObject(code("TIMESHEET_INVALID_DATE"));
     await expect(createWorkLog(hse, log({ workDate: addLocalDays(today(), -15) }))).rejects.toMatchObject(code("TIMESHEET_BACKDATE_LIMIT"));
     await createWorkLog(hse, log({ minutes: 1000, taskId: null }));
@@ -145,7 +145,7 @@ describe("work logs (§247, §250-§252)", () => {
   });
 
   it("sets grid cells: creates, updates, clears, and refuses a cell holding several entries", async () => {
-    const cell = { workDate: today(), workType: "PROJECT_WORK" as const, projectId: PROJECT.b, taskId: TASK_B };
+    const cell = { workDate: today(), workType: "PROJECT_WORK" as const, projectId: PROJECT.a, taskId: TASK_B };
     const created = await setCell(hse, { ...cell, minutes: 60 });
     expect(created.timesheetId).toBeTruthy();
     await setCell(hse, { ...cell, minutes: 150 });
@@ -153,8 +153,8 @@ describe("work logs (§247, §250-§252)", () => {
     await setCell(hse, { ...cell, minutes: 0 });
     expect((await getMyWeek(hse)).totals.totalMinutes).toBe(0);
 
-    await createWorkLog(hse, log({ projectId: PROJECT.b, taskId: TASK_B, minutes: 30 }));
-    await createWorkLog(hse, log({ projectId: PROJECT.b, taskId: TASK_B, minutes: 45 }));
+    await createWorkLog(hse, log({ taskId: TASK_B, minutes: 30 }));
+    await createWorkLog(hse, log({ taskId: TASK_B, minutes: 45 }));
     await expect(setCell(hse, { ...cell, minutes: 60 })).rejects.toMatchObject(code("TIMESHEET_CELL_HAS_ENTRIES"));
   });
 
@@ -232,7 +232,7 @@ describe("submission and decisions (§66-§69, §80-§86, §248, §249, §253)",
     await dispatchNotifications(500);
     expect(await prisma.notification.count({ where: { entityId: timesheetId, recipientMemberId: hse.membershipId, eventType: "TIMESHEET_RETURNED" } })).toBe(1);
 
-    await createWorkLog(hse, log({ projectId: PROJECT.b, taskId: TASK_B, minutes: 60 }));
+    await createWorkLog(hse, log({ taskId: TASK_B, minutes: 60 }));
     week = await getTimesheet(hse, timesheetId);
     const resubmitted = await submitTimesheet(hse, timesheetId, { expectedVersion: week.version, acknowledgeShortfall: true });
     expect(resubmitted.submissionVersion).toBe(2);
@@ -298,7 +298,7 @@ describe("reading other people's weeks (§87-§92, §122-§127, §231)", () => {
     await expect(getTimesheet(pm, timesheetId)).resolves.toMatchObject({ id: timesheetId });
     await expect(getTimesheet(hr, timesheetId)).resolves.toMatchObject({ id: timesheetId });
     await expect(getTimesheet(architect, timesheetId)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(getTimesheet(await loginAsEmail("owner-b@nesto.test"), timesheetId)).rejects.toBeTruthy();
+    await expect(getTimesheet(await loginAsEmail(DEMO_EMAIL.tenantOwner), timesheetId)).rejects.toBeTruthy();
     expect(await loadRecord(architect, "timesheet", timesheetId)).toBeNull();
     expect(await loadRecord(pm, "timesheet", timesheetId)).toMatchObject({ href: `/timesheets/${timesheetId}` });
   });

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { skipFor } from "@/lib/modules/shared/list-query";
+import { memberAddressed, type MemberAddressed } from "../hr.person";
 import { buildEmployeeScopeWhere, buildHrMemberScopeWhere } from "../hr.scope";
 import type { EmployeeListQuery, EmployeeSortKey } from "../hr.schema";
 
@@ -42,7 +43,9 @@ export const SUMMARY_SELECT = {
   },
 } satisfies Prisma.EmployeeProfileSelect;
 
-export type EmployeeRow = Prisma.EmployeeProfileGetPayload<{ select: typeof SUMMARY_SELECT }>;
+export type EmployeeRow = MemberAddressed<
+  Prisma.EmployeeProfileGetPayload<{ select: typeof SUMMARY_SELECT }>
+>;
 
 export const DETAIL_SELECT = {
   ...SUMMARY_SELECT,
@@ -72,9 +75,9 @@ export const DETAIL_SELECT = {
   },
 } satisfies Prisma.EmployeeProfileSelect;
 
-export type EmployeeDetailRow = Prisma.EmployeeProfileGetPayload<{
-  select: typeof DETAIL_SELECT;
-}>;
+export type EmployeeDetailRow = MemberAddressed<
+  Prisma.EmployeeProfileGetPayload<{ select: typeof DETAIL_SELECT }>
+>;
 
 export function buildEmployeeListWhere(
   context: UserContext,
@@ -122,22 +125,30 @@ export async function listEmployees(context: UserContext, query: EmployeeListQue
     prisma.employeeProfile.count({ where }),
   ]);
 
-  return { rows, total };
+  return { rows: rows.map(memberAddressed), total };
 }
 
 /** By membership id, which is how every HR route addresses a person. */
-export function findEmployeeByMember(context: UserContext, memberId: string) {
-  return prisma.employeeProfile.findFirst({
+export async function findEmployeeByMember(
+  context: UserContext,
+  memberId: string,
+): Promise<EmployeeDetailRow | null> {
+  const row = await prisma.employeeProfile.findFirst({
     where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: memberId }] },
     select: DETAIL_SELECT,
   });
+  return row && memberAddressed(row);
 }
 
-export function findEmployeeById(context: UserContext, profileId: string) {
-  return prisma.employeeProfile.findFirst({
+export async function findEmployeeById(
+  context: UserContext,
+  profileId: string,
+): Promise<EmployeeDetailRow | null> {
+  const row = await prisma.employeeProfile.findFirst({
     where: { AND: [buildEmployeeScopeWhere(context), { id: profileId }] },
     select: DETAIL_SELECT,
   });
+  return row && memberAddressed(row);
 }
 
 /** Filter options drawn from the employees this reader can already see. */

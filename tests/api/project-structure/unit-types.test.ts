@@ -5,22 +5,22 @@ import type { UserContext } from "@/lib/context/types";
 import { createUnitTypeSchema, updateUnitTypeSchema } from "@/lib/modules/project-structure/structure.schema";
 import { getProjectStructure } from "@/lib/modules/project-structure/structure.service";
 import { createUnitType, deleteUnitType, listUnitTypes, reorderUnitTypes, updateUnitType } from "@/lib/modules/project-structure/unit-type.service";
-import { cleanupSessions, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
  * A company's own unit types (E-05B §20, §21, §74, §116).
  *
- * The same shape as the project types beside them: the Owner and Admin keep
+ * The same shape as the project types beside them: the Owner and the CEO keep
  * the list, nobody else does, and nothing in it reaches across a company. A
  * type units use is retired rather than deleted, so no unit loses its type.
  */
 
-const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const COMPANY_A = COMPANY.a;
+const COMPANY_B = COMPANY.tenant;
 const DEFAULT_CODES = ["APARTMENT", "PENTHOUSE", "VILLA", "OFFICE", "SHOP", "PARKING", "GARAGE", "STORAGE", "LAND", "OTHER"];
 
 let owner: UserContext;
-let admin: UserContext;
+let ceo: UserContext;
 let ownerB: UserContext;
 let startedAt: Date;
 const tempTypes: string[] = [];
@@ -28,7 +28,7 @@ let originalOrder: Array<{ id: string; sortOrder: number; updatedBy: string | nu
 
 beforeAll(async () => {
   startedAt = new Date();
-  [owner, admin] = await Promise.all([loginAs("OWNER"), loginAs("ADMIN")]);
+  [owner, ceo] = await Promise.all([loginAs("OWNER"), loginAs("CEO")]);
   ownerB = await loginAsMembership("member_owner_b");
 });
 
@@ -70,8 +70,8 @@ const update = (context: UserContext, id: string, input: Record<string, unknown>
 const seeded = (companyId: string, code: string) => prisma.projectUnitType.findFirstOrThrow({ where: { companyId, code } });
 
 describe("who keeps the list", () => {
-  it("lets the Owner and an Admin read it, with how many units use each type", async () => {
-    for (const context of [owner, admin]) {
+  it("lets the Owner and the CEO read it, with how many units use each type", async () => {
+    for (const context of [owner, ceo]) {
       const types = await listUnitTypes(context);
       expect(types.map((type) => type.code)).toEqual(expect.arrayContaining(DEFAULT_CODES));
       expect(types.find((type) => type.code === "APARTMENT")).toMatchObject({ name: "Apartment", category: "RESIDENTIAL", isActive: true });
@@ -82,7 +82,7 @@ describe("who keeps the list", () => {
 
   it("refuses everybody else, the Project Manager and the Architect included", async () => {
     const apartment = await seeded(COMPANY_A, "APARTMENT");
-    for (const role of ["PROJECT_MANAGER", "ARCHITECT", "ENGINEER", "SALES", "CEO", "VIEWER"] as const) {
+    for (const role of ["PROJECT_MANAGER", "ARCHITECT", "ENGINEER", "SALES", "GROUP_IT", "VIEWER"] as const) {
       const context = await loginAs(role);
       await expectError(listUnitTypes(context), "FORBIDDEN");
       await expectError(createUnitType(context, createUnitTypeSchema.parse({ name: "Nope", category: "OTHER" })), "FORBIDDEN");
@@ -97,10 +97,10 @@ describe("who keeps the list", () => {
 
 describe("keeping the list", () => {
   it("adds a type with a code from its name, at the end of the list", async () => {
-    const created = await create(admin, { name: "Café Kiosk", category: "COMMERCIAL" });
+    const created = await create(ceo, { name: "Café Kiosk", category: "COMMERCIAL" });
     expect(created).toMatchObject({ name: "Café Kiosk", code: "CAFE_KIOSK", category: "COMMERCIAL", isActive: true, unitCount: 0 });
-    expect(created.sortOrder).toBe(Math.max(...(await listUnitTypes(admin)).map((type) => type.sortOrder)));
-    const typed = await create(admin, { name: "Sky Villa", code: "sky_villa_1", category: "RESIDENTIAL" });
+    expect(created.sortOrder).toBe(Math.max(...(await listUnitTypes(ceo)).map((type) => type.sortOrder)));
+    const typed = await create(ceo, { name: "Sky Villa", code: "sky_villa_1", category: "RESIDENTIAL" });
     expect(typed.code).toBe("SKY_VILLA_1");
     expect(createUnitTypeSchema.safeParse({ name: "Bad code", code: "SKY-VILLA", category: "RESIDENTIAL" }).success).toBe(false);
     expect(createUnitTypeSchema.safeParse({ name: "No category" }).success).toBe(false);

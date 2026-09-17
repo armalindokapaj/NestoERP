@@ -37,7 +37,7 @@ export function buildTeamScopeWhere(context: UserContext): Prisma.CompanyMemberW
   const scope = getModuleScope(context, "team");
   const base: Prisma.CompanyMemberWhereInput = { companyId: context.companyId };
 
-  if (scope === "COMPANY" || scope === "SYSTEM") return base;
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM") return base;
 
   if (scope === "DEPARTMENT") {
     return {

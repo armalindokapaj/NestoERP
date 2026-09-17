@@ -37,3 +37,33 @@ export async function removeStructure(projectIds: string[]): Promise<void> {
   await db.projectFloor.deleteMany({ where: { projectId: { in: projectIds } } });
   await db.projectBuilding.deleteMany({ where: { projectId: { in: projectIds } } });
 }
+
+/**
+ * A bare second Aurelia project for a unit spec to build on (E-06 §45).
+ *
+ * Every demo company runs one project, and Riverside's own units would crowd a
+ * spec's searches and counts, so each unit spec works on a project of its own:
+ * run by Aurelia's project manager, with Aurelia's architect on it.
+ */
+export async function createSpareProject(id: string, code: string, name: string): Promise<void> {
+  await removeSpareProject(id);
+  const type = await db.projectType.findFirstOrThrow({ where: { companyId: "company_demo_a", name: "Residential" }, select: { id: true } });
+  await db.project.create({
+    data: { id, companyId: "company_demo_a", code, name, status: "ACTIVE", projectManagerMemberId: "member_pm", projectTypeId: type.id, city: "Durrës", createdBy: "seed" },
+  });
+  await db.projectMember.createMany({
+    data: [
+      { companyId: "company_demo_a", projectId: id, companyMemberId: "member_pm", projectRole: "Project Manager", status: "ACTIVE" },
+      { companyId: "company_demo_a", projectId: id, companyMemberId: "member_architect", projectRole: "Architect", status: "ACTIVE" },
+    ],
+  });
+}
+
+/** Removes a spare project once its spec has cleared what it built on it. */
+export async function removeSpareProject(id: string): Promise<void> {
+  await removeStructure([id]);
+  await db.projectMember.deleteMany({ where: { projectId: id } });
+  await db.recentItem.deleteMany({ where: { entityId: id } });
+  await db.activity.deleteMany({ where: { entityId: id } });
+  await db.project.deleteMany({ where: { id } });
+}

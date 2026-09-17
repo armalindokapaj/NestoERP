@@ -31,7 +31,7 @@ export const siteSq: SiteCopy = {
     platform: {
       title: "Platforma",
       description:
-        "Shtatëmbëdhjetë module, tetëmbëdhjetë hapësira pune sipas rolit dhe një regjistër i vetëm projekti — i gjithë cikli i ndërtimit në një sistem.",
+        "Shtatëmbëdhjetë module, gjashtëmbëdhjetë hapësira pune sipas rolit dhe një regjistër i vetëm projekti — i gjithë cikli i ndërtimit në një sistem.",
     },
     pricing: {
       title: "Çmimet",
@@ -111,7 +111,7 @@ export const siteSq: SiteCopy = {
       lead: "Çdo departament në të njëjtin sistem, mbi të njëjtin regjistër projekti — me prokurimin, cilësinë dhe sigurinë si punë parësore, jo si shtesa.",
       cta: "Eksploroni platformën",
     },
-    roles: { cta: "Shihni të 18 rolet" },
+    roles: { cta: "Shihni të 16 rolet" },
     build: {
       eyebrow: "Nga fillimi në fund",
       title: "Nga tenderi që e fiton, te llogaria që e mbyll.",
@@ -182,6 +182,7 @@ export const siteSq: SiteCopy = {
     qaqc: "Inspektimet, mospërputhjet, testet dhe listat e defekteve, të mbyllura në regjistër.",
     hse: "Incidentet, lejet e punës, inspektimet dhe veprimet korrigjuese.",
     team: "Të gjithë në kompani, me departamentin dhe rolin nën të cilin punojnë.",
+    organization: "Grupi mëmë mbi kompanitë tuaja: departamentet e tij, drejtuesit që i drejtojnë dhe njerëzit që sjell burimet njerëzore.",
     company: "Identiteti i kompanisë dhe të dhënat me të cilat lëshohet çdo dokument.",
     settings: "Rolet, përdoruesit, aktivizimi i moduleve dhe pamja, në duart e administratorit.",
     support: "Kërkesat e brendshme dhe baza e njohurive që shkruan vetë ekipi juaj.",
@@ -294,6 +295,7 @@ export const siteSq: SiteCopy = {
     departments: {
       Executive: "Drejtoria",
       Administration: "Administrata",
+      Platform: "Platforma",
       IT: "IT",
       "Human Resources": "Burimet njerëzore",
       Projects: "Projektet",
@@ -361,7 +363,7 @@ export const siteSq: SiteCopy = {
 
   rolesSection: {
     eyebrow: "Ndërtuar rreth rolit",
-    title: "Tetëmbëdhjetë persona hapin NESTO dhe shohin tetëmbëdhjetë kompani të ndryshme.",
+    title: "Gjashtëmbëdhjetë persona hapin NESTO dhe shohin gjashtëmbëdhjetë kompani të ndryshme.",
     lead: "Një inxhinier kantieri nuk duhet të kalojë përmes listëpagesave për të arritur te një inspektim. Në NESTO, roli vendos navigimin, panelin, veprimet e shpejta dhe atë që do të përgjigjet serveri — të gjitha nga një konfigurim i vetëm.",
     readOnly: "Vetëm lexim",
   },
@@ -488,7 +490,7 @@ export const siteSq: SiteCopy = {
         seats: "Deri në 25 përdorues",
         features: [
           "Të 17 modulet",
-          "Të 18 hapësirat e punës sipas rolit",
+          "Të 16 hapësirat e punës sipas rolit",
           "Hapësirë pune dhe identitet vizual i kompanisë",
           "Kontroll i aktivizimit të moduleve",
           "Mbështetje me email",
@@ -554,7 +556,7 @@ export const siteSq: SiteCopy = {
       {
         title: "Çfarë besojmë",
         body: [
-          "Roli i pari. Softueri duhet t'i tregojë një personi punën e vet, jo gjithë organigramën e kompanisë. Tetëmbëdhjetë role, tetëmbëdhjetë hapësira pune, një konfigurim pas tyre.",
+          "Roli i pari. Softueri duhet t'i tregojë një personi punën e vet, jo gjithë organigramën e kompanisë. Gjashtëmbëdhjetë role, gjashtëmbëdhjetë hapësira pune, një konfigurim pas tyre.",
           "Përmbajtja është veçori. Një paletë e kufizuar, një shkallë tipografike, një librari komponentësh. Ekranet që janë të mërzitshëm në të njëjtën mënyrë janë ekrane që i mëson një herë.",
           "Shpejtësia është respekt. Askush në kantier nuk ka durim për një ikonë ngarkimi. Faqet gjenerohen në server dhe i dërgojnë shfletuesit sa më pak që munden.",
           "Thuaj të vërtetën. Pa statistika të sajuara, pa logo të huazuara, pa distinktivë certifikimi që nuk i kemi fituar.",
@@ -563,7 +565,7 @@ export const siteSq: SiteCopy = {
       {
         title: "Ku është NESTO sot",
         body: [
-          "V0.1 është versioni themelor: një aplikacion, një sistem dizajni, një kornizë aplikacioni, një sistem modulesh dhe një konfigurim rolesh. Të tetëmbëdhjetë rolet hyjnë dhe punojnë nga këndvështrimi i tyre, dhe të shtatëmbëdhjetë modulet kanë faqen, titullin, navigimin dhe panelin e tyre të vërtetë.",
+          "V0.1 është versioni themelor: një aplikacion, një sistem dizajni, një kornizë aplikacioni, një sistem modulesh dhe një konfigurim rolesh. Të gjashtëmbëdhjetë rolet hyjnë dhe punojnë nga këndvështrimi i tyre, dhe të shtatëmbëdhjetë modulet kanë faqen, titullin, navigimin dhe panelin e tyre të vërtetë.",
           "Funksionaliteti i moduleve po ndërtohet mbi këtë themel, modul pas moduli. Preferojmë t'jua themi qartë sesa t'ju shesim një pamje ekrani të diçkaje që ende nuk ekziston.",
           "Nëse doni të ndikoni në atë që ndërtohet më pas, kjo është pikërisht biseda që duhet të bëni me ne tani.",
         ],
@@ -691,7 +693,7 @@ export const siteSq: SiteCopy = {
           {
             question: "A mund ta shohim para se të angazhohemi?",
             answer:
-              "Po. Kërkoni një prezantim dhe do t'ju shoqërojmë nëpër një hapësirë pune funksionale nga këndvështrimi i cilitdo prej tetëmbëdhjetë roleve, që të shihni atë që do të shihnin njerëzit tuaj.",
+              "Po. Kërkoni një prezantim dhe do t'ju shoqërojmë nëpër një hapësirë pune funksionale nga këndvështrimi i cilitdo prej gjashtëmbëdhjetë roleve, që të shihni atë që do të shihnin njerëzit tuaj.",
           },
           {
             question: "Çfarë përfshin nisja?",

@@ -19,7 +19,7 @@ import {
   createContractSchema,
 } from "@/lib/modules/contracts/contracts/contract.schema";
 import { obligationListQuerySchema } from "@/lib/modules/contracts/obligations/obligation.schema";
-import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, demoEmail, loginAs, loginAsEmail, loginAsMembership, prisma } from "../../helpers";
 
 /**
  * Legal / Contracts authorisation and lifecycle tests (PRD #18 §419–§450).
@@ -34,27 +34,44 @@ import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
  *   3. nobody approves what they submitted,
  *   4. an approved contract's terms change by amendment and not by editing,
  *   5. an amendment moves the contract's value exactly once,
- *   6. Company B is unreachable by every route in and out.
+ *   6. another group's company is unreachable by every route in and out.
  */
 const query = contractListQuerySchema.parse({ limit: 100 });
 const obligationQuery = obligationListQuerySchema.parse({ limit: 100 });
 
 const SEED = {
-  active: "contract_001",
-  activeWithAmendment: "contract_005",
-  draft: "contract_010",
-  inReview: "contract_011",
-  pendingApproval: "contract_012",
-  pendingApproval2: "contract_013",
-  approved: "contract_014",
-  sent: "contract_015",
-  signed: "contract_016",
-  expired: "contract_017",
-  terminated: "contract_018",
-  cancelled: "contract_019",
-  archived: "contract_020",
-  companyB: "contract_b_001",
+  active: "contract_001", // Aurelia
+  activeWithAmendment: "contract_005", // Nova
+  draft: "contract_010", // Nova
+  inReview: "contract_011", // Forma
+  pendingApproval: "contract_012", // Terra
+  pendingApproval2: "contract_013", // Meridian
+  approved: "contract_014", // Aurelia
+  sent: "contract_015", // Terra
+  signed: "contract_016", // Nova
+  expired: "contract_017", // Nova
+  terminated: "contract_018", // Meridian
+  cancelled: "contract_019", // Aurelia
+  archived: "contract_020", // Aurelia
+  tenant: "contract_b_001",
 } as const;
+
+/**
+ * A contract sits in the company of its project or client (E-06), so a test
+ * works on one from inside that company: as the group's head of Legal, who is
+ * a member of all five, or as that company's own CEO.
+ */
+async function inCompanyOf(contractId: string, who: { user: { email: string } } | { role: { key: "CEO" } }) {
+  const { companyId } = await prisma.contract.findUniqueOrThrow({ where: { id: contractId }, select: { companyId: true } });
+  const member = await prisma.companyMember.findFirstOrThrow({
+    where: { ...who, companyId, status: "ACTIVE" },
+    select: { id: true },
+  });
+  return loginAsMembership(member.id);
+}
+
+const legalFor = (contractId: string) => inCompanyOf(contractId, { user: { email: demoEmail("LEGAL") } });
+const ceoFor = (contractId: string) => inCompanyOf(contractId, { role: { key: "CEO" } });
 
 const TEST_PREFIX = "Vitest";
 
@@ -229,24 +246,24 @@ describe("contract access (PRD #18 §16–§31, §420)", () => {
     const context = await loginAs("LEGAL");
     const result = await contracts.listContracts(context, query);
 
-    expect(result.data.length).toBeGreaterThanOrEqual(19);
+    const register = await prisma.contract.count({ where: { companyId: context.companyId, archivedAt: null } });
+    expect(register).toBeGreaterThan(5);
+    expect(result.data.length).toBe(register);
     expect(result.data.some((row) => row.id === SEED.active)).toBe(true);
   });
 
-  it("refuses Admin and Company IT by default (PRD #18 §24, §25)", async () => {
-    for (const role of ["ADMIN", "COMPANY_IT"] as const) {
-      const context = await loginAs(role);
-      expect(can(context, "legal.contract.view")).toBe(false);
-      await expect(contracts.listContracts(context, query)).rejects.toBeInstanceOf(AccessError);
-    }
+  it("refuses Group IT by default (PRD #18 §24, §25)", async () => {
+    const context = await loginAs("GROUP_IT");
+    expect(can(context, "legal.contract.view")).toBe(false);
+    await expect(contracts.listContracts(context, query)).rejects.toBeInstanceOf(AccessError);
   });
 
   it("does not let client access alone reach a contract (PRD #18 §19, §251)", async () => {
-    // Admin and Viewer both hold `client.view`: they can open the customer
+    // Architect and Viewer both hold `client.view`: they can open the customer
     // record and read who it is. Neither is thereby told what the company
     // agreed with them. The access formula is three terms, and the contract
     // permission is one of them.
-    for (const role of ["ADMIN", "VIEWER"] as const) {
+    for (const role of ["ARCHITECT", "VIEWER"] as const) {
       const context = await loginAs(role);
       expect(can(context, "client.view")).toBe(true);
       expect(can(context, "legal.contract.view")).toBe(false);
@@ -369,10 +386,10 @@ describe("creating a contract (PRD #18 §94–§99, §421)", () => {
   });
 
   it("allows the number another company already uses (PRD #18 §36, §239)", async () => {
-    // Company B's fixture carries CTR-2026-001 too. Uniqueness is per company;
+    // The fixture tenant carries CTR-2026-001 too. Uniqueness is per company;
     // a global constraint would leak the other company's numbering.
     const b = await prisma.contract.findUniqueOrThrow({
-      where: { id: SEED.companyB },
+      where: { id: SEED.tenant },
       select: { contractNumber: true },
     });
     expect(b.contractNumber).toBe("CTR-2026-001");
@@ -459,7 +476,7 @@ describe("creating a contract (PRD #18 §94–§99, §421)", () => {
     if (!proposal) return;
 
     const otherClient = await prisma.client.findFirst({
-      where: { companyId: "company_demo_a", id: { not: proposal.clientId } },
+      where: { companyId: "company_demo_a", id: { not: proposal.clientId }, archivedAt: null },
       select: { id: true },
     });
     if (!otherClient) return;
@@ -476,7 +493,7 @@ describe("creating a contract (PRD #18 §94–§99, §421)", () => {
 
 describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   it("walks draft → review → approval and records the approval (PRD #18 §422)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.draft);
     await rememberContract(SEED.draft);
 
     await contracts.submitForReview(legal, SEED.draft);
@@ -495,7 +512,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   });
 
   it("returns a contract in review to draft (PRD #18 §110)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.inReview);
     await rememberContract(SEED.inReview);
 
     await contracts.returnToDraft(legal, SEED.inReview, "Needs a liability cap.");
@@ -504,7 +521,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
 
   it("blocks self-approval (PRD #18 §116, §423)", async () => {
     // contract_012's approval was submitted by Legal in the seed.
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.pendingApproval);
     await expect(contracts.approveContract(legal, SEED.pendingApproval, null)).rejects.toBeInstanceOf(
       AccessError,
     );
@@ -513,8 +530,8 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   it("does not offer a decision to the person who submitted it (PRD #18 §116, §353)", async () => {
     // The queue has always withheld the buttons; the record page must agree,
     // or it draws an Approve the service is certain to refuse.
-    const legal = await loginAs("LEGAL");
-    const ceo = await loginAs("CEO");
+    const legal = await legalFor(SEED.pendingApproval);
+    const ceo = await ceoFor(SEED.pendingApproval);
 
     const submitted = await contracts.getContract(legal, SEED.pendingApproval);
     expect(submitted.status).toBe("PENDING_APPROVAL");
@@ -527,7 +544,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   });
 
   it("lets somebody else approve, once (PRD #18 §189, §508)", async () => {
-    const ceo = await loginAs("CEO");
+    const ceo = await ceoFor(SEED.pendingApproval);
     await rememberContract(SEED.pendingApproval);
     touchedApprovals.push({ id: "contract_approval_001" });
 
@@ -541,7 +558,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   });
 
   it("requires a reason to reject (PRD #18 §114, §190)", async () => {
-    const ceo = await loginAs("CEO");
+    const ceo = await ceoFor(SEED.pendingApproval2);
     await rememberContract(SEED.pendingApproval2);
     touchedApprovals.push({ id: "contract_approval_002" });
 
@@ -585,7 +602,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   });
 
   it("signs with a date, then activates (PRD #18 §118, §120, §424, §425)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.sent);
     await rememberContract(SEED.sent);
 
     await contracts.markSigned(legal, SEED.sent, {
@@ -603,7 +620,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   });
 
   it("refuses a lifecycle jump that skips a state (PRD #18 §191, §192)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.draft);
     // A draft has not been sent, so it cannot be signed.
     await expect(
       contracts.markSigned(legal, SEED.draft, {
@@ -644,7 +661,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   });
 
   it("treats expiry as derived, so reporting is right even if the status lags (PRD #18 §193, §426)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.expired);
     const expired = await contracts.getContract(legal, SEED.expired);
 
     expect(expired.attention.daysToExpiry).not.toBeNull();
@@ -656,7 +673,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
     const legal = await loginAs("LEGAL");
 
     // An active contract is not archivable.
-    await expect(contracts.archiveContract(legal, SEED.activeWithAmendment)).rejects.toBeInstanceOf(
+    await expect(contracts.archiveContract(legal, SEED.active)).rejects.toBeInstanceOf(
       AccessError,
     );
 
@@ -675,7 +692,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
 
 describe("contract parties (PRD #18 §136–§147, §428, §429)", () => {
   it("allows one primary counterparty only (PRD #18 §144, §236)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.draft);
     const existing = await parties.listParties(legal, SEED.draft);
     const alreadyPrimary = existing.find((row) => row.isPrimaryCounterparty);
 
@@ -696,7 +713,7 @@ describe("contract parties (PRD #18 §136–§147, §428, §429)", () => {
   });
 
   it("freezes the party snapshot when the client is renamed (PRD #18 §141, §429)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.activeWithAmendment);
     const linked = (await parties.listParties(legal, SEED.activeWithAmendment)).find(
       (row) => row.clientId !== null,
     );
@@ -798,7 +815,7 @@ describe("contract obligations (PRD #18 §148–§158, §430, §431)", () => {
 
 describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
   it("changes nothing until it is activated (PRD #18 §333)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.activeWithAmendment);
     const before = await contracts.getContract(legal, SEED.activeWithAmendment);
 
     const amendment = await amendments.createAmendment(legal, SEED.activeWithAmendment, {
@@ -816,8 +833,8 @@ describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
   });
 
   it("applies the value once, and refuses a second activation (PRD #18 §332, §511, §435)", async () => {
-    const legal = await loginAs("LEGAL");
-    const ceo = await loginAs("CEO");
+    const legal = await legalFor(SEED.activeWithAmendment);
+    const ceo = await ceoFor(SEED.activeWithAmendment);
 
     await rememberContract(SEED.activeWithAmendment);
     const start = await contracts.getContract(legal, SEED.activeWithAmendment);
@@ -851,8 +868,8 @@ describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
   });
 
   it("extends the expiry date exactly once (PRD #18 §168, §331, §434)", async () => {
-    const legal = await loginAs("LEGAL");
-    const ceo = await loginAs("CEO");
+    const legal = await legalFor(SEED.activeWithAmendment);
+    const ceo = await ceoFor(SEED.activeWithAmendment);
     await rememberContract(SEED.activeWithAmendment);
 
     const before = await contracts.getContract(legal, SEED.activeWithAmendment);
@@ -880,7 +897,7 @@ describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
   });
 
   it("blocks self-approval of an amendment too (PRD #18 §169)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.activeWithAmendment);
     const amendment = await amendments.createAmendment(legal, SEED.activeWithAmendment, {
       amendmentNumber: `${TEST_PREFIX}-A4`,
       title: `${TEST_PREFIX} self approval`,
@@ -896,7 +913,7 @@ describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
   });
 
   it("allows only one amendment in flight per contract (PRD #18 §178, §238)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor("contract_006");
     // contract_006 carries a seeded DRAFT amendment. Putting it into the
     // approval cycle should close the door on a second one.
     await rememberAmendment("contract_amendment_006");
@@ -919,7 +936,7 @@ describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
   });
 
   it("refuses an amendment on a contract still being drafted (PRD #18 §165)", async () => {
-    const legal = await loginAs("LEGAL");
+    const legal = await legalFor(SEED.draft);
     await expect(
       amendments.createAmendment(legal, SEED.draft, {
         amendmentNumber: `${TEST_PREFIX}-A5`,
@@ -1001,12 +1018,12 @@ describe("cross-module reads (PRD #18 §10, §11, §438–§440)", () => {
   });
 
   it("finds the contracts already drawn from a sales record (PRD #18 §506, §507, §438)", async () => {
-    const legal = await loginAs("LEGAL");
     const sourced = await prisma.contract.findFirst({
-      where: { companyId: legal.companyId, proposalId: { not: null } },
+      where: { companyId: { in: [COMPANY.a, COMPANY.b, COMPANY.c, COMPANY.d, COMPANY.e] }, proposalId: { not: null } },
       select: { id: true, proposalId: true },
     });
     if (!sourced) return;
+    const legal = await legalFor(sourced.id);
 
     const rows = await contracts.listForSalesSource(legal, { proposalId: sourced.proposalId! });
     // A second "Create contract" click meets the first agreement rather than
@@ -1015,9 +1032,9 @@ describe("cross-module reads (PRD #18 §10, §11, §438–§440)", () => {
   });
 
   it("returns nothing to a reader with no contract permission", async () => {
-    const admin = await loginAs("ADMIN");
-    expect(await contracts.listForClient(admin, "client_acme")).toEqual([]);
-    expect(await contracts.listForProject(admin, "project_a")).toEqual([]);
+    const groupIt = await loginAs("GROUP_IT");
+    expect(await contracts.listForClient(groupIt, "client_acme")).toEqual([]);
+    expect(await contracts.listForProject(groupIt, "project_a")).toEqual([]);
   });
 });
 
@@ -1048,7 +1065,7 @@ describe("search, filters, queues and reports (PRD #18 §443–§447)", () => {
     const ceo = await loginAs("CEO");
     const result = await approvals.listApprovals(ceo, { status: "PENDING" });
     for (const row of result.data) {
-      // Never the other company's amendment.
+      // Never the fixture tenant's amendment.
       expect(row.recordId).not.toBe("contract_b_amendment_001");
     }
   });
@@ -1094,25 +1111,25 @@ describe("search, filters, queues and reports (PRD #18 §443–§447)", () => {
 /* -------------------------------------------------------------------------- */
 
 describe("company isolation (PRD #18 §418, §462)", () => {
-  it("keeps Company B's contract out of every Company A read", async () => {
+  it("keeps the fixture tenant's contract out of every Aurelia read", async () => {
     const legal = await loginAs("LEGAL");
     const owner = await loginAs("OWNER");
 
     for (const context of [legal, owner]) {
       const rows = await contracts.listContracts(context, query);
-      expect(rows.data.some((row) => row.id === SEED.companyB)).toBe(false);
+      expect(rows.data.some((row) => row.id === SEED.tenant)).toBe(false);
 
-      await expect(contracts.getContract(context, SEED.companyB)).rejects.toMatchObject({
+      await expect(contracts.getContract(context, SEED.tenant)).rejects.toMatchObject({
         code: "NOT_FOUND",
       });
 
-      expect(await parties.listParties(context, SEED.companyB)).toEqual([]);
-      expect(await obligations.listForContract(context, SEED.companyB)).toEqual([]);
-      expect(await amendments.listForContract(context, SEED.companyB)).toEqual([]);
+      expect(await parties.listParties(context, SEED.tenant)).toEqual([]);
+      expect(await obligations.listForContract(context, SEED.tenant)).toEqual([]);
+      expect(await amendments.listForContract(context, SEED.tenant)).toEqual([]);
     }
   });
 
-  it("keeps Company B out of search, the obligation register and the export", async () => {
+  it("keeps the fixture tenant out of search, the obligation register and the export", async () => {
     const legal = await loginAs("LEGAL");
 
     const searched = await contracts.listContracts(
@@ -1122,14 +1139,14 @@ describe("company isolation (PRD #18 §418, §462)", () => {
     expect(searched.data).toHaveLength(0);
 
     const register = await obligations.listObligations(legal, obligationQuery);
-    expect(register.data.some((row) => row.contractId === SEED.companyB)).toBe(false);
+    expect(register.data.some((row) => row.contractId === SEED.tenant)).toBe(false);
 
     const csv = await exportContracts(legal, "contracts", query, obligationQuery);
     expect(csv.csv).not.toContain("Isarwerk");
   });
 
-  it("does not let Company B reach Company A either", async () => {
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+  it("does not let the fixture tenant reach Aurelia either", async () => {
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     if (!can(ownerB, "legal.contract.view")) return;
 
     const rows = await contracts.listContracts(ownerB, query);

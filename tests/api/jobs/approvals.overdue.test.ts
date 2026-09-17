@@ -106,7 +106,7 @@ describe("approvals.overdue", () => {
   describe("company isolation", () => {
     it("reminds only the companies it is run for, each within its own company (§180)", async () => {
       const reviewA = await overdueReview(COMPANY_A, "member_architect", "member_pm");
-      const reviewB = await overdueReview(COMPANY_B, "member_owner_b", "member_multicompany_b");
+      const reviewB = await overdueReview(COMPANY_B, "member_owner_b", "member_viewer_b");
 
       await invokeJob(JOB, { companyIds: [COMPANY_A], now: NOW });
       expect((await reminders(reviewA.id)).map((row) => row.companyId)).toEqual([COMPANY_A]);
@@ -129,7 +129,7 @@ describe("approvals.overdue", () => {
 
   describe("suspended company", () => {
     it("skips a suspended company and claims nothing for it (§145, §181)", async () => {
-      const review = await overdueReview(COMPANY_B, "member_owner_b", "member_multicompany_b");
+      const review = await overdueReview(COMPANY_B, "member_owner_b", "member_viewer_b");
       const skipped = await withCompanyStatus(COMPANY_B, "SUSPENDED", () => invokeJob(JOB, { companyIds: [COMPANY_B], now: NOW }));
       expect(skipped).toMatchObject({ processed: 0 });
       expect(await reminders(review.id)).toEqual([]);

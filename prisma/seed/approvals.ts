@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { seedStoredDocument } from "./document-objects";
+import type { SeedMembers } from "./constants";
 
 /**
  * Approvals Center demo data (PRD #41 §302).
@@ -17,7 +18,7 @@ import { seedStoredDocument } from "./document-objects";
  * Dated relative to the day the seed runs. Demo data only; nothing here is
  * created outside the seed.
  */
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const COMPANY_A = "company_demo_a";
 const DAY = 86_400_000;

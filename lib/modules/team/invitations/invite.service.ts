@@ -1,3 +1,4 @@
+import { isMembershipRoleKey } from "@/config/roles";
 import { createUserForInvite } from "@/lib/auth/identity";
 import { recordActorActivity } from "@/lib/modules/shared/activity";
 import { Prisma, type CompanyInviteStatus } from "@prisma/client";
@@ -142,6 +143,10 @@ async function resolveInviteGrants(
     select: { id: true, key: true, name: true },
   });
   if (!role) throw new AccessError("VALIDATION_ERROR", "That role does not exist.");
+  // Platform access is held outside every company, never as a membership (E-06 §19).
+  if (!isMembershipRoleKey(role.key)) {
+    throw new AccessError("VALIDATION_ERROR", "That role cannot be held in a company.");
+  }
   // Only an Owner may create another Owner (PRD #14 §96).
   if (role.key === "OWNER") assertPermission(context, "team.owner.assign");
 

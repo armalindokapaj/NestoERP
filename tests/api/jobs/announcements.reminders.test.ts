@@ -105,7 +105,7 @@ describe("announcements.reminders", () => {
   describe("company isolation", () => {
     it("a run for company A reminds only A's announcement, and B's reminder and claim carry B's id", async () => {
       const inA = await awaitingAcknowledgment(COMPANY_A, ["member_architect"]);
-      const inB = await awaitingAcknowledgment(COMPANY_B, ["member_multicompany_b"]);
+      const inB = await awaitingAcknowledgment(COMPANY_B, ["member_viewer_b"]);
 
       await invokeJob(JOB, { companyIds: [COMPANY_A] });
       expect(await reminders(inA)).toHaveLength(1);

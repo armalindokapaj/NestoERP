@@ -13,7 +13,7 @@ test.describe("sign in", () => {
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     await expect(page.getByText("Project Manager").first()).toBeVisible();
-    await expect(page.getByText("NESTO Demo Construction").first()).toBeVisible();
+    await expect(page.getByText("Aurelia Construction").first()).toBeVisible();
   });
 
   test("refuses a wrong password without naming the cause (PRD #6 §8)", async ({ page }) => {

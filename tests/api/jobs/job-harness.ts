@@ -25,9 +25,13 @@ import { prisma } from "../../helpers";
  * stop another test file running that job.
  */
 
-/** The seeded tenants (prisma/seed/constants.ts). */
+/**
+ * The seeded tenants: Aurelia (Tirane), and the fixture tenant (Berlin) in
+ * another group, with Finance, Sales, Contracts, Procurement, Inventory, QA/QC
+ * and HSE switched off (E-06 §45).
+ */
 export const COMPANY_A = "company_demo_a";
-export const COMPANY_B = "company_demo_b";
+export const COMPANY_B = "company_fixture_tenant";
 /** Seeded SUSPENDED, with one member. */
 export const COMPANY_SUSPENDED = "company_demo_suspended";
 

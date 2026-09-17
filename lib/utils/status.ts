@@ -123,6 +123,10 @@ const TONES: Record<string, StatusTone> = {
   PENDING_CLOSE: "warning",
   STOP_WORK_ACTIVE: "danger",
 
+  /* Parent groups (E-06 §21): being set up, then waiting for the platform to hand over. */
+  IMPLEMENTING: "info",
+  READY_FOR_VALIDATION: "warning",
+
   /* Daily logs (PRD #43 §7, §8): a locked log is the record, a returned one needs work. */
   REVIEWED: "success",
   LOCKED: "success",

@@ -42,7 +42,7 @@ export function buildProjectScopeWhere(context: UserContext): Prisma.ProjectWher
   const scope = getModuleScope(context, "projects");
   const base: Prisma.ProjectWhereInput = { companyId: context.companyId };
 
-  if (scope === "COMPANY" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT") {
     return base;
   }
 
@@ -89,7 +89,7 @@ export function buildTaskScopeWhere(context: UserContext): Prisma.TaskWhereInput
     OR: [{ projectId: null }, { project: buildProjectScopeWhere(context) }],
   };
 
-  if (scope === "COMPANY" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT") {
     return { AND: [base, projectGate] };
   }
 
@@ -119,7 +119,7 @@ export function buildClientScopeWhere(context: UserContext): Prisma.ClientWhereI
   const scope = getModuleScope(context, "clients");
   const base: Prisma.ClientWhereInput = { companyId: context.companyId };
 
-  if (scope === "COMPANY" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT") {
     return base;
   }
 
@@ -139,7 +139,7 @@ export function buildProjectLinkedScopeWhere(
 ): { companyId: string; project?: Prisma.ProjectWhereInput } {
   const scope = getModuleScope(context, moduleKey);
 
-  if (scope === "COMPANY" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT") {
     return { companyId: context.companyId };
   }
 
@@ -159,6 +159,8 @@ export function describeScope(scope: DataScope): string {
       return "Your department";
     case "COMPANY":
       return "The whole company";
+    case "GROUP":
+      return "Every company of the group";
     case "SYSTEM":
       return "System configuration";
   }

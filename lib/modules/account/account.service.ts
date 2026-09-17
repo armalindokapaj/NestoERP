@@ -6,6 +6,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { hitThrottle, peekThrottle } from "@/lib/core/security/throttle";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { syncPersonFromAccount } from "@/lib/modules/hr/hr.person";
 import type { ChangePasswordInput, UpdateProfileInput } from "./account.schema";
 import { setPassword } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
@@ -22,7 +23,8 @@ import { revokeSessions } from "@/lib/auth/session-store";
 export type AccountSessionDTO = {
   id: string;
   current: boolean;
-  companyName: string;
+  /** Null for a Platform Admin's session, which is in no company (E-06 §19). */
+  companyName: string | null;
   createdAt: string;
   expiresAt: string;
   ipAddress: string | null;
@@ -59,6 +61,7 @@ export async function updateProfile(context: UserContext, input: UpdateProfileIn
       data: { firstName: input.firstName, lastName: input.lastName, phone: input.phone },
       select: { firstName: true, lastName: true, username: true, email: true, phone: true },
     });
+    await syncPersonFromAccount(tx, context.userId, user);
 
     await recordUserAction(
       context,
@@ -185,7 +188,7 @@ export async function listSessions(context: UserContext): Promise<AccountSession
   return sessions.map((session) => ({
     id: session.id,
     current: session.id === context.sessionId,
-    companyName: session.company.name,
+    companyName: session.company?.name ?? null,
     createdAt: session.createdAt.toISOString(),
     expiresAt: session.expiresAt.toISOString(),
     ipAddress: session.ipAddress,

@@ -23,7 +23,7 @@ import {
   createVersionUploadSession,
 } from "@/lib/modules/documents/storage/upload.service";
 import { createVersionDownloadGrant } from "@/lib/modules/documents/versions/version.service";
-import { cleanupSessions, loginAs, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
  * Documents authorisation hardening (PRD #47 §81-§86).
@@ -96,8 +96,8 @@ async function expectCode(promise: Promise<unknown>, code: string) {
   return error as AccessError;
 }
 
-async function seededDocument(name: string): Promise<string> {
-  const row = await prisma.document.findFirstOrThrow({ where: { companyId: "company_demo_a", name }, select: { id: true } });
+async function seededDocument(name: string, companyId: string = COMPANY.a): Promise<string> {
+  const row = await prisma.document.findFirstOrThrow({ where: { companyId, name }, select: { id: true } });
   return row.id;
 }
 
@@ -143,27 +143,28 @@ async function freeze(context: Context, documentId: string): Promise<void> {
 /* -------------------------------------------------------------------------- */
 
 describe("a module's document grant governs its filed documents (PRD #47 §81, §98, §99)", () => {
-  it("keeps an HR company document from an Administrator who reaches HR without hr.document.view", async () => {
-    const admin = await loginAs("ADMIN");
+  it("keeps an HR company document from Group IT, who reaches HR without hr.document.view", async () => {
+    const groupIt = await loginAs("GROUP_IT");
     const id = await seededDocument("Employee HR Record.pdf");
 
-    await expectCode(documents.getDocument(admin, id), "NOT_FOUND");
-    await expectCode(createDownloadGrant(admin, id), "DOCUMENT_NOT_FOUND");
-    expect(await listedNames(admin)).not.toContain("Employee HR Record.pdf");
+    await expectCode(documents.getDocument(groupIt, id), "NOT_FOUND");
+    await expectCode(createDownloadGrant(groupIt, id), "DOCUMENT_NOT_FOUND");
+    expect(await listedNames(groupIt)).not.toContain("Employee HR Record.pdf");
 
     const hr = await loginAs("HR");
     expect((await documents.getDocument(hr, id)).name).toBe("Employee HR Record.pdf");
   });
 
   it("keeps a Sales document filed on a client from a Project Manager without sales.document.view", async () => {
-    const pm = await loginAs("PROJECT_MANAGER");
-    const id = await seededDocument("Beta Properties Proposal.pdf");
+    // Beta Properties is Meridian's client, on the Tower its Project Manager runs.
+    const pm = await loginAsEmail(DEMO_EMAIL.pmB);
+    const id = await seededDocument("Beta Properties Proposal.pdf", COMPANY.b);
 
     await expectCode(documents.getDocument(pm, id), "NOT_FOUND");
     await expectCode(createDownloadGrant(pm, id), "DOCUMENT_NOT_FOUND");
     expect(await listedNames(pm)).not.toContain("Beta Properties Proposal.pdf");
 
-    const sales = await loginAs("SALES");
+    const sales = await loginAsMembership("member_sales_manager__b");
     expect((await documents.getDocument(sales, id)).name).toBe("Beta Properties Proposal.pdf");
   });
 

@@ -119,30 +119,33 @@ export const en = {
     qaqc: { label: "QA/QC", description: "Inspections, non-conformances and quality control." },
     hse: { label: "HSE", description: "Health, safety and environment performance." },
     team: { label: "Team", description: "Everyone working inside your company workspace." },
+    organization: { label: "Organization", description: "Your parent group, its companies, departments and people." },
     company: { label: "Company", description: "Company identity and organisation details." },
     settings: { label: "Settings", description: "Your profile and company configuration." },
     support: { label: "Support", description: "Internal support requests and platform help." },
   } satisfies Record<ModuleKey, Described>,
 
   roles: {
-    OWNER: { label: "Owner", description: "Full visibility across every area of the company." },
-    ADMIN: { label: "Admin", description: "Manages users, company configuration and platform setup." },
-    COMPANY_IT: { label: "Company IT", description: "Maintains accounts, access, devices and internal support." },
-    HR: { label: "HR", description: "Owns people operations, records and recruitment." },
-    CEO: { label: "CEO / Director", description: "Company performance, approvals and strategic oversight." },
+    OWNER: { label: "Group Owner", description: "Owns and governs the parent group and every company in it." },
+    PLATFORM_ADMIN: { label: "Platform Admin", description: "Creates and implements parent groups on the NESTO platform, outside any company." },
+    GROUP_IT: {
+      label: "Group IT",
+      description:
+        "Technical administrator for the parent group. Provisions users, configures companies and modules, and supports NESTO according to approved business and HR requirements.",
+    },
+    HR: { label: "HR", description: "Owns people operations, recruitment and the employment record." },
+    CEO: { label: "CEO / Director", description: "Company performance, approvals, project setup and strategic oversight." },
     PROJECT_MANAGER: { label: "Project Manager", description: "Runs projects, tasks, teams and client delivery." },
     ARCHITECT: { label: "Architect", description: "Design work, drawings, reviews and project documentation." },
-    ARCHITECTURE_MANAGER: { label: "Architecture Manager", description: "Leads design across projects and publishes the units architects prepare." },
     ENGINEER: { label: "Engineer", description: "Technical delivery, inspections and engineering tasks." },
     FINANCE: { label: "Finance", description: "Revenue, costs, invoicing and financial control." },
     LEGAL: { label: "Legal", description: "Contracts, approvals, notices and legal records." },
     SALES: { label: "Sales", description: "Pipeline, opportunities, proposals and client growth." },
-    SALES_MANAGER: { label: "Sales Manager", description: "Leads the sales team, approves proposals and oversees unit sales." },
     PROCUREMENT: { label: "Procurement", description: "Purchasing, suppliers, RFQs and orders." },
     INVENTORY: { label: "Stock / Inventory", description: "Materials, stock levels and movements." },
     QAQC: { label: "QA/QC", description: "Inspections, non-conformances and quality control." },
     HSE: { label: "HSE", description: "Safety performance, incidents, permits and actions." },
-    VIEWER: { label: "Viewer", description: "Read-only access to company information." },
+    VIEWER: { label: "Viewer", description: "Read-only access to the company and projects they are assigned to." },
   } satisfies Record<RoleKey, Described>,
 
   access: {
@@ -159,6 +162,7 @@ export const en = {
       PROJECT: "Project records",
       DEPARTMENT: "Department records",
       COMPANY: "Company-wide",
+      GROUP: "Group-wide",
       SYSTEM: "System",
     } satisfies Record<DataScope, string>,
   },
@@ -179,7 +183,7 @@ export const en = {
       profile: { label: "Profile", description: "Your personal details and contact information." },
       company: { label: "Company", description: "Company identity, address and contact details." },
       users: { label: "Users", description: "Accounts, invitations and access status." },
-      roles: { label: "Roles", description: "The 18 NESTO roles and the permissions each one holds." },
+      roles: { label: "Roles", description: "The 16 NESTO roles and the permissions each one holds." },
       modules: { label: "Modules", description: "Which NESTO modules are active for your company." },
       localization: {
         label: "Localization",
@@ -283,6 +287,7 @@ export const en = {
         started: "Signed in {date}",
         expires: "Expires {date}",
         unknownAddress: "Unknown address",
+        platform: "NESTO platform",
         signOut: "Sign out",
         signOutOthers: "Sign out other sessions",
         signOutEverywhere: "Sign out everywhere",
@@ -336,7 +341,7 @@ export const en = {
 
     roles: {
       description:
-        "The 18 NESTO roles, the access level each holds in every module, and the data scope that applies.",
+        "The 16 NESTO roles, the access level each holds in every module, and the data scope that applies.",
       modulesCount_one: "{count} module",
       modulesCount_other: "{count} modules",
       permissionsCount_one: "{count} permission",

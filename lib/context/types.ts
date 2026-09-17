@@ -1,7 +1,8 @@
 import type { AccessLevel, DataScope } from "@/config/access";
 import type { ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
-import type { RoleKey } from "@/config/roles";
+import type { PositionLevel, RoleKey } from "@/config/roles";
+import type { ContextAssignment } from "./organization-access";
 
 /** Resolved access to one module for the current user (PRD #5 §42). */
 export type ModuleAccess = {
@@ -25,6 +26,14 @@ export type CompanyContext = {
   email: string | null;
   phone: string | null;
   website: string | null;
+};
+
+/** The parent group the company belongs to (E-06 §3.1). */
+export type ParentGroupContext = {
+  id: string;
+  slug: string;
+  name: string;
+  status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED";
 };
 
 export type DepartmentContext = {
@@ -56,9 +65,20 @@ export type UserContext = {
 
   company: CompanyContext;
   department: DepartmentContext | null;
+  /** The group above the company; group-owned records are read inside it. */
+  parentGroupId: string;
+  parentGroup: ParentGroupContext;
 
   role: RoleKey;
   roleLabel: string;
+  /**
+   * How the role is held in this company: as a member, as its department
+   * manager, or as the group's department head (E-06 §7). Resolved from live
+   * department assignments on every request, like everything else here.
+   */
+  position: PositionLevel;
+  /** Live assignments that concern this company: the group's heads and this company's own. */
+  assignments: ContextAssignment[];
 
   permissions: Permission[];
   moduleAccess: Record<ModuleKey, ModuleAccess>;
@@ -83,7 +103,9 @@ export type ContextFailure =
   | "NO_MEMBERSHIP"
   | "MEMBERSHIP_INACTIVE"
   | "COMPANY_UNAVAILABLE"
-  | "CONFIGURATION_ERROR";
+  | "CONFIGURATION_ERROR"
+  /** A Platform Admin's session: valid, but it has no company to act in (E-06 §116). */
+  | "PLATFORM_SESSION";
 
 export type ContextResult =
   | { ok: true; context: UserContext }

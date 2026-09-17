@@ -1,4 +1,5 @@
 import { seedTimesheetRecords, TIMESHEET_SEED } from "../../prisma/seed/timesheets";
+import { seedMembers } from "../../prisma/seed/members";
 import { db } from "./db";
 
 /**
@@ -37,6 +38,5 @@ export async function resetTimesheets(emails: string[], since = new Date(Date.no
   await db.attentionItem.deleteMany({ where: { entityId: { in: ids }, createdAt: { gte: since } } });
   await db.activity.deleteMany({ where: { entityId: { in: ids }, createdAt: { gte: since } } });
 
-  const members = await db.companyMember.findMany({ where: { companyId: COMPANY }, select: { id: true, userId: true } });
-  await seedTimesheetRecords(db, new Map(members.map((row) => [row.userId, row.id])));
+  await seedTimesheetRecords(db, seedMembers());
 }

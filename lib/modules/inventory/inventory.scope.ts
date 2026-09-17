@@ -20,7 +20,7 @@ export type InventoryScopeKind = "SELF" | "DEPARTMENT" | "PROJECT" | "COMPANY";
 
 export function inventoryScopeKind(context: UserContext): InventoryScopeKind {
   const scope = getModuleScope(context, "inventory");
-  if (scope === "COMPANY" || scope === "SYSTEM") return "COMPANY";
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM") return "COMPANY";
   if (scope === "DEPARTMENT") return "DEPARTMENT";
   if (scope === "PROJECT") return "PROJECT";
   return "SELF";

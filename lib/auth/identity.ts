@@ -136,3 +136,18 @@ export async function recordSignIn(
 ): Promise<void> {
   await client.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
 }
+
+/**
+ * Links a login to the person it belongs to (E-06 §26).
+ *
+ * Only a login with no person yet is linked: a user has at most one person, and
+ * one already linked keeps it. Returns whether the link was made.
+ */
+export async function linkPersonProfile(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  personProfileId: string,
+): Promise<boolean> {
+  const { count } = await tx.user.updateMany({ where: { id: userId, personProfileId: null }, data: { personProfileId } });
+  return count === 1;
+}

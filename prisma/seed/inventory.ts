@@ -21,9 +21,9 @@
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
 
-import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
+import { COMPANY_A, FIXTURE_TENANT, PROJECT_IDS, daysFromNow, type SeedMembers } from "./constants";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const qty = (value: number) => new Prisma.Decimal(value.toFixed(4));
 const ZERO = new Prisma.Decimal(0);
@@ -40,7 +40,7 @@ export async function seedInventoryRecords(prisma: PrismaClient, members: Member
   await seedReservations(prisma, inventory);
   await rebuildBalances(prisma, COMPANY_A);
   await seedCompanyBInventory(prisma);
-  await rebuildBalances(prisma, COMPANY_B);
+  await rebuildBalances(prisma, FIXTURE_TENANT);
 
   return {
     items: await prisma.inventoryItem.count({ where: { companyId: COMPANY_A } }),
@@ -81,11 +81,11 @@ const WAREHOUSES: WarehouseFixture[] = [
     ],
   },
   {
-    id: "wh_tower", code: "WH-TWR", name: "Central Office Tower store", type: "PROJECT_SITE", project: PROJECT_IDS.b, city: "Tirana",
+    id: "wh_tower", code: "WH-TWR", name: "Riverside Block B store", type: "PROJECT_SITE", project: PROJECT_IDS.a, city: "Tirana",
     locations: [{ id: "loc_tower_main", code: "MAIN", name: "Basement store", isDefault: true }],
   },
   {
-    id: "wh_marina", code: "WH-MAR", name: "Marina site store", type: "PROJECT_SITE", project: PROJECT_IDS.c, city: "Durrës",
+    id: "wh_marina", code: "WH-MAR", name: "Riverside riverfront store", type: "PROJECT_SITE", project: PROJECT_IDS.a, city: "Tirana",
     locations: [{ id: "loc_marina_main", code: "MAIN", name: "Site store", isDefault: true }],
   },
   {
@@ -257,18 +257,18 @@ const MOVEMENTS: MovementFixture[] = [
   // Issues to projects.
   { id: "mv_iss_1", item: "item_cement", location: "loc_riverside_main", type: "ISSUE", quantity: 520, daysAgo: 16, project: PROJECT_IDS.a, source: { entityType: "stock_issue", entityId: "iss_001" } },
   { id: "mv_iss_2", item: "item_rebar16", location: "loc_riverside_yard", type: "ISSUE", quantity: 30, daysAgo: 15, project: PROJECT_IDS.a, source: { entityType: "stock_issue", entityId: "iss_001" } },
-  { id: "mv_iss_3", item: "item_block", location: "loc_tower_main", type: "ISSUE", quantity: 1800, daysAgo: 12, project: PROJECT_IDS.b, source: { entityType: "stock_issue", entityId: "iss_002" } },
-  { id: "mv_iss_4", item: "item_scaffold", location: "loc_marina_main", type: "ISSUE", quantity: 160, daysAgo: 10, project: PROJECT_IDS.c, source: { entityType: "stock_issue", entityId: "iss_003" } },
+  { id: "mv_iss_3", item: "item_block", location: "loc_tower_main", type: "ISSUE", quantity: 1800, daysAgo: 12, project: PROJECT_IDS.a, source: { entityType: "stock_issue", entityId: "iss_002" } },
+  { id: "mv_iss_4", item: "item_scaffold", location: "loc_marina_main", type: "ISSUE", quantity: 160, daysAgo: 10, project: PROJECT_IDS.a, source: { entityType: "stock_issue", entityId: "iss_003" } },
   { id: "mv_iss_5", item: "item_helmet", location: "loc_central_main", type: "ISSUE", quantity: 150, daysAgo: 9, source: { entityType: "stock_issue", entityId: "iss_004" } },
   { id: "mv_iss_6", item: "item_gloves", location: "loc_central_main", type: "ISSUE", quantity: 280, daysAgo: 9, source: { entityType: "stock_issue", entityId: "iss_004" } },
   { id: "mv_iss_7", item: "item_disc", location: "loc_central_main", type: "ISSUE", quantity: 500, daysAgo: 8, source: { entityType: "stock_issue", entityId: "iss_004" } },
   { id: "mv_iss_8", item: "item_paper", location: "loc_central_main", type: "ISSUE", quantity: 48, daysAgo: 7, source: { entityType: "stock_issue", entityId: "iss_004" } },
   { id: "mv_iss_9", item: "item_timber", location: "loc_central_main", type: "ISSUE", quantity: 210, daysAgo: 6, project: PROJECT_IDS.a, source: { entityType: "stock_issue", entityId: "iss_005" } },
-  { id: "mv_iss_10", item: "item_membrane", location: "loc_central_main", type: "ISSUE", quantity: 1250, daysAgo: 5, project: PROJECT_IDS.b, source: { entityType: "stock_issue", entityId: "iss_005" } },
+  { id: "mv_iss_10", item: "item_membrane", location: "loc_central_main", type: "ISSUE", quantity: 1250, daysAgo: 5, project: PROJECT_IDS.a, source: { entityType: "stock_issue", entityId: "iss_005" } },
 
   // Some of it comes back.
   { id: "mv_ret_1", item: "item_cement", location: "loc_riverside_main", type: "RETURN_TO_STOCK", quantity: 40, daysAgo: 4, project: PROJECT_IDS.a, source: { entityType: "stock_return", entityId: "ret_001" } },
-  { id: "mv_ret_2", item: "item_scaffold", location: "loc_marina_main", type: "RETURN_TO_STOCK", quantity: 25, daysAgo: 3, project: PROJECT_IDS.c, source: { entityType: "stock_return", entityId: "ret_002" } },
+  { id: "mv_ret_2", item: "item_scaffold", location: "loc_marina_main", type: "RETURN_TO_STOCK", quantity: 25, daysAgo: 3, project: PROJECT_IDS.a, source: { entityType: "stock_return", entityId: "ret_002" } },
 
   // A stock count found a discrepancy.
   { id: "mv_adj_1", item: "item_sand", location: "loc_central_main", type: "ADJUSTMENT_OUT", quantity: 118, daysAgo: 2, source: { entityType: "stock_adjustment", entityId: "adj_count" } },
@@ -411,8 +411,8 @@ async function seedDocuments(prisma: PrismaClient, members: { inventory: string;
 
   const issues: [string, string, string | null, number][] = [
     ["iss_001", "wh_riverside", PROJECT_IDS.a, 16],
-    ["iss_002", "wh_tower", PROJECT_IDS.b, 12],
-    ["iss_003", "wh_marina", PROJECT_IDS.c, 10],
+    ["iss_002", "wh_tower", PROJECT_IDS.a, 12],
+    ["iss_003", "wh_marina", PROJECT_IDS.a, 10],
     ["iss_004", "wh_central", null, 9],
     ["iss_005", "wh_central", PROJECT_IDS.a, 6],
   ];
@@ -435,7 +435,7 @@ async function seedDocuments(prisma: PrismaClient, members: { inventory: string;
     update: {},
     create: {
       id: "iss_draft", companyId: COMPANY_A, issueNumber: "ISS-2026-0006",
-      warehouseId: "wh_central", projectId: PROJECT_IDS.d, issueDate: daysFromNow(0),
+      warehouseId: "wh_central", projectId: PROJECT_IDS.a, issueDate: daysFromNow(0),
       status: "DRAFT", notes: "Requested for the yard drainage works.",
       createdByMemberId: members.inventory,
     },
@@ -466,7 +466,7 @@ async function seedDocuments(prisma: PrismaClient, members: { inventory: string;
     update: {},
     create: {
       id: "ret_002", companyId: COMPANY_A, returnNumber: "RET-2026-0002",
-      warehouseId: "wh_marina", projectId: PROJECT_IDS.c, returnDate: daysFromNow(-3),
+      warehouseId: "wh_marina", projectId: PROJECT_IDS.a, returnDate: daysFromNow(-3),
       status: "POSTED", createdByMemberId: members.pm, postedByMemberId: members.inventory,
     },
   });
@@ -649,10 +649,10 @@ async function seedReservations(prisma: PrismaClient, createdBy: string) {
     status: "ACTIVE" | "PARTIALLY_FULFILLED" | "EXPIRED" | "RELEASED";
     expiresIn?: number;
   }[] = [
-    { id: "rsv_001", number: "RSV-2026-0001", item: "item_cement", location: "loc_central_main", project: PROJECT_IDS.b, quantity: 200, status: "ACTIVE", expiresIn: 21 },
+    { id: "rsv_001", number: "RSV-2026-0001", item: "item_cement", location: "loc_central_main", project: PROJECT_IDS.a, quantity: 200, status: "ACTIVE", expiresIn: 21 },
     { id: "rsv_002", number: "RSV-2026-0002", item: "item_timber", location: "loc_central_main", project: PROJECT_IDS.a, quantity: 30, fulfilled: 10, status: "PARTIALLY_FULFILLED", expiresIn: 9 },
     { id: "rsv_003", number: "RSV-2026-0003", item: "item_disc", location: "loc_central_main", quantity: 40, status: "ACTIVE", expiresIn: 3 },
-    { id: "rsv_004", number: "RSV-2026-0004", item: "item_pump", location: "loc_central_main", project: PROJECT_IDS.b, quantity: 2, status: "EXPIRED", expiresIn: -5 },
+    { id: "rsv_004", number: "RSV-2026-0004", item: "item_pump", location: "loc_central_main", project: PROJECT_IDS.a, quantity: 2, status: "EXPIRED", expiresIn: -5 },
     { id: "rsv_005", number: "RSV-2026-0005", item: "item_genset", location: "loc_central_main", quantity: 1, status: "RELEASED", expiresIn: -20 },
   ];
 
@@ -767,7 +767,7 @@ async function seedCompanyBInventory(prisma: PrismaClient) {
     where: { id: "wh_b_central" },
     update: {},
     create: {
-      id: "wh_b_central", companyId: COMPANY_B, code: "WH-CEN",
+      id: "wh_b_central", companyId: FIXTURE_TENANT, code: "WH-CEN",
       name: "Company B store. Must never appear in a Company A result.",
       warehouseType: "CENTRAL", city: "Munich", country: "Germany",
       status: "ACTIVE", createdByMemberId: ownerB,
@@ -778,7 +778,7 @@ async function seedCompanyBInventory(prisma: PrismaClient) {
     where: { id: "loc_b_main" },
     update: {},
     create: {
-      id: "loc_b_main", companyId: COMPANY_B, warehouseId: "wh_b_central",
+      id: "loc_b_main", companyId: FIXTURE_TENANT, warehouseId: "wh_b_central",
       code: "MAIN", name: "Main area", isDefault: true, status: "ACTIVE",
       createdByMemberId: ownerB,
     },
@@ -788,7 +788,7 @@ async function seedCompanyBInventory(prisma: PrismaClient) {
     where: { id: "item_b_001" },
     update: {},
     create: {
-      id: "item_b_001", companyId: COMPANY_B, sku: "MAT-001",
+      id: "item_b_001", companyId: FIXTURE_TENANT, sku: "MAT-001",
       name: "Company B item. Must never appear in a Company A result.",
       category: "MATERIAL", baseUnit: "bag", status: "ACTIVE",
       minimumStock: qty(10), reorderPoint: qty(20),
@@ -800,7 +800,7 @@ async function seedCompanyBInventory(prisma: PrismaClient) {
     where: { id: "mv_b_001" },
     update: {},
     create: {
-      id: "mv_b_001", companyId: COMPANY_B, inventoryItemId: "item_b_001",
+      id: "mv_b_001", companyId: FIXTURE_TENANT, inventoryItemId: "item_b_001",
       warehouseId: "wh_b_central", locationId: "loc_b_main",
       movementType: "ADJUSTMENT_IN", quantity: qty(250), signedQuantity: qty(250),
       unit: "bag", sourceModule: "inventory", sourceEntityType: "stock_adjustment",

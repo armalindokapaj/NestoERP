@@ -109,30 +109,33 @@ export const sq: Messages = {
     qaqc: { label: "QA/QC", description: "Inspektimet, mospërputhjet dhe kontrolli i cilësisë." },
     hse: { label: "HSE", description: "Performanca e shëndetit, sigurisë dhe mjedisit." },
     team: { label: "Ekipi", description: "Të gjithë ata që punojnë në hapësirën e punës së kompanisë suaj." },
+    organization: { label: "Organizata", description: "Grupi juaj mëmë, kompanitë, departamentet dhe njerëzit e tij." },
     company: { label: "Kompania", description: "Identiteti i kompanisë dhe të dhënat e organizimit." },
     settings: { label: "Cilësimet", description: "Profili juaj dhe konfigurimi i kompanisë." },
     support: { label: "Mbështetja", description: "Kërkesat e brendshme për mbështetje dhe ndihmë për platformën." },
   },
 
   roles: {
-    OWNER: { label: "Pronar", description: "Pamje e plotë në çdo fushë të kompanisë." },
-    ADMIN: { label: "Administrator", description: "Menaxhon përdoruesit, konfigurimin e kompanisë dhe ngritjen e platformës." },
-    COMPANY_IT: { label: "IT e kompanisë", description: "Mirëmban llogaritë, aksesin, pajisjet dhe mbështetjen e brendshme." },
-    HR: { label: "Burime njerëzore", description: "Drejton operacionet e personelit, dosjet dhe rekrutimin." },
-    CEO: { label: "CEO / Drejtor", description: "Performanca e kompanisë, miratimet dhe mbikëqyrja strategjike." },
+    OWNER: { label: "Pronari i Grupit", description: "Zotëron dhe qeveris grupin mëmë dhe çdo kompani brenda tij." },
+    PLATFORM_ADMIN: { label: "Administrator i Platformës", description: "Krijon dhe implementon grupet mëmë në platformën NESTO, jashtë çdo kompanie." },
+    GROUP_IT: {
+      label: "IT e Grupit",
+      description:
+        "Administratori teknik i grupit mëmë. Krijon përdoruesit, konfiguron kompanitë dhe modulet, dhe mbështet NESTO sipas kërkesave të miratuara të biznesit dhe burimeve njerëzore.",
+    },
+    HR: { label: "Burime njerëzore", description: "Drejton operacionet e personelit, rekrutimin dhe dosjen e punësimit." },
+    CEO: { label: "CEO / Drejtor", description: "Performanca e kompanisë, miratimet, ngritja e projekteve dhe mbikëqyrja strategjike." },
     PROJECT_MANAGER: { label: "Menaxher projekti", description: "Drejton projektet, detyrat, ekipet dhe dorëzimin te klientët." },
     ARCHITECT: { label: "Arkitekt", description: "Projektimi, vizatimet, rishikimet dhe dokumentacioni i projektit." },
-    ARCHITECTURE_MANAGER: { label: "Menaxher arkitekture", description: "Drejton projektimin në të gjitha projektet dhe publikon njësitë që përgatisin arkitektët." },
     ENGINEER: { label: "Inxhinier", description: "Realizimi teknik, inspektimet dhe detyrat inxhinierike." },
     FINANCE: { label: "Financa", description: "Të ardhurat, kostot, faturimi dhe kontrolli financiar." },
     LEGAL: { label: "Ligjore", description: "Kontratat, miratimet, njoftimet dhe dokumentet ligjore." },
     SALES: { label: "Shitje", description: "Portofoli i shitjeve, mundësitë, ofertat dhe rritja e klientëve." },
-    SALES_MANAGER: { label: "Menaxher shitjesh", description: "Drejton ekipin e shitjeve, miraton ofertat dhe mbikëqyr shitjen e njësive." },
     PROCUREMENT: { label: "Prokurim", description: "Blerjet, furnitorët, kërkesat për ofertë dhe porositë." },
     INVENTORY: { label: "Magazina / Inventari", description: "Materialet, nivelet e stokut dhe lëvizjet." },
     QAQC: { label: "QA/QC", description: "Inspektimet, mospërputhjet dhe kontrolli i cilësisë." },
     HSE: { label: "HSE", description: "Performanca e sigurisë, incidentet, lejet dhe veprimet." },
-    VIEWER: { label: "Vëzhgues", description: "Akses vetëm për lexim në informacionin e kompanisë." },
+    VIEWER: { label: "Vëzhgues", description: "Akses vetëm për lexim në kompaninë dhe projektet ku është caktuar." },
   },
 
   access: {
@@ -149,6 +152,7 @@ export const sq: Messages = {
       PROJECT: "Të dhënat e projektit",
       DEPARTMENT: "Të dhënat e departamentit",
       COMPANY: "Në gjithë kompaninë",
+      GROUP: "Në gjithë grupin",
       SYSTEM: "Sistemi",
     },
   },
@@ -170,7 +174,7 @@ export const sq: Messages = {
       profile: { label: "Profili", description: "Të dhënat tuaja personale dhe të kontaktit." },
       company: { label: "Kompania", description: "Identiteti, adresa dhe të dhënat e kontaktit të kompanisë." },
       users: { label: "Përdoruesit", description: "Llogaritë, ftesat dhe statusi i aksesit." },
-      roles: { label: "Rolet", description: "18 rolet e NESTO dhe lejet që ka secili prej tyre." },
+      roles: { label: "Rolet", description: "16 rolet e NESTO dhe lejet që ka secili prej tyre." },
       modules: { label: "Modulet", description: "Cilat module të NESTO janë aktive për kompaninë tuaj." },
       localization: {
         label: "Lokalizimi",
@@ -274,6 +278,7 @@ export const sq: Messages = {
         started: "Hyrë më {date}",
         expires: "Skadon më {date}",
         unknownAddress: "Adresë e panjohur",
+        platform: "Platforma NESTO",
         signOut: "Dil",
         signOutOthers: "Mbyll sesionet e tjera",
         signOutEverywhere: "Dil kudo",
@@ -328,7 +333,7 @@ export const sq: Messages = {
 
     roles: {
       description:
-        "18 rolet e NESTO, niveli i aksesit që ka secili në çdo modul dhe fusha e të dhënave që zbatohet.",
+        "16 rolet e NESTO, niveli i aksesit që ka secili në çdo modul dhe fusha e të dhënave që zbatohet.",
       modulesCount_one: "{count} modul",
       modulesCount_other: "{count} module",
       permissionsCount_one: "{count} leje",

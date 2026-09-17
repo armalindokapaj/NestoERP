@@ -12,6 +12,11 @@
  *                 leave writes for itself (§332)
  *   onboarding    not started, in progress, completed (§333)
  *   offboarding   in progress and completed (§334)
+ *   group         every other demo company's own people employed there, so
+ *                 Group HR has five companies' records (E-06 §112)
+ *
+ * Every employment record is the employment of a person (E-06 §25): the one
+ * created with the account, `person_<user>`.
  *
  * Idempotent: everything is addressed by a deterministic id and upserted, so
  * re-running converges rather than duplicating.
@@ -20,9 +25,10 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { countWorkingDays } from "../../lib/modules/hr/hr.calendar";
 
-import { COMPANY_A, daysFromNow } from "./constants";
+import { COMPANY_A, DEMO_COMPANY_IDS, FIXTURE_WORKS, daysFromNow, type SeedMembers } from "./constants";
+import { COMPANY_USERS } from "./demo/users";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const EUR = "EUR";
 
@@ -34,7 +40,7 @@ export async function seedHrRecords(prisma: PrismaClient, members: Members) {
   await seedAttendance(prisma, members, profiles);
 
   return {
-    employees: await prisma.employeeProfile.count({ where: { companyId: COMPANY_A } }),
+    employees: await prisma.employeeProfile.count({ where: { companyId: { in: DEMO_COMPANY_IDS } } }),
     compensation: await prisma.compensation.count({ where: { companyId: COMPANY_A } }),
     leave: await prisma.leaveRequest.count({ where: { companyId: COMPANY_A } }),
     balances,
@@ -48,6 +54,8 @@ export async function seedHrRecords(prisma: PrismaClient, members: Members) {
 
 type ProfileFixture = {
   user: string;
+  /** Aurelia unless given. */
+  company?: string;
   number: string;
   status: "PLANNED" | "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "ENDED";
   type: "FULL_TIME" | "PART_TIME" | "CONTRACTOR" | "INTERN" | "TEMPORARY";
@@ -79,35 +87,38 @@ const PROFILES: ProfileFixture[] = [
   // Probation still running, so the probation alert has something to show.
   { user: "user_inventory", number: "EMP-013", status: "ACTIVE", type: "FULL_TIME", start: -70, probation: 20, manager: "user_procurement", location: "Central store", weeklyHours: "40", onboarding: "IN_PROGRESS", offboarding: "NOT_REQUIRED" },
   { user: "user_it", number: "EMP-014", status: "ACTIVE", type: "FULL_TIME", start: -500, manager: "user_owner", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
-  // Starts in three weeks: onboarding not begun, employment planned.
-  { user: "user_admin", number: "EMP-015", status: "PLANNED", type: "FULL_TIME", start: 21, probation: 111, manager: "user_owner", location: "Tiranë HQ", weeklyHours: "40", onboarding: "NOT_STARTED", offboarding: "NOT_REQUIRED" },
+  // Starts in three weeks: the account is ready, onboarding not begun.
+  { user: "user_finance_a", number: "EMP-015", status: "PLANNED", type: "FULL_TIME", start: 21, probation: 111, manager: "user_finance", location: "Tiranë HQ", weeklyHours: "40", onboarding: "NOT_STARTED", offboarding: "NOT_REQUIRED" },
   // The two department heads (E-05D §19, E-05E §39).
   { user: "user_architecture_manager", number: "EMP-019", status: "ACTIVE", type: "FULL_TIME", start: -980, manager: "user_ceo", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
   { user: "user_sales_manager", number: "EMP-020", status: "ACTIVE", type: "FULL_TIME", start: -640, manager: "user_ceo", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
   // Leaving next month: offboarding under way.
   { user: "user_viewer", number: "EMP-016", status: "ACTIVE", type: "INTERN", start: -120, end: 24, manager: "user_architect", location: "Tiranë HQ", weeklyHours: "20", onboarding: "COMPLETED", offboarding: "IN_PROGRESS" },
   // Suspended employment, which is not the same as a suspended membership.
-  { user: "user_membership_suspended", number: "EMP-017", status: "SUSPENDED", type: "FULL_TIME", start: -200, manager: "user_hr", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
+  { user: "user_membership_suspended", company: FIXTURE_WORKS, number: "EMP-017", status: "SUSPENDED", type: "FULL_TIME", start: -200, location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
   // Left the company: offboarding done, record kept.
-  { user: "user_membership_inactive", number: "EMP-018", status: "ENDED", type: "TEMPORARY", start: -400, end: -20, manager: "user_hr", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "COMPLETED" },
+  { user: "user_membership_inactive", company: FIXTURE_WORKS, number: "EMP-018", status: "ENDED", type: "TEMPORARY", start: -400, end: -20, location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "COMPLETED" },
 ];
 
 async function seedEmployeeProfiles(prisma: PrismaClient, members: Members) {
   const byUser = new Map<string, { id: string; memberId: string }>();
 
-  for (const fixture of PROFILES) {
-    const memberId = members.get(fixture.user);
-    if (!memberId) continue;
+  for (const fixture of [...PROFILES, ...groupCompanyProfiles()]) {
+    const companyId = fixture.company ?? COMPANY_A;
+    const memberId = companyId === FIXTURE_WORKS ? members.get(fixture.user) : members.in(companyId, fixture.user);
+    if (!memberId) throw new Error(`Seed: ${fixture.user} has no membership for an employment record.`);
 
-    const managerId = fixture.manager ? (members.get(fixture.manager) ?? null) : null;
-    const id = `employee_${fixture.number.toLowerCase().replace("-", "_")}`;
+    const managerId = fixture.manager ? members.in(companyId, fixture.manager) : null;
+    const prefix = companyId === COMPANY_A || companyId === FIXTURE_WORKS ? "employee" : `employee_${companyId.replace(/^company_demo_/, "")}`;
+    const id = `${prefix}_${fixture.number.toLowerCase().replace("-", "_")}`;
 
     const profile = await prisma.employeeProfile.upsert({
       where: { companyMemberId: memberId },
       update: {},
       create: {
         id,
-        companyId: COMPANY_A,
+        companyId,
+        personProfileId: `person_${fixture.user.replace(/^user_/, "")}`,
         companyMemberId: memberId,
         employeeNumber: fixture.number,
         employmentStatus: fixture.status,
@@ -121,15 +132,37 @@ async function seedEmployeeProfiles(prisma: PrismaClient, members: Members) {
         weeklyHours: fixture.weeklyHours,
         onboardingStatus: fixture.onboarding,
         offboardingStatus: fixture.offboarding,
-        createdByMemberId: members.get("user_hr") ?? null,
+        createdByMemberId: companyId === FIXTURE_WORKS ? null : members.in(companyId, "user_hr"),
       },
       select: { id: true, companyMemberId: true },
     });
 
-    byUser.set(fixture.user, { id: profile.id, memberId: profile.companyMemberId });
+    if (companyId === COMPANY_A) byUser.set(fixture.user, { id: profile.id, memberId: profile.companyMemberId! });
   }
 
   return byUser;
+}
+
+/**
+ * Meridian, Terra, Forma and Nova employ their own people: each CEO reports to
+ * the group's Owner, everyone else to their company's CEO (E-06 §49, §112).
+ */
+function groupCompanyProfiles(): ProfileFixture[] {
+  return DEMO_COMPANY_IDS.filter((companyId) => companyId !== COMPANY_A).flatMap((companyId) =>
+    COMPANY_USERS.filter((user) => user.companies[0] === companyId).map((user, index): ProfileFixture => ({
+      user: user.id,
+      company: companyId,
+      number: `EMP-${String(index + 1).padStart(3, "0")}`,
+      status: "ACTIVE",
+      type: "FULL_TIME",
+      start: -700 + index * 60,
+      manager: user.role === "CEO" ? "user_owner" : COMPANY_USERS.find((other) => other.role === "CEO" && other.companies[0] === companyId)!.id,
+      location: "Head office",
+      weeklyHours: "40",
+      onboarding: "COMPLETED",
+      offboarding: "NOT_REQUIRED",
+    })),
+  );
 }
 
 type Profiles = Map<string, { id: string; memberId: string }>;

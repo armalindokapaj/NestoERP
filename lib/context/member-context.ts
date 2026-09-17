@@ -1,6 +1,7 @@
-import { isRoleKey } from "@/config/roles";
+import { isMembershipRoleKey } from "@/config/roles";
 import { prisma } from "@/lib/database/prisma";
-import { assembleContext, resolveEnabledModules } from "./build-context";
+import { assembleContext, isParentGroupUsable, resolveEnabledModules } from "./build-context";
+import { loadOrganizationAccess } from "./organization-access";
 import type { UserContext } from "./types";
 
 /**
@@ -25,7 +26,7 @@ import type { UserContext } from "./types";
 const MEMBER_INCLUDE = {
   user: true,
   role: true,
-  company: true,
+  company: { include: { parentGroup: true } },
   department: true,
 } as const;
 
@@ -51,9 +52,17 @@ export async function buildMemberContexts(
     resolveEnabledModules(companyId),
   ]);
 
+  const parentGroupId = members[0]?.company.parentGroupId;
+  const organization = parentGroupId
+    ? await loadOrganizationAccess(parentGroupId, members.map((member) => member.userId))
+    : new Map();
+
   for (const member of members) {
     // A role the application does not know is a configuration fault, not a grant.
-    if (!isRoleKey(member.role.key)) continue;
+    if (!isMembershipRoleKey(member.role.key)) continue;
+    // Nobody in a suspended or archived group is a candidate for anything.
+    if (!isParentGroupUsable(member.company.parentGroup.status)) continue;
+    const access = organization.get(member.userId);
     contexts.set(
       member.id,
       assembleContext({
@@ -63,6 +72,8 @@ export async function buildMemberContexts(
         role: member.role.key,
         actualRole: member.role.key,
         enabledModules,
+        assignments: access?.assignments ?? [],
+        grants: access?.grants ?? [],
       }),
     );
   }

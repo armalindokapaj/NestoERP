@@ -9,7 +9,7 @@ import {
   updateContactSchema,
 } from "@/lib/modules/clients/client.schema";
 import * as clients from "@/lib/modules/clients/client.service";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Clients authorisation and lifecycle tests (PRD #12 §203–§224, §248).
@@ -75,7 +75,7 @@ describe("list scope (PRD #12 §205)", () => {
     const names = result.data.map((client) => client.name);
 
     expect(names).toContain("ACME Developments");
-    expect(names).toContain("Meridian Group");
+    expect(names).toContain("Nova Living");
   });
 
   /** A project-scoped user reaches a client through their projects (PRD #12 §21). */
@@ -85,7 +85,7 @@ describe("list scope (PRD #12 §205)", () => {
     const names = result.data.map((client) => client.name);
 
     expect(names).toContain("ACME Developments");
-    expect(names).not.toContain("Meridian Group");
+    expect(names).not.toContain("Nova Living");
   });
 
   it("separates archived clients into their own section", async () => {
@@ -121,7 +121,7 @@ describe("list scope (PRD #12 §205)", () => {
 
 describe("cross-company isolation (PRD #12 §211)", () => {
   it("never returns Company A clients to a Company B user", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
+    const contextB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     const result = await clients.listClients(contextB, clientListQuerySchema.parse({ limit: 100 }));
 
     expect(result.data.map((client) => client.name)).not.toContain("ACME Developments");
@@ -129,7 +129,7 @@ describe("cross-company isolation (PRD #12 §211)", () => {
   });
 
   it("refuses to add a contact to another company's client", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
+    const contextB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectError(
       clients.createContact(
         contextB,
@@ -144,7 +144,7 @@ describe("cross-company isolation (PRD #12 §211)", () => {
 describe("detail scope (PRD #12 §207)", () => {
   it("answers 404 rather than 403 for a client outside scope", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
-    await expectError(clients.getClient(pm, "client_meridian"), "NOT_FOUND");
+    await expectError(clients.getClient(pm, "client_nova"), "NOT_FOUND");
   });
 });
 
@@ -368,23 +368,32 @@ describe("contacts (PRD #12 §215–§218)", () => {
 
 describe("linked projects (PRD #12 §219)", () => {
   it("returns only the projects the reader can open", async () => {
-    const pm = await loginAs("PROJECT_MANAGER");
-    const projects = await clients.listClientProjects(pm, "client_acme");
-    const ids = projects.map((project) => project.id);
+    // ACME's second project, in the same company, with nobody assigned.
+    const other = await prisma.project.create({
+      data: { companyId: COMPANY.a, code: `CLI-LINK-${Date.now().toString(36)}`, name: "Unassigned ACME project", clientId: "client_acme", createdBy: "test" },
+    });
 
-    expect(ids).toContain(PROJECT.a);
-    expect(ids).not.toContain(PROJECT.c);
+    try {
+      const pm = await loginAs("PROJECT_MANAGER");
+      const projects = await clients.listClientProjects(pm, "client_acme");
+      const ids = projects.map((project) => project.id);
+
+      expect(ids).toContain(PROJECT.a);
+      expect(ids).not.toContain(other.id);
+    } finally {
+      await prisma.project.delete({ where: { id: other.id } });
+    }
   });
 });
 
 describe("duplicate lookup (PRD #12 §126)", () => {
   it("only returns clients the caller could already discover", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
-    const matches = await clients.checkDuplicates(pm, { name: "Meridian Group" });
+    const matches = await clients.checkDuplicates(pm, { name: "Nova Living" });
     expect(matches).toHaveLength(0);
 
     const sales = await loginAs("SALES");
-    const visible = await clients.checkDuplicates(sales, { name: "Meridian Group" });
-    expect(visible.map((match) => match.name)).toContain("Meridian Group");
+    const visible = await clients.checkDuplicates(sales, { name: "Nova Living" });
+    expect(visible.map((match) => match.name)).toContain("Nova Living");
   });
 });

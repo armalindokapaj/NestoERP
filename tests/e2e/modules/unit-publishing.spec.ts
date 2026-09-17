@@ -3,7 +3,7 @@ import sharp from "sharp";
 
 import { db } from "../db";
 import { mainRegion, signIn } from "../fixtures";
-import { STRUCTURE_SEED } from "../structure-fixtures";
+import { createSpareProject, removeSpareProject, STRUCTURE_SEED } from "../structure-fixtures";
 
 /**
  * The unit page and publishing, desktop (E-05D §107-§115, §119, §120): the
@@ -12,11 +12,12 @@ import { STRUCTURE_SEED } from "../structure-fixtures";
  * unpublished changes. Sales reads the same page with nothing to change, and a
  * publisher pressing Publish on an incomplete unit is told what is missing.
  *
- * Built on a building of its own on Marina Apartments (the Architect's project),
+ * Built on a building of its own on a spare Aurelia project the Architect is on,
  * removed again afterwards with everything publishing left behind.
  */
 
-const MARINA = "project_c";
+/** A bare Aurelia project of the spec's own (see createSpareProject). */
+const PROJECT = "project_e2e_harbour_05d";
 const BUILDING = "bld_e05d_e2e";
 const FLOOR = "flr_e05d_e2e_2";
 const READY = "unit_e05d_e2e_201";
@@ -45,25 +46,27 @@ async function clear() {
 }
 
 test.beforeAll(async () => {
+  await createSpareProject(PROJECT, "A-E2E-05D", "Harbour Residences 05D");
   await clear();
   const apartment = await db.projectUnitType.findFirstOrThrow({ where: { companyId: "company_demo_a", code: "APARTMENT" }, select: { id: true } });
-  await db.projectBuilding.create({ data: { id: BUILDING, companyId: "company_demo_a", projectId: MARINA, name: "E05D Harbour", nameKey: "E05D HARBOUR", sortOrder: 99, createdBy: "seed" } });
-  await db.projectFloor.create({ data: { id: FLOOR, companyId: "company_demo_a", projectId: MARINA, buildingId: BUILDING, levelType: "STANDARD", number: 2, name: "Floor 2", floorKey: "STANDARD:2", sortOrder: 1, createdBy: "seed" } });
+  await db.projectBuilding.create({ data: { id: BUILDING, companyId: "company_demo_a", projectId: PROJECT, name: "E05D Harbour", nameKey: "E05D HARBOUR", sortOrder: 99, createdBy: "seed" } });
+  await db.projectFloor.create({ data: { id: FLOOR, companyId: "company_demo_a", projectId: PROJECT, buildingId: BUILDING, levelType: "STANDARD", number: 2, name: "Floor 2", floorKey: "STANDARD:2", sortOrder: 1, createdBy: "seed" } });
   const complete = { saleableArea: "96.40", internalArea: "81.20", bedrooms: 2, bathrooms: 1, rooms: 3, orientation: "S" as const, position: "CORNER" as const };
   await db.projectUnit.createMany({
     data: [
-      { id: READY, companyId: "company_demo_a", projectId: MARINA, floorId: FLOOR, unitCode: "H-201", unitCodeKey: "H-201", unitTypeId: apartment.id, sortOrder: 1, createdBy: "seed", ...complete },
-      { id: EMPTY, companyId: "company_demo_a", projectId: MARINA, floorId: FLOOR, unitCode: "H-202", unitCodeKey: "H-202", unitTypeId: apartment.id, sortOrder: 2, createdBy: "seed", ...complete },
+      { id: READY, companyId: "company_demo_a", projectId: PROJECT, floorId: FLOOR, unitCode: "H-201", unitCodeKey: "H-201", unitTypeId: apartment.id, sortOrder: 1, createdBy: "seed", ...complete },
+      { id: EMPTY, companyId: "company_demo_a", projectId: PROJECT, floorId: FLOOR, unitCode: "H-202", unitCodeKey: "H-202", unitTypeId: apartment.id, sortOrder: 2, createdBy: "seed", ...complete },
     ],
   });
 });
 
 test.afterAll(async () => {
   await clear();
+  await removeSpareProject(PROJECT);
   await db.$disconnect();
 });
 
-const unitUrl = (unitId: string, section = "") => `/projects/${MARINA}/units/${unitId}${section}`;
+const unitUrl = (unitId: string, section = "") => `/projects/${PROJECT}/units/${unitId}${section}`;
 const status = (page: Page) => page.getByTestId("publication-status").first();
 /** The unit's own sections, never the project's tabs of the same name. */
 const section = (page: Page, code: string, name: string) => page.getByRole("navigation", { name: `${code} sections` }).getByRole("link", { name, exact: true });
@@ -95,7 +98,7 @@ test("the Architect prepares a unit and submits it; nothing publishes it but a p
 });
 
 test("the Architecture Manager publishes it, and a later edit shows as unpublished changes", async ({ page }) => {
-  await signIn(page, "ARCHITECTURE_MANAGER", { to: unitUrl(READY, "/publishing") });
+  await signIn(page, "ARCHITECTURE_HEAD", { to: unitUrl(READY, "/publishing") });
   await expect(page.getByTestId("publishing-state")).toContainText("Submitted by");
   await mainRegion(page).getByRole("button", { name: "Publish", exact: true }).click();
   await expect(status(page)).toHaveText("Published v1");
@@ -129,7 +132,7 @@ test("Sales reads the published unit with nothing to change", async ({ page }) =
 });
 
 test("a publisher is told what an incomplete unit is missing instead of a dead button", async ({ page }) => {
-  await signIn(page, "ARCHITECTURE_MANAGER", { to: unitUrl(EMPTY) });
+  await signIn(page, "ARCHITECTURE_HEAD", { to: unitUrl(EMPTY) });
   await mainRegion(page).getByRole("button", { name: "Publish", exact: true }).click();
   const dialog = page.getByTestId("not-ready-dialog");
   await expect(dialog).toContainText("H-202 cannot be published yet");
@@ -138,7 +141,7 @@ test("a publisher is told what an incomplete unit is missing instead of a dead b
 });
 
 test("the seeded units show every publishing state in the unit list", async ({ page }) => {
-  await signIn(page, "ARCHITECTURE_MANAGER", { to: `/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}` });
+  await signIn(page, "ARCHITECTURE_HEAD", { to: `/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}` });
   const rows = page.getByTestId("unit-table").getByTestId("unit-row");
   await expect(rows.filter({ hasText: "A-101" })).toContainText("Published v1");
   await expect(rows.filter({ hasText: "A-102" })).toContainText("Changed");

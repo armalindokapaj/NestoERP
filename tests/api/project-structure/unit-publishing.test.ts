@@ -33,25 +33,26 @@ import {
   unpublishUnit,
 } from "@/lib/modules/project-structure/unit-publishing.service";
 import type { UnitSnapshot } from "@/lib/modules/project-structure/unit-publishing.types";
-import { cleanupSessions, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
  * The unit page and its publishing, against the real database (E-05D §107-§115).
  *
- * Everything happens on a building this suite adds to Marina Apartments
- * (project_c): the Architect is on its team, the Owner manages it, and the
- * Architecture Manager reads every project of the company. Files go through the
- * real upload pipeline into a temporary storage root, without a scanner. Each
- * test removes what it made — requests, media, links, publications, documents,
- * units, floors, buildings, audit, activity and notifications.
+ * Everything happens on a building this suite adds to a second Aurelia project
+ * it builds for itself (each demo company runs one) and removes at the end: the
+ * Architect is on its team, the Owner manages it, and the Architecture Manager
+ * reads every project of the company. Files go through the real upload
+ * pipeline into a temporary storage root, without a scanner. Each test removes
+ * what it made — requests, media, links, publications, documents, units,
+ * floors, buildings, audit, activity and notifications.
  */
 
-const MARINA = PROJECT.c;
-const SITE = PROJECT.b;
+const MARINA = "t05d_marina";
+const SITE = PROJECT.a;
 const T = "E05D";
 
 let owner: UserContext;
-let admin: UserContext;
+let ceo: UserContext;
 let pm: UserContext;
 let architect: UserContext;
 let manager: UserContext;
@@ -63,7 +64,6 @@ let apartmentType: string;
 let parkingType: string;
 let storageRoot: string;
 let floorId: string;
-let lastActivityAt: Date | null = null;
 
 const pdf = (label: string) => new TextEncoder().encode(`%PDF-1.4\n${label}\n%%EOF\n`);
 const png = async (shade: number) => new Uint8Array(await sharp({ create: { width: 12, height: 8, channels: 3, background: { r: shade, g: 120, b: 160 } } }).png().toBuffer());
@@ -153,20 +153,29 @@ async function readyUnit(code: string) {
   return { unitId, plan, image };
 }
 
+async function removeMarina() {
+  await prisma.auditEvent.deleteMany({ where: { entityId: MARINA } });
+  await prisma.activity.deleteMany({ where: { entityId: MARINA } });
+  await prisma.projectMember.deleteMany({ where: { projectId: MARINA } });
+  await prisma.project.deleteMany({ where: { id: MARINA } });
+}
+
 beforeAll(async () => {
-  // The unit activity this suite records moves the project's marker (E-05A §15); it is put back after.
-  lastActivityAt = (await prisma.project.findUnique({ where: { id: MARINA }, select: { lastActivityAt: true } }))?.lastActivityAt ?? null;
   storageRoot = await mkdtemp(path.join(tmpdir(), "nesto-unit-publishing-"));
   process.env.STORAGE_URL_SECRET = "test-storage-signing-secret-value";
   setStorageProvider(new LocalStorageProvider({ root: storageRoot, baseUrl: "http://localhost:3000" }));
-  [owner, admin, pm, architect, manager, engineer, sales, finance] = await Promise.all(
-    (["OWNER", "ADMIN", "PROJECT_MANAGER", "ARCHITECT", "ARCHITECTURE_MANAGER", "ENGINEER", "SALES", "FINANCE"] as const).map((role) => loginAs(role)),
+  [owner, ceo, pm, architect, engineer, sales, finance] = await Promise.all(
+    (["OWNER", "CEO", "PROJECT_MANAGER", "ARCHITECT", "ENGINEER", "SALES", "FINANCE"] as const).map((role) => loginAs(role)),
   );
+  manager = await loginAsEmail(DEMO_EMAIL.architectureHead);
   ownerB = await loginAsMembership("member_owner_b");
-  const types = await prisma.projectUnitType.findMany({ where: { companyId: "company_demo_a", code: { in: ["APARTMENT", "PARKING"] } }, select: { id: true, code: true } });
+  const types = await prisma.projectUnitType.findMany({ where: { companyId: COMPANY.a, code: { in: ["APARTMENT", "PARKING"] } }, select: { id: true, code: true } });
   apartmentType = types.find((row) => row.code === "APARTMENT")!.id;
   parkingType = types.find((row) => row.code === "PARKING")!.id;
   await cleanup();
+  await removeMarina();
+  await prisma.project.create({ data: { id: MARINA, companyId: COMPANY.a, code: "T05D-MARINA", name: "Harbour Marina Apartments", status: "ACTIVE", projectManagerMemberId: owner.membershipId, createdBy: "test" } });
+  await prisma.projectMember.createMany({ data: [owner.membershipId, architect.membershipId].map((companyMemberId) => ({ companyId: COMPANY.a, projectId: MARINA, companyMemberId, status: "ACTIVE" as const })) });
 });
 
 beforeEach(async () => {
@@ -185,7 +194,7 @@ afterAll(async () => {
   setStorageProvider(null);
   await rm(storageRoot, { recursive: true, force: true });
   await reconcileStorageUsage();
-  if (lastActivityAt) await prisma.project.update({ where: { id: MARINA }, data: { lastActivityAt } });
+  await removeMarina();
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -493,13 +502,13 @@ describe("media (§40-§44, §76, §113)", () => {
 /* Access ----------------------------------------------------------------------- */
 
 describe("access (§18-§20, §85-§89, §114, §120, §122)", () => {
-  it("lets the Architect prepare and submit but not publish; the Architecture Manager, Owner and Admin publish", async () => {
+  it("lets the Architect prepare and submit but not publish; the Architecture Manager and the Owner publish, the CEO does not", async () => {
     const { unitId } = await readyUnit("601");
     expect((await getUnitPublishing(architect, unitId)).capabilities).toMatchObject({ canSubmit: true, canPublish: false, canManageDocuments: true, canManageMedia: true, canUnpublish: false });
     expect((await getUnitPublishing(manager, unitId)).capabilities).toMatchObject({ canSubmit: true, canPublish: true, canRequestRevision: true, canUnpublish: true, canArchive: true });
     expect((await getUnitPublishing(owner, unitId)).capabilities.canPublish).toBe(true);
-    expect((await getUnitPublishing(admin, unitId)).capabilities.canPublish).toBe(true);
-    // The Project Manager prepares and submits on their own projects; Marina is not one of them.
+    expect((await getUnitPublishing(ceo, unitId)).capabilities.canPublish).toBe(false);
+    // The Project Manager prepares and submits on their own projects; this is not one of them.
     await refused(getUnitPublishing(pm, unitId), "NOT_FOUND");
     expect(publishingCapabilities(pm)).toMatchObject({ canSubmit: true, canManageDocuments: true, canPublish: false, canRequestRevision: false });
   });

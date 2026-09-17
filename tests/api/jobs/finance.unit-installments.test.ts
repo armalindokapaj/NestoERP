@@ -24,7 +24,7 @@ const EVENTS = ["UNIT_INSTALLMENT_OVERDUE", "UNIT_INSTALLMENT_DUE_SOON"];
 const RUN = `t05f${Date.now().toString(36)}`;
 const DAY = 86_400_000;
 const FIXTURE: Record<string, { projectId: string; client: string; member: string; typeCode: string }> = {
-  [COMPANY_A]: { projectId: "project_c", client: "client_acme", member: "member_finance", typeCode: "APARTMENT" },
+  [COMPANY_A]: { projectId: "project_a", client: "client_acme", member: "member_finance", typeCode: "APARTMENT" },
   [COMPANY_B]: { projectId: "project_b_one", client: "client_b_muc", member: "member_owner_b", typeCode: "OFFICE" },
 };
 

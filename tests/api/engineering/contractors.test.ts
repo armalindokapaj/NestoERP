@@ -12,8 +12,8 @@ import { archiveContractor, createContractor, findDuplicateContractors, getContr
 import { createRfi } from "@/lib/modules/engineering/engineering.rfis";
 import { createRfiSchema } from "@/lib/modules/engineering/engineering.schema";
 import { completeWorkPackage, createWorkPackage, getWorkPackage } from "@/lib/modules/work-packages/work-package.service";
-import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
-import { code, COMPANY_A, ENGINEERING_SEED as S, makeFile, restoreEngineering } from "./fixtures";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { code, COMPANY_A, ENGINEERING_SEED as S, HARBOUR, makeFile, makeHarbour, restoreEngineering, TENANT } from "./fixtures";
 
 /**
  * Contractors, assignments, work packages and compliance against the real
@@ -26,15 +26,16 @@ let engineer: UserContext;
 let legal: UserContext;
 let qaqc: UserContext;
 let viewer: UserContext;
-let admin: UserContext;
+let groupIt: UserContext;
 let ownerB: UserContext;
 
 const contractorInput = (overrides: Record<string, unknown> = {}) => createContractorSchema.parse({ legalName: "Test Scaffold Systems", status: "ACTIVE", ...overrides });
 
 beforeAll(async () => {
   await restoreEngineering();
-  [owner, pm, engineer, legal, qaqc, viewer, admin] = await Promise.all((["OWNER", "PROJECT_MANAGER", "ENGINEER", "LEGAL", "QAQC", "VIEWER", "ADMIN"] as const).map((role) => loginAs(role)));
-  ownerB = await loginAsEmail("owner-b@nesto.test");
+  await makeHarbour();
+  [owner, pm, engineer, legal, qaqc, viewer, groupIt] = await Promise.all((["OWNER", "PROJECT_MANAGER", "ENGINEER", "LEGAL", "QAQC", "VIEWER", "GROUP_IT"] as const).map((role) => loginAs(role)));
+  ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
 });
 
 afterAll(async () => {
@@ -104,7 +105,7 @@ describe("project assignments (§25-§31, §285)", () => {
   it("assigns once per project, validates the contract and contact, and terminates without losing history", async () => {
     const northgate = S.contractors.northgate;
     const input = createAssignmentSchema.parse({ contractorId: northgate, status: "PLANNED", contractId: "contract_009", internalManagerMemberId: pm.membershipId, primaryContractorContactId: "contact_northgate_marco" });
-    await expect(createAssignment(pm, "project_a", { ...input, contractId: "contract_002" })).rejects.toMatchObject(code("CONTRACT_PROJECT_MISMATCH"));
+    await expect(createAssignment(pm, "project_a", { ...input, contractId: HARBOUR.contract })).rejects.toMatchObject(code("CONTRACT_PROJECT_MISMATCH"));
     await expect(createAssignment(pm, "project_a", { ...input, primaryContractorContactId: "contact_apex_elira" })).rejects.toMatchObject(code("ASSIGNMENT_CONTACT_INVALID"));
     const assignment = await createAssignment(pm, "project_a", input);
     await expect(createAssignment(pm, "project_a", input)).rejects.toMatchObject(code("CONTRACTOR_ALREADY_ASSIGNED"));
@@ -125,8 +126,8 @@ describe("project assignments (§25-§31, §285)", () => {
 
   it("refuses a project in another company and a contract the writer cannot open (§245, §304)", async () => {
     await expect(createAssignment(pm, "project_b_one", createAssignmentSchema.parse({ contractorId: S.contractors.northgate }))).rejects.toMatchObject({ code: "NOT_FOUND" });
-    const contractB = await prisma.contract.findFirst({ where: { companyId: "company_demo_b" }, select: { id: true } });
-    if (contractB) await expect(createAssignment(owner, "project_c", createAssignmentSchema.parse({ contractorId: S.contractors.northgate, contractId: contractB.id }))).rejects.toMatchObject(code("CONTRACT_INVALID"));
+    const contractB = await prisma.contract.findFirst({ where: { companyId: TENANT }, select: { id: true } });
+    if (contractB) await expect(createAssignment(owner, HARBOUR.project, createAssignmentSchema.parse({ contractorId: S.contractors.northgate, contractId: contractB.id }))).rejects.toMatchObject(code("CONTRACT_INVALID"));
     await expect(assignmentOptions(engineer, "project_a")).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
@@ -136,7 +137,7 @@ describe("work packages (§32-§40, §286)", () => {
     const first = await createWorkPackage(pm, "project_a", createWorkPackageSchema.parse({ name: "Test roofing", contractorId: S.contractors.apex, contractId: "contract_009", value: "1000.50", currency: "EUR" }));
     expect(first.code).toBe("WP-004");
     await expect(createWorkPackage(pm, "project_a", createWorkPackageSchema.parse({ name: "Clash", code: "WP-004" }))).rejects.toMatchObject(code("WORK_PACKAGE_CODE_TAKEN"));
-    expect((await createWorkPackage(pm, "project_b", createWorkPackageSchema.parse({ name: "Other project", code: "WP-004" }))).code).toBe("WP-004");
+    expect((await createWorkPackage(pm, HARBOUR.project, createWorkPackageSchema.parse({ name: "Other project", code: "WP-004" }))).code).toBe("WP-004");
     const stranger = await createContractor(pm, contractorInput({ legalName: "Never Assigned Plastering" }));
     await expect(createWorkPackage(pm, "project_a", createWorkPackageSchema.parse({ name: "Unassigned", contractorId: stranger.id }))).rejects.toMatchObject(code("ENGINEERING_CONTRACTOR_NOT_ASSIGNED"));
 
@@ -151,7 +152,7 @@ describe("work packages (§32-§40, §286)", () => {
   });
 
   it("keeps work packages to the projects a reader can open (§246, §306)", async () => {
-    await expect(getWorkPackage(engineer, S.workPackages.towerBasement)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(getWorkPackage(engineer, HARBOUR.workPackage)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(getWorkPackage(ownerB, S.workPackages.frame)).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await loadRecord(viewer, "work_package", S.workPackages.frame)).not.toBeNull();
   });
@@ -203,6 +204,6 @@ describe("legal and finance boundaries (§50-§58, §157, §299)", () => {
     expect(forLegal.contracts.map((row) => row.id)).toEqual(["contract_009"]);
     expect(forLegal.contracts[0].value).not.toBeNull();
     expect((await contractorLegalSummary(qaqc, S.contractors.brightline)).contracts).toEqual([]);
-    expect((await contractorLegalSummary(admin, S.contractors.brightline)).contracts).toEqual([]);
+    expect((await contractorLegalSummary(groupIt, S.contractors.brightline)).contracts).toEqual([]);
   });
 });

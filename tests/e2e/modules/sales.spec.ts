@@ -77,25 +77,6 @@ test.describe("Sales role (PRD #17 §349)", () => {
     await expect(recordTable(page).getByText(`${PREFIX} Client`)).toBeVisible();
   });
 
-  test("a converted lead is read-only (PRD #17 §234)", async ({ page }) => {
-    await page.goto("/sales/leads/lead_020");
-    await expect(mainRegion(page).getByText("Converted").first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
-  });
-
-  test("moves an opportunity along the pipeline from the board", async ({ page }) => {
-    await page.goto("/sales/pipeline");
-    await expect(mainRegion(page).getByText("Open pipeline").first()).toBeVisible();
-
-    // The non-drag alternative every keyboard user needs (PRD #17 §297).
-    const card = mainRegion(page).getByRole("article").filter({
-      hasText: "Meridian marina retail",
-    });
-    await card.getByLabel(/Move Meridian marina retail/).selectOption("DISCOVERY");
-
-    await expect(page.getByText("Stage updated.").first()).toBeVisible();
-  });
-
   test("cannot close a deal by moving a stage (PRD #17 §82)", async ({ page }) => {
     await page.goto("/sales/pipeline");
 
@@ -161,33 +142,6 @@ test.describe("Sales role (PRD #17 §349)", () => {
     await expect(page.getByRole("button", { name: "Archive" })).toHaveCount(0);
   });
 
-  test("must give a reason to lose a deal (PRD #17 §93)", async ({ page }) => {
-    await page.goto("/sales/opportunities/opportunity_003/lost");
-
-    await page.locator("#lostReason").selectOption("OTHER");
-    await page.getByRole("button", { name: "Mark lost" }).click();
-
-    // OTHER without a note is refused by the server (PRD #17 §95).
-    await expect(mainRegion(page).getByText(/review the highlighted fields/i)).toBeVisible();
-
-    await page.locator("#lostNote").fill("Procurement was cancelled.");
-    await page.getByRole("button", { name: "Mark lost" }).click();
-
-    await page.waitForURL(/\/sales\/opportunities\/opportunity_003$/);
-    await expect(mainRegion(page).getByText("Lost — Other")).toBeVisible();
-  });
-
-  test("runs the reports its permissions reach", async ({ page }) => {
-    await page.goto("/sales/reports");
-    await expect(mainRegion(page).getByRole("heading", { name: "Pipeline by stage" })).toBeVisible();
-
-    await page.getByRole("link", { name: "Lead conversion" }).click();
-    await expect(mainRegion(page).getByText("Converted ÷ created", { exact: true })).toBeVisible();
-
-    await page.getByRole("link", { name: "Lost reasons" }).click();
-    await expect(mainRegion(page).getByRole("heading", { name: "Lost reasons" })).toBeVisible();
-  });
-
   test("sales tasks are the canonical tasks (PRD #17 §333)", async ({ page }) => {
     await page.goto("/sales/tasks");
     await expect(recordTable(page).getByText("Agree retention terms with ACME")).toBeVisible();
@@ -198,12 +152,66 @@ test.describe("Sales role (PRD #17 §349)", () => {
   });
 });
 
-test.describe("CEO (PRD #17 §351)", () => {
+/**
+ * The same desk in Nova, where the converted lead, the late-stage deal and the
+ * lost deals are (E-06 §45).
+ */
+test.describe("Sales role in Nova (PRD #17 §349)", () => {
   test.beforeEach(async ({ page }) => {
-    await signIn(page, "CEO");
+    await signIn(page, "SALES_E");
   });
 
+  test("a converted lead is read-only (PRD #17 §234)", async ({ page }) => {
+    await page.goto("/sales/leads/lead_020");
+    await expect(mainRegion(page).getByText("Converted").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
+  });
+
+  test("moves an opportunity along the pipeline from the board", async ({ page }) => {
+    await page.goto("/sales/pipeline");
+    await expect(mainRegion(page).getByText("Open pipeline").first()).toBeVisible();
+
+    // The non-drag alternative every keyboard user needs (PRD #17 §297).
+    const card = mainRegion(page).getByRole("article").filter({
+      hasText: "Urban Core annex",
+    });
+    await card.getByLabel(/Move Urban Core annex/).selectOption("PROPOSAL");
+
+    await expect(page.getByText("Stage updated.").first()).toBeVisible();
+  });
+
+  test("must give a reason to lose a deal (PRD #17 §93)", async ({ page }) => {
+    await page.goto("/sales/opportunities/opportunity_022/lost");
+
+    await page.locator("#lostReason").selectOption("OTHER");
+    await page.getByRole("button", { name: "Mark lost" }).click();
+
+    // OTHER without a note is refused by the server (PRD #17 §95).
+    await expect(mainRegion(page).getByText(/review the highlighted fields/i)).toBeVisible();
+
+    await page.locator("#lostNote").fill("Procurement was cancelled.");
+    await page.getByRole("button", { name: "Mark lost" }).click();
+
+    await page.waitForURL(/\/sales\/opportunities\/opportunity_022$/);
+    await expect(mainRegion(page).getByText("Lost — Other")).toBeVisible();
+  });
+
+  // Nova has lost deals to give reasons for; Aurelia has none yet.
+  test("runs the reports its permissions reach", async ({ page }) => {
+    await page.goto("/sales/reports");
+    await expect(mainRegion(page).getByRole("heading", { name: "Pipeline by stage" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Lead conversion" }).click();
+    await expect(mainRegion(page).getByText("Converted ÷ created", { exact: true })).toBeVisible();
+
+    await page.getByRole("link", { name: "Lost reasons" }).click();
+    await expect(mainRegion(page).getByRole("heading", { name: "Lost reasons" })).toBeVisible();
+  });
+});
+
+test.describe("CEO (PRD #17 §351)", () => {
   test("approves a proposal without working the pipeline", async ({ page }) => {
+    await signIn(page, "CEO");
     await page.goto("/sales/proposals/proposal_004");
     await expect(mainRegion(page).getByText("Pending approval").first()).toBeVisible();
 
@@ -212,6 +220,8 @@ test.describe("CEO (PRD #17 §351)", () => {
   });
 
   test("must say why when rejecting (PRD #17 §118, §419)", async ({ page }) => {
+    // The proposal is Meridian's, so Meridian's CEO decides it.
+    await signIn(page, "CEO_B");
     await page.goto("/sales/proposals/proposal_005");
     await mainRegion(page).getByRole("button", { name: "Reject", exact: true }).click();
 
@@ -225,6 +235,7 @@ test.describe("CEO (PRD #17 §351)", () => {
   });
 
   test("is not offered the sales desk's operational controls", async ({ page }) => {
+    await signIn(page, "CEO");
     await page.goto("/sales/opportunities/opportunity_001");
     await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
 
@@ -235,6 +246,8 @@ test.describe("CEO (PRD #17 §351)", () => {
   });
 
   test("sees the pipeline grouped by currency, never summed (PRD #17 §31)", async ({ page }) => {
+    // Terra quotes its US distribution hub in dollars beside its euro deals.
+    await signIn(page, "CEO_C");
     await page.goto("/sales/pipeline");
 
     const total = mainRegion(page).getByText(/€.*·.*\$|\$.*·.*€/).first();
@@ -258,21 +271,23 @@ test.describe("restricted roles (PRD #17 §352–§356)", () => {
   });
 
   test("a project manager receives the won deal, not the pipeline", async ({ page }) => {
-    await signIn(page, "PROJECT_MANAGER");
+    // Central Office Tower was won by Meridian's sales desk and is run by
+    // Meridian's project manager (E-06 §45).
+    await signIn(page, "PM_B");
 
     await page.goto("/sales/opportunities");
     await expect(recordTable(page).getByText("Central Office Tower fit-out")).toBeVisible();
     // Somebody else's open pipeline stays invisible (PRD #17 §354).
-    await expect(recordTable(page).getByText("Riverside phase 2")).toHaveCount(0);
+    await expect(recordTable(page).getByText("Beta head office refurb")).toHaveCount(0);
 
     // And an out-of-scope deal is not found, never forbidden (PRD #17 §226).
-    await page.goto("/sales/opportunities/opportunity_001");
+    await page.goto("/sales/opportunities/opportunity_002");
     await expect(page.getByRole("heading", { name: "Page not found." })).toBeVisible();
     await expect(page).not.toHaveURL(/\/access-denied/);
   });
 
   test("the project carries a link back to the deal it came from (PRD #17 §267)", async ({ page }) => {
-    await signIn(page, "PROJECT_MANAGER");
+    await signIn(page, "PM_B");
 
     await page.goto("/projects/project_b");
     await expect(mainRegion(page).getByText("From opportunity")).toBeVisible();
@@ -281,7 +296,7 @@ test.describe("restricted roles (PRD #17 §352–§356)", () => {
     ).toBeVisible();
   });
 
-  for (const role of ["ADMIN", "COMPANY_IT", "ENGINEER"] as const) {
+  for (const role of ["GROUP_IT", "ENGINEER"] as const) {
     test(`${role} gets no Sales at all`, async ({ page }) => {
       await signIn(page, role);
       await expectAccessDenied(page, "/sales");
@@ -321,18 +336,17 @@ test.describe("client and cross-module integration (PRD #17 §266, §334)", () =
   });
 
   test("a project manager's client Sales tab shows only their own deals", async ({ page }) => {
-    await signIn(page, "PROJECT_MANAGER");
+    await signIn(page, "PM_B");
 
     // The PM holds Sales at PROJECT scope, so the tab is there — and it shows
-    // the won deal behind their project, not ACME's open pipeline
+    // the won deal behind their project, not Beta's open pipeline
     // (PRD #17 §414).
     await page.goto("/clients/client_beta/sales");
     await expect(recordTable(page).getByText("Central Office Tower fit-out")).toBeVisible();
 
-    // ACME's open pipeline stays invisible: the PM reaches the deals that
-    // became their projects, not the ones still being fought for.
-    await page.goto("/clients/client_acme/sales");
-    await expect(recordTable(page).getByText("Riverside phase 2")).toHaveCount(0);
+    // The same client's open pipeline stays invisible: the PM reaches the deals
+    // that became their projects, not the ones still being fought for.
+    await expect(recordTable(page).getByText("Beta head office refurb")).toHaveCount(0);
     await expect(mainRegion(page).getByRole("heading", { name: "In play" })).toHaveCount(0);
   });
 

@@ -28,7 +28,7 @@ import { approveUnitSale, rejectUnitSale, requestSaleApproval } from "@/lib/modu
 import { getUnitSales, markUnitSold } from "@/lib/modules/sales/units/unit-sales.service";
 import { updateSalesSettings } from "@/lib/modules/settings/sales-settings.service";
 import { cleanupSessions, prisma } from "../../helpers";
-import { COMPANY_A, isoDay, loginRoles, refused, SaleFixture, type Roles } from "./unit-sale-fixture";
+import { COMPANY_A, isoDay, loginRoles, refused, RIVERSIDE, SaleFixture, type Roles } from "./unit-sale-fixture";
 
 /**
  * Collecting a unit's sale against the real database (E-05F §18-§41, §76-§85,
@@ -303,7 +303,7 @@ describe("the project's Finance inventory (§45-§48, §65, §92, §127)", () =>
     const pending = await fixture.reserved();
     await fixture.contract(pending.id);
 
-    const all = await listFinanceInventory(roles.finance, "project_c", parseFinanceInventoryQuery({ q: T }));
+    const all = await listFinanceInventory(roles.finance, RIVERSIDE, parseFinanceInventoryQuery({ q: T }));
     const byCode = new Map(all.items.map((row) => [row.unitCode, row]));
     expect(byCode.get(apartment.unitCode)).toMatchObject({ contract: { number: contractNumber }, contractValue: "300000.00", paidAmount: "100000.00", outstandingAmount: "200000.00", overdueAmount: "200000.00", financialStatus: "OVERDUE" });
     expect(byCode.get(parking.unitCode)?.financialStatus).toBe("OVERDUE");
@@ -311,11 +311,11 @@ describe("the project's Finance inventory (§45-§48, §65, §92, §127)", () =>
     expect(all.counts).toMatchObject({ OVERDUE: 2, CONTRACT_PENDING: 1 });
     expect(all.totals.find((row) => row.currency === "EUR")).toMatchObject({ contracted: "300000.00", collected: "100000.00", outstanding: "200000.00", overdue: "200000.00" });
 
-    const overdue = await listFinanceInventory(roles.finance, "project_c", parseFinanceInventoryQuery({ q: T, financialStatus: "OVERDUE" }));
+    const overdue = await listFinanceInventory(roles.finance, RIVERSIDE, parseFinanceInventoryQuery({ q: T, financialStatus: "OVERDUE" }));
     expect(overdue.items.map((row) => row.unitCode).sort()).toEqual([apartment.unitCode, parking.unitCode].sort());
-    expect((await listFinanceInventory(roles.finance, "project_c", parseFinanceInventoryQuery({ q: contractNumber }))).items).toHaveLength(2);
-    expect((await listFinanceInventory(roles.finance, "project_c", parseFinanceInventoryQuery({ q: "INV-SEARCH" }))).items).toHaveLength(2);
-    expect((await listFinanceInventory(roles.sales, "project_c", parseFinanceInventoryQuery({ q: "INV-SEARCH" }))).items).toHaveLength(0);
-    await refused(listFinanceInventory(roles.architect, "project_c", parseFinanceInventoryQuery({})), "FORBIDDEN");
+    expect((await listFinanceInventory(roles.finance, RIVERSIDE, parseFinanceInventoryQuery({ q: contractNumber }))).items).toHaveLength(2);
+    expect((await listFinanceInventory(roles.finance, RIVERSIDE, parseFinanceInventoryQuery({ q: "INV-SEARCH" }))).items).toHaveLength(2);
+    expect((await listFinanceInventory(roles.sales, RIVERSIDE, parseFinanceInventoryQuery({ q: "INV-SEARCH" }))).items).toHaveLength(0);
+    await refused(listFinanceInventory(roles.architect, RIVERSIDE, parseFinanceInventoryQuery({})), "FORBIDDEN");
   });
 });

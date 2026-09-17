@@ -12,6 +12,7 @@ import {
   toBusinessDate,
   workedMinutesBetween,
 } from "../hr.date";
+import { memberAddressed } from "../hr.person";
 import { buildAttendanceScopeWhere, buildEmployeeScopeWhere, isSelf } from "../hr.scope";
 import { acceptsTimes, isException, isPlannable } from "../hr.status";
 import type {
@@ -57,6 +58,7 @@ const SELECT = {
   updatedAt: true,
   employeeProfile: {
     select: {
+      companyMemberId: true,
       companyMember: {
         select: {
           id: true,
@@ -407,7 +409,7 @@ function timeString(value: Date | null): string | null {
 
 function toDTO(context: UserContext, row: AttendanceRow): AttendanceDTO {
   const own = isSelf(context, row.companyMemberId);
-  const user = row.employeeProfile.companyMember.user;
+  const user = memberAddressed(row.employeeProfile).companyMember.user;
   const fromLeave = isSystemGenerated(row);
 
   return {

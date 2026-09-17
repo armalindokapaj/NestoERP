@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import type { z } from "zod";
 
 import { can } from "@/lib/access/can";
@@ -22,9 +23,27 @@ import type { DailyLogSettingsDTO } from "./daily-log.types";
  * required, seven days of backdating, a reviewer required.
  */
 
+/**
+ * The company's row, created on its first read. A page reads the settings and
+ * the list together, so a company's very first visit asks twice at once; the
+ * losing create finds the row the other one wrote rather than failing the page.
+ */
+async function companyRow(companyId: string) {
+  const existing = await prisma.dailyLogSettings.findUnique({ where: { companyId } });
+  if (existing) return existing;
+  try {
+    return await prisma.dailyLogSettings.create({ data: { companyId } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return prisma.dailyLogSettings.findUniqueOrThrow({ where: { companyId } });
+    }
+    throw error;
+  }
+}
+
 export async function resolveDailyLogSettings(companyId: string, projectId?: string | null): Promise<DailyLogSettingsDTO & { reviewerMemberId: string | null; projectRequired: boolean | null }> {
   const [row, company, project] = await Promise.all([
-    prisma.dailyLogSettings.upsert({ where: { companyId }, update: {}, create: { companyId } }),
+    companyRow(companyId),
     ensureCompanySettings(companyId),
     projectId ? prisma.projectDailyLogSettings.findFirst({ where: { companyId, projectId } }) : Promise.resolve(null),
   ]);

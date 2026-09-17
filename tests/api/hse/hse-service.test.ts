@@ -131,6 +131,7 @@ const created = {
 };
 
 const openedApprovals: string[] = [];
+const otherSites: string[] = [];
 
 /**
  * Restores anything a test changed on a *seeded* record.
@@ -414,12 +415,34 @@ afterEach(async () => {
     else await prisma.hseInspectionTemplate.update({ where: { id: row.id }, data });
   }
   touched.length = 0;
+
+  if (otherSites.length > 0) {
+    await prisma.project.deleteMany({ where: { id: { in: otherSites } } });
+    otherSites.length = 0;
+  }
 });
 
 afterAll(async () => {
   await cleanupSessions();
   await prisma.$disconnect();
 });
+
+/**
+ * An open hazard on a second site in the company, with nobody on its team.
+ * Each demo company has one project (E-06 §49), so a site the Project Manager
+ * is not on has to be made.
+ */
+async function hazardOffTheirSites(hse: Awaited<ReturnType<typeof loginAs>>) {
+  const projectId = `hsetest_site_${Date.now().toString(36)}_${otherSites.length}`;
+  await prisma.project.create({
+    data: { id: projectId, companyId: hse.companyId, code: projectId, name: "HSE test site", status: "ACTIVE", createdBy: "test" },
+  });
+  otherSites.push(projectId);
+
+  const hazard = await hazards.createHazard(hse, hazardInput({ projectId, title: "On another site" }));
+  created.hazards.push(hazard.id);
+  return hazard;
+}
 
 function hazardInput(overrides: Record<string, unknown> = {}) {
   return hazardSchema.parse({
@@ -1541,16 +1564,15 @@ describe("company isolation (PRD #22 §409)", () => {
 });
 
 describe("who sees what (PRD #22 §18, §23, §24, §244–§248)", () => {
-  it("Admin gets no HSE business records by default (§23)", async () => {
-    const admin = await loginAs("ADMIN");
-    expect(can(admin, "hse.hazard.view")).toBe(false);
-    expect(can(admin, "hse.incident.view")).toBe(false);
-    await expect(hazards.listHazards(admin, hazardQuery)).rejects.toThrow(AccessError);
+  it("Group IT gets no HSE business records by default (§23, §24)", async () => {
+    const it = await loginAs("GROUP_IT");
+    expect(can(it, "hse.hazard.view")).toBe(false);
+    expect(can(it, "hse.incident.view")).toBe(false);
+    await expect(hazards.listHazards(it, hazardQuery)).rejects.toThrow(AccessError);
   });
 
-  it("Company IT gets none either (§24)", async () => {
-    const it = await loginAs("COMPANY_IT");
-    expect(can(it, "hse.incident.view")).toBe(false);
+  it("the Platform Admin has no company to read them in either (§23)", async () => {
+    await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow();
   });
 
   it("the CEO reads the company position but mutates nothing (§25)", async () => {
@@ -1581,12 +1603,14 @@ describe("who sees what (PRD #22 §18, §23, §24, §244–§248)", () => {
   it("a project-scoped reader sees their sites and not the company (§246)", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
     const hse = await loginAs("HSE");
+    const elsewhere = await hazardOffTheirSites(hse);
 
     const theirs = await hazards.listHazards(pm, hazardQuery);
     const all = await hazards.listHazards(hse, hazardQuery);
 
     expect(theirs.pagination.total).toBeGreaterThan(0);
     expect(theirs.pagination.total).toBeLessThan(all.pagination.total);
+    expect(theirs.data.some((row) => row.id === elsewhere.id)).toBe(false);
   });
 
   /*
@@ -1689,6 +1713,7 @@ describe("overview and reports (PRD #22 §30, §199, §215, §424)", () => {
   it("counts only what the reader may see", async () => {
     const hse = await loginAs("HSE");
     const pm = await loginAs("PROJECT_MANAGER");
+    await hazardOffTheirSites(hse);
 
     const companyWide = await getHseOverview(hse);
     const projectScoped = await getHseOverview(pm);

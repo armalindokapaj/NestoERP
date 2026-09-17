@@ -2,32 +2,29 @@
 
 import { AuthError } from "next-auth";
 
-import { DEMO_PASSWORD, demoAccountForRole } from "@/config/demo-accounts";
-import { isRoleKey } from "@/config/roles";
+import { DEMO_PASSWORD, demoAccountByUsername } from "@/config/demo-accounts";
 import { signIn } from "@/lib/auth";
 import { isDevMode } from "@/lib/auth/dev-role";
 
 /**
- * One-click sign-in as a seeded demo account (spec §65).
+ * One-click sign-in as a curated demo persona (spec §65, E-06 §48).
  *
- * The client sends only a role key — the demo password is resolved on the
- * server, so it never reaches the browser bundle. Gated on isDevMode, so the
- * action is inert in a production build even if it were somehow invoked.
+ * The client sends only a username, and only one from the curated list is
+ * accepted — the demo password is resolved on the server, so it never reaches
+ * the browser bundle, and no fixture account can be signed into this way.
+ * Gated on isDevMode, so the action is inert in a production build even if it
+ * were somehow invoked.
  */
-export async function signInAsDemoRoleAction(
-  role: string,
+export async function signInAsDemoAccountAction(
+  username: string,
 ): Promise<{ error: string } | undefined> {
   if (!isDevMode) {
     return { error: "Demo sign-in is available in development only." };
   }
 
-  if (!isRoleKey(role)) {
-    return { error: "Unknown role." };
-  }
-
-  const account = demoAccountForRole(role);
+  const account = demoAccountByUsername(username);
   if (!account) {
-    return { error: "No demo account exists for that role. Run pnpm db:seed." };
+    return { error: "Unknown demo account." };
   }
 
   try {

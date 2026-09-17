@@ -31,7 +31,7 @@ export function timesheetsOpen(context: UserContext): boolean {
 export function teamMemberWhere(context: UserContext): Prisma.CompanyMemberWhereInput | null {
   if (!can(context, "timesheet.team.view")) return null;
   const scope = getModuleScope(context, MODULE);
-  if (scope === "COMPANY" || scope === "SYSTEM") return { companyId: context.companyId };
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM") return { companyId: context.companyId };
   if (scope === "DEPARTMENT") return context.department ? { companyId: context.companyId, departmentId: context.department.id } : null;
   if (scope === "PROJECT" || scope === "ASSIGNED") {
     return {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { permissionsForRole } from "@/config/role-defaults";
-import { ROLE_KEYS, type RoleKey } from "@/config/roles";
+import { MEMBERSHIP_ROLE_KEYS, ROLE_KEYS, type RoleKey } from "@/config/roles";
 import type { UserContext } from "@/lib/context/types";
 import { excerpt, parseBody, parseInline, plainText, safeHref } from "@/lib/modules/announcements/announcement.body";
 import { addressableAudiences, audienceWhere, readableAnnouncementWhere } from "@/lib/modules/announcements/announcement.permissions";
@@ -23,15 +23,14 @@ const contextFor = (role: RoleKey, department: string | null = null) =>
 
 describe("announcement grants by role (§229-§246)", () => {
   it("lets everyone read and acknowledge, and only the right people speak to each audience", () => {
-    for (const role of ROLE_KEYS) {
+    for (const role of MEMBERSHIP_ROLE_KEYS) {
       expect(has(role, "announcement.view"), role).toBe(true);
       expect(has(role, "announcement.acknowledge"), role).toBe(true);
     }
     expect(addressableAudiences(contextFor("OWNER"))).toEqual(["COMPANY", "DEPARTMENT", "PROJECT", "SELECTED_MEMBERS"]);
     expect(addressableAudiences(contextFor("CEO"))).toEqual(["COMPANY", "DEPARTMENT", "SELECTED_MEMBERS"]);
     expect(addressableAudiences(contextFor("HR"))).toEqual(["COMPANY", "DEPARTMENT", "SELECTED_MEMBERS"]);
-    expect(addressableAudiences(contextFor("ADMIN"))).toEqual(["COMPANY", "DEPARTMENT", "SELECTED_MEMBERS"]);
-    expect(addressableAudiences(contextFor("COMPANY_IT"))).toEqual(["COMPANY"]);
+    expect(addressableAudiences(contextFor("GROUP_IT"))).toEqual(["COMPANY"]);
     expect(addressableAudiences(contextFor("PROJECT_MANAGER"))).toEqual(["PROJECT", "SELECTED_MEMBERS"]);
     for (const role of ["ARCHITECT", "ENGINEER", "FINANCE", "LEGAL", "SALES", "PROCUREMENT", "INVENTORY", "QAQC", "HSE", "VIEWER"] as const) {
       expect(addressableAudiences(contextFor(role)), role).toEqual([]);

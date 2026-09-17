@@ -23,7 +23,7 @@ export type HrScopeKind = "SELF" | "DEPARTMENT" | "COMPANY";
 
 export function hrScopeKind(context: UserContext): HrScopeKind {
   const scope = getModuleScope(context, "hr");
-  if (scope === "COMPANY" || scope === "SYSTEM") return "COMPANY";
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM") return "COMPANY";
   if (scope === "DEPARTMENT") return "DEPARTMENT";
   return "SELF";
 }
@@ -53,7 +53,12 @@ export function buildEmployeeScopeWhere(
   context: UserContext,
 ): Prisma.EmployeeProfileWhereInput {
   const kind = hrScopeKind(context);
-  const base: Prisma.EmployeeProfileWhereInput = { companyId: context.companyId };
+  // HR screens address employment by membership, so a record still waiting
+  // for its login is not one of them (E-06 §25); see `memberAddressed`.
+  const base: Prisma.EmployeeProfileWhereInput = {
+    companyId: context.companyId,
+    companyMemberId: { not: null },
+  };
 
   if (kind === "COMPANY") return base;
 

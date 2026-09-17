@@ -122,7 +122,7 @@ describe("clientAddress", () => {
 
 describe("sign-in throttling (PRD #38 §147)", () => {
   const headers = () => new Headers({ "x-forwarded-for": "192.0.2.44", "user-agent": "vitest" });
-  const USERNAME = "architect";
+  const USERNAME = "architect-a";
 
   it("locks an account after repeated failures, even for the right password", async () => {
     const { limit } = THROTTLES.AUTH_LOGIN.account;

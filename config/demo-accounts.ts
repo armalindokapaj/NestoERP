@@ -1,82 +1,63 @@
 /**
- * The NESTO demo roster (PRD #9 §24, §26, §28, §29).
+ * The demo sign-in roster (E-06 §48, §59, §99).
  *
- * One source of truth for the development accounts: the seed creates them, the
- * login page offers them for one-click sign-in, and the role tests resolve
- * `loginAs("PROJECT_MANAGER")` through it. Adding a role means adding it here
- * and re-running the seed.
+ * The curated personas the development login screen offers: the Platform
+ * Admin, the group's Owner, IT and department heads, and the people of one
+ * company. The demo seeds many more accounts — every company's CEO and project
+ * manager, local managers and members — and test fixtures besides; none of
+ * those is a button here (E-06 §150).
  *
- * Fictional identities only — no real personal data (PRD #9 §230).
+ * The seed (`prisma/seed/demo/users.ts`) creates these accounts and checks that
+ * each exists with the role and position named here.
+ *
+ * Fictional identities only.
  */
-import { ROLE_KEYS, roles, type RoleKey } from "./roles";
+import { roles, type PositionLevel, type RoleKey } from "./roles";
 
 /** Shared by every seeded account. Development credentials only (PRD #9 §25). */
 export const DEMO_PASSWORD = process.env.NESTO_DEMO_PASSWORD ?? "nesto1234";
 
-export type DemoUserSpec = {
-  id: string;
-  /** What the account signs in with (PRD #50 §6). */
+export type DemoAccountSection = "platform" | "group" | "company";
+
+export type DemoAccount = {
   username: string;
-  /** Contact metadata only — nothing authenticates by it (PRD #50 §67). */
-  email: string;
-  firstName: string;
-  lastName: string;
   role: RoleKey;
-  department: string;
-  jobTitle: string;
-  phone: string;
+  /** The position the role is held with where the account starts (E-06 §7). */
+  position: PositionLevel;
+  section: DemoAccountSection;
+  /** What the persona is, in the words the organization uses. */
+  assignment: string;
 };
 
-/** One active demo account per role (PRD #9 §24, §26, §28). */
-export const COMPANY_A_USERS: DemoUserSpec[] = [
-  { id: "user_owner", username: "owner", email: "owner@nesto.test", firstName: "Olivia", lastName: "Owner", role: "OWNER", department: "management", jobTitle: "Owner", phone: "+351 910 000 001" },
-  { id: "user_admin", username: "admin", email: "admin@nesto.test", firstName: "Adam", lastName: "Admin", role: "ADMIN", department: "administration", jobTitle: "Platform Administrator", phone: "+351 910 000 002" },
-  { id: "user_it", username: "it", email: "it@nesto.test", firstName: "Ian", lastName: "Carter", role: "COMPANY_IT", department: "it", jobTitle: "IT Manager", phone: "+351 910 000 003" },
-  { id: "user_hr", username: "hr", email: "hr@nesto.test", firstName: "Hannah", lastName: "Reed", role: "HR", department: "hr", jobTitle: "HR Manager", phone: "+351 910 000 004" },
-  { id: "user_ceo", username: "ceo", email: "ceo@nesto.test", firstName: "Charles", lastName: "Morgan", role: "CEO", department: "management", jobTitle: "Chief Executive Officer", phone: "+351 910 000 005" },
-  { id: "user_pm", username: "pm", email: "pm@nesto.test", firstName: "Alex", lastName: "Morgan", role: "PROJECT_MANAGER", department: "projects", jobTitle: "Senior Project Manager", phone: "+351 910 000 006" },
-  { id: "user_architect", username: "architect", email: "architect@nesto.test", firstName: "Anna", lastName: "Rossi", role: "ARCHITECT", department: "architecture", jobTitle: "Lead Architect", phone: "+351 910 000 007" },
-  { id: "user_architecture_manager", username: "architecture-manager", email: "architecture-manager@nesto.test", firstName: "Marco", lastName: "Bellini", role: "ARCHITECTURE_MANAGER", department: "architecture", jobTitle: "Head of Architecture", phone: "+351 910 000 017" },
-  { id: "user_engineer", username: "engineer", email: "engineer@nesto.test", firstName: "Ethan", lastName: "Cole", role: "ENGINEER", department: "engineering", jobTitle: "Structural Engineer", phone: "+351 910 000 008" },
-  { id: "user_finance", username: "finance", email: "finance@nesto.test", firstName: "Fiona", lastName: "Blake", role: "FINANCE", department: "finance", jobTitle: "Finance Manager", phone: "+351 910 000 009" },
-  { id: "user_legal", username: "legal", email: "legal@nesto.test", firstName: "Laura", lastName: "Stein", role: "LEGAL", department: "legal", jobTitle: "Legal Counsel", phone: "+351 910 000 010" },
-  { id: "user_sales", username: "sales", email: "sales@nesto.test", firstName: "Sophie", lastName: "Grant", role: "SALES", department: "sales", jobTitle: "Business Development Lead", phone: "+351 910 000 011" },
-  { id: "user_sales_manager", username: "sales-manager", email: "sales-manager@nesto.test", firstName: "Nora", lastName: "Hale", role: "SALES_MANAGER", department: "sales", jobTitle: "Head of Sales", phone: "+351 910 000 018" },
-  { id: "user_procurement", username: "procurement", email: "procurement@nesto.test", firstName: "Peter", lastName: "Nolan", role: "PROCUREMENT", department: "procurement", jobTitle: "Procurement Manager", phone: "+351 910 000 012" },
-  { id: "user_inventory", username: "inventory", email: "inventory@nesto.test", firstName: "Isaac", lastName: "Turner", role: "INVENTORY", department: "inventory", jobTitle: "Stock Controller", phone: "+351 910 000 013" },
-  { id: "user_qaqc", username: "qaqc", email: "qaqc@nesto.test", firstName: "Quinn", lastName: "Foster", role: "QAQC", department: "qaqc", jobTitle: "QA/QC Engineer", phone: "+351 910 000 014" },
-  { id: "user_hse", username: "hse", email: "hse@nesto.test", firstName: "Henry", lastName: "Stone", role: "HSE", department: "hse", jobTitle: "HSE Officer", phone: "+351 910 000 015" },
-  { id: "user_viewer", username: "viewer", email: "viewer@nesto.test", firstName: "Victor", lastName: "Lane", role: "VIEWER", department: "projects", jobTitle: "Observer", phone: "+351 910 000 016" },
+export const PRIMARY_DEMO_ACCOUNTS: DemoAccount[] = [
+  { username: "platform-admin", role: "PLATFORM_ADMIN", position: "MEMBER", section: "platform", assignment: "NESTO Platform" },
+  { username: "owner", role: "OWNER", position: "GROUP_HEAD", section: "group", assignment: "Group Owner" },
+  { username: "group-it", role: "GROUP_IT", position: "GROUP_HEAD", section: "group", assignment: "Head of Group IT" },
+  { username: "group-hr", role: "HR", position: "GROUP_HEAD", section: "group", assignment: "Head of Group HR" },
+  { username: "group-architecture", role: "ARCHITECT", position: "GROUP_HEAD", section: "group", assignment: "Head of Group Architecture" },
+  { username: "group-engineering", role: "ENGINEER", position: "GROUP_HEAD", section: "group", assignment: "Head of Group Engineering" },
+  { username: "group-finance", role: "FINANCE", position: "GROUP_HEAD", section: "group", assignment: "Head of Group Finance" },
+  { username: "group-legal", role: "LEGAL", position: "GROUP_HEAD", section: "group", assignment: "Head of Group Legal" },
+  { username: "group-sales", role: "SALES", position: "GROUP_HEAD", section: "group", assignment: "Head of Group Sales" },
+  { username: "group-procurement", role: "PROCUREMENT", position: "GROUP_HEAD", section: "group", assignment: "Head of Group Procurement" },
+  { username: "group-inventory", role: "INVENTORY", position: "GROUP_HEAD", section: "group", assignment: "Head of Group Inventory" },
+  { username: "group-qaqc", role: "QAQC", position: "GROUP_HEAD", section: "group", assignment: "Head of Group QA/QC" },
+  { username: "group-hse", role: "HSE", position: "GROUP_HEAD", section: "group", assignment: "Head of Group HSE" },
+  { username: "ceo-a", role: "CEO", position: "MEMBER", section: "company", assignment: "CEO · Aurelia Construction" },
+  { username: "pm-a", role: "PROJECT_MANAGER", position: "MEMBER", section: "company", assignment: "Project Manager · Riverside Residences" },
+  { username: "architect-a", role: "ARCHITECT", position: "MEMBER", section: "company", assignment: "Architect · Aurelia Construction" },
+  { username: "viewer-a", role: "VIEWER", position: "MEMBER", section: "company", assignment: "Viewer · Riverside Residences" },
 ];
 
-/** Company B exists so tenant isolation can actually be proven (PRD #9 §12). */
-export const COMPANY_B_USERS: DemoUserSpec[] = [
-  { id: "user_owner_b", username: "owner-b", email: "owner-b@nesto.test", firstName: "Bruno", lastName: "Keller", role: "OWNER", department: "management", jobTitle: "Owner", phone: "+49 30 000 001" },
-  { id: "user_viewer_b", username: "viewer-b", email: "viewer-b@nesto.test", firstName: "Bea", lastName: "Hoffman", role: "VIEWER", department: "projects", jobTitle: "Observer", phone: "+49 30 000 002" },
-];
-
-
-const byRole = new Map<RoleKey, DemoUserSpec>(
-  COMPANY_A_USERS.map((account) => [account.role, account]),
-);
-
-export function demoAccountForRole(role: RoleKey): DemoUserSpec | undefined {
-  return byRole.get(role);
+export function demoAccountByUsername(username: string): DemoAccount | undefined {
+  return PRIMARY_DEMO_ACCOUNTS.find((account) => account.username === username);
 }
 
-/** The roster in the role order used everywhere else in the product. */
-export const demoAccountsInRoleOrder: DemoUserSpec[] = ROLE_KEYS.map((key) =>
-  byRole.get(key),
-).filter((account): account is DemoUserSpec => Boolean(account));
-
-export function demoAccountLabel(account: DemoUserSpec): string {
-  return roles[account.role].label;
+/** The first curated account holding a role — every one of the sixteen has one. */
+export function demoAccountForRole(role: RoleKey): DemoAccount | undefined {
+  return PRIMARY_DEMO_ACCOUNTS.find((account) => account.role === role);
 }
 
-/**
- * Fails loudly if a role has no demo account, so the "one account per role"
- * guarantee cannot quietly lapse.
- */
-export function rolesMissingDemoAccount(): RoleKey[] {
-  return ROLE_KEYS.filter((key) => !byRole.has(key));
+export function demoAccountLabel(account: DemoAccount): string {
+  return `${roles[account.role].label} — ${account.assignment}`;
 }

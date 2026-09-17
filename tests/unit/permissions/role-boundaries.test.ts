@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { isMutatingPermission } from "@/config/permissions";
 import { permissionsForRole, roleModuleAccess } from "@/config/role-defaults";
-import { ROLE_KEYS, type RoleKey } from "@/config/roles";
+import { ROLE_KEYS, type PositionLevel, type RoleKey } from "@/config/roles";
 
 /**
  * Domain boundaries between the roles (PRD #47 §141-§149, §215, §216).
@@ -15,26 +15,25 @@ import { ROLE_KEYS, type RoleKey } from "@/config/roles";
  * test until someone has made it on purpose.
  */
 
-const held = (role: RoleKey) => permissionsForRole(role) as readonly string[];
-const matching = (role: RoleKey, pattern: RegExp) => held(role).filter((permission) => pattern.test(permission));
+const held = (role: RoleKey, position: PositionLevel = "MEMBER") => permissionsForRole(role, position) as readonly string[];
+const matching = (role: RoleKey, pattern: RegExp, position: PositionLevel = "MEMBER") => held(role, position).filter((permission) => pattern.test(permission));
 
 /** Every decision a role may take on somebody else's submission (§142, §143, §179). */
 const APPROVAL = /(\.|_)approve$|\.decide$/;
 const EXPECTED_APPROVALS: Record<RoleKey, string[]> = {
-  OWNER: ["document.review.decide", "engineering_document.approve", "finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "hr.attendance.approve", "hr.leave.approve", "hse.approval.decide", "hse.inspection.approve", "hse.permit.approve", "hse.risk.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.order.finance_approve", "procurement.request.approve", "project.unit.sale.approve", "qaqc.approval.decide", "qaqc.inspection.approve", "qaqc.ncr.approve", "sales.proposal.approve", "submittal.approve", "timesheet.approve"],
-  // A Company Admin approves a unit's sale where the Sold rule asks for it (E-05F §42, §56).
-  ADMIN: ["document.review.decide", "project.unit.sale.approve"],
-  COMPANY_IT: [],
+  OWNER: ["document.review.decide", "engineering_document.approve", "finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "hr.attendance.approve", "hr.leave.approve", "hse.approval.decide", "hse.inspection.approve", "hse.permit.approve", "hse.risk.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "organization.provisioning_request.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.order.finance_approve", "procurement.request.approve", "project.unit.sale.approve", "qaqc.approval.decide", "qaqc.inspection.approve", "qaqc.ncr.approve", "sales.proposal.approve", "submittal.approve", "timesheet.approve"],
+  // Outside every company: decides nothing in one (E-06 §74).
+  PLATFORM_ADMIN: [],
+  // Technical access, never a business decision (E-06 §75).
+  GROUP_IT: [],
   HR: ["document.review.decide", "hr.attendance.approve", "hr.leave.approve", "timesheet.approve"],
   CEO: ["finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.request.approve", "project.unit.sale.approve", "sales.proposal.approve", "timesheet.approve"],
   PROJECT_MANAGER: ["document.review.decide", "engineering_document.approve", "submittal.approve", "timesheet.approve"],
   ARCHITECT: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
-  ARCHITECTURE_MANAGER: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
   ENGINEER: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
   FINANCE: ["document.review.decide", "procurement.order.finance_approve"],
   LEGAL: ["document.review.decide", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve"],
   SALES: ["document.review.decide"],
-  SALES_MANAGER: ["document.review.decide", "project.unit.sale.approve", "sales.proposal.approve"],
   PROCUREMENT: ["document.review.decide", "procurement.approval.decide", "procurement.order.approve", "procurement.request.approve"],
   INVENTORY: ["document.review.decide"],
   QAQC: ["document.review.decide", "qaqc.approval.decide", "qaqc.inspection.approve", "qaqc.ncr.approve", "submittal.approve"],
@@ -48,18 +47,45 @@ describe("approval authority per role (PRD #47 §141, §142)", () => {
   });
 });
 
+/**
+ * What a position adds to the role it is held with (E-06 §7, §101): a manager
+ * of a company's Sales branch, or the group's head of it, decides proposals and
+ * approves a unit's sale; a plain salesperson does not. Head of HR approves
+ * account provisioning. Everywhere else the position widens reach, not rights.
+ */
+const POSITION_APPROVALS: Array<{ role: RoleKey; position: PositionLevel; adds: string[] }> = [
+  { role: "SALES", position: "COMPANY_MANAGER", adds: ["project.unit.sale.approve", "sales.proposal.approve"] },
+  { role: "SALES", position: "GROUP_HEAD", adds: ["project.unit.sale.approve", "sales.proposal.approve"] },
+  { role: "HR", position: "COMPANY_MANAGER", adds: [] },
+  { role: "HR", position: "GROUP_HEAD", adds: ["organization.provisioning_request.approve"] },
+  { role: "ARCHITECT", position: "COMPANY_MANAGER", adds: [] },
+  { role: "ARCHITECT", position: "GROUP_HEAD", adds: [] },
+  { role: "FINANCE", position: "GROUP_HEAD", adds: [] },
+  { role: "GROUP_IT", position: "GROUP_HEAD", adds: [] },
+];
+
+describe("approval authority per position (E-06 §7, §101)", () => {
+  it.each(POSITION_APPROVALS)("$role as $position adds $adds", ({ role, position, adds }) => {
+    const added = matching(role, APPROVAL, position).filter((permission) => !held(role).includes(permission));
+    expect(added.sort()).toEqual([...adds].sort());
+  });
+});
+
 describe("domain boundaries (PRD #47 §143-§149)", () => {
-  it("does not make the Admin an approver of Finance, Legal, HR or Procurement (§143, §215)", () => {
-    expect(matching("ADMIN", /^(finance|legal|hr|procurement)\..*(approve|decide)/)).toEqual([]);
-    expect(matching("ADMIN", /^(finance|legal|procurement)\./)).toEqual([]);
+  it("gives the Platform Admin no company business permission (§143, §215; E-06 §74)", () => {
+    for (const position of ["MEMBER", "COMPANY_MANAGER", "GROUP_HEAD"] as const) {
+      expect(matching("PLATFORM_ADMIN", /^(finance|legal|hr|procurement|sales|projects?|documents?|team|settings|company)\./, position)).toEqual([]);
+    }
   });
 
-  it("gives Company IT no Finance, Legal, Procurement or confidential HR data (§144, §216)", () => {
-    expect(matching("COMPANY_IT", /^(finance|legal|procurement|sales)\./)).toEqual([]);
-    expect(roleModuleAccess.COMPANY_IT.hr.scope).toBe("SELF");
-    expect(held("COMPANY_IT")).not.toContain("hr.employee.view");
-    expect(held("COMPANY_IT")).not.toContain("hr.compensation.view");
-    expect(held("COMPANY_IT")).not.toContain("hr.document.view");
+  it("gives Group IT no Finance, Legal, Procurement or confidential HR data (§144, §216; E-06 §75)", () => {
+    for (const position of ["MEMBER", "GROUP_HEAD"] as const) {
+      expect(matching("GROUP_IT", /^(finance|legal|procurement|sales)\./, position)).toEqual([]);
+      expect(held("GROUP_IT", position)).not.toContain("hr.employee.view");
+      expect(held("GROUP_IT", position)).not.toContain("hr.compensation.view");
+      expect(held("GROUP_IT", position)).not.toContain("hr.document.view");
+    }
+    expect(roleModuleAccess.GROUP_IT.hr.scope).toBe("SELF");
   });
 
   it("lets the Viewer change nothing but their own acknowledgements (§145, §214)", () => {

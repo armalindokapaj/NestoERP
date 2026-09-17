@@ -275,7 +275,7 @@ test.describe("reporting and executing (PRD #22 §66, §51)", () => {
     }
 
     await page.getByRole("button", { name: /save checklist/i }).click();
-    await expect(page.getByText(/checklist saved/i)).toBeVisible();
+    await expect(page.getByText(/checklist saved/i).first()).toBeVisible();
 
     await page.reload();
 
@@ -316,10 +316,10 @@ test.describe("nobody signs off their own work (PRD #22 §52, §122, §182)", ()
 
 test.describe("access (PRD #22 §18, §23, §24, §407, §408)", () => {
   /*
-   * §23 and §24: Admin and Company IT run the workspace. They do not
-   * automatically get its safety records.
+   * §23 and §24: Group IT runs the workspace. It does not automatically get
+   * its safety records.
    */
-  for (const role of ["ADMIN", "COMPANY_IT", "FINANCE", "SALES"] as const) {
+  for (const role of ["GROUP_IT", "FINANCE", "SALES"] as const) {
     test(`${role} is refused HSE outright`, async ({ page }) => {
       await signIn(page, role);
       await expectAccessDenied(page, "/hse/hazards");

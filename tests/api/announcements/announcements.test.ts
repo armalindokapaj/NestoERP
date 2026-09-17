@@ -23,7 +23,7 @@ import {
 } from "@/lib/modules/announcements/announcement.service";
 import { canAttachToDocumentParent } from "@/lib/modules/documents/document.parent-access";
 import { ANNOUNCEMENT_SEED } from "../../../prisma/seed/announcements";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Announcements against the real database (PRD #45 §300-§314, §320).
@@ -50,7 +50,7 @@ const feed = (context: UserContext, tab: string, extra: Record<string, unknown> 
 const ids = async (context: UserContext, tab: string) => (await feed(context, tab)).items.map((item) => item.id);
 
 async function cleanup() {
-  const rows = await prisma.announcement.findMany({ where: { id: { notIn: SEEDED }, companyId: { in: ["company_demo_a", "company_demo_b"] } }, select: { id: true } });
+  const rows = await prisma.announcement.findMany({ where: { id: { notIn: SEEDED }, companyId: { in: [COMPANY.a, COMPANY.tenant] } }, select: { id: true } });
   const created = rows.map((row) => row.id);
   await prisma.attentionItem.deleteMany({ where: { entityType: "announcement", entityId: { in: created } } });
   await prisma.notification.deleteMany({ where: { entityType: "announcement", entityId: { in: created } } });
@@ -65,8 +65,8 @@ async function cleanup() {
 }
 
 beforeAll(async () => {
-  [owner, hr, pm, engineer, architect, viewer, finance, inventory, it_] = await Promise.all((["OWNER", "HR", "PROJECT_MANAGER", "ENGINEER", "ARCHITECT", "VIEWER", "FINANCE", "INVENTORY", "COMPANY_IT"] as const).map((role) => loginAs(role)));
-  ownerB = await loginAsEmail("owner-b@nesto.test");
+  [owner, hr, pm, engineer, architect, viewer, finance, inventory, it_] = await Promise.all((["OWNER", "HR", "PROJECT_MANAGER", "ENGINEER", "ARCHITECT", "VIEWER", "FINANCE", "INVENTORY", "GROUP_IT"] as const).map((role) => loginAs(role)));
+  ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
   await cleanup();
 });
 afterEach(cleanup);
@@ -203,8 +203,9 @@ describe("acknowledgment (§14-§16, §46-§50, §135-§140, §159, §306-§308,
     const engineering = await prisma.department.findFirstOrThrow({ where: { companyId: finance.companyId, name: "Engineering" } });
     try {
       await prisma.companyMember.update({ where: { id: finance.membershipId }, data: { departmentId: engineering.id } });
-      expect((await announcementMetrics(owner, id)).audience).toBe(1);
-      expect((await acknowledgmentList(owner, id)).map((row) => row.memberId)).toEqual([finance.membershipId]);
+      // Aurelia's Finance department: the group head and Aurelia's own accountant.
+      expect((await announcementMetrics(owner, id)).audience).toBe(2);
+      expect((await acknowledgmentList(owner, id)).map((row) => row.memberId).sort()).toEqual([finance.membershipId, "member_finance_a"].sort());
     } finally {
       await prisma.companyMember.update({ where: { id: finance.membershipId }, data: { departmentId: original } });
     }

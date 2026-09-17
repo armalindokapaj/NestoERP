@@ -3,13 +3,16 @@
  *
  * Spread across projects and department modules so that permission-aware
  * activity filtering can actually be tested: an Architect's feed must not carry
- * Finance or Project D activity (PRD #9 §172).
+ * Finance activity, or another project's (PRD #9 §172).
+ *
+ * An activity belongs to the company of the record it describes, which is
+ * read back from that record rather than assumed (E-06 §105).
  */
 import type { PrismaClient } from "@prisma/client";
 
-import { COMPANY_A, PROJECT_IDS, daysFromNow } from "./constants";
+import { COMPANY_A, FIXTURE_PROJECTS, PROJECT_IDS, daysFromNow, type SeedMembers } from "./constants";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 type ActivitySpec = {
   module: string;
@@ -39,12 +42,12 @@ const ACTIVITIES: ActivitySpec[] = [
   { module: "documents", entityType: "Document", entityId: "document_007", action: "DOCUMENT_UPLOADED", message: "added “Office Layout.pdf”", actor: "user_architect", daysAgo: 30 },
   { module: "procurement", entityType: "PurchaseRequest", entityId: "request_004", action: "REQUEST_SUBMITTED", message: "submitted “Curtain wall package” for approval", actor: "user_procurement", daysAgo: 3 },
 
-  { module: "projects", entityType: "Project", entityId: PROJECT_IDS.c, action: "PROJECT_CREATED", message: "created the project", actor: "user_owner", daysAgo: 30 },
+  { module: "projects", entityType: "Project", entityId: PROJECT_IDS.d, action: "PROJECT_CREATED", message: "created the project", actor: "user_owner", daysAgo: 30 },
   { module: "tasks", entityType: "Task", entityId: "task_019", action: "TASK_CREATED", message: "created “Finalise facade package”", actor: "user_architect", daysAgo: 14 },
   { module: "documents", entityType: "Document", entityId: "document_010", action: "DOCUMENT_UPLOADED", message: "added “Marina Concept.pdf”", actor: "user_architect", daysAgo: 11 },
-  { module: "projects", entityType: "Project", entityId: PROJECT_IDS.c, action: "PROJECT_MEMBER_ADDED", message: "added Anna Rossi to the project", actor: "user_owner", daysAgo: 29 },
+  { module: "projects", entityType: "Project", entityId: PROJECT_IDS.d, action: "PROJECT_MEMBER_ADDED", message: "added Anna Rossi to the project", actor: "user_owner", daysAgo: 29 },
 
-  { module: "projects", entityType: "Project", entityId: PROJECT_IDS.d, action: "PROJECT_STATUS_CHANGED", message: "placed the project on hold", actor: "user_owner", daysAgo: 25 },
+  { module: "projects", entityType: "Project", entityId: PROJECT_IDS.c, action: "PROJECT_STATUS_CHANGED", message: "placed the project on hold", actor: "user_owner", daysAgo: 25 },
   { module: "tasks", entityType: "Task", entityId: "task_024", action: "TASK_UPDATED", message: "blocked “Technical issue response — yard drainage”", actor: "user_engineer", daysAgo: 15 },
   { module: "qaqc", entityType: "QualityRecord", entityId: "quality_010", action: "RECORD_CREATED", message: "raised NCR “Drainage fall out of specification”", actor: "user_qaqc", daysAgo: 9 },
   { module: "hse", entityType: "HseRecord", entityId: "hse_009", action: "RECORD_CREATED", message: "reported “Fuel spill in vehicle yard”", actor: "user_hse", daysAgo: 8 },
@@ -75,10 +78,35 @@ const ACTIVITIES: ActivitySpec[] = [
   { module: "inventory", entityType: "InventoryItem", entityId: "item_005", action: "STOCK_DEPLETED", message: "Interior Paint — White Matt reached zero stock", actor: "user_inventory", daysAgo: 3 },
   { module: "inventory", entityType: "InventoryMovement", entityId: "movement_001", action: "MOVEMENT_RECORDED", message: "recorded a stock movement", actor: "user_inventory", daysAgo: 1 },
 
-  { module: "projects", entityType: "Project", entityId: PROJECT_IDS.archived, action: "RECORD_ARCHIVED", message: "archived the project", actor: "user_owner", daysAgo: 30 },
+  { module: "projects", entityType: "Project", entityId: FIXTURE_PROJECTS.archived, action: "RECORD_ARCHIVED", message: "archived the project", actor: "user_fixture_owner", daysAgo: 30 },
   { module: "documents", entityType: "Document", entityId: "document_023", action: "RECORD_ARCHIVED", message: "archived “Superseded Drawing Set.pdf”", actor: "user_architect", daysAgo: 35 },
   { module: "support", entityType: "SupportRequest", entityId: "support_001", action: "REQUEST_RESOLVED", message: "resolved “Password reset for site engineer”", actor: "user_it", daysAgo: 9 },
 ];
+
+/** The company a seeded record lives in, read from the record itself. */
+async function companyOfRecord(prisma: PrismaClient, entityType: string, entityId: string): Promise<string | null> {
+  const where = { where: { id: entityId }, select: { companyId: true } } as const;
+  const lookups: Record<string, () => Promise<{ companyId: string } | null>> = {
+    Project: () => prisma.project.findUnique(where),
+    Task: () => prisma.task.findUnique(where),
+    Document: () => prisma.document.findUnique(where),
+    PurchaseRequest: () => prisma.purchaseRequest.findUnique(where),
+    PurchaseOrder: () => prisma.purchaseOrder.findUnique(where),
+    Invoice: () => prisma.invoice.findUnique(where),
+    LeaveRequest: () => prisma.leaveRequest.findUnique(where),
+    CompanyMember: () => prisma.companyMember.findUnique(where),
+    Client: () => prisma.client.findUnique(where),
+    Lead: () => prisma.lead.findUnique(where),
+    Opportunity: () => prisma.opportunity.findUnique(where),
+    Proposal: () => prisma.proposal.findUnique(where),
+    Contract: () => prisma.contract.findUnique(where),
+    InventoryItem: () => prisma.inventoryItem.findUnique(where),
+    InventoryMovement: () => prisma.stockMovement.findUnique(where),
+    SupportRequest: () => prisma.supportRequest.findUnique(where),
+  };
+  const row = await lookups[entityType]?.();
+  return row?.companyId ?? null;
+}
 
 export async function seedActivities(prisma: PrismaClient, members: Members) {
   let index = 0;
@@ -86,20 +114,21 @@ export async function seedActivities(prisma: PrismaClient, members: Members) {
   for (const activity of ACTIVITIES) {
     index += 1;
     const id = `activity_${index.toString().padStart(3, "0")}`;
+    const companyId = (await companyOfRecord(prisma, activity.entityType, activity.entityId)) ?? COMPANY_A;
 
     await prisma.activity.upsert({
       where: { id },
       update: {},
       create: {
         id,
-        companyId: COMPANY_A,
+        companyId,
         module: activity.module,
         entityType: activity.entityType,
         entityId: activity.entityId,
         action: activity.action,
         message: activity.message,
-        actorMemberId: members.get(activity.actor) ?? null,
-        actorUserId: activity.actor,
+        actorMemberId: members.in(companyId, activity.actor),
+        actorUserId: members.userIn(companyId, activity.actor),
         createdAt: daysFromNow(-activity.daysAgo),
       },
     });

@@ -38,6 +38,7 @@ import {
   LifeBuoy,
   ListChecks,
   Megaphone,
+  Network,
   MessageCircleQuestionMark,
   MonitorSmartphone,
   NotebookPen,
@@ -95,6 +96,7 @@ import {
  * it explicit means the bundle only contains icons NESTO actually uses.
  */
 const registry: Record<string, LucideIcon> = {
+  Network,
   Presentation,
   Wrench,
   CircleDot,

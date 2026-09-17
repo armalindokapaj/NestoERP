@@ -1,3 +1,4 @@
+import { isMembershipRoleKey } from "@/config/roles";
 import { setTemporaryPassword } from "@/lib/auth/identity";
 import { generateTemporaryPassword, temporaryPasswordExpiry } from "@/lib/auth/temporary-password";
 import { revokeSessions } from "@/lib/auth/session-store";
@@ -521,6 +522,10 @@ async function validateRole(context: UserContext, roleId: string) {
     select: { id: true, key: true, name: true },
   });
   if (!role) throw new AccessError("VALIDATION_ERROR", "That role does not exist.");
+  // Platform access is held outside every company, never as a membership (E-06 §19).
+  if (!isMembershipRoleKey(role.key)) {
+    throw new AccessError("VALIDATION_ERROR", "That role cannot be held in a company.");
+  }
   void context;
   return role;
 }

@@ -12,10 +12,12 @@ import { db } from "./db";
  */
 
 const COMPANY = "company_demo_a";
+/** The amended contract is Nova's, so the amendment and its approval are Nova's too (E-06 §45). */
+export const AMENDMENT_COMPANY = "company_demo_e";
 export const CHAIN = { order: "order_approval_chain", approval: "procurement_approval_chain", poNumber: "PO-2026-142" } as const;
 
-export async function memberId(email: string): Promise<string> {
-  const member = await db.companyMember.findFirstOrThrow({ where: { companyId: COMPANY, user: { email } }, select: { id: true } });
+export async function memberId(email: string, companyId = COMPANY): Promise<string> {
+  const member = await db.companyMember.findFirstOrThrow({ where: { companyId, user: { email } }, select: { id: true } });
   return member.id;
 }
 
@@ -80,10 +82,10 @@ export async function removeExpenses(descriptionPrefix: string): Promise<void> {
 
 /** A pending amendment the Owner submitted on an active contract, for Legal to decide. */
 export async function createPendingAmendment(title: string): Promise<{ amendmentId: string; approvalId: string }> {
-  const owner = await memberId("owner@nesto.test");
+  const owner = await memberId("owner@nesto.test", AMENDMENT_COMPANY);
   const amendment = await db.contractAmendment.create({
     data: {
-      companyId: COMPANY,
+      companyId: AMENDMENT_COMPANY,
       contractId: "contract_005",
       amendmentNumber: `AMD-E2E-${Date.now().toString(36).toUpperCase()}`,
       title,
@@ -95,14 +97,14 @@ export async function createPendingAmendment(title: string): Promise<{ amendment
     select: { id: true },
   });
   const approval = await db.contractApproval.create({
-    data: { companyId: COMPANY, recordType: "AMENDMENT", recordId: amendment.id, status: "PENDING", submittedByMemberId: owner, submittedAt: new Date(Date.now() - 86_400_000) },
+    data: { companyId: AMENDMENT_COMPANY, recordType: "AMENDMENT", recordId: amendment.id, status: "PENDING", submittedByMemberId: owner, submittedAt: new Date(Date.now() - 86_400_000) },
     select: { id: true },
   });
   return { amendmentId: amendment.id, approvalId: approval.id };
 }
 
 export async function removeAmendments(titlePrefix: string): Promise<void> {
-  const rows = await db.contractAmendment.findMany({ where: { companyId: COMPANY, title: { startsWith: titlePrefix } }, select: { id: true } });
+  const rows = await db.contractAmendment.findMany({ where: { companyId: AMENDMENT_COMPANY, title: { startsWith: titlePrefix } }, select: { id: true } });
   const ids = rows.map((row) => row.id);
   if (!ids.length) return;
   await removeTrail([...ids, "contract_005"], new Date(Date.now() - 60 * 60_000));

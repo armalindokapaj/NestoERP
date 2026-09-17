@@ -2,6 +2,7 @@ import type { PrismaClient, TimesheetStatus, WorkLogType } from "@prisma/client"
 
 import { addLocalDays, localDate } from "../../lib/modules/calendar/calendar.time";
 import { businessInstant, weekStartOf } from "../../lib/modules/timesheets/timesheet.time";
+import type { SeedMembers } from "./constants";
 
 /**
  * Timesheets demo data (PRD #42 §245).
@@ -10,11 +11,14 @@ import { businessInstant, weekStartOf } from "../../lib/modules/timesheets/times
  * them: the Engineer's week three back approved, the one after returned with a
  * question, and last week waiting for the Project Manager — with a QA/QC week
  * beside it — and the Architect's last two weeks approved, so project
- * reporting has approved hours on several projects and tasks. The current week
+ * reporting has approved hours on several tasks. The current week
  * is left empty for everybody. Dated relative to the day the seed runs; re-running
  * replaces the seeded weeks.
+ *
+ * A timesheet belongs to one company, so every seeded week is Aurelia's and
+ * every hour in it is on Riverside Residences or internal (E-06 §105).
  */
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const COMPANY_A = "company_demo_a";
 const ZONE = "Europe/Tirane";
@@ -43,7 +47,6 @@ const APPROVERS: Array<[member: string, approver: string]> = [
   ["user_sales", "user_hr"],
   ["user_sales_manager", "user_hr"],
   ["user_procurement", "user_hr"],
-  ["user_admin", "user_hr"],
   ["user_it", "user_hr"],
   ["user_hr", "user_owner"],
   ["user_ceo", "user_owner"],
@@ -68,33 +71,33 @@ const ENGINEER_WEEK: Entry[] = [
   { day: 0, type: "PROJECT_WORK", project: "project_a", task: "Site inspection follow-up", minutes: 210, description: "Block B slab — follow-up on the cover readings." },
   { day: 0, type: "INTERNAL", minutes: 30, description: "Team stand-up." },
   { day: 1, type: "PROJECT_WORK", project: "project_a", task: "Review structural detail S-204", minutes: 360, description: "Mark-ups returned to the architect." },
-  { day: 1, type: "PROJECT_WORK", project: "project_d", task: "Reassess structural loading", minutes: 120, description: "Yard slab loading assumptions." },
-  { day: 2, type: "PROJECT_WORK", project: "project_d", task: "Reassess structural loading", minutes: 300, description: "Load combinations for the racking layout." },
+  { day: 1, type: "PROJECT_WORK", project: "project_a", minutes: 120, description: "Yard slab loading assumptions." },
+  { day: 2, type: "PROJECT_WORK", project: "project_a", minutes: 300, description: "Load combinations for the racking layout." },
   { day: 2, type: "TRAINING", minutes: 180, description: "Eurocode 2 refresher.", billable: false },
   { day: 3, type: "PROJECT_WORK", project: "project_a", task: "Site inspection follow-up", minutes: 420, description: "Site walk with the contractor; photos filed." },
   { day: 3, type: "ADMIN", minutes: 60, description: "Expense claims." },
   { day: 4, type: "PROJECT_WORK", project: "project_a", task: "Review structural detail S-204", minutes: 240, description: "Final check before issue." },
-  { day: 4, type: "PROJECT_WORK", project: "project_d", minutes: 180, description: "Call with the permits consultant." },
+  { day: 4, type: "PROJECT_WORK", project: "project_a", minutes: 180, description: "Call with the permits consultant." },
   { day: 4, type: "INTERNAL", minutes: 60, description: "Weekly engineering review." },
 ];
 
 const ARCHITECT_WEEK: Entry[] = [
   { day: 0, type: "PROJECT_WORK", project: "project_a", task: "Review apartment layouts", minutes: 420, description: "Layouts for types C and D." },
   { day: 0, type: "INTERNAL", minutes: 60 },
-  { day: 1, type: "PROJECT_WORK", project: "project_c", task: "Finalise facade package", minutes: 480, description: "Facade panel set-out." },
-  { day: 2, type: "PROJECT_WORK", project: "project_c", task: "Finalise facade package", minutes: 300 },
+  { day: 1, type: "PROJECT_WORK", project: "project_a", minutes: 480, description: "Facade panel set-out." },
+  { day: 2, type: "PROJECT_WORK", project: "project_a", minutes: 300 },
   { day: 2, type: "PROJECT_WORK", project: "project_a", task: "Review apartment layouts", minutes: 180 },
   { day: 3, type: "PROJECT_WORK", project: "project_a", minutes: 480, description: "Client design meeting and follow-up." },
-  { day: 4, type: "PROJECT_WORK", project: "project_c", minutes: 360, description: "Planning submission drawings." },
+  { day: 4, type: "PROJECT_WORK", project: "project_a", minutes: 360, description: "Planning submission drawings." },
   { day: 4, type: "ADMIN", minutes: 120 },
 ];
 
 const QAQC_WEEK: Entry[] = [
   { day: 0, type: "PROJECT_WORK", project: "project_a", minutes: 450, description: "Concrete cube results and pour records." },
-  { day: 1, type: "PROJECT_WORK", project: "project_b", minutes: 480, description: "Basement waterproofing inspection." },
+  { day: 1, type: "PROJECT_WORK", project: "project_a", minutes: 480, description: "Basement waterproofing inspection." },
   { day: 2, type: "PROJECT_WORK", project: "project_a", minutes: 420, description: "Rebar inspection before the level 3 pour." },
   { day: 2, type: "TRAVEL", minutes: 60 },
-  { day: 3, type: "PROJECT_WORK", project: "project_b", minutes: 360 },
+  { day: 3, type: "PROJECT_WORK", project: "project_a", minutes: 360 },
   { day: 3, type: "ADMIN", minutes: 60 },
   { day: 4, type: "PROJECT_WORK", project: "project_a", minutes: 300, description: "NCR close-out evidence." },
 ];
@@ -118,12 +121,11 @@ const WEEKS: WeekSeed[] = [
 ];
 
 export async function seedTimesheetRecords(prisma: PrismaClient, members: Members) {
-  const id = (key: string) => members.get(key)!;
+  const id = (key: string) => members.in(COMPANY_A, key);
 
   await prisma.timesheetSettings.upsert({ where: { companyId: COMPANY_A }, update: {}, create: { companyId: COMPANY_A } });
 
   for (const [member, approver] of APPROVERS) {
-    if (!members.has(member) || !members.has(approver)) continue;
     await prisma.timesheetApproverAssignment.upsert({
       where: { memberId: id(member) },
       update: { approverMemberId: id(approver) },

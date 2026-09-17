@@ -11,7 +11,7 @@ import { recordAuthEvent } from "./events";
 import { verifyPassword } from "./password";
 import { credentialsSchema } from "./schema";
 import { normaliseUsername } from "./username";
-import { createSession } from "./session-store";
+import { createSession, USABLE_GROUP_STATUSES } from "./session-store";
 import { recordSignIn } from "./identity";
 
 export type AuthenticatedUser = { id: string; username: string; sessionId: string; mustChangePassword: boolean };
@@ -61,9 +61,10 @@ export async function authenticateCredentials(
     include: {
       memberships: {
         where: { status: "ACTIVE" },
-        include: { company: true },
+        include: { company: { select: { status: true, parentGroup: { select: { status: true } } } } },
         orderBy: { createdAt: "asc" },
       },
+      platformAccess: { select: { status: true } },
     },
   });
 
@@ -99,21 +100,30 @@ export async function authenticateCredentials(
     return null;
   }
 
-  // No active membership means no company workspace to enter
-  // (PRD #6 §48).
-  const membership = user.memberships.find(
-    (candidate) => candidate.company.status === "ACTIVE",
-  );
+  // The Platform Admin signs in to the platform, never into a company: their
+  // session names no membership, whatever else the account holds (E-06 §19,
+  // §116).
+  const platform = user.platformAccess?.status === "ACTIVE";
 
-  if (!membership) {
+  // Otherwise no active membership in a usable company and group means no
+  // workspace to enter (PRD #6 §48, E-06 §21).
+  const membership = platform
+    ? null
+    : user.memberships.find(
+        (candidate) =>
+          candidate.company.status === "ACTIVE" &&
+          USABLE_GROUP_STATUSES.includes(candidate.company.parentGroup.status),
+      );
+
+  if (!platform && !membership) {
     await recordAuthEvent({ type: "MEMBERSHIP_DENIED", userId: user.id });
     return null;
   }
 
   const session = await createSession({
     userId: user.id,
-    membershipId: membership.id,
-    companyId: membership.companyId,
+    membershipId: membership?.id ?? null,
+    companyId: membership?.companyId ?? null,
     userAgent,
     ipAddress,
   });
@@ -127,7 +137,7 @@ export async function authenticateCredentials(
   await recordAuthEvent({
     type: "LOGIN_SUCCESS",
     userId: user.id,
-    companyId: membership.companyId,
+    companyId: membership?.companyId ?? null,
     sessionId: session.id,
     ipAddress,
     userAgent,

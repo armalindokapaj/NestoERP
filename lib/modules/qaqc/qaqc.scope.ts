@@ -27,7 +27,7 @@ export type QaqcScopeKind = "SELF" | "ASSIGNED" | "PROJECT" | "DEPARTMENT" | "CO
 
 export function qaqcScopeKind(context: UserContext): QaqcScopeKind {
   const scope = getModuleScope(context, "qaqc");
-  if (scope === "COMPANY" || scope === "SYSTEM") return "COMPANY";
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM") return "COMPANY";
   if (scope === "DEPARTMENT") return "DEPARTMENT";
   if (scope === "PROJECT") return "PROJECT";
   if (scope === "ASSIGNED") return "ASSIGNED";

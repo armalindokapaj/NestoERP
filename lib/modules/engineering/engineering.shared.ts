@@ -91,7 +91,7 @@ function responsibleWhere(companyId: string, projectId: string, permission: Perm
     OR: [
       { projectMemberships: { some: { projectId, status: "ACTIVE" } } },
       { managedProjects: { some: { id: projectId } } },
-      { role: { moduleAccess: { some: { module: { key: "projects" }, scope: { in: ["COMPANY", "SYSTEM", "DEPARTMENT"] } } } } },
+      { role: { moduleAccess: { some: { module: { key: "projects" }, scope: { in: ["COMPANY", "GROUP", "SYSTEM", "DEPARTMENT"] } } } } },
     ],
   };
 }

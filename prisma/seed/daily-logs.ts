@@ -2,6 +2,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { addLocalDays, instantFromLocal, localDate } from "../../lib/modules/calendar/calendar.time";
 import { seedStoredDocument } from "./document-objects";
+import type { SeedMembers } from "./constants";
 
 /**
  * Daily log demo data (PRD #43 §251).
@@ -16,7 +17,7 @@ import { seedStoredDocument } from "./document-objects";
  * left for the Engineer to start. Dated relative to the day the seed runs;
  * re-running replaces the seeded logs.
  */
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const COMPANY_A = "company_demo_a";
 const PROJECT = "project_a";

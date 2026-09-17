@@ -6,7 +6,7 @@ import * as collaboration from "@/lib/core/collaboration/collaboration.service";
 import { dispatchNotifications } from "@/lib/core/notifications/notification.dispatch";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Contextual collaboration: comments, mentions, watchers (PRD #38 §39, §40,
@@ -142,7 +142,7 @@ describe("parent authorisation is enforced on every call (PRD #38 §30, §39, §
     const { pm, task } = await taskOnProjectA();
     const created = await collaboration.createComment(pm, "task", task.id, comment("Company A only"));
 
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectCode(thread(ownerB, task.id), "NOT_FOUND");
     await expectCode(collaboration.createComment(ownerB, "task", task.id, comment("From B")), "NOT_FOUND");
     await expectCode(collaboration.editComment(ownerB, created.id, "From B"), "NOT_FOUND");
@@ -161,14 +161,14 @@ describe("parent authorisation is enforced on every call (PRD #38 §30, §39, §
     const engineer = await loginAs("ENGINEER");
     const task = await tasks.createTask(
       owner,
-      createTaskSchema.parse({ title: "Revocation test", projectId: PROJECT.d, assigneeMemberId: engineer.membershipId }),
+      createTaskSchema.parse({ title: "Revocation test", projectId: PROJECT.a, assigneeMemberId: engineer.membershipId }),
     );
     createdTasks.push(task.id);
     await collaboration.createComment(owner, "task", task.id, comment("Before revocation"));
     expect((await thread(engineer, task.id)).watching).toBe(true);
 
     const membership = await prisma.projectMember.findFirstOrThrow({
-      where: { projectId: PROJECT.d, companyMemberId: engineer.membershipId },
+      where: { projectId: PROJECT.a, companyMemberId: engineer.membershipId },
     });
     await prisma.projectMember.update({ where: { id: membership.id }, data: { status: "INACTIVE" } });
     try {
@@ -245,7 +245,7 @@ describe("mentions (PRD #38 §31, §40, §148)", () => {
 
   it("refuses to mention a member of another company, whatever the markup claims", async () => {
     const { pm, task } = await taskOnProjectA();
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectCode(
       collaboration.createComment(pm, "task", task.id, comment(`@[Owner](${ownerB.membershipId}) hello`)),
       "VALIDATION_ERROR",

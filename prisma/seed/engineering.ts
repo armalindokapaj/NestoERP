@@ -3,12 +3,13 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { addLocalDays, localDate } from "../../lib/modules/calendar/calendar.time";
 import { normalizeContractorName } from "../../lib/modules/contractors/contractor.names";
 import { seedStoredDocument } from "./document-objects";
+import type { SeedMembers } from "./constants";
 
 /**
  * Contractor and engineering demo data (PRD #46 §308-§313).
  *
- * Company A: Apex Structural Works (also the Alba Concrete supplier) builds
- * Riverside's frame and is lined up for the Central Office Tower basement;
+ * Aurelia: Apex Structural Works (also the Alba Concrete supplier) builds
+ * Riverside's frame;
  * Brightline Façades holds the Riverside façade subcontract, with its
  * performance bond expired and its HSE certificate missing; Northgate MEP is
  * being evaluated; Ironbridge Groundworks finished early and was offboarded.
@@ -17,21 +18,24 @@ import { seedStoredDocument } from "./document-objects";
  * shop drawing under review, RFIs open, overdue, answered, closed and in
  * draft, a material submittal sent back for revision, a crane method
  * statement waiting on safety, approved rebar certificates, and one issued and
- * one draft transmittal. Company B has one contractor, for isolation.
+ * one draft transmittal. Meridian has its own contractor, Durrës Foundations,
+ * lined up for the Central Office Tower basement with an RFI already open; the
+ * fixture tenant has one contractor, for isolation.
  *
  * Dated relative to the day the seed runs; re-running replaces every
  * contractor and engineering record in the demo companies.
  */
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const COMPANY_A = "company_demo_a";
 const COMPANY_B = "company_demo_b";
+const FIXTURE_TENANT = "company_fixture_tenant";
 const RIVERSIDE = "project_a";
 const TOWER = "project_b";
 const ZONE = "Europe/Tirane";
 
 export const ENGINEERING_SEED = {
-  contractors: { apex: "contractor_apex", brightline: "contractor_brightline", northgate: "contractor_northgate", ironbridge: "contractor_ironbridge", companyB: "contractor_b_isar" },
+  contractors: { apex: "contractor_apex", brightline: "contractor_brightline", northgate: "contractor_northgate", ironbridge: "contractor_ironbridge", meridian: "contractor_meridian_foundations", companyB: "contractor_b_isar" },
   assignments: { apexRiverside: "assignment_apex_riverside", brightlineRiverside: "assignment_brightline_riverside", apexTower: "assignment_apex_tower", ironbridgeRiverside: "assignment_ironbridge_riverside", companyB: "assignment_b_isar" },
   workPackages: { frame: "wp_riverside_frame", facade: "wp_riverside_facade", groundworks: "wp_riverside_groundworks", towerBasement: "wp_tower_basement" },
   compliance: { apexInsurance: "compliance_apex_insurance", apexLicence: "compliance_apex_licence", brightlineBond: "compliance_brightline_bond", brightlineHse: "compliance_brightline_hse", northgateTax: "compliance_northgate_tax" },
@@ -44,7 +48,7 @@ export const ENGINEERING_SEED = {
 const ENTITY_TYPES = ["contractor", "work_package", "contractor_compliance", "engineering_document", "rfi", "technical_submittal", "transmittal"];
 
 async function clear(prisma: PrismaClient) {
-  const companies = [COMPANY_A, COMPANY_B];
+  const companies = [COMPANY_A, COMPANY_B, FIXTURE_TENANT];
   const inCompanies = { companyId: { in: companies } };
   const ids = async (rows: Promise<Array<{ id: string }>>) => (await rows).map((row) => row.id);
   const all = [
@@ -92,6 +96,7 @@ export async function seedContractorEngineeringRecords(prisma: PrismaClient, mem
   const qaqc = id("user_qaqc");
   const hse = id("user_hse");
   const legal = id("user_legal");
+  const pmB = members.in(COMPANY_B, "user_pm");
   const today = localDate(new Date(), ZONE);
   const day = (offset: number) => new Date(`${addLocalDays(today, offset)}T12:00:00.000Z`);
   const at = (offset: number, hour = 10) => {
@@ -102,7 +107,9 @@ export async function seedContractorEngineeringRecords(prisma: PrismaClient, mem
   const S = ENGINEERING_SEED;
 
   await clear(prisma);
-  await prisma.engineeringSettings.upsert({ where: { companyId: COMPANY_A }, update: {}, create: { companyId: COMPANY_A } });
+  for (const companyId of [COMPANY_A, COMPANY_B]) {
+    await prisma.engineeringSettings.upsert({ where: { companyId }, update: {}, create: { companyId } });
+  }
 
   /* Contractors ------------------------------------------------------------ */
   const contractor = (data: Omit<Prisma.ContractorProfileUncheckedCreateInput, "normalizedName">) => prisma.contractorProfile.create({ data: { ...data, normalizedName: normalizeContractorName(data.legalName) } });
@@ -125,7 +132,11 @@ export async function seedContractorEngineeringRecords(prisma: PrismaClient, mem
     id: S.contractors.ironbridge, companyId: COMPANY_A, legalName: "Ironbridge Groundworks", registrationNumber: "L81122334B", city: "Durrës", countryCode: "AL",
     status: "OFFBOARDED", statusChangedAt: at(-40), statusReason: "Groundworks completed early; no further scope.", createdByMemberId: pm, createdAt: at(-400),
   });
-  await contractor({ id: S.contractors.companyB, companyId: COMPANY_B, legalName: "Isar Bau GmbH", registrationNumber: "HRB 204711", city: "Munich", countryCode: "DE", status: "ACTIVE", createdByMemberId: id("user_owner_b") });
+  await contractor({
+    id: S.contractors.meridian, companyId: COMPANY_B, legalName: "Durrës Foundations sh.p.k.", tradingName: "Durrës Foundations", registrationNumber: "L72233445C", city: "Durrës", countryCode: "AL",
+    status: "ACTIVE", statusChangedAt: at(-30), primaryContactName: "Ilir Gjoka", createdByMemberId: pmB, createdAt: at(-30),
+  });
+  await contractor({ id: S.contractors.companyB, companyId: FIXTURE_TENANT, legalName: "Isar Bau GmbH", registrationNumber: "HRB 204711", city: "Munich", countryCode: "DE", status: "ACTIVE", createdByMemberId: id("user_owner_b") });
 
   await prisma.contractorContact.createMany({
     data: [
@@ -142,9 +153,9 @@ export async function seedContractorEngineeringRecords(prisma: PrismaClient, mem
     data: [
       { id: S.assignments.apexRiverside, companyId: COMPANY_A, projectId: RIVERSIDE, contractorId: S.contractors.apex, status: "ACTIVE", scopeSummary: "Structural concrete frame, slabs and cores for Blocks A and B.", internalManagerMemberId: pm, primaryContractorContactId: "contact_apex_arben", startDate: day(-150), endDate: day(160), createdByMemberId: pm, createdAt: at(-160) },
       { id: S.assignments.brightlineRiverside, companyId: COMPANY_A, projectId: RIVERSIDE, contractorId: S.contractors.brightline, status: "ACTIVE", scopeSummary: "Curtain wall and rainscreen cladding — design, supply and installation.", contractId: "contract_009", internalManagerMemberId: pm, primaryContractorContactId: "contact_brightline_james", startDate: day(-60), endDate: day(210), createdByMemberId: pm, createdAt: at(-70) },
-      { id: S.assignments.apexTower, companyId: COMPANY_A, projectId: TOWER, contractorId: S.contractors.apex, status: "PLANNED", scopeSummary: "Basement retaining walls and ground-bearing slab.", internalManagerMemberId: pm, startDate: day(45), createdByMemberId: pm, createdAt: at(-10) },
+      { id: S.assignments.apexTower, companyId: COMPANY_B, projectId: TOWER, contractorId: S.contractors.meridian, status: "PLANNED", scopeSummary: "Basement retaining walls and ground-bearing slab.", internalManagerMemberId: pmB, startDate: day(45), createdByMemberId: pmB, createdAt: at(-10) },
       { id: S.assignments.ironbridgeRiverside, companyId: COMPANY_A, projectId: RIVERSIDE, contractorId: S.contractors.ironbridge, status: "TERMINATED", scopeSummary: "Bulk excavation and bored piling.", internalManagerMemberId: pm, startDate: day(-320), endDate: day(-45), terminatedAt: at(-45), terminationReason: "Groundworks completed early; the remaining landscaping scope moved to the main contractor.", terminatedByMemberId: pm, createdByMemberId: pm, createdAt: at(-330) },
-      { id: S.assignments.companyB, companyId: COMPANY_B, projectId: "project_b_one", contractorId: S.contractors.companyB, status: "ACTIVE", scopeSummary: "Dry lining and partitions.", createdByMemberId: id("user_owner_b") },
+      { id: S.assignments.companyB, companyId: FIXTURE_TENANT, projectId: "project_b_one", contractorId: S.contractors.companyB, status: "ACTIVE", scopeSummary: "Dry lining and partitions.", createdByMemberId: id("user_owner_b") },
     ],
   });
 
@@ -153,7 +164,7 @@ export async function seedContractorEngineeringRecords(prisma: PrismaClient, mem
       { id: S.workPackages.frame, companyId: COMPANY_A, projectId: RIVERSIDE, contractorId: S.contractors.apex, projectContractorAssignmentId: S.assignments.apexRiverside, code: "WP-001", name: "Structural frame — Blocks A & B", description: "Columns, slabs, cores and stairs from level 1 to the roof.", discipline: "STRUCTURAL", status: "ACTIVE", responsibleMemberId: engineer, plannedStartDate: day(-140), plannedFinishDate: day(60), forecastStartDate: day(-140), forecastFinishDate: day(72), actualStartDate: day(-138), value: new Prisma.Decimal("1850000.00"), currency: "EUR", createdByMemberId: pm, createdAt: at(-150) },
       { id: S.workPackages.facade, companyId: COMPANY_A, projectId: RIVERSIDE, contractorId: S.contractors.brightline, projectContractorAssignmentId: S.assignments.brightlineRiverside, code: "WP-002", name: "Façade — curtain wall and cladding", description: "Unitised curtain wall to Block A, rainscreen cladding to Block B.", discipline: "FACADE", status: "AT_RISK", contractId: "contract_009", responsibleMemberId: architect, plannedStartDate: day(-30), plannedFinishDate: day(150), forecastStartDate: day(-10), forecastFinishDate: day(185), value: new Prisma.Decimal("920000.00"), currency: "EUR", createdByMemberId: pm, createdAt: at(-65) },
       { id: S.workPackages.groundworks, companyId: COMPANY_A, projectId: RIVERSIDE, contractorId: S.contractors.ironbridge, projectContractorAssignmentId: S.assignments.ironbridgeRiverside, code: "WP-003", name: "Groundworks and piling", discipline: "CIVIL", status: "COMPLETED", responsibleMemberId: engineer, plannedStartDate: day(-310), plannedFinishDate: day(-40), actualStartDate: day(-305), actualFinishDate: day(-48), completedAt: at(-48), completedByMemberId: pm, createdByMemberId: pm, createdAt: at(-320) },
-      { id: S.workPackages.towerBasement, companyId: COMPANY_A, projectId: TOWER, contractorId: S.contractors.apex, projectContractorAssignmentId: S.assignments.apexTower, code: "WP-001", name: "Basement retaining walls", discipline: "STRUCTURAL", status: "PLANNED", responsibleMemberId: pm, plannedStartDate: day(45), plannedFinishDate: day(140), createdByMemberId: pm, createdAt: at(-9) },
+      { id: S.workPackages.towerBasement, companyId: COMPANY_B, projectId: TOWER, contractorId: S.contractors.meridian, projectContractorAssignmentId: S.assignments.apexTower, code: "WP-001", name: "Basement retaining walls", discipline: "STRUCTURAL", status: "PLANNED", responsibleMemberId: pmB, plannedStartDate: day(45), plannedFinishDate: day(140), createdByMemberId: pmB, createdAt: at(-9) },
     ],
   });
 
@@ -208,7 +219,7 @@ export async function seedContractorEngineeringRecords(prisma: PrismaClient, mem
       { id: S.rfis.bracket, companyId: COMPANY_A, projectId: RIVERSIDE, contractorId: S.contractors.brightline, workPackageId: S.workPackages.facade, rfiNumber: "RFI-002", subject: "Curtain wall bracket spacing", question: "Can the bracket spacing on the typical bay increase from 1200 mm to 1500 mm to suit the mullion module?", discipline: "FACADE", status: "ANSWERED", priority: "NORMAL", raisedByText: "James Whitfield, Brightline", raisedByMemberId: engineer, assignedToMemberId: architect, dueAt: day(2), openedAt: at(-6), answeredAt: at(-2), createdByMemberId: engineer, createdAt: at(-6) },
       { id: S.rfis.fireStopping, companyId: COMPANY_A, projectId: RIVERSIDE, rfiNumber: "RFI-003", subject: "Fire stopping at service risers", question: "Which fire stopping system is specified for the service riser penetrations at each floor?", discipline: "FIRE_PROTECTION", status: "CLOSED", priority: "NORMAL", raisedByMemberId: engineer, assignedToMemberId: architect, dueAt: day(-20), openedAt: at(-30), answeredAt: at(-24), closedAt: at(-22), closureNote: "Specification clause 07 84 00 applies; confirmed on site.", createdByMemberId: engineer, createdAt: at(-30) },
       { id: S.rfis.parapet, companyId: COMPANY_A, projectId: RIVERSIDE, workPackageId: S.workPackages.frame, contractorId: S.contractors.apex, rfiNumber: "RFI-004", subject: "Parapet waterproofing upstand height", question: "The roof build-up leaves 120 mm of upstand at the parapet. Is 150 mm required?", discipline: "ARCHITECTURE", status: "DRAFT", priority: "LOW", raisedByMemberId: engineer, createdByMemberId: engineer, createdAt: at(-1) },
-      { id: S.rfis.tower, companyId: COMPANY_A, projectId: TOWER, contractorId: S.contractors.apex, rfiNumber: "RFI-001", subject: "Existing basement wall condition", question: "Survey shows spalling on the existing party wall. Should it be repaired before the new retaining wall is cast?", discipline: "STRUCTURAL", status: "OPEN", priority: "NORMAL", raisedByMemberId: pm, assignedToMemberId: pm, dueAt: day(5), openedAt: at(-2), createdByMemberId: pm, createdAt: at(-2) },
+      { id: S.rfis.tower, companyId: COMPANY_B, projectId: TOWER, contractorId: S.contractors.meridian, rfiNumber: "RFI-001", subject: "Existing basement wall condition", question: "Survey shows spalling on the existing party wall. Should it be repaired before the new retaining wall is cast?", discipline: "STRUCTURAL", status: "OPEN", priority: "NORMAL", raisedByMemberId: pmB, assignedToMemberId: pmB, dueAt: day(5), openedAt: at(-2), createdByMemberId: pmB, createdAt: at(-2) },
     ],
   });
   await prisma.rfiResponse.createMany({
@@ -281,5 +292,5 @@ export async function seedContractorEngineeringRecords(prisma: PrismaClient, mem
   const concrete = await prisma.dailyLogWorkforceEntry.findFirst({ where: { companyId: COMPANY_A, dailyLogId: "daily_log_riverside_locked", organizationName: "Alba Concrete" }, select: { id: true } });
   if (concrete) await prisma.dailyLogWorkforceEntry.update({ where: { id: concrete.id }, data: { contractorId: S.contractors.apex, workPackageId: S.workPackages.frame } });
 
-  return { contractors: 5, assignments: 5, workPackages: 4, compliance: 5, documents: 4, rfis: 5, submittals: 4, transmittals: 2, owner: Boolean(owner) };
+  return { contractors: 6, assignments: 5, workPackages: 4, compliance: 5, documents: 4, rfis: 5, submittals: 4, transmittals: 2, owner: Boolean(owner) };
 }

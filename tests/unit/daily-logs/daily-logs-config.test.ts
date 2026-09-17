@@ -25,7 +25,7 @@ describe("daily log permissions by role (§129-§144)", () => {
     expect(has("PROJECT_MANAGER", "daily_log.correct_locked")).toBe(true);
     expect(has("PROJECT_MANAGER", "daily_log.settings.manage")).toBe(false);
     expect(has("OWNER", "daily_log.settings.manage")).toBe(true);
-    for (const role of ["ADMIN", "COMPANY_IT", "HR", "FINANCE", "LEGAL", "SALES"] as const) expect(has(role, "daily_log.view"), role).toBe(false);
+    for (const role of ["PLATFORM_ADMIN", "GROUP_IT", "HR", "FINANCE", "LEGAL", "SALES"] as const) expect(has(role, "daily_log.view"), role).toBe(false);
     expect(has("CEO", "daily_log.view")).toBe(true);
     expect(has("CEO", "daily_log.edit")).toBe(false);
   });

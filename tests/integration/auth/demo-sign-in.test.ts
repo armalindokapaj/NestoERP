@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 
-import { COMPANY_A_USERS } from "@/config/demo-accounts";
-import { signInAsDemoRoleAction } from "@/lib/actions/demo";
+import { PRIMARY_DEMO_ACCOUNTS } from "@/config/demo-accounts";
+import { signInAsDemoAccountAction } from "@/lib/actions/demo";
 import { authenticateCredentials, type AuthenticatedUser } from "@/lib/auth/credentials";
 import { prisma } from "../../helpers";
 
@@ -31,11 +31,17 @@ afterAll(async () => {
 });
 
 describe("demo account sign-in", () => {
-  it.each(COMPANY_A_USERS.map((account) => [account.role, account.username] as const))(
-    "signs in as %s by its username",
-    async (role, username) => {
-      await expect(signInAsDemoRoleAction(role)).resolves.toBeUndefined();
+  it.each(PRIMARY_DEMO_ACCOUNTS.map((account) => [account.username, account.role] as const))(
+    "signs in as %s (%s) by its username",
+    async (username) => {
+      await expect(signInAsDemoAccountAction(username)).resolves.toBeUndefined();
       expect(signedIn.at(-1)?.username).toBe(username);
     },
   );
+
+  it("refuses an account that is not a curated persona (E-06 §150)", async () => {
+    const before = signedIn.length;
+    await expect(signInAsDemoAccountAction("tenant-owner")).resolves.toEqual({ error: "Unknown demo account." });
+    expect(signedIn).toHaveLength(before);
+  });
 });

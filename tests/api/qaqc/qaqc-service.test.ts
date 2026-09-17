@@ -898,13 +898,13 @@ describe("material quality (PRD #21 §91, §92, §98)", () => {
 /* -------------------------------------------------------------------------- */
 
 describe("authorisation (PRD #21 §23–§30)", () => {
-  it("gives Admin and Company IT no QA/QC business access (§23, §24)", async () => {
-    for (const role of ["ADMIN", "COMPANY_IT"] as const) {
-      const context = await loginAs(role);
-      expect(can(context, "qaqc.inspection.view")).toBe(false);
-      expect(can(context, "qaqc.ncr.view")).toBe(false);
-      await expect(qaqcOverview(context)).rejects.toBeInstanceOf(AccessError);
-    }
+  it("gives Group IT no QA/QC business access (§23, §24)", async () => {
+    const context = await loginAs("GROUP_IT");
+    expect(can(context, "qaqc.inspection.view")).toBe(false);
+    expect(can(context, "qaqc.ncr.view")).toBe(false);
+    await expect(qaqcOverview(context)).rejects.toBeInstanceOf(AccessError);
+    // The Platform Admin has no company membership to reach it from at all.
+    await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow();
   });
 
   it("gives the CEO a view without routine mutation (§25)", async () => {

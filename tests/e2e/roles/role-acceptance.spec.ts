@@ -19,7 +19,9 @@ import { mainRegion, signIn, signOut } from "../fixtures";
 const noFinance = (role: RoleKey) => roleModuleAccess[role].finance.accessLevel === "NONE";
 const noTasks = (role: RoleKey) => roleModuleAccess[role].tasks.accessLevel === "NONE";
 
-for (const role of ROLE_KEYS) {
+// Platform Admin has no company workspace to walk: it signs in to the platform
+// area, which the role walk in verify:roles covers (E-06 §19).
+for (const role of ROLE_KEYS.filter((key) => key !== "PLATFORM_ADMIN")) {
   test(`${role}: the collaboration and notification surfaces work within the role's access`, async ({ page }) => {
     await signIn(page, role, { to: "/dashboard" });
 

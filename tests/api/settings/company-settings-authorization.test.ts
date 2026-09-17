@@ -14,9 +14,9 @@ import { cleanupSessions, loginAs, prisma } from "../../helpers";
  * Finance defaults on the company settings page (PRD #24 §15, §17, PRD #47 §61).
  *
  * Base currency, tax and payment terms sit behind `company.finance_settings.*`.
- * An Admin is denied those grants outright and IT holds `company.settings.update`
- * without them, so both used to read — and write — the ledger's defaults
- * through the ordinary settings endpoint.
+ * Group IT holds `company.settings.update` without them (E-06 took over the
+ * old Admin's and Company IT's settings authority), so it used to read — and
+ * write — the ledger's defaults through the ordinary settings endpoint.
  */
 
 let startedAt: Date;
@@ -70,8 +70,8 @@ async function expectCode(promise: Promise<unknown>, code: string) {
 }
 
 describe("reading finance defaults (PRD #47 §61)", () => {
-  it("withholds them from an Admin, who is denied the finance grant", async () => {
-    const settings = await getCompanySettings(await loginAs("ADMIN"));
+  it("withholds them from Group IT, who holds no finance grant", async () => {
+    const settings = await getCompanySettings(await loginAs("GROUP_IT"));
     expect(settings.financeVisible).toBe(false);
     for (const field of ["baseCurrency", "fiscalYearStartMonth", "defaultPaymentTermsDays", "defaultTaxRate"]) {
       expect(settings).not.toHaveProperty(field);
@@ -90,36 +90,36 @@ describe("changing finance defaults (PRD #47 §61)", () => {
     startedAt = new Date(Date.now() - 1000);
   });
 
-  it("refuses an Admin changing payment terms, and leaves them as they were", async () => {
-    const admin = await loginAs("ADMIN");
+  it("refuses Group IT changing payment terms, and leaves them as they were", async () => {
+    const it_ = await loginAs("GROUP_IT");
     const input = companySettingsSchema.parse({
       ...base(),
       defaultPaymentTermsDays: snapshot.defaultPaymentTermsDays + 7,
     });
 
-    await expectCode(updateCompanySettings(admin, input), "FORBIDDEN");
+    await expectCode(updateCompanySettings(it_, input), "FORBIDDEN");
     const row = await prisma.companySettings.findUniqueOrThrow({ where: { companyId: snapshot.companyId } });
     expect(row.defaultPaymentTermsDays).toBe(snapshot.defaultPaymentTermsDays);
   });
 
-  it("refuses IT, who may update settings but not the tax rate", async () => {
-    const it_ = await loginAs("COMPANY_IT");
+  it("refuses Group IT, who may update settings but not the tax rate", async () => {
+    const it_ = await loginAs("GROUP_IT");
     const input = companySettingsSchema.parse({ ...base(), defaultTaxRate: "99.5" });
     await expectCode(updateCompanySettings(it_, input), "FORBIDDEN");
   });
 
-  it("lets an Admin save localisation alone, and round-trip unchanged finance values", async () => {
-    const admin = await loginAs("ADMIN");
+  it("lets Group IT save localisation alone, and round-trip unchanged finance values", async () => {
+    const it_ = await loginAs("GROUP_IT");
 
     const localisationOnly = await updateCompanySettings(
-      admin,
+      it_,
       companySettingsSchema.parse({ ...base(), dateFormat: "YYYY-MM-DD" }),
     );
     expect(localisationOnly).toMatchObject({ financeVisible: false, dateFormat: "YYYY-MM-DD" });
 
     // The same values the form would post back unchanged: not a finance change.
     await updateCompanySettings(
-      admin,
+      it_,
       companySettingsSchema.parse({
         ...base(),
         baseCurrency: snapshot.baseCurrency,

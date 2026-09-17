@@ -5,6 +5,7 @@ import { floorKeyOf, structureKey } from "../../lib/modules/project-structure/st
 import { clearUnitPublishing } from "./unit-publishing";
 import { clearUnitFinance } from "./unit-finance";
 import { clearUnitSales } from "./unit-sales";
+import { COMPANY_SUSPENDED, DEMO_COMPANY_IDS, FIXTURE_WORKS, type SeedMembers } from "./constants";
 
 /**
  * Project structure demo data (E-05B §3, §145).
@@ -12,14 +13,15 @@ import { clearUnitSales } from "./unit-sales";
  * Riverside Residences is "96 apartments across three blocks": Blocks A, B and
  * C, each with a basement of parking and storage, two shops on the ground
  * floor and four apartments on each of floors 1–8 — so Floor 1 exists in all
- * three blocks. Block A also has a roof level with nothing on it. Central
- * Office Tower is left without a structure, for the empty state and for the
- * browser tests to build one. Company B's Munich Workspace Fitout has one
- * building of offices, for isolation. Re-running replaces all three.
+ * three blocks. Block A also has a roof level with nothing on it. Meridian's
+ * Central Office Tower is left without a structure, for the empty state and
+ * for the browser tests to build one. The fixture tenant's Munich Workspace
+ * Fitout has one building of offices, for isolation. Re-running replaces all
+ * three.
  */
 
 const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const FIXTURE_TENANT = "company_fixture_tenant";
 const RIVERSIDE = "project_a";
 const CENTRAL_TOWER = "project_b";
 const MUNICH = "project_b_one";
@@ -43,20 +45,20 @@ const TYPICAL = [
 
 const dec = (value: string | null) => (value === null ? null : new Prisma.Decimal(value));
 
-export async function seedStructureRecords(prisma: PrismaClient, members: Map<string, string>) {
+export async function seedStructureRecords(prisma: PrismaClient, members: SeedMembers) {
   const actor = members.get("user_pm") ? (await prisma.companyMember.findUniqueOrThrow({ where: { id: members.get("user_pm")! }, select: { userId: true } })).userId : "seed";
   const actorB = members.get("user_owner_b") ? (await prisma.companyMember.findUniqueOrThrow({ where: { id: members.get("user_owner_b")! }, select: { userId: true } })).userId : "seed";
 
   // Every company starts with the default unit types; a fresh database has none
   // until now, because the migration ran before the companies existed.
-  for (const companyId of [COMPANY_A, COMPANY_B, "company_demo_suspended"]) {
+  for (const companyId of [...DEMO_COMPANY_IDS, FIXTURE_TENANT, FIXTURE_WORKS, COMPANY_SUSPENDED]) {
     if (await prisma.company.findUnique({ where: { id: companyId }, select: { id: true } })) {
       await prisma.projectUnitType.createMany({ data: defaultUnitTypeRows(companyId), skipDuplicates: true });
     }
   }
   const typesOf = async (companyId: string) => new Map((await prisma.projectUnitType.findMany({ where: { companyId }, select: { id: true, code: true } })).map((row) => [row.code, row.id]));
   const typesA = await typesOf(COMPANY_A);
-  const typesB = await typesOf(COMPANY_B);
+  const typesB = await typesOf(FIXTURE_TENANT);
 
   // Whatever a previous seed or a test left on these projects makes way.
   const projects = [RIVERSIDE, CENTRAL_TOWER, MUNICH];
@@ -172,10 +174,10 @@ export async function seedStructureRecords(prisma: PrismaClient, members: Map<st
 
   /* Company B: one building of offices ------------------------------------- */
 
-  await building(COMPANY_B, MUNICH, B.munich, "Main Building", "MB", 1, actorB);
-  const munichGround = await floor(COMPANY_B, MUNICH, B.munich, STRUCTURE_SEED.floors.munichGround, "GROUND", 0, "Erdgeschoss", 1, actorB);
+  await building(FIXTURE_TENANT, MUNICH, B.munich, "Main Building", "MB", 1, actorB);
+  const munichGround = await floor(FIXTURE_TENANT, MUNICH, B.munich, STRUCTURE_SEED.floors.munichGround, "GROUND", 0, "Erdgeschoss", 1, actorB);
   await unitsOn(
-    COMPANY_B,
+    FIXTURE_TENANT,
     MUNICH,
     munichGround.id,
     [1, 2, 3].map((n) => ({
@@ -190,7 +192,7 @@ export async function seedStructureRecords(prisma: PrismaClient, members: Map<st
     })),
     actorB,
   );
-  await floor(COMPANY_B, MUNICH, B.munich, "flr_munich_1", "STANDARD", 1, "1. Obergeschoss", 2, actorB);
+  await floor(FIXTURE_TENANT, MUNICH, B.munich, "flr_munich_1", "STANDARD", 1, "1. Obergeschoss", 2, actorB);
 
   return { buildings: 4, floors, units };
 }

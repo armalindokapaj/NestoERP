@@ -21,7 +21,7 @@ import { getProjectStructure, getUnitDetail, listProjectUnits, projectStructureS
 import type { FloorLevelType, UnitDTO } from "@/lib/modules/project-structure/structure.types";
 import { bulkCreateUnits, copyUnits, createUnit, deleteUnit, moveUnit, reorderUnits, updateUnit } from "@/lib/modules/project-structure/structure.units";
 import { STRUCTURE_SEED } from "../../../prisma/seed/structure";
-import { cleanupSessions, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
  * Buildings, floors and units against the real database (E-05B §135-§140,
@@ -29,18 +29,20 @@ import { cleanupSessions, loginAs, loginAsMembership, PROJECT, prisma } from "..
  *
  * Riverside Residences (project_a) carries the seeded structure — three
  * blocks, 126 units — and is only read, apart from a probe building a test
- * adds and removes again. The Project Manager builds on Central Office Tower
- * (project_b), which the seed leaves empty and on whose team the Architect is
- * not; the Architect and the Owner build on Marina Apartments (project_c).
- * Company B's Munich Workspace Fitout is the other side of the company wall.
- * Everything a test creates is removed after it, audit and activity included.
+ * adds and removes again. Each demo company runs one project, so this file
+ * builds two more in Aurelia and removes them at the end: the Project Manager
+ * builds on the first, which starts empty and on whose team the Architect is
+ * not; the Architect and the Owner build on the second, which the Project
+ * Manager is not on. The fixture tenant's Munich Workspace Fitout is the other
+ * side of the company wall. Everything a test creates is removed after it,
+ * audit and activity included.
  */
 
-const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const COMPANY_A = COMPANY.a;
+const COMPANY_B = COMPANY.tenant;
 const RIVERSIDE = PROJECT.a;
-const SITE = PROJECT.b;
-const ASSIGNED = PROJECT.c;
+const SITE = "t05b_office_tower";
+const ASSIGNED = "t05b_marina";
 const MUNICH = PROJECT.companyB;
 const S = STRUCTURE_SEED;
 /** Every building a test names starts with this, so a write that wrongly succeeded is still swept up. */
@@ -48,7 +50,7 @@ const T = "E05B";
 
 let pm: UserContext;
 let owner: UserContext;
-let admin: UserContext;
+let ceo: UserContext;
 let architect: UserContext;
 let engineer: UserContext;
 let sales: UserContext;
@@ -85,22 +87,52 @@ async function cleanup() {
   for (const set of Object.values(made)) set.clear();
 }
 
+async function removeSites() {
+  const sites = [SITE, ASSIGNED];
+  const trail = (await Promise.all([
+    prisma.projectUnit.findMany({ where: { projectId: { in: sites } }, select: { id: true } }),
+    prisma.projectFloor.findMany({ where: { projectId: { in: sites } }, select: { id: true } }),
+    prisma.projectBuilding.findMany({ where: { projectId: { in: sites } }, select: { id: true } }),
+  ])).flat().map((row) => row.id);
+  await prisma.projectUnit.deleteMany({ where: { projectId: { in: sites } } });
+  await prisma.projectFloor.deleteMany({ where: { projectId: { in: sites } } });
+  await prisma.projectBuilding.deleteMany({ where: { projectId: { in: sites } } });
+  await prisma.auditEvent.deleteMany({ where: { entityId: { in: [...trail, ...sites] } } });
+  await prisma.activity.deleteMany({ where: { entityId: { in: [...trail, ...sites] } } });
+  await prisma.projectMember.deleteMany({ where: { projectId: { in: sites } } });
+  await prisma.project.deleteMany({ where: { id: { in: sites } } });
+}
+
+async function makeSites() {
+  await prisma.project.create({ data: { id: SITE, companyId: COMPANY_A, code: "T05B-TOWER", name: "Harbour Office Tower", status: "ACTIVE", projectManagerMemberId: "member_pm", createdBy: "test" } });
+  await prisma.project.create({ data: { id: ASSIGNED, companyId: COMPANY_A, code: "T05B-MARINA", name: "Harbour Marina Apartments", status: "ACTIVE", createdBy: "test" } });
+  await prisma.projectMember.createMany({
+    data: [
+      ...["member_pm", "member_qaqc", "member_hse"].map((companyMemberId) => ({ companyId: COMPANY_A, projectId: SITE, companyMemberId, status: "ACTIVE" as const })),
+      { companyId: COMPANY_A, projectId: ASSIGNED, companyMemberId: "member_architect", status: "ACTIVE" as const },
+    ],
+  });
+}
+
 beforeAll(async () => {
   startedAt = new Date();
-  [pm, owner, admin, architect, engineer, sales, finance, viewer] = await Promise.all(
-    (["PROJECT_MANAGER", "OWNER", "ADMIN", "ARCHITECT", "ENGINEER", "SALES", "FINANCE", "VIEWER"] as const).map((role) => loginAs(role)),
+  [pm, owner, ceo, architect, engineer, sales, finance, viewer] = await Promise.all(
+    (["PROJECT_MANAGER", "OWNER", "CEO", "ARCHITECT", "ENGINEER", "SALES", "FINANCE", "VIEWER"] as const).map((role) => loginAs(role)),
   );
   ownerB = await loginAsMembership("member_owner_b");
   const typeMap = async (companyId: string) => Object.fromEntries((await prisma.projectUnitType.findMany({ where: { companyId }, select: { id: true, code: true } })).map((row) => [row.code, row.id]));
   types = await typeMap(COMPANY_A);
   typesB = await typeMap(COMPANY_B);
-  activityMarks = await prisma.project.findMany({ where: { id: { in: [RIVERSIDE, SITE, ASSIGNED, MUNICH] } }, select: { id: true, lastActivityAt: true } });
+  activityMarks = await prisma.project.findMany({ where: { id: { in: [RIVERSIDE, MUNICH, PROJECT.d] } }, select: { id: true, lastActivityAt: true } });
+  await removeSites();
+  await makeSites();
   await cleanup();
 });
 afterEach(cleanup);
 afterAll(async () => {
   // Structure writes move a project's "recently active" marker; put it back.
   for (const mark of activityMarks) await prisma.$executeRaw`UPDATE "projects" SET "lastActivityAt" = ${mark.lastActivityAt} WHERE "id" = ${mark.id}`;
+  await removeSites();
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -860,10 +892,10 @@ async function keepStructure(context: UserContext, projectId: string, label: str
 }
 
 describe("permissions (§58, §59, §78-§82, §117, §138, §140, §150)", () => {
-  it("lets the Project Manager, the Owner and an Admin keep a project's structure", async () => {
+  it("lets the Project Manager, the Owner and the CEO keep a project's structure", async () => {
     await keepStructure(pm, SITE, "PM");
     await keepStructure(owner, SITE, "Owner");
-    await keepStructure(admin, SITE, "Admin");
+    await keepStructure(ceo, SITE, "CEO");
   });
 
   it("lets the Architect keep the structure of a project they are assigned to, and no other", async () => {
@@ -994,12 +1026,16 @@ describe("permissions (§58, §59, §78-§82, §117, §138, §140, §150)", () =
   });
 
   it("gives a person in two companies each company's structure only through that company's session", async () => {
-    const inB = await loginAsMembership("member_multicompany_b");
+    const inD = await loginAsMembership("member_multicompany_d");
     const inA = await loginAsMembership("member_multicompany_a");
-    expect([inA.companyId, inB.companyId]).toEqual([COMPANY_A, COMPANY_B]);
-    await refused(getUnitDetail(inB, S.units.a101), "NOT_FOUND");
-    await refused(getProjectStructure(inB, RIVERSIDE), "NOT_FOUND");
-    await refused(getUnitDetail(inA, S.units.munichOffice1), "NOT_FOUND");
-    await refused(getProjectStructure(inA, MUNICH), "NOT_FOUND");
+    expect([inA.companyId, inD.companyId]).toEqual([COMPANY_A, COMPANY.d]);
+    // Marina Apartments carries no seeded structure; the Architect on it sets up a unit to reach for.
+    const apartmentD = (await prisma.projectUnitType.findFirstOrThrow({ where: { companyId: COMPANY.d, code: "APARTMENT" } })).id;
+    const marinaUnit = await unit(await floor(await building(`${T} Marina`, inD, PROJECT.d), 1, inD), "A-101", { unitTypeId: apartmentD }, inD);
+    expect(await getUnitDetail(inD, marinaUnit.id, PROJECT.d)).toMatchObject({ unitCode: "A-101" });
+    await refused(getUnitDetail(inD, S.units.a101), "NOT_FOUND");
+    await refused(getProjectStructure(inD, RIVERSIDE), "NOT_FOUND");
+    await refused(getUnitDetail(inA, marinaUnit.id), "NOT_FOUND");
+    await refused(getProjectStructure(inA, PROJECT.d), "NOT_FOUND");
   });
 });

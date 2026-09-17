@@ -255,34 +255,9 @@ test.describe("Employee self-service (PRD #16 §299)", () => {
   });
 });
 
-test.describe("Admin and Company IT (PRD #16 §300, §301)", () => {
-  test("Admin reads the directory but not the employment file", async ({ page }) => {
-    await signIn(page, "ADMIN");
-
-    await page.goto("/hr/employees");
-    await expect(recordTable(page).getByText("EMP-007")).toBeVisible();
-
-    // Administering the platform is not seeing somebody's contract
-    // (PRD #16 §18). The only HR file Admin reaches is their own, so the tab
-    // says so.
-    const tabs = page.getByRole("navigation", { name: /HR sections/i });
-    await expect(tabs.getByRole("link", { name: "Documents", exact: true })).toHaveCount(0);
-    await expect(tabs.getByRole("link", { name: "My documents" })).toBeVisible();
-
-    const memberId = await memberIdFor("engineer@nesto.test");
-    await page.goto(`/hr/employees/${memberId}`);
-
-    // Scoped to the record's own tabs: the sidebar carries a Documents module
-    // link, which is a different door and not what this asserts.
-    const recordTabs = page.getByRole("navigation", { name: "Employee sections" });
-    await expect(recordTabs.getByRole("link", { name: "Documents" })).toHaveCount(0);
-
-    const response = await page.goto(`/hr/employees/${memberId}/documents`);
-    expect(response?.status()).toBe(404);
-  });
-
-  test("Company IT is left with self-service alone", async ({ page }) => {
-    await signIn(page, "COMPANY_IT");
+test.describe("Group IT (PRD #16 §301, E-06)", () => {
+  test("Group IT is left with self-service alone", async ({ page }) => {
+    await signIn(page, "GROUP_IT");
 
     await page.goto("/hr");
     const tabs = page.getByRole("navigation", { name: /HR sections/i });

@@ -18,13 +18,19 @@ const COMPANY = "company_demo_a";
 const MARK = "DASHAUTHZ";
 const activityIds: string[] = [];
 const itemIds: string[] = [];
+const warehouseIds: string[] = [];
+const projectIds: string[] = [];
 
 afterEach(async () => {
   await prisma.activity.deleteMany({ where: { id: { in: activityIds } } });
   await prisma.inventoryBalance.deleteMany({ where: { inventoryItemId: { in: itemIds } } });
   await prisma.inventoryItem.deleteMany({ where: { id: { in: itemIds } } });
+  await prisma.warehouse.deleteMany({ where: { id: { in: warehouseIds } } });
+  await prisma.project.deleteMany({ where: { id: { in: projectIds } } });
   activityIds.length = 0;
   itemIds.length = 0;
+  warehouseIds.length = 0;
+  projectIds.length = 0;
 });
 
 afterAll(async () => {
@@ -54,20 +60,34 @@ async function activity(module: string, entityType: string, entityId: string, ac
   return row.message!;
 }
 
+/**
+ * A second project in the company, with nobody on it. Each demo company has
+ * one project (E-06 §49), so "a project the Project Manager is not on" has to
+ * be made.
+ */
+async function projectOffTheirTeam() {
+  const id = `dashauthz_${Date.now().toString(36)}_${projectIds.length}`;
+  await prisma.project.create({
+    data: { id, companyId: COMPANY, code: `${MARK}-${id}`, name: `${MARK} project`, status: "ACTIVE", createdBy: "test" },
+  });
+  projectIds.push(id);
+  return id;
+}
+
 describe("recent activity shows only what the reader could open (PRD #47 §59, §175)", () => {
   it("keeps HR pay and sick leave, Finance payments and out-of-scope projects out of other roles' feeds", async () => {
     const compensation = await activity("hr", "Compensation", "member_engineer", "HR_COMPENSATION_RECORDED");
     const sickLeave = await activity("hr", "LeaveRequest", "leave_002", "HR_LEAVE_APPROVED");
     const payment = await activity("finance", "Payment", "payment_in_001", "FINANCE_PAYMENT_RECORDED");
     const ownProject = await activity("projects", "Project", PROJECT.a, "PROJECT_UPDATED");
-    const otherProject = await activity("projects", "Project", PROJECT.c, "PROJECT_UPDATED");
+    const otherProject = await activity("projects", "Project", await projectOffTheirTeam(), "PROJECT_UPDATED");
     const teamEvent = await activity("team", "CompanyMember", "member_engineer", "MEMBER_UPDATED");
     // An entity no module vouches for is never shown on trust.
     const unknown = await activity("projects", "SomethingElse", PROJECT.a, "PROJECT_UPDATED");
 
     const [owner, it, pm, hr, viewer] = await Promise.all([
       loginAs("OWNER"),
-      loginAs("COMPANY_IT"),
+      loginAs("GROUP_IT"),
       loginAs("PROJECT_MANAGER"),
       loginAs("HR"),
       loginAs("VIEWER"),
@@ -78,7 +98,7 @@ describe("recent activity shows only what the reader could open (PRD #47 §59, �
     expect(await feed(owner)).toEqual(expect.arrayContaining([compensation, sickLeave, payment, ownProject, otherProject, teamEvent]));
     expect(await feed(owner)).not.toContain(unknown);
 
-    // Company IT: the directory's history, none of HR's or Finance's or Projects'.
+    // Group IT: the directory's history, none of HR's or Finance's or Projects'.
     const itFeed = await feed(it);
     expect(itFeed).toContain(teamEvent);
     for (const hidden of [compensation, sickLeave, payment, ownProject, otherProject, unknown]) expect(itFeed).not.toContain(hidden);
@@ -116,11 +136,24 @@ describe("low stock counts only the stock the reader can see (PRD #20 §246, PRD
       select: { id: true },
     });
     itemIds.push(item.id);
-    // Two on the Project Manager's site, a hundred in the Marina store they cannot open.
+    const store = await prisma.warehouse.create({
+      data: {
+        companyId: COMPANY,
+        code: `${MARK}-${Date.now()}`,
+        name: `${MARK} store`,
+        warehouseType: "PROJECT_SITE",
+        projectId: await projectOffTheirTeam(),
+        createdByMemberId: "member_owner",
+        locations: { create: { companyId: COMPANY, code: "MAIN", isDefault: true, createdByMemberId: "member_owner" } },
+      },
+      select: { id: true, locations: { select: { id: true } } },
+    });
+    warehouseIds.push(store.id);
+    // Two on the Project Manager's site, a hundred in a store on a project they cannot open.
     await prisma.inventoryBalance.createMany({
       data: [
         { companyId: COMPANY, inventoryItemId: item.id, warehouseId: "wh_riverside", locationId: "loc_riverside_main", onHandQuantity: 2, availableQuantity: 2 },
-        { companyId: COMPANY, inventoryItemId: item.id, warehouseId: "wh_marina", locationId: "loc_marina_main", onHandQuantity: 100, availableQuantity: 100 },
+        { companyId: COMPANY, inventoryItemId: item.id, warehouseId: store.id, locationId: store.locations[0].id, onHandQuantity: 100, availableQuantity: 100 },
       ],
     });
 
@@ -147,7 +180,7 @@ describe("project financials without the invoice grant (PRD #47 §59)", () => {
     const pmItems = await widget(pm);
     expect(pmItems.length).toBeGreaterThan(0);
     expect(pmItems.every((item) => item.meta?.startsWith("Budget "))).toBe(true);
-    expect(pmItems.map((item) => item.id).every((id) => id === PROJECT.a || id === PROJECT.b)).toBe(true);
+    expect(pmItems.map((item) => item.id).every((id) => id === PROJECT.a)).toBe(true);
 
     const financeItems = await widget(finance);
     expect(financeItems.length).toBeGreaterThan(0);

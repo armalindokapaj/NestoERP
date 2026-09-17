@@ -37,6 +37,18 @@ const OWNED: Record<string, string[]> = {
   "core/access": ["role", "permission", "rolePermission", "module", "roleModuleAccess"],
   team: ["companyMember", "department", "companyInvite"],
   settings: ["company", "companySettings", "companyIntegrationSettings", "companyNumberingScheme", "companyModule"],
+  // The group above the companies, positions in its departments, delegated
+  // access, and the account requests between HR and Group IT (E-06 §8-§18, §27).
+  organization: [
+    "parentGroup",
+    "parentGroupMember",
+    "groupDepartment",
+    "departmentAssignment",
+    "accessGrant",
+    "userProvisioningRequest",
+  ],
+  // Access held outside every group (E-06 §19).
+  platform: ["platformAccess"],
 
   /* Shared foundation ------------------------------------------------------ */
   shared: ["activity"],
@@ -77,7 +89,8 @@ const OWNED: Record<string, string[]> = {
     "paymentSchedule",
     "paymentInstallment",
   ],
-  hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord"],
+  // HR owns the person and the candidate as well as the employment (E-06 §82).
+  hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord", "personProfile", "candidateProfile"],
   // A unit's commercial side — profile, prices, reservations, the units in a deal, the status trail
   // (E-05E) — keyed by the canonical unitId; the unit itself stays project-structure's.
   sales: ["lead", "opportunity", "proposal", "proposalLineItem", "salesApproval", "unitCommercialProfile", "unitPriceHistory", "unitReservation", "unitReservationExtension", "opportunityUnit", "unitCommercialStatusHistory", "unitSaleApproval"],

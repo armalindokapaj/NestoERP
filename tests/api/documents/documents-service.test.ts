@@ -20,7 +20,7 @@ import {
   setStorageProvider,
   storageProvider,
 } from "@/lib/core/storage/storage-provider.factory";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Documents authorisation, upload and parent-access tests
@@ -32,9 +32,13 @@ import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../h
  */
 let storageRoot: string;
 const created: string[] = [];
+/** Another of Aurelia's projects, run by the Project Manager: the demo gives each company only one. */
+const OTHER_PROJECT = "test13_docs_other_project";
 
 beforeAll(async () => {
   storageRoot = await mkdtemp(path.join(tmpdir(), "nesto-docs-"));
+  const pm = await loginAs("PROJECT_MANAGER");
+  await prisma.project.create({ data: { id: OTHER_PROJECT, companyId: COMPANY.a, code: "T13-DOCS", name: "Documents Elsewhere", status: "ACTIVE", projectManagerMemberId: pm.membershipId, createdBy: "test" } });
   setStorageProvider(
     new LocalStorageProvider({ root: storageRoot, baseUrl: "http://localhost:3000" }),
   );
@@ -51,6 +55,7 @@ afterEach(async () => {
 afterAll(async () => {
   setStorageProvider(null);
   await rm(storageRoot, { recursive: true, force: true });
+  await prisma.project.deleteMany({ where: { id: OTHER_PROJECT } });
 
   // These tests delete their documents directly rather than through the
   // product's lifecycle, which leaves the usage projection ahead of the rows.
@@ -142,7 +147,7 @@ describe("parent access (PRD #13 §229, §232, §270)", () => {
 
     for (const document of result.data) {
       if (document.context.label === "Project") {
-        expect(["Riverside Residences", "Central Office Tower"]).toContain(
+        expect(["Riverside Residences", "Documents Elsewhere"]).toContain(
           document.context.relatedRecordName,
         );
       }
@@ -180,7 +185,7 @@ describe("parent access (PRD #13 §229, §232, §270)", () => {
 
 describe("cross-company isolation (PRD #13 §232, §261)", () => {
   it("never returns Company A documents to a Company B user", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
+    const contextB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     const result = await documents.listDocuments(
       contextB,
       documentListQuerySchema.parse({ limit: 100 }),
@@ -196,7 +201,7 @@ describe("cross-company isolation (PRD #13 §232, §261)", () => {
   });
 
   it("refuses to file a document against another company's project", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
+    const contextB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectError(
       documents.createDocument(contextB, createInput(), upload()),
       "VALIDATION_ERROR",
@@ -229,7 +234,7 @@ describe("upload (PRD #13 §234, §235)", () => {
   it("refuses a project the caller cannot reach", async () => {
     const context = await loginAs("ARCHITECT");
     await expectError(
-      documents.createDocument(context, createInput({ projectId: PROJECT.b }), upload()),
+      documents.createDocument(context, createInput({ projectId: OTHER_PROJECT }), upload()),
       "VALIDATION_ERROR",
     );
   });
@@ -270,10 +275,10 @@ describe("download (PRD #13 §233)", () => {
   });
 
   it("refuses a reader who cannot reach the parent", async () => {
-    // Project B: the Project Manager works on it, the Architect does not.
+    // The other project: the Project Manager works on it, the Architect does not.
     const pm = await loginAs("PROJECT_MANAGER");
     const document = await track(
-      documents.createDocument(pm, createInput({ projectId: PROJECT.b }), upload()),
+      documents.createDocument(pm, createInput({ projectId: OTHER_PROJECT }), upload()),
     );
 
     const architect = await loginAs("ARCHITECT");

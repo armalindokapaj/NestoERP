@@ -1,12 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 import { db, removeTestFinanceRecords, resetFinanceFixtures } from "../db";
-import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures";
+import { expectAccessDenied, mainRegion, recordTable, signIn, switchCompany } from "../fixtures";
 
 /**
  * The Finance journey (PRD #15 §369–§380).
  */
 const PREFIX = "E2E-FIN";
+
+/**
+ * The invoice and expense waiting for a decision are Meridian's (E-06 §45).
+ * Group Finance lands in Aurelia and moves there; Meridian's CEO decides them.
+ */
+const MERIDIAN = "company_demo_b";
 
 /**
  * Invoices raised by this suite, by id.
@@ -75,7 +81,9 @@ test.describe("Finance role (PRD #15 §372)", () => {
   test("cannot approve its own submission — approval is somebody else's job", async ({
     page,
   }) => {
+    await switchCompany(page, MERIDIAN);
     await page.goto("/finance/invoices/invoice_008");
+    await expect(page.getByRole("heading", { name: "INV-2026-008" })).toBeVisible();
 
     // invoice_008 is pending approval in the seed. The Finance role manages
     // Finance but holds no approval grant (PRD #15 §18).
@@ -85,6 +93,7 @@ test.describe("Finance role (PRD #15 §372)", () => {
 
   test("sees the approval queue but can decide nothing in it", async ({ page }) => {
     await resetFinanceFixtures();
+    await switchCompany(page, MERIDIAN);
     await page.goto("/finance/approvals");
 
     // Visibility and authority are different grants (PRD #15 §18): the role
@@ -96,6 +105,7 @@ test.describe("Finance role (PRD #15 §372)", () => {
 
   test("sees two statuses on an invoice: workflow and settlement", async ({ page }) => {
     // invoice_015 is sent, not yet due, and 30 % settled.
+    await switchCompany(page, MERIDIAN);
     await page.goto("/finance/invoices/invoice_015");
 
     // Partially paid, and still SENT: issuance and settlement are two facts
@@ -114,7 +124,7 @@ test.describe("Finance role (PRD #15 §372)", () => {
 
 test.describe("CEO (PRD #15 §373)", () => {
   test.beforeEach(async ({ page }) => {
-    await signIn(page, "CEO");
+    await signIn(page, "CEO_B");
   });
 
   test("approves a pending invoice from the queue", async ({ page }) => {
@@ -244,9 +254,9 @@ test.describe("Sales (PRD #15 §376)", () => {
   });
 });
 
-test.describe("Admin (PRD #15 §378)", () => {
+test.describe("Group IT (PRD #15 §378)", () => {
   test("cannot reach Finance at all", async ({ page }) => {
-    await signIn(page, "ADMIN");
+    await signIn(page, "GROUP_IT");
 
     // Administering NESTO is not financial authorisation (PRD #15 §20).
     await expectAccessDenied(page, "/finance");
@@ -254,7 +264,7 @@ test.describe("Admin (PRD #15 §378)", () => {
   });
 
   test("is refused a direct finance API call", async ({ page }) => {
-    await signIn(page, "ADMIN");
+    await signIn(page, "GROUP_IT");
     const response = await page.request.get("/api/finance/invoices");
     expect(response.status()).toBe(403);
   });
