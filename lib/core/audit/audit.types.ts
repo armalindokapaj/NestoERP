@@ -35,7 +35,10 @@ export type AuditActor = {
 };
 
 export type AuditContext = {
-  companyId: string;
+  /** Null for an event about the group itself rather than one of its companies (E-06 §114). */
+  companyId: string | null;
+  /** The group an event belongs to; set for group-level events, which carry no company. */
+  parentGroupId?: string | null;
   actor: AuditActor;
   requestId?: string | null;
   correlationId?: string | null;

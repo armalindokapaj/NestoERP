@@ -195,7 +195,7 @@ for (const file of routeFiles) {
       }
     }
     for (const [method, body] of handlers) {
-      const cls = ROUTE_CLASSES[pattern] ?? (SELF_SERVICE.some((regex) => regex.test(pattern)) ? "AUTHENTICATED" : "COMPANY_SCOPED");
+      const cls = ROUTE_CLASSES[pattern] ?? (pattern.startsWith("/api/platform/") ? "PLATFORM" : SELF_SERVICE.some((regex) => regex.test(pattern)) ? "AUTHENTICATED" : "COMPANY_SCOPED");
       rows.push({ method, endpoint: pattern, kind: "route", cls, evidence: analyse(body, 0) });
     }
   }

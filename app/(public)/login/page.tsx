@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
-import { DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS } from "@/config/demo-accounts";
+import { DEMO_ACCOUNT_SECTIONS, DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS } from "@/config/demo-accounts";
 import { roles } from "@/config/roles";
 import { isDevMode } from "@/lib/auth/dev-role";
 import { getTranslations } from "@/lib/i18n/server";
@@ -92,6 +92,7 @@ export default async function LoginPage({
                   label: roles[account.role].label,
                   assignment: account.assignment,
                   username: account.username,
+                  section: DEMO_ACCOUNT_SECTIONS[account.section],
                 }))}
                 password={DEMO_PASSWORD}
               />

@@ -3,7 +3,7 @@ import { actAs } from "./actor";
 import { discoverServerActions, modelForArgument, type ServerAction } from "./actions";
 import { foreignIdentifiersIn, ownedRows } from "./company-data";
 import { idsByFieldName, paramVariants, type ParamContext } from "./params";
-import { callRoute, callRouteWithValidBody, candidateValues, discoverApiRoutes, fillPattern, HTTP_METHODS, loadRouteModule, NON_SESSION_ROUTES } from "./routes";
+import { callRoute, callRouteWithValidBody, candidateValues, discoverApiRoutes, fillPattern, HTTP_METHODS, loadRouteModule, NON_SESSION_ROUTES, isPlatformRoute } from "./routes";
 
 /**
  * The attack loops behind the isolation suites (PRD #47 §131-§139, §155, §209, §210).
@@ -88,7 +88,7 @@ export async function sweepRoutes(attacker: UserContext, target: SweepTarget, op
   actAs(attacker);
 
   for (const route of discoverApiRoutes()) {
-    if (NON_SESSION_ROUTES.has(route.pattern) || (options.only && !options.only(route.pattern))) continue;
+    if (NON_SESSION_ROUTES.has(route.pattern) || isPlatformRoute(route.pattern) || (options.only && !options.only(route.pattern))) continue;
     // A project restriction has nothing to say about routes with no project-bound segment.
     if (target.projectIds && route.params.length === 0 && !/\/(search|calendar|approvals|dashboard|productivity|timesheets|recent-work|favorites)/.test(route.pattern) && !route.pattern.match(/^\/api\/[\w-]+$/)) continue;
     const handlers = await loadRouteModule(route);

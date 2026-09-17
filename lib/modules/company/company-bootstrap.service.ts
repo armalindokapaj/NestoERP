@@ -56,7 +56,17 @@ export const bootstrapCompanySchema = z.object({
     .regex(/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/, "parent group slug must be lowercase letters, digits and hyphens")
     .optional(),
   parentGroupName: z.string().trim().min(2).max(120).optional(),
-  ownerEmail: z.string().trim().email(),
+  /**
+   * Who is invited as the company's Owner. Optional for a company the Platform
+   * Admin adds to an implemented group, whose Owner already works in every
+   * company of it (E-06 §34, §39).
+   */
+  ownerEmail: z.string().trim().email().optional(),
+  industry: z.string().trim().max(120).optional(),
+  address: z.string().trim().max(300).optional(),
+  email: z.string().trim().email().optional(),
+  phone: z.string().trim().max(40).optional(),
+  website: z.string().trim().max(200).optional(),
   disabledModules: z.array(z.enum(MODULE_KEYS)).default([]),
   timezone: z.string().trim().max(64).optional(),
   locale: z.string().trim().max(16).optional(),
@@ -73,6 +83,7 @@ export type BootstrapCompanyResult = {
   modulesEnabled: ModuleKey[];
   modulesDisabled: ModuleKey[];
   owner:
+    | { state: "NOT_REQUESTED" }
     | { state: "ALREADY_ACTIVE" }
     | { state: "INVITATION_PENDING"; inviteId: string }
     | { state: "INVITED"; inviteId: string; delivery: MailOutcome["status"]; inviteUrl?: string };
@@ -96,7 +107,7 @@ export function validateModuleSelection(disabled: ModuleKey[]): string[] {
 
 export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<BootstrapCompanyResult> {
   const input = bootstrapCompanySchema.parse(raw);
-  const ownerEmail = normalizeEmail(input.ownerEmail);
+  const ownerEmail = input.ownerEmail ? normalizeEmail(input.ownerEmail) : null;
 
   const problems = validateModuleSelection(input.disabledModules);
   if (problems.length > 0) throw new Error(`Invalid module selection: ${problems.join("; ")}`);
@@ -150,11 +161,24 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
           name: input.name,
           legalName: input.legalName ?? null,
           country: input.country ?? null,
+          industry: input.industry ?? null,
+          address: input.address ?? null,
+          email: input.email ?? null,
+          phone: input.phone ?? null,
+          website: input.website ?? null,
           status: "ACTIVE",
         },
         select: { id: true },
       }));
     const companyId = company.id;
+
+    // The company's branch of every group department (E-06 §12, §35, §36): created
+    // where missing, never renamed or removed on a rerun.
+    const groupDepartments = await tx.groupDepartment.findMany({ where: { parentGroupId, status: "ACTIVE" }, select: { id: true, key: true, name: true } });
+    await tx.department.createMany({
+      data: groupDepartments.map((department) => ({ companyId, name: department.name, key: department.key, groupDepartmentId: department.id, status: "ACTIVE" as const })),
+      skipDuplicates: true,
+    });
 
     // Module switches: created where missing, never flipped on a rerun — an
     // administrator may have changed them since.
@@ -214,8 +238,11 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
       );
     }
 
-    // The Owner: nothing to do if they are already in; reuse a live invitation;
-    // otherwise issue one.
+    // The Owner: nothing to do if nobody was named or they are already in; reuse
+    // a live invitation; otherwise issue one.
+    if (!ownerEmail) {
+      return { companyId, parentGroupId, created: !existing, owner: { state: "NOT_REQUESTED" as const } };
+    }
     const ownerUser = await tx.user.findUnique({ where: { email: ownerEmail }, select: { id: true } });
     const activeOwner = ownerUser
       ? await tx.companyMember.findFirst({
@@ -283,7 +310,8 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
   const acceptUrl = appLink(`/invite/${token}`);
   const expiresInDays = Math.round((inviteExpiry(now).getTime() - now.getTime()) / 86_400_000);
   const outcome = await sendMail({
-    to: ownerEmail,
+    // An invitation is only issued for a named Owner.
+    to: ownerEmail!,
     templateKey: "company.owner_invitation",
     variables: { companyName: input.name, acceptUrl, expiresInDays: String(expiresInDays) },
     idempotencyKey: `invite:${inviteId}:${hashInviteToken(token).slice(0, 16)}`,

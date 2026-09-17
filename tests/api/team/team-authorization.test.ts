@@ -54,6 +54,8 @@ async function removeFixtures() {
     await prisma.companyIntegrationSettings.deleteMany({ where: { companyId: id } });
     await prisma.companySettings.deleteMany({ where: { companyId: id } });
     await prisma.companyModule.deleteMany({ where: { companyId: id } });
+    // The bootstrap gives the company a branch of every group department (E-06 §35).
+    await prisma.department.deleteMany({ where: { companyId: id } });
     await prisma.company.delete({ where: { id } });
   }
   // Provisioning gave the company a parent group of its own (E-06 §8).

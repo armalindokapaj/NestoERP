@@ -45,6 +45,8 @@ for (const file of routeFiles) {
   const pattern = file.replace(/^app/, "").replace(/\/route\.ts$/, "");
   const source = parse(file);
   if (ROUTE_CLASSES[pattern]) continue;
+  // The platform's own routes run for a platform session, which carries no company (E-06 §116).
+  const wrapper = pattern.startsWith("/api/platform/") ? "withPlatformContext" : "withContext";
 
   let handlers = 0;
   for (const statement of source.statements) {
@@ -53,8 +55,8 @@ for (const file of routeFiles) {
 
     if (ts.isFunctionDeclaration(statement) && statement.name && HTTP_METHODS.includes(statement.name.text)) {
       handlers += 1;
-      if (!statement.body || !calledNames(statement.body).has("withContext")) {
-        fail("routes", `${file}:${lineOf(source, statement)} ${statement.name.text} does not run inside withContext`);
+      if (!statement.body || !calledNames(statement.body).has(wrapper)) {
+        fail("routes", `${file}:${lineOf(source, statement)} ${statement.name.text} does not run inside ${wrapper}`);
       }
     }
     if (ts.isVariableStatement(statement)) {
@@ -149,6 +151,7 @@ const ROLE_CHECK_EXCEPTIONS: Record<string, string> = {
   "lib/modules/project-planning/planning.attention.ts": "notification recipients only; the dispatcher re-authorizes each (PRD #47 §242)",
   "lib/modules/dashboard/dashboard.service.ts": "chooses a dashboard layout, never data access",
   "lib/modules/company/company-bootstrap.service.ts": "creating a company's first Owner (PRD #38 §10)",
+  "lib/modules/platform/platform-implementation.service.ts": "the implementation checklist asks whether a group has an Owner and Group IT yet (E-06 §39, §40, §71); it grants nothing",
   "lib/modules/timesheets/timesheet.reports.ts": "the role set is derived from who holds timesheet.submit_own, not named",
 };
 
@@ -172,6 +175,8 @@ const SCHEMA_FIELD = new RegExp(`^\\s*(${SERVER_OWNED_FIELDS.join("|")})\\s*:\\s
 const SCHEMA_FIELD_EXCEPTIONS: Record<string, string> = {
   "lib/modules/documents/document.schema.ts#uploadedByMemberId": "list filter; only narrows the scoped document query",
   "lib/modules/tasks/task.schema.ts#createdByMemberId": "list filter; only narrows the scoped task query",
+  "lib/modules/platform/platform.schema.ts#roleKey":
+    "the role a person of the approved initial roster is given, set by the Platform Admin while a group is implementing and never a session's own role; refused once the group is active (E-06 §30, §138)",
   "lib/modules/projects/project.schema.ts#companyId":
     "Projects page filter, which only narrows the union of the person's own memberships' project scopes; and the company a new project is created in, which contextForCompany re-checks against the person's own active memberships and project.create there (E-05A §30, §39)",
 };

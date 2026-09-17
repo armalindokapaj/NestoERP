@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**692 route handlers, 259 server actions.** AUTHENTICATED 31 · COMPANY_SCOPED 908 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**701 route handlers, 259 server actions.** AUTHENTICATED 31 · COMPANY_SCOPED 908 · PLATFORM 9 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -543,6 +543,20 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/organization/user-provisioning-requests/[requestId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `assertTransitionAllowed` | sweep |
 | POST | `/api/organization/user-provisioning-requests/[requestId]/start` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
 | GET | `/api/organization/user-provisioning-requests` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +700 | — | — | — | sweep |
+
+## /api/platform
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| POST | `/api/platform/parent-groups/[groupId]/activate` | PLATFORM | — | — | — | `assertFound` | — | security |
+| POST | `/api/platform/parent-groups/[groupId]/companies` | PLATFORM | — | — | — | `assertFound` | — | security |
+| POST | `/api/platform/parent-groups/[groupId]/initial-project-members` | PLATFORM | — | — | — | `assertFound` | — | security |
+| POST | `/api/platform/parent-groups/[groupId]/initial-users` | PLATFORM | — | — | — | `assertFound` | — | security |
+| POST | `/api/platform/parent-groups/[groupId]/ready` | PLATFORM | — | — | — | `assertFound` | — | security |
+| GET | `/api/platform/parent-groups/[groupId]` | PLATFORM | — | — | — | `assertFound` | — | security |
+| PATCH | `/api/platform/parent-groups/[groupId]` | PLATFORM | — | — | — | `assertFound` | — | security |
+| GET | `/api/platform/parent-groups` | PLATFORM | — | — | — | — | — | security |
+| POST | `/api/platform/parent-groups` | PLATFORM | — | — | — | — | — | security |
 
 ## /api/procurement
 

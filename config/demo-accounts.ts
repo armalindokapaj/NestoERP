@@ -17,7 +17,15 @@ import { roles, type PositionLevel, type RoleKey } from "./roles";
 /** Shared by every seeded account. Development credentials only (PRD #9 §25). */
 export const DEMO_PASSWORD = process.env.NESTO_DEMO_PASSWORD ?? "nesto1234";
 
-export type DemoAccountSection = "platform" | "group" | "company";
+/** How the sign-in screen groups the personas (E-06 §59): by the level they work at. */
+export type DemoAccountSection = "platform" | "group" | "company" | "examples";
+
+export const DEMO_ACCOUNT_SECTIONS: Record<DemoAccountSection, string> = {
+  platform: "Platform",
+  group: "Group",
+  company: "Aurelia Construction",
+  examples: "Other companies",
+};
 
 export type DemoAccount = {
   username: string;
@@ -47,6 +55,11 @@ export const PRIMARY_DEMO_ACCOUNTS: DemoAccount[] = [
   { username: "pm-a", role: "PROJECT_MANAGER", position: "MEMBER", section: "company", assignment: "Project Manager · Riverside Residences" },
   { username: "architect-a", role: "ARCHITECT", position: "MEMBER", section: "company", assignment: "Architect · Aurelia Construction" },
   { username: "viewer-a", role: "VIEWER", position: "MEMBER", section: "company", assignment: "Viewer · Riverside Residences" },
+  // One person from each other company, as §59 lists them.
+  { username: "pm-b", role: "PROJECT_MANAGER", position: "MEMBER", section: "examples", assignment: "Project Manager · Meridian Developments" },
+  { username: "finance-c", role: "FINANCE", position: "MEMBER", section: "examples", assignment: "Finance · Terra Infrastructure" },
+  { username: "architect-d", role: "ARCHITECT", position: "MEMBER", section: "examples", assignment: "Architect · Forma Engineering" },
+  { username: "hse-e", role: "HSE", position: "MEMBER", section: "examples", assignment: "HSE · Nova Hospitality Development" },
 ];
 
 export function demoAccountByUsername(username: string): DemoAccount | undefined {
