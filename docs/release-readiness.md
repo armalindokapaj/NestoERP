@@ -921,3 +921,88 @@ than kept (§52, "where practical"). NESTO still has no Parent Group or
 Architecture Manager role; project types are per company.
 
 The development server needs a restart after this migration too.
+
+## 17. Enhancement E-05B — Project structure: buildings, floors and units
+
+Every project can now hold buildings, floors and units, and each unit is one
+row with one id and one page that Sales, Finance, Documents and the 3D explorer
+will reference — never copy. Projects → a project → **Units** is the tree and
+the unit table; `/projects/:id/units/:unitId` is the unit page; Projects →
+**Unit types** is each company's own list. `docs/project-structure.md` is the
+contract.
+
+### 17.1 What changed
+
+| Before | Now |
+|---|---|
+| No physical structure; nothing unit-like anywhere in the schema | `ProjectBuilding`, `ProjectFloor`, `ProjectUnit`, and per-company `ProjectUnitType` (ten defaults) |
+| — | Derived `projectId`/`companyId` held to their parents by composite foreign keys: the database refuses a floor on another project's building, a unit on another project's floor, another company's unit type |
+| — | Unit codes unique per project on a normalised key (`a-901` = `A-901`); floors unique per building on level type + number |
+| — | Bulk floors by range, bulk units by code pattern, copy a floor: previewed with conflicts, then all or nothing, one audit event per batch |
+| — | Moves keep ids: a unit to another floor of its project, a floor (with its units) to another building; code changes audited as `UNIT_CODE_CHANGED` |
+| — | 13 permissions (`project.structure.*`, `project.building.*`, `project.floor.*`, `project.unit.*`, `project.unit_type.manage`); writes for Owner, Project Manager, Admin and Architect (assigned projects), reads for everyone who can open the project |
+| Project tabs without structure | A **Units** tab on every project page and a **Units** card with counts on the overview |
+| Security sweep could not build batch, copy or reorder bodies | `tests/security/harness/routes.ts` knows `ids`, `floors`, `units`, `defaults` and a floor `number`: 7 routes that stopped at 422 now reach the lookup they attack |
+
+Migration `20260917120000_project_structure_e05b` is additive: four tables, four
+enums, `projects (id, companyId)` unique, and every existing company's default
+unit types. There was no legacy unit data to map (§143). It was replayed from
+zero into an empty database, then applied to a restored copy of the development
+database (three companies, ten types each) before the real one.
+
+### 17.2 The evidence
+
+Full vitest 3 260 passed, 0 failed (11 skipped: the destructive and opt-in
+suites). Of those:
+
+- New suites, 70 tests: `tests/unit/project-structure/rules.test.ts` (20),
+  `tests/api/project-structure/structure.test.ts` (38 — every §146-§150 case,
+  including every read-only role against 17 kinds of write, forged ids across
+  companies and projects, and two batches racing for the same codes: one wins,
+  the other is told, nothing partial), `unit-types.test.ts` (8),
+  `company-bootstrap.test.ts` (4, extended).
+- Security: `tests/security` 25 passed (the destructive link suite skips itself
+  on `nesto_erp`); a sweep narrowed to the structure routes answers 404 on all
+  29 foreign-id calls in both directions, with nothing left unvalidated.
+- `tests/perf/project-structure.perf.test.ts` (`NESTO_PERF=1`), 10,000 units:
+  P95 tree 10 ms, one floor 7 ms, filtered 30 ms, first page 157 ms, page 150
+  182 ms, search 183 ms; the same number of queries for 10,000 units as for 126.
+- E2E against the production build: the new desktop journey (building, floors
+  by range, bulk units, a copied floor, a code change and a move keeping the
+  URL, the breadcrumb back to the floor, Sales without actions, filters, a
+  foreign unit 404) and the phone spec pass. Full suite: 414 passed, 2 failed —
+  see 17.3.
+- Gates: typecheck, lint (0 errors, the 16 pre-existing warnings),
+  `verify:ownership` (197 models), `verify:authorization` (491 routes),
+  `verify:state` (unchanged: 87 blind, 19 unreadable), `verify:production-guards`,
+  `security:matrix --check` (866 endpoints, none unguarded).
+
+### 17.3 Defects found
+
+- **`projects.spec.ts` "remembers the list view" failed on the Turbopack
+  production build** and passed on a webpack build of the same tree: after a
+  reload React briefly parks a streamed copy of the list, and the spec's
+  unscoped `getByTestId("project-list")` matched both. Scoped to `mainRegion`,
+  as `tests/e2e/fixtures.ts` prescribes; passes three runs in a row.
+- **Found, not fixed (E-05A, outside this scope):** `responsive/mobile.spec.ts`
+  "moves filters and the sort into a sheet…" fails at 66ea2a9 as well — after
+  Apply, the second tap on Filters does not open the sheet again.
+- Caught before this record: a retired unit type of one's own company was logged
+  as a cross-company refusal; a stale floor move into a clashing building said
+  `FLOOR_TAKEN` instead of `STRUCTURE_STALE`; the unit-created audit recorded
+  attributes as sent rather than as kept.
+
+### 17.4 Limits, stated plainly
+
+- **No commercial status** (§27): For Sale / Reserved / Sold belong to the Sales
+  PRD, keyed by `unitId`, with a state machine.
+- **Unit deletion is not reference-guarded** — nothing references a unit yet.
+  The first module that does must make `deleteUnit` refuse and offer
+  deactivation (§56).
+- **Page-numbered pagination**, 50 a page; fine to 10,000 units as measured.
+- **No import, copy building or typical floor** (§97, §99, §100); the batch
+  services take drafts, so an import can call them.
+- **No Parent Group Owner or Architecture Manager role**; their E-05B rows are
+  policy for when they exist. Unit types are per company.
+- **The development server needs a restart** after this migration and
+  `prisma generate`: a running server has no client for the new models.

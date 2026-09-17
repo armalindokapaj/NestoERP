@@ -202,6 +202,7 @@ export const siteSq: SiteCopy = {
       Overview: "Përmbledhje",
       Archived: "Të arkivuara",
       "Project types": "Llojet e projekteve",
+      "Unit types": "Llojet e njësive",
       "My Tasks": "Detyrat e mia",
       Upcoming: "Në vijim",
       "My Meetings": "Takimet e mia",

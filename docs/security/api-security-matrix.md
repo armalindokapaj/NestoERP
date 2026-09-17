@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**580 route handlers, 259 server actions.** AUTHENTICATED 28 · COMPANY_SCOPED 799 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**607 route handlers, 259 server actions.** AUTHENTICATED 28 · COMPANY_SCOPED 826 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -516,12 +516,35 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/productivity/settings` (reviewed: company productivity preferences (retention, palette limits) every member's UI reads) | COMPANY_SCOPED | — | — | — | — | — | sweep |
 | PUT | `/api/productivity/settings` | COMPANY_SCOPED | `announcements` | `announcement.manage_company` | — | — | — | sweep |
 
+## /api/project-buildings
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| POST | `/api/project-buildings/[buildingId]/floors/bulk` | COMPANY_SCOPED | `projects` | `project.floor.create`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableBuildingWhere` +1 | `findReadableBuilding` | — | sweep |
+| POST | `/api/project-buildings/[buildingId]/floors/reorder` | COMPANY_SCOPED | `projects` | `project.structure.manage`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableBuildingWhere` +1 | `findReadableBuilding` | — | sweep |
+| GET | `/api/project-buildings/[buildingId]/floors` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableBuildingWhere` +1 | `findReadableBuilding` | — | sweep |
+| POST | `/api/project-buildings/[buildingId]/floors` | COMPANY_SCOPED | `projects` | `project.floor.create`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableBuildingWhere` +1 | `findReadableBuilding` | — | sweep |
+| PATCH | `/api/project-buildings/[buildingId]` | COMPANY_SCOPED | `projects` | `project.building.update`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableBuildingWhere` +1 | `findReadableBuilding` | — | sweep |
+| DELETE | `/api/project-buildings/[buildingId]` | COMPANY_SCOPED | `projects` | `project.building.delete`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableBuildingWhere` +1 | `findReadableBuilding` | — | sweep |
+
 ## /api/project-contractor-assignments
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
 | PATCH | `/api/project-contractor-assignments/[assignmentId]` | COMPANY_SCOPED | `contractors`, `projects` | `contractor_contact.view`, `project.view`, `project_contractor.manage` +1 | `buildProjectScopeWhere`, `contractorProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
 | POST | `/api/project-contractor-assignments/[assignmentId]/terminate` | COMPANY_SCOPED | `contractors`, `projects` | `project.view`, `project_contractor.manage` | `buildProjectScopeWhere`, `contractorProjectDoor` | — | `assertProjectWritable` | sweep |
+
+## /api/project-floors
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| POST | `/api/project-floors/[floorId]/move` | COMPANY_SCOPED | `projects` | `project.structure.manage`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableFloorWhere` +1 | `findReadableFloor` | — | sweep |
+| PATCH | `/api/project-floors/[floorId]` | COMPANY_SCOPED | `projects` | `project.floor.update`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableFloorWhere` +1 | `findReadableFloor` | — | sweep |
+| DELETE | `/api/project-floors/[floorId]` | COMPANY_SCOPED | `projects` | `project.floor.delete`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableFloorWhere` +1 | `findReadableFloor` | — | sweep |
+| POST | `/api/project-floors/[floorId]/units/bulk` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.create`, `project.view` | `buildProjectScopeWhere`, `readableFloorWhere` +1 | `findReadableFloor`, `requireUnitType` | — | sweep |
+| POST | `/api/project-floors/[floorId]/units/copy` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.create`, `project.view` | `buildProjectScopeWhere`, `readableFloorWhere` +1 | `findReadableFloor` | — | sweep |
+| POST | `/api/project-floors/[floorId]/units/reorder` | COMPANY_SCOPED | `projects` | `project.structure.manage`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableFloorWhere` +1 | `findReadableFloor` | — | sweep |
+| POST | `/api/project-floors/[floorId]/units` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.create`, `project.view` | `buildProjectScopeWhere`, `readableFloorWhere` +1 | `findReadableFloor`, `requireUnitType` | — | sweep |
 
 ## /api/project-milestone-blockers
 
@@ -567,12 +590,24 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/project-planning/settings` | COMPANY_SCOPED | `projects` | — | — | — | — | sweep |
 | PUT | `/api/project-planning/settings` | COMPANY_SCOPED | `projects` | `project_planning.settings.manage` | — | — | — | sweep |
 
+## /api/project-units
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| POST | `/api/project-units/[unitId]/move` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.move`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
+| GET | `/api/project-units/[unitId]` | COMPANY_SCOPED | `projects` | `project.building.create`, `project.building.delete`, `project.building.update` +10 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
+| PATCH | `/api/project-units/[unitId]` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.update`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit`, `requireUnitType` | — | sweep |
+| DELETE | `/api/project-units/[unitId]` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.delete`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
+
 ## /api/projects
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
 | GET | `/api/projects/[projectId]/activity` | COMPANY_SCOPED | `projects` | `project.activity.view` | `buildProjectScopeWhere` | `assertFound`, `findProjectInScope` | — | sweep |
 | POST | `/api/projects/[projectId]/archive` | COMPANY_SCOPED | `projects` | `project.archive` | `buildProjectScopeWhere` | `assertFound`, `findProjectInScope` | `applyTransition` | sweep |
+| POST | `/api/projects/[projectId]/buildings/reorder` | COMPANY_SCOPED | `projects` | `project.structure.manage`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `structureProjectDoor` | — | — | sweep |
+| GET | `/api/projects/[projectId]/buildings` | COMPANY_SCOPED | `projects` | `project.building.create`, `project.building.delete`, `project.building.update` +10 | `buildProjectScopeWhere`, `structureProjectDoor` | — | — | sweep |
+| POST | `/api/projects/[projectId]/buildings` | COMPANY_SCOPED | `projects` | `project.building.create`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `structureProjectDoor` | — | — | sweep |
 | GET | `/api/projects/[projectId]/contractors/options` | COMPANY_SCOPED | `contractors`, `projects` | `contractor_contact.view`, `project.view`, `project_contractor.manage` +1 | `buildProjectScopeWhere`, `contractorProjectDoor` | — | — | sweep |
 | GET | `/api/projects/[projectId]/contractors` | COMPANY_SCOPED | `contractors`, `engineering`, `projects` | `contractor_compliance.view`, `contractor_contact.view`, `project.view` +5 | `buildProjectScopeWhere`, `contractorProjectDoor` +6 | — | — | sweep |
 | POST | `/api/projects/[projectId]/contractors` | COMPANY_SCOPED | `contractors`, `projects` | `contractor_contact.view`, `project.view`, `project_contractor.manage` +1 | `buildProjectScopeWhere`, `contractorProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
@@ -610,11 +645,13 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/projects/[projectId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +83 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | sweep |
 | PATCH | `/api/projects/[projectId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +2 | `applyTransition`, `assertTransitionAllowed` | sweep |
 | PATCH | `/api/projects/[projectId]/status` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +84 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | `applyTransition`, `assertTransitionAllowed` +1 | sweep |
+| GET | `/api/projects/[projectId]/structure` | COMPANY_SCOPED | `projects` | `project.building.create`, `project.building.delete`, `project.building.update` +10 | `buildProjectScopeWhere`, `structureProjectDoor` | — | — | sweep |
 | GET | `/api/projects/[projectId]/submittals` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `submittal.view` | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | sweep |
 | POST | `/api/projects/[projectId]/submittals` | COMPANY_SCOPED | `engineering`, `procurement`, `projects` | `procurement.supplier.view`, `project.view`, `submittal.create` +2 | `buildProjectScopeWhere`, `engineeringProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
 | GET | `/api/projects/[projectId]/transmittals/options` | COMPANY_SCOPED | `documents`, `engineering`, `projects` | `document.view`, `engineering_document.view`, `project.view` +1 | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | sweep |
 | GET | `/api/projects/[projectId]/transmittals` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `transmittal.view` | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | sweep |
 | POST | `/api/projects/[projectId]/transmittals` | COMPANY_SCOPED | `engineering`, `projects` | `engineering_document.view`, `project.view`, `transmittal.create` +1 | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | `loadRecord` | `assertProjectWritable` | sweep |
+| GET | `/api/projects/[projectId]/units` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | — | — | sweep |
 | GET | `/api/projects/[projectId]/work-packages/options` | COMPANY_SCOPED | `contractors`, `contracts`, `finance` +1 | `finance.view`, `legal.view`, `project.view` +1 | `buildProjectScopeWhere`, `contractorProjectDoor` | — | — | sweep |
 | GET | `/api/projects/[projectId]/work-packages` | COMPANY_SCOPED | `contractors`, `engineering`, `projects` +1 | `project.view`, `rfi.view`, `submittal.view` +2 | `buildProjectScopeWhere`, `buildTaskScopeWhere` +5 | — | — | sweep |
 | POST | `/api/projects/[projectId]/work-packages` | COMPANY_SCOPED | `contractors`, `contracts`, `finance` +1 | `finance.view`, `legal.view`, `project.view` +2 | `buildProjectScopeWhere`, `contractorProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
@@ -626,6 +663,11 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | POST | `/api/projects/types/reorder` | COMPANY_SCOPED | `projects` | `project.type.manage` | — | — | — | sweep |
 | GET | `/api/projects/types` | COMPANY_SCOPED | `projects` | `project.type.manage` | — | — | — | sweep |
 | POST | `/api/projects/types` | COMPANY_SCOPED | `projects` | `project.type.manage` | — | — | — | sweep |
+| PATCH | `/api/projects/unit-types/[unitTypeId]` | COMPANY_SCOPED | `projects` | `project.unit_type.manage` | — | — | — | sweep |
+| DELETE | `/api/projects/unit-types/[unitTypeId]` | COMPANY_SCOPED | `projects` | `project.unit_type.manage` | — | — | — | sweep |
+| POST | `/api/projects/unit-types/reorder` | COMPANY_SCOPED | `projects` | `project.unit_type.manage` | — | — | — | sweep |
+| GET | `/api/projects/unit-types` | COMPANY_SCOPED | `projects` | `project.unit_type.manage` | — | — | — | sweep |
+| POST | `/api/projects/unit-types` | COMPANY_SCOPED | `projects` | `project.unit_type.manage` | — | — | — | sweep |
 
 ## /api/qaqc
 
@@ -1181,7 +1223,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 |---|---|---|---|---|---|---|---|---|
 | ACTION | `updateCompanySettingsAction` | COMPANY_SCOPED | `company` | `company.finance_settings.manage`, `company.finance_settings.view`, `company.settings.update` +1 | — | — | — | sweep |
 | ACTION | `updateIntegrationSettingsAction` | COMPANY_SCOPED | `company` | `company.integrations.manage`, `company.integrations.view` | — | — | — | sweep |
-| ACTION | `setModuleEnabledAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +22 | `announcement.create`, `announcement.view`, `approvals.view` +132 | — | — | — | sweep |
+| ACTION | `setModuleEnabledAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +22 | `announcement.create`, `announcement.view`, `approvals.view` +133 | — | — | — | sweep |
 | ACTION | `updateNumberingSchemeAction` | COMPANY_SCOPED | `company` | `company.numbering.manage` | — | — | — | sweep |
 
 ## Server actions — tasks

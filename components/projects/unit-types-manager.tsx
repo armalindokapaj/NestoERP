@@ -1,0 +1,241 @@
+"use client";
+
+import * as React from "react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+
+import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
+import { selectClass } from "@/components/forms/record-form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
+import { UNIT_TYPE_CATEGORIES, UNIT_TYPE_CATEGORY_LABELS, UNIT_TYPE_CODE_MAX, UNIT_TYPE_NAME_MAX, type UnitTypeCategory } from "@/config/unit-types";
+import type { UnitTypeDTO } from "@/lib/modules/project-structure/unit-type.service";
+import { cn } from "@/lib/utils/cn";
+
+/**
+ * The company's list of unit types (E-05B §20, §21, §116).
+ *
+ * The project types manager's twin, with two more things to keep: a short code
+ * an import can map to, and the category that decides which details a unit of
+ * the type is asked for. A type no unit has can be deleted; one in use is
+ * retired, so no unit loses the type it was given.
+ */
+
+type Editing = { id: string; name: string; code: string; category: UnitTypeCategory; error: string | null };
+
+function CategorySelect({ id, value, onChange, label }: { id: string; value: UnitTypeCategory; onChange: (value: UnitTypeCategory) => void; label?: string }) {
+  return (
+    <select id={id} aria-label={label} className={cn(selectClass, "sm:w-40")} value={value} onChange={(event) => onChange(event.target.value as UnitTypeCategory)}>
+      {UNIT_TYPE_CATEGORIES.map((category) => (
+        <option key={category} value={category}>
+          {UNIT_TYPE_CATEGORY_LABELS[category]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
+  const toast = useToast();
+  const [types, setTypes] = React.useState(initial);
+  const [draft, setDraft] = React.useState<{ name: string; code: string; category: UnitTypeCategory }>({ name: "", code: "", category: "RESIDENTIAL" });
+  const [addError, setAddError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState<string | null>(null);
+  const [editing, setEditing] = React.useState<Editing | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<UnitTypeDTO | null>(null);
+
+  const replace = (next: UnitTypeDTO) => setTypes((current) => current.map((type) => (type.id === next.id ? next : type)));
+
+  async function add(event: React.FormEvent) {
+    event.preventDefault();
+    if (!draft.name.trim()) return setAddError("Give the type a name.");
+    setPending("add");
+    setAddError(null);
+    try {
+      const created = await announcementApi<UnitTypeDTO>("/api/projects/unit-types", { body: { name: draft.name.trim(), code: draft.code.trim() || undefined, category: draft.category } });
+      setTypes((current) => [...current, created]);
+      setDraft({ name: "", code: "", category: draft.category });
+    } catch (error) {
+      setAddError(failureMessage(error, "The type could not be added."));
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (!editing) return;
+    setPending(editing.id);
+    try {
+      replace(await announcementApi<UnitTypeDTO>(`/api/projects/unit-types/${editing.id}`, { method: "PATCH", body: { name: editing.name.trim(), code: editing.code.trim() || undefined, category: editing.category } }));
+      setEditing(null);
+    } catch (error) {
+      setEditing({ ...editing, error: failureMessage(error, "The type could not be saved.") });
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function setActive(type: UnitTypeDTO, isActive: boolean) {
+    setPending(type.id);
+    try {
+      replace(await announcementApi<UnitTypeDTO>(`/api/projects/unit-types/${type.id}`, { method: "PATCH", body: { isActive } }));
+      toast({ title: isActive ? `${type.name} is offered for units again.` : `${type.name} is retired. Units that have it keep it.` });
+    } catch (error) {
+      toast({ title: failureMessage(error, "The type could not be changed."), tone: "danger" });
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function move(index: number, offset: -1 | 1) {
+    const target = index + offset;
+    if (target < 0 || target >= types.length) return;
+    const previous = types;
+    const next = [...types];
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    setTypes(next);
+    setPending("reorder");
+    try {
+      setTypes(await announcementApi<UnitTypeDTO[]>("/api/projects/unit-types/reorder", { body: { ids: next.map((type) => type.id) } }));
+    } catch (error) {
+      setTypes(previous);
+      toast({ title: failureMessage(error, "The order could not be saved."), tone: "danger" });
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function remove() {
+    if (!deleteTarget) return;
+    setPending(deleteTarget.id);
+    try {
+      await announcementApi(`/api/projects/unit-types/${deleteTarget.id}`, { method: "DELETE" });
+      setTypes((current) => current.filter((type) => type.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (error) {
+      toast({ title: failureMessage(error, "The type could not be deleted."), tone: "danger" });
+    } finally {
+      setPending(null);
+    }
+  }
+
+  const inUse = types.filter((type) => type.isActive).length;
+
+  return (
+    <div className="space-y-5">
+      <form onSubmit={add} className="nesto-card space-y-2 p-5">
+        <p className="text-card font-semibold text-fg">Add a unit type</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input aria-label="Name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} maxLength={UNIT_TYPE_NAME_MAX} placeholder="For example Duplex" aria-invalid={Boolean(addError)} className="sm:max-w-xs" />
+          <Input aria-label="Code" value={draft.code} onChange={(event) => setDraft({ ...draft, code: event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "") })} maxLength={UNIT_TYPE_CODE_MAX} placeholder="Code (optional)" className="sm:w-44" />
+          <CategorySelect id="new-unit-type-category" label="Category" value={draft.category} onChange={(category) => setDraft({ ...draft, category })} />
+          <Button type="submit" disabled={pending === "add"}>
+            <Plus aria-hidden="true" />
+            {pending === "add" ? "Adding…" : "Add type"}
+          </Button>
+        </div>
+        {addError ? (
+          <p role="alert" className="text-meta text-danger-strong">
+            {addError}
+          </p>
+        ) : null}
+      </form>
+
+      <section className="nesto-card p-0" aria-labelledby="unit-types-heading">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3.5">
+          <h2 id="unit-types-heading" className="text-card font-semibold text-fg">
+            Your unit types
+          </h2>
+          <p className="text-meta text-fg-subtle">
+            {inUse} in use{types.length > inUse ? ` · ${types.length - inUse} retired` : ""}
+          </p>
+        </div>
+
+        {types.length === 0 ? (
+          <p className="px-5 py-8 text-center text-table text-fg-muted">No unit types yet. Units need one — add the first above.</p>
+        ) : (
+          <ol className="divide-y divide-line" data-testid="unit-types">
+            {types.map((type, index) => {
+              const busy = pending === type.id;
+              const isEditing = editing?.id === type.id;
+              return (
+                <li key={type.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3" data-testid="unit-type" data-type-name={type.name}>
+                  <div className="flex shrink-0 items-center">
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${type.name} up`} disabled={index === 0 || pending !== null} onClick={() => void move(index, -1)}>
+                      <ArrowUp />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${type.name} down`} disabled={index === types.length - 1 || pending !== null} onClick={() => void move(index, 1)}>
+                      <ArrowDown />
+                    </Button>
+                  </div>
+
+                  {isEditing ? (
+                    <form onSubmit={save} className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
+                      <Input value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value, error: null })} maxLength={UNIT_TYPE_NAME_MAX} aria-label={`New name for ${type.name}`} autoFocus className="sm:max-w-xs" />
+                      <Input value={editing.code} onChange={(event) => setEditing({ ...editing, code: event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""), error: null })} maxLength={UNIT_TYPE_CODE_MAX} aria-label={`Code for ${type.name}`} className="sm:w-40" />
+                      <CategorySelect id={`unit-type-category-${type.id}`} label={`Category for ${type.name}`} value={editing.category} onChange={(category) => setEditing({ ...editing, category, error: null })} />
+                      <div className="flex gap-1.5">
+                        <Button type="submit" size="sm" disabled={busy}>
+                          {busy ? "Saving…" : "Save"}
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
+                          Cancel
+                        </Button>
+                      </div>
+                      {editing.error ? (
+                        <p role="alert" className="text-meta text-danger-strong sm:basis-full">
+                          {editing.error}
+                        </p>
+                      ) : null}
+                    </form>
+                  ) : (
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("flex min-w-0 flex-wrap items-center gap-2 text-body font-medium", type.isActive ? "text-fg" : "text-fg-muted")}>
+                        <span className="truncate">{type.name}</span>
+                        <span className="text-meta font-normal text-fg-subtle">{type.code}</span>
+                        <Badge>{UNIT_TYPE_CATEGORY_LABELS[type.category]}</Badge>
+                        {type.isActive ? null : <Badge>Retired</Badge>}
+                      </p>
+                      <p className="text-meta text-fg-subtle">{type.unitCount === 0 ? "No units" : `${type.unitCount} ${type.unitCount === 1 ? "unit" : "units"}`}</p>
+                    </div>
+                  )}
+
+                  {isEditing ? null : (
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setEditing({ id: type.id, name: type.name, code: type.code, category: type.category, error: null })} disabled={pending !== null}>
+                        <Pencil aria-hidden="true" />
+                        Edit<span className="sr-only"> {type.name}</span>
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => void setActive(type, !type.isActive)} disabled={pending !== null}>
+                        {busy ? "Saving…" : type.isActive ? "Retire" : "Use again"}
+                        <span className="sr-only"> {type.name}</span>
+                      </Button>
+                      {type.unitCount === 0 ? (
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${type.name}`} onClick={() => setDeleteTarget(type)} disabled={pending !== null}>
+                          <Trash2 />
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={deleteTarget ? `Delete ${deleteTarget.name}?` : "Delete unit type?"}
+        description="No unit uses this type, so nothing else changes. This cannot be undone."
+        confirmLabel="Delete type"
+        pending={deleteTarget !== null && pending === deleteTarget.id}
+        onConfirm={() => void remove()}
+      />
+    </div>
+  );
+}

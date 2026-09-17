@@ -25,6 +25,11 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Company A clients", actual: await prisma.client.count({ where: { companyId: COMPANY_A } }), expected: 12, comparison: "gte" },
     { label: "Company A contacts", actual: await prisma.contact.count({ where: { companyId: COMPANY_A } }), expected: 18, comparison: "gte" },
     { label: "Company A projects", actual: await prisma.project.count({ where: { companyId: COMPANY_A } }), expected: 7, comparison: "gte" },
+    // Riverside Residences: three blocks, 96 apartments among 126 units (E-05B §3).
+    { label: "Company A unit types", actual: await prisma.projectUnitType.count({ where: { companyId: COMPANY_A } }), expected: 10, comparison: "gte" },
+    { label: "Riverside buildings", actual: await prisma.projectBuilding.count({ where: { projectId: PROJECT_IDS.a } }), expected: 3, comparison: "eq" },
+    { label: "Riverside apartments", actual: await prisma.projectUnit.count({ where: { projectId: PROJECT_IDS.a, unitType: { code: "APARTMENT" } } }), expected: 96, comparison: "eq" },
+    { label: "Company B units", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_B } }), expected: 3, comparison: "gte" },
     { label: "Company A tasks", actual: await prisma.task.count({ where: { companyId: COMPANY_A } }), expected: 36, comparison: "gte" },
     { label: "Company A documents", actual: await prisma.document.count({ where: { companyId: COMPANY_A } }), expected: 24, comparison: "gte" },
     { label: "Company A activities", actual: await prisma.activity.count({ where: { companyId: COMPANY_A } }), expected: 40, comparison: "gte" },

@@ -204,6 +204,8 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project.activity.view",
       // The plan is read by everybody who can open the project (PRD #44 §80-§95).
       "project_planning.view",
+      // So are its buildings, floors and units: Sales and Finance read the same units (E-05B §59, §80).
+      "project.structure.view",
     ],
     CONTRIBUTE: ["project.update"],
     MANAGE: [
@@ -233,6 +235,22 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project_planning.baseline.manage",
       "project_planning.dependencies.manage",
       "project_planning.blockers.manage",
+      /*
+       * Setting up the physical project — buildings, floors, units, their order
+       * and moves (E-05B §59, §60). Engineers read it; an Architect holds it as
+       * an override, on the projects they are assigned to.
+       */
+      "project.structure.manage",
+      "project.building.create",
+      "project.building.update",
+      "project.building.delete",
+      "project.floor.create",
+      "project.floor.update",
+      "project.floor.delete",
+      "project.unit.create",
+      "project.unit.update",
+      "project.unit.delete",
+      "project.unit.move",
     ],
   },
   tasks: {
@@ -1091,7 +1109,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     dailyLogs: { extra: ["daily_log.settings.manage"] },
     // The company's planning rules, and moving a locked baseline (PRD #44 §76, §309).
     // The company's list of project types (E-05A §62).
-    projects: { extra: ["project_planning.settings.manage", "project.type.manage"] },
+    // The company's list of unit types (E-05B §20, §21).
+    projects: { extra: ["project_planning.settings.manage", "project.type.manage", "project.unit_type.manage"] },
     // Promoting somebody to Owner is the one company action an Admin must not
     // be able to take on their own (PRD #14 §95, §96).
     team: { extra: ["team.owner.assign"] },
@@ -1136,8 +1155,30 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * their details right and moves them between Pending, Active and Finished
      * inside their company (E-05A §29, §60), and keeps the company's list of
      * project types (§62). Archiving stays with whoever holds the module outright.
+     * Setting up a project includes its buildings, floors and units, and the
+     * company's unit types (E-05B §59).
      */
-    projects: { deny: ["project_planning.view"], extra: ["project.create", "project.update", "project.status.manage", "project.type.manage"] },
+    projects: {
+      deny: ["project_planning.view"],
+      extra: [
+        "project.create",
+        "project.update",
+        "project.status.manage",
+        "project.type.manage",
+        "project.structure.manage",
+        "project.building.create",
+        "project.building.update",
+        "project.building.delete",
+        "project.floor.create",
+        "project.floor.update",
+        "project.floor.delete",
+        "project.unit.create",
+        "project.unit.update",
+        "project.unit.delete",
+        "project.unit.move",
+        "project.unit_type.manage",
+      ],
+    },
   },
   CEO: {
     /**
@@ -1309,6 +1350,26 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   ARCHITECT: {
+    /**
+     * The physical project on the projects they are assigned to (E-05B §59, §60):
+     * buildings, floors and the technical data of every unit. The ladder's
+     * CONTRIBUTE rung stops short of it, which is where Engineers stay.
+     */
+    projects: {
+      extra: [
+        "project.structure.manage",
+        "project.building.create",
+        "project.building.update",
+        "project.building.delete",
+        "project.floor.create",
+        "project.floor.update",
+        "project.floor.delete",
+        "project.unit.create",
+        "project.unit.update",
+        "project.unit.delete",
+        "project.unit.move",
+      ],
+    },
     // Design-related work and instructions on their projects' logs (PRD #43 §135).
     dailyLogs: { extra: ["daily_log.edit", "daily_log.activity.manage", "daily_log.instruction.manage"] },
     /**

@@ -1,5 +1,6 @@
 import type { ModuleKey } from "@/config/modules";
 import { defaultProjectTypeRows } from "@/config/project-types";
+import { defaultUnitTypeRows } from "@/config/unit-types";
 import { prisma } from "@/lib/database/prisma";
 
 import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.service";
@@ -130,5 +131,9 @@ export async function bootstrapCompanyConfiguration(companyId: string): Promise<
   // so a retried onboarding never brings back a type an administrator removed.
   if (!(await prisma.projectType.findFirst({ where: { companyId }, select: { id: true } }))) {
     await prisma.projectType.createMany({ data: defaultProjectTypeRows(companyId), skipDuplicates: true });
+  }
+  // And unit types (E-05B §20), on the same terms.
+  if (!(await prisma.projectUnitType.findFirst({ where: { companyId }, select: { id: true } }))) {
+    await prisma.projectUnitType.createMany({ data: defaultUnitTypeRows(companyId), skipDuplicates: true });
   }
 }

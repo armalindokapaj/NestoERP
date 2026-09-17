@@ -51,6 +51,7 @@ export default async function ProjectActivityPage({ params, searchParams }: Para
         active="activity"
         show={{
           planning: actions.canViewPlanning,
+          units: actions.canViewUnits,
           contractors: actions.canViewContractors,
           engineering: actions.canViewEngineering,
           tasks: actions.canViewTasks,

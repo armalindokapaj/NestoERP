@@ -175,6 +175,8 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "archived", label: "Archived" },
       // The company's own list of project types (E-05A §62).
       { key: "types", label: "Project types", permission: "project.type.manage" },
+      // The company's own list of unit types (E-05B §20, §21).
+      { key: "unit-types", label: "Unit types", permission: "project.unit_type.manage" },
     ],
   },
   tasks: {

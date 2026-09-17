@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import { defaultProjectTypeRows } from "@/config/project-types";
+import { defaultUnitTypeRows } from "@/config/unit-types";
 import { appLink } from "@/lib/config/app-url";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordSystemAction } from "@/lib/core/audit/audit.service";
@@ -148,6 +149,9 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
     // from then on, so a rerun adds none it renamed or removed (E-05A §62).
     const hasProjectTypes = await tx.projectType.findFirst({ where: { companyId }, select: { id: true } });
     if (!hasProjectTypes) await tx.projectType.createMany({ data: defaultProjectTypeRows(companyId) });
+    // The same for unit types (E-05B §20).
+    const hasUnitTypes = await tx.projectUnitType.findFirst({ where: { companyId }, select: { id: true } });
+    if (!hasUnitTypes) await tx.projectUnitType.createMany({ data: defaultUnitTypeRows(companyId) });
 
     if (!existing) {
       await recordSystemAction(

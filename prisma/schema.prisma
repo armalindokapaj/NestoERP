@@ -93,6 +93,56 @@ enum ProjectMemberStatus {
   INACTIVE
 }
 
+/// What kind of level a floor is (E-05B §13). The number alone cannot say it: a
+/// mezzanine and the ground floor can both be level 0, and a roof has no number.
+enum FloorLevelType {
+  BASEMENT
+  GROUND
+  STANDARD
+  MEZZANINE
+  TECHNICAL
+  ROOF
+  OTHER
+}
+
+/// The broad kind a unit type belongs to (E-05B §21, §22). It decides which
+/// technical fields a unit of that type is expected to have — bedrooms on an
+/// apartment, not on a parking space — and never blocks a value on its own.
+enum UnitTypeCategory {
+  RESIDENTIAL
+  COMMERCIAL
+  PARKING
+  STORAGE
+  LAND
+  OTHER
+}
+
+/// Which way a unit faces (E-05B §25). Separate from where it sits (§26).
+enum UnitOrientation {
+  N
+  NE
+  E
+  SE
+  S
+  SW
+  W
+  NW
+  MULTI
+  UNKNOWN
+}
+
+/// Where a unit sits on its floor (E-05B §26).
+enum UnitPosition {
+  FRONT
+  REAR
+  CORNER
+  INTERNAL
+  LEFT
+  RIGHT
+  CENTER
+  OTHER
+}
+
 enum ClientType {
   INDIVIDUAL
   COMPANY
@@ -849,13 +899,17 @@ model Company {
   departments Department[]
   modules     CompanyModule[]
 
-  projects     Project[]
-  projectTypes ProjectType[]
-  clients      Client[]
-  contacts     Contact[]
-  tasks        Task[]
-  documents    Document[]
-  activities   Activity[]
+  projects         Project[]
+  projectTypes     ProjectType[]
+  projectUnitTypes ProjectUnitType[]
+  projectBuildings ProjectBuilding[]
+  projectFloors    ProjectFloor[]
+  projectUnits     ProjectUnit[]
+  clients          Client[]
+  contacts         Contact[]
+  tasks            Task[]
+  documents        Document[]
+  activities       Activity[]
 
   settings            CompanySettings?
   integrationSettings CompanyIntegrationSettings?
@@ -1364,6 +1418,10 @@ model Project {
   dailyLogSettings ProjectDailyLogSettings?
   phases           ProjectPhase[]
   milestones       ProjectMilestone[]
+  /// The physical structure: buildings, their floors, the units on them (E-05B §3).
+  buildings        ProjectBuilding[]
+  floors           ProjectFloor[]
+  units            ProjectUnit[]
   announcements    Announcement[]
 
   contractorAssignments ProjectContractorAssignment[]
@@ -1374,6 +1432,9 @@ model Project {
   documentTransmittals  DocumentTransmittal[]
 
   @@unique([companyId, code])
+  /// The target of the structure tables' composite keys (E-05B §69, §79): a
+  /// building, floor or unit can only name a project of its own company.
+  @@unique([id, companyId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, updatedAt])
@@ -1416,6 +1477,179 @@ model ProjectType {
   @@unique([companyId, name])
   @@index([companyId, isActive, sortOrder])
   @@map("project_types")
+}
+
+/// A company's unit types (E-05B §20, §21).
+///
+/// A list the company keeps, like its project types, starting from the defaults
+/// in `config/unit-types.ts`. The category decides which technical fields a
+/// unit of the type is expected to carry. A type units use is retired, never
+/// deleted: existing units keep it, new ones cannot choose it (§116).
+model ProjectUnitType {
+  id        String           @id @default(cuid())
+  companyId String
+  name      String
+  /// Short, stable, upper-case identifier (`APARTMENT`) — what an import maps to (§97).
+  code      String
+  category  UnitTypeCategory @default(OTHER)
+  isActive  Boolean          @default(true)
+  sortOrder Int              @default(0)
+
+  createdBy String?
+  updatedBy String?
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  units   ProjectUnit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@unique([companyId, name])
+  /// The target of the units' composite key: a unit's type is its own company's.
+  @@unique([id, companyId])
+  @@index([companyId, isActive, sortOrder])
+  @@map("project_unit_types")
+}
+
+/// A building on a project (E-05B §7-§10). Every unit belongs to one, even on a
+/// single-building project: there is no shortcut past this row (§7).
+model ProjectBuilding {
+  id          String  @id @default(cuid())
+  companyId   String
+  projectId   String
+  name        String
+  /// The name folded for comparison (trim, NFKC, upper case), unique per project (§9, §113).
+  nameKey     String
+  code        String?
+  codeKey     String?
+  description String?
+  sortOrder   Int
+  isActive    Boolean @default(true)
+  /// Optimistic concurrency: an edit names the version it read (§95).
+  version     Int     @default(1)
+
+  createdBy String
+  updatedBy String?
+
+  company Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project        @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  floors  ProjectFloor[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// The target of the floors' composite key, so a floor's project is its building's.
+  @@unique([id, projectId])
+  @@unique([projectId, nameKey])
+  @@unique([projectId, codeKey])
+  @@index([companyId, projectId, sortOrder])
+  @@map("project_buildings")
+}
+
+/// A floor of one building (E-05B §11-§15).
+///
+/// `projectId` is derived from the building and held to it by the composite
+/// foreign key; nothing edits it. `floorKey` is the floor's identity inside its
+/// building — level type and number, or level type and name when it has no
+/// number — so Floor 9 exists once per building and once in every building (§14).
+model ProjectFloor {
+  id          String         @id @default(cuid())
+  companyId   String
+  projectId   String
+  buildingId  String
+  number      Int?
+  name        String
+  levelType   FloorLevelType
+  floorKey    String
+  sortOrder   Int
+  /// Metres above the project datum (§11).
+  elevation   Decimal?       @db.Decimal(10, 2)
+  description String?
+  isActive    Boolean        @default(true)
+  version     Int            @default(1)
+
+  createdBy String
+  updatedBy String?
+
+  company  Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project  Project         @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  building ProjectBuilding @relation(fields: [buildingId, projectId], references: [id, projectId], onDelete: Restrict)
+  units    ProjectUnit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// The target of the units' composite key, so a unit's project is its floor's.
+  @@unique([id, projectId])
+  @@unique([buildingId, floorKey])
+  @@index([buildingId, sortOrder])
+  @@index([companyId, projectId])
+  @@map("project_floors")
+}
+
+/// The one canonical unit (E-05B §2, §16-§30).
+///
+/// Sales, Finance, Documents and the 3D explorer reference this row by `id`;
+/// none of them keeps a unit of its own. The id survives a rename, a new code
+/// and a move to another floor (§83). `projectId` is derived from the floor —
+/// held to it by the composite key — so the unit code can be unique per
+/// project in the database (§68, §69). Areas are square metres, exact decimals (§23, §73).
+model ProjectUnit {
+  id          String  @id @default(cuid())
+  companyId   String
+  projectId   String
+  floorId     String
+  unitCode    String
+  /// The code folded for comparison (trim, NFKC, upper case): `a-901` is `A-901` (§112).
+  unitCodeKey String
+  name        String?
+  unitTypeId  String
+
+  position    UnitPosition?
+  orientation UnitOrientation?
+
+  internalArea         Decimal? @db.Decimal(12, 2)
+  grossArea            Decimal? @db.Decimal(12, 2)
+  saleableArea         Decimal? @db.Decimal(12, 2)
+  outdoorArea          Decimal? @db.Decimal(12, 2)
+  balconyArea          Decimal? @db.Decimal(12, 2)
+  terraceArea          Decimal? @db.Decimal(12, 2)
+  gardenArea           Decimal? @db.Decimal(12, 2)
+  commonAreaAllocation Decimal? @db.Decimal(12, 2)
+
+  rooms     Int?
+  bedrooms  Int?
+  bathrooms Int?
+
+  /// The few type-specific details with no column of their own — covered and
+  /// EV-ready parking, a shop's frontage and ceiling height (§22, §71). A fixed
+  /// schema validates it; nothing searchable lives here.
+  attributes  Json?
+  description String?
+  sortOrder   Int
+  isActive    Boolean @default(true)
+  version     Int     @default(1)
+
+  createdBy String
+  updatedBy String?
+
+  company  Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project  Project         @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  floor    ProjectFloor    @relation(fields: [floorId, projectId], references: [id, projectId], onDelete: Restrict)
+  unitType ProjectUnitType @relation(fields: [unitTypeId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, unitCodeKey])
+  @@index([floorId, sortOrder])
+  @@index([companyId, projectId])
+  @@index([unitTypeId])
+  @@index([projectId, saleableArea])
+  @@index([projectId, internalArea])
+  @@index([projectId, orientation])
+  @@map("project_units")
 }
 
 /// How PROJECT and ASSIGNED scope are resolved: user → member → project

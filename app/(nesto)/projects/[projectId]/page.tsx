@@ -16,6 +16,7 @@ import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.paren
 import * as projects from "@/lib/modules/projects/project.service";
 import { dateLabel } from "@/lib/modules/project-planning/planning.dates";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
+import { projectStructureSummary } from "@/lib/modules/project-structure/structure.service";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import {
   daysRemaining,
@@ -65,6 +66,8 @@ export default async function ProjectOverviewPage({ params }: Params) {
 
   // Next milestone, delays, risk and progress by phase (PRD #44 §169).
   const planning = actions.canViewPlanning ? await projectPlanningSummary(context, projectId) : null;
+  // Buildings, floors and units, counted from the rows (E-05B §88).
+  const structure = actions.canViewUnits ? await projectStructureSummary(context, projectId) : null;
 
   const taskSummary = actions.canViewTasks
     ? await projects.getProjectTaskSummary(context, projectId)
@@ -203,6 +206,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
         active="overview"
         show={{
           planning: actions.canViewPlanning,
+          units: actions.canViewUnits,
           contractors: actions.canViewContractors,
           engineering: actions.canViewEngineering,
           tasks: actions.canViewTasks,
@@ -303,6 +307,33 @@ export default async function ProjectOverviewPage({ params }: Params) {
                 </>
               ) : (
                 <p className="mt-3 text-table text-fg-subtle">No plan yet.</p>
+              )}
+            </section>
+          ) : null}
+
+          {structure ? (
+            <section className="nesto-card p-5" data-testid="project-structure-card">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-card font-semibold text-fg">Units</h2>
+                <Link href={`/projects/${project.id}/units`} className="text-table font-medium text-accent-strong">
+                  View units
+                </Link>
+              </div>
+              {structure.buildings ? (
+                <dl className="mt-4 grid grid-cols-3 gap-3">
+                  {[
+                    { label: structure.buildings === 1 ? "Building" : "Buildings", value: structure.buildings },
+                    { label: structure.floors === 1 ? "Floor" : "Floors", value: structure.floors },
+                    { label: structure.units === 1 ? "Unit" : "Units", value: structure.units },
+                  ].map((entry) => (
+                    <div key={entry.label}>
+                      <dt className="text-meta text-fg-subtle">{entry.label}</dt>
+                      <dd className="text-section font-semibold tabular-nums text-fg">{entry.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="mt-3 text-table text-fg-subtle">No buildings yet.</p>
               )}
             </section>
           ) : null}

@@ -1,0 +1,326 @@
+"use client";
+
+import * as React from "react";
+import { ChevronDown } from "lucide-react";
+
+import { selectClass } from "@/components/forms/record-form";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
+import { Textarea } from "@/components/ui/textarea";
+import { attributesFor, expectsCount, unitWarnings } from "@/lib/modules/project-structure/structure.rules";
+import {
+  AREA_FIELDS,
+  AREA_LABELS,
+  COUNT_FIELDS,
+  COUNT_LABELS,
+  ORIENTATION_LABELS,
+  POSITION_LABELS,
+  UNIT_ATTRIBUTES,
+  UNIT_ORIENTATIONS,
+  UNIT_POSITIONS,
+  type AreaField,
+  type CountField,
+  type UnitAttributes,
+  type UnitDTO,
+  type UnitOrientation,
+  type UnitPosition,
+  type UnitTypeOption,
+} from "@/lib/modules/project-structure/structure.types";
+import { cn } from "@/lib/utils/cn";
+import { Field, fieldErrors, FormError, failureMessage, numberText, structureApi, Warnings } from "./structure-ui";
+
+/**
+ * Adding and editing a unit (E-05B §17-§26, §40, §55, §74, §95).
+ *
+ * The floor is the context and is not asked for again (§40). The type decides
+ * which counts and details are offered — bedrooms for an apartment, EV-ready
+ * for a parking space — and anything unusual is a warning beside the save
+ * button, never a refusal (§74). Saving sends the version the form loaded, so
+ * a unit somebody else changed in the meantime is not silently overwritten.
+ */
+
+export type TechnicalValues = {
+  unitTypeId: string;
+  position: UnitPosition | "";
+  orientation: UnitOrientation | "";
+  areas: Record<AreaField, string>;
+  counts: Record<CountField, string>;
+  attributes: UnitAttributes;
+  description: string;
+};
+
+const PRIMARY_AREAS: AreaField[] = ["internalArea", "grossArea", "saleableArea", "outdoorArea"];
+
+export function emptyTechnical(unitTypeId = ""): TechnicalValues {
+  return {
+    unitTypeId,
+    position: "",
+    orientation: "",
+    areas: Object.fromEntries(AREA_FIELDS.map((field) => [field, ""])) as Record<AreaField, string>,
+    counts: { rooms: "", bedrooms: "", bathrooms: "" },
+    attributes: {},
+    description: "",
+  };
+}
+
+export function technicalBody(values: TechnicalValues) {
+  const count = (value: string) => (value.trim() === "" ? null : Number(value));
+  return {
+    unitTypeId: values.unitTypeId,
+    position: values.position || null,
+    orientation: values.orientation || null,
+    ...Object.fromEntries(AREA_FIELDS.map((field) => [field, values.areas[field].trim() || null])),
+    rooms: count(values.counts.rooms),
+    bedrooms: count(values.counts.bedrooms),
+    bathrooms: count(values.counts.bathrooms),
+    attributes: Object.keys(values.attributes).length ? values.attributes : null,
+    description: values.description.trim() || null,
+  };
+}
+
+export function warningsFor(values: TechnicalValues, types: UnitTypeOption[]): string[] {
+  const type = types.find((candidate) => candidate.id === values.unitTypeId);
+  if (!type) return [];
+  const count = (value: string) => (value.trim() === "" ? null : Number(value));
+  return unitWarnings(type.category, { rooms: count(values.counts.rooms), bedrooms: count(values.counts.bedrooms), bathrooms: count(values.counts.bathrooms), internalArea: values.areas.internalArea || null, saleableArea: values.areas.saleableArea || null });
+}
+
+/** The technical half of the form, shared by a single unit and a batch's defaults (§42). */
+export function TechnicalFields({ idPrefix, values, onChange, types, errors, currentTypeId }: { idPrefix: string; values: TechnicalValues; onChange: (values: TechnicalValues) => void; types: UnitTypeOption[]; errors: Record<string, string>; currentTypeId?: string }) {
+  const [more, setMore] = React.useState(false);
+  const type = types.find((candidate) => candidate.id === values.unitTypeId);
+  const category = type?.category ?? "OTHER";
+  const offered = types.filter((candidate) => candidate.isActive || candidate.id === currentTypeId);
+  const set = (patch: Partial<TechnicalValues>) => onChange({ ...values, ...patch });
+  // A count the type does not expect stays reachable, and shows whenever it already holds a value.
+  const counts = COUNT_FIELDS.filter((field) => expectsCount(category, field) || values.counts[field] !== "" || more);
+  const extraAreas = AREA_FIELDS.filter((field) => !PRIMARY_AREAS.includes(field));
+  const attributes = attributesFor(category);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Type" htmlFor={`${idPrefix}-type`} error={errors.unitTypeId} required>
+          <select id={`${idPrefix}-type`} className={selectClass} value={values.unitTypeId} onChange={(event) => set({ unitTypeId: event.target.value })} aria-invalid={Boolean(errors.unitTypeId)}>
+            <option value="">Choose a type</option>
+            {offered.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+                {option.isActive ? "" : " (retired)"}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Position" htmlFor={`${idPrefix}-position`} error={errors.position}>
+          <select id={`${idPrefix}-position`} className={selectClass} value={values.position} onChange={(event) => set({ position: event.target.value as UnitPosition | "" })}>
+            <option value="">Not set</option>
+            {UNIT_POSITIONS.map((position) => (
+              <option key={position} value={position}>
+                {POSITION_LABELS[position]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Orientation" htmlFor={`${idPrefix}-orientation`} error={errors.orientation}>
+          <select id={`${idPrefix}-orientation`} className={selectClass} value={values.orientation} onChange={(event) => set({ orientation: event.target.value as UnitOrientation | "" })}>
+            <option value="">Not set</option>
+            {UNIT_ORIENTATIONS.map((orientation) => (
+              <option key={orientation} value={orientation}>
+                {ORIENTATION_LABELS[orientation]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <fieldset>
+        <legend className="mb-2 text-meta font-semibold text-fg">Areas (m²)</legend>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[...PRIMARY_AREAS, ...(more ? extraAreas : extraAreas.filter((field) => values.areas[field] !== ""))].map((field) => (
+            <Field key={field} label={AREA_LABELS[field]} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
+              <Input id={`${idPrefix}-${field}`} inputMode="decimal" value={values.areas[field]} onChange={(event) => set({ areas: { ...values.areas, [field]: numberText(event.target.value) } })} aria-invalid={Boolean(errors[field])} />
+            </Field>
+          ))}
+        </div>
+      </fieldset>
+
+      {counts.length ? (
+        <div className="grid grid-cols-3 gap-3">
+          {counts.map((field) => (
+            <Field key={field} label={COUNT_LABELS[field]} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
+              <Input id={`${idPrefix}-${field}`} inputMode="numeric" value={values.counts[field]} onChange={(event) => set({ counts: { ...values.counts, [field]: event.target.value.replace(/\D/g, "") } })} aria-invalid={Boolean(errors[field])} />
+            </Field>
+          ))}
+        </div>
+      ) : null}
+
+      {attributes.length ? (
+        <div className="flex flex-wrap items-end gap-4">
+          {attributes.map((key) => {
+            const spec = UNIT_ATTRIBUTES[key];
+            if (spec.kind === "boolean") {
+              return (
+                <label key={key} className="flex h-10 items-center gap-2 text-table text-fg">
+                  <Checkbox
+                    checked={Boolean(values.attributes[key as "covered" | "evReady"])}
+                    onCheckedChange={(checked) => {
+                      const next = { ...values.attributes };
+                      if (checked === true) next[key as "covered" | "evReady"] = true;
+                      else delete next[key as "covered" | "evReady"];
+                      set({ attributes: next });
+                    }}
+                  />
+                  {spec.label}
+                </label>
+              );
+            }
+            const value = (values.attributes[key as "frontage" | "ceilingHeight"] as string | undefined) ?? "";
+            return (
+              <Field key={key} label={spec.label} htmlFor={`${idPrefix}-${key}`} error={errors[key]} className="w-40">
+                <Input
+                  id={`${idPrefix}-${key}`}
+                  inputMode="decimal"
+                  value={value}
+                  onChange={(event) => {
+                    const next = { ...values.attributes };
+                    const text = numberText(event.target.value);
+                    if (text) next[key as "frontage" | "ceilingHeight"] = text;
+                    else delete next[key as "frontage" | "ceilingHeight"];
+                    set({ attributes: next });
+                  }}
+                />
+              </Field>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <button type="button" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong" onClick={() => setMore((open) => !open)} aria-expanded={more}>
+        <ChevronDown className={cn("size-4 transition-transform", more && "rotate-180")} aria-hidden="true" />
+        {more ? "Fewer fields" : "More areas and counts"}
+      </button>
+
+      <Field label="Description" htmlFor={`${idPrefix}-description`} error={errors.description}>
+        <Textarea id={`${idPrefix}-description`} value={values.description} onChange={(event) => set({ description: event.target.value })} maxLength={1000} rows={2} />
+      </Field>
+    </div>
+  );
+}
+
+export function technicalFromUnit(unit: UnitDTO): TechnicalValues {
+  return {
+    unitTypeId: unit.unitType.id,
+    position: unit.position ?? "",
+    orientation: unit.orientation ?? "",
+    areas: Object.fromEntries(AREA_FIELDS.map((field) => [field, unit.areas[field] ?? ""])) as Record<AreaField, string>,
+    counts: { rooms: unit.rooms === null ? "" : String(unit.rooms), bedrooms: unit.bedrooms === null ? "" : String(unit.bedrooms), bathrooms: unit.bathrooms === null ? "" : String(unit.bathrooms) },
+    attributes: { ...unit.attributes },
+    description: unit.description ?? "",
+  };
+}
+
+export function UnitDialog({
+  open,
+  onOpenChange,
+  floor,
+  unit,
+  types,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  floor: { id: string; name: string; buildingName: string };
+  unit?: UnitDTO;
+  types: UnitTypeOption[];
+  onSaved: (id: string) => void;
+}) {
+  const toast = useToast();
+  const [code, setCode] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [active, setActive] = React.useState(true);
+  const [technical, setTechnical] = React.useState<TechnicalValues>(emptyTechnical());
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setCode(unit?.unitCode ?? "");
+    setName(unit?.name ?? "");
+    setActive(unit?.isActive ?? true);
+    setTechnical(unit ? technicalFromUnit(unit) : emptyTechnical(types.find((type) => type.isActive)?.id ?? ""));
+    setErrors({});
+    setFormError(null);
+  }, [open, unit, types]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const local: Record<string, string> = {};
+    if (!code.trim()) local.unitCode = "Give the unit a code.";
+    if (!technical.unitTypeId) local.unitTypeId = "Choose the unit's type.";
+    if (Object.keys(local).length) return setErrors(local);
+    setPending(true);
+    setErrors({});
+    setFormError(null);
+    const body = { unitCode: code, name: name || null, ...technicalBody(technical) };
+    try {
+      if (unit) {
+        await structureApi(`/api/project-units/${unit.id}`, { method: "PATCH", body: { ...body, isActive: active, expectedVersion: unit.version } });
+        toast({ title: code !== unit.unitCode ? `Saved. ${unit.unitCode} is now ${code}; its page and links are unchanged.` : `${code} saved.` });
+        onSaved(unit.id);
+      } else {
+        const created = await structureApi<{ id: string }>(`/api/project-floors/${floor.id}/units`, { body });
+        toast({ title: `${code} added to ${floor.name}.` });
+        onSaved(created.id);
+      }
+      onOpenChange(false);
+    } catch (error) {
+      const fields = fieldErrors(error);
+      setErrors(fields);
+      if (!Object.keys(fields).length) setFormError(failureMessage(error, "The unit could not be saved."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
+        <DialogTitle>{unit ? `Edit ${unit.unitCode}` : "Add unit"}</DialogTitle>
+        <DialogDescription>
+          {floor.buildingName} · {floor.name}
+        </DialogDescription>
+        <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
+          <FormError message={formError} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Unit code" htmlFor="unit-code" error={errors.unitCode} required hint={unit ? "Changing the code keeps the unit's id and page." : "Unique in this project, e.g. A-901."}>
+              <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
+            </Field>
+            <Field label="Name" htmlFor="unit-name" error={errors.name}>
+              <Input id="unit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder="Apartment 901" />
+            </Field>
+          </div>
+          <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
+          {unit ? (
+            <label className="flex items-center gap-2 text-table text-fg">
+              <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
+              Active
+            </label>
+          ) : null}
+          <Warnings items={warningsFor(technical, types)} />
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : unit ? "Save unit" : "Add unit"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
