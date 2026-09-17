@@ -1006,3 +1006,95 @@ suites). Of those:
   policy for when they exist. Unit types are per company.
 - **The development server needs a restart** after this migration and
   `prisma generate`: a running server has no client for the new models.
+
+## 18. Enhancement E-05D — The unit page and publishing
+
+Every unit now has the page E-05D describes — Overview, Documents, Media,
+Publishing, Activity — and a publication lifecycle: an Architect prepares a unit
+and submits it, a publisher approves it as an immutable version, and later edits
+show as unpublished changes until the next version. Two roles arrived with it:
+**Architecture Manager** and **Sales Manager**. `docs/unit-publishing.md` is the
+contract.
+
+### 18.1 What changed
+
+| Before | Now |
+|---|---|
+| A unit page with technical data only | Overview (data by kind of unit, primary image, Sales Plan, readiness), Documents, Media, Publishing (reviewer view, history, each version's snapshot), Activity |
+| No publishing state | `publicationStatus` on the unit, moved only by the new `unit_publication` machine (6 transitions): Draft → Ready for Publishing → Published, Revision Required with a reason, Unpublish with a reason, Archive and Restore |
+| — | `UnitPublication`: numbered, immutable versions with a snapshot of the publish-relevant data and the exact Sales Plan and primary image versions |
+| — | Unpublished changes computed from what a version would publish — an edit, a move, a floor moved to another building, a new Sales Plan version or primary image — and cleared by publishing or by putting the value back |
+| No unit files | One logical Sales Plan per unit (new uploads are versions of it), technical documents attached by reference (a project drawing attached to many units without a copy), images with categories, captions, order and one primary — all canonical Documents; the unit is a registered document parent (`project_unit`) |
+| — | Readiness checked on the page, at submission and again under the unit's row lock at publish; an incomplete unit is refused with what is missing |
+| Approvals Center: 9 sources | A tenth, *Unit publishing* (`projects`): Approve publishes, Return is Revision Required |
+| 16 roles | 18: **Architecture Manager** (the Architect's row on every project of the company, plus publishing and the approvals inbox; no project creation or status by default, per E-05A §8, §58) and **Sales Manager** (Sales' row, deciding proposals); demo users `architecture-manager` and `sales-manager`, codes renumbered 01–18 |
+| — | 8 permissions: `project.unit.documents.manage`, `.media.manage`, `.submit_for_publish`, `.publish`, `.revision_request`, `.unpublish`, `.archive`, `.publication_history.view` |
+| Units deleted freely | A unit with a version, files, media, links or a request is refused (`UNIT_REFERENCED`) and archived instead |
+| Unit list without publication | A Publication column (and *Changed*) and filter; the phone card shows the badge |
+| Edit dialog closed on any click outside | Asks before discarding unsaved changes, and warns on leaving the page |
+
+Migration `20260917150000_unit_publishing_e05d` is additive: four tables, five
+enums, seven columns on `project_units`, composite foreign keys holding every
+publication, image and link to its unit's project and company and a unit's
+current version to its own, and partial unique indexes for one primary image
+and one open request per unit. Every existing unit starts Draft. It was replayed
+from zero into an empty database before being applied.
+
+### 18.2 The evidence
+
+Full vitest 3 328 passed, 0 failed (11 skipped: the destructive and opt-in
+suites). Of those:
+
+- New suites: `tests/unit/project-structure/publishing-rules.test.ts` (14) and
+  `tests/api/project-structure/unit-publishing.test.ts` (25 — readiness,
+  versions with exact file versions, unpublished changes, two submitters and two
+  publishers racing, revision and returned changes, unpublish, archive and
+  restore, one logical Sales Plan, shared project drawings, media primary and the
+  partial index, every role's capabilities, outsiders and Company B, the
+  Approvals Center approving and returning).
+- Security: `tests/security` passed; a sweep narrowed to `/api/project-units`
+  answers 404 to all 34 foreign-id calls in both directions, nothing uncovered or
+  unvalidated — the harness now resolves `linkId`, `mediaId` and `publicationId`
+  to rows of their own unit.
+- `pnpm verify:roles` against the production build: 1 363 of 1 363 checks for
+  all 18 roles.
+- Gates: typecheck, lint (0 errors, the 16 pre-existing warnings),
+  `verify:ownership` (201 models), `verify:authorization` (509 routes),
+  `verify:state` (41 machines, 211 transitions; 87 blind and 19 unreadable,
+  unchanged), `verify:production-guards`, `security:matrix --check` (887
+  endpoints, none unguarded).
+- E2E against the production build: 423 passed, 1 failed. The new desktop
+  journey (upload a Sales Plan and an image, submit, publish, an edit showing as
+  unpublished changes while v1 keeps its area, Sales without actions, the
+  not-ready explanation, the seeded states in the unit list), the E-05B
+  structure journeys with the new unit page, and the phone spec pass. The one
+  failure is `responsive/mobile.spec.ts` "moves filters and the sort into a
+  sheet…", the E-05A defect §17.3 already recorded as failing before E-05B.
+
+### 18.3 Defects found
+
+- **E-05B's unit update spread a computed object into its write**, which the
+  state gate could not read once units carried a state column; the columns are
+  now spelled out.
+- **The document thumbnail is a portrait cover crop**, which cut a landscape
+  floor plan in half on the unit page; unit images now load whole through a
+  preview grant, with the thumbnail as the placeholder.
+- Caught before this record: a land unit's readiness label named an internal
+  area land does not have; the media update's empty-body check ran before the
+  unit's door, so the security sweep saw a 422 where a foreign id should be a
+  404; the API test for concurrent submission had a second submitter who could
+  not open the project, so it passed without racing.
+
+### 18.4 Limits, stated plainly
+
+- **No sales status**: For Sale, Reserved and Sold are E-05E, beside the
+  publication status, never in it.
+- **Publication requirements are fixed per kind of unit**; no project or company
+  setting yet. No bulk submit or publish, no field diff between versions.
+- **The stored unpublished-changes flag** trails a Sales Plan version the scan
+  worker promotes later until the next write to the unit; the unit page
+  recomputes it and is always right.
+- **No Parent Group Owner role.** Unit types stay per company.
+- **The development server needs a restart** after this migration and
+  `prisma generate`, and the database needs `pnpm db:seed` (or
+  `pnpm access:sync`) before anybody is given the two new roles.

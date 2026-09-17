@@ -6,6 +6,7 @@ import { ChevronDown } from "lucide-react";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -245,16 +246,36 @@ export function UnitDialog({
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [confirmDiscard, setConfirmDiscard] = React.useState(false);
+  const loaded = React.useRef("");
 
   React.useEffect(() => {
     if (!open) return;
-    setCode(unit?.unitCode ?? "");
-    setName(unit?.name ?? "");
-    setActive(unit?.isActive ?? true);
-    setTechnical(unit ? technicalFromUnit(unit) : emptyTechnical(types.find((type) => type.isActive)?.id ?? ""));
+    const initial = { code: unit?.unitCode ?? "", name: unit?.name ?? "", active: unit?.isActive ?? true, technical: unit ? technicalFromUnit(unit) : emptyTechnical(types.find((type) => type.isActive)?.id ?? "") };
+    setCode(initial.code);
+    setName(initial.name);
+    setActive(initial.active);
+    setTechnical(initial.technical);
+    loaded.current = JSON.stringify(initial);
     setErrors({});
     setFormError(null);
+    setConfirmDiscard(false);
   }, [open, unit, types]);
+
+  // What was typed is not thrown away by a stray click or a closed tab (E-05D §53).
+  const dirty = open && loaded.current !== "" && JSON.stringify({ code, name, active, technical }) !== loaded.current;
+  React.useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  function requestClose(next: boolean) {
+    if (next) return onOpenChange(true);
+    if (dirty && !pending) return setConfirmDiscard(true);
+    onOpenChange(false);
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -276,6 +297,7 @@ export function UnitDialog({
         toast({ title: `${code} added to ${floor.name}.` });
         onSaved(created.id);
       }
+      loaded.current = "";
       onOpenChange(false);
     } catch (error) {
       const fields = fieldErrors(error);
@@ -287,40 +309,55 @@ export function UnitDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
-        <DialogTitle>{unit ? `Edit ${unit.unitCode}` : "Add unit"}</DialogTitle>
-        <DialogDescription>
-          {floor.buildingName} · {floor.name}
-        </DialogDescription>
-        <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
-          <FormError message={formError} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Unit code" htmlFor="unit-code" error={errors.unitCode} required hint={unit ? "Changing the code keeps the unit's id and page." : "Unique in this project, e.g. A-901."}>
-              <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
-            </Field>
-            <Field label="Name" htmlFor="unit-name" error={errors.name}>
-              <Input id="unit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder="Apartment 901" />
-            </Field>
-          </div>
-          <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
-          {unit ? (
-            <label className="flex items-center gap-2 text-table text-fg">
-              <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
-              Active
-            </label>
-          ) : null}
-          <Warnings items={warningsFor(technical, types)} />
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : unit ? "Save unit" : "Add unit"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={requestClose}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
+          <DialogTitle>{unit ? `Edit ${unit.unitCode}` : "Add unit"}</DialogTitle>
+          <DialogDescription>
+            {floor.buildingName} · {floor.name}
+          </DialogDescription>
+          <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
+            <FormError message={formError} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Unit code" htmlFor="unit-code" error={errors.unitCode} required hint={unit ? "Changing the code keeps the unit's id and page." : "Unique in this project, e.g. A-901."}>
+                <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
+              </Field>
+              <Field label="Name" htmlFor="unit-name" error={errors.name}>
+                <Input id="unit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder="Apartment 901" />
+              </Field>
+            </div>
+            <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
+            {unit ? (
+              <label className="flex items-center gap-2 text-table text-fg">
+                <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
+                Active
+              </label>
+            ) : null}
+            <Warnings items={warningsFor(technical, types)} />
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => requestClose(false)} disabled={pending}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Saving…" : unit ? "Save unit" : "Add unit"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="You have unsaved changes."
+        description="Discard them, or stay and keep editing."
+        confirmLabel="Discard"
+        cancelLabel="Stay"
+        onConfirm={() => {
+          setConfirmDiscard(false);
+          loaded.current = "";
+          onOpenChange(false);
+        }}
+      />
+    </>
   );
 }

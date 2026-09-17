@@ -158,6 +158,11 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Company A submitted timesheets", actual: await prisma.timesheet.count({ where: { companyId: COMPANY_A, status: "SUBMITTED" } }), expected: 1, comparison: "gte" },
     { label: "Company A returned timesheets", actual: await prisma.timesheet.count({ where: { companyId: COMPANY_A, status: "RETURNED" } }), expected: 1, comparison: "gte" },
     { label: "Company A departments with a manager", actual: await prisma.department.count({ where: { companyId: COMPANY_A, managerMemberId: { not: null } } }), expected: 5, comparison: "gte" },
+    // E-05D §104: a published unit, one waiting for review and one sent back, each with a Sales Plan.
+    { label: "Company A published units", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, publicationStatus: "PUBLISHED", currentPublicationId: { not: null } } }), expected: 2, comparison: "gte" },
+    { label: "Company A unit publishing requests waiting", actual: await prisma.unitPublicationApproval.count({ where: { companyId: COMPANY_A, status: "PENDING" } }), expected: 2, comparison: "gte" },
+    { label: "Company A units sent back for revision", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, publicationStatus: "REVISION_REQUIRED", revisionReason: { not: null } } }), expected: 1, comparison: "gte" },
+    { label: "Company A unit Sales Plans", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, salesPlanDocumentId: { not: null } } }), expected: 5, comparison: "gte" },
   ];
 
   for (const check of checks) {

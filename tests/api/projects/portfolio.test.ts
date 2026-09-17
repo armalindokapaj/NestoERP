@@ -498,7 +498,7 @@ describe("create (E-05A §29-§31, §67)", () => {
   });
 
   it("lets a role create once it is granted project.create, without the status coming with it (E-05A §104, §105)", async () => {
-    // NESTO has no Architecture Manager role; an Architect granted the
+    // E-05A's Architecture Manager creates only where granted; an Architect granted the
     // permission stands in for one, the way a company would configure it.
     const architect = await loginAs("ARCHITECT");
     const granted = { ...architect, permissions: [...architect.permissions, "project.create" as const] };

@@ -170,8 +170,10 @@ const OWNED: Record<string, string[]> = {
     "dailyLogSettings",
     "projectDailyLogSettings",
   ],
-  // Buildings, floors, units and the company's unit types (E-05B §60).
-  "project-structure": ["projectBuilding", "projectFloor", "projectUnit", "projectUnitType"],
+  // Buildings, floors, units and the company's unit types (E-05B §60); a unit's
+  // published versions, media and document references, and its publishing
+  // requests (E-05D). The Documents they point at stay the Documents domain's.
+  "project-structure": ["projectBuilding", "projectFloor", "projectUnit", "projectUnitType", "unitPublication", "unitMedia", "unitDocumentLink", "unitPublicationApproval"],
   "project-planning": [
     "projectPhase",
     "projectMilestone",

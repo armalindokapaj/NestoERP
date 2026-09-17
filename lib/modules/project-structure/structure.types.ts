@@ -175,6 +175,8 @@ export type UnitDTO = {
   version: number;
   createdAt: string;
   updatedAt: string;
+  /** Where the unit stands in publishing (E-05D §13, §28): never its sales status. */
+  publication: { status: UnitPublicationStatusKey; versionNumber: number | null; hasUnpublishedChanges: boolean };
 };
 
 export type UnitListDTO = {
@@ -188,6 +190,9 @@ export type UnitDetailDTO = UnitDTO & {
   project: { id: string; name: string; code: string };
   capabilities: Pick<StructureCapabilities, "canUpdateUnit" | "canDeleteUnit" | "canMoveUnit">;
 };
+
+/** The publication states, repeated here so this file stays free of the publishing module (E-05D §13). */
+export type UnitPublicationStatusKey = "DRAFT" | "READY_FOR_PUBLISHING" | "PUBLISHED" | "REVISION_REQUIRED" | "ARCHIVED";
 
 /** A proposed batch, checked against the project before anything is written (E-05B §44). */
 export type BatchConflict = { index: number; value: string; reason: "EXISTS" | "REPEATED" };

@@ -96,10 +96,11 @@ the permission off. A transition that does not declare it refuses a step.
 
 ## What is declared
 
-Forty machines over 205 transitions: HSE and QA/QC, where this began,
+Forty-one machines over 211 transitions: HSE and QA/QC, where this began,
 the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
 their own — Documents, Finance, Procurement, Inventory, Legal and
-Engineering — and Projects, whose status E-05A made a lifecycle of its own.
+Engineering — Projects, whose status E-05A made a lifecycle of its own, and a
+unit's publication (E-05D).
 The tables below are generated from `lib/core/state/registry.ts` by
 `scripts/architecture/state-docs.ts`; an edit belongs in the machine, and the
 table is regenerated from it.
@@ -228,6 +229,24 @@ Terminal: none
 | `return_to_pending` | `ACTIVE`, `FINISHED` | `PENDING` | `project.status.manage` | required | — |
 | `archive` | `PENDING`, `ACTIVE`, `FINISHED` | `ARCHIVED` | `project.archive` | — | — |
 | `restore` | `ARCHIVED` | `PENDING` or `ACTIVE` or `FINISHED` | `project.restore` | — | — |
+
+### Project structure
+
+1 machine.
+
+#### `unit_publication` — `projectUnit.publicationStatus`
+
+States: `DRAFT`, `READY_FOR_PUBLISHING`, `PUBLISHED`, `REVISION_REQUIRED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `submit` | `DRAFT`, `REVISION_REQUIRED` | `READY_FOR_PUBLISHING` | `project.unit.submit_for_publish` | — | — |
+| `publish` | `DRAFT`, `READY_FOR_PUBLISHING`, `REVISION_REQUIRED`, `PUBLISHED` | `PUBLISHED` | `project.unit.publish` | — | the published version: its snapshot, Sales Plan version and primary image |
+| `request_revision` | `READY_FOR_PUBLISHING`, `PUBLISHED` | `REVISION_REQUIRED` | `project.unit.revision_request` | required | — |
+| `unpublish` | `PUBLISHED` | `READY_FOR_PUBLISHING` | `project.unit.unpublish` | required | — |
+| `archive` | `DRAFT`, `READY_FOR_PUBLISHING`, `PUBLISHED`, `REVISION_REQUIRED` | `ARCHIVED` | `project.unit.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `PUBLISHED` or `REVISION_REQUIRED` | `project.unit.archive` | — | — |
 
 ### Documents
 

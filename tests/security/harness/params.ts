@@ -36,6 +36,10 @@ const RULES: Rule[] = [
   { when: /\/daily-logs\/\[dailyLogId\]\/record-links\//, param: "linkId", source: { model: "IntegrationLink", where: { integrationType: "DAILY_LOG_RECORD" }, fill: { dailyLogId: "sourceEntityId" } } },
   { when: /\/daily-logs\/\[dailyLogId\]\/tasks\//, param: "linkId", source: { model: "DailyLogTaskLink" } },
   { when: /\/project-milestones\/\[milestoneId\]\/links\//, param: "linkId", source: { model: "ProjectMilestoneTaskLink" } },
+  // A unit's document references, images and published versions (E-05D): the unit segment is filled from the row.
+  { when: /\/project-units\/\[unitId\]\/documents\//, param: "linkId", source: { model: "UnitDocumentLink", fill: { unitId: "unitId" } } },
+  { when: /\/project-units\/\[unitId\]\/media\/\[mediaId\]/, param: "mediaId", source: { model: "UnitMedia", fill: { unitId: "unitId" } } },
+  { when: /\/project-units\/\[unitId\]\/publications\//, param: "publicationId", source: { model: "UnitPublication", fill: { unitId: "unitId" } } },
   { when: /\/project-milestones\/\[milestoneId\]\/tasks\/\[taskId\]/, param: "taskId", source: { model: "ProjectMilestoneTaskLink", column: "taskId" } },
   { when: /\/project-milestones\/\[milestoneId\]\/dependencies\//, param: "dependencyId", source: { model: "ProjectMilestoneDependency", fill: { milestoneId: "successorMilestoneId" } } },
   { when: /\/daily-logs\/\[dailyLogId\]\/evidence\//, param: "documentId", source: { model: "DailyLogDocumentLink", column: "documentId" } },

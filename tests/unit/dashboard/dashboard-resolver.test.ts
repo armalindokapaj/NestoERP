@@ -30,8 +30,8 @@ function visibleKpis(role: (typeof ROLE_KEYS)[number]) {
 }
 
 describe("dashboard configuration", () => {
-  it("defines a dashboard for all 16 roles", () => {
-    expect(Object.keys(dashboards)).toHaveLength(16);
+  it("defines a dashboard for all 18 roles", () => {
+    expect(Object.keys(dashboards)).toHaveLength(18);
     for (const role of ROLE_KEYS) {
       expect(dashboards[role], role).toBeDefined();
     }

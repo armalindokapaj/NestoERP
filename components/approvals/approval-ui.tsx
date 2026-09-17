@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  Building2,
   CircleAlert,
   ClipboardCheck,
   Clock,
@@ -37,6 +38,7 @@ export const SOURCE_ICONS: Record<ApprovalProviderKey, LucideIcon> = {
   qaqc: ClipboardCheck,
   hse: ShieldCheck,
   timesheets: Clock,
+  projects: Building2,
 };
 
 export function SourceIcon({ provider, className }: { provider: ApprovalProviderKey; className?: string }) {

@@ -5,7 +5,7 @@ import { permissionsForRole, roleModuleAccess } from "@/config/role-defaults";
 import { ROLE_KEYS, type RoleKey } from "@/config/roles";
 
 /**
- * Domain boundaries between the sixteen roles (PRD #47 §141-§149, §215, §216).
+ * Domain boundaries between the roles (PRD #47 §141-§149, §215, §216).
  *
  * The role matrix test proves each role's configuration is internally
  * consistent. This one proves the configuration keeps each role inside its own
@@ -28,10 +28,12 @@ const EXPECTED_APPROVALS: Record<RoleKey, string[]> = {
   CEO: ["finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.request.approve", "sales.proposal.approve", "timesheet.approve"],
   PROJECT_MANAGER: ["document.review.decide", "engineering_document.approve", "submittal.approve", "timesheet.approve"],
   ARCHITECT: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
+  ARCHITECTURE_MANAGER: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
   ENGINEER: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
   FINANCE: ["document.review.decide", "procurement.order.finance_approve"],
   LEGAL: ["document.review.decide", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve"],
   SALES: ["document.review.decide"],
+  SALES_MANAGER: ["document.review.decide", "sales.proposal.approve"],
   PROCUREMENT: ["document.review.decide", "procurement.approval.decide", "procurement.order.approve", "procurement.request.approve"],
   INVENTORY: ["document.review.decide"],
   QAQC: ["document.review.decide", "qaqc.approval.decide", "qaqc.inspection.approve", "qaqc.ncr.approve", "submittal.approve"],

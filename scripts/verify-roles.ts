@@ -259,7 +259,7 @@ async function main() {
   await verifyPublicRoutes();
 
   for (const definition of roleList) {
-    process.stdout.write(`${definition.code} ${definition.label.padEnd(18)}`);
+    process.stdout.write(`${definition.code} ${definition.label.padEnd(22)}`);
     const before = failures;
     await verifyRole(definition.key);
     console.log(failures === before ? "ok" : "FAILED");

@@ -33,6 +33,7 @@ export const TIMESHEET_SEED = {
 const APPROVERS: Array<[member: string, approver: string]> = [
   ["user_engineer", "user_pm"],
   ["user_architect", "user_pm"],
+  ["user_architecture_manager", "user_ceo"],
   ["user_qaqc", "user_pm"],
   ["user_hse", "user_pm"],
   ["user_inventory", "user_pm"],
@@ -40,6 +41,7 @@ const APPROVERS: Array<[member: string, approver: string]> = [
   ["user_finance", "user_hr"],
   ["user_legal", "user_hr"],
   ["user_sales", "user_hr"],
+  ["user_sales_manager", "user_hr"],
   ["user_procurement", "user_hr"],
   ["user_admin", "user_hr"],
   ["user_it", "user_hr"],

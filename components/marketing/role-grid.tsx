@@ -5,7 +5,7 @@ import { configLabel } from "@/lib/i18n/site";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The sixteen roles, read from config/roles.ts and named as the interface
+ * The eighteen roles, read from config/roles.ts and named as the interface
  * dictionary names them, so the site and the product agree in every language.
  *
  * The code beside each label is the role number the specification uses. It is

@@ -152,7 +152,7 @@ const has = (items: UnifiedApprovalItem[], approvalId: string) => items.some((it
 
 describe("registry (§10, §240)", () => {
   it("registers the eight sources and refuses any key it does not know", async () => {
-    expect(approvalProviders.all().map((provider) => provider.key).sort()).toEqual(["documents", "finance", "hr", "hse", "legal", "procurement", "qaqc", "sales", "timesheets"]);
+    expect(approvalProviders.all().map((provider) => provider.key).sort()).toEqual(["documents", "finance", "hr", "hse", "legal", "procurement", "projects", "qaqc", "sales", "timesheets"]);
     expect(() => approvalProviders.getProvider("../finance")).toThrow(AccessError);
     const owner = await loginAs("OWNER");
     await expectCode(getApprovalDetail(owner, "workflow", "anything"), "NOT_FOUND", "APPROVAL_PROVIDER_UNKNOWN");
@@ -657,7 +657,7 @@ describe("document review (§22, §62, §265, §268)", () => {
 
 describe("role acceptance (§285-§300)", () => {
   it("gives decision authority only where a source module grants it", async () => {
-    const roles = ["OWNER", "ADMIN", "COMPANY_IT", "HR", "CEO", "PROJECT_MANAGER", "ARCHITECT", "ENGINEER", "FINANCE", "LEGAL", "SALES", "PROCUREMENT", "INVENTORY", "QAQC", "HSE"] as const;
+    const roles = ["OWNER", "ADMIN", "COMPANY_IT", "HR", "CEO", "PROJECT_MANAGER", "ARCHITECT", "ARCHITECTURE_MANAGER", "ENGINEER", "FINANCE", "LEGAL", "SALES", "SALES_MANAGER", "PROCUREMENT", "INVENTORY", "QAQC", "HSE"] as const;
     const summary: Record<string, string[]> = {};
     for (const role of roles) {
       const context = await loginAs(role);
@@ -665,13 +665,17 @@ describe("role acceptance (§285-§300)", () => {
       summary[role] = [...new Set(waiting.items.map((item) => item.providerKey))].sort();
       // Everything offered can actually be acted on by this person.
       expect(waiting.items.every((item) => item.canApprove || item.canReject), role).toBe(true);
-      expect(context.permissions.includes("approvals.history.view"), role).toBe(["OWNER", "HR", "CEO", "PROJECT_MANAGER", "FINANCE", "LEGAL", "SALES", "PROCUREMENT", "QAQC", "HSE"].includes(role));
+      expect(context.permissions.includes("approvals.history.view"), role).toBe(["OWNER", "HR", "CEO", "PROJECT_MANAGER", "ARCHITECTURE_MANAGER", "FINANCE", "LEGAL", "SALES", "SALES_MANAGER", "PROCUREMENT", "QAQC", "HSE"].includes(role));
     }
-    // No business approval authority for administration, IT or stores (§136, §137, §147).
+    // No business approval authority for administration, IT or stores (§136, §137, §147) — beyond
+    // publishing units, which a Company Admin holds inside the company (E-05D §19).
     for (const role of ["ADMIN", "COMPANY_IT", "INVENTORY"]) {
-      expect(summary[role].filter((key) => key !== "documents"), role).toEqual([]);
+      expect(summary[role].filter((key) => key !== "documents" && !(role === "ADMIN" && key === "projects")), role).toEqual([]);
     }
     expect(summary.HR).toContain("hr");
+    // The managers' own inboxes (E-05D §21; E-05E §39).
+    expect(summary.ARCHITECTURE_MANAGER).toContain("projects");
+    expect(summary.SALES_MANAGER).toContain("sales");
     expect(summary.CEO).toEqual(expect.arrayContaining(["procurement", "sales"]));
     expect(summary.LEGAL.every((key) => ["legal", "documents"].includes(key))).toBe(true);
   });

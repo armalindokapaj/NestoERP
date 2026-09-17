@@ -143,6 +143,54 @@ enum UnitPosition {
   OTHER
 }
 
+/// Whether a unit is technically approved for downstream use (E-05D §13). Never
+/// its sales status: a Published unit is not thereby For Sale (§15).
+enum UnitPublicationStatus {
+  DRAFT
+  READY_FOR_PUBLISHING
+  PUBLISHED
+  REVISION_REQUIRED
+  ARCHIVED
+}
+
+/// What a unit image shows (E-05D §41).
+enum UnitMediaCategory {
+  COVER
+  FLOOR_PLAN_IMAGE
+  INTERIOR_RENDER
+  EXTERIOR_RENDER
+  VIEW
+  OTHER
+}
+
+/// What a document is to the unit it is attached to (E-05D §38). A category,
+/// never separate storage (§39). The Sales Plan is the unit's own pointer rather
+/// than a link, so it cannot be attached twice; Contract, Finance and Legal wait
+/// for E-05F.
+enum UnitDocumentCategory {
+  SALES_PLAN
+  TECHNICAL_DRAWING
+  SPECIFICATION
+  CONTRACT
+  FINANCE
+  LEGAL
+  OTHER
+}
+
+enum UnitApprovalRecordType {
+  UNIT
+}
+
+/// One request to publish a unit, as the Approvals Center reads it (E-05D §21,
+/// §47; PRD #41). A resubmission opens a new row.
+enum UnitApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  RETURNED
+}
+
 enum ClientType {
   INDIVIDUAL
   COMPANY
@@ -899,17 +947,18 @@ model Company {
   departments Department[]
   modules     CompanyModule[]
 
-  projects         Project[]
-  projectTypes     ProjectType[]
-  projectUnitTypes ProjectUnitType[]
-  projectBuildings ProjectBuilding[]
-  projectFloors    ProjectFloor[]
-  projectUnits     ProjectUnit[]
-  clients          Client[]
-  contacts         Contact[]
-  tasks            Task[]
-  documents        Document[]
-  activities       Activity[]
+  projects                 Project[]
+  projectTypes             ProjectType[]
+  projectUnitTypes         ProjectUnitType[]
+  projectBuildings         ProjectBuilding[]
+  projectFloors            ProjectFloor[]
+  projectUnits             ProjectUnit[]
+  unitPublicationApprovals UnitPublicationApproval[]
+  clients                  Client[]
+  contacts                 Contact[]
+  tasks                    Task[]
+  documents                Document[]
+  activities               Activity[]
 
   settings            CompanySettings?
   integrationSettings CompanyIntegrationSettings?
@@ -1634,22 +1683,160 @@ model ProjectUnit {
   createdBy String
   updatedBy String?
 
+  /// Publishing (E-05D §13-§31). `currentPublicationId` points at the version
+  /// downstream modules read; `hasUnpublishedChanges` says the live unit has moved
+  /// on from it (§27, §28). The status moves only by the `unit_publication` machine.
+  publicationStatus           UnitPublicationStatus  @default(DRAFT)
+  preArchivePublicationStatus UnitPublicationStatus?
+  publicationStatusChangedAt  DateTime?
+  currentPublicationId        String?                @unique
+  hasUnpublishedChanges       Boolean                @default(false)
+  /// The last "revision required" reason, until the unit is published again (§22).
+  revisionReason              String?
+  /// The one logical Sales Plan (§33-§36, §78): a canonical Document whose new
+  /// uploads are versions of it, never a second document.
+  salesPlanDocumentId         String?                @unique
+
   company  Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project  Project         @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
   floor    ProjectFloor    @relation(fields: [floorId, projectId], references: [id, projectId], onDelete: Restrict)
   unitType ProjectUnitType @relation(fields: [unitTypeId, companyId], references: [id, companyId], onDelete: Restrict)
 
+  currentPublication UnitPublication?   @relation("UnitCurrentPublication", fields: [currentPublicationId, id], references: [id, unitId], onDelete: Restrict)
+  salesPlanDocument  Document?          @relation("UnitSalesPlan", fields: [salesPlanDocumentId], references: [id], onDelete: Restrict)
+  publications       UnitPublication[]  @relation("UnitPublications")
+  media              UnitMedia[]
+  documentLinks      UnitDocumentLink[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([projectId, unitCodeKey])
+  @@unique([id, projectId, companyId])
   @@index([floorId, sortOrder])
   @@index([companyId, projectId])
   @@index([unitTypeId])
   @@index([projectId, saleableArea])
   @@index([projectId, internalArea])
   @@index([projectId, orientation])
+  @@index([projectId, publicationStatus])
   @@map("project_units")
+}
+
+/// A published version of a unit (E-05D §24-§26, §72-§74). Written once and
+/// never updated: what Sales, 3D and external publishing were shown on that day,
+/// with the exact Sales Plan version and primary image. Not a second unit — it
+/// holds the approved facts, and `unitId` is still the identity.
+model UnitPublication {
+  id            String @id @default(cuid())
+  companyId     String
+  projectId     String
+  unitId        String
+  versionNumber Int
+
+  publishedAt         DateTime @default(now())
+  publishedByMemberId String
+
+  /// Publish-relevant data only (§73): code, name, type, building and floor,
+  /// areas, counts, orientation, position, attributes, technical notes.
+  snapshot Json
+
+  salesPlanDocumentId           String?
+  salesPlanDocumentVersionId    String?
+  primaryMediaDocumentId        String?
+  primaryMediaDocumentVersionId String?
+
+  unit      ProjectUnit   @relation("UnitPublications", fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  currentOf ProjectUnit[] @relation("UnitCurrentPublication")
+
+  createdAt DateTime @default(now())
+
+  @@unique([unitId, versionNumber])
+  @@unique([id, unitId])
+  @@index([unitId, publishedAt])
+  @@index([companyId, projectId])
+  @@map("unit_publications")
+}
+
+/// An image of a unit (E-05D §40-§44, §75, §76): a reference to a canonical
+/// Document, ordered, at most one primary per unit (a partial unique index).
+model UnitMedia {
+  id         String            @id @default(cuid())
+  companyId  String
+  projectId  String
+  unitId     String
+  documentId String
+  category   UnitMediaCategory
+  caption    String?
+  isPrimary  Boolean           @default(false)
+  sortOrder  Int               @default(0)
+
+  createdByMemberId String
+
+  unit     ProjectUnit @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  document Document    @relation("UnitMediaDocument", fields: [documentId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([unitId, documentId])
+  @@index([unitId, sortOrder])
+  @@index([documentId])
+  @@map("unit_media")
+}
+
+/// A canonical Document attached to a unit (E-05D §37-§39, §77). The file is
+/// never copied: one document may be referenced by many units.
+model UnitDocumentLink {
+  id         String               @id @default(cuid())
+  companyId  String
+  projectId  String
+  unitId     String
+  documentId String
+  category   UnitDocumentCategory
+
+  createdByMemberId String
+
+  unit     ProjectUnit @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  document Document    @relation("UnitDocumentLinkDocument", fields: [documentId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([unitId, documentId])
+  @@index([unitId, category])
+  @@index([documentId])
+  @@map("unit_document_links")
+}
+
+/// A request to publish a unit, one row per submission (E-05D §21, §47; PRD #41 §48).
+model UnitPublicationApproval {
+  id         String                 @id @default(cuid())
+  companyId  String
+  projectId  String
+  recordType UnitApprovalRecordType @default(UNIT)
+  recordId   String
+
+  status UnitApprovalStatus @default(PENDING)
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("unit_publication_approvals")
 }
 
 /// How PROJECT and ASSIGNED scope are resolved: user → member → project
@@ -1934,6 +2121,11 @@ model Document {
   submittalRevisions        TechnicalSubmittalRevision[]
   transmittalItems          DocumentTransmittalItem[]
   contractorComplianceItems ContractorComplianceItem[]
+
+  // E-05D: the unit's Sales Plan, its media, and documents attached to units.
+  salesPlanForUnit ProjectUnit?       @relation("UnitSalesPlan")
+  unitMedia        UnitMedia[]        @relation("UnitMediaDocument")
+  unitLinks        UnitDocumentLink[] @relation("UnitDocumentLinkDocument")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

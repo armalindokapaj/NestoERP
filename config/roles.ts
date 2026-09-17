@@ -1,10 +1,13 @@
 /**
- * The 16 NESTO roles (spec §12).
+ * The 18 NESTO roles: the 16 of spec §12, and the two department managers
+ * E-05D §19 and E-05E §39 give their own defaults — Architecture Manager
+ * publishes units an Architect prepares, Sales Manager decides what a Sales
+ * user proposes.
  *
  * RoleKey is declared here rather than imported from Prisma so that this file
  * stays edge-safe — middleware reads role configuration on every request and
- * must not pull in the database client.
- * The union is kept identical to the `Role` enum in prisma/schema.prisma.
+ * must not pull in the database client. Roles are rows of the `Role` table,
+ * synced from this list; there is no enum to keep in step.
  */
 export const ROLE_KEYS = [
   "OWNER",
@@ -14,10 +17,12 @@ export const ROLE_KEYS = [
   "CEO",
   "PROJECT_MANAGER",
   "ARCHITECT",
+  "ARCHITECTURE_MANAGER",
   "ENGINEER",
   "FINANCE",
   "LEGAL",
   "SALES",
+  "SALES_MANAGER",
   "PROCUREMENT",
   "INVENTORY",
   "QAQC",
@@ -88,65 +93,79 @@ export const roles: Record<RoleKey, RoleDefinition> = {
     department: "Design",
     description: "Design work, drawings, reviews and project documentation.",
   },
+  ARCHITECTURE_MANAGER: {
+    key: "ARCHITECTURE_MANAGER",
+    code: "08",
+    label: "Architecture Manager",
+    department: "Design",
+    description: "Leads design across projects and publishes the units architects prepare.",
+  },
   ENGINEER: {
     key: "ENGINEER",
-    code: "08",
+    code: "09",
     label: "Engineer",
     department: "Engineering",
     description: "Technical delivery, inspections and engineering tasks.",
   },
   FINANCE: {
     key: "FINANCE",
-    code: "09",
+    code: "10",
     label: "Finance",
     department: "Finance",
     description: "Revenue, costs, invoicing and financial control.",
   },
   LEGAL: {
     key: "LEGAL",
-    code: "10",
+    code: "11",
     label: "Legal",
     department: "Legal",
     description: "Contracts, approvals, notices and legal records.",
   },
   SALES: {
     key: "SALES",
-    code: "11",
+    code: "12",
     label: "Sales",
     department: "Sales",
     description: "Pipeline, opportunities, proposals and client growth.",
   },
+  SALES_MANAGER: {
+    key: "SALES_MANAGER",
+    code: "13",
+    label: "Sales Manager",
+    department: "Sales",
+    description: "Leads the sales team, approves proposals and oversees unit sales.",
+  },
   PROCUREMENT: {
     key: "PROCUREMENT",
-    code: "12",
+    code: "14",
     label: "Procurement",
     department: "Procurement",
     description: "Purchasing, suppliers, RFQs and orders.",
   },
   INVENTORY: {
     key: "INVENTORY",
-    code: "13",
+    code: "15",
     label: "Stock / Inventory",
     department: "Operations",
     description: "Materials, stock levels and movements.",
   },
   QAQC: {
     key: "QAQC",
-    code: "14",
+    code: "16",
     label: "QA/QC",
     department: "Quality",
     description: "Inspections, non-conformances and quality control.",
   },
   HSE: {
     key: "HSE",
-    code: "15",
+    code: "17",
     label: "HSE",
     department: "Health & Safety",
     description: "Safety performance, incidents, permits and actions.",
   },
   VIEWER: {
     key: "VIEWER",
-    code: "16",
+    code: "18",
     label: "Viewer",
     department: "General",
     description: "Read-only access to company information.",

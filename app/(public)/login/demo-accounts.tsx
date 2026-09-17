@@ -16,7 +16,7 @@ export type DemoAccountOption = {
 /**
  * Development-only account picker (spec §65, §66).
  *
- * One click signs in as that role — no typing — so all 16 role experiences can
+ * One click signs in as that role — no typing — so all 18 role experiences can
  * be walked through quickly. The password lives on the server: the button sends
  * only a role key to signInAsDemoRoleAction.
  *

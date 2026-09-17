@@ -105,6 +105,15 @@ export const AuditAction = {
   PROJECT_UNIT_TYPE_UPDATED: "PROJECT_UNIT_TYPE_UPDATED",
   PROJECT_UNIT_TYPE_DELETED: "PROJECT_UNIT_TYPE_DELETED",
   PROJECT_UNIT_TYPES_REORDERED: "PROJECT_UNIT_TYPES_REORDERED",
+  /** The unit page: documents, media and publishing (E-05D §84). */
+  PROJECT_UNIT_DOCUMENT_LINKED: "PROJECT_UNIT_DOCUMENT_LINKED",
+  PROJECT_UNIT_DOCUMENT_UNLINKED: "PROJECT_UNIT_DOCUMENT_UNLINKED",
+  PROJECT_UNIT_SALES_PLAN_CHANGED: "PROJECT_UNIT_SALES_PLAN_CHANGED",
+  PROJECT_UNIT_MEDIA_CHANGED: "PROJECT_UNIT_MEDIA_CHANGED",
+  PROJECT_UNIT_PUBLICATION_STATUS_CHANGED: "PROJECT_UNIT_PUBLICATION_STATUS_CHANGED",
+  PROJECT_UNIT_PUBLISHED: "PROJECT_UNIT_PUBLISHED",
+  PROJECT_UNIT_UNPUBLISHED: "PROJECT_UNIT_UNPUBLISHED",
+  PROJECT_UNIT_ARCHIVED: "PROJECT_UNIT_ARCHIVED",
 
   // Documents (PRD #28 §129)
   DOCUMENT_DOWNLOAD_GRANTED: "DOCUMENT_DOWNLOAD_GRANTED",
@@ -377,6 +386,14 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PROJECT_UNIT_TYPE_UPDATED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "category", "isActive"], required: true },
   { actionKey: AuditAction.PROJECT_UNIT_TYPE_DELETED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code"], required: true },
   { actionKey: AuditAction.PROJECT_UNIT_TYPES_REORDERED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["order"], required: false },
+  { actionKey: AuditAction.PROJECT_UNIT_DOCUMENT_LINKED, moduleKey: "projects", category: "DOCUMENT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["documentId", "documentName", "category"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_DOCUMENT_UNLINKED, moduleKey: "projects", category: "DOCUMENT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["documentId", "documentName", "category"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_SALES_PLAN_CHANGED, moduleKey: "projects", category: "DOCUMENT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["documentId", "documentVersionId", "versionNumber"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_MEDIA_CHANGED, moduleKey: "projects", category: "DOCUMENT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["change", "mediaId", "documentId", "category", "caption", "isPrimary", "order"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_PUBLICATION_STATUS_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["publicationStatus", "revisionReason"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_PUBLISHED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus", "versionNumber", "publicationId", "salesPlanDocumentVersionId", "primaryMediaDocumentVersionId"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_UNPUBLISHED, moduleKey: "projects", category: "PROJECT", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus", "versionNumber", "reason"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus"], required: true },
 
   /* Documents ------------------------------------------------------------ */
   { actionKey: AuditAction.DOCUMENT_DOWNLOAD_GRANTED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },

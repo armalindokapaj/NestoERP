@@ -249,6 +249,22 @@ export const PERMISSIONS = [
   "project.unit.delete",
   "project.unit.move",
   /**
+   * The unit page and its publishing (E-05D §18). Documents and media attach
+   * canonical files to the one unit; submitting, publishing and asking for a
+   * revision move its publication state. Publishing is its own grant, never
+   * implied by editing (§89): the people who prepare a unit are not thereby
+   * the people who approve it for Sales. The history of published versions is
+   * read by everybody who reads the unit.
+   */
+  "project.unit.documents.manage",
+  "project.unit.media.manage",
+  "project.unit.submit_for_publish",
+  "project.unit.publish",
+  "project.unit.revision_request",
+  "project.unit.unpublish",
+  "project.unit.archive",
+  "project.unit.publication_history.view",
+  /**
    * Keeping the company's list of unit types (E-05B §20, §21). Company
    * configuration, like project types, so no module ladder reaches it.
    */
@@ -1252,6 +1268,10 @@ const MUTATING_ACTIONS = new Set([
   "waive",
   // Project structure: a unit changes floor (E-05B §52).
   "move",
+  // Unit publishing (E-05D §18).
+  "submit_for_publish",
+  "revision_request",
+  "unpublish",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

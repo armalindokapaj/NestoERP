@@ -19,6 +19,19 @@ export async function removeStructure(projectIds: string[]): Promise<void> {
     db.projectBuilding.findMany({ where: { projectId: { in: projectIds } }, select: { id: true } }),
   ]);
   const ids = [...units, ...floors, ...buildings].map((row) => row.id);
+  const unitIds = units.map((row) => row.id);
+  // What a unit's publishing left behind points at the unit, so it goes first (E-05D).
+  if (unitIds.length) {
+    await db.unitPublicationApproval.deleteMany({ where: { recordId: { in: unitIds } } });
+    await db.unitMedia.deleteMany({ where: { unitId: { in: unitIds } } });
+    await db.unitDocumentLink.deleteMany({ where: { unitId: { in: unitIds } } });
+    await db.projectUnit.updateMany({ where: { id: { in: unitIds } }, data: { currentPublicationId: null, salesPlanDocumentId: null } });
+    await db.unitPublication.deleteMany({ where: { unitId: { in: unitIds } } });
+    const files = await db.document.findMany({ where: { entityType: "project_unit", entityId: { in: unitIds } }, select: { id: true } });
+    const fileIds = files.map((row) => row.id);
+    await db.documentUploadSession.deleteMany({ where: { documentId: { in: fileIds } } });
+    await db.document.deleteMany({ where: { id: { in: fileIds } } });
+  }
   await db.activity.deleteMany({ where: { entityType: { in: ["ProjectUnit", "ProjectFloor", "ProjectBuilding"] }, entityId: { in: ids } } });
   await db.projectUnit.deleteMany({ where: { projectId: { in: projectIds } } });
   await db.projectFloor.deleteMany({ where: { projectId: { in: projectIds } } });

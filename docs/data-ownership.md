@@ -68,7 +68,7 @@ with it.
 | `timesheets` | `Timesheet`, `WorkLog`, timesheet approvals and settings |
 | `daily-logs` | `DailyLog` and its sections, `DailyLogCorrection`, settings |
 | `project-planning` | `ProjectPhase`, `ProjectMilestone`, dependencies, blockers |
-| `project-structure` | `ProjectBuilding`, `ProjectFloor`, `ProjectUnit`, `ProjectUnitType` — the one canonical unit every module references by id (E-05B) |
+| `project-structure` | `ProjectBuilding`, `ProjectFloor`, `ProjectUnit`, `ProjectUnitType` — the one canonical unit every module references by id (E-05B); `UnitPublication`, `UnitMedia`, `UnitDocumentLink`, `UnitPublicationApproval` — its published versions, images, document references and publishing requests (E-05D). The Documents they point at stay the Documents domain's |
 | `announcements` | `Announcement`, audience, reads, acknowledgments |
 | `productivity` | `UserFavorite`, `RecentItem`, `ProductivitySettings` |
 | `contractors` | `ContractorProfile`, assignments, compliance items |
