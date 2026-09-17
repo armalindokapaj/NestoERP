@@ -6,6 +6,7 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
 import { businessDateString, today } from "../hr.date";
+import { memberAddressed, personName, PERSON_NAME_SELECT } from "../hr.person";
 import {
   buildAttendanceScopeWhere,
   buildEmployeeScopeWhere,
@@ -58,7 +59,7 @@ export async function headcountReport(context: UserContext): Promise<HeadcountRo
   const byDepartment = new Map<string, HeadcountRow>();
 
   for (const row of rows) {
-    const department = row.companyMember.department;
+    const department = row.companyMember?.department ?? null;
     const key = department?.id ?? "";
 
     const entry =
@@ -144,23 +145,19 @@ export async function attendanceSummary(
       status: true,
       checkIn: true,
       checkOut: true,
-      employeeProfile: {
-        select: {
-          companyMember: { select: { user: { select: { firstName: true, lastName: true } } } },
-        },
-      },
+      employeeProfile: { select: { personProfile: PERSON_NAME_SELECT } },
     },
   });
 
   const byMember = new Map<string, AttendanceSummaryRow>();
 
   for (const row of rows) {
-    const user = row.employeeProfile.companyMember.user;
+    const person = row.employeeProfile.personProfile;
     const entry =
       byMember.get(row.companyMemberId) ??
       ({
         memberId: row.companyMemberId,
-        fullName: `${user.firstName} ${user.lastName}`,
+        fullName: personName(person),
         present: 0,
         remote: 0,
         absent: 0,
@@ -236,6 +233,7 @@ export async function compensationReport(
   const byProfile = new Map(current.map((row) => [row.employeeProfileId, row]));
 
   return profiles
+    .map(memberAddressed)
     .map((profile) => {
       const pay = byProfile.get(profile.id);
       if (!pay) return null;
@@ -294,7 +292,7 @@ export async function upcomingEndDates(
     },
   });
 
-  return rows.map((row) => ({
+  return rows.map(memberAddressed).map((row) => ({
     memberId: row.companyMemberId,
     fullName: `${row.companyMember.user.firstName} ${row.companyMember.user.lastName}`,
     department: row.companyMember.department?.name ?? null,

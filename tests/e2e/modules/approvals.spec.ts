@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { CHAIN, createPendingAmendment, createPendingExpense, removeAmendments, removeExpenses, resetChainFixture } from "../approvals-fixtures";
+import { AMENDMENT_COMPANY, CHAIN, createPendingAmendment, createPendingExpense, removeAmendments, removeExpenses, resetChainFixture } from "../approvals-fixtures";
 import { db } from "../db";
 import { signIn } from "../fixtures";
 
@@ -98,7 +98,8 @@ test("an approver rejects an expense, and the reason is required (§280)", async
 test("Legal returns an amendment; the requester resubmits and it comes back as a new cycle with its history (§281)", async ({ page, browser }) => {
   const { amendmentId, approvalId } = await createPendingAmendment(`${AMENDMENT} basement level`);
 
-  await signIn(page, "LEGAL", { to: "/approvals" });
+  // Group Legal lands in Aurelia; the contract is Nova's.
+  await signIn(page, "LEGAL", { to: "/approvals", company: AMENDMENT_COMPANY });
   await row(page, `legal:${approvalId}`).click();
   await detail(page).getByRole("button", { name: "Return this amendment for revision" }).click();
   const dialog = page.getByRole("dialog", { name: /for revision\?/ });
@@ -110,7 +111,7 @@ test("Legal returns an amendment; the requester resubmits and it comes back as a
   // The Owner sees it returned to them, and resubmits.
   const ownerContext = await browser.newContext();
   const owner = await ownerContext.newPage();
-  await signIn(owner, "OWNER", { to: "/approvals?tab=returned&returned=to" });
+  await signIn(owner, "OWNER", { to: "/approvals?tab=returned&returned=to", company: AMENDMENT_COMPANY });
   await expect(row(owner, `legal:${approvalId}`)).toBeVisible();
   const resubmitted = await owner.request.post(`/api/contracts/contract_005/amendments/${amendmentId}/submit`);
   expect(resubmitted.ok()).toBe(true);

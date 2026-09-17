@@ -487,8 +487,8 @@ export async function resetSalesFixtures(): Promise<void> {
   });
 
   await db.opportunity.updateMany({
-    where: { id: "opportunity_003" },
-    data: { stage: "QUALIFIED", actualCloseDate: null, lostReason: null, lostNote: null },
+    where: { id: "opportunity_022" },
+    data: { stage: "NEGOTIATION", actualCloseDate: null, lostReason: null, lostNote: null },
   });
 }
 

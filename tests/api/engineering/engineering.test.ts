@@ -28,8 +28,8 @@ import {
 } from "@/lib/modules/engineering/engineering.schema";
 import { closeSubmittal, createSubmittal, getSubmittal } from "@/lib/modules/engineering/engineering.submittals";
 import { createTransmittal, getTransmittal, issueTransmittal, updateTransmittal, voidTransmittal } from "@/lib/modules/engineering/engineering.transmittals";
-import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
-import { code, COMPANY_A, ENGINEERING_SEED as S, makeFile, restoreEngineering } from "./fixtures";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { code, COMPANY_A, ENGINEERING_SEED as S, HARBOUR, makeFile, makeHarbour, restoreEngineering } from "./fixtures";
 
 /**
  * The engineering record against the real database (PRD #46 §288-§307): the
@@ -52,8 +52,9 @@ const decision = (value: string, comment: string | null = null) => reviewDecisio
 
 beforeAll(async () => {
   await restoreEngineering();
+  await makeHarbour();
   [owner, pm, engineer, architect, hse, qaqc, viewer, finance] = await Promise.all((["OWNER", "PROJECT_MANAGER", "ENGINEER", "ARCHITECT", "HSE", "QAQC", "VIEWER", "FINANCE"] as const).map((role) => loginAs(role)));
-  ownerB = await loginAsEmail("owner-b@nesto.test");
+  ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
 });
 
 afterAll(async () => {
@@ -67,10 +68,10 @@ describe("engineering document register (§59-§65, §76-§81, §288)", () => {
     const input = createEngineeringDocumentSchema.parse({ documentNumber: "STR-GA-900", title: "Test general arrangement", documentType: "DRAWING", discipline: "STRUCTURAL", reviewerMemberId: architect.membershipId });
     const created = await createEngineeringDocument(engineer, "project_a", input);
     await expect(createEngineeringDocument(engineer, "project_a", input)).rejects.toMatchObject(code("ENGINEERING_DOCUMENT_NUMBER_TAKEN"));
-    expect((await createEngineeringDocument(pm, "project_b", { ...input, reviewerMemberId: null })).id).not.toBe(created.id);
-    // The Engineer cannot open the Tower, so its work package answers like a missing id; the PM can, and is told why (PRD #47 §51).
-    await expect(createEngineeringDocument(engineer, "project_a", { ...input, documentNumber: "X-1", workPackageId: S.workPackages.towerBasement })).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_INVALID"));
-    await expect(createEngineeringDocument(pm, "project_a", { ...input, documentNumber: "X-1", reviewerMemberId: null, workPackageId: S.workPackages.towerBasement })).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_PROJECT_MISMATCH"));
+    expect((await createEngineeringDocument(pm, HARBOUR.project, { ...input, reviewerMemberId: null })).id).not.toBe(created.id);
+    // The Engineer cannot open Harbour, so its work package answers like a missing id; the PM can, and is told why (PRD #47 §51).
+    await expect(createEngineeringDocument(engineer, "project_a", { ...input, documentNumber: "X-1", workPackageId: HARBOUR.workPackage })).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_INVALID"));
+    await expect(createEngineeringDocument(pm, "project_a", { ...input, documentNumber: "X-1", reviewerMemberId: null, workPackageId: HARBOUR.workPackage })).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_PROJECT_MISMATCH"));
     await expect(createEngineeringDocument(engineer, "project_a", { ...input, documentNumber: "X-2", contractorId: S.contractors.northgate })).rejects.toMatchObject(code("ENGINEERING_CONTRACTOR_NOT_ASSIGNED"));
     await expect(createEngineeringDocument(engineer, "project_a", { ...input, documentNumber: "X-3", reviewerMemberId: finance.membershipId })).rejects.toMatchObject(code("ENGINEERING_MEMBER_INVALID"));
     // A work package lends its contractor (§38).
@@ -83,7 +84,7 @@ describe("engineering document register (§59-§65, §76-§81, §288)", () => {
     const drawings = await listEngineeringDocuments(engineer, engineeringDocumentListSchema.parse({ projectId: "project_a", drawings: "1" }));
     expect(drawings.items.map((row) => row.documentNumber)).toEqual(expect.arrayContaining(["ARC-SD-023", "FAC-SD-004"]));
     expect(drawings.items.map((row) => row.documentNumber)).not.toContain("STR-CALC-011");
-    await expect(listEngineeringDocuments(engineer, engineeringDocumentListSchema.parse({ projectId: "project_b" }))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(listEngineeringDocuments(engineer, engineeringDocumentListSchema.parse({ projectId: HARBOUR.project }))).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(getEngineeringDocument(ownerB, S.documents.floorPlan)).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await loadRecord(finance, "engineering_document", S.documents.floorPlan)).toBeNull();
   });
@@ -181,7 +182,7 @@ describe("RFIs (§82-§97, §290, §309)", () => {
 
   it("voids with a reason, references only records on the same project, and refuses guessed ids (§91, §247, §305, §306)", async () => {
     const created = await createRfi(engineer, "project_a", createRfiSchema.parse({ subject: "Test to void", question: "?", open: true }));
-    const elsewhere = await createEngineeringDocument(pm, "project_b", createEngineeringDocumentSchema.parse({ documentNumber: "TWR-SK-001", title: "Tower sketch", documentType: "DRAWING", discipline: "STRUCTURAL" }));
+    const elsewhere = await createEngineeringDocument(pm, HARBOUR.project, createEngineeringDocumentSchema.parse({ documentNumber: "HBR-SK-001", title: "Harbour sketch", documentType: "DRAWING", discipline: "STRUCTURAL" }));
     await expect(addRfiReference(engineer, created.id, { referenceType: "ENGINEERING_DOCUMENT", referenceId: elsewhere.id, note: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(addRfiReference(pm, created.id, { referenceType: "ENGINEERING_DOCUMENT", referenceId: elsewhere.id, note: null })).rejects.toMatchObject(code("RFI_REFERENCE_PROJECT_MISMATCH"));
     await expect(addRfiReference(engineer, created.id, { referenceType: "DRAWING", referenceId: S.documents.transferSlab, note: null })).rejects.toMatchObject(code("RFI_REFERENCE_INVALID"));
@@ -190,9 +191,9 @@ describe("RFIs (§82-§97, §290, §309)", () => {
     await voidRfi(pm, created.id, { reason: "Raised twice" });
     expect((await getRfi(engineer, created.id)).status).toBe("VOID");
 
-    await expect(getRfi(engineer, S.rfis.tower)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(getRfi(engineer, HARBOUR.rfi)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(getRfi(ownerB, S.rfis.slabEdge)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    expect((await listRfis(engineer, rfiListSchema.parse({}))).items.map((row) => row.id)).not.toContain(S.rfis.tower);
+    expect((await listRfis(engineer, rfiListSchema.parse({}))).items.map((row) => row.id)).not.toContain(HARBOUR.rfi);
   });
 
   it("raises a follow-up task through the task service, and finishing it leaves the RFI open (§93, §136, §293)", async () => {
@@ -242,7 +243,7 @@ describe("submittals (§98-§117, §291, §310)", () => {
     expect((await listLinks(procurement, "technical_submittal", S.submittals.crane)).filter((link) => link.type === "work_permit")).toEqual([]);
     await decideRevision(hse, "submittal", "subrev_002_01", decision("APPROVED"));
     expect((await getSubmittal(pm, S.submittals.crane)).status).toBe("APPROVED");
-    await expect(linkRecord(pm, "technical_submittal", S.submittals.curtainWall, { type: "engineering_document", recordId: (await prisma.engineeringDocument.findFirstOrThrow({ where: { projectId: "project_b" } })).id })).rejects.toMatchObject(code("ENGINEERING_LINK_PROJECT_MISMATCH"));
+    await expect(linkRecord(pm, "technical_submittal", S.submittals.curtainWall, { type: "engineering_document", recordId: (await prisma.engineeringDocument.findFirstOrThrow({ where: { projectId: HARBOUR.project } })).id })).rejects.toMatchObject(code("ENGINEERING_LINK_PROJECT_MISMATCH"));
   });
 });
 
@@ -266,7 +267,7 @@ describe("integration boundaries (§140-§143, §200-§205, §295, §300-§303)"
   it("records a contractor crew in the daily log only for a contractor and work package of that log's project (§142)", async () => {
     const log = await prisma.dailyLog.findFirstOrThrow({ where: { companyId: COMPANY_A, projectId: "project_a", status: "DRAFT" }, select: { id: true } });
     const value = (extra: Record<string, unknown>) => SECTION_SCHEMAS.workforce.parse({ organizationName: "Test Apex crew", trade: "Concrete", headcount: 12, ...extra });
-    await expect(addEntry(pm, log.id, "workforce", value({ contractorId: S.contractors.apex, workPackageId: S.workPackages.towerBasement }))).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_PROJECT_MISMATCH"));
+    await expect(addEntry(pm, log.id, "workforce", value({ contractorId: S.contractors.apex, workPackageId: HARBOUR.workPackage }))).rejects.toMatchObject(code("ENGINEERING_WORK_PACKAGE_PROJECT_MISMATCH"));
     await expect(addEntry(pm, log.id, "workforce", value({ contractorId: S.contractors.northgate }))).rejects.toMatchObject(code("ENGINEERING_CONTRACTOR_NOT_ASSIGNED"));
     const added = await addEntry(pm, log.id, "workforce", value({ workPackageId: S.workPackages.frame }));
     expect(await prisma.dailyLogWorkforceEntry.findUniqueOrThrow({ where: { id: added.id }, select: { contractorId: true, workPackageId: true } })).toEqual({ contractorId: S.contractors.apex, workPackageId: S.workPackages.frame });
@@ -276,8 +277,8 @@ describe("integration boundaries (§140-§143, §200-§205, §295, §300-§303)"
   it("searches only the records a reader can open (§203-§205, §300)", async () => {
     const search = async (context: UserContext, text: string) => (await globalSearch(context, text, { limitPerProvider: 20 })).results?.map((row: { entityId: string }) => row.entityId) ?? [];
     expect(await search(engineer, "Slab edge")).toContain(S.rfis.slabEdge);
-    expect(await search(engineer, "basement wall")).not.toContain(S.rfis.tower);
-    expect(await search(pm, "basement wall")).toContain(S.rfis.tower);
+    expect(await search(engineer, "basement wall")).not.toContain(HARBOUR.rfi);
+    expect(await search(pm, "basement wall")).toContain(HARBOUR.rfi);
     expect(await search(ownerB, "Apex")).not.toContain(S.contractors.apex);
     expect(await search(engineer, "ARC-SD-023")).toContain(S.documents.floorPlan);
   });
@@ -286,9 +287,9 @@ describe("integration boundaries (§140-§143, §200-§205, §295, §300-§303)"
     const range = { from: new Date(Date.now() - 20 * 86_400_000), to: new Date(Date.now() + 20 * 86_400_000) };
     const events = async (context: UserContext) => (await rfiCalendarProvider.getEvents({ context, range, filters: {}, timezone: "Europe/Tirane" } as never)).map((event) => event.sourceId);
     expect(await events(engineer)).toContain(S.rfis.slabEdge);
-    expect(await events(engineer)).not.toContain(S.rfis.tower);
+    expect(await events(engineer)).not.toContain(HARBOUR.rfi);
     expect(await events(engineer)).not.toContain(S.rfis.fireStopping);
-    expect(await events(pm)).toContain(S.rfis.tower);
+    expect(await events(pm)).toContain(HARBOUR.rfi);
   });
 
   it("dispatches notifications to people who can open the record, and reconciles overdue attention (§194-§199, §302, §303)", async () => {
@@ -302,7 +303,7 @@ describe("integration boundaries (§140-§143, §200-§205, §295, §300-§303)"
     await respondRfi(architect, S.rfis.slabEdge, { text: "Setback 150 mm; edge beam may reduce to 450 mm.", final: true });
     expect(await prisma.attentionItem.count({ where: { entityId: S.rfis.slabEdge, conditionKey: { in: ["RFI_OVERDUE", "RFI_RESPONSE_REQUIRED"] }, status: "ACTIVE" } })).toBe(0);
 
-    // The Tower's RFI falls overdue: reminded once, however often the job runs (§196).
+    // Meridian's Tower RFI falls overdue: reminded once, however often the job runs (§196).
     await prisma.rfi.update({ where: { id: S.rfis.tower }, data: { dueAt: new Date(Date.now() - 3 * 86_400_000) } });
     const first = await runEngineeringReminders(new Date());
     const second = await runEngineeringReminders(new Date());
@@ -310,7 +311,7 @@ describe("integration boundaries (§140-§143, §200-§205, §295, §300-§303)"
     expect(second).toEqual({ rfiDueSoon: 0, rfiOverdue: 0, submittalDueSoon: 0, submittalOverdue: 0 });
     const reminders = await prisma.notificationEventOutbox.findMany({ where: { entityType: "rfi", entityId: S.rfis.tower, eventType: "RFI_OVERDUE" } });
     expect(reminders).toHaveLength(1);
-    expect((reminders[0].payloadJson as { memberIds: string[] }).memberIds).toContain(pm.membershipId);
+    expect((reminders[0].payloadJson as { memberIds: string[] }).memberIds).toContain((await loginAsEmail(DEMO_EMAIL.pmB)).membershipId);
   });
 
   it("summarises the project and my work, and reports without a contractor score (§159, §206-§211, §278)", async () => {

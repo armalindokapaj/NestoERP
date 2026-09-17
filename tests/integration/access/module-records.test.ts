@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { findRecordSection } from "@/lib/modules/records/registry";
-import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, loginAsPlatformAdmin, prisma } from "../../helpers";
 
 /**
  * Department module tests (PRD #9 §134–§138, §189).
@@ -35,12 +35,15 @@ describe("finance module access (PRD #9 §134)", () => {
     expect(context.permissions).toContain("finance.project_budget.view");
   });
 
-  it("keeps Admin and Company IT out of Finance (PRD #15 §20)", async () => {
+  it("keeps Group IT and the Platform Admin out of Finance (PRD #15 §20, E-06 §74, §75)", async () => {
     // Administering NESTO is not financial authorisation.
-    for (const role of ["ADMIN", "COMPANY_IT"] as const) {
-      const context = await loginAs(role);
-      expect(canAccessModule(context, "finance")).toBe(false);
-    }
+    const context = await loginAs("GROUP_IT");
+    expect(canAccessModule(context, "finance")).toBe(false);
+    // The Platform Admin holds no company context to reach a module through.
+    await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow(/no active membership/);
+    const platform = await loginAsPlatformAdmin();
+    expect(platform).not.toHaveProperty("companyId");
+    expect(platform).not.toHaveProperty("moduleAccess");
   });
 });
 
@@ -54,8 +57,8 @@ describe("finance module access (PRD #9 §134)", () => {
  */
 
 describe("company-disabled modules (PRD #9 §110, §142)", () => {
-  it("switches Finance off for Company B", async () => {
-    const context = await loginAsEmail("owner-b@nesto.test");
+  it("switches Finance off for the fixture tenant", async () => {
+    const context = await loginAsEmail(DEMO_EMAIL.tenantOwner);
 
     expect(isModuleEnabled(context, "finance")).toBe(false);
     expect(canAccessModule(context, "finance")).toBe(false);
@@ -63,16 +66,16 @@ describe("company-disabled modules (PRD #9 §110, §142)", () => {
   });
 
   it("drops the module's permissions from the context entirely", async () => {
-    const context = await loginAsEmail("owner-b@nesto.test");
+    const context = await loginAsEmail(DEMO_EMAIL.tenantOwner);
 
-    // Company B's Owner holds Finance permissions by role, but the company has
+    // The tenant's Owner holds Finance permissions by role, but the company has
     // the module switched off — so the resolved context holds none of them.
     expect(context.permissions).not.toContain("finance.invoice.view");
     expect(context.permissions).not.toContain("finance.view");
   });
 
   it("keeps enabled modules working for the same user", async () => {
-    const context = await loginAsEmail("owner-b@nesto.test");
+    const context = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     expect(canAccessModule(context, "projects")).toBe(true);
     expect(context.permissions).toContain("project.view");
   });
@@ -83,7 +86,7 @@ describe("company isolation across every record type (PRD #9 §12, §157)", () =
   // they are deliberately absent from the shell registry. What still renders
   // through it is the platform's own support queue.
   const cases: { module: string; section: string; role: Parameters<typeof loginAs>[0] }[] = [
-    { module: "support", section: "requests", role: "ADMIN" },
+    { module: "support", section: "requests", role: "GROUP_IT" },
   ];
 
   for (const testCase of cases) {

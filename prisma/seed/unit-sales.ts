@@ -11,7 +11,7 @@ import { STRUCTURE_SEED } from "./structure";
  * - A-101 For Sale at €185,000, raised from €179,000 last week.
  * - A-102 Reserved for ACME Developments on "Riverside phase 2", five days left,
  *   at an agreed €126,500 against an asking €129,500.
- * - A-201 Sold to Beta Properties on "Beta head office refurb"; the reservation
+ * - A-201 Sold to Nova Living on "Nova Living block A"; the reservation
  *   converted to the sale.
  * - A-202 On Hold for the developer, with a reason and a date.
  * - A-203 Reserved on the same ACME deal, extended once: a deal with two units.
@@ -22,7 +22,7 @@ import { STRUCTURE_SEED } from "./structure";
  */
 
 const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const FIXTURE_TENANT = "company_fixture_tenant";
 const EUR = "EUR";
 const DAY = 86_400_000;
 const days = (offset: number) => new Date(Date.now() + offset * DAY);
@@ -58,7 +58,7 @@ export async function seedUnitSalesRecords(prisma: PrismaClient, memberId: Membe
   await prisma.opportunity.upsert({
     where: { id: "opportunity_b_001" },
     update: {},
-    create: { id: "opportunity_b_001", companyId: COMPANY_B, name: "Isarwerk office purchase", clientId: "client_b_muc", ownerMemberId: ownerB, stage: "NEGOTIATION", estimatedValue: dec("640000"), currency: EUR, createdByMemberId: ownerB, stageChangedAt: days(-12), createdAt: days(-30) },
+    create: { id: "opportunity_b_001", companyId: FIXTURE_TENANT, name: "Isarwerk office purchase", clientId: "client_b_muc", ownerMemberId: ownerB, stage: "NEGOTIATION", estimatedValue: dec("640000"), currency: EUR, createdByMemberId: ownerB, stageChangedAt: days(-12), createdAt: days(-30) },
   });
 
   const users = await prisma.companyMember.findMany({ where: { id: { in: [sales, manager, ownerB] } }, select: { id: true, userId: true } });
@@ -176,9 +176,9 @@ export async function seedUnitSalesRecords(prisma: PrismaClient, memberId: Membe
     ],
   });
 
-  /* A-201: sold to Beta ------------------------------------------------------------------ */
+  /* A-201: sold to Nova Living ------------------------------------------------------------ */
   const a201 = unit.get("A-201")!;
-  const a201Reservation = await reserve({ unitId: a201, code: "A-201", clientId: "client_beta", opportunityId: "opportunity_002", at: -12, expires: -5, agreed: "176000", by: sales, status: "CONVERTED_TO_SALE", closedAt: -6 });
+  const a201Reservation = await reserve({ unitId: a201, code: "A-201", clientId: "client_nova", opportunityId: "opportunity_006", at: -12, expires: -5, agreed: "176000", by: sales, status: "CONVERTED_TO_SALE", closedAt: -6 });
   await offer({
     unitId: a201,
     code: "A-201",
@@ -186,8 +186,8 @@ export async function seedUnitSalesRecords(prisma: PrismaClient, memberId: Membe
     prices: [{ price: "182000", at: -30, by: manager, reason: "Launch price list" }],
     steps: [
       { from: "NOT_FOR_SALE", to: "FOR_SALE", at: -30, by: manager },
-      { from: "FOR_SALE", to: "RESERVED", at: -12, by: sales, reservationId: a201Reservation, opportunityId: "opportunity_002" },
-      { from: "RESERVED", to: "SOLD", at: -6, by: sales, reservationId: a201Reservation, opportunityId: "opportunity_002" },
+      { from: "FOR_SALE", to: "RESERVED", at: -12, by: sales, reservationId: a201Reservation, opportunityId: "opportunity_006" },
+      { from: "RESERVED", to: "SOLD", at: -6, by: sales, reservationId: a201Reservation, opportunityId: "opportunity_006" },
     ],
   });
   await trail(COMPANY_A, riverside, a201, "UNIT_MARKED_SOLD", "marked A-201 Sold", sales, -6);
@@ -227,9 +227,9 @@ export async function seedUnitSalesRecords(prisma: PrismaClient, memberId: Membe
 
   /* Company B: OF-001 reserved ------------------------------------------------------------------------ */
   const of001 = STRUCTURE_SEED.units.munichOffice1;
-  const of001Reservation = await reserve({ companyId: COMPANY_B, projectId: munich, unitId: of001, code: "OF-001", clientId: "client_b_muc", opportunityId: "opportunity_b_001", at: -1, expires: 6, agreed: "612000", by: ownerB });
+  const of001Reservation = await reserve({ companyId: FIXTURE_TENANT, projectId: munich, unitId: of001, code: "OF-001", clientId: "client_b_muc", opportunityId: "opportunity_b_001", at: -1, expires: 6, agreed: "612000", by: ownerB });
   await offer({
-    companyId: COMPANY_B,
+    companyId: FIXTURE_TENANT,
     projectId: munich,
     unitId: of001,
     code: "OF-001",

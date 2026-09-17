@@ -47,7 +47,8 @@ async function bulkAdd(page: Page, prefix: string, start: string, end: string) {
 }
 
 test("the project manager sets up a project's buildings, floors and units", async ({ page }) => {
-  await signIn(page, "PROJECT_MANAGER", { to: `/projects/${PROJECT}/units` });
+  // Central Office Tower is Meridian's, run by Meridian's project manager (E-06 §45).
+  await signIn(page, "PM_B", { to: `/projects/${PROJECT}/units` });
   await expect(page.getByTestId("structure-empty")).toContainText("Set up project structure");
 
   // A building (§35) — the page moves onto it.

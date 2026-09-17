@@ -21,16 +21,12 @@ const EXPECTATIONS: {
     denied: [],
   },
   {
-    role: "ADMIN",
-    visible: ["Projects", "Documents", "Team", "Company", "Settings"],
-    hidden: ["Finance", "Procurement", "QA/QC"],
-    denied: ["/finance", "/procurement"],
-  },
-  {
-    role: "COMPANY_IT",
-    visible: ["Team", "Company", "Settings", "Support"],
-    hidden: ["Finance", "Legal", "Projects"],
-    denied: ["/finance", "/contracts", "/projects"],
+    // Group IT runs accounts, settings and support, and none of the business
+    // (E-06): project setup stayed with the Owner and the CEO.
+    role: "GROUP_IT",
+    visible: ["Team", "Company", "Settings", "Support", "Documents"],
+    hidden: ["Finance", "Legal", "Projects", "Procurement", "QA/QC"],
+    denied: ["/finance", "/contracts", "/projects", "/procurement"],
   },
   {
     /*

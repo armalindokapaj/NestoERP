@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { permissionsForRole } from "@/config/role-defaults";
-import { ROLE_KEYS } from "@/config/roles";
+import { ROLE_KEYS, type PositionLevel } from "@/config/roles";
 import { canMove } from "@/lib/core/state/machine";
 import { STATE_MACHINES } from "@/lib/core/state/registry";
 import { unitCommercialMachine } from "@/lib/modules/sales/units/unit-commercial.machine";
@@ -117,24 +117,27 @@ describe("validation (§47)", () => {
 });
 
 describe("default role policy (§38, §39)", () => {
-  const holders = (permission: string) => ROLE_KEYS.filter((role) => (permissionsForRole(role) as readonly string[]).includes(permission)).sort();
+  const holders = (permission: string, position: PositionLevel = "MEMBER") => ROLE_KEYS.filter((role) => (permissionsForRole(role, position) as readonly string[]).includes(permission)).sort();
 
   it("lets Sales price, hold, reserve, extend, release and sell", () => {
     for (const permission of ["project.unit.sales_status.manage", "project.unit.price.manage", "project.unit.reserve", "project.unit.reservation.extend", "project.unit.reservation.release", "project.unit.mark_sold"]) {
-      expect(holders(permission), permission).toEqual(["ADMIN", "OWNER", "SALES", "SALES_MANAGER"]);
+      expect(holders(permission), permission).toEqual(["OWNER", "SALES"]);
     }
   });
 
-  it("keeps reopening a sale and correcting a reservation with the Sales Manager, the Admin and the Owner", () => {
+  it("keeps reopening a sale and correcting a reservation with Sales' managers and the Owner (E-06 §6.4)", () => {
     for (const permission of ["project.unit.reopen_sale", "project.unit.sales_correct"]) {
-      expect(holders(permission), permission).toEqual(["ADMIN", "OWNER", "SALES_MANAGER"]);
+      expect(holders(permission), permission).toEqual(["OWNER"]);
+      expect(holders(permission, "COMPANY_MANAGER"), permission).toEqual(["OWNER", "SALES"]);
     }
   });
 
   it("shows sales to management, Finance, Legal, the Project Manager and the Viewer, and not to Architecture or Engineering", () => {
-    expect(holders("project.unit.sales.view")).toEqual(["ADMIN", "CEO", "FINANCE", "LEGAL", "OWNER", "PROJECT_MANAGER", "SALES", "SALES_MANAGER", "VIEWER"]);
-    for (const role of ["ARCHITECT", "ARCHITECTURE_MANAGER", "ENGINEER"] as const) {
-      expect((permissionsForRole(role) as readonly string[]).filter((permission) => permission.startsWith("project.unit.sales")), role).toEqual([]);
+    expect(holders("project.unit.sales.view")).toEqual(["CEO", "FINANCE", "LEGAL", "OWNER", "PROJECT_MANAGER", "SALES", "VIEWER"]);
+    for (const role of ["ARCHITECT", "ENGINEER"] as const) {
+      for (const position of ["MEMBER", "COMPANY_MANAGER", "GROUP_HEAD"] as const) {
+        expect((permissionsForRole(role, position) as readonly string[]).filter((permission) => permission.startsWith("project.unit.sales")), `${role} ${position}`).toEqual([]);
+      }
     }
   });
 

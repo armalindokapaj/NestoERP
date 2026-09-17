@@ -31,7 +31,8 @@ import {
   proposalListQuerySchema,
   updateProposalSchema,
 } from "@/lib/modules/sales/proposals/proposal.schema";
-import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
+import type { UserContext } from "@/lib/context/types";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, prisma } from "../../helpers";
 
 /**
  * Sales authorisation and lifecycle tests (PRD #17 §315–§342, §358, §359).
@@ -205,6 +206,26 @@ afterAll(async () => {
 /* Fixtures                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Nova's own salesperson: Nova holds the converted lead, the accepted quote and a won and a lost deal. */
+const NOVA_SALES = "sales-e@nesto.test";
+
+/**
+ * A sales record sits in the company of its client or project (E-06), so what
+ * the demo renders is spread across the group. The group's head of Sales is a
+ * member of all five companies and reads each in turn.
+ */
+async function acrossTheGroup<T>(read: (context: UserContext) => Promise<T[]>): Promise<T[]> {
+  const memberships = await prisma.companyMember.findMany({
+    where: { user: { email: DEMO_EMAIL.salesHead }, companyId: { in: [COMPANY.a, COMPANY.b, COMPANY.c, COMPANY.d, COMPANY.e] }, status: "ACTIVE" },
+    select: { id: true },
+  });
+  expect(memberships).toHaveLength(5);
+
+  const rows: T[] = [];
+  for (const membership of memberships) rows.push(...(await read(await loginAsMembership(membership.id))));
+  return rows;
+}
+
 function leadInput(overrides: Record<string, unknown> = {}) {
   return createLeadSchema.parse({
     name: `${TEST_PREFIX} Lead`,
@@ -289,11 +310,13 @@ describe("module access (PRD #17 §16, §355, §356)", () => {
     const context = await loginAs("SALES");
     const result = await opportunities.listOpportunities(context, opportunityQuery);
 
-    expect(result.data.length).toBeGreaterThan(10);
+    const pipeline = await prisma.opportunity.count({ where: { companyId: context.companyId, archivedAt: null } });
+    expect(pipeline).toBeGreaterThan(5);
+    expect(result.data.length).toBe(pipeline);
     expect(can(context, "sales.manage")).toBe(true);
   });
 
-  it.each(["ADMIN", "COMPANY_IT", "HR", "ARCHITECT", "ENGINEER", "VIEWER"] as const)(
+  it.each(["GROUP_IT", "HR", "ARCHITECT", "ENGINEER", "VIEWER"] as const)(
     "refuses %s the module entirely",
     async (role) => {
       const context = await loginAs(role);
@@ -309,7 +332,9 @@ describe("module access (PRD #17 §16, §355, §356)", () => {
     const context = await loginAs("CEO");
 
     const result = await opportunities.listOpportunities(context, opportunityQuery);
-    expect(result.data.length).toBeGreaterThan(10);
+    expect(result.data.length).toBe(
+      await prisma.opportunity.count({ where: { companyId: context.companyId, archivedAt: null } }),
+    );
 
     // Approval authority, no operational controls.
     expect(can(context, "sales.proposal.approve")).toBe(true);
@@ -362,11 +387,11 @@ describe("module access (PRD #17 §16, §355, §356)", () => {
 
 describe("sales scope (PRD #17 §74, §195, §336)", () => {
   it("shows a project manager the won deal behind their project, not the pipeline", async () => {
-    const context = await loginAs("PROJECT_MANAGER");
+    const context = await loginAsEmail(DEMO_EMAIL.pmB);
     const result = await opportunities.listOpportunities(context, opportunityQuery);
 
-    // opportunity_025 converted into the project this PM runs, so they reach
-    // it. Everything else is somebody else's open pipeline (PRD #17 §195, §354).
+    // opportunity_025 converted into the Meridian project this PM runs, so they
+    // reach it. Everything else is somebody else's open pipeline (PRD #17 §195, §354).
     expect(result.data.length).toBeGreaterThan(0);
     expect(result.data.map((row) => row.id)).toContain("opportunity_025");
     for (const row of result.data) {
@@ -392,10 +417,10 @@ describe("sales scope (PRD #17 §74, §195, §336)", () => {
   });
 
   it("never returns another company's records (PRD #17 §357)", async () => {
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
 
-    // Company B has Sales disabled, so the module refuses outright. Either way
-    // no Company A record is reachable.
+    // The fixture tenant has Sales disabled, so the module refuses outright.
+    // Either way no Aurelia record is reachable.
     await expect(opportunities.getOpportunity(ownerB, "opportunity_001")).rejects.toThrow(
       AccessError,
     );
@@ -412,7 +437,7 @@ describe("sales scope (PRD #17 §74, §195, §336)", () => {
   });
 
   it("draws filter options only from records in scope (PRD #17 §337)", async () => {
-    const pm = await loginAs("PROJECT_MANAGER");
+    const pm = await loginAsEmail(DEMO_EMAIL.pmB);
     const options = await opportunities.opportunityFilterOptions(pm);
 
     // The PM reaches one won deal, so the owner filter offers exactly its owner
@@ -469,7 +494,7 @@ describe("leads (PRD #17 §315, §317)", () => {
   it("refuses an owner from another company (PRD #17 §220)", async () => {
     const context = await loginAs("SALES");
     const ownerB = await prisma.companyMember.findFirstOrThrow({
-      where: { company: { slug: { not: undefined } }, user: { email: "owner-b@nesto.test" } },
+      where: { company: { slug: { not: undefined } }, user: { email: DEMO_EMAIL.tenantOwner } },
       select: { id: true },
     });
 
@@ -854,13 +879,13 @@ describe("opportunities (PRD #17 §320, §321)", () => {
   it("refuses a contact that belongs to another client (PRD #17 §65, §321)", async () => {
     const context = await loginAs("SALES");
 
-    // contact_001 belongs to client_acme, not to client_beta.
+    // contact_001 belongs to client_acme, not to client_nova.
     await expect(
       opportunities.createOpportunity(
         context,
         opportunityInput({
           ownerMemberId: context.membershipId,
-          clientId: "client_beta",
+          clientId: "client_nova",
           contactId: "contact_001",
         }),
       ),
@@ -868,7 +893,8 @@ describe("opportunities (PRD #17 §320, §321)", () => {
   });
 
   it("refuses an inactive owner (PRD #17 §220)", async () => {
-    const context = await loginAs("SALES");
+    // The awkward memberships live in Fixture Works, which runs Sales.
+    const context = await loginAsEmail(DEMO_EMAIL.fixtureOwner);
     const inactive = await prisma.companyMember.findFirst({
       where: { companyId: context.companyId, status: { not: "ACTIVE" } },
       select: { id: true },
@@ -989,7 +1015,7 @@ describe("winning a deal (PRD #17 §323)", () => {
 
   it("blocks a project that belongs to a different client (PRD #17 §89, §323)", async () => {
     const owner = await loginAs("OWNER");
-    const opportunity = await newOpportunity(owner, { clientId: "client_beta" });
+    const opportunity = await newOpportunity(owner, { clientId: "client_nova" });
 
     // project_a belongs to client_acme.
     await expect(
@@ -1142,10 +1168,10 @@ describe("proposals (PRD #17 §327, §328)", () => {
 
   it("takes the client from the opportunity, not from the request (PRD #17 §217)", async () => {
     const context = await loginAs("SALES");
-    const opportunity = await newOpportunity(context, { clientId: "client_beta" });
+    const opportunity = await newOpportunity(context, { clientId: "client_nova" });
     const proposal = await newProposal(context, opportunity.id);
 
-    expect(proposal.client.id).toBe("client_beta");
+    expect(proposal.client.id).toBe("client_nova");
   });
 
   it("refuses a proposal on an opportunity with no client (PRD #17 §110)", async () => {
@@ -1476,7 +1502,7 @@ describe("sales documents (PRD #17 §334, §335)", () => {
 describe("overview and pipeline (PRD #17 §412, §413)", () => {
   it("scopes every KPI to the reader (PRD #17 §412)", async () => {
     const sales = await loginAs("SALES");
-    const pm = await loginAs("PROJECT_MANAGER");
+    const pm = await loginAsEmail(DEMO_EMAIL.pmB);
 
     const company = await getSalesOverview(sales);
     const restricted = await getSalesOverview(pm);
@@ -1496,10 +1522,10 @@ describe("overview and pipeline (PRD #17 §412, §413)", () => {
   });
 
   it("groups the pipeline by currency and never sums across them (PRD #17 §103, §340)", async () => {
-    const context = await loginAs("SALES");
+    // Terra carries one USD deal at Discovery alongside its euro pipeline.
+    const context = await loginAsMembership("member_sales_manager__c");
     const pipeline = await getPipeline(context);
 
-    // The seed carries one USD deal at Discovery alongside the euro pipeline.
     const currencies = new Set(pipeline.totals.map((total) => total.currency));
     expect(currencies.has("EUR")).toBe(true);
     expect(currencies.has("USD")).toBe(true);
@@ -1554,7 +1580,7 @@ describe("reports (PRD #17 §339)", () => {
   });
 
   it("computes the win rate from closed deals only (PRD #17 §164)", async () => {
-    const context = await loginAs("SALES");
+    const context = await loginAsEmail(NOVA_SALES);
     const report = await reports.winLossReport(context, {
       from: new Date("2000-01-01"),
       to: new Date("2100-01-01"),
@@ -1571,7 +1597,7 @@ describe("reports (PRD #17 §339)", () => {
   });
 
   it("reports lost reasons with a value per currency (PRD #17 §168)", async () => {
-    const context = await loginAs("SALES");
+    const context = await loginAsEmail(NOVA_SALES);
     const rows = await reports.lostReasonReport(context, {
       from: new Date("2000-01-01"),
       to: new Date("2100-01-01"),
@@ -1585,7 +1611,7 @@ describe("reports (PRD #17 §339)", () => {
   });
 
   it("reports proposal acceptance over decided proposals (PRD #17 §244)", async () => {
-    const context = await loginAs("SALES");
+    const context = await loginAsEmail(NOVA_SALES);
     const rows = await reports.proposalReport(context, {
       from: new Date("2000-01-01"),
       to: new Date("2100-01-01"),
@@ -1876,10 +1902,9 @@ describe("concurrency (PRD #17 §255–§258)", () => {
 
 describe("seed fixtures (PRD #17 §301–§313)", () => {
   it("lists every proposal status the module has to render (PRD #17 §307)", async () => {
-    const context = await loginAs("SALES");
-    const result = await proposals.listProposals(context, proposalQuery);
+    const rows = await acrossTheGroup(async (context) => (await proposals.listProposals(context, proposalQuery)).data);
 
-    const statuses = new Set(result.data.map((row) => row.status));
+    const statuses = new Set(rows.map((row) => row.status));
     for (const status of [
       "DRAFT",
       "PENDING_APPROVAL",
@@ -1895,10 +1920,11 @@ describe("seed fixtures (PRD #17 §301–§313)", () => {
   });
 
   it("covers every opportunity stage (PRD #17 §303)", async () => {
-    const context = await loginAs("SALES");
-    const result = await opportunities.listOpportunities(context, opportunityQuery);
+    const rows = await acrossTheGroup(
+      async (context) => (await opportunities.listOpportunities(context, opportunityQuery)).data,
+    );
 
-    const stages = new Set(result.data.map((row) => row.stage));
+    const stages = new Set(rows.map((row) => row.stage));
     for (const stage of [
       "PROSPECTING",
       "QUALIFIED",
@@ -1913,24 +1939,23 @@ describe("seed fixtures (PRD #17 §301–§313)", () => {
   });
 
   it("covers every lead status and source (PRD #17 §302)", async () => {
-    const context = await loginAs("SALES");
-    const active = await leads.listLeads(context, leadQuery);
-    const archived = await leads.listLeads(
-      context,
-      leadListQuerySchema.parse({ archived: true, limit: 100 }),
+    const active = await acrossTheGroup(async (context) => (await leads.listLeads(context, leadQuery)).data);
+    const archived = await acrossTheGroup(
+      async (context) =>
+        (await leads.listLeads(context, leadListQuerySchema.parse({ archived: true, limit: 100 }))).data,
     );
 
-    const statuses = new Set([...active.data, ...archived.data].map((row) => row.status));
+    const statuses = new Set([...active, ...archived].map((row) => row.status));
     for (const status of ["NEW", "CONTACTED", "QUALIFIED", "DISQUALIFIED", "CONVERTED", "ARCHIVED"] as const) {
       expect(statuses, status).toContain(status);
     }
 
-    const sources = new Set(active.data.map((row) => row.source));
+    const sources = new Set(active.map((row) => row.source));
     expect(sources.size).toBeGreaterThanOrEqual(7);
   });
 
   it("carries the full lead → opportunity → client → project chain (PRD #17 §311)", async () => {
-    const context = await loginAs("SALES");
+    const context = await loginAsEmail(NOVA_SALES);
     const opportunity = await opportunities.getOpportunity(context, "opportunity_004");
 
     expect(opportunity.stage).toBe("WON");

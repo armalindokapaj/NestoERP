@@ -1,9 +1,9 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { AccessError } from "@/lib/access/guards";
 import { createTaskSchema, updateTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, loginAs, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, loginAs, PROJECT, prisma } from "../../helpers";
 
 /**
  * A task stays on its source's project, and its assignee on its project's team
@@ -16,6 +16,12 @@ import { cleanupSessions, loginAs, PROJECT, prisma } from "../../helpers";
  * unchanged.
  */
 const created: string[] = [];
+/** Another of Aurelia's projects: the demo gives each company only one. */
+const OTHER_PROJECT = "test47_task_other_project";
+
+beforeAll(async () => {
+  await prisma.project.create({ data: { id: OTHER_PROJECT, companyId: COMPANY.a, code: "T47-TASK", name: "Task Authorization Elsewhere", status: "ACTIVE", createdBy: "test" } });
+});
 
 afterEach(async () => {
   if (created.length === 0) return;
@@ -32,6 +38,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  await prisma.project.deleteMany({ where: { id: OTHER_PROJECT } });
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -64,7 +71,7 @@ describe("a task raised from a project record stays on that project (PRD #47 §5
         parentId: milestone.id,
       });
 
-    await expectLinkRefused(from(PROJECT.c));
+    await expectLinkRefused(from(OTHER_PROJECT));
     await expectLinkRefused(from(undefined));
 
     const task = await from(PROJECT.a);
@@ -82,7 +89,7 @@ describe("a task raised from a project record stays on that project (PRD #47 §5
     });
     created.push(task.id);
 
-    await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title, projectId: PROJECT.c })));
+    await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title, projectId: OTHER_PROJECT })));
     await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title })));
 
     const row = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
@@ -95,8 +102,8 @@ describe("moving a task re-checks its assignee against the new project (PRD #11 
     const owner = await loginAs("OWNER");
 
     const [destinationMembers, destination] = await Promise.all([
-      prisma.projectMember.findMany({ where: { projectId: PROJECT.c, status: "ACTIVE" }, select: { companyMemberId: true } }),
-      prisma.project.findUniqueOrThrow({ where: { id: PROJECT.c }, select: { projectManagerMemberId: true } }),
+      prisma.projectMember.findMany({ where: { projectId: OTHER_PROJECT, status: "ACTIVE" }, select: { companyMemberId: true } }),
+      prisma.project.findUniqueOrThrow({ where: { id: OTHER_PROJECT }, select: { projectManagerMemberId: true } }),
     ]);
     const excluded = [...destinationMembers.map((row) => row.companyMemberId), destination.projectManagerMemberId].filter(
       (id): id is string => Boolean(id),
@@ -121,7 +128,7 @@ describe("moving a task re-checks its assignee against the new project (PRD #11 
       .updateTask(
         owner,
         task.id,
-        updateTaskSchema.parse({ title: task.title, projectId: PROJECT.c, assigneeMemberId: onlyOnA.companyMemberId }),
+        updateTaskSchema.parse({ title: task.title, projectId: OTHER_PROJECT, assigneeMemberId: onlyOnA.companyMemberId }),
       )
       .then(
         () => null,

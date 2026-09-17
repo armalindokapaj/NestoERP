@@ -4,7 +4,7 @@ import { authenticateCredentials } from "@/lib/auth/credentials";
 import { clearThrottle } from "@/lib/core/security/throttle";
 import { resetMemberPassword } from "@/lib/modules/team/team.service";
 import { generateTemporaryPassword } from "@/lib/auth/temporary-password";
-import { cleanupSessions, loginAs, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, loginAs, prisma } from "../../helpers";
 
 /**
  * Account recovery without email (PRD #50 §18, §20-§23, §325).
@@ -19,7 +19,7 @@ const made: string[] = [];
 
 async function memberToReset(username: string) {
   const template = await prisma.user.findFirstOrThrow({
-    where: { username: "engineer" },
+    where: { username: "engineer-a" },
     select: { passwordHash: true, memberships: { where: { status: "ACTIVE" }, take: 1, select: { companyId: true, roleId: true, departmentId: true } } },
   });
   const seat = template.memberships[0];
@@ -141,7 +141,7 @@ describe("an administrator resetting somebody's password", () => {
   it("will not reach another company's member", async () => {
     const context = await loginAs("OWNER");
     const foreign = await prisma.companyMember.findFirstOrThrow({
-      where: { companyId: { not: context.companyId } },
+      where: { companyId: COMPANY.tenant },
       select: { id: true },
     });
     await expect(resetMemberPassword(context, foreign.id)).rejects.toMatchObject({ code: "NOT_FOUND" });

@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import type { SeedMembers } from "./constants";
 
 /**
  * Announcements, favorites and recent work demo data (PRD #45 §348).
@@ -11,10 +12,10 @@ import type { PrismaClient } from "@prisma/client";
  * Company B has one announcement, for isolation. Dated relative to the day
  * the seed runs; re-running replaces the seeded rows.
  */
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const FIXTURE_TENANT = "company_fixture_tenant";
 
 export const ANNOUNCEMENT_SEED = {
   company: "announcement_company_welcome",
@@ -135,7 +136,7 @@ export async function seedAnnouncementRecords(prisma: PrismaClient, members: Mem
   await prisma.announcementRead.createMany({ data: [owner, pm, engineer].map((memberId) => ({ announcementId: ANNOUNCEMENT_SEED.company, memberId, firstReadAt: days(-5), lastReadAt: days(-5) })) });
 
   await prisma.announcement.create({
-    data: { companyId: COMPANY_B, id: ANNOUNCEMENT_SEED.companyB, status: "PUBLISHED", title: "Kick-off for the Munich office fit-out", body: "The fit-out starts next week.", audienceType: "COMPANY", authorMemberId: id("user_owner_b"), publishedAt: days(-1) },
+    data: { companyId: FIXTURE_TENANT, id: ANNOUNCEMENT_SEED.companyB, status: "PUBLISHED", title: "Kick-off for the Munich office fit-out", body: "The fit-out starts next week.", audienceType: "COMPANY", authorMemberId: id("user_owner_b"), publishedAt: days(-1) },
   });
 
   // Personal shortcuts: a few stars and a recent trail for the Engineer and the Project Manager.
@@ -148,7 +149,7 @@ export async function seedAnnouncementRecords(prisma: PrismaClient, members: Mem
       { companyId: COMPANY_A, memberId: engineer, entityType: "project_milestone", entityId: "milestone_riverside_structure", createdAt: days(-3) },
       { companyId: COMPANY_A, memberId: engineer, entityType: "task", entityId: "task_006", createdAt: days(-2) },
       { companyId: COMPANY_A, memberId: pm, entityType: "project", entityId: "project_a", createdAt: days(-5) },
-      { companyId: COMPANY_A, memberId: pm, entityType: "project", entityId: "project_b", createdAt: days(-4) },
+      { companyId: COMPANY_A, memberId: pm, entityType: "project_milestone", entityId: "milestone_riverside_roof", createdAt: days(-4) },
     ],
   });
   const hoursAgo = (hours: number) => new Date(now - hours * 3_600_000);

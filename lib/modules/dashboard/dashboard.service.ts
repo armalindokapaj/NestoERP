@@ -16,6 +16,7 @@ import {
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import * as financeKpis from "@/lib/modules/finance/finance.kpis";
 import { buildBudgetScopeWhere, buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
+import { personName, PERSON_NAME_SELECT } from "@/lib/modules/hr/hr.person";
 import { buildHrMemberScopeWhere, buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
 import {
   buildBalanceScopeWhere,
@@ -67,7 +68,7 @@ import type {
  * working (PRD #4 §77).
  */
 export async function resolveDashboard(context: UserContext): Promise<ResolvedDashboard> {
-  const config = dashboardForRole(context.role);
+  const config = dashboardForRole(context.role, context.position);
 
   const visibleKpis = config.kpis
     .map((key) => kpis[key])
@@ -876,23 +877,16 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           days: true,
           status: true,
           startDate: true,
-          employeeProfile: {
-            select: {
-              companyMember: {
-                select: { user: { select: { firstName: true, lastName: true } } },
-              },
-            },
-          },
+          employeeProfile: { select: { personProfile: PERSON_NAME_SELECT } },
         },
       });
 
       return {
         kind: "list",
         items: rows.map((row) => {
-          const user = row.employeeProfile.companyMember.user;
           return {
             id: row.id,
-            title: `${user.firstName} ${user.lastName}`,
+            title: personName(row.employeeProfile.personProfile),
             subtitle: `${leaveTypeLabels[row.leaveType]} · ${row.days.toFixed(2)} days`,
             meta: formatRelativeTime(row.startDate),
             status: row.status,

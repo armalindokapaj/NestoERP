@@ -33,7 +33,7 @@ test("an engineer logs project, task and internal time, and submits the week (§
   // Project time, through the detailed entry.
   await week(page).getByRole("button", { name: "Log time" }).first().click();
   const drawer = page.getByRole("dialog", { name: "Log time" });
-  await drawer.getByLabel("Project", { exact: false }).first().selectOption({ label: "PRJ-001 · Riverside Residences" });
+  await drawer.getByLabel("Project", { exact: false }).first().selectOption({ label: "A-PRJ-001 · Riverside Residences" });
   await drawer.getByRole("textbox", { name: "Duration" }).fill("2h");
   await drawer.getByLabel(/^Description/).fill("Coordination with the site team.");
   await drawer.getByRole("button", { name: "Log time" }).click();
@@ -41,7 +41,7 @@ test("an engineer logs project, task and internal time, and submits the week (§
 
   // Task time, choosing the task.
   await week(page).getByRole("button", { name: "Log time" }).first().click();
-  await drawer.getByLabel("Project", { exact: false }).first().selectOption({ label: "PRJ-001 · Riverside Residences" });
+  await drawer.getByLabel("Project", { exact: false }).first().selectOption({ label: "A-PRJ-001 · Riverside Residences" });
   await drawer.getByLabel("Task (optional)").selectOption({ label: "Review structural detail S-204" });
   await drawer.getByRole("textbox", { name: "Duration" }).fill("3:30");
   await drawer.getByRole("button", { name: "Log time" }).click();
@@ -124,7 +124,7 @@ test("a project manager reads their projects' hours, and another project is not 
   const project = page.getByRole("combobox", { name: "Project" });
   await expect(project.locator("option", { hasText: "Riverside Residences" })).toHaveCount(1);
   await expect(project.locator("option", { hasText: "Marina Apartments" })).toHaveCount(0);
-  await project.selectOption({ label: "PRJ-001 · Riverside Residences" });
+  await project.selectOption({ label: "A-PRJ-001 · Riverside Residences" });
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page).toHaveURL(/projectId=project_a/);
   await expect(page.getByTestId("project-total")).not.toHaveText("0h");

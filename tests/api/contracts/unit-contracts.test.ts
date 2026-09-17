@@ -15,7 +15,7 @@ import {
 import { runUnitReservationExpiry } from "@/lib/modules/sales/units/unit-sales.expiry";
 import { releaseReservation, reopenSale } from "@/lib/modules/sales/units/unit-sales.service";
 import { cleanupSessions, prisma } from "../../helpers";
-import { COMPANY_A, loginRoles, refused, SaleFixture, type Roles } from "../finance/unit-sale-fixture";
+import { COMPANY_A, loginRoles, refused, RIVERSIDE, SaleFixture, type Roles } from "../finance/unit-sale-fixture";
 
 /**
  * A unit's contract against the real database (E-05F §7-§17, §74, §75, §82,
@@ -54,7 +54,7 @@ describe("Sales asks, Legal drafts (§12, §13, §74)", () => {
 
     const created = await createUnitContract(roles.legal, unit.id, createUnitContractSchema.parse({ contractNumber: `${T}-CT-1` }));
     const contract = await prisma.contract.findUniqueOrThrow({ where: { id: created.contractId }, include: { units: true } });
-    expect(contract).toMatchObject({ contractType: "SALE_AGREEMENT", status: "DRAFT", clientId: unit.clientId, opportunityId: unit.opportunityId, projectId: "project_c", currency: "EUR", ownerMemberId: roles.legal.membershipId });
+    expect(contract).toMatchObject({ contractType: "SALE_AGREEMENT", status: "DRAFT", clientId: unit.clientId, opportunityId: unit.opportunityId, projectId: RIVERSIDE, currency: "EUR", ownerMemberId: roles.legal.membershipId });
     expect(contract.contractValue?.toFixed(2)).toBe("300000.00");
     expect(contract.units.map((row) => [row.unitId, row.value?.toFixed(2), row.releasedAt])).toEqual([[unit.id, "300000.00", null]]);
     expect(await prisma.unitContractRequest.findUniqueOrThrow({ where: { id: requestId } })).toMatchObject({ status: "FULFILLED", contractId: created.contractId });
@@ -87,12 +87,12 @@ describe("Sales asks, Legal drafts (§12, §13, §74)", () => {
     const created = await createUnitContract(roles.legal, unit.id, createUnitContractSchema.parse({ contractNumber: `${T}-Z` }));
     // One live contract per unit (§8), whatever path a second one takes.
     await refused(requestUnitContract(roles.sales, unit.id, { notes: null }), "CONFLICT", "UNIT_CONTRACT_EXISTS");
-    await expect(prisma.contractUnit.create({ data: { companyId: COMPANY_A, projectId: "project_c", contractId: created.contractId, unitId: unit.id, createdByMemberId: roles.legal.membershipId } })).rejects.toThrow();
+    await expect(prisma.contractUnit.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, contractId: created.contractId, unitId: unit.id, createdByMemberId: roles.legal.membershipId } })).rejects.toThrow();
 
     // The Legal module's own form drafts no sale agreement, and a sale contract's terms stay its units'.
     await refused(contracts.createContract(roles.legal, createContractSchema.parse({ contractNumber: `${T}-F`, title: "Sale", contractType: "SALE_AGREEMENT", ownerMemberId: roles.legal.membershipId })), "VALIDATION_ERROR");
     const detail = await contracts.getContract(roles.legal, created.contractId);
-    const edit = updateContractSchema.parse({ contractNumber: detail.contractNumber, title: "Renamed sale agreement", contractType: "SALE_AGREEMENT", ownerMemberId: roles.legal.membershipId, clientId: unit.clientId, projectId: "project_c", opportunityId: unit.opportunityId, currency: "EUR", contractValue: "300000.00" });
+    const edit = updateContractSchema.parse({ contractNumber: detail.contractNumber, title: "Renamed sale agreement", contractType: "SALE_AGREEMENT", ownerMemberId: roles.legal.membershipId, clientId: unit.clientId, projectId: RIVERSIDE, opportunityId: unit.opportunityId, currency: "EUR", contractValue: "300000.00" });
     await contracts.updateContract(roles.legal, created.contractId, edit);
     await refused(contracts.updateContract(roles.legal, created.contractId, { ...edit, contractValue: "1.00" }), "CONFLICT", "SALE_CONTRACT_TERMS_FIXED");
   });

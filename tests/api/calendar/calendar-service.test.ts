@@ -25,7 +25,7 @@ import {
 import { addLocalDays, instantFromLocal, localDate } from "@/lib/modules/calendar/calendar.time";
 import { financeProvider } from "@/lib/modules/calendar/providers/finance.provider";
 import { accessibleProjectIds } from "@/lib/access/scope";
-import { cleanupSessions, loginAs, loginAsEmail, prisma, PROJECT } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma, PROJECT } from "../../helpers";
 
 /**
  * The calendar, against the real database (PRD #39 §174-§195).
@@ -108,7 +108,7 @@ describe("provider architecture (§11-§14, §202)", () => {
 describe("isolation, permission and scope (§176-§179)", () => {
   it("gives another company nothing of this company's calendar", async () => {
     const owner = await loginAs("OWNER");
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     const event = await make(owner, { eventType: "COMPANY_EVENT", visibility: "COMPANY" });
     const bIds = await idsOf(ownerB);
     expect(bIds).not.toContain(event.event.id);

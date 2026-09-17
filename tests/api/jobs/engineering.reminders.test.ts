@@ -22,12 +22,12 @@ vi.mock("@/lib/core/notifications/notification.service", async (importOriginal) 
 const JOB = "engineering.reminders";
 const EVENTS = ["RFI_DUE_SOON", "RFI_OVERDUE", "SUBMITTAL_DUE_SOON", "SUBMITTAL_OVERDUE"];
 const RUN = `t51er${Date.now().toString(36)}`;
-/** A live project in each company with a manager, and one in A without (a draft nobody manages yet). */
+/** A live project in each company with a manager, and one in A without (a draft nobody manages yet, made here). */
 const SITE: Record<string, string> = { [COMPANY_A]: "project_a", [COMPANY_B]: "project_b_one" };
-const UNMANAGED = "project_e";
+const UNMANAGED = `${RUN}_draft`;
 const PEOPLE: Record<string, { assignee: string; author: string }> = {
   [COMPANY_A]: { assignee: "member_architect", author: "member_engineer" },
-  [COMPANY_B]: { assignee: "member_multicompany_b", author: "member_owner_b" },
+  [COMPANY_B]: { assignee: "member_viewer_b", author: "member_owner_b" },
 };
 
 const enqueue = vi.mocked(enqueueNotificationEvent);
@@ -102,6 +102,7 @@ beforeAll(async () => {
   for (const companyId of [COMPANY_A, COMPANY_B]) {
     zones.set(companyId, (await prisma.companySettings.findUniqueOrThrow({ where: { companyId }, select: { timezone: true } })).timezone);
   }
+  await prisma.project.create({ data: { id: UNMANAGED, companyId: COMPANY_A, code: UNMANAGED, name: `Contract test ${UNMANAGED}`, status: "PENDING", projectManagerMemberId: null, createdBy: "test" } });
 });
 
 beforeEach(async () => {
@@ -121,6 +122,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  await prisma.project.deleteMany({ where: { id: UNMANAGED } });
   await prisma.$disconnect();
 });
 

@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import { isRoleKey } from "@/config/roles";
+import { isMembershipRoleKey } from "@/config/roles";
 import { DEV_ROLE_COOKIE, isDevMode, RESET_DEV_ROLE } from "@/lib/auth/dev-role";
 
 /**
@@ -20,7 +20,7 @@ export async function setDevRoleAction(role: string): Promise<void> {
 
   if (role === RESET_DEV_ROLE) {
     cookieStore.delete(DEV_ROLE_COOKIE);
-  } else if (isRoleKey(role)) {
+  } else if (isMembershipRoleKey(role)) {
     cookieStore.set(DEV_ROLE_COOKIE, role, {
       path: "/",
       httpOnly: false,

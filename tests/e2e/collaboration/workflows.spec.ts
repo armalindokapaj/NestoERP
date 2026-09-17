@@ -180,7 +180,8 @@ test("search shows the Viewer nothing from modules it cannot open (§89)", async
 test("the dashboard shows the Engineer their own overdue work, linked (§83, §86)", async ({ page }) => {
   await runJob("attention.reconcile");
 
-  await signIn(page, "ENGINEER", { to: "/dashboard" });
+  // The yard drainage task is Terra's, assigned to Terra's engineer.
+  await signIn(page, "ENGINEER_C", { to: "/dashboard" });
   const link = mainRegion(page).getByRole("link", { name: /Overdue: Technical issue response/ });
   await expect(link).toBeVisible();
   await link.click();

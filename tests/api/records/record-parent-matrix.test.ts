@@ -7,7 +7,7 @@ import { openNotification } from "@/lib/core/notifications/notification.service"
 import { loadRecord, recordDefinitions } from "@/lib/core/records/record.registry";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { canAttachToDocumentParent } from "@/lib/modules/documents/document.parent-access";
-import { cleanupSessions, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
 
 /**
  * Parent matrices generated from the registry (PRD #38 §129, §145, §146).
@@ -86,7 +86,7 @@ let viewer: UserContext;
 const sample = new Map<RecordType, string>();
 
 beforeAll(async () => {
-  [owner, ownerB, viewer] = await Promise.all([loginAs("OWNER"), loginAsEmail("owner-b@nesto.test"), loginAs("VIEWER")]);
+  [owner, ownerB, viewer] = await Promise.all([loginAs("OWNER"), loginAsEmail(DEMO_EMAIL.tenantOwner), loginAs("VIEWER")]);
 
   for (const definition of recordDefinitions()) {
     const source = SOURCE[definition.type];

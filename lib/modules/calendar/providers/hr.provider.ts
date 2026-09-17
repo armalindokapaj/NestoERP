@@ -2,6 +2,7 @@ import { can, canAccessModule } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import { buildLeaveScopeWhere, hrScopeKind } from "@/lib/modules/hr/hr.scope";
+import { personName, PERSON_NAME_SELECT, type PersonName } from "@/lib/modules/hr/hr.person";
 import type { CalendarEventDTO, CalendarProvider } from "../calendar.types";
 import { compact, dateWindow, onBusinessDate, SOURCE_LIMIT } from "./provider.helpers";
 
@@ -28,8 +29,8 @@ const LEAVE_LABEL: Record<string, string> = {
   OTHER: "Leave",
 };
 
-function memberName(row: { employeeProfile: { companyMember: { user: { firstName: string; lastName: string } } } }): string {
-  return `${row.employeeProfile.companyMember.user.firstName} ${row.employeeProfile.companyMember.user.lastName}`;
+function memberName(row: { employeeProfile: { personProfile: PersonName } }): string {
+  return personName(row.employeeProfile.personProfile);
 }
 
 function busyOnly(id: string, name: string): Omit<CalendarEventDTO, "startsAt" | "endsAt" | "allDay" | "editable" | "draggable" | "resizable"> {
@@ -66,7 +67,7 @@ export const hrProvider: CalendarProvider = {
       startDate: true,
       endDate: true,
       companyMemberId: true,
-      employeeProfile: { select: { companyMember: { select: { user: { select: { firstName: true, lastName: true } } } } } },
+      employeeProfile: { select: { personProfile: PERSON_NAME_SELECT } },
     } as const;
 
     const decidesLeave = can(context, "hr.leave.approve") && hrScopeKind(context) !== "SELF";

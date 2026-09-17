@@ -22,31 +22,33 @@
  */
 import type { PrismaClient, Prisma } from "@prisma/client";
 
-import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
+import { DEMO_COMPANIES, FIXTURE_TENANT, PROJECT_IDS, companyFor, daysFromNow, type SeedMembers } from "./constants";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const EUR = "EUR";
 
+/**
+ * Each record is created in its project's company — or its client's, for one
+ * with no project — and raised by that company's own people: the group's head
+ * of Finance works in all five, each CEO decides in their own (E-06 §105).
+ */
 export async function seedFinanceRecords(prisma: PrismaClient, members: Members) {
-  const finance = members.get("user_finance")!;
-  const ceo = members.get("user_ceo")!;
-  const pm = members.get("user_pm")!;
-
   await seedSettings(prisma);
-  await seedInvoices(prisma, finance);
-  await seedExpenses(prisma, finance, pm);
-  await seedBudgets(prisma, finance, ceo);
-  await seedCommitments(prisma, finance);
-  await seedPayments(prisma, finance);
-  await seedApprovals(prisma, finance, ceo);
+  await seedInvoices(prisma, members);
+  await seedExpenses(prisma, members);
+  await seedBudgets(prisma, members);
+  await seedCommitments(prisma, members);
+  await seedPayments(prisma, members);
+  await seedApprovals(prisma, members);
 
+  const demo = { companyId: { in: Object.values(DEMO_COMPANIES).map((company) => company.id) } };
   return {
-    invoices: await prisma.invoice.count({ where: { companyId: COMPANY_A } }),
-    expenses: await prisma.expense.count({ where: { companyId: COMPANY_A } }),
-    payments: await prisma.payment.count({ where: { companyId: COMPANY_A } }),
-    budgets: await prisma.projectBudget.count({ where: { companyId: COMPANY_A } }),
-    commitments: await prisma.commitment.count({ where: { companyId: COMPANY_A } }),
+    invoices: await prisma.invoice.count({ where: demo }),
+    expenses: await prisma.expense.count({ where: demo }),
+    payments: await prisma.payment.count({ where: demo }),
+    budgets: await prisma.projectBudget.count({ where: demo }),
+    commitments: await prisma.commitment.count({ where: demo }),
   };
 }
 
@@ -55,7 +57,7 @@ export async function seedFinanceRecords(prisma: PrismaClient, members: Members)
 /* -------------------------------------------------------------------------- */
 
 async function seedSettings(prisma: PrismaClient) {
-  for (const companyId of [COMPANY_A, COMPANY_B]) {
+  for (const companyId of [...Object.values(DEMO_COMPANIES).map((company) => company.id), FIXTURE_TENANT]) {
     await prisma.financeSettings.upsert({
       where: { companyId },
       update: {},
@@ -121,7 +123,7 @@ const INVOICES: InvoiceFixture[] = [
   {
     id: "invoice_003",
     number: "INV-2026-003",
-    project: PROJECT_IDS.c,
+    project: PROJECT_IDS.d,
     client: "client_meridian",
     status: "SENT",
     due: -44,
@@ -134,7 +136,7 @@ const INVOICES: InvoiceFixture[] = [
   {
     id: "invoice_004",
     number: "INV-2026-004",
-    project: PROJECT_IDS.d,
+    project: PROJECT_IDS.c,
     client: "client_atlas",
     status: "SENT",
     due: -72,
@@ -146,7 +148,7 @@ const INVOICES: InvoiceFixture[] = [
   {
     id: "invoice_005",
     number: "INV-2026-005",
-    project: PROJECT_IDS.c,
+    project: PROJECT_IDS.d,
     client: "client_meridian",
     status: "SENT",
     due: -118,
@@ -171,7 +173,7 @@ const INVOICES: InvoiceFixture[] = [
   {
     id: "invoice_007",
     number: "INV-2026-007",
-    project: PROJECT_IDS.f,
+    project: PROJECT_IDS.e,
     client: "client_urban",
     status: "SENT",
     due: -80,
@@ -196,7 +198,7 @@ const INVOICES: InvoiceFixture[] = [
   {
     id: "invoice_009",
     number: "INV-2026-009",
-    project: PROJECT_IDS.d,
+    project: PROJECT_IDS.c,
     client: "client_atlas",
     status: "APPROVED",
     due: 26,
@@ -209,7 +211,7 @@ const INVOICES: InvoiceFixture[] = [
     id: "invoice_010",
     number: "INV-2026-010",
     project: PROJECT_IDS.e,
-    client: "client_greenline",
+    client: "client_urban",
     status: "DRAFT",
     due: 45,
     lines: [
@@ -232,7 +234,7 @@ const INVOICES: InvoiceFixture[] = [
   {
     id: "invoice_012",
     number: "INV-2026-012",
-    project: PROJECT_IDS.f,
+    project: PROJECT_IDS.e,
     client: "client_urban",
     status: "CANCELLED",
     due: -100,
@@ -272,7 +274,7 @@ const INVOICES: InvoiceFixture[] = [
   {
     id: "invoice_014",
     number: "INV-2025-098",
-    project: PROJECT_IDS.f,
+    project: PROJECT_IDS.e,
     client: "client_urban",
     status: "ARCHIVED",
     due: -210,
@@ -293,8 +295,10 @@ function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-async function seedInvoices(prisma: PrismaClient, finance: string) {
+async function seedInvoices(prisma: PrismaClient, members: Members) {
   for (const fixture of INVOICES) {
+    const companyId = companyFor(fixture);
+    const finance = members.in(companyId, "user_finance");
     const lines = fixture.lines.map(lineTotals);
     const subtotal = round2(lines.reduce((sum, line) => sum + line.subtotal, 0));
     const taxAmount = round2(lines.reduce((sum, line) => sum + line.taxAmount, 0));
@@ -307,7 +311,7 @@ async function seedInvoices(prisma: PrismaClient, finance: string) {
       update: {},
       create: {
         id: fixture.id,
-        companyId: COMPANY_A,
+        companyId,
         invoiceNumber: fixture.number,
         clientId: fixture.client,
         projectId: fixture.project,
@@ -372,32 +376,36 @@ const EXPENSES: ExpenseFixture[] = [
   { id: "expense_004", number: "EXP-004", project: PROJECT_IDS.a, category: "LABOR", description: "Site labour, week 8", payee: null, net: 18400, tax: 0, status: "APPROVED", days: -8 },
   { id: "expense_005", number: "EXP-005", project: PROJECT_IDS.b, category: "SUBCONTRACTOR", description: "Facade engineering package", payee: "Vertek Engineering", net: 96000, tax: 19200, status: "APPROVED", days: -30, settled: 1 },
   { id: "expense_006", number: "EXP-006", project: PROJECT_IDS.b, category: "SERVICES", description: "Structural peer review", payee: "Rilind Consulting", net: 14500, tax: 2900, status: "APPROVED", days: -18 },
-  { id: "expense_007", number: "EXP-007", project: PROJECT_IDS.c, category: "SERVICES", description: "Planning consultancy retainer", payee: "Kthesa Planning", net: 9800, tax: 1960, status: "APPROVED", days: -20 },
+  { id: "expense_007", number: "EXP-007", project: PROJECT_IDS.d, category: "SERVICES", description: "Planning consultancy retainer", payee: "Kthesa Planning", net: 9800, tax: 1960, status: "APPROVED", days: -20 },
   // Project D is deliberately pushed over its budget (PRD #15 §334).
-  { id: "expense_008", number: "EXP-008", project: PROJECT_IDS.d, category: "SUBCONTRACTOR", description: "Hardstanding and drainage", payee: "Terra Ndërtim sh.p.k.", net: 210000, tax: 42000, status: "APPROVED", days: -50, settled: 0.25 },
-  { id: "expense_009", number: "EXP-009", project: PROJECT_IDS.d, category: "MATERIALS", description: "Precast units, phase 1", payee: "Precast Adriatik", net: 88000, tax: 17600, status: "APPROVED", days: -22 },
-  { id: "expense_010", number: "EXP-010", project: PROJECT_IDS.d, category: "EQUIPMENT", description: "Plant hire — extended standby", payee: "Lift & Co", net: 34000, tax: 6800, status: "APPROVED", days: -6 },
+  { id: "expense_008", number: "EXP-008", project: PROJECT_IDS.c, category: "SUBCONTRACTOR", description: "Hardstanding and drainage", payee: "Terra Ndërtim sh.p.k.", net: 210000, tax: 42000, status: "APPROVED", days: -50, settled: 0.25 },
+  { id: "expense_009", number: "EXP-009", project: PROJECT_IDS.c, category: "MATERIALS", description: "Precast units, phase 1", payee: "Precast Adriatik", net: 88000, tax: 17600, status: "APPROVED", days: -22 },
+  { id: "expense_010", number: "EXP-010", project: PROJECT_IDS.c, category: "EQUIPMENT", description: "Plant hire — extended standby", payee: "Lift & Co", net: 34000, tax: 6800, status: "APPROVED", days: -6 },
   // Awaiting a decision: populates the approval queue.
   { id: "expense_011", number: "EXP-011", project: PROJECT_IDS.b, category: "MATERIALS", description: "Curtain walling deposit", payee: "Vertek Engineering", net: 45000, tax: 9000, status: "PENDING_APPROVAL", days: -3 },
   { id: "expense_012", number: "EXP-012", project: PROJECT_IDS.a, category: "TRAVEL", description: "Site visits and mileage, February", payee: null, net: 860, tax: 172, status: "PENDING_APPROVAL", days: -2 },
   { id: "expense_013", number: "EXP-013", project: null, category: "ADMINISTRATION", description: "Office rent, March", payee: "Tirana Business Park", net: 4200, tax: 840, status: "APPROVED", days: -5 },
   { id: "expense_014", number: "EXP-014", project: null, category: "SERVICES", description: "Annual accounting retainer", payee: "Numra Accounting", net: 7500, tax: 1500, status: "APPROVED", days: -60, settled: 1 },
   { id: "expense_015", number: "EXP-015", project: null, category: "OTHER", description: "Professional indemnity insurance", payee: "Sigal", net: 11200, tax: 0, status: "DRAFT", days: -1 },
-  { id: "expense_016", number: "EXP-016", project: PROJECT_IDS.c, category: "LABOR", description: "Overtime claim — disputed", payee: null, net: 3200, tax: 640, status: "REJECTED", days: -15 },
+  { id: "expense_016", number: "EXP-016", project: PROJECT_IDS.d, category: "LABOR", description: "Overtime claim — disputed", payee: null, net: 3200, tax: 640, status: "REJECTED", days: -15 },
   { id: "expense_017", number: "EXP-017", project: PROJECT_IDS.e, category: "SERVICES", description: "Duplicate consultancy entry", payee: "Kthesa Planning", net: 2400, tax: 480, status: "CANCELLED", days: -35 },
-  { id: "expense_018", number: null, project: PROJECT_IDS.f, category: "OTHER", description: "Superseded retention cost", payee: null, net: 1800, tax: 360, status: "ARCHIVED", days: -200 },
+  { id: "expense_018", number: null, project: PROJECT_IDS.e, category: "OTHER", description: "Superseded retention cost", payee: null, net: 1800, tax: 360, status: "ARCHIVED", days: -200 },
 ];
 
-async function seedExpenses(prisma: PrismaClient, finance: string, pm: string) {
+async function seedExpenses(prisma: PrismaClient, members: Members) {
   for (const fixture of EXPENSES) {
     const archived = fixture.status === "ARCHIVED";
+
+    const companyId = companyFor(fixture);
+    const finance = members.in(companyId, "user_finance");
+    const pm = members.in(companyId, "user_pm");
 
     await prisma.expense.upsert({
       where: { id: fixture.id },
       update: {},
       create: {
         id: fixture.id,
-        companyId: COMPANY_A,
+        companyId,
         expenseNumber: fixture.number,
         projectId: fixture.project,
         expenseDate: daysFromNow(fixture.days),
@@ -492,7 +500,7 @@ const BUDGETS: BudgetFixture[] = [
   },
   {
     id: "budget_c_v1",
-    project: PROJECT_IDS.c,
+    project: PROJECT_IDS.d,
     version: 1,
     name: "Marina — design stage budget",
     status: "APPROVED",
@@ -504,7 +512,7 @@ const BUDGETS: BudgetFixture[] = [
   },
   {
     id: "budget_d_v1",
-    project: PROJECT_IDS.d,
+    project: PROJECT_IDS.c,
     version: 1,
     name: "Logistics Hub — phase 1 budget",
     status: "APPROVED",
@@ -518,7 +526,7 @@ const BUDGETS: BudgetFixture[] = [
   // Awaiting a decision: populates the approval queue.
   {
     id: "budget_c_v2",
-    project: PROJECT_IDS.c,
+    project: PROJECT_IDS.d,
     version: 2,
     name: "Marina — technical design uplift",
     status: "PENDING_APPROVAL",
@@ -533,7 +541,7 @@ const BUDGETS: BudgetFixture[] = [
     id: "budget_e_v1",
     project: PROJECT_IDS.e,
     version: 1,
-    name: "Greenline — outline budget",
+    name: "Adriatic Hotel — outline budget",
     status: "DRAFT",
     isCurrent: false,
     lines: [
@@ -542,8 +550,11 @@ const BUDGETS: BudgetFixture[] = [
   },
 ];
 
-async function seedBudgets(prisma: PrismaClient, finance: string, ceo: string) {
+async function seedBudgets(prisma: PrismaClient, members: Members) {
   for (const fixture of BUDGETS) {
+    const companyId = companyFor(fixture);
+    const finance = members.in(companyId, "user_finance");
+    const ceo = members.in(companyId, "user_ceo");
     const totalAmount = round2(
       fixture.lines.reduce((sum, line) => sum + line.plannedAmount, 0),
     );
@@ -554,7 +565,7 @@ async function seedBudgets(prisma: PrismaClient, finance: string, ceo: string) {
       update: {},
       create: {
         id: fixture.id,
-        companyId: COMPANY_A,
+        companyId,
         projectId: fixture.project,
         version: fixture.version,
         name: fixture.name,
@@ -598,8 +609,8 @@ const COMMITMENTS: CommitmentFixture[] = [
   { id: "commitment_001", reference: "COM-001", project: PROJECT_IDS.a, description: "Superstructure frame package", counterparty: "Terra Ndërtim sh.p.k.", category: "SUBCONTRACTOR", amount: 60000, status: "APPROVED", expected: 45 },
   { id: "commitment_002", reference: "COM-002", project: PROJECT_IDS.a, description: "Window and glazing supply", counterparty: "Vertek Engineering", category: "MATERIALS", amount: 24000, status: "APPROVED", expected: 70 },
   { id: "commitment_003", reference: "COM-003", project: PROJECT_IDS.b, description: "Curtain walling — balance", counterparty: "Vertek Engineering", category: "MATERIALS", amount: 42000, status: "APPROVED", expected: 30 },
-  { id: "commitment_004", reference: "COM-004", project: PROJECT_IDS.d, description: "Drainage extension works", counterparty: "Terra Ndërtim sh.p.k.", category: "SUBCONTRACTOR", amount: 46000, status: "APPROVED", expected: 20 },
-  { id: "commitment_005", reference: "COM-005", project: PROJECT_IDS.c, description: "Landscape design fee", counterparty: "Kthesa Planning", category: "SERVICES", amount: 12000, status: "APPROVED", expected: 60 },
+  { id: "commitment_004", reference: "COM-004", project: PROJECT_IDS.c, description: "Drainage extension works", counterparty: "Terra Ndërtim sh.p.k.", category: "SUBCONTRACTOR", amount: 46000, status: "APPROVED", expected: 20 },
+  { id: "commitment_005", reference: "COM-005", project: PROJECT_IDS.d, description: "Landscape design fee", counterparty: "Kthesa Planning", category: "SERVICES", amount: 12000, status: "APPROVED", expected: 60 },
   // Awaiting a decision: populates the approval queue.
   { id: "commitment_006", reference: "COM-006", project: PROJECT_IDS.b, description: "Lift installation contract", counterparty: "Adria Lifts", category: "SUBCONTRACTOR", amount: 88000, status: "PENDING_APPROVAL", expected: 120 },
   { id: "commitment_007", reference: "COM-007", project: PROJECT_IDS.a, description: "Temporary works design", counterparty: "Rilind Consulting", category: "SERVICES", amount: 6500, status: "DRAFT", expected: 25 },
@@ -607,18 +618,20 @@ const COMMITMENTS: CommitmentFixture[] = [
   // Closed: the work happened and became an expense, so it stops counting.
   { id: "commitment_009", reference: "COM-009", project: PROJECT_IDS.a, description: "Groundworks package", counterparty: "Terra Ndërtim sh.p.k.", category: "SUBCONTRACTOR", amount: 174000, status: "CLOSED", expected: -35 },
   { id: "commitment_010", reference: "COM-010", project: PROJECT_IDS.b, description: "Facade engineering", counterparty: "Vertek Engineering", category: "SERVICES", amount: 115200, status: "CLOSED", expected: -25 },
-  { id: "commitment_011", reference: "COM-011", project: PROJECT_IDS.d, description: "Cancelled plant framework", counterparty: "Lift & Co", category: "EQUIPMENT", amount: 18000, status: "CANCELLED", expected: 15 },
+  { id: "commitment_011", reference: "COM-011", project: PROJECT_IDS.c, description: "Cancelled plant framework", counterparty: "Lift & Co", category: "EQUIPMENT", amount: 18000, status: "CANCELLED", expected: 15 },
   { id: "commitment_012", reference: "COM-012", project: null, description: "Company vehicle lease", counterparty: "Auto Tirana", category: "OTHER", amount: 21000, status: "APPROVED", expected: 90 },
 ];
 
-async function seedCommitments(prisma: PrismaClient, finance: string) {
+async function seedCommitments(prisma: PrismaClient, members: Members) {
   for (const fixture of COMMITMENTS) {
+    const companyId = companyFor(fixture);
+    const finance = members.in(companyId, "user_finance");
     await prisma.commitment.upsert({
       where: { id: fixture.id },
       update: {},
       create: {
         id: fixture.id,
-        companyId: COMPANY_A,
+        companyId,
         projectId: fixture.project,
         reference: fixture.reference,
         description: fixture.description,
@@ -647,19 +660,21 @@ const METHODS = ["BANK_TRANSFER", "BANK_TRANSFER", "CARD", "CASH", "CHECK"] as c
  * settles, with the id the E-05F migration gives an existing payment's
  * allocation, so reseeding a migrated database changes nothing (E-05F §31).
  */
-async function allocateInFull(prisma: PrismaClient, payment: { id: string; amount: number; createdByMemberId: string }, target: { invoiceId?: string; expenseId?: string }) {
+async function allocateInFull(prisma: PrismaClient, payment: { id: string; companyId: string; amount: number; createdByMemberId: string }, target: { invoiceId?: string; expenseId?: string }) {
   await prisma.paymentAllocation.upsert({
     where: { id: `alloc_${payment.id}` },
     update: {},
-    create: { id: `alloc_${payment.id}`, companyId: COMPANY_A, paymentId: payment.id, invoiceId: target.invoiceId ?? null, expenseId: target.expenseId ?? null, amount: payment.amount, createdByMemberId: payment.createdByMemberId },
+    create: { id: `alloc_${payment.id}`, companyId: payment.companyId, paymentId: payment.id, invoiceId: target.invoiceId ?? null, expenseId: target.expenseId ?? null, amount: payment.amount, createdByMemberId: payment.createdByMemberId },
   });
 }
 
-async function seedPayments(prisma: PrismaClient, finance: string) {
+async function seedPayments(prisma: PrismaClient, members: Members) {
   let index = 0;
 
   for (const fixture of INVOICES) {
     if (!fixture.settled) continue;
+    const companyId = companyFor(fixture);
+    const finance = members.in(companyId, "user_finance");
 
     const invoice = await prisma.invoice.findUnique({
       where: { id: fixture.id },
@@ -676,7 +691,7 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
       update: {},
       create: {
         id: paymentId,
-        companyId: COMPANY_A,
+        companyId,
         direction: "RECEIPT",
         clientId: invoice.clientId,
         projectId: invoice.projectId,
@@ -689,12 +704,14 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
         createdByMemberId: finance,
       },
     });
-    await allocateInFull(prisma, { id: paymentId, amount, createdByMemberId: finance }, { invoiceId: fixture.id });
+    await allocateInFull(prisma, { id: paymentId, companyId, amount, createdByMemberId: finance }, { invoiceId: fixture.id });
   }
 
   let outIndex = 0;
   for (const fixture of EXPENSES) {
     if (!fixture.settled) continue;
+    const companyId = companyFor(fixture);
+    const finance = members.in(companyId, "user_finance");
 
     outIndex += 1;
     const total = round2(fixture.net + fixture.tax);
@@ -706,7 +723,7 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
       update: {},
       create: {
         id: paymentId,
-        companyId: COMPANY_A,
+        companyId,
         direction: "DISBURSEMENT",
         projectId: expense?.projectId ?? null,
         amount: round2(total * fixture.settled),
@@ -718,7 +735,7 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
         createdByMemberId: finance,
       },
     });
-    await allocateInFull(prisma, { id: paymentId, amount: round2(total * fixture.settled), createdByMemberId: finance }, { expenseId: fixture.id });
+    await allocateInFull(prisma, { id: paymentId, companyId, amount: round2(total * fixture.settled), createdByMemberId: finance }, { expenseId: fixture.id });
   }
 
   /*
@@ -727,12 +744,15 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
    * of those would make the invoice's settlement state disagree with its
    * fixture (PRD #15 §86).
    */
+  const voided = INVOICES.find((invoice) => invoice.id === "invoice_001")!;
+  const voidedCompanyId = companyFor(voided);
+  const voidedBy = members.in(voidedCompanyId, "user_finance");
   await prisma.payment.upsert({
     where: { id: "payment_voided_001" },
     update: {},
     create: {
       id: "payment_voided_001",
-      companyId: COMPANY_A,
+      companyId: voidedCompanyId,
       direction: "RECEIPT",
       clientId: (await prisma.invoice.findUniqueOrThrow({ where: { id: "invoice_001" }, select: { clientId: true } })).clientId,
       projectId: (await prisma.invoice.findUniqueOrThrow({ where: { id: "invoice_001" }, select: { projectId: true } })).projectId,
@@ -744,11 +764,11 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
       status: "VOIDED",
       voidReason: "Duplicate of BK-2026001, reversed by the bank.",
       voidedAt: daysFromNow(-3),
-      voidedByMemberId: finance,
-      createdByMemberId: finance,
+      voidedByMemberId: voidedBy,
+      createdByMemberId: voidedBy,
     },
   });
-  await allocateInFull(prisma, { id: "payment_voided_001", amount: 1000, createdByMemberId: finance }, { invoiceId: "invoice_001" });
+  await allocateInFull(prisma, { id: "payment_voided_001", companyId: voidedCompanyId, amount: 1000, createdByMemberId: voidedBy }, { invoiceId: "invoice_001" });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -779,16 +799,28 @@ const APPROVALS: ApprovalFixture[] = [
   { id: "approval_010", recordType: "COMMITMENT", recordId: "commitment_004", status: "APPROVED", days: -18 },
 ];
 
-async function seedApprovals(prisma: PrismaClient, finance: string, ceo: string) {
+/** The company of the record an approval decides. */
+function approvalCompany(fixture: ApprovalFixture): string {
+  const records: Array<{ id: string; project?: string | null; client?: string | null }> =
+    fixture.recordType === "INVOICE" ? INVOICES : fixture.recordType === "EXPENSE" ? EXPENSES : fixture.recordType === "BUDGET" ? BUDGETS : COMMITMENTS;
+  const record = records.find((candidate) => candidate.id === fixture.recordId);
+  if (!record) throw new Error(`Seed: approval ${fixture.id} names ${fixture.recordId}, which is not seeded.`);
+  return companyFor(record);
+}
+
+async function seedApprovals(prisma: PrismaClient, members: Members) {
   for (const fixture of APPROVALS) {
     const decided = fixture.status !== "PENDING";
+    const companyId = approvalCompany(fixture);
+    const finance = members.in(companyId, "user_finance");
+    const ceo = members.in(companyId, "user_ceo");
 
     await prisma.financeApproval.upsert({
       where: { id: fixture.id },
       update: {},
       create: {
         id: fixture.id,
-        companyId: COMPANY_A,
+        companyId,
         recordType: fixture.recordType,
         recordId: fixture.recordId,
         status: fixture.status,

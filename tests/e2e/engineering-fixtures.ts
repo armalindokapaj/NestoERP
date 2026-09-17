@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 
 import { ENGINEERING_SEED, seedContractorEngineeringRecords } from "../../prisma/seed/engineering";
+import { seedMembers } from "../../prisma/seed/members";
 import { db, removeRecordTrail } from "./db";
 
 /**
@@ -56,8 +57,7 @@ export async function restoreContractorsEngineering(): Promise<void> {
   await db.activity.deleteMany({ where: { entityId: { in: [...everyCreated, ...taskIds] } } });
   await db.task.deleteMany({ where: { id: { in: taskIds } } });
 
-  const members = await db.companyMember.findMany({ select: { id: true, userId: true } });
-  await seedContractorEngineeringRecords(db, new Map(members.map((row) => [row.userId, row.id])));
+  await seedContractorEngineeringRecords(db, seedMembers());
 
   // Files the run uploaded onto these records, once no revision or transmittal points at them.
   const uploads = (await db.document.findMany({ where: { entityType: { in: [...TYPES] } }, select: { id: true } })).map((row) => row.id).filter(uploaded);

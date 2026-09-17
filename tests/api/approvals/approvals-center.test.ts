@@ -28,7 +28,7 @@ import { createExpenseSchema } from "@/lib/modules/finance/expenses/expense.sche
 import { createLeaveSchema } from "@/lib/modules/hr/hr.schema";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 import { rememberTrail } from "../jobs/reminder-trail";
 
 /**
@@ -42,6 +42,8 @@ import { rememberTrail } from "../jobs/reminder-trail";
  */
 
 const PREFIX = "APRTEST";
+/** Aurelia's Nova Living pre-construction agreement: approved, with no amendment in flight. */
+const AMENDED_CONTRACT = "contract_014";
 const created = { expenses: [] as string[], orders: [] as string[], amendments: [] as string[], leave: [] as string[], documents: [] as string[], delegations: [] as string[] };
 let storageRoot: string;
 
@@ -76,7 +78,7 @@ afterEach(async () => {
   if (created.amendments.length) {
     await prisma.contractApproval.deleteMany({ where: { recordId: { in: created.amendments } } });
     for (const amendmentId of created.amendments) {
-      await prisma.activity.deleteMany({ where: { entityId: "contract_005", metadata: { path: ["amendmentId"], equals: amendmentId } } });
+      await prisma.activity.deleteMany({ where: { entityId: AMENDED_CONTRACT, metadata: { path: ["amendmentId"], equals: amendmentId } } });
     }
     await prisma.contractAmendment.deleteMany({ where: { id: { in: created.amendments } } });
   }
@@ -249,7 +251,7 @@ describe("queue (§114, §192, §253)", () => {
 
   it("never shows, opens or decides another company's approval (§239, §283)", async () => {
     const { approvalId, expenseId } = await submittedExpense();
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     for (const tab of ["waiting", "history", "requested"] as const) {
       expect((await queue(ownerB, tab)).items.some((item) => item.approvalId === approvalId || item.sourceId === expenseId)).toBe(false);
     }
@@ -472,7 +474,7 @@ describe("legal return and resubmit (§264, §281)", () => {
   it("returns an amendment to its requester, whose resubmission opens a new cycle with the history kept", async () => {
     const owner = await loginAs("OWNER");
     const legal = await loginAs("LEGAL");
-    const amendment = await amendments.createAmendment(owner, "contract_005", {
+    const amendment = await amendments.createAmendment(owner, AMENDED_CONTRACT, {
       amendmentNumber: `${PREFIX}-${Date.now().toString(36)}`,
       title: `${PREFIX} additional basement works`,
       summary: "Adds the second basement level to the scope.",
@@ -574,7 +576,7 @@ describe("document review (§22, §62, §265, §268)", () => {
       loginAs("FINANCE"),
       loginAs("ARCHITECT"),
       loginAs("VIEWER"),
-      loginAsEmail("owner-b@nesto.test"),
+      loginAsEmail(DEMO_EMAIL.tenantOwner),
     ]);
     const today = new Date().toISOString().slice(0, 10);
     const input = (toMemberId: string, extra: Record<string, unknown> = {}) => createDelegationSchema.parse({ toMemberId, providerKey: "documents", startsOn: today, endsOn: today, ...extra });
@@ -657,25 +659,28 @@ describe("document review (§22, §62, §265, §268)", () => {
 
 describe("role acceptance (§285-§300)", () => {
   it("gives decision authority only where a source module grants it", async () => {
-    const roles = ["OWNER", "ADMIN", "COMPANY_IT", "HR", "CEO", "PROJECT_MANAGER", "ARCHITECT", "ARCHITECTURE_MANAGER", "ENGINEER", "FINANCE", "LEGAL", "SALES", "SALES_MANAGER", "PROCUREMENT", "INVENTORY", "QAQC", "HSE"] as const;
+    const roles = ["OWNER", "GROUP_IT", "HR", "CEO", "PROJECT_MANAGER", "ARCHITECT", "ENGINEER", "FINANCE", "LEGAL", "SALES", "PROCUREMENT", "INVENTORY", "QAQC", "HSE"] as const;
+    // The heads of Architecture and Sales hold what the manager roles held (E-06 §153, §154).
+    const people = [...roles.map((role) => [role, () => loginAs(role)] as const), ["ARCHITECTURE_HEAD", () => loginAsEmail(DEMO_EMAIL.architectureHead)] as const, ["SALES_HEAD", () => loginAsEmail(DEMO_EMAIL.salesHead)] as const];
     const summary: Record<string, string[]> = {};
-    for (const role of roles) {
-      const context = await loginAs(role);
+    for (const [name, login] of people) {
+      const context = await login();
       const waiting = await queue(context, "waiting");
-      summary[role] = [...new Set(waiting.items.map((item) => item.providerKey))].sort();
+      summary[name] = [...new Set(waiting.items.map((item) => item.providerKey))].sort();
       // Everything offered can actually be acted on by this person.
-      expect(waiting.items.every((item) => item.canApprove || item.canReject), role).toBe(true);
-      expect(context.permissions.includes("approvals.history.view"), role).toBe(["OWNER", "HR", "CEO", "PROJECT_MANAGER", "ARCHITECTURE_MANAGER", "FINANCE", "LEGAL", "SALES", "SALES_MANAGER", "PROCUREMENT", "QAQC", "HSE"].includes(role));
+      expect(waiting.items.every((item) => item.canApprove || item.canReject), name).toBe(true);
+      expect(context.permissions.includes("approvals.history.view"), name).toBe(["OWNER", "HR", "CEO", "PROJECT_MANAGER", "ARCHITECTURE_HEAD", "FINANCE", "LEGAL", "SALES", "SALES_HEAD", "PROCUREMENT", "QAQC", "HSE"].includes(name));
     }
-    // No business approval authority for administration, IT or stores (§136, §137, §147) — beyond
-    // publishing units, which a Company Admin holds inside the company (E-05D §19).
-    for (const role of ["ADMIN", "COMPANY_IT", "INVENTORY"]) {
-      expect(summary[role].filter((key) => key !== "documents" && !(role === "ADMIN" && key === "projects")), role).toEqual([]);
+    // The Platform Admin is in no company, so has no queue at all (E-06 §19).
+    await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow();
+    // No business approval authority for IT or stores (§136, §137, §147).
+    for (const role of ["GROUP_IT", "INVENTORY"]) {
+      expect(summary[role].filter((key) => key !== "documents"), role).toEqual([]);
     }
     expect(summary.HR).toContain("hr");
-    // The managers' own inboxes (E-05D §21; E-05E §39).
-    expect(summary.ARCHITECTURE_MANAGER).toContain("projects");
-    expect(summary.SALES_MANAGER).toContain("sales");
+    // The heads' own inboxes (E-05D §21; E-05E §39).
+    expect(summary.ARCHITECTURE_HEAD).toContain("projects");
+    expect(summary.SALES_HEAD).toContain("sales");
     expect(summary.CEO).toEqual(expect.arrayContaining(["procurement", "sales"]));
     expect(summary.LEGAL.every((key) => ["legal", "documents"].includes(key))).toBe(true);
   });

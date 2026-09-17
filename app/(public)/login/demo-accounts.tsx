@@ -3,22 +3,23 @@
 import { useState, useTransition } from "react";
 import { ChevronDown, LogIn, TriangleAlert } from "lucide-react";
 
-import { signInAsDemoRoleAction } from "@/lib/actions/demo";
+import { signInAsDemoAccountAction } from "@/lib/actions/demo";
 import { cn } from "@/lib/utils/cn";
 
 export type DemoAccountOption = {
-  role: string;
   code: string;
   label: string;
+  assignment: string;
   username: string;
 };
 
 /**
  * Development-only account picker (spec §65, §66).
  *
- * One click signs in as that role — no typing — so all 18 role experiences can
- * be walked through quickly. The password lives on the server: the button sends
- * only a role key to signInAsDemoRoleAction.
+ * One click signs in as that persona — no typing — so the curated demo
+ * personas (E-06 §48) can be walked through quickly. The password lives on the
+ * server: the button sends only a username to signInAsDemoAccountAction, which
+ * accepts nothing outside the curated list.
  *
  * The login page renders this solely when the app is built in development.
  */
@@ -30,19 +31,19 @@ export function DemoAccounts({
   password: string;
 }) {
   const [open, setOpen] = useState(true);
-  const [pendingRole, setPendingRole] = useState<string | null>(null);
+  const [pendingUsername, setPendingUsername] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const signInAs = (role: string) => {
+  const signInAs = (username: string) => {
     setError(null);
-    setPendingRole(role);
+    setPendingUsername(username);
     startTransition(async () => {
       // A successful sign-in redirects, so anything returned is a failure.
-      const result = await signInAsDemoRoleAction(role);
+      const result = await signInAsDemoAccountAction(username);
       if (result?.error) {
         setError(result.error);
-        setPendingRole(null);
+        setPendingUsername(null);
       }
     });
   };
@@ -63,7 +64,7 @@ export function DemoAccounts({
             </span>
           </span>
           <span className="mt-0.5 block text-meta text-fg-muted">
-            One click signs you in as that role.
+            One click signs you in as that person.
           </span>
         </span>
         <ChevronDown
@@ -88,14 +89,14 @@ export function DemoAccounts({
 
           <ul className="grid gap-1.5 sm:grid-cols-2">
             {accounts.map((account) => {
-              const busy = pendingRole === account.role;
+              const busy = pendingUsername === account.username;
               return (
-                <li key={account.role}>
+                <li key={account.username}>
                   <button
                     type="button"
-                    onClick={() => signInAs(account.role)}
+                    onClick={() => signInAs(account.username)}
                     disabled={isPending}
-                    aria-label={`Sign in as ${account.label}`}
+                    aria-label={`Sign in as ${account.assignment}`}
                     className={cn(
                       "group flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-colors",
                       "disabled:cursor-not-allowed",
@@ -109,7 +110,7 @@ export function DemoAccounts({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-table font-medium text-fg">
-                        {account.label}
+                        {account.assignment}
                       </span>
                       <span className="block truncate font-mono text-micro text-fg-subtle">
                         {account.username}

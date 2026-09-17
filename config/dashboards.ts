@@ -8,7 +8,7 @@
  * Because widgets are keyed rather than bound to role names, a future custom
  * role composes a dashboard from the same registry (PRD #4 §89).
  */
-import type { RoleKey } from "./roles";
+import type { PositionLevel, RoleKey } from "./roles";
 
 export type DashboardConfig = {
   /** A short line under the greeting, describing the role's focus. */
@@ -20,7 +20,7 @@ export type DashboardConfig = {
 
 export const dashboards: Record<RoleKey, DashboardConfig> = {
   OWNER: {
-    focus: "Company-wide performance across every department.",
+    focus: "Performance across every company and department of the group.",
     kpis: ["activeProjects", "invoicedValue", "pipelineValue", "headcount"],
     widgets: [
       "attention",
@@ -43,24 +43,15 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     ],
     quickActions: ["newProject", "newClient", "newInvoice", "uploadDocument"],
   },
-  ADMIN: {
-    focus: "Platform administration: users, roles and company configuration.",
-    kpis: ["teamSize", "enabledModuleCount", "openSupportCount", "documentCount"],
-    widgets: [
-      "attention",
-      "announcements",
-      "favorites",
-      "recentWork",
-      "userDirectory",
-      "companyModules",
-      "supportRequests",
-      "recentDocuments",
-      "recentActivity",
-    ],
-    quickActions: ["inviteUser", "uploadDocument"],
+  // Never shown: the Platform Admin works outside every company (E-06 §128).
+  PLATFORM_ADMIN: {
+    focus: "Parent groups and their implementation.",
+    kpis: [],
+    widgets: [],
+    quickActions: [],
   },
-  COMPANY_IT: {
-    focus: "Accounts, access and platform support.",
+  GROUP_IT: {
+    focus: "Accounts, company configuration and support across the group.",
     kpis: ["teamSize", "openSupportCount", "enabledModuleCount", "openTaskCount"],
     widgets: [
       "attention",
@@ -68,7 +59,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "favorites",
       "recentWork",
       "supportRequests",
-      "teamDirectory",
+      "userDirectory",
       "companyModules",
       "recentActivity",
     ],
@@ -163,29 +154,6 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     ],
     quickActions: ["newTask", "uploadDocument"],
   },
-  ARCHITECTURE_MANAGER: {
-    focus: "Design across every project, and the units waiting to be published.",
-    kpis: ["myProjectCount", "openTaskCount", "overdueTaskCount", "documentCount"],
-    widgets: [
-      "attention",
-      "announcements",
-      "favorites",
-      "recentWork",
-      "upcomingMeetings",
-      "myMeetingActions",
-      "myTimesheet",
-      "pendingApprovals",
-      "upcomingMilestones",
-      "reviewsAwaitingMe",
-      "rfisAssignedToMe",
-      "myProjects",
-      "openTasks",
-      "upcomingDeadlines",
-      "recentDocuments",
-      "recentActivity",
-    ],
-    quickActions: ["newTask", "uploadDocument"],
-  },
   ENGINEER: {
     focus: "Technical delivery on your assigned projects.",
     kpis: ["myProjectCount", "openTaskCount", "openQualityCount", "openIncidentCount"],
@@ -248,23 +216,6 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
   },
   SALES: {
     focus: "Commercial pipeline and client growth.",
-    kpis: ["pipelineValue", "openOpportunityCount", "clientCount", "openTaskCount"],
-    widgets: [
-      "attention",
-      "announcements",
-      "favorites",
-      "recentWork",
-      "upcomingMeetings",
-      "pendingApprovals",
-      "salesPipeline",
-      "openOpportunities",
-      "openTasks",
-      "recentActivity",
-    ],
-    quickActions: ["newLead", "newOpportunity", "newClient"],
-  },
-  SALES_MANAGER: {
-    focus: "The sales team's pipeline, and the proposals waiting for your decision.",
     kpis: ["pipelineValue", "openOpportunityCount", "clientCount", "openTaskCount"],
     widgets: [
       "attention",
@@ -358,6 +309,55 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
   },
 };
 
-export function dashboardForRole(role: RoleKey): DashboardConfig {
+/**
+ * The layout a department manager or group head sees instead of the member's,
+ * where the two differ (E-06 §6.3, §6.4): the architect who publishes units and
+ * the salesperson who decides proposals both lead with the approvals inbox.
+ */
+const managerDashboards: Partial<Record<RoleKey, DashboardConfig>> = {
+  ARCHITECT: {
+    focus: "Design across every project, and the units waiting to be published.",
+    kpis: ["myProjectCount", "openTaskCount", "overdueTaskCount", "documentCount"],
+    widgets: [
+      "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
+      "upcomingMeetings",
+      "myMeetingActions",
+      "myTimesheet",
+      "pendingApprovals",
+      "upcomingMilestones",
+      "reviewsAwaitingMe",
+      "rfisAssignedToMe",
+      "myProjects",
+      "openTasks",
+      "upcomingDeadlines",
+      "recentDocuments",
+      "recentActivity",
+    ],
+    quickActions: ["newTask", "uploadDocument"],
+  },
+  SALES: {
+    focus: "The sales team's pipeline, and the proposals waiting for your decision.",
+    kpis: ["pipelineValue", "openOpportunityCount", "clientCount", "openTaskCount"],
+    widgets: [
+      "attention",
+      "announcements",
+      "favorites",
+      "recentWork",
+      "upcomingMeetings",
+      "pendingApprovals",
+      "salesPipeline",
+      "openOpportunities",
+      "openTasks",
+      "recentActivity",
+    ],
+    quickActions: ["newLead", "newOpportunity", "newClient"],
+  },
+};
+
+export function dashboardForRole(role: RoleKey, position: PositionLevel = "MEMBER"): DashboardConfig {
+  if (position !== "MEMBER" && managerDashboards[role]) return managerDashboards[role];
   return dashboards[role] ?? dashboards.VIEWER;
 }

@@ -107,7 +107,7 @@ function reachableModules(context: UserContext): ModuleKey[] {
 function companyLevelModules(context: UserContext): ModuleKey[] {
   return documentModules(context).filter((key) => {
     const scope = getModuleScope(context, key);
-    return scope === "COMPANY" || scope === "SYSTEM";
+    return scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM";
   });
 }
 

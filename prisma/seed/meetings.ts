@@ -3,17 +3,20 @@ import type { MeetingParticipantRole, PrismaClient } from "@prisma/client";
 import { serializeRecurrence } from "../../lib/modules/calendar/calendar.recurrence";
 import { addLocalDays, instantFromLocal, localDate } from "../../lib/modules/calendar/calendar.time";
 import { AGENDA_TEMPLATES } from "../../lib/modules/meetings/meeting.types";
+import type { SeedMembers } from "./constants";
 
 /**
  * Meetings demo data (PRD #40 §306): a weekly project coordination series with
  * last week's meeting held, minuted and final; a management meeting; a QA/QC
- * coordination; and one meeting in Company B, so isolation has something to
- * refuse. Dated relative to the day the seed runs.
+ * coordination on Meridian's tower, run by the group's head of QA/QC with
+ * Meridian's project manager; and one meeting in the fixture tenant, so
+ * isolation has something to refuse. Dated relative to the day the seed runs.
  */
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const COMPANY_A = "company_demo_a";
 const COMPANY_B = "company_demo_b";
+const FIXTURE_TENANT = "company_fixture_tenant";
 
 export async function seedMeetingRecords(prisma: PrismaClient, members: Members) {
   const zone = "Europe/Tirane";
@@ -135,9 +138,9 @@ export async function seedMeetingRecords(prisma: PrismaClient, members: Members)
     },
     {
       id: "meeting_qaqc_001",
-      companyId: COMPANY_A,
+      companyId: COMPANY_B,
       projectId: "project_b",
-      organizer: id("user_qaqc"),
+      organizer: members.in(COMPANY_B, "user_qaqc"),
       title: "QA/QC coordination — Central Office Tower",
       meetingType: "QA_QC",
       visibility: "PROJECT",
@@ -146,9 +149,9 @@ export async function seedMeetingRecords(prisma: PrismaClient, members: Members)
       locationType: "ONLINE",
       onlineUrl: "https://meet.example.com/nesto-qaqc",
       seats: [
-        { memberId: id("user_qaqc"), role: "ORGANIZER", response: "ACCEPTED" },
-        { memberId: pm, role: "ATTENDEE", response: "PENDING" },
-        { memberId: id("user_hse"), role: "ATTENDEE", response: "ACCEPTED" },
+        { memberId: members.in(COMPANY_B, "user_qaqc"), role: "ORGANIZER", response: "ACCEPTED" },
+        { memberId: members.in(COMPANY_B, "user_pm"), role: "ATTENDEE", response: "PENDING" },
+        { memberId: members.in(COMPANY_B, "user_qaqc_b"), role: "ATTENDEE", response: "ACCEPTED" },
       ],
       agenda: template("qa-qc"),
     },
@@ -158,7 +161,7 @@ export async function seedMeetingRecords(prisma: PrismaClient, members: Members)
   if (ownerB) {
     meetings.push({
       id: "meeting_b_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       projectId: null,
       organizer: ownerB,
       title: "Company B leadership sync",

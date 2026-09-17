@@ -11,6 +11,9 @@ import { milestoneDate, PLANNING_SEED, removePlanning } from "../planning-fixtur
  * blocker with its task, a follow-up task, a new forecast — completes a
  * milestone and reads the timeline; a milestone on the calendar opens the
  * planning drawer; and an outsider cannot reach another project's plan.
+ *
+ * Central Office Tower is Meridian's, run by Meridian's project manager
+ * (E-06 §45).
  */
 
 const PROJECT = "project_b";
@@ -36,7 +39,7 @@ async function addMilestone(page: Page, name: string, phase: string, planned: st
   const dialog = page.getByRole("dialog", { name: "New milestone" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Phase").selectOption({ label: phase });
-  await dialog.getByLabel("Owner").selectOption({ label: "Quinn Foster" });
+  await dialog.getByLabel("Owner").selectOption({ label: "Gentian Bega" });
   await dialog.getByLabel("Planned date").fill(planned);
   if (critical) {
     await dialog.getByRole("button", { name: "More details" }).click();
@@ -48,7 +51,7 @@ async function addMilestone(page: Page, name: string, phase: string, planned: st
 }
 
 test("the project manager sets out and runs a plan (§299)", async ({ page }) => {
-  await signIn(page, "PROJECT_MANAGER", { to: `/projects/${PROJECT}` });
+  await signIn(page, "PM_B", { to: `/projects/${PROJECT}` });
   await page.getByRole("navigation", { name: "Project sections" }).getByRole("link", { name: "Planning" }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${PROJECT}/planning`));
   await expect(page.getByTestId("planning-empty")).toContainText("No project plan yet.");
@@ -138,8 +141,18 @@ test("a milestone on the calendar opens its planning drawer (§300)", async ({ p
 });
 
 test("an engineer cannot open the plan of a project they are not on (§225)", async ({ page }) => {
-  await signIn(page, "ENGINEER", { to: `/projects/${PROJECT}/planning` });
-  await expect(page.getByText("404")).toBeVisible();
-  const response = await page.request.get(`/api/projects/${PROJECT}/planning`);
-  expect(response.status()).toBe(404);
+  // Every demo company runs one project, so the engineer is taken off
+  // Riverside for the length of the test rather than sent to another company,
+  // which would be refused for a different reason.
+  const engineer = await db.companyMember.findFirstOrThrow({ where: { companyId: "company_demo_a", user: { username: "engineer-a" } }, select: { id: true } });
+  await db.projectMember.updateMany({ where: { projectId: "project_a", companyMemberId: engineer.id }, data: { status: "INACTIVE" } });
+  await db.companyMember.update({ where: { id: engineer.id }, data: { accessVersion: { increment: 1 } } });
+  try {
+    await signIn(page, "ENGINEER", { to: "/projects/project_a/planning" });
+    await expect(page.getByText("404")).toBeVisible();
+    const response = await page.request.get("/api/projects/project_a/planning");
+    expect(response.status()).toBe(404);
+  } finally {
+    await db.projectMember.updateMany({ where: { projectId: "project_a", companyMemberId: engineer.id }, data: { status: "ACTIVE" } });
+  }
 });

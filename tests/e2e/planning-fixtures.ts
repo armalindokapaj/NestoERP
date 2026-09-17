@@ -1,4 +1,5 @@
 import { PLANNING_SEED, seedPlanningRecords } from "../../prisma/seed/planning";
+import { seedMembers } from "../../prisma/seed/members";
 import { db, removeRecordTrail } from "./db";
 
 /**
@@ -39,8 +40,7 @@ export async function restoreSeededPlanning(): Promise<void> {
   await db.activity.deleteMany({ where: { entityId: { in: tasks.map((row) => row.id) } } });
   await db.projectMilestoneTaskLink.deleteMany({ where: { taskId: { in: tasks.map((row) => row.id) } } });
   await db.task.deleteMany({ where: { id: { in: tasks.map((row) => row.id) } } });
-  const rows = await db.companyMember.findMany({ select: { id: true, userId: true } });
-  await seedPlanningRecords(db, new Map(rows.map((row) => [row.userId, row.id])));
+  await seedPlanningRecords(db, seedMembers());
 }
 
 export async function milestoneDate(id: string): Promise<string> {

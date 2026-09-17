@@ -14,7 +14,7 @@ import { updateSubmittal } from "@/lib/modules/engineering/engineering.submittal
 import { createTransmittal, getTransmittal, issueTransmittal } from "@/lib/modules/engineering/engineering.transmittals";
 import { seedStoredDocument } from "../../../prisma/seed/document-objects";
 import { cleanupSessions, loginAs, prisma } from "../../helpers";
-import { code, COMPANY_A, ENGINEERING_SEED as S, makeFile, restoreEngineering } from "./fixtures";
+import { code, COMPANY_A, ENGINEERING_SEED as S, HARBOUR, makeFile, makeHarbour, restoreEngineering } from "./fixtures";
 
 /**
  * Contractor and engineering authorization regressions (PRD #47 §50, §51,
@@ -45,6 +45,7 @@ async function file(id: string, parent: { projectId?: string | null; module?: st
 
 beforeAll(async () => {
   await restoreEngineering();
+  await makeHarbour();
   [owner, pm, legal, procurement] = await Promise.all((["OWNER", "PROJECT_MANAGER", "LEGAL", "PROCUREMENT"] as const).map((role) => loginAs(role)));
 });
 
@@ -57,24 +58,24 @@ afterAll(async () => {
 describe("references and links are placed where the record really sits (PRD #47 §51)", () => {
   it("refuses a file on another project's contract, though the file itself names no project", async () => {
     // Uploaded onto a record, as every record upload is: no project on the file, only on its parent.
-    const onTowerContract = await file("tower_contract", { module: "contracts", entityType: "contract", entityId: "contract_002" });
+    const onHarbourContract = await file("harbour_contract", { module: "contracts", entityType: "contract", entityId: HARBOUR.contract });
     const onRiversideContract = await file("riverside_contract", { module: "contracts", entityType: "contract", entityId: "contract_009" });
     const onContractor = await file("apex_profile", { module: "contractors", entityType: "contractor", entityId: S.contractors.apex });
     const companyFile = await file("company_policy", {});
     const reference = (referenceId: string) => addRfiReference(owner, S.rfis.slabEdge, { referenceType: "DOCUMENT", referenceId, note: null });
 
-    await expect(reference(onTowerContract)).rejects.toMatchObject({ ...code("RFI_REFERENCE_PROJECT_MISMATCH"), reason: "CROSS_PROJECT_REFERENCE" });
+    await expect(reference(onHarbourContract)).rejects.toMatchObject({ ...code("RFI_REFERENCE_PROJECT_MISMATCH"), reason: "CROSS_PROJECT_REFERENCE" });
     // A record that sits on no project does not make its file this project's either.
     await expect(reference(onContractor)).rejects.toMatchObject(code("RFI_REFERENCE_PROJECT_MISMATCH"));
     await expect(reference(onRiversideContract)).resolves.toMatchObject({ id: expect.any(String) });
     // Only a file with no parent at all is company-level, and referenced from any project.
     await expect(reference(companyFile)).resolves.toMatchObject({ id: expect.any(String) });
-    expect(await prisma.rfiReference.count({ where: { rfiId: S.rfis.slabEdge, referenceId: { in: [onTowerContract, onContractor] } } })).toBe(0);
+    expect(await prisma.rfiReference.count({ where: { rfiId: S.rfis.slabEdge, referenceId: { in: [onHarbourContract, onContractor] } } })).toBe(0);
   });
 
   it("refuses a task raised from another project's record that carries no project of its own", async () => {
     const task = await prisma.task.create({
-      data: { companyId: COMPANY_A, title: "Test tower wall follow-up", createdByMemberId: owner.membershipId, createdBy: owner.userId, module: "engineering", entityType: "rfi", entityId: S.rfis.tower, projectId: null },
+      data: { companyId: COMPANY_A, title: "Test harbour wall follow-up", createdByMemberId: owner.membershipId, createdBy: owner.userId, module: "engineering", entityType: "rfi", entityId: HARBOUR.rfi, projectId: null },
       select: { id: true },
     });
     await expect(linkRecord(owner, "technical_submittal", S.submittals.curtainWall, { type: "task", recordId: task.id })).rejects.toMatchObject(code("ENGINEERING_LINK_PROJECT_MISMATCH"));

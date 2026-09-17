@@ -57,9 +57,10 @@ describe("role × module access matrix", () => {
     { role: "VIEWER", module: "projects", level: "VIEW", scope: "ASSIGNED" },
     { role: "FINANCE", module: "finance", level: "MANAGE", scope: "COMPANY" },
     { role: "ENGINEER", module: "projects", level: "CONTRIBUTE", scope: "ASSIGNED" },
-    { role: "ADMIN", module: "finance", level: "NONE", scope: "SELF" },
-    { role: "COMPANY_IT", module: "finance", level: "NONE", scope: "SELF" },
-    { role: "COMPANY_IT", module: "settings", level: "MANAGE", scope: "SYSTEM" },
+    { role: "PLATFORM_ADMIN", module: "finance", level: "NONE", scope: "SELF" },
+    { role: "PLATFORM_ADMIN", module: "settings", level: "NONE", scope: "SELF" },
+    { role: "GROUP_IT", module: "finance", level: "NONE", scope: "SELF" },
+    { role: "GROUP_IT", module: "settings", level: "MANAGE", scope: "SYSTEM" },
     { role: "CEO", module: "finance", level: "APPROVE", scope: "COMPANY" },
     { role: "QAQC", module: "qaqc", level: "MANAGE", scope: "COMPANY" },
     { role: "HSE", module: "hse", level: "MANAGE", scope: "COMPANY" },
@@ -133,9 +134,13 @@ describe("restricted sub-permissions", () => {
     expect(permissions).not.toContain("finance.invoice.create");
   });
 
-  it("denies the Admin confidential operational modules (PRD #5 §13)", () => {
-    expect(accessibleModules("ADMIN")).not.toContain("finance");
-    expect(accessibleModules("ADMIN")).not.toContain("procurement");
-    expect(accessibleModules("ADMIN")).toContain("settings");
+  it("denies Group IT confidential operational modules (PRD #5 §13, E-06 §75)", () => {
+    expect(accessibleModules("GROUP_IT")).not.toContain("finance");
+    expect(accessibleModules("GROUP_IT")).not.toContain("procurement");
+    expect(accessibleModules("GROUP_IT")).toContain("settings");
+  });
+
+  it("gives the Platform Admin no company module beyond the landing page (E-06 §19, §74)", () => {
+    expect(accessibleModules("PLATFORM_ADMIN")).toEqual(["dashboard"]);
   });
 });

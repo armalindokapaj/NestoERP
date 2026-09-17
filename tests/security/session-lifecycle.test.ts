@@ -3,8 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContextResult } from "@/lib/context/types";
 import { counterValue, Metric, resetMetrics } from "@/lib/core/observability/metrics";
 import { resolveContextForSession } from "@/lib/context/build-context";
-import { cleanupSessions, createRawSession, prisma } from "../helpers";
-import { COMPANY_B } from "./harness/companies";
+import { cleanupSessions, COMPANY, createRawSession, DEMO_EMAIL, prisma } from "../helpers";
 import { callRoute, discoverApiRoutes, loadRouteModule, type RouteModule } from "./harness/routes";
 
 /**
@@ -96,9 +95,9 @@ describe("authorization changes take effect on the next request (PRD #47 §128, 
   });
 
   it("removes a module's permissions and its API the moment the company switches it off (§26, §211)", async () => {
-    const { session: row } = await createRawSession("owner-b@nesto.test");
+    const { session: row } = await createRawSession(DEMO_EMAIL.tenantOwner);
     session.id = row.id;
-    const meetings = await prisma.companyModule.findFirstOrThrow({ where: { companyId: COMPANY_B, module: { key: "meetings" } } });
+    const meetings = await prisma.companyModule.findFirstOrThrow({ where: { companyId: COMPANY.tenant, module: { key: "meetings" } } });
     expect(meetings.enabled).toBe(true);
     expect(permissionsOf((await get("/api/me")).body)).toContain("meeting.view");
 
@@ -118,9 +117,9 @@ describe("authorization changes take effect on the next request (PRD #47 §128, 
 
 describe("denials are recorded without disclosure (PRD #47 §116-§118, §196)", () => {
   it("answers a guessed record id with a plain 404 and counts it as a record denial", async () => {
-    const { session: row } = await createRawSession("owner-b@nesto.test");
+    const { session: row } = await createRawSession(DEMO_EMAIL.tenantOwner);
     session.id = row.id;
-    const task = await prisma.task.findFirstOrThrow({ where: { companyId: "company_demo_a" }, select: { id: true, title: true } });
+    const task = await prisma.task.findFirstOrThrow({ where: { companyId: COMPANY.a }, select: { id: true, title: true } });
     const route = discoverApiRoutes().find((candidate) => candidate.pattern === "/api/tasks/[taskId]")!;
     const handlers = await loadRouteModule(route);
     const outcome = await callRoute(handlers.GET!, "GET", `/api/tasks/${task.id}`, { taskId: task.id });

@@ -24,7 +24,7 @@ const JOURNEYS: {
   expectRecord: RegExp;
 }[] = [
   {
-    role: "ADMIN",
+    role: "GROUP_IT",
     module: "/support",
     heading: "Support",
     section: "requests",
@@ -81,7 +81,7 @@ test.describe("approvals", () => {
   test("a section with no approval grant offers no Approve control (PRD #7 §53)", async ({
     page,
   }) => {
-    await signIn(page, "ADMIN");
+    await signIn(page, "GROUP_IT");
     await page.goto("/support/requests");
 
     const first = page.locator('a[href^="/support/requests/"]').first();
@@ -94,14 +94,14 @@ test.describe("approvals", () => {
 test("a filtered list that matches nothing offers to clear the filters (PRD #9 §175)", async ({
   page,
 }) => {
-  await signIn(page, "ADMIN");
+  await signIn(page, "GROUP_IT");
   await page.goto("/support/requests?search=nothing-matches-this-at-all");
 
   await expect(page.getByRole("link", { name: /clear filters/i }).first()).toBeVisible();
 });
 
 test("an unknown record answers not found (PRD #9 §112)", async ({ page }) => {
-  await signIn(page, "ADMIN");
+  await signIn(page, "GROUP_IT");
   const response = await page.goto("/support/requests/does-not-exist");
   expect(response?.status()).toBe(404);
 });

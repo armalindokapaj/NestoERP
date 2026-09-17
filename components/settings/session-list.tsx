@@ -19,7 +19,7 @@ export type SessionRow = {
   id: string;
   current: boolean;
   device: string;
-  companyName: string;
+  companyName: string | null;
   ipAddress: string | null;
   /** Formatted on the server, so the browser's timezone cannot cause a hydration mismatch. */
   startedLabel: string;
@@ -69,7 +69,8 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
                   {session.current ? <Badge tone="success">{t("profile.sessions.current")}</Badge> : null}
                 </div>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  {session.companyName} · {session.ipAddress ?? t("profile.sessions.unknownAddress")}
+                  {session.companyName ?? t("profile.sessions.platform")} ·{" "}
+                  {session.ipAddress ?? t("profile.sessions.unknownAddress")}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
                   {t("profile.sessions.started", { date: session.startedLabel })} ·{" "}

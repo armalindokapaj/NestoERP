@@ -1,7 +1,8 @@
 /**
  * Automated walk of the spec §70 testing flow.
  *
- * Signs in as every seeded account and checks, for each role:
+ * Signs in as every curated demo persona (E-06 §48) and checks, for each one,
+ * against its role held at its position:
  *   - login → redirect to /dashboard
  *   - the dashboard renders that role's name and KPI cards
  *   - every module in the role's navigation opens
@@ -9,14 +10,18 @@
  *   - write routes are refused for read-only roles
  *   - logout clears the session
  *
+ * The Platform Admin belongs to no company: their sign-in lands on the
+ * platform area, and every company route sends them back there (E-06 §19).
+ *
  * Run against a running server:  pnpm verify:roles
  */
-import { DEMO_PASSWORD, demoAccountForRole } from "../config/demo-accounts";
-import { dashboards } from "../config/dashboards";
+import { DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS, demoAccountForRole, type DemoAccount } from "../config/demo-accounts";
+import { dashboardForRole } from "../config/dashboards";
 import { kpis } from "../config/kpis";
 import { MODULE_KEYS, modules, type ModuleKey } from "../config/modules";
 import { accessibleModules, permissionsForRole } from "../config/role-defaults";
-import { roleList, roleLabel, type RoleKey } from "../config/roles";
+import { PLATFORM_HOME } from "../config/platform";
+import { roleLabel } from "../config/roles";
 import { PUBLIC_OPERATIONAL_ROUTES, PUBLIC_ROUTES } from "../lib/permissions/route-access";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
@@ -105,47 +110,76 @@ class Session {
   }
 }
 
-async function verifyRole(role: RoleKey) {
-  const account = demoAccountForRole(role);
-  if (!account) {
-    failures += 1;
-    console.log(`   FAIL  ${role}: no demo account defined — run pnpm db:seed`);
-    return;
+async function verifyPlatformAdmin(account: DemoAccount) {
+  const who = account.username;
+  const session = new Session();
+
+  const location = await session.signIn(account.username, DEMO_PASSWORD);
+  check(Boolean(location && !location.includes("error")), `${who}: signs in`, String(location));
+
+  const dashboard = await session.request("/dashboard");
+  check(
+    (dashboard.status === 307 || dashboard.status === 302) && (dashboard.headers.get("location") ?? "").includes(PLATFORM_HOME),
+    `${who}: /dashboard sends the Platform Admin to ${PLATFORM_HOME}`,
+    `${dashboard.status} ${dashboard.headers.get("location")}`,
+  );
+
+  const home = await session.request(PLATFORM_HOME);
+  check(home.status === 200, `${who}: ${PLATFORM_HOME} returns 200`, String(home.status));
+
+  for (const key of MODULE_KEYS) {
+    const response = await session.request(modules[key].route);
+    check(
+      response.status === 307 || response.status === 302,
+      `${who}: company route /${key} is not served to the Platform Admin`,
+      String(response.status),
+    );
   }
 
+  const api = await session.request("/api/projects");
+  check(api.status === 403, `${who}: company API refuses the Platform Admin`, String(api.status));
+
+  await session.signOut();
+}
+
+async function verifyAccount(account: DemoAccount) {
+  if (account.section === "platform") return verifyPlatformAdmin(account);
+
+  const role = account.role;
+  const who = account.username;
   const session = new Session();
 
   const location = await session.signIn(account.username, DEMO_PASSWORD);
   check(
     Boolean(location && location.includes("/dashboard")),
-    `${role}: login redirects to /dashboard`,
+    `${who}: login redirects to /dashboard`,
     String(location),
   );
 
   // Dashboard renders this role's configuration.
   const dashboard = await session.request("/dashboard");
   const html = await dashboard.text();
-  check(dashboard.status === 200, `${role}: /dashboard returns 200`, String(dashboard.status));
-  check(html.includes(roleLabel(role)), `${role}: dashboard shows the role name`);
-  check(!html.includes(DENIED_MARKER), `${role}: dashboard is not access-denied`);
+  check(dashboard.status === 200, `${who}: /dashboard returns 200`, String(dashboard.status));
+  check(html.includes(roleLabel(role)), `${who}: dashboard shows the role name`);
+  check(!html.includes(DENIED_MARKER), `${who}: dashboard is not access-denied`);
 
-  const expectedKpis = dashboards[role].kpis
+  const expectedKpis = dashboardForRole(role, account.position).kpis
     .map((key) => kpis[key])
-    .filter((kpi) => kpi && permissionsForRole(role).includes(kpi.permission))
+    .filter((kpi) => kpi && permissionsForRole(role, account.position).includes(kpi.permission))
     .map((kpi) => kpi.label);
   for (const label of expectedKpis) {
-    check(html.includes(label), `${role}: dashboard shows KPI "${label}"`);
+    check(html.includes(label), `${who}: dashboard shows KPI "${label}"`);
   }
 
   // An authenticated user is bounced off the login page.
   const loginRedirect = await session.request("/login");
   check(
     loginRedirect.status === 307 || loginRedirect.status === 302,
-    `${role}: /login redirects when signed in`,
+    `${who}: /login redirects when signed in`,
     String(loginRedirect.status),
   );
 
-  const allowed = new Set<ModuleKey>(accessibleModules(role));
+  const allowed = new Set<ModuleKey>(accessibleModules(role, account.position));
   /*
    * Two routes open for every authenticated role.
    *
@@ -163,13 +197,13 @@ async function verifyRole(role: RoleKey) {
     const denied = isRefusal(response, body);
 
     if (allowed.has(key) || alwaysReachable.has(key)) {
-      check(response.status === 200 && !denied, `${role}: can open /${key}`, String(response.status));
+      check(response.status === 200 && !denied, `${who}: can open /${key}`, String(response.status));
       check(
         body.includes(modules[key].label),
-        `${role}: /${key} renders the module header`,
+        `${who}: /${key} renders the module header`,
       );
     } else {
-      check(denied, `${role}: is refused /${key}`, `status ${response.status}`);
+      check(denied, `${who}: is refused /${key}`, `status ${response.status}`);
     }
   }
 
@@ -179,7 +213,7 @@ async function verifyRole(role: RoleKey) {
     const href = `href="${modules[key].route}"`;
     const present = sidebarHtml.includes(href);
     if (allowed.has(key)) {
-      check(present, `${role}: sidebar links to /${key}`);
+      check(present, `${who}: sidebar links to /${key}`);
     }
   }
 
@@ -187,10 +221,10 @@ async function verifyRole(role: RoleKey) {
   const newProject = await session.request("/projects/new");
   const newProjectBody = await newProject.text();
   const mayCreate = !isRefusal(newProject, newProjectBody);
-  const expectedCreate = permissionsForRole(role).includes("project.create");
+  const expectedCreate = permissionsForRole(role, account.position).includes("project.create");
   check(
     mayCreate === expectedCreate,
-    `${role}: /projects/new ${expectedCreate ? "allowed" : "refused"}`,
+    `${who}: /projects/new ${expectedCreate ? "allowed" : "refused"}`,
   );
 
   // Logout ends the session.
@@ -198,12 +232,12 @@ async function verifyRole(role: RoleKey) {
   const afterLogout = await session.request("/dashboard");
   check(
     afterLogout.status === 307 || afterLogout.status === 302,
-    `${role}: logout protects /dashboard again`,
+    `${who}: logout protects /dashboard again`,
     String(afterLogout.status),
   );
   check(
     (afterLogout.headers.get("location") ?? "").includes("/login"),
-    `${role}: logout redirects to /login`,
+    `${who}: logout redirects to /login`,
   );
 }
 
@@ -258,10 +292,10 @@ async function main() {
   console.log("Public routes");
   await verifyPublicRoutes();
 
-  for (const definition of roleList) {
-    process.stdout.write(`${definition.code} ${definition.label.padEnd(22)}`);
+  for (const account of PRIMARY_DEMO_ACCOUNTS) {
+    process.stdout.write(`${account.username.padEnd(20)} ${account.assignment.padEnd(40)}`);
     const before = failures;
-    await verifyRole(definition.key);
+    await verifyAccount(account);
     console.log(failures === before ? "ok" : "FAILED");
   }
 

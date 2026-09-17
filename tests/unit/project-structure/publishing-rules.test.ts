@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { permissionsForRole } from "@/config/role-defaults";
-import { ROLE_KEYS } from "@/config/roles";
+import { ROLE_KEYS, type PositionLevel } from "@/config/roles";
 import { canMove } from "@/lib/core/state/machine";
 import { STATE_MACHINES } from "@/lib/core/state/registry";
 import { buildSnapshot, evaluateReadiness, hasUnpublishedChanges, isPdf, isUnitImage, publishFingerprint, unitDisplay, type LiveUnitFacts, type ReadinessInput } from "@/lib/modules/project-structure/unit-publishing.rules";
@@ -156,17 +156,19 @@ describe("validation (§67, §110)", () => {
 });
 
 describe("default role policy (§19, §120)", () => {
-  const holders = (permission: string) => ROLE_KEYS.filter((role) => (permissionsForRole(role) as readonly string[]).includes(permission)).sort();
+  const holders = (permission: string, position: PositionLevel = "MEMBER") => ROLE_KEYS.filter((role) => (permissionsForRole(role, position) as readonly string[]).includes(permission)).sort();
 
-  it("lets the Architect, the Architecture Manager, the Project Manager, the Admin and the Owner prepare and submit units", () => {
+  it("lets the Architect, the Project Manager and the Owner prepare and submit units", () => {
     for (const permission of ["project.unit.documents.manage", "project.unit.media.manage", "project.unit.submit_for_publish"]) {
-      expect(holders(permission), permission).toEqual(["ADMIN", "ARCHITECT", "ARCHITECTURE_MANAGER", "OWNER", "PROJECT_MANAGER"]);
+      expect(holders(permission), permission).toEqual(["ARCHITECT", "OWNER", "PROJECT_MANAGER"]);
     }
   });
 
-  it("keeps publishing, revision, unpublishing and archiving with the Architecture Manager, the Admin and the Owner", () => {
+  it("keeps publishing, revision, unpublishing and archiving with Architecture's managers and the Owner (E-06 §6.3)", () => {
     for (const permission of ["project.unit.publish", "project.unit.revision_request", "project.unit.unpublish", "project.unit.archive"]) {
-      expect(holders(permission), permission).toEqual(["ADMIN", "ARCHITECTURE_MANAGER", "OWNER"]);
+      expect(holders(permission), permission).toEqual(["OWNER"]);
+      expect(holders(permission, "COMPANY_MANAGER"), permission).toEqual(["ARCHITECT", "OWNER"]);
+      expect(holders(permission, "GROUP_HEAD"), permission).toEqual(["ARCHITECT", "OWNER"]);
     }
   });
 
@@ -175,8 +177,8 @@ describe("default role policy (§19, §120)", () => {
       const granted = permissionsForRole(role) as readonly string[];
       expect(granted.includes("project.unit.publication_history.view"), role).toBe(granted.includes("project.structure.view"));
     }
-    for (const role of ["SALES", "SALES_MANAGER", "FINANCE", "VIEWER", "ENGINEER"] as const) {
-      const granted = permissionsForRole(role) as readonly string[];
+    for (const [role, position] of [["SALES", "MEMBER"], ["SALES", "COMPANY_MANAGER"], ["FINANCE", "MEMBER"], ["VIEWER", "MEMBER"], ["ENGINEER", "MEMBER"]] as const) {
+      const granted = permissionsForRole(role, position) as readonly string[];
       // Selling a unit is E-05E's, and its contract and collection E-05F's; each is tested with its own rules.
       const selling = (permission: string) => /^project\.unit\.(sales|sales_status|price|reserve|reservation|mark_sold|reopen_sale|sales_correct|sale|legal|contract|finance)\b/.test(permission);
       expect(granted.filter((permission) => permission.startsWith("project.unit.") && permission !== "project.unit.publication_history.view" && !selling(permission)), role).toEqual([]);

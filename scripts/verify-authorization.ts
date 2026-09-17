@@ -87,7 +87,7 @@ const PUBLIC_ACTIONS: Record<string, string> = {
   "lib/actions/auth.ts#requestPasswordResetAction": "identical answer for every email, throttled",
   "lib/actions/auth.ts#resetPasswordAction": "single-use reset token",
   "lib/actions/contact.ts#submitContactAction": "public site contact form, throttled",
-  "lib/actions/demo.ts#signInAsDemoRoleAction": "isDevMode only (verify:production-guards)",
+  "lib/actions/demo.ts#signInAsDemoAccountAction": "isDevMode only (verify:production-guards)",
   "lib/actions/dev.ts#setDevRoleAction": "isDevMode only (verify:production-guards)",
 };
 

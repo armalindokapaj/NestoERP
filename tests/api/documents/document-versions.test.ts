@@ -18,7 +18,7 @@ import {
 } from "@/lib/modules/documents/storage/upload.service";
 import { decideReview, listEligibleReviewers, requestReview } from "@/lib/modules/documents/versions/review.service";
 import { createVersionDownloadGrant, listVersions } from "@/lib/modules/documents/versions/version.service";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Document versions and review (PRD #38 §56-§68, §138, §150, §154).
@@ -196,7 +196,7 @@ describe("versions (PRD #38 §56-§58)", () => {
 
     await expectCode(createVersionDownloadGrant(pm, first, versionOfSecond), "DOCUMENT_NOT_FOUND");
 
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectCode(listVersions(ownerB, first), "DOCUMENT_NOT_FOUND");
     await expectCode(createVersionDownloadGrant(ownerB, first, versionOfSecond), "DOCUMENT_NOT_FOUND");
     await expectCode(
@@ -333,7 +333,7 @@ describe("review (PRD #38 §59-§65, §154)", () => {
     const versionId = (await prisma.document.findUniqueOrThrow({ where: { id: documentId } })).currentVersionId!;
     const { reviewId } = await requestReview(pm, versionId, { reviewerMemberId: architect.membershipId });
 
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectCode(decideReview(ownerB, reviewId, "APPROVED", undefined), "NOT_FOUND");
     await expectCode(requestReview(ownerB, versionId, { reviewerMemberId: ownerB.membershipId }), "NOT_FOUND");
   });

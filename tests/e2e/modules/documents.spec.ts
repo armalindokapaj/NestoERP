@@ -258,15 +258,15 @@ test.describe("Architect confidentiality (PRD #13 §255, §270)", () => {
   });
 });
 
-test.describe("Admin is not a confidential-data super-user (PRD #13 §253)", () => {
+test.describe("Group IT is not a confidential-data super-user (PRD #13 §253)", () => {
   /**
-   * Mandatory. Admin administers the platform and holds company-level
+   * Mandatory. Group IT runs the companies' systems and holds company-level
    * Documents access — and still cannot open a Finance document, because it is
-   * filed under a module Admin has no access to at all. Platform
-   * administration is not financial authorisation (PRD #13 §53, §253).
+   * filed under a module Group IT has no access to at all. Technical
+   * administration is not financial authorisation (PRD #13 §53, §253, E-06).
    */
   test("cannot reach a company Finance document", async ({ page }) => {
-    await signIn(page, "ADMIN");
+    await signIn(page, "GROUP_IT");
 
     const finance = await db.document.findFirstOrThrow({
       where: { module: "finance", projectId: null },

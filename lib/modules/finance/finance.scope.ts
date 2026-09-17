@@ -27,7 +27,7 @@ export type FinanceScopeKind = "COMPANY" | "PROJECT";
  */
 export function financeScopeKind(context: UserContext): FinanceScopeKind {
   const scope = getModuleScope(context, "finance");
-  return scope === "COMPANY" || scope === "SYSTEM" ? "COMPANY" : "PROJECT";
+  return scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" ? "COMPANY" : "PROJECT";
 }
 
 export function hasCompanyFinanceScope(context: UserContext): boolean {

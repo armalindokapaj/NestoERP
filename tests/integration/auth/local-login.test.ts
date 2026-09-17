@@ -20,7 +20,7 @@ const made: string[] = [];
 
 async function account(username: string, options: { email?: string | null } = {}) {
   const template = await prisma.user.findFirstOrThrow({
-    where: { username: "engineer" },
+    where: { username: "engineer-a" },
     select: { passwordHash: true, memberships: { where: { status: "ACTIVE" }, take: 1, select: { companyId: true, roleId: true, departmentId: true } } },
   });
   const membership = template.memberships[0];

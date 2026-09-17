@@ -8,7 +8,7 @@ import { STRUCTURE_SEED } from "./structure";
  * Built on the units E-05E sells, so every screen has something to show and
  * isolation has something to hold on both sides:
  *
- * - A-201, sold to Beta Properties, under sale contract CTR-2026-041 — signed
+ * - A-201, sold to Nova Living, under sale contract CTR-2026-041 — signed
  *   and active at €176,000. Schedule v1 has a deposit paid by bank transfer and
  *   invoiced, an installment part paid and now overdue, and two to come.
  * - A-102, reserved for ACME Developments: Sales has asked Legal for its
@@ -20,7 +20,7 @@ import { STRUCTURE_SEED } from "./structure";
  */
 
 const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const FIXTURE_TENANT = "company_fixture_tenant";
 const EUR = "EUR";
 const DAY = 86_400_000;
 const days = (offset: number) => new Date(Date.now() + offset * DAY);
@@ -114,9 +114,9 @@ export async function seedUnitFinanceRecords(prisma: PrismaClient, memberId: Mem
     await prisma.paymentAllocation.create({ data: { id: `alloc_${input.id}`, companyId: input.companyId, paymentId: input.id, contractId: input.contractId, installmentId: input.installmentId, invoiceId: input.invoiceId ?? null, amount: dec(input.amount), createdByMemberId: input.by, createdAt: days(input.at) } });
   };
 
-  /* A-201: sold to Beta, contract active, deposit paid, an installment overdue ------------------------ */
+  /* A-201: sold to Nova Living, contract active, deposit paid, an installment overdue ------------------ */
   const a201 = unit.get("A-201")!;
-  await saleContract({ id: "contract_sale_a201", companyId: COMPANY_A, projectId: riverside, unitId: a201, code: "A-201", number: "CTR-2026-041", value: "176000", clientId: "client_beta", clientName: "Beta Properties", opportunityId: "opportunity_002", owner: legal, signedAt: -8, status: "ACTIVE" });
+  await saleContract({ id: "contract_sale_a201", companyId: COMPANY_A, projectId: riverside, unitId: a201, code: "A-201", number: "CTR-2026-041", value: "176000", clientId: "client_nova", clientName: "Nova Living", opportunityId: "opportunity_006", owner: legal, signedAt: -8, status: "ACTIVE" });
   await trail(COMPANY_A, riverside, a201, "contracts", "UNIT_CONTRACT_MARK_SIGNED", "recorded sale contract CTR-2026-041 as signed", legal, -8);
   await schedule({
     id: "schedule_sale_a201_v1",
@@ -139,7 +139,7 @@ export async function seedUnitFinanceRecords(prisma: PrismaClient, memberId: Mem
       id: "invoice_sale_a201_deposit",
       companyId: COMPANY_A,
       invoiceNumber: "INV-SA-2026-001",
-      clientId: "client_beta",
+      clientId: "client_nova",
       projectId: riverside,
       contractId: "contract_sale_a201",
       installmentId: "installment_a201_1",
@@ -156,10 +156,10 @@ export async function seedUnitFinanceRecords(prisma: PrismaClient, memberId: Mem
       lineItems: { create: [{ description: "Deposit — contract CTR-2026-041", quantity: dec("1"), unitPrice: dec("17600"), taxRate: dec("0"), subtotal: dec("17600"), taxAmount: dec("0"), totalAmount: dec("17600"), sortOrder: 0 }] },
     },
   });
-  await pay({ id: "payment_sale_a201_1", companyId: COMPANY_A, projectId: riverside, contractId: "contract_sale_a201", clientId: "client_beta", by: finance, amount: "17600", at: -5, reference: "TR-A201-DEP", installmentId: "installment_a201_1", invoiceId: "invoice_sale_a201_deposit" });
+  await pay({ id: "payment_sale_a201_1", companyId: COMPANY_A, projectId: riverside, contractId: "contract_sale_a201", clientId: "client_nova", by: finance, amount: "17600", at: -5, reference: "TR-A201-DEP", installmentId: "installment_a201_1", invoiceId: "invoice_sale_a201_deposit" });
   await trail(COMPANY_A, riverside, a201, "finance", "PAYMENT_RECORDED", "recorded a payment of EUR 17,600.00 against contract CTR-2026-041", finance, -5);
   // Part of the first installment, before it fell due: the rest is now overdue.
-  await pay({ id: "payment_sale_a201_2", companyId: COMPANY_A, projectId: riverside, contractId: "contract_sale_a201", clientId: "client_beta", by: finance, amount: "20000", at: -2, reference: "TR-A201-I1A", installmentId: "installment_a201_2" });
+  await pay({ id: "payment_sale_a201_2", companyId: COMPANY_A, projectId: riverside, contractId: "contract_sale_a201", clientId: "client_nova", by: finance, amount: "20000", at: -2, reference: "TR-A201-I1A", installmentId: "installment_a201_2" });
   await trail(COMPANY_A, riverside, a201, "finance", "PAYMENT_RECORDED", "recorded a payment of EUR 20,000.00 against contract CTR-2026-041", finance, -2);
 
   /* A-102: reserved for ACME, a contract requested and waiting for Legal ------------------------------ */
@@ -173,13 +173,13 @@ export async function seedUnitFinanceRecords(prisma: PrismaClient, memberId: Mem
   /* Company B: OF-001, contract signed, deposit paid ------------------------------------------------- */
   const of001 = STRUCTURE_SEED.units.munichOffice1;
   const of001Reservation = await prisma.unitReservation.findFirstOrThrow({ where: { unitId: of001, status: "ACTIVE" }, select: { id: true } });
-  await saleContract({ id: "contract_sale_b_of001", companyId: COMPANY_B, projectId: munich, unitId: of001, code: "OF-001", number: "CTR-B-2026-011", value: "612000", clientId: "client_b_muc", clientName: "Isarwerk Holding", opportunityId: "opportunity_b_001", owner: ownerB, signedAt: -1, status: "SIGNED" });
+  await saleContract({ id: "contract_sale_b_of001", companyId: FIXTURE_TENANT, projectId: munich, unitId: of001, code: "OF-001", number: "CTR-B-2026-011", value: "612000", clientId: "client_b_muc", clientName: "Isarwerk Holding", opportunityId: "opportunity_b_001", owner: ownerB, signedAt: -1, status: "SIGNED" });
   await prisma.unitContractRequest.create({
-    data: { id: "contract_request_b_of001", companyId: COMPANY_B, projectId: munich, unitId: of001, reservationId: of001Reservation.id, clientId: "client_b_muc", opportunityId: "opportunity_b_001", status: "FULFILLED", requestedByMemberId: ownerB, requestedAt: days(-3), contractId: "contract_sale_b_of001", closedByMemberId: ownerB, closedAt: days(-2) },
+    data: { id: "contract_request_b_of001", companyId: FIXTURE_TENANT, projectId: munich, unitId: of001, reservationId: of001Reservation.id, clientId: "client_b_muc", opportunityId: "opportunity_b_001", status: "FULFILLED", requestedByMemberId: ownerB, requestedAt: days(-3), contractId: "contract_sale_b_of001", closedByMemberId: ownerB, closedAt: days(-2) },
   });
   await schedule({
     id: "schedule_sale_b_of001_v1",
-    companyId: COMPANY_B,
+    companyId: FIXTURE_TENANT,
     contractId: "contract_sale_b_of001",
     by: ownerB,
     at: -1,
@@ -188,7 +188,7 @@ export async function seedUnitFinanceRecords(prisma: PrismaClient, memberId: Mem
       { id: "installment_b_of001_2", label: "Restzahlung", type: "BALANCE", amount: "550800", due: 45 },
     ],
   });
-  await pay({ id: "payment_sale_b_of001_1", companyId: COMPANY_B, projectId: munich, contractId: "contract_sale_b_of001", clientId: "client_b_muc", by: ownerB, amount: "61200", at: -1, reference: "SEPA-OF001-ANZ", installmentId: "installment_b_of001_1" });
+  await pay({ id: "payment_sale_b_of001_1", companyId: FIXTURE_TENANT, projectId: munich, contractId: "contract_sale_b_of001", clientId: "client_b_muc", by: ownerB, amount: "61200", at: -1, reference: "SEPA-OF001-ANZ", installmentId: "installment_b_of001_1" });
 
   return {
     contracts: await prisma.contractUnit.count({ where: { releasedAt: null, contract: { contractType: "SALE_AGREEMENT" } } }),

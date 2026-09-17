@@ -87,9 +87,10 @@ describe("permissions and role defaults (§175-§193)", () => {
 
   it("gives each role the authority the PRD describes, and no more", () => {
     expect(has("OWNER", "contractor.archive") && has("OWNER", "engineering.settings.manage")).toBe(true);
-    expect(accessibleModules("ADMIN")).not.toContain("engineering");
-    expect(has("ADMIN", "contractor.view") && !has("ADMIN", "contractor.create")).toBe(true);
-    expect(accessibleModules("COMPANY_IT")).not.toContain("contractors");
+    expect(accessibleModules("PLATFORM_ADMIN")).not.toContain("engineering");
+    expect(accessibleModules("PLATFORM_ADMIN")).not.toContain("contractors");
+    expect(accessibleModules("GROUP_IT")).not.toContain("engineering");
+    expect(accessibleModules("GROUP_IT")).not.toContain("contractors");
     expect(accessibleModules("HR")).not.toContain("contractors");
     expect(has("CEO", "rfi.view") && !has("CEO", "rfi.create")).toBe(true);
     expect(has("PROJECT_MANAGER", "project_contractor.manage") && has("PROJECT_MANAGER", "rfi.void") && has("PROJECT_MANAGER", "submittal.approve")).toBe(true);

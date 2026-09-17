@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ModuleKey } from "@/config/modules";
 import { accessibleProjectIds } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
-import { cleanupSessions, loginAs, prisma } from "../helpers";
+import { cleanupSessions, loginAsMembership, PROJECT, prisma } from "../helpers";
 import { actAs } from "./harness/actor";
 import { COMPANY_A } from "./harness/companies";
 import { projectFootprint, snapshotDifferences } from "./harness/company-data";
@@ -15,13 +15,18 @@ vi.mock("@/lib/context/resolve-user-context", () => import("./harness/actor"));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined }));
 
 /**
- * Project A / Project B inside one company (PRD #47 §49-§53, §139, §210).
+ * Two projects inside one company (PRD #47 §49-§53, §139, §210).
  *
- * The seeded Project Manager belongs to Projects A and B only, and holds
- * PROJECT scope in every module that has project-bound records. Every route
- * and server action of those modules is called with real records of the
- * company's *other* projects. Expected: nothing of those projects is shown,
- * changed, or confirmed to exist.
+ * A Project Manager holds PROJECT scope in every module that has project-bound
+ * records. Every route and server action of those modules is called by one
+ * with real records of a project of their company they do not belong to.
+ * Expected: nothing of that project is shown, changed, or confirmed to exist.
+ *
+ * Each demo company has exactly one project (E-06 §44), and every Aurelia
+ * record is on Riverside Residences. So the Project Manager is one made for
+ * this run: an Aurelia member on a second Aurelia project of their own, and
+ * never on Riverside Residences, which is the target. Both are removed
+ * afterwards.
  *
  * Calendar and Meetings are left out: the Project Manager holds COMPANY scope
  * there by design, and a company-visible meeting on another project is theirs
@@ -60,27 +65,56 @@ const ACTION_MODULES: Record<string, ModuleKey> = {
 };
 const NARROW = new Set(["SELF", "ASSIGNED", "PROJECT"]);
 
+/** Ids after the seed's in sort order, so a body field filled with "the company's first project" still names the target. */
+const PROBE = { userId: "user_security_probe_pm", memberId: "member_security_probe_pm", projectId: "project_security_probe" };
+
 let pm: UserContext;
+let mine: string[];
 let outside: string[];
 const report: Record<string, unknown> = {};
 
+async function removeProbe() {
+  await prisma.session.deleteMany({ where: { userId: PROBE.userId } });
+  await prisma.project.deleteMany({ where: { id: PROBE.projectId } });
+  await prisma.companyMember.deleteMany({ where: { id: PROBE.memberId } });
+  await prisma.user.deleteMany({ where: { id: PROBE.userId } });
+}
+
 beforeAll(async () => {
-  pm = await loginAs("PROJECT_MANAGER");
-  const mine = new Set(await accessibleProjectIds(pm));
-  outside = (await prisma.project.findMany({ where: { companyId: COMPANY_A }, select: { id: true } })).map((row) => row.id).filter((id) => !mine.has(id));
+  await removeProbe();
+  const role = await prisma.role.findUniqueOrThrow({ where: { key: "PROJECT_MANAGER" }, select: { id: true } });
+  await prisma.user.create({ data: { id: PROBE.userId, username: "security-probe-pm", firstName: "Probe", lastName: "Manager", passwordHash: "not-a-login" } });
+  await prisma.companyMember.create({ data: { id: PROBE.memberId, companyId: COMPANY_A, userId: PROBE.userId, roleId: role.id, jobTitle: "Project Manager", joinedAt: new Date() } });
+  await prisma.project.create({
+    data: {
+      id: PROBE.projectId,
+      companyId: COMPANY_A,
+      code: "SEC-PROBE-001",
+      name: "Security probe site",
+      status: "ACTIVE",
+      projectManagerMemberId: PROBE.memberId,
+      createdBy: PROBE.userId,
+      members: { create: { companyId: COMPANY_A, companyMemberId: PROBE.memberId, projectRole: "Project Manager", isPrimary: true } },
+    },
+  });
+
+  pm = await loginAsMembership(PROBE.memberId);
+  mine = await accessibleProjectIds(pm);
+  outside = (await prisma.project.findMany({ where: { companyId: COMPANY_A }, select: { id: true } })).map((row) => row.id).filter((id) => !mine.includes(id));
 }, 60_000);
 
 afterAll(async () => {
   actAs(null);
   if (process.env.SECURITY_REPORT) writeFileSync(process.env.SECURITY_REPORT, JSON.stringify(report, null, 2));
   await cleanupSessions();
+  await removeProbe();
   await prisma.$disconnect();
 });
 
 describe("Project isolation for a project-scoped member (PRD #47 §210)", () => {
   it("starts from a Project Manager who belongs to some projects and not others", () => {
-    expect(outside.length).toBeGreaterThan(0);
-    expect(outside).not.toContain("project_a");
+    expect(mine).toEqual([PROBE.projectId]);
+    expect(outside).toEqual([PROJECT.a]);
   });
 
   it("shows, changes and confirms nothing of the other projects through any API route", async () => {

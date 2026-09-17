@@ -13,7 +13,7 @@
  *     --name="Acme Construction" --slug=acme --owner-email=owner@acme.example \
  *     [--legal-name="Acme Construction Sh.p.k."] [--country=Albania] \
  *     [--timezone=Europe/Tirane] [--locale=sq-AL] [--currency=EUR] \
- *     [--disable=hse,qaqc]
+ *     [--disable=hse,qaqc] [--group=acme-group --group-name="Acme Group"]
  *
  * Run `pnpm access:sync` first on a fresh database.
  */
@@ -43,6 +43,8 @@ async function main() {
     ownerEmail,
     legalName: arg("legal-name"),
     country: arg("country"),
+    parentGroupSlug: arg("group"),
+    parentGroupName: arg("group-name"),
     timezone: arg("timezone"),
     locale: arg("locale"),
     baseCurrency: arg("currency"),
@@ -53,6 +55,7 @@ async function main() {
   });
 
   console.log(`  company   ${result.slug} (${result.companyId}) — ${result.companyCreated ? "created" : "already existed"}`);
+  console.log(`  group     ${result.parentGroupId}`);
   console.log(`  modules   ${result.modulesEnabled.length} enabled${result.modulesDisabled.length ? `, disabled: ${result.modulesDisabled.join(", ")}` : ""}`);
   switch (result.owner.state) {
     case "ALREADY_ACTIVE":

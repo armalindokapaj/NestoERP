@@ -9,18 +9,18 @@ import {
   reorderProjectTypes,
   updateProjectType,
 } from "@/lib/modules/projects/project-type.service";
-import { cleanupSessions, loginAs, loginAsMembership, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, loginAs, loginAsMembership, prisma } from "../../helpers";
 
 /**
  * A company's own project types (E-05A §30, §62).
  *
- * The list is company configuration: the Owner and Admin keep it, nobody else
- * does, and nothing in it ever reaches across a company. A type in use is
+ * The list is company configuration: the Owner and the CEO keep it, nobody
+ * else does, and nothing in it ever reaches across a company. A type in use is
  * retired rather than deleted.
  */
 
-const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const COMPANY_A = COMPANY.a;
+const TENANT = COMPANY.tenant;
 
 const tempTypes: string[] = [];
 const tempProjects: string[] = [];
@@ -59,16 +59,16 @@ async function expectError(promise: Promise<unknown>, code: string) {
 const unique = (label: string) => `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
 describe("who keeps the list", () => {
-  it("lets the Owner and an Admin read it, with how many projects use each type", async () => {
-    for (const role of ["OWNER", "ADMIN"] as const) {
+  it("lets the Owner and the CEO read it, with how many projects use each type", async () => {
+    for (const role of ["OWNER", "CEO"] as const) {
       const types = await listProjectTypes(await loginAs(role));
       expect(types.map((type) => type.name)).toEqual(expect.arrayContaining(["Residential", "Commercial", "Hospital", "Other"]));
-      expect(types.find((type) => type.name === "Residential")?.projectCount).toBeGreaterThanOrEqual(2);
+      expect(types.find((type) => type.name === "Mixed use")?.projectCount).toBeGreaterThanOrEqual(1);
     }
   });
 
   it("refuses everybody else, the Project Manager included", async () => {
-    for (const role of ["PROJECT_MANAGER", "ARCHITECT", "CEO", "VIEWER"] as const) {
+    for (const role of ["PROJECT_MANAGER", "ARCHITECT", "GROUP_IT", "VIEWER"] as const) {
       const context = await loginAs(role);
       await expectError(listProjectTypes(context), "FORBIDDEN");
       await expectError(createProjectType(context, { name: unique("Nope") }), "FORBIDDEN");
@@ -78,22 +78,22 @@ describe("who keeps the list", () => {
 
 describe("keeping the list", () => {
   it("adds, renames, retires and brings back a type, audited each time", async () => {
-    const admin = await loginAs("ADMIN");
-    const created = await createProjectType(admin, { name: unique("Education") });
+    const ceo = await loginAs("CEO");
+    const created = await createProjectType(ceo, { name: unique("Education") });
     tempTypes.push(created.id);
     expect(created).toMatchObject({ isActive: true, projectCount: 0 });
-    expect(created.sortOrder).toBe(Math.max(...(await listProjectTypes(admin)).map((type) => type.sortOrder)));
+    expect(created.sortOrder).toBe(Math.max(...(await listProjectTypes(ceo)).map((type) => type.sortOrder)));
 
-    const renamed = await updateProjectType(admin, created.id, { name: `${created.name} & Research` });
+    const renamed = await updateProjectType(ceo, created.id, { name: `${created.name} & Research` });
     expect(renamed.name).toBe(`${created.name} & Research`);
 
-    const retired = await updateProjectType(admin, created.id, { isActive: false });
+    const retired = await updateProjectType(ceo, created.id, { isActive: false });
     expect(retired.isActive).toBe(false);
-    expect((await projectTypeChoices(admin)).map((choice) => choice.value)).not.toContain(created.id);
+    expect((await projectTypeChoices(ceo)).map((choice) => choice.value)).not.toContain(created.id);
     // The project that already has it keeps seeing it on its form.
-    expect(await projectTypeChoices(admin, created.id)).toContainEqual({ value: created.id, label: `${renamed.name} (retired)` });
+    expect(await projectTypeChoices(ceo, created.id)).toContainEqual({ value: created.id, label: `${renamed.name} (retired)` });
 
-    expect((await updateProjectType(admin, created.id, { isActive: true })).isActive).toBe(true);
+    expect((await updateProjectType(ceo, created.id, { isActive: true })).isActive).toBe(true);
 
     const actions = await prisma.auditEvent.findMany({ where: { entityId: created.id }, select: { actionKey: true } });
     expect(actions.map((row) => row.actionKey).sort()).toEqual(["PROJECT_TYPE_CREATED", "PROJECT_TYPE_UPDATED", "PROJECT_TYPE_UPDATED", "PROJECT_TYPE_UPDATED"]);
@@ -147,7 +147,7 @@ describe("keeping the list", () => {
 
     await expectError(reorderProjectTypes(owner, reversed.slice(1)), "VALIDATION_ERROR");
     await expectError(reorderProjectTypes(owner, [...reversed.slice(1), reversed[1]!]), "VALIDATION_ERROR");
-    const foreign = await prisma.projectType.findFirstOrThrow({ where: { companyId: COMPANY_B }, select: { id: true } });
+    const foreign = await prisma.projectType.findFirstOrThrow({ where: { companyId: TENANT }, select: { id: true } });
     await expectError(reorderProjectTypes(owner, [...reversed.slice(1), foreign.id]), "VALIDATION_ERROR");
   });
 });
@@ -155,11 +155,14 @@ describe("keeping the list", () => {
 describe("company isolation", () => {
   it("answers another company's type as not found, and never offers it", async () => {
     const owner = await loginAs("OWNER");
-    const foreign = await prisma.projectType.findFirstOrThrow({ where: { companyId: COMPANY_B, name: "Hotel" }, select: { id: true } });
+    // The fixture tenant, and a group sibling the Owner also belongs to: the session's company decides.
+    for (const companyId of [TENANT, COMPANY.b]) {
+      const foreign = await prisma.projectType.findFirstOrThrow({ where: { companyId, name: "Hotel" }, select: { id: true } });
 
-    await expectError(updateProjectType(owner, foreign.id, { name: "Taken over" }), "NOT_FOUND");
-    await expectError(deleteProjectType(owner, foreign.id), "NOT_FOUND");
-    expect((await projectTypeChoices(owner)).map((choice) => choice.value)).not.toContain(foreign.id);
-    expect((await prisma.projectType.findUniqueOrThrow({ where: { id: foreign.id } })).name).toBe("Hotel");
+      await expectError(updateProjectType(owner, foreign.id, { name: "Taken over" }), "NOT_FOUND");
+      await expectError(deleteProjectType(owner, foreign.id), "NOT_FOUND");
+      expect((await projectTypeChoices(owner)).map((choice) => choice.value)).not.toContain(foreign.id);
+      expect((await prisma.projectType.findUniqueOrThrow({ where: { id: foreign.id } })).name).toBe("Hotel");
+    }
   });
 });

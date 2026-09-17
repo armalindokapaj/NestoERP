@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import { serializeRecurrence } from "../../lib/modules/calendar/calendar.recurrence";
 import { addLocalDays, instantFromLocal, localDate, localWeekday, startOfLocalDay } from "../../lib/modules/calendar/calendar.time";
+import type { SeedMembers } from "./constants";
 
 /**
  * Calendar demo data (PRD #39 §200): a company holiday, a training, a weekly
@@ -9,7 +10,7 @@ import { addLocalDays, instantFromLocal, localDate, localWeekday, startOfLocalDa
  * the day the seed runs, so the calendar is never empty on the first visit.
  * Source-module dates (tasks, contracts, permits…) come from those modules.
  */
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 export async function seedCalendarRecords(prisma: PrismaClient, members: Members) {
   const zoneA = "Europe/Tirane";
@@ -98,7 +99,7 @@ export async function seedCalendarRecords(prisma: PrismaClient, members: Members
       ? [
           {
             id: "calendar_b_holiday_001",
-            companyId: "company_demo_b",
+            companyId: "company_fixture_tenant",
             createdByMemberId: ownerB,
             title: "Company B works holiday",
             eventType: "COMPANY_HOLIDAY" as const,

@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import sharp from "sharp";
 
-import { COMPANY_A, COMPANY_B, PROJECT_IDS } from "./constants";
+import { FIXTURE_PROJECTS, FIXTURE_TENANT, PROJECT_IDS, companyOfProject, type SeedMembers } from "./constants";
 import { seedStoredDocument } from "./document-objects";
 
 /**
@@ -10,9 +10,9 @@ import { seedStoredDocument } from "./document-objects";
  * Drawn here rather than shipped as files: a handful of flat architectural
  * elevations, generated as JPEGs and stored through the same document path a
  * real upload leaves behind, so the Projects page shows covers, placeholders,
- * and the thumbnail pipeline between them. Project A is left without one on
- * purpose — the documents suite picks among Project A's files — and so are
- * Logistics Hub and Greenline Villas, so the placeholder is on the page too.
+ * and the thumbnail pipeline between them. Riverside Residences is left
+ * without one on purpose — the documents suite picks among its files — and so
+ * is East Gate Logistics Hub, so the placeholder is on the page too.
  */
 
 type Mass = { x: number; w: number; h: number; fill: string; glass: string; cols: number; rows: number };
@@ -55,7 +55,7 @@ function svgFor(scene: Scene): string {
 const COVERS: Array<{ id: string; companyId: string; projectId: string; name: string; uploadedBy: string; createdBy: string; scene: Scene }> = [
   {
     id: "doc_render_central_office_tower",
-    companyId: COMPANY_A,
+    companyId: companyOfProject(PROJECT_IDS.b),
     projectId: PROJECT_IDS.b,
     name: "Central Office Tower render.jpg",
     uploadedBy: "user_pm",
@@ -72,8 +72,8 @@ const COVERS: Array<{ id: string; companyId: string; projectId: string; name: st
   },
   {
     id: "doc_render_marina_apartments",
-    companyId: COMPANY_A,
-    projectId: PROJECT_IDS.c,
+    companyId: companyOfProject(PROJECT_IDS.d),
+    projectId: PROJECT_IDS.d,
     name: "Marina Apartments render.jpg",
     uploadedBy: "user_architect",
     createdBy: "user_architect",
@@ -90,12 +90,12 @@ const COVERS: Array<{ id: string; companyId: string; projectId: string; name: st
     },
   },
   {
-    id: "doc_render_completed_retail_center",
-    companyId: COMPANY_A,
-    projectId: PROJECT_IDS.f,
-    name: "Retail Center handover photo.jpg",
-    uploadedBy: "user_owner",
-    createdBy: "user_owner",
+    id: "doc_render_adriatic_hotel",
+    companyId: companyOfProject(PROJECT_IDS.e),
+    projectId: PROJECT_IDS.e,
+    name: "Adriatic Hotel render.jpg",
+    uploadedBy: "user_pm",
+    createdBy: "user_pm",
     scene: {
       sky: ["#b9c6cf", "#eef0ec"],
       ground: "#8b8f88",
@@ -107,8 +107,8 @@ const COVERS: Array<{ id: string; companyId: string; projectId: string; name: st
   },
   {
     id: "doc_render_isarvorstadt_studio",
-    companyId: COMPANY_B,
-    projectId: "project_b_two",
+    companyId: FIXTURE_TENANT,
+    projectId: FIXTURE_PROJECTS.tenantTwo,
     name: "Isarvorstadt facade study.jpg",
     uploadedBy: "user_owner_b",
     createdBy: "user_owner_b",
@@ -123,8 +123,8 @@ const COVERS: Array<{ id: string; companyId: string; projectId: string; name: st
   },
   {
     id: "doc_render_munich_workspace",
-    companyId: COMPANY_B,
-    projectId: "project_b_one",
+    companyId: FIXTURE_TENANT,
+    projectId: FIXTURE_PROJECTS.tenantOne,
     name: "Munich workspace render.jpg",
     uploadedBy: "user_owner_b",
     createdBy: "user_owner_b",
@@ -138,7 +138,7 @@ const COVERS: Array<{ id: string; companyId: string; projectId: string; name: st
   },
 ];
 
-export async function seedProjectCovers(prisma: PrismaClient, memberId: (userId: string) => string) {
+export async function seedProjectCovers(prisma: PrismaClient, members: SeedMembers) {
   for (const cover of COVERS) {
     const bytes = await sharp(Buffer.from(svgFor(cover.scene))).jpeg({ quality: 82 }).toBuffer();
     await seedStoredDocument(prisma, {
@@ -147,8 +147,8 @@ export async function seedProjectCovers(prisma: PrismaClient, memberId: (userId:
       name: cover.name,
       description: "Cover render for the Projects page.",
       projectId: cover.projectId,
-      uploadedByMemberId: memberId(cover.uploadedBy),
-      createdBy: cover.createdBy,
+      uploadedByMemberId: members.in(cover.companyId, cover.uploadedBy),
+      createdBy: members.userIn(cover.companyId, cover.createdBy),
       bytes: new Uint8Array(bytes),
     });
     // A re-seed rebuilds the render, so its thumbnail is rebuilt from it too.

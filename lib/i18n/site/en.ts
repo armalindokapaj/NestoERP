@@ -73,7 +73,7 @@ export const siteEn = {
     platform: {
       title: "Platform",
       description:
-        "Seventeen modules, eighteen role workspaces and one project record — the whole construction lifecycle in a single system.",
+        "Seventeen modules, sixteen role workspaces and one project record — the whole construction lifecycle in a single system.",
     },
     pricing: {
       title: "Pricing",
@@ -154,7 +154,7 @@ export const siteEn = {
       lead: "Every department in the same system, on the same project record — with procurement, quality and safety treated as first-class work rather than add-ons.",
       cta: "Explore the platform",
     },
-    roles: { cta: "See all 18 roles" },
+    roles: { cta: "See all 16 roles" },
     build: {
       eyebrow: "End to end",
       title: "From the tender that wins it to the account that closes it.",
@@ -230,6 +230,7 @@ export const siteEn = {
     qaqc: "Inspections, non-conformances, tests and punch lists, closed out on the record.",
     hse: "Incidents, permits, inspections and corrective actions.",
     team: "Everyone in the company, with the department and role they work under.",
+    organization: "The parent group above your companies: its departments, the heads who run them, and the people HR brings in.",
     company: "Company identity and the details every document is issued under.",
     settings: "Roles, users, module activation and appearance, held by the administrator.",
     support: "Internal requests and the knowledge base your own team writes.",
@@ -306,7 +307,7 @@ export const siteEn = {
 
   rolesSection: {
     eyebrow: "Built around the role",
-    title: "Eighteen people open NESTO and see eighteen different companies.",
+    title: "Sixteen people open NESTO and see sixteen different companies.",
     lead: "A site engineer should not have to walk past the payroll to reach an inspection. In NESTO, the role decides the navigation, the dashboard, the quick actions and what the server will answer — all from one configuration.",
     readOnly: "Read-only",
   },
@@ -437,7 +438,7 @@ export const siteEn = {
         seats: "Up to 25 users",
         features: [
           "All 17 modules",
-          "All 18 role workspaces",
+          "All 16 role workspaces",
           "Company workspace and branding",
           "Module activation control",
           "Email support",
@@ -513,7 +514,7 @@ export const siteEn = {
       {
         title: "What we believe",
         body: [
-          "Role first. Software should show a person their work, not the company's entire org chart. Eighteen roles, eighteen workspaces, one configuration behind them.",
+          "Role first. Software should show a person their work, not the company's entire org chart. Sixteen roles, sixteen workspaces, one configuration behind them.",
           "Restraint is a feature. A narrow palette, one type scale, one component library. Screens that are boring in the same way are screens you can learn once.",
           "Speed is respect. Nobody on a site has patience for a spinner. Pages render on the server and ship as little to the browser as they can get away with.",
           "Say what is true. No invented statistics, no borrowed logos, no certification badges we have not earned.",
@@ -522,7 +523,7 @@ export const siteEn = {
       {
         title: "Where NESTO is today",
         body: [
-          "V0.1 is the foundation release: one application, one design system, one app shell, one module system and one role configuration. All eighteen roles sign in and work from their own perspective, and all seventeen modules have a real route, header, navigation and dashboard.",
+          "V0.1 is the foundation release: one application, one design system, one app shell, one module system and one role configuration. All sixteen roles sign in and work from their own perspective, and all seventeen modules have a real route, header, navigation and dashboard.",
           "Module functionality is being built out on that foundation, module by module. We would rather tell you that plainly than sell you a screenshot of something that does not exist yet.",
           "If you want to shape what gets built next, that is exactly the conversation to have with us now.",
         ],
@@ -652,7 +653,7 @@ export const siteEn = {
           {
             question: "Can we see it before committing?",
             answer:
-              "Yes. Ask for a walkthrough and we will take you through a working workspace as any of the eighteen roles, so you can see what your own people would see.",
+              "Yes. Ask for a walkthrough and we will take you through a working workspace as any of the sixteen roles, so you can see what your own people would see.",
           },
           {
             question: "What does onboarding involve?",

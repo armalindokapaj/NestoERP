@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { db, removeTestContractRecords, resetContractFixtures } from "../db";
-import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures";
+import { expectAccessDenied, mainRegion, recordTable, signIn, switchCompany } from "../fixtures";
 
 /**
  * The Legal / Contracts journey (PRD #18 §453–§462).
@@ -17,6 +17,17 @@ import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures
  * approved contract has no form that could rewrite its terms.
  */
 const PREFIX = "E2E-Legal";
+
+/**
+ * The seeded agreements are spread over the group's companies (E-06 §45).
+ * Group Legal lands in Aurelia and moves to the company that holds the record;
+ * a decision belongs to that company's CEO.
+ */
+const AURELIA = "company_demo_a";
+const MERIDIAN = "company_demo_b";
+const TERRA = "company_demo_c";
+const FORMA = "company_demo_d";
+const NOVA = "company_demo_e";
 
 test.afterAll(async () => {
   await removeTestContractRecords(PREFIX);
@@ -41,13 +52,14 @@ test.describe("Legal role (PRD #18 §453)", () => {
     await page.goto("/contracts");
     await expect(page.getByRole("heading", { name: "Legal", level: 1 })).toBeVisible();
 
-    for (const [section, expected] of [
-      ["all", "CTR-2026-001"],
-      ["drafts", "CTR-2026-010"],
-      ["active", "CTR-2026-001"],
-      ["expired", "CTR-2025-017"],
-      ["terminated", "CTR-2025-018"],
+    for (const [section, expected, company] of [
+      ["all", "CTR-2026-001", AURELIA],
+      ["drafts", "CTR-2026-010", NOVA],
+      ["active", "CTR-2026-001", AURELIA],
+      ["expired", "CTR-2025-017", NOVA],
+      ["terminated", "CTR-2025-018", MERIDIAN],
     ] as const) {
+      await switchCompany(page, company);
       await page.goto(`/contracts/${section}`);
       await expect(recordTable(page).getByText(expected).first()).toBeVisible();
     }
@@ -83,6 +95,7 @@ test.describe("Legal role (PRD #18 §453)", () => {
   });
 
   test("submits a draft for review and then for approval (PRD #18 §108, §111)", async ({ page }) => {
+    await switchCompany(page, NOVA);
     await page.goto("/contracts/contract_010");
     await page.getByRole("button", { name: "Submit for review" }).click();
     await expect(mainRegion(page).getByText("In review").first()).toBeVisible();
@@ -94,6 +107,7 @@ test.describe("Legal role (PRD #18 §453)", () => {
   test("cannot approve what it submitted (PRD #18 §116)", async ({ page }) => {
     // contract_012's approval was submitted by Legal in the seed, so Legal is
     // offered no decision on it at all.
+    await switchCompany(page, TERRA);
     await page.goto("/contracts/contract_012");
     await expect(mainRegion(page).getByText("Pending approval").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
@@ -137,6 +151,7 @@ test.describe("Legal role (PRD #18 §453)", () => {
   }) => {
     // contract_003 has no amendment in flight, so the one-at-a-time rule is not
     // what this test is measuring (PRD #18 §178).
+    await switchCompany(page, FORMA);
     await page.goto("/contracts/contract_003/amendments/new");
     await page.locator("#amendmentNumber").fill(`${PREFIX}-A1`);
     await page.locator("#title").fill(`${PREFIX} scope change`);
@@ -170,7 +185,7 @@ test.describe("Legal role (PRD #18 §453)", () => {
 
 test.describe("CEO role (PRD #18 §455)", () => {
   test("sees the approval queue and decides on it (PRD #18 §185, §187)", async ({ page }) => {
-    await signIn(page, "CEO");
+    await signIn(page, "CEO_C");
 
     await page.goto("/contracts/approvals");
     await expect(mainRegion(page).getByText("CTR-2026-012").first()).toBeVisible();
@@ -181,7 +196,7 @@ test.describe("CEO role (PRD #18 §455)", () => {
   });
 
   test("must give a reason to reject (PRD #18 §190)", async ({ page }) => {
-    await signIn(page, "CEO");
+    await signIn(page, "CEO_B");
 
     await page.goto("/contracts/contract_013");
     await page.getByRole("button", { name: "Reject", exact: true }).click();
@@ -244,7 +259,7 @@ test.describe("Project Manager role (PRD #18 §456)", () => {
 test.describe("the Sales handoff (PRD #18 §366, §457)", () => {
   async function acceptedProposal() {
     return db.proposal.findFirst({
-      where: { status: "ACCEPTED", companyId: "company_demo_a" },
+      where: { status: "ACCEPTED", companyId: NOVA },
       select: { id: true },
     });
   }
@@ -255,7 +270,7 @@ test.describe("the Sales handoff (PRD #18 §366, §457)", () => {
 
     // Legal holds both halves of the rule: contract.create, and access to the
     // sales record it is drawn from (PRD #18 §366).
-    await signIn(page, "LEGAL");
+    await signIn(page, "LEGAL", { company: NOVA });
     await page.goto(`/sales/proposals/${accepted!.id}`);
 
     const handoff = page.getByRole("link", { name: /Create contract|Create another/i }).first();
@@ -273,7 +288,7 @@ test.describe("the Sales handoff (PRD #18 §366, §457)", () => {
     const accepted = await acceptedProposal();
     test.skip(!accepted, "No accepted proposal in the seed.");
 
-    await signIn(page, "SALES");
+    await signIn(page, "SALES_E");
     await page.goto(`/sales/proposals/${accepted!.id}`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByRole("link", { name: /Create contract/i })).toHaveCount(0);
@@ -285,13 +300,8 @@ test.describe("the Sales handoff (PRD #18 §366, §457)", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("roles without Legal access (PRD #18 §459–§461)", () => {
-  test("Admin has no contract access by default (PRD #18 §24)", async ({ page }) => {
-    await signIn(page, "ADMIN");
-    await expectAccessDenied(page, "/contracts");
-  });
-
-  test("Company IT has no contract access by default (PRD #18 §25)", async ({ page }) => {
-    await signIn(page, "COMPANY_IT");
+  test("Group IT has no contract access by default (PRD #18 §24, §25)", async ({ page }) => {
+    await signIn(page, "GROUP_IT");
     await expectAccessDenied(page, "/contracts");
   });
 
@@ -303,7 +313,8 @@ test.describe("roles without Legal access (PRD #18 §459–§461)", () => {
   test("a client record shows no Contracts tab without legal access (PRD #18 §10)", async ({
     page,
   }) => {
-    await signIn(page, "ADMIN");
+    // An Architect reads clients and holds no Legal access at all.
+    await signIn(page, "ARCHITECT");
     await page.goto("/clients/client_acme");
     await expect(page.getByRole("link", { name: "Contracts", exact: true })).toHaveCount(0);
   });

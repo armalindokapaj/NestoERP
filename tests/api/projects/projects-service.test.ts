@@ -7,7 +7,7 @@ import {
   projectListQuerySchema,
   updateProjectSchema,
 } from "@/lib/modules/projects/project.schema";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma, projectTypeId } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma, projectTypeId } from "../../helpers";
 
 /**
  * Projects authorisation tests (PRD #10 §210–§226, PRD #9 §130).
@@ -66,27 +66,41 @@ async function expectError(promise: Promise<unknown>, code: string) {
   await promise.catch((error: AccessError) => expect(error.code).toBe(code));
 }
 
+/**
+ * A second Aurelia project nobody is assigned to. Each demo company runs one
+ * project, so "a project in the same company outside my scope" is made here.
+ */
+async function unassignedProject(name = "Unassigned Scope Project") {
+  const owner = await loginAs("OWNER");
+  const project = await projects.createProject(owner, createInput({ code: `PRJ-SCOPE-${Date.now()}`, name }));
+  created.push(project.id);
+  return project;
+}
+
 describe("list authorisation (PRD #10 §211)", () => {
-  it("gives the Owner every active Company A project", async () => {
+  it("gives the Owner every active project of the session's company, and no sibling's", async () => {
+    const other = await unassignedProject();
     const context = await loginAs("OWNER");
     const result = await projects.listProjects(context, listQuery);
     const ids = result.data.map((project) => project.id);
 
     expect(ids).toContain(PROJECT.a);
-    expect(ids).toContain(PROJECT.c);
-    expect(ids).not.toContain(PROJECT.archived);
+    expect(ids).toContain(other.id);
+    for (const sibling of [PROJECT.b, PROJECT.c, PROJECT.d, PROJECT.e]) expect(ids).not.toContain(sibling);
   });
 
-  it("gives the Project Manager Project A and B only", async () => {
+  it("gives the Project Manager their assigned Project A only", async () => {
+    await unassignedProject();
     const context = await loginAs("PROJECT_MANAGER");
     const result = await projects.listProjects(context, listQuery);
-    expect(result.data.map((project) => project.id).sort()).toEqual([PROJECT.a, PROJECT.b].sort());
+    expect(result.data.map((project) => project.id)).toEqual([PROJECT.a]);
   });
 
-  it("gives the Architect Project A and C only", async () => {
+  it("gives the Architect their assigned Project A only", async () => {
+    await unassignedProject();
     const context = await loginAs("ARCHITECT");
     const result = await projects.listProjects(context, listQuery);
-    expect(result.data.map((project) => project.id).sort()).toEqual([PROJECT.a, PROJECT.c].sort());
+    expect(result.data.map((project) => project.id)).toEqual([PROJECT.a]);
   });
 
   it("gives the Viewer Project A only", async () => {
@@ -96,9 +110,10 @@ describe("list authorisation (PRD #10 §211)", () => {
   });
 
   it("excludes archived projects by default and includes them on request", async () => {
-    const context = await loginAs("OWNER");
+    const context = await loginAsEmail(DEMO_EMAIL.fixtureOwner);
 
     const active = await projects.listProjects(context, listQuery);
+    expect(active.data.map((p) => p.id)).toContain(PROJECT.f);
     expect(active.data.map((p) => p.id)).not.toContain(PROJECT.archived);
 
     const archived = await projects.listProjects(
@@ -109,16 +124,17 @@ describe("list authorisation (PRD #10 §211)", () => {
   });
 
   it("returns no results for a search outside scope (PRD #10 §212)", async () => {
+    await unassignedProject("Harbour Outlook Villas");
     const context = await loginAs("PROJECT_MANAGER");
     const result = await projects.listProjects(
       context,
-      projectListQuerySchema.parse({ search: "Marina" }),
+      projectListQuerySchema.parse({ search: "Harbour Outlook" }),
     );
     expect(result.data).toHaveLength(0);
   });
 
   it("refuses a role with no Projects access at all", async () => {
-    const context = await loginAs("COMPANY_IT");
+    const context = await loginAs("GROUP_IT");
     await expectError(projects.listProjects(context, listQuery), "FORBIDDEN");
   });
 });
@@ -127,12 +143,13 @@ describe("detail authorisation (PRD #10 §213)", () => {
   it("lets the Project Manager open Project A", async () => {
     const context = await loginAs("PROJECT_MANAGER");
     const project = await projects.getProject(context, PROJECT.a);
-    expect(project.code).toBe("PRJ-001");
+    expect(project.code).toBe("A-PRJ-001");
   });
 
   it("answers 404 for a project outside scope, never 403", async () => {
+    const other = await unassignedProject();
     const context = await loginAs("PROJECT_MANAGER");
-    await expectError(projects.getProject(context, PROJECT.c), "NOT_FOUND");
+    await expectError(projects.getProject(context, other.id), "NOT_FOUND");
   });
 
   it("answers 404 for a project in another company (PRD #9 §114)", async () => {
@@ -141,7 +158,7 @@ describe("detail authorisation (PRD #10 §213)", () => {
   });
 
   it("answers 404 for a Company A project requested by a Company B user", async () => {
-    const context = await loginAsEmail("owner-b@nesto.test");
+    const context = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectError(projects.getProject(context, PROJECT.a), "NOT_FOUND");
   });
 });
@@ -174,16 +191,16 @@ describe("create authorisation and validation (PRD #10 §214, §215)", () => {
   it("rejects a duplicate project code inside the same company (PRD #10 §41)", async () => {
     const context = await loginAs("OWNER");
     await expectError(
-      projects.createProject(context, createInput({ code: "PRJ-001" })),
+      projects.createProject(context, createInput({ code: "A-PRJ-001" })),
       "CONFLICT",
     );
   });
 
   it("allows the same code in a different company (PRD #10 §41)", async () => {
-    const context = await loginAsEmail("owner-b@nesto.test");
-    const project = await projects.createProject(context, createInput({ code: "PRJ-001", projectTypeId: await projectTypeId(context.companyId) }));
+    const context = await loginAsEmail(DEMO_EMAIL.tenantOwner);
+    const project = await projects.createProject(context, createInput({ code: "A-PRJ-001", projectTypeId: await projectTypeId(context.companyId) }));
     created.push(project.id);
-    expect(project.code).toBe("PRJ-001");
+    expect(project.code).toBe("A-PRJ-001");
   });
 
   it("rejects a client from another company (PRD #10 §94)", async () => {
@@ -197,7 +214,7 @@ describe("create authorisation and validation (PRD #10 §214, §215)", () => {
   it("rejects a project manager from another company", async () => {
     const context = await loginAs("OWNER");
     const otherMember = await prisma.companyMember.findFirst({
-      where: { companyId: "company_demo_b" },
+      where: { companyId: COMPANY.tenant },
       select: { id: true },
     });
 
@@ -284,12 +301,13 @@ describe("update authorisation (PRD #10 §216, §217)", () => {
   });
 
   it("answers 404 when the project is outside scope", async () => {
+    const other = await unassignedProject();
     const context = await loginAs("PROJECT_MANAGER");
     await expectError(
       projects.updateProject(
         context,
-        PROJECT.c,
-        updateInput({ code: "PRJ-003", name: "Nope", status: "ACTIVE" }),
+        other.id,
+        updateInput({ code: other.code, name: "Nope", status: "ACTIVE" }),
       ),
       "NOT_FOUND",
     );
@@ -437,7 +455,7 @@ describe("team management (PRD #10 §220–§223)", () => {
 
   it("rejects a member from another company", async () => {
     const { context, project } = await scratchProject();
-    const otherMemberId = await memberIdFor("owner-b@nesto.test", "company_demo_b");
+    const otherMemberId = await memberIdFor(DEMO_EMAIL.tenantOwner, COMPANY.tenant);
 
     await expectError(
       projects.addMember(context, project.id, { companyMemberId: otherMemberId, projectRole: undefined }),
@@ -446,7 +464,13 @@ describe("team management (PRD #10 §220–§223)", () => {
   });
 
   it("rejects an inactive membership", async () => {
-    const { context, project } = await scratchProject();
+    // The inactive membership is Fixture Works', so the project is too.
+    const context = await loginAsEmail(DEMO_EMAIL.fixtureOwner);
+    const project = await projects.createProject(
+      context,
+      createInput({ code: `PRJ-TEAM-${Date.now()}`, name: "Team Test", status: "ACTIVE", projectTypeId: await projectTypeId(COMPANY.works) }),
+    );
+    created.push(project.id);
     const inactiveId = await memberIdFor("inactive-membership@nesto.test", context.companyId);
 
     await expectError(
@@ -510,11 +534,12 @@ describe("team management (PRD #10 §220–§223)", () => {
 
 describe("project activity visibility (PRD #10 §226)", () => {
   it("keeps another project's activity out of the feed", async () => {
+    await unassignedProject("Harbour Outlook Villas");
     const context = await loginAs("OWNER");
     const activity = await projects.listActivity(context, PROJECT.a, { page: 1, limit: 50 });
 
     for (const entry of activity.data) {
-      expect(entry.message).not.toContain("Marina");
+      expect(entry.message).not.toContain("Harbour Outlook");
     }
   });
 
@@ -538,7 +563,8 @@ describe("task and document counts stay scoped (PRD #10 §224, §225)", () => {
   });
 
   it("refuses a task summary for a project outside scope", async () => {
+    const other = await unassignedProject();
     const context = await loginAs("PROJECT_MANAGER");
-    await expectError(projects.getProjectTaskSummary(context, PROJECT.c), "NOT_FOUND");
+    await expectError(projects.getProjectTaskSummary(context, other.id), "NOT_FOUND");
   });
 });

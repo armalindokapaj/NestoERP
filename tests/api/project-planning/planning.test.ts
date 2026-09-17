@@ -21,23 +21,25 @@ import { getMilestone, getPlanningOverview, getPlanningTimeline, listMilestones 
 import { applyTemplate, copyPlanning } from "@/lib/modules/project-planning/planning.templates";
 import { completeTask } from "@/lib/modules/tasks/task.service";
 import { PLANNING_SEED } from "../../../prisma/seed/planning";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Project milestones and planning, against the real database (PRD #44
  * §282-§298).
  *
- * The Project Manager plans Central Office Tower (project_b), which the seed
- * leaves without a plan; its members are QA/QC and HSE, so the Engineer and
- * Architect are outsiders there. The Owner copies plans into Marina Apartments
- * (project_c). Everything a test creates on those two projects is removed after
- * it; Riverside's seeded plan is only read, apart from links a test adds and
+ * Each demo company runs one project, so this file builds two more in Aurelia
+ * and removes them at the end. The Project Manager plans the first, which has
+ * no plan; its members are QA/QC and HSE, so the Engineer and Architect are
+ * outsiders there. The Owner copies plans into the second, where only the
+ * Architect works. Everything a test creates on those two projects is removed after it;
+ * Riverside's seeded plan is only read, apart from links a test adds and
  * removes again.
  */
 
 const ZONE = "Europe/Tirane";
-const SITE = PROJECT.b;
-const COPY_TARGET = PROJECT.c;
+const SITE = "t44_office_tower";
+const COPY_TARGET = "t44_marina";
+const SITE_TASKS = ["t44_task_curtain_wall", "t44_task_waterproofing"];
 const M = PLANNING_SEED.milestones;
 
 let pm: UserContext;
@@ -47,7 +49,7 @@ let architect: UserContext;
 let viewer: UserContext;
 let ceo: UserContext;
 let finance: UserContext;
-let admin: UserContext;
+let groupIt: UserContext;
 let hr: UserContext;
 let qaqc: UserContext;
 let ownerB: UserContext;
@@ -79,18 +81,44 @@ async function cleanup() {
   await prisma.task.deleteMany({ where: { id: { in: createdTasks } } });
   createdTasks.length = 0;
   await prisma.project.updateMany({ where: { id: { in: [SITE, COPY_TARGET] } }, data: { planningBaselineLocked: false, planningTemplateKey: null } });
-  await prisma.projectPlanningSettings.updateMany({ where: { companyId: "company_demo_a" }, data: { milestoneReminderDays: 7, baselineChangeReasonRequired: true, notifyExecutivesOnCriticalChanges: false } });
+  await prisma.projectPlanningSettings.updateMany({ where: { companyId: COMPANY.a }, data: { milestoneReminderDays: 7, baselineChangeReasonRequired: true, notifyExecutivesOnCriticalChanges: false } });
+}
+
+async function removeSites() {
+  const tasks = (await prisma.task.findMany({ where: { OR: [{ id: { in: SITE_TASKS } }, { projectId: { in: [SITE, COPY_TARGET] } }] }, select: { id: true } })).map((row) => row.id);
+  await prisma.projectMilestoneTaskLink.deleteMany({ where: { taskId: { in: tasks } } });
+  await prisma.activity.deleteMany({ where: { entityId: { in: [...tasks, SITE, COPY_TARGET] } } });
+  await prisma.task.deleteMany({ where: { id: { in: tasks } } });
+  await prisma.projectMember.deleteMany({ where: { projectId: { in: [SITE, COPY_TARGET] } } });
+  await prisma.project.deleteMany({ where: { id: { in: [SITE, COPY_TARGET] } } });
+}
+
+async function makeSites() {
+  const schedule = { startDate: new Date(Date.now() - 60 * 86_400_000), endDate: new Date(Date.now() + 400 * 86_400_000) };
+  await prisma.project.create({ data: { id: SITE, companyId: COMPANY.a, code: "T44-TOWER", name: "Harbour Office Tower", status: "ACTIVE", projectManagerMemberId: "member_pm", createdBy: "test", ...schedule } });
+  await prisma.project.create({ data: { id: COPY_TARGET, companyId: COMPANY.a, code: "T44-MARINA", name: "Harbour Marina Apartments", status: "ACTIVE", createdBy: "test", ...schedule } });
+  await prisma.projectMember.createMany({ data: ["member_pm", "member_qaqc", "member_hse"].map((companyMemberId) => ({ companyId: COMPANY.a, projectId: SITE, companyMemberId, status: "ACTIVE" as const })) });
+  await prisma.projectMember.create({ data: { companyId: COMPANY.a, projectId: COPY_TARGET, companyMemberId: "member_architect", status: "ACTIVE" } });
+  await prisma.task.createMany({
+    data: [
+      { id: SITE_TASKS[0], companyId: COMPANY.a, projectId: SITE, title: "Agree curtain wall procurement route", status: "IN_PROGRESS", assigneeMemberId: "member_pm", createdByMemberId: "member_pm", createdBy: "user_pm" },
+      { id: SITE_TASKS[1], companyId: COMPANY.a, projectId: SITE, title: "Chase basement waterproofing warranty", status: "TODO", assigneeMemberId: "member_pm", createdByMemberId: "member_pm", createdBy: "user_pm" },
+    ],
+  });
 }
 
 beforeAll(async () => {
-  [pm, owner, engineer, architect, viewer, ceo, finance, admin, hr, qaqc] = await Promise.all(
-    (["PROJECT_MANAGER", "OWNER", "ENGINEER", "ARCHITECT", "VIEWER", "CEO", "FINANCE", "ADMIN", "HR", "QAQC"] as const).map((role) => loginAs(role)),
+  [pm, owner, engineer, architect, viewer, ceo, finance, groupIt, hr, qaqc] = await Promise.all(
+    (["PROJECT_MANAGER", "OWNER", "ENGINEER", "ARCHITECT", "VIEWER", "CEO", "FINANCE", "GROUP_IT", "HR", "QAQC"] as const).map((role) => loginAs(role)),
   );
-  ownerB = await loginAsEmail("owner-b@nesto.test");
+  ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
   await cleanup();
+  await removeSites();
+  await makeSites();
 });
 afterEach(cleanup);
 afterAll(async () => {
+  await removeSites();
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -173,7 +201,7 @@ describe("milestones (§12-§31, §141-§146, §188-§190, §204-§206, §284)",
     await expect(milestone("Design Freeze", { ownerMemberId: engineer.membershipId })).rejects.toMatchObject(code("PLANNING_MEMBER_INVALID"));
     await expect(milestone("Design Freeze", { ownerMemberId: ownerB.membershipId })).rejects.toMatchObject(code("PLANNING_MEMBER_INVALID"));
     await expect(createMilestone(pm, PROJECT.companyB, createMilestoneSchema.parse({ name: "Elsewhere" }))).rejects.toMatchObject(code("PLANNING_PROJECT_NOT_FOUND"));
-    const otherPhase = await prisma.projectPhase.create({ data: { companyId: "company_demo_a", projectId: COPY_TARGET, name: "Marina phase", sortOrder: 1, createdByMemberId: owner.membershipId } });
+    const otherPhase = await prisma.projectPhase.create({ data: { companyId: COMPANY.a, projectId: COPY_TARGET, name: "Marina phase", sortOrder: 1, createdByMemberId: owner.membershipId } });
     await expect(milestone("Wrong phase", { phaseId: otherPhase.id })).rejects.toMatchObject(code("PLANNING_PHASE_INVALID"));
   });
 
@@ -344,14 +372,14 @@ describe("blockers (§40-§43, §153-§157, §286)", () => {
 describe("tasks, meetings, daily logs and documents (§49-§64, §182-§185, §287-§291)", () => {
   it("links tasks of the same project only, counts them and unlinks without touching them", async () => {
     const id = await milestone("Curtain Wall Package");
-    await linkTask(pm, id, { taskId: "task_013", linkType: "SUPPORTS" });
-    await linkTask(pm, id, { taskId: "task_014", linkType: "RELATED" });
+    await linkTask(pm, id, { taskId: SITE_TASKS[0], linkType: "SUPPORTS" });
+    await linkTask(pm, id, { taskId: SITE_TASKS[1], linkType: "RELATED" });
     await expect(linkTask(pm, id, { taskId: "task_001", linkType: "SUPPORTS" })).rejects.toMatchObject(code("MILESTONE_TASK_PROJECT_MISMATCH"));
     await expect(linkTask(pm, id, { taskId: "task_b_01", linkType: "SUPPORTS" })).rejects.toMatchObject(code("MILESTONE_TASK_INVALID"));
     expect((await detail(id)).taskStats).toEqual({ total: 2, completed: 0 });
-    await unlinkTask(pm, id, "task_014");
-    expect((await detail(id)).tasks.map((task) => task.taskId)).toEqual(["task_013"]);
-    expect(await prisma.task.count({ where: { id: "task_014" } })).toBe(1);
+    await unlinkTask(pm, id, SITE_TASKS[1]);
+    expect((await detail(id)).tasks.map((task) => task.taskId)).toEqual([SITE_TASKS[0]]);
+    expect(await prisma.task.count({ where: { id: SITE_TASKS[1] } })).toBe(1);
   });
 
   it("links a meeting and a daily log of the milestone's own project, and shows each reader only what they can open", async () => {
@@ -400,7 +428,7 @@ describe("access by role, project and company (§77-§95, §225-§233, §295)", 
     await expect(getPlanningOverview(architect, SITE)).rejects.toMatchObject(code("PLANNING_PROJECT_NOT_FOUND"));
     await expect(getMilestone(engineer, id)).rejects.toMatchObject(code("MILESTONE_NOT_FOUND"));
     await expect(getMilestone(ownerB, id)).rejects.toBeTruthy();
-    for (const context of [admin, hr]) await expect(getPlanningOverview(context, PROJECT.a)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    for (const context of [groupIt, hr]) await expect(getPlanningOverview(context, PROJECT.a)).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect((await getPlanningOverview(viewer, PROJECT.a)).capabilities).toMatchObject({ canEditMilestone: false, canCreatePhase: false });
     const riverside = await getPlanningOverview(engineer, PROJECT.a);
     expect(riverside.milestones.length).toBeGreaterThanOrEqual(11);
@@ -408,10 +436,12 @@ describe("access by role, project and company (§77-§95, §225-§233, §295)", 
   });
 
   it("keeps an archived project's plan read-only", async () => {
-    const archivedMilestone = await prisma.projectMilestone.create({ data: { companyId: "company_demo_a", projectId: PROJECT.archived, name: "Old handover", milestoneType: "HANDOVER", sortOrder: 1, createdByMemberId: owner.membershipId } });
-    const row = await getMilestone(owner, archivedMilestone.id);
+    // The archived project is Fixture Works', and so is its Owner.
+    const worksOwner = await loginAsEmail(DEMO_EMAIL.fixtureOwner);
+    const archivedMilestone = await prisma.projectMilestone.create({ data: { companyId: COMPANY.works, projectId: PROJECT.archived, name: "Old handover", milestoneType: "HANDOVER", sortOrder: 1, createdByMemberId: worksOwner.membershipId } });
+    const row = await getMilestone(worksOwner, archivedMilestone.id);
     expect(row.capabilities.canEdit).toBe(false);
-    await expect(edit(archivedMilestone.id, { name: "Changed" }, owner)).rejects.toMatchObject(code("PLANNING_PROJECT_ARCHIVED"));
+    await expect(edit(archivedMilestone.id, { name: "Changed" }, worksOwner)).rejects.toMatchObject(code("PLANNING_PROJECT_ARCHIVED"));
   });
 });
 
@@ -436,7 +466,7 @@ describe("templates and copying (§133-§139)", () => {
     expect(overview.milestones.every((row) => row.status === "NOT_STARTED" && row.actualDate === null && row.baselineDate === null && row.taskStats.total === 0)).toBe(true);
     expect(overview.dependencies.length).toBe(10);
     await expect(copyPlanning(owner, COPY_TARGET, PROJECT.a)).rejects.toMatchObject(code("PLANNING_NOT_EMPTY"));
-    await expect(copyPlanning(architect, PROJECT.c, PROJECT.a)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(copyPlanning(architect, COPY_TARGET, PROJECT.a)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 
@@ -449,7 +479,7 @@ describe("calendar, notifications, attention, reporting and search (§65-§74, �
     expect(events.find((event) => event.sourceId === id)).toMatchObject({ category: "MILESTONE", allDay: true, draggable: false, href: `/projects/${SITE}/planning?milestone=${id}`, priority: "HIGH" });
     expect((await provider.getEvents({ context: engineer, range, filters: {}, timezone: ZONE })).some((event) => event.sourceId === id)).toBe(false);
     expect((await provider.getEvents({ context: ownerB, range, filters: {}, timezone: ZONE })).some((event) => event.sourceId === id)).toBe(false);
-    expect(provider.enabled(admin)).toBe(false);
+    expect(provider.enabled(groupIt)).toBe(false);
     expect((await provider.getEvents({ context: pm, range, filters: { categories: ["TASK"] }, timezone: ZONE })).length).toBe(0);
   });
 

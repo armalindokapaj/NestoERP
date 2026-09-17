@@ -78,7 +78,7 @@ export function DevRoleSwitcher({
           </>
         ) : null}
 
-        {roleList.map((definition) => (
+        {roleList.filter((definition) => !definition.platformOnly).map((definition) => (
           <DropdownMenuItem
             key={definition.key}
             onSelect={() => select(definition.key)}

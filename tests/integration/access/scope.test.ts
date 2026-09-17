@@ -7,14 +7,16 @@ import {
   canAccessProject,
 } from "@/lib/access/scope";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
  * Data-scope tests (PRD #9 §123, §158–§162).
  *
- * The seeded project membership matrix (PRD #9 §45) is what makes these
- * meaningful: a Project Manager must meet projects they may see *and* projects
- * they may not (PRD #9 §254).
+ * The seeded project membership matrix (PRD #9 §45, E-06 §44) is what makes
+ * these meaningful: a Project Manager must meet projects they may see *and*
+ * projects they may not (PRD #9 §254). Each demo company has one project, so the
+ * projects somebody may not see are their group siblings' and the fixture
+ * tenant's: a session is in one company, and reaches another only by moving.
  */
 afterAll(async () => {
   await cleanupSessions();
@@ -22,7 +24,10 @@ afterAll(async () => {
 });
 
 async function projectIdsFor(role: Parameters<typeof loginAs>[0]) {
-  const context = await loginAs(role);
+  return projectIdsIn(await loginAs(role));
+}
+
+async function projectIdsIn(context: Awaited<ReturnType<typeof loginAs>>) {
   const rows = await prisma.project.findMany({
     where: buildProjectScopeWhere(context),
     select: { id: true },
@@ -30,44 +35,55 @@ async function projectIdsFor(role: Parameters<typeof loginAs>[0]) {
   return rows.map((row) => row.id).sort();
 }
 
-describe("project scope (PRD #9 §45)", () => {
-  it("gives the Project Manager Project A and B only", async () => {
-    expect(await projectIdsFor("PROJECT_MANAGER")).toEqual([PROJECT.a, PROJECT.b].sort());
+describe("project scope (PRD #9 §45, E-06 §44)", () => {
+  it("gives the Project Manager Project A only", async () => {
+    expect(await projectIdsFor("PROJECT_MANAGER")).toEqual([PROJECT.a]);
   });
 
-  it("gives the Architect Project A and C only", async () => {
-    expect(await projectIdsFor("ARCHITECT")).toEqual([PROJECT.a, PROJECT.c].sort());
+  it("gives the Architect Project A only", async () => {
+    expect(await projectIdsFor("ARCHITECT")).toEqual([PROJECT.a]);
   });
 
-  it("gives the Engineer Project A and D only", async () => {
-    expect(await projectIdsFor("ENGINEER")).toEqual([PROJECT.a, PROJECT.d].sort());
+  it("gives the Engineer Project A only", async () => {
+    expect(await projectIdsFor("ENGINEER")).toEqual([PROJECT.a]);
   });
 
-  it("gives QA/QC Projects A, B and D", async () => {
-    expect(await projectIdsFor("QAQC")).toEqual([PROJECT.a, PROJECT.b, PROJECT.d].sort());
+  it("gives QA/QC Project A in Aurelia and Project C in Terra, one company at a time", async () => {
+    expect(await projectIdsFor("QAQC")).toEqual([PROJECT.a]);
+    expect(await projectIdsIn(await loginAsMembership("member_qaqc__c"))).toEqual([PROJECT.c]);
   });
 
-  it("gives HSE Projects A, B and D", async () => {
-    expect(await projectIdsFor("HSE")).toEqual([PROJECT.a, PROJECT.b, PROJECT.d].sort());
+  it("gives HSE Project A in Aurelia and Project B in Meridian, one company at a time", async () => {
+    expect(await projectIdsFor("HSE")).toEqual([PROJECT.a]);
+    expect(await projectIdsIn(await loginAsMembership("member_hse__b"))).toEqual([PROJECT.b]);
+  });
+
+  it("gives the multi-company Architect Project A and Project D only (E-06 §146)", async () => {
+    expect(await projectIdsIn(await loginAsMembership("member_multicompany_a"))).toEqual([PROJECT.a]);
+    expect(await projectIdsIn(await loginAsMembership("member_multicompany_d"))).toEqual([PROJECT.d]);
   });
 
   it("gives the Viewer Project A only", async () => {
     expect(await projectIdsFor("VIEWER")).toEqual([PROJECT.a]);
   });
 
-  it("gives the Owner every Company A project", async () => {
+  it("gives the Owner every project of the company they are in, and no sibling's", async () => {
     const owned = await projectIdsFor("OWNER");
     expect(owned).toContain(PROJECT.a);
-    expect(owned).toContain(PROJECT.c);
-    expect(owned).toContain(PROJECT.e);
-    expect(owned).toContain(PROJECT.archived);
+    expect(owned).not.toContain(PROJECT.b);
+    expect(owned).not.toContain(PROJECT.e);
     expect(owned).not.toContain(PROJECT.companyB);
+
+    // An Owner sees finished and archived projects as well.
+    const works = await projectIdsIn(await loginAsEmail(DEMO_EMAIL.fixtureOwner));
+    expect(works).toContain(PROJECT.f);
+    expect(works).toContain(PROJECT.archived);
   });
 
   it("gives Finance company-level project context (PRD #9 §48)", async () => {
-    const visible = await projectIdsFor("FINANCE");
-    expect(visible).toContain(PROJECT.c);
-    expect(visible).toContain(PROJECT.d);
+    // Neither is on Riverside's team.
+    expect(await projectIdsFor("FINANCE")).toContain(PROJECT.a);
+    expect(await projectIdsIn(await loginAsEmail(DEMO_EMAIL.financeA))).toContain(PROJECT.a);
   });
 });
 
@@ -77,7 +93,7 @@ describe("record-level project access (PRD #10 §113)", () => {
     expect(await canAccessProject(context, PROJECT.a)).toBe(true);
   });
 
-  it("refuses the Project Manager Project C", async () => {
+  it("refuses the Project Manager a sibling company's Project C", async () => {
     const context = await loginAs("PROJECT_MANAGER");
     expect(await canAccessProject(context, PROJECT.c)).toBe(false);
   });
@@ -87,9 +103,21 @@ describe("record-level project access (PRD #10 §113)", () => {
     expect(await canAccessProject(context, PROJECT.d)).toBe(false);
   });
 
-  it("refuses the Owner a Company B project (PRD #9 §114)", async () => {
+  it("refuses the multi-company Architect Project D while their session is in Aurelia", async () => {
+    const context = await loginAsMembership("member_multicompany_a");
+    expect(await canAccessProject(context, PROJECT.d)).toBe(false);
+  });
+
+  it("refuses the Owner the fixture tenant's project (PRD #9 §114)", async () => {
     const context = await loginAs("OWNER");
     expect(await canAccessProject(context, PROJECT.companyB)).toBe(false);
+  });
+
+  it("refuses the Owner a sibling company's project until the session moves there", async () => {
+    const context = await loginAs("OWNER");
+    expect(context.companyId).toBe(COMPANY.a);
+    expect(await canAccessProject(context, PROJECT.b)).toBe(false);
+    expect(await canAccessProject(await loginAsMembership("member_owner__b"), PROJECT.b)).toBe(true);
   });
 });
 
@@ -107,16 +135,29 @@ describe("search must not leak (PRD #9 §169, PRD #10 §212)", () => {
     expect(rows).toHaveLength(0);
   });
 
-  it("returns only Project A and C when the Architect searches for Project", async () => {
+  it("returns only Project A when the Architect searches for Project", async () => {
     const context = await loginAs("ARCHITECT");
     const rows = await prisma.project.findMany({
       where: buildProjectScopeWhere(context),
       select: { id: true },
     });
-    expect(rows.map((row) => row.id).sort()).toEqual([PROJECT.a, PROJECT.c].sort());
+    expect(rows.map((row) => row.id)).toEqual([PROJECT.a]);
   });
 
-  it("returns nothing when a Company A user searches for a Company B project (PRD #9 §237)", async () => {
+  it("returns nothing when the Owner in Aurelia searches for a sibling company's project", async () => {
+    const context = await loginAs("OWNER");
+    const rows = await prisma.project.findMany({
+      where: {
+        AND: [
+          buildProjectScopeWhere(context),
+          { name: { contains: "Central Office Tower", mode: "insensitive" } },
+        ],
+      },
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("returns nothing when a Company A user searches for the fixture tenant's project (PRD #9 §237)", async () => {
     const context = await loginAs("OWNER");
     const rows = await prisma.project.findMany({
       where: {
@@ -129,8 +170,8 @@ describe("search must not leak (PRD #9 §169, PRD #10 §212)", () => {
     expect(rows).toHaveLength(0);
   });
 
-  it("returns nothing when a Company B user searches for a Company A project (PRD #9 §238)", async () => {
-    const context = await loginAsEmail("owner-b@nesto.test");
+  it("returns nothing when the fixture tenant's Owner searches for a Company A project (PRD #9 §238)", async () => {
+    const context = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     const rows = await prisma.project.findMany({
       where: {
         AND: [
@@ -164,15 +205,18 @@ describe("task scope", () => {
   it("gives the Owner company-wide tasks", async () => {
     const context = await loginAs("OWNER");
     const count = await prisma.task.count({ where: buildTaskScopeWhere(context) });
-    expect(count).toBeGreaterThanOrEqual(36);
+    expect(count).toBeGreaterThanOrEqual(20);
+    expect(count).toBe(await prisma.task.count({ where: { companyId: COMPANY.a } }));
   });
 
-  it("never returns a Company B task to a Company A user", async () => {
+  it("never returns another company's task to a Company A user", async () => {
     const context = await loginAs("OWNER");
-    const rows = await prisma.task.findMany({
-      where: { AND: [buildTaskScopeWhere(context), { companyId: "company_demo_b" }] },
-    });
-    expect(rows).toHaveLength(0);
+    for (const companyId of [COMPANY.tenant, COMPANY.b]) {
+      const rows = await prisma.task.findMany({
+        where: { AND: [buildTaskScopeWhere(context), { companyId }] },
+      });
+      expect(rows, companyId).toHaveLength(0);
+    }
   });
 });
 
@@ -184,14 +228,16 @@ describe("client scope (PRD #5 §36)", () => {
       select: { id: true },
     });
 
-    // Architect works on Project A (ACME) and Project C (Meridian).
-    expect(rows.map((row) => row.id).sort()).toEqual(["client_acme", "client_meridian"].sort());
+    // Architect works on Project A (ACME) only; Aurelia has other clients.
+    expect(rows.map((row) => row.id)).toEqual(["client_acme"]);
+    expect(await prisma.client.count({ where: { companyId: COMPANY.a } })).toBeGreaterThan(1);
   });
 
   it("gives Sales the whole company client list", async () => {
     const context = await loginAs("SALES");
     const count = await prisma.client.count({ where: buildClientScopeWhere(context) });
-    expect(count).toBeGreaterThanOrEqual(12);
+    expect(count).toBeGreaterThanOrEqual(4);
+    expect(count).toBe(await prisma.client.count({ where: { companyId: COMPANY.a } }));
   });
 });
 
@@ -225,18 +271,22 @@ describe("document scope (PRD #9 §173, PRD #8 §43)", () => {
   });
 
   it("keeps a project document behind that project's access", async () => {
-    const context = await loginAs("VIEWER");
+    // On Forma's Marina team, but signed in to Aurelia.
+    const context = await loginAsMembership("member_multicompany_a");
+    expect(await prisma.document.count({ where: { projectId: PROJECT.d } })).toBeGreaterThan(0);
     const rows = await prisma.document.findMany({
-      where: { AND: [await buildDocumentAccessWhere(context), { projectId: PROJECT.c }] },
+      where: { AND: [await buildDocumentAccessWhere(context), { projectId: PROJECT.d }] },
     });
     expect(rows).toHaveLength(0);
   });
 
-  it("never returns a Company B document to a Company A user", async () => {
+  it("never returns another company's document to a Company A user", async () => {
     const context = await loginAs("OWNER");
-    const rows = await prisma.document.findMany({
-      where: { AND: [await buildDocumentAccessWhere(context), { companyId: "company_demo_b" }] },
-    });
-    expect(rows).toHaveLength(0);
+    for (const companyId of [COMPANY.tenant, COMPANY.b]) {
+      const rows = await prisma.document.findMany({
+        where: { AND: [await buildDocumentAccessWhere(context), { companyId }] },
+      });
+      expect(rows, companyId).toHaveLength(0);
+    }
   });
 });

@@ -20,6 +20,7 @@ export const DATA_SCOPES = [
   "PROJECT",
   "DEPARTMENT",
   "COMPANY",
+  "GROUP",
   "SYSTEM",
 ] as const;
 export type DataScope = (typeof DATA_SCOPES)[number];
@@ -61,7 +62,8 @@ const SCOPE_RANK: Record<DataScope, number> = {
   PROJECT: 2,
   DEPARTMENT: 3,
   COMPANY: 4,
-  SYSTEM: 5,
+  GROUP: 5,
+  SYSTEM: 6,
 };
 
 export function narrowestScope(a: DataScope, b: DataScope): DataScope {
@@ -70,6 +72,22 @@ export function narrowestScope(a: DataScope, b: DataScope): DataScope {
 
 export function scopeAtLeast(scope: DataScope, minimum: DataScope): boolean {
   return SCOPE_RANK[scope] >= SCOPE_RANK[minimum];
+}
+
+export function widestScope(a: DataScope, b: DataScope): DataScope {
+  return SCOPE_RANK[a] >= SCOPE_RANK[b] ? a : b;
+}
+
+/**
+ * Scopes that reach every record of the company a request is in.
+ *
+ * GROUP is one of them and never more than that for a company-owned record:
+ * the company filter is not removed by group authority, it is applied in each
+ * company the person is authorised in (E-06 §118, §161). Only group-owned
+ * records — people, candidates, the organization — are read across the group.
+ */
+export function isCompanyWideScope(scope: DataScope): boolean {
+  return scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM";
 }
 
 export const accessLevelLabels: Record<AccessLevel, string> = {
@@ -86,5 +104,6 @@ export const dataScopeLabels: Record<DataScope, string> = {
   PROJECT: "Project records",
   DEPARTMENT: "Department records",
   COMPANY: "Company-wide",
+  GROUP: "Group-wide",
   SYSTEM: "System",
 };

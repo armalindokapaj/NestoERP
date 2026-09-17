@@ -22,24 +22,23 @@ import {
   updateCommercialDetails,
 } from "@/lib/modules/sales/units/unit-sales.service";
 import { getSalesSettings, updateSalesSettings } from "@/lib/modules/settings/sales-settings.service";
-import { cleanupSessions, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
  * Selling units against the real database (E-05E §59, §60).
  *
- * A building this suite adds to Marina Apartments (project_c), with published
+ * A building this suite adds to Riverside Residences (project_a), with published
  * apartments Sales may offer and a draft it may not. Reservations use the seeded
- * clients and deals of Company A, or create their own; everything a test makes —
+ * clients and deals of Aurelia, or create their own; everything a test makes —
  * units, reservations, prices, trails, clients and deals it opened — is removed.
  */
 
 const COMPANY_A = "company_demo_a";
-const MARINA = PROJECT.c;
+const RIVERSIDE = PROJECT.a;
 const T = "E05E";
 const ACME = "client_acme";
 const ACME_DEAL = "opportunity_001"; // Riverside phase 2, NEGOTIATION, ACME
-const BETA_DEAL = "opportunity_002"; // Beta Properties
-const LOST_DEAL = "opportunity_008"; // Delta, LOST
+const NOVA_DEAL = "opportunity_006"; // Nova Living block A, PROPOSAL, Nova
 
 let owner: UserContext;
 let sales: UserContext;
@@ -55,7 +54,7 @@ let reservationDays: number;
 let soldRule: string;
 
 async function cleanup() {
-  const buildings = await prisma.projectBuilding.findMany({ where: { projectId: MARINA, nameKey: { startsWith: T } }, select: { id: true } });
+  const buildings = await prisma.projectBuilding.findMany({ where: { projectId: RIVERSIDE, nameKey: { startsWith: T } }, select: { id: true } });
   const floors = await prisma.projectFloor.findMany({ where: { buildingId: { in: buildings.map((row) => row.id) } }, select: { id: true } });
   const units = await prisma.projectUnit.findMany({ where: { floorId: { in: floors.map((row) => row.id) } }, select: { id: true } });
   const unitIds = units.map((row) => row.id);
@@ -98,7 +97,7 @@ async function newUnit(options: { published?: boolean; saleableArea?: string } =
   const unit = await prisma.projectUnit.create({
     data: {
       companyId: COMPANY_A,
-      projectId: MARINA,
+      projectId: RIVERSIDE,
       floorId,
       unitCode: code,
       unitCodeKey: code,
@@ -122,7 +121,8 @@ async function onSale(unitId: string, price = "250000.00") {
 const reserve = (context: UserContext, unitId: string, input: Record<string, unknown>) => reserveUnit(context, unitId, reserveSchema.parse(input));
 
 beforeAll(async () => {
-  [owner, sales, manager, finance, architect, pm] = await Promise.all((["OWNER", "SALES", "SALES_MANAGER", "FINANCE", "ARCHITECT", "PROJECT_MANAGER"] as const).map((role) => loginAs(role)));
+  [owner, sales, finance, architect, pm] = await Promise.all((["OWNER", "SALES", "FINANCE", "ARCHITECT", "PROJECT_MANAGER"] as const).map((role) => loginAs(role)));
+  manager = await loginAsEmail(DEMO_EMAIL.salesHead);
   ownerB = await loginAsMembership("member_owner_b");
   apartmentType = (await prisma.projectUnitType.findFirstOrThrow({ where: { companyId: COMPANY_A, code: "APARTMENT" }, select: { id: true } })).id;
   const settings = await prisma.companySettings.findUniqueOrThrow({ where: { companyId: COMPANY_A }, select: { unitReservationDays: true, unitSoldRule: true } });
@@ -134,8 +134,8 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  const building = await prisma.projectBuilding.create({ data: { companyId: COMPANY_A, projectId: MARINA, name: `${T} Sales Block`, nameKey: `${T} SALES BLOCK`, sortOrder: 90, createdBy: "test" } });
-  floorId = (await prisma.projectFloor.create({ data: { companyId: COMPANY_A, projectId: MARINA, buildingId: building.id, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "test" } })).id;
+  const building = await prisma.projectBuilding.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, name: `${T} Sales Block`, nameKey: `${T} SALES BLOCK`, sortOrder: 90, createdBy: "test" } });
+  floorId = (await prisma.projectFloor.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, buildingId: building.id, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "test" } })).id;
 });
 
 afterEach(cleanup);
@@ -218,8 +218,10 @@ describe("reservations (§19-§27, §47-§50, §60)", () => {
     await onSale(unit.id);
     expect((await refused(reserve(sales, unit.id, { opportunityId: ACME_DEAL }), "VALIDATION_ERROR")).message).toBe("Select a Client before reserving this Unit.");
     expect((await refused(reserve(sales, unit.id, { clientId: ACME }), "VALIDATION_ERROR")).message).toBe("Create or select a Deal before reserving this Unit.");
-    expect((await refused(reserve(sales, unit.id, { clientId: ACME, opportunityId: BETA_DEAL }), "VALIDATION_ERROR")).message).toBe("That deal belongs to another client.");
-    await refused(reserve(sales, unit.id, { clientId: "client_delta", opportunityId: LOST_DEAL }), "VALIDATION_ERROR");
+    expect((await refused(reserve(sales, unit.id, { clientId: ACME, opportunityId: NOVA_DEAL }), "VALIDATION_ERROR")).message).toBe("That deal belongs to another client.");
+    // Aurelia's seed has no lost deal, so the suite loses one of its own.
+    const lost = await prisma.opportunity.create({ data: { companyId: COMPANY_A, name: `${T} Lost deal`, clientId: "client_nova", ownerMemberId: sales.membershipId, createdByMemberId: sales.membershipId, stage: "LOST", lostReason: "PRICE", estimatedValue: "250000.00", currency: "EUR" }, select: { id: true } });
+    await refused(reserve(sales, unit.id, { clientId: "client_nova", opportunityId: lost.id }), "VALIDATION_ERROR");
     await refused(reserve(sales, unit.id, { clientId: "client_b_muc", opportunityId: ACME_DEAL }), "VALIDATION_ERROR");
     expect(await prisma.unitReservation.count({ where: { unitId: unit.id } })).toBe(0);
   });
@@ -337,7 +339,7 @@ describe("marking Sold and reopening (§29-§31, §42, §60)", () => {
     const unit = await newUnit();
     await onSale(unit.id);
     const version = (await prisma.projectUnit.findUniqueOrThrow({ where: { id: unit.id } })).version;
-    const owned = await loginAs("ARCHITECTURE_MANAGER");
+    const owned = await loginAsEmail(DEMO_EMAIL.architectureHead);
     await refused(unpublishUnit(owned, unit.id, { reason: "x", expectedVersion: version }), "CONFLICT", "UNIT_ON_SALE");
     await refused(archiveUnit(owned, unit.id, { expectedVersion: version }), "CONFLICT", "UNIT_ON_SALE");
     await changeSaleStatus(sales, unit.id, { action: "take_off_sale", reason: null });
@@ -363,8 +365,17 @@ describe("access (§32, §38, §39, §46, §67)", () => {
     expect((await getUnitSales(withoutClients, unit.id)).activeReservation).toMatchObject({ client: null });
     await refused(changeSaleStatus(finance, unit.id, { action: "take_off_sale", reason: null }), "FORBIDDEN");
 
-    // The Project Manager may read sales, but Marina is not one of their projects; Company B finds nothing.
-    await refused(getUnitSales(pm, unit.id), "NOT_FOUND");
+    // The Project Manager may read sales, but only on a project they run or are on: taken off Riverside, Aurelia's only project, they find nothing; nor does the fixture tenant.
+    const team = await prisma.projectMember.findFirstOrThrow({ where: { projectId: RIVERSIDE, companyMemberId: pm.membershipId } });
+    const riverside = await prisma.project.findUniqueOrThrow({ where: { id: RIVERSIDE }, select: { projectManagerMemberId: true, updatedAt: true } });
+    await prisma.projectMember.update({ where: { id: team.id }, data: { status: "INACTIVE" } });
+    await prisma.project.update({ where: { id: RIVERSIDE }, data: { projectManagerMemberId: null } });
+    try {
+      await refused(getUnitSales(pm, unit.id), "NOT_FOUND");
+    } finally {
+      await prisma.project.update({ where: { id: RIVERSIDE }, data: riverside });
+      await prisma.projectMember.update({ where: { id: team.id }, data: { status: team.status } });
+    }
     await refused(getUnitSales(ownerB, unit.id), "NOT_FOUND");
     await refused(reserve(ownerB, unit.id, { clientId: "client_b_muc", newDeal: {} }), "NOT_FOUND");
   });
@@ -376,7 +387,7 @@ describe("access (§32, §38, §39, §46, §67)", () => {
     await onSale(cheap.id, "150000.00");
     await onSale(dear.id, "400000.00");
     await reserve(sales, dear.id, { clientId: ACME, opportunityId: ACME_DEAL });
-    const inventory = (query: Record<string, string>, context = sales) => listSalesInventory(context, MARINA, parseInventoryQuery({ q: T, ...query }));
+    const inventory = (query: Record<string, string>, context = sales) => listSalesInventory(context, RIVERSIDE, parseInventoryQuery({ q: T, ...query }));
 
     const all = await inventory({});
     expect(all.items.map((row) => row.id)).toEqual([cheap.id, dear.id, idle.id]);
@@ -386,11 +397,11 @@ describe("access (§32, §38, §39, §46, §67)", () => {
     expect((await inventory({ sort: "-price" })).items[0]!.id).toBe(dear.id);
     const row = (await inventory({ commercialStatus: "RESERVED" })).items[0]!;
     expect(row).toMatchObject({ pricePerSqm: "4000.00", client: { name: "ACME Developments" } });
-    expect((await listSalesInventory(sales, MARINA, parseInventoryQuery({ q: "ACME Dev" }))).items.map((item) => item.id)).toContain(dear.id);
+    expect((await listSalesInventory(sales, RIVERSIDE, parseInventoryQuery({ q: "ACME Dev" }))).items.map((item) => item.id)).toContain(dear.id);
 
     const noClients = { ...sales, permissions: sales.permissions.filter((permission) => permission !== "client.view") };
-    expect((await listSalesInventory(noClients, MARINA, parseInventoryQuery({ q: "ACME Dev" }))).items.map((item) => item.id)).not.toContain(dear.id);
-    await refused(listSalesInventory(architect, MARINA, parseInventoryQuery({})), "FORBIDDEN");
+    expect((await listSalesInventory(noClients, RIVERSIDE, parseInventoryQuery({ q: "ACME Dev" }))).items.map((item) => item.id)).not.toContain(dear.id);
+    await refused(listSalesInventory(architect, RIVERSIDE, parseInventoryQuery({})), "FORBIDDEN");
   });
 
   it("uses the company's reservation length, which only company settings may change (§24)", async () => {

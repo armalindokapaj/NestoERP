@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { AccessError } from "@/lib/access/guards";
 import {
@@ -7,7 +7,7 @@ import {
   updateTaskSchema,
 } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Tasks authorisation and lifecycle tests (PRD #11 §202–§219, §243).
@@ -17,6 +17,15 @@ import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../h
  * (PRD #9 §223).
  */
 const created: string[] = [];
+/** Another of Aurelia's projects, run by the Project Manager, with a task of theirs: the demo gives each company only one. */
+const OTHER_PROJECT = "test11_task_other_project";
+const OTHER_TASK = "test11_task_other_task";
+
+beforeAll(async () => {
+  const pm = await loginAs("PROJECT_MANAGER");
+  await prisma.project.create({ data: { id: OTHER_PROJECT, companyId: COMPANY.a, code: "T11-TASK", name: "Tasks Elsewhere", status: "ACTIVE", projectManagerMemberId: pm.membershipId, createdBy: "test" } });
+  await prisma.task.create({ data: { id: OTHER_TASK, companyId: COMPANY.a, projectId: OTHER_PROJECT, title: "Survey the other site", assigneeMemberId: pm.membershipId, createdByMemberId: pm.membershipId, createdBy: pm.userId } });
+});
 
 async function track<T extends { id: string }>(task: Promise<T>): Promise<T> {
   const result = await task;
@@ -36,6 +45,8 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  await prisma.task.deleteMany({ where: { id: OTHER_TASK } });
+  await prisma.project.deleteMany({ where: { id: OTHER_PROJECT } });
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -122,16 +133,14 @@ describe("list scope (PRD #11 §203, §204)", () => {
       expect(ownWork || ownProject).toBe(true);
     }
 
-    // Project B and D are outside their scope entirely.
-    expect(
-      result.data.some((task) => task.project?.id === PROJECT.b || task.project?.id === PROJECT.d),
-    ).toBe(false);
+    // Aurelia's other project is outside their scope entirely.
+    expect(result.data.some((task) => task.project?.id === OTHER_PROJECT)).toBe(false);
   });
 });
 
 describe("cross-company isolation (PRD #11 §215, §236)", () => {
   it("never returns Company A tasks to a Company B user", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
+    const contextB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     const result = await tasks.listTasks(contextB, taskListQuerySchema.parse({ limit: 100 }));
 
     const companyA = await prisma.task.findFirst({
@@ -145,7 +154,7 @@ describe("cross-company isolation (PRD #11 §215, §236)", () => {
   });
 
   it("refuses to link a task to another company's project", async () => {
-    const contextB = await loginAsEmail("owner-b@nesto.test");
+    const contextB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectError(
       tasks.createTask(contextB, createInput({ projectId: PROJECT.a })),
       "VALIDATION_ERROR",
@@ -159,7 +168,7 @@ describe("detail scope (PRD #11 §206)", () => {
     const hidden = await prisma.task.findFirst({
       where: {
         companyId: architect.companyId,
-        projectId: PROJECT.b,
+        projectId: OTHER_PROJECT,
         assigneeMemberId: { not: architect.membershipId },
       },
       select: { id: true },
@@ -188,7 +197,7 @@ describe("create (PRD #11 §202, §208)", () => {
   it("refuses a project the caller cannot reach", async () => {
     const context = await loginAs("ARCHITECT");
     await expectError(
-      tasks.createTask(context, createInput({ projectId: PROJECT.b })),
+      tasks.createTask(context, createInput({ projectId: OTHER_PROJECT })),
       "VALIDATION_ERROR",
     );
   });
@@ -418,7 +427,7 @@ describe("activity (PRD #11 §219)", () => {
     const hidden = await prisma.task.findFirst({
       where: {
         companyId: architect.companyId,
-        projectId: PROJECT.b,
+        projectId: OTHER_PROJECT,
         assigneeMemberId: { not: architect.membershipId },
       },
       select: { id: true },

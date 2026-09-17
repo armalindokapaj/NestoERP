@@ -28,36 +28,39 @@
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
 
-import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
+import { DEMO_COMPANY_IDS, FIXTURE_TENANT, PROJECT_IDS, companyFor, daysFromNow, demoCompany, type SeedMembers } from "./constants";
 import { seedStoredDocument } from "./document-objects";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const EUR = "EUR";
 
+/**
+ * A contract is created in its project's company, or its client's; everything
+ * hanging off it — parties, obligations, amendments, approvals, tasks and
+ * files — follows the contract. The group's head of Legal is a member of every
+ * company, so the legal work stays theirs; the project manager and CEO are
+ * each company's own (E-06 §105).
+ */
 export async function seedContractRecords(prisma: PrismaClient, members: Members) {
-  const legal = members.get("user_legal")!;
-  const owner = members.get("user_owner")!;
-  const ceo = members.get("user_ceo")!;
-  const pm = members.get("user_pm")!;
-
-  await seedContracts(prisma, { legal, owner, pm });
+  await seedContracts(prisma, members);
   await seedParties(prisma);
   // Amendments first: one obligation is sourced from an amendment, and the
   // foreign key is real (PRD #18 §337).
-  await seedAmendments(prisma, legal);
-  await seedObligations(prisma, { legal, pm });
-  await seedApprovals(prisma, { legal, owner, ceo });
-  await seedContractTasks(prisma, legal);
-  await seedContractDocuments(prisma);
+  await seedAmendments(prisma, members);
+  await seedObligations(prisma, members);
+  await seedApprovals(prisma, members);
+  await seedContractTasks(prisma, members);
+  await seedContractDocuments(prisma, members);
   await seedCompanyBContract(prisma);
 
+  const demo = { companyId: { in: DEMO_COMPANY_IDS } };
   return {
-    contracts: await prisma.contract.count({ where: { companyId: COMPANY_A } }),
-    parties: await prisma.contractParty.count({ where: { companyId: COMPANY_A } }),
-    obligations: await prisma.contractObligation.count({ where: { companyId: COMPANY_A } }),
-    amendments: await prisma.contractAmendment.count({ where: { companyId: COMPANY_A } }),
-    approvals: await prisma.contractApproval.count({ where: { companyId: COMPANY_A } }),
+    contracts: await prisma.contract.count({ where: demo }),
+    parties: await prisma.contractParty.count({ where: demo }),
+    obligations: await prisma.contractObligation.count({ where: demo }),
+    amendments: await prisma.contractAmendment.count({ where: demo }),
+    approvals: await prisma.contractApproval.count({ where: demo }),
   };
 }
 
@@ -85,7 +88,7 @@ async function seedCompanyBContract(prisma: PrismaClient) {
     update: {},
     create: {
       id: "contract_b_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       contractNumber: "CTR-2026-001",
       title: "Isarwerk framework — Company B record",
       contractType: "FRAMEWORK",
@@ -115,7 +118,7 @@ async function seedCompanyBContract(prisma: PrismaClient) {
     update: {},
     create: {
       id: "contract_b_party_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       contractId: "contract_b_001",
       partyRole: "COUNTERPARTY",
       partyType: "COMPANY",
@@ -132,7 +135,7 @@ async function seedCompanyBContract(prisma: PrismaClient) {
     update: {},
     create: {
       id: "contract_b_obligation_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       contractId: "contract_b_001",
       title: "Company B obligation. Must never appear in a Company A result.",
       obligationType: "DELIVERABLE",
@@ -148,7 +151,7 @@ async function seedCompanyBContract(prisma: PrismaClient) {
     update: {},
     create: {
       id: "contract_b_amendment_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       contractId: "contract_b_001",
       amendmentNumber: "AMD-001",
       title: "Company B amendment. Must never appear in a Company A result.",
@@ -163,7 +166,7 @@ async function seedCompanyBContract(prisma: PrismaClient) {
     update: {},
     create: {
       id: "contract_b_approval_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       recordType: "AMENDMENT",
       recordId: "contract_b_amendment_001",
       status: "PENDING",
@@ -256,7 +259,7 @@ const CONTRACTS: ContractFixture[] = [
   },
   {
     id: "contract_003", number: "CTR-2026-003", title: "Meridian marina — concept services",
-    type: "SERVICE_AGREEMENT", status: "ACTIVE", client: "client_meridian", project: PROJECT_IDS.c,
+    type: "SERVICE_AGREEMENT", status: "ACTIVE", client: "client_meridian", project: PROJECT_IDS.d,
     counterparty: "Meridian Group", value: 180_000,
     effective: -90, expiry: 15, signed: -95, sent: -100,
     renewal: "MANUAL", noticeDays: 30,
@@ -266,7 +269,7 @@ const CONTRACTS: ContractFixture[] = [
   },
   {
     id: "contract_004", number: "CTR-2026-004", title: "Atlas survey framework",
-    type: "FRAMEWORK", status: "ACTIVE", client: "client_atlas", project: PROJECT_IDS.d,
+    type: "FRAMEWORK", status: "ACTIVE", client: "client_atlas", project: PROJECT_IDS.c,
     counterparty: "Atlas Holdings", value: 95_000,
     effective: -300, expiry: 90, signed: -310, sent: -320,
     renewal: "AUTO_RENEW", noticeDays: 60, renewMonths: 12,
@@ -275,7 +278,7 @@ const CONTRACTS: ContractFixture[] = [
   },
   {
     id: "contract_005", number: "CTR-2026-005", title: "Urban Core plaza — main works",
-    type: "CLIENT_AGREEMENT", status: "ACTIVE", client: "client_urban", project: PROJECT_IDS.f,
+    type: "CLIENT_AGREEMENT", status: "ACTIVE", client: "client_urban", project: PROJECT_IDS.e,
     // The whole chain: lead → opportunity → accepted proposal → contract
     // (PRD #18 §411, §438).
     opportunity: "opportunity_004", proposal: "proposal_008",
@@ -329,7 +332,7 @@ const CONTRACTS: ContractFixture[] = [
   // Everything still in flight (§407).
   {
     id: "contract_010", number: "CTR-2026-010", title: "Greenline villas — feasibility agreement",
-    type: "SERVICE_AGREEMENT", status: "DRAFT", client: "client_greenline", project: PROJECT_IDS.e,
+    type: "SERVICE_AGREEMENT", status: "DRAFT", client: "client_greenline",
     counterparty: "Greenline Residences", value: 45_000, currency: EUR,
     effective: 30, expiry: 420, renewal: "NONE",
     summary: "Feasibility and planning strategy for the hillside villa plots.",
@@ -378,8 +381,8 @@ const CONTRACTS: ContractFixture[] = [
     commercialNotes: "Dollar-denominated: never to be added to the euro portfolio total.",
   },
   {
-    id: "contract_016", number: "CTR-2026-016", title: "Greenline enabling works",
-    type: "SUBCONTRACT", status: "SIGNED", client: "client_greenline", project: PROJECT_IDS.e,
+    id: "contract_016", number: "CTR-2026-016", title: "Adriatic Hotel enabling works",
+    type: "SUBCONTRACT", status: "SIGNED", client: "client_urban", project: PROJECT_IDS.e,
     counterparty: "Terra Works sh.p.k.", value: 185_000,
     // Signed, effective from today: the "ready to activate" fixture (§121).
     effective: 0, expiry: 300, signed: -3, sent: -12, renewal: "NONE",
@@ -388,7 +391,7 @@ const CONTRACTS: ContractFixture[] = [
   // Closed records (§407).
   {
     id: "contract_017", number: "CTR-2025-017", title: "Urban Core retention deed",
-    type: "OTHER", status: "EXPIRED", client: "client_urban", project: PROJECT_IDS.f,
+    type: "OTHER", status: "EXPIRED", client: "client_urban", project: PROJECT_IDS.e,
     counterparty: "Urban Core sh.a.", value: 120_000,
     effective: -500, expiry: -30, signed: -505, renewal: "NONE",
     summary: "Retention release deed for the first phase of the plaza works.",
@@ -418,11 +421,22 @@ const CONTRACTS: ContractFixture[] = [
   },
 ];
 
-async function seedContracts(
-  prisma: PrismaClient,
-  members: { legal: string; owner: string; pm: string },
-) {
+const CONTRACT_COMPANY = new Map(CONTRACTS.map((contract) => [contract.id, companyFor(contract)]));
+
+function contractCompany(contractId: string): string {
+  const companyId = CONTRACT_COMPANY.get(contractId);
+  if (!companyId) throw new Error(`Seed: ${contractId} is not a demo contract.`);
+  return companyId;
+}
+
+async function seedContracts(prisma: PrismaClient, people: Members) {
   for (const contract of CONTRACTS) {
+    const companyId = contractCompany(contract.id);
+    const members = {
+      legal: people.in(companyId, "user_legal"),
+      owner: people.in(companyId, "user_owner"),
+      pm: people.in(companyId, "user_pm"),
+    };
     const owner =
       contract.owner === "owner" ? members.owner : contract.owner === "pm" ? members.pm : members.legal;
 
@@ -431,7 +445,7 @@ async function seedContracts(
       update: {},
       create: {
         id: contract.id,
-        companyId: COMPANY_A,
+        companyId,
         contractNumber: contract.number,
         title: contract.title,
         contractType: contract.type,
@@ -493,8 +507,8 @@ type PartyFixture = {
 const OUR_COMPANY: Omit<PartyFixture, "contract"> = {
   role: "OUR_COMPANY",
   type: "COMPANY",
-  name: "NESTO Demo Construction",
-  legalName: "NESTO Demo Construction sh.p.k.",
+  // Replaced by the contracting company's own names when written.
+  name: "Our company",
   registration: "L41234567P",
   taxId: "AL41234567P",
   city: "Tiranë",
@@ -557,18 +571,20 @@ async function seedParties(prisma: PrismaClient) {
   for (const party of PARTIES) {
     index += 1;
     const id = `contract_party_${index.toString().padStart(3, "0")}`;
+    const companyId = contractCompany(party.contract);
+    const ours = party.role === "OUR_COMPANY" ? demoCompany(companyId) : null;
 
     await prisma.contractParty.upsert({
       where: { id },
       update: {},
       create: {
         id,
-        companyId: COMPANY_A,
+        companyId,
         contractId: party.contract,
         partyRole: party.role,
         partyType: party.type,
-        name: party.name,
-        legalName: party.legalName ?? null,
+        name: ours?.name ?? party.name,
+        legalName: ours?.legalName ?? party.legalName ?? null,
         registrationNumber: party.registration ?? null,
         taxId: party.taxId ?? null,
         clientId: party.client ?? null,
@@ -624,18 +640,20 @@ const OBLIGATIONS: ObligationFixture[] = [
   { contract: "contract_018", title: "Recovery of the advance payment", type: "PAYMENT", status: "CANCELLED", due: -15, responsible: "legal", description: "Written off following the supplier's insolvency." },
 ];
 
-async function seedObligations(prisma: PrismaClient, members: { legal: string; pm: string }) {
+async function seedObligations(prisma: PrismaClient, people: Members) {
   let index = 0;
   for (const obligation of OBLIGATIONS) {
     index += 1;
     const id = `contract_obligation_${index.toString().padStart(3, "0")}`;
+    const companyId = contractCompany(obligation.contract);
+    const members = { legal: people.in(companyId, "user_legal"), pm: people.in(companyId, "user_pm") };
 
     await prisma.contractObligation.upsert({
       where: { id },
       update: {},
       create: {
         id,
-        companyId: COMPANY_A,
+        companyId,
         contractId: obligation.contract,
         title: obligation.title,
         description: obligation.description ?? null,
@@ -731,8 +749,12 @@ const AMENDMENTS: AmendmentFixture[] = [
   },
 ];
 
-async function seedAmendments(prisma: PrismaClient, legal: string) {
+const AMENDMENT_CONTRACT = new Map(AMENDMENTS.map((amendment) => [amendment.id, amendment.contract]));
+
+async function seedAmendments(prisma: PrismaClient, people: Members) {
   for (const amendment of AMENDMENTS) {
+    const companyId = contractCompany(amendment.contract);
+    const legal = people.in(companyId, "user_legal");
     const newValue =
       amendment.newValue === undefined ? null : new Prisma.Decimal(amendment.newValue.toFixed(2));
     const previousValue =
@@ -745,7 +767,7 @@ async function seedAmendments(prisma: PrismaClient, legal: string) {
       update: {},
       create: {
         id: amendment.id,
-        companyId: COMPANY_A,
+        companyId,
         contractId: amendment.contract,
         amendmentNumber: amendment.number,
         title: amendment.title,
@@ -795,17 +817,22 @@ const APPROVALS: ApprovalFixture[] = [
   { id: "contract_approval_010", type: "AMENDMENT", record: "contract_amendment_002", status: "APPROVED", submittedDaysAgo: 72, decidedDaysAgo: 68, decidedBy: "owner" },
 ];
 
-async function seedApprovals(
-  prisma: PrismaClient,
-  members: { legal: string; owner: string; ceo: string },
-) {
+async function seedApprovals(prisma: PrismaClient, people: Members) {
   for (const approval of APPROVALS) {
+    const companyId = contractCompany(
+      approval.type === "AMENDMENT" ? AMENDMENT_CONTRACT.get(approval.record)! : approval.record,
+    );
+    const members = {
+      legal: people.in(companyId, "user_legal"),
+      owner: people.in(companyId, "user_owner"),
+      ceo: people.in(companyId, "user_ceo"),
+    };
     await prisma.contractApproval.upsert({
       where: { id: approval.id },
       update: {},
       create: {
         id: approval.id,
-        companyId: COMPANY_A,
+        companyId,
         recordType: approval.type,
         recordId: approval.record,
         status: approval.status,
@@ -849,18 +876,28 @@ const CONTRACT_TASKS = [
   { title: "Serve the head office lease renewal", entityType: "obligation", entityId: "contract_obligation_017", status: "TODO", due: 0 },
 ];
 
-async function seedContractTasks(prisma: PrismaClient, legal: string) {
+/** The contract a legal record belongs to. */
+function contractOf(entityType: string, entityId: string): string {
+  if (entityType === "contract") return entityId;
+  if (entityType === "amendment") return AMENDMENT_CONTRACT.get(entityId)!;
+  const index = Number(entityId.replace("contract_obligation_", ""));
+  return OBLIGATIONS[index - 1]!.contract;
+}
+
+async function seedContractTasks(prisma: PrismaClient, people: Members) {
   let index = 0;
   for (const task of CONTRACT_TASKS) {
     index += 1;
     const id = `task_contract_${index.toString().padStart(3, "0")}`;
+    const companyId = contractCompany(contractOf(task.entityType, task.entityId));
+    const legal = people.in(companyId, "user_legal");
 
     await prisma.task.upsert({
       where: { id },
       update: {},
       create: {
         id,
-        companyId: COMPANY_A,
+        companyId,
         projectId: null,
         title: task.title,
         assigneeMemberId: legal,
@@ -895,29 +932,25 @@ const CONTRACT_DOCUMENTS = [
   { name: "Head office lease — executed counterpart.pdf", entityType: "contract", entityId: "contract_008" },
   { name: "Façade subcontract — signed.pdf", entityType: "contract", entityId: "contract_009" },
   { name: "Draft — Municipality framework agreement.pdf", entityType: "contract", entityId: "contract_012" },
-  { name: "Greenline enabling works — signed.pdf", entityType: "contract", entityId: "contract_016" },
+  { name: "Adriatic Hotel enabling works — signed.pdf", entityType: "contract", entityId: "contract_016" },
   { name: "Amendment 01 — Urban Core public realm.pdf", entityType: "amendment", entityId: "contract_amendment_001" },
   { name: "Amendment 01 — Atlas framework extension.pdf", entityType: "amendment", entityId: "contract_amendment_002" },
   { name: "Insurance certificate 2025.pdf", entityType: "obligation", entityId: "contract_obligation_002" },
 ];
 
-async function seedContractDocuments(prisma: PrismaClient) {
-  const uploader = await prisma.companyMember.findFirst({
-    where: { companyId: COMPANY_A, user: { email: "legal@nesto.test" } },
-    select: { id: true },
-  });
-
+async function seedContractDocuments(prisma: PrismaClient, people: Members) {
   let index = 0;
   for (const document of CONTRACT_DOCUMENTS) {
     index += 1;
+    const companyId = contractCompany(contractOf(document.entityType, document.entityId));
     await seedStoredDocument(prisma, {
       id: `document_contract_${index.toString().padStart(2, "0")}`,
-      companyId: COMPANY_A,
+      companyId,
       name: document.name,
       module: "contracts",
       entityType: document.entityType,
       entityId: document.entityId,
-      uploadedByMemberId: uploader?.id ?? null,
+      uploadedByMemberId: people.in(companyId, "user_legal"),
       createdBy: "user_legal",
     });
   }

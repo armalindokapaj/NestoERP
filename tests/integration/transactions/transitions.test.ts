@@ -216,7 +216,7 @@ describe("the transition guard", () => {
 
   it("refuses somebody without the permission the transition names", async () => {
     // A role with no HSE rights at all.
-    const context = await loginAs("ADMIN");
+    const context = await loginAs("GROUP_IT");
     expect(() =>
       assertTransitionAllowed(hseHazardMachine, { currentState: "OPEN", action: "control", context }),
     ).toThrow();

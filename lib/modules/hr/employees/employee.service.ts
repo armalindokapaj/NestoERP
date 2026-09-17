@@ -10,6 +10,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { businessDateString, toBusinessDate } from "../hr.date";
 import { buildHrMemberScopeWhere, isSelf } from "../hr.scope";
+import { personForMember } from "../hr.person";
 import { canTransitionEmployment } from "../hr.status";
 import type {
   CreateEmployeeProfileInput,
@@ -120,6 +121,7 @@ export async function createEmployeeProfile(
     await tx.employeeProfile.create({
       data: {
         companyId: context.companyId,
+        personProfileId: await personForMember(tx, context, member),
         companyMemberId: member.id,
         employeeNumber: input.employeeNumber ?? null,
         // A profile always starts PLANNED. Making somebody active is its own
@@ -445,10 +447,20 @@ const STATUS_MESSAGES: Record<EmploymentStatus, string> = {
 async function validateMember(context: UserContext, companyMemberId: string) {
   const member = await prisma.companyMember.findFirst({
     where: { AND: [buildHrMemberScopeWhere(context), { id: companyMemberId }] },
-    select: { id: true, user: { select: { firstName: true, lastName: true } } },
+    select: {
+      id: true,
+      userId: true,
+      jobTitle: true,
+      user: { select: { firstName: true, lastName: true } },
+    },
   });
   if (!member) throw new AccessError("VALIDATION_ERROR", "That team member does not exist.");
-  return { id: member.id, name: `${member.user.firstName} ${member.user.lastName}` };
+  return {
+    id: member.id,
+    userId: member.userId,
+    jobTitle: member.jobTitle,
+    name: `${member.user.firstName} ${member.user.lastName}`,
+  };
 }
 
 /**

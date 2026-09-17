@@ -7,7 +7,7 @@ import {
   createInvoiceFromProposal,
   listInvoicesForProposal,
 } from "@/lib/modules/finance/invoices/invoice.service";
-import { cleanupSessions, loginAs, prisma } from "../../helpers";
+import { cleanupSessions, loginAsMembership, prisma } from "../../helpers";
 
 /**
  * Workflow L — Sales quote to invoice (PRD #35 §180).
@@ -22,6 +22,11 @@ import { cleanupSessions, loginAs, prisma } from "../../helpers";
  * it — a quote and a demand for money are different documents.
  */
 const createdInvoices: string[] = [];
+
+/** The demo's accepted quote is Nova's, so Finance works in Nova: the group head's membership there. */
+function financeInNova() {
+  return loginAsMembership("member_finance__e");
+}
 
 async function acceptedProposal(companyId: string) {
   const proposal = await prisma.proposal.findFirst({
@@ -54,7 +59,7 @@ afterAll(async () => {
 
 describe("raising the invoice (PRD #35 §180)", () => {
   it("copies the accepted lines, the client and the currency", async () => {
-    const finance = await loginAs("FINANCE");
+    const finance = await financeInNova();
     const proposal = await acceptedProposal(finance.companyId);
 
     const lines = await prisma.proposalLineItem.findMany({
@@ -83,7 +88,7 @@ describe("raising the invoice (PRD #35 §180)", () => {
    * Changing the quote afterwards must not rewrite the demand.
    */
   it("does not follow the proposal if the proposal changes afterwards", async () => {
-    const finance = await loginAs("FINANCE");
+    const finance = await financeInNova();
     const proposal = await acceptedProposal(finance.companyId);
 
     const invoice = await createInvoiceFromProposal(finance, proposal.id);
@@ -115,7 +120,7 @@ describe("raising the invoice (PRD #35 §180)", () => {
   });
 
   it("records the handoff as an integration link", async () => {
-    const finance = await loginAs("FINANCE");
+    const finance = await financeInNova();
     const proposal = await acceptedProposal(finance.companyId);
 
     const invoice = await createInvoiceFromProposal(finance, proposal.id);
@@ -138,7 +143,7 @@ describe("raising the invoice (PRD #35 §180)", () => {
    * making a duplicate by accident (the rule Legal already applies).
    */
   it("allows a second invoice and lists what was already raised", async () => {
-    const finance = await loginAs("FINANCE");
+    const finance = await financeInNova();
     const proposal = await acceptedProposal(finance.companyId);
 
     const first = await createInvoiceFromProposal(finance, proposal.id);
@@ -156,7 +161,7 @@ describe("raising the invoice (PRD #35 §180)", () => {
 
 describe("what it refuses (PRD #35 §180)", () => {
   it("refuses a proposal the client has not accepted", async () => {
-    const finance = await loginAs("FINANCE");
+    const finance = await financeInNova();
 
     const draft = await prisma.proposal.findFirst({
       where: { companyId: finance.companyId, status: { not: "ACCEPTED" }, archivedAt: null },
@@ -168,9 +173,9 @@ describe("what it refuses (PRD #35 §180)", () => {
   });
 
   it("refuses somebody without finance.invoice.create", async () => {
-    const engineer = await loginAs("ENGINEER");
-    const owner = await loginAs("OWNER");
-    const proposal = await acceptedProposal(owner.companyId);
+    // An engineer in Nova, where the accepted quote is: the group Engineering head's membership there.
+    const engineer = await loginAsMembership("member_group_engineering__e");
+    const proposal = await acceptedProposal(engineer.companyId);
 
     await expect(createInvoiceFromProposal(engineer, proposal.id)).rejects.toBeInstanceOf(
       AccessError,
@@ -178,7 +183,7 @@ describe("what it refuses (PRD #35 §180)", () => {
   });
 
   it("refuses a proposal belonging to another company", async () => {
-    const finance = await loginAs("FINANCE");
+    const finance = await financeInNova();
 
     const foreign = await prisma.proposal.findFirst({
       where: { companyId: { not: finance.companyId } },

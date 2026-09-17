@@ -114,8 +114,8 @@ test("the Project Manager announces to Riverside; its people see it and others d
   await inventory.close();
 });
 
-test("an Admin schedules a notice; the worker publishes it and the audience is told (§324)", async ({ page, browser }) => {
-  await signIn(page, "ADMIN", { to: "/announcements" });
+test("Group IT schedules a notice; the worker publishes it and the audience is told (§324)", async ({ page, browser }) => {
+  await signIn(page, "GROUP_IT", { to: "/announcements" });
   await write(page, "Network maintenance on Saturday", "Email and NESTO may be slow on Saturday morning.");
   await page.locator("label").filter({ hasText: /^Important$/ }).click();
   await page.getByRole("button", { name: "Save draft" }).click();
@@ -138,9 +138,10 @@ test("an Admin schedules a notice; the worker publishes it and the audience is t
 });
 
 test("a favorite shows on the dashboard and in the palette, and disappears with access (§325)", async ({ page }) => {
-  const engineer = await memberIdFor("engineer@nesto.test");
+  // Terra's engineer, on the only project Terra runs.
+  const engineer = await memberIdFor("engineer-c@nesto.test", "company_demo_c");
   try {
-    await signIn(page, "ENGINEER", { to: "/projects/project_d" });
+    await signIn(page, "ENGINEER_C", { to: "/projects/project_c" });
     // Leave only once the star is saved: the click is optimistic.
     const saved = page.waitForResponse((response) => response.url().endsWith("/api/favorites") && response.request().method() === "POST");
     await mainRegion(page).getByTestId("favorite-button").click();
@@ -154,13 +155,13 @@ test("a favorite shows on the dashboard and in the palette, and disappears with 
     await expect(page.getByTestId("palette-favorites")).toContainText("Logistics Hub");
     await page.keyboard.press("Escape");
 
-    await db.projectMember.updateMany({ where: { projectId: "project_d", companyMemberId: engineer }, data: { status: "INACTIVE" } });
+    await db.projectMember.updateMany({ where: { projectId: "project_c", companyMemberId: engineer }, data: { status: "INACTIVE" } });
     await db.companyMember.update({ where: { id: engineer }, data: { accessVersion: { increment: 1 } } });
     await page.reload();
     await expect(mainRegion(page).getByRole("region", { name: "Favorites" })).not.toContainText("Logistics Hub");
   } finally {
-    await db.projectMember.updateMany({ where: { projectId: "project_d", companyMemberId: engineer }, data: { status: "ACTIVE" } });
-    await db.userFavorite.deleteMany({ where: { memberId: engineer, entityType: "project", entityId: "project_d" } });
+    await db.projectMember.updateMany({ where: { projectId: "project_c", companyMemberId: engineer }, data: { status: "ACTIVE" } });
+    await db.userFavorite.deleteMany({ where: { memberId: engineer, entityType: "project", entityId: "project_c" } });
   }
 });
 

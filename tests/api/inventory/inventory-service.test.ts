@@ -986,12 +986,12 @@ describe("authorisation (PRD #20 §367, §383)", () => {
     expect(can(context, "inventory.movement.create")).toBe(false);
   });
 
-  it("Admin and Company IT hold no inventory business access by default (§17)", async () => {
-    for (const role of ["ADMIN", "COMPANY_IT"] as const) {
-      const context = await loginAs(role);
-      expect(can(context, "inventory.item.view")).toBe(false);
-      expect(can(context, "inventory.balance.view")).toBe(false);
-    }
+  it("Group IT holds no inventory business access by default (§17)", async () => {
+    const context = await loginAs("GROUP_IT");
+    expect(can(context, "inventory.item.view")).toBe(false);
+    expect(can(context, "inventory.balance.view")).toBe(false);
+    // The Platform Admin has no company membership to reach it from at all.
+    await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow();
   });
 
   it("a Procurement reader does not gain full warehouse access (§303)", async () => {
@@ -1101,7 +1101,7 @@ describe("overview and reports (PRD #20 §376)", () => {
   });
 
   it("refuses a reader with no inventory access at all", async () => {
-    const context = await loginAs("ADMIN");
+    const context = await loginAs("GROUP_IT");
     await expect(inventoryOverview(context)).rejects.toBeInstanceOf(AccessError);
   });
 

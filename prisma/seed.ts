@@ -1,13 +1,13 @@
 /**
- * NESTO V0.1 demo seed (PRD #9).
+ * NESTO V0.1 demo seed (PRD #9, E-06 §42-§58, §103-§107).
  *
- * Fresh database → migrations → seed → sign in as any of the 18 demo users and
- * navigate a fully populated workspace, without creating a single record by
- * hand (PRD #9 §2).
+ * Fresh database → migrations → seed → sign in as any curated demo persona and
+ * navigate a fully populated group of five companies, without creating a
+ * single record by hand (PRD #9 §2).
  *
- * Order matters: configuration first, then companies and people, then the core
- * business graph, then module test records, then activity, then validation
- * (PRD #9 §239).
+ * Order matters: configuration first, then the demo group and the test
+ * fixtures with their people, then the core business graph, then module test
+ * records, then activity, then validation (PRD #9 §239).
  */
 import { PrismaClient } from "@prisma/client";
 
@@ -16,13 +16,17 @@ import { seedActivities } from "./seed/activities";
 import { seedBusinessRecords } from "./seed/business";
 import { seedCalendarRecords } from "./seed/calendar";
 import { seedApprovalRecords } from "./seed/approvals";
-import { seedCompanies } from "./seed/companies";
 import { seedMeetingRecords } from "./seed/meetings";
 import { seedContractRecords } from "./seed/contracts";
 import { seedFinanceRecords } from "./seed/finance";
 import { seedHrRecords } from "./seed/hr";
 import { seedHseRecords } from "./seed/hse";
-import { COMPANY_A_USERS, DEMO_PASSWORD } from "./seed/constants";
+import { COMPANY_A, DEMO_COMPANY_IDS, DEMO_GROUP, DEMO_PASSWORD, FIXTURE_TENANT } from "./seed/constants";
+import { seedMembers } from "./seed/members";
+import { seedDemoOrganization } from "./seed/demo/organization";
+import { seedFixtureOrganization } from "./seed/fixtures/organization";
+import { PRIMARY_DEMO_ACCOUNTS } from "../config/demo-accounts";
+import { hashPassword } from "../lib/auth/password";
 import { seedModuleRecords } from "./seed/module-records";
 import { seedInventoryRecords } from "./seed/inventory";
 import { seedProcurementRecords } from "./seed/procurement";
@@ -42,7 +46,7 @@ import { seedAnnouncementRecords } from "./seed/announcements";
 import { seedContractorEngineeringRecords } from "./seed/engineering";
 import { validateSeed } from "./seed/validate";
 import { reconcileStorageUsage } from "../lib/modules/documents/storage/cleanup.service";
-import { seedStorageQuotas } from "./seed/storage";
+import { seedDocumentVersions, seedStorageQuotas } from "./seed/storage";
 
 const prisma = new PrismaClient();
 
@@ -67,8 +71,12 @@ async function main() {
   assertSafeEnvironment();
 
   const access = await seedAccessConfiguration(prisma);
-  const { companyA, companyB, members } = await seedCompanies(prisma);
-  await seedCompanySettings(prisma, { companyA, companyB });
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
+  const activatedAt = new Date(Date.now() - 400 * 86_400_000);
+  await seedDemoOrganization(prisma, passwordHash, activatedAt);
+  await seedFixtureOrganization(prisma, passwordHash, activatedAt);
+  const members = seedMembers();
+  await seedCompanySettings(prisma);
   await seedBusinessRecords(prisma, members);
   const invitations = await seedTeamRecords(prisma, members);
   const finance = await seedFinanceRecords(prisma, members);
@@ -93,18 +101,21 @@ async function main() {
   const announcements = await seedAnnouncementRecords(prisma, members);
   const engineering = await seedContractorEngineeringRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
-  await seedAuditEvents(prisma, { companyA, companyB });
+  await seedAuditEvents(prisma, { companyA: { id: COMPANY_A }, tenant: { id: FIXTURE_TENANT } });
 
   // Documents are seeded by nine different modules, so the usage projection is
   // rebuilt from them once at the end rather than incremented nine times
   // (PRD #29 §146, §148).
+  await seedDocumentVersions(prisma);
   await seedStorageQuotas(prisma);
   await reconcileStorageUsage();
 
   await validateSeed(prisma);
 
   const counts = {
-    companies: await prisma.company.count(),
+    groups: await prisma.parentGroup.count({ where: { isTestFixture: false } }),
+    companies: await prisma.company.count({ where: { id: { in: DEMO_COMPANY_IDS } } }),
+    fixtureCompanies: await prisma.company.count({ where: { parentGroup: { isTestFixture: true } } }),
     users: await prisma.user.count(),
     projects: await prisma.project.count(),
     clients: await prisma.client.count(),
@@ -119,7 +130,8 @@ async function main() {
   console.log(`✓ Modules: ${access.modules}`);
   console.log(`✓ Role permissions: ${access.rolePermissions}`);
   console.log(`✓ Role module access: ${access.roleModuleAccess}`);
-  console.log(`✓ Companies: ${counts.companies} (${companyA.name}, ${companyB.name})`);
+  console.log(`✓ Parent groups: ${counts.groups} (${DEMO_GROUP.name}) and one test fixture group`);
+  console.log(`✓ Companies: ${counts.companies} in the demo group, ${counts.fixtureCompanies} test fixtures`);
   console.log(`✓ Users: ${counts.users}`);
   console.log(`✓ Projects: ${counts.projects}`);
   console.log(`✓ Clients: ${counts.clients}`);
@@ -177,10 +189,10 @@ async function main() {
   console.log(`✓ Activities: ${activities}`);
   console.log("✓ Seed validation passed");
   console.log(
-    `\nSign in with any of the ${COMPANY_A_USERS.length} demo accounts, password: ${DEMO_PASSWORD}`,
+    `\nSign in as any of the ${PRIMARY_DEMO_ACCOUNTS.length} demo personas, password: ${DEMO_PASSWORD}`,
   );
-  for (const user of COMPANY_A_USERS) {
-    console.log(`  ${user.email.padEnd(28)} ${user.role}`);
+  for (const account of PRIMARY_DEMO_ACCOUNTS) {
+    console.log(`  ${account.username.padEnd(22)} ${account.assignment}`);
   }
 }
 

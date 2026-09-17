@@ -40,6 +40,17 @@ async function removeCompany() {
     await prisma.authEvent.deleteMany({ where: { userId: owner.id } });
     await prisma.user.delete({ where: { id: owner.id } });
   }
+  // A company provisioned on its own gets a parent group of its own (E-06 §8).
+  const group = await prisma.parentGroup.findUnique({ where: { slug: SLUG }, select: { id: true } });
+  if (group) {
+    const parentGroupId = group.id;
+    await prisma.departmentAssignment.deleteMany({ where: { parentGroupId } });
+    await prisma.parentGroupMember.deleteMany({ where: { parentGroupId } });
+    await prisma.personProfile.deleteMany({ where: { parentGroupId } });
+    await prisma.auditEvent.deleteMany({ where: { parentGroupId } });
+    await prisma.groupDepartment.deleteMany({ where: { parentGroupId } });
+    await prisma.parentGroup.delete({ where: { id: parentGroupId } });
+  }
 }
 
 beforeAll(async () => {

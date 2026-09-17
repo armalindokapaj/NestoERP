@@ -325,13 +325,8 @@ test.describe("Procurement handoff (PRD #20 §421, §11)", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("Access boundaries (PRD #20 §423, §424)", () => {
-  test("Admin has no Inventory business access (§414)", async ({ page }) => {
-    await signIn(page, "ADMIN");
-    await expectAccessDenied(page, "/inventory");
-  });
-
-  test("Company IT has no Inventory business access (§415)", async ({ page }) => {
-    await signIn(page, "COMPANY_IT");
+  test("Group IT has no Inventory business access (§414, §415)", async ({ page }) => {
+    await signIn(page, "GROUP_IT");
     await expectAccessDenied(page, "/inventory");
   });
 

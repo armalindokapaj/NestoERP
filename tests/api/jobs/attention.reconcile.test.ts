@@ -13,7 +13,7 @@ import { reconcileAttention } from "@/lib/core/notifications/attention.reconcile
 import { prisma as client } from "@/lib/database/prisma";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, loginAs, loginAsEmail, prisma, PROJECT } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma, PROJECT } from "../../helpers";
 import { COMPANY_A, COMPANY_B, invokeJob, withCompanyStatus } from "./job-harness";
 
 /**
@@ -265,7 +265,7 @@ describe("attention.reconcile", () => {
 
   describe("company isolation", () => {
     it("reconciles only the company it is run for, and never files one company's condition in another (§180)", async () => {
-      const [ownerA, ownerB] = await Promise.all([loginAs("OWNER"), loginAsEmail("owner-b@nesto.test")]);
+      const [ownerA, ownerB] = await Promise.all([loginAs("OWNER"), loginAsEmail(DEMO_EMAIL.tenantOwner)]);
       const taskA = await overdueTask(ownerA, PROJECT.a, "member_engineer");
       const taskB = await overdueTask(ownerB, PROJECT.companyB, ownerB.membershipId);
       const staleB = await staleItem(COMPANY_B, ownerB.membershipId);
@@ -287,7 +287,7 @@ describe("attention.reconcile", () => {
 
   describe("suspended company", () => {
     it("neither raises nor resolves anything in a suspended company (§145, §181)", async () => {
-      const ownerB = await loginAsEmail("owner-b@nesto.test");
+      const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
       const taskB = await overdueTask(ownerB, PROJECT.companyB, ownerB.membershipId);
       const staleB = await staleItem(COMPANY_B, ownerB.membershipId);
 

@@ -71,7 +71,8 @@ test.describe("mobile navigation", () => {
 
 test.describe("mobile module layout (PRD #9 §184)", () => {
   test("shows projects as cards, two to a row, with the star and the company in reach (E-05A §24)", async ({ page }) => {
-    await signIn(page, "PROJECT_MANAGER");
+    // The Owner sees a project in each of the group's five companies (E-06 §45).
+    await signIn(page, "OWNER");
     await page.goto("/projects");
 
     await expect(page.getByRole("table")).toBeHidden();
@@ -85,7 +86,7 @@ test.describe("mobile module layout (PRD #9 §184)", () => {
   });
 
   test("moves filters and the sort into a sheet that applies them together (PRD #7 §88, E-05A §39)", async ({ page }) => {
-    await signIn(page, "PROJECT_MANAGER");
+    await signIn(page, "OWNER");
     await page.goto("/projects");
 
     await page.locator("#nesto-main").getByTestId("projects-filters-open").click();

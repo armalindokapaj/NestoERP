@@ -9,7 +9,8 @@ import { signIn } from "../fixtures";
  * workforce, a photo, the work done and a delay from the sticky bar, submit.
  */
 
-const PROJECT = "project_d";
+/** East Gate Logistics Hub, Terra's, where Terra's engineer works (E-06 §45). */
+const PROJECT = "project_c";
 
 test.beforeAll(async () => {
   await removeCreatedDailyLogs([PROJECT]);
@@ -30,7 +31,7 @@ async function quickAdd(page: Page, section: string, fill: (sheet: ReturnType<Pa
 }
 
 test("records a site day from the phone and submits it", async ({ page }) => {
-  await signIn(page, "ENGINEER", { to: `/projects/${PROJECT}/daily-logs` });
+  await signIn(page, "ENGINEER_C", { to: `/projects/${PROJECT}/daily-logs` });
   await page.getByRole("button", { name: "Start today's log" }).click();
   await expect(page).toHaveURL(/\/daily-logs\/c[a-z0-9]+$/);
   const logId = page.url().split("/").pop()!;

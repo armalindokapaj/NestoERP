@@ -4,7 +4,7 @@ import type { UserContext } from "@/lib/context/types";
 import { addFavorite, FAVORITES_LIMIT, listFavorites, removeFavorite } from "@/lib/modules/productivity/favorites.service";
 import { resolveNavigable } from "@/lib/modules/productivity/navigable.registry";
 import { clearRecentWork, listRecentWork, pruneRecentWork, RECENT_CAP, recordRecentAccess } from "@/lib/modules/productivity/recent-work.service";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Favorites and Recent Work against the real database (PRD #45 §315-§319).
@@ -19,6 +19,7 @@ let finance: UserContext;
 let pm: UserContext;
 let ownerB: UserContext;
 const code = (value: string) => ({ details: expect.objectContaining({ code: value }) });
+const TEMPORARY_MILESTONE = "Temporary milestone";
 
 async function cleanup() {
   const memberIds = [architect, viewer, finance, ownerB].map((context) => context.membershipId);
@@ -26,13 +27,13 @@ async function cleanup() {
   await prisma.recentItem.deleteMany({ where: { memberId: { in: memberIds } } });
   await prisma.projectMember.updateMany({ where: { projectId: PROJECT.a, companyMemberId: viewer.membershipId }, data: { status: "ACTIVE" } });
   await prisma.productivitySettings.updateMany({ where: { companyId: "company_demo_a" }, data: { favoritesEnabled: true, recentWorkEnabled: true, recentWorkRetentionDays: 90 } });
-  const milestones = await prisma.projectMilestone.findMany({ where: { projectId: PROJECT.b }, select: { id: true } });
+  const milestones = await prisma.projectMilestone.findMany({ where: { projectId: PROJECT.a, name: TEMPORARY_MILESTONE }, select: { id: true } });
   await prisma.projectMilestone.deleteMany({ where: { id: { in: milestones.map((row) => row.id) } } });
 }
 
 beforeAll(async () => {
   [architect, viewer, finance, pm] = await Promise.all((["ARCHITECT", "VIEWER", "FINANCE", "PROJECT_MANAGER"] as const).map((role) => loginAs(role)));
-  ownerB = await loginAsEmail("owner-b@nesto.test");
+  ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
   await cleanup();
 });
 afterEach(cleanup);
@@ -67,7 +68,7 @@ describe("favorites (§69-§93, §315)", () => {
     expect(await listFavorites(refreshed)).toEqual([]);
     expect(await prisma.userFavorite.count({ where: { memberId: viewer.membershipId } })).toBe(1);
 
-    const milestone = await prisma.projectMilestone.create({ data: { companyId: "company_demo_a", projectId: PROJECT.b, name: "Temporary milestone", milestoneType: "OTHER", sortOrder: 1, createdByMemberId: pm.membershipId } });
+    const milestone = await prisma.projectMilestone.create({ data: { companyId: "company_demo_a", projectId: PROJECT.a, name: TEMPORARY_MILESTONE, milestoneType: "OTHER", sortOrder: 1, createdByMemberId: pm.membershipId } });
     await prisma.userFavorite.create({ data: { companyId: "company_demo_a", memberId: finance.membershipId, entityType: "project_milestone", entityId: milestone.id } });
     expect((await listFavorites(finance)).map((item) => item.entityId)).toContain(milestone.id);
     await prisma.projectMilestone.update({ where: { id: milestone.id }, data: { archivedAt: new Date() } });

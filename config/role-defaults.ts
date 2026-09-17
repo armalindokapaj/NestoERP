@@ -22,10 +22,10 @@
  *
  * Edge-safe: no database imports.
  */
-import type { AccessLevel, DataScope } from "./access";
+import { widestScope, type AccessLevel, type DataScope } from "./access";
 import { MODULE_KEYS, type ModuleKey } from "./modules";
 import { isMutatingPermission, type Permission } from "./permissions";
-import { ROLE_KEYS, roles, type RoleKey } from "./roles";
+import { POSITION_LEVELS, ROLE_KEYS, roles, type PositionLevel, type RoleKey } from "./roles";
 
 /* -------------------------------------------------------------------------- */
 /* Permission ladders                                                          */
@@ -970,6 +970,20 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "company.storage.view",
     ],
   },
+  /**
+   * The organization above the company (E-06 §67, §68, §77, §78). VIEW reads the
+   * group, its companies and departments; CONTRIBUTE is a manager's team and its
+   * workload; APPROVE puts that team on projects and takes it off them; MANAGE
+   * keeps the group's department structure and sees the people and access
+   * behind it. Appointing, delegating and provisioning are never a rung — each
+   * is held by the role or position E-06 gives it.
+   */
+  organization: {
+    VIEW: ["organization.view", "organization.company.view", "organization.department.view"],
+    CONTRIBUTE: ["department.team.view", "department.workload.view"],
+    APPROVE: ["department.project.assign", "department.project.unassign"],
+    MANAGE: ["organization.department.manage", "organization.people.view", "organization.access.view", "organization.role_template.view"],
+  },
   settings: {
     VIEW: ["settings.view"],
     MANAGE: ["settings.manage"],
@@ -1007,6 +1021,7 @@ const SCOPE_CODES: Record<string, DataScope> = {
   P: "PROJECT",
   D: "DEPARTMENT",
   C: "COMPANY",
+  G: "GROUP",
   SYS: "SYSTEM",
 };
 
@@ -1024,26 +1039,29 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     calendar: "M/C", approvals: "M/C", announcements: "M/C", meetings: "M/C", timesheets: "M/C", dailyLogs: "M/C", contractors: "M/C", engineering: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
     finance: "M/C", hr: "M/C", sales: "M/C", contracts: "M/C",
     procurement: "M/C", inventory: "M/C", qaqc: "M/C", hse: "M/C",
-    team: "M/C", company: "M/C", settings: "M/C", support: "V/C",
+    team: "M/C", company: "M/C", settings: "M/C", support: "V/C", organization: "M/G",
   },
-  ADMIN: {
-    calendar: "M/C", approvals: "V/C", announcements: "M/C", meetings: "M/C", timesheets: "C/S", contractors: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "M/C",
-    hr: "V/C",
-    team: "M/C", company: "M/C", settings: "M/SYS", support: "M/SYS",
-  },
-  COMPANY_IT: {
+  // Held outside every company (E-06 §19): no company module at all.
+  PLATFORM_ADMIN: {},
+  /*
+   * Company IT's row with a company administrator's technical cells (E-06 §6.2,
+   * §75): accounts, company configuration and modules, settings and the support
+   * queue. No project, client or contractor authority and documents read-only —
+   * IT does not acquire the business (§113).
+   */
+  GROUP_IT: {
     calendar: "C/C", approvals: "V/C", announcements: "A/C", meetings: "C/C", timesheets: "C/S", tasks: "C/S", documents: "V/C", hr: "V/S",
-    team: "V/C", company: "V/C", settings: "M/SYS", support: "M/SYS",
+    team: "M/C", company: "M/C", settings: "M/SYS", support: "M/SYS", organization: "V/G",
   },
   HR: {
     calendar: "M/C", approvals: "A/C", announcements: "M/C", meetings: "C/C", timesheets: "M/C", projects: "V/C", tasks: "C/S", documents: "C/D", hr: "M/C",
-    team: "M/C", company: "V/C", settings: "V/S", support: "V/C",
+    team: "M/C", company: "V/C", settings: "V/S", support: "V/C", organization: "V/C",
   },
   CEO: {
     calendar: "C/C", approvals: "A/C", announcements: "M/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", contractors: "V/C", engineering: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
     finance: "A/C", hr: "V/C", sales: "A/C", contracts: "A/C",
     procurement: "A/C", inventory: "V/C", qaqc: "V/C", hse: "V/C",
-    team: "V/C", company: "V/C", support: "V/C",
+    team: "V/C", company: "V/C", support: "V/C", organization: "V/C",
   },
   PROJECT_MANAGER: {
     calendar: "C/C", approvals: "A/P", announcements: "A/P", meetings: "C/C", timesheets: "A/P", dailyLogs: "M/P", contractors: "M/P", engineering: "A/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
@@ -1055,16 +1073,6 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/AS", contractors: "V/P", engineering: "A/P", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S", qaqc: "V/P", hse: "V/P",
     team: "V/P", support: "V/C",
-  },
-  /*
-   * The Architect's own row, across every project of the company rather than
-   * the ones they are assigned to — the head of design reviews all of it — and
-   * the approvals inbox where unit publishing requests wait (E-05D §19, §21).
-   */
-  ARCHITECTURE_MANAGER: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", contractors: "V/C", engineering: "A/C", projects: "C/C", tasks: "C/P", clients: "V/C", documents: "C/C",
-    finance: "V/C", hr: "V/S", qaqc: "V/C", hse: "V/C",
-    team: "V/C", support: "V/C",
   },
   ENGINEER: {
     calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "C/AS", contractors: "V/P", engineering: "A/P", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
@@ -1084,12 +1092,6 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "V/C", company: "V/C", support: "V/C",
   },
   SALES: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
-    finance: "V/C", sales: "M/C", contracts: "V/C",
-    team: "V/C", company: "V/C", support: "V/C",
-  },
-  // Sales' row; what sets the manager apart is the approval Sales is denied (E-05E §39).
-  SALES_MANAGER: {
     calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
     finance: "V/C", sales: "M/C", contracts: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
@@ -1197,43 +1199,54 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * automatically an audit superuser (PRD #28 §222-§225, PRD #35 §123).
      */
     settings: { extra: ["audit.view", "audit.export", "audit.sensitive.view"] },
+    /**
+     * Business governance of the group (E-06 §3.3, §37-§41): appointing department
+     * heads and company managers, delegating access, approving the account
+     * requests HR raises, and every function's view across the group.
+     * Provisioning the account itself is Group IT's, not the Owner's (§119).
+     */
+    organization: {
+      extra: [
+        "organization.company.configuration.manage",
+        "organization.module_configuration.manage",
+        "organization.department_head.assign",
+        "organization.department_manager.assign",
+        "organization.access.grant",
+        "organization.audit.view",
+        "organization.provisioning_request.view",
+        "organization.provisioning_request.approve",
+        "department.group.view",
+        "department.projects.view_group",
+        "department.company_manager.manage",
+        "department.team.access.delegate",
+        "person_profile.view",
+        "candidate.view",
+      ],
+    },
   },
-  ADMIN: {
-    /**
-     * Administering the platform is not seeing the HR file (PRD #16 §18).
+  CEO: {
+    /*
+     * Commercial status, prices and reservations of every unit, read (E-05E §39);
+     * its contract and collection too, and approving a sale where the Sold rule
+     * asks (E-05F §56).
      *
-     * An Admin manages team configuration and company settings, and reads the
-     * employment directory. They do not automatically get the employment file:
-     * contracts, identification and sick notes are documents somebody filed in
-     * confidence. Pay never reaches them either — `hr.compensation.view` is
-     * absent from every rung of the ladder — and the leave reason sits at
-     * MANAGE, above their level.
-     */
-    hr: { deny: ["hr.document.view"] },
-    /**
-     * Company settings are not the finance ledger's defaults (PRD #24 §15,
-     * §17). An Admin configures the company, its modules and its localisation;
-     * base currency, tax and payment terms stay with whoever holds Finance.
-     */
-    company: { deny: ["company.finance_settings.view", "company.finance_settings.manage"] },
-    /**
-     * Administering the platform is not reading the construction plan (PRD #44 §81).
-     *
-     * It is setting projects up, though: a Company Admin creates projects, keeps
-     * their details right and moves them between Pending, Active and Finished
-     * inside their company (E-05A §29, §60), and keeps the company's list of
-     * project types (§62). Archiving stays with whoever holds the module outright.
-     * Setting up a project includes its buildings, floors and units, and the
-     * company's unit types (E-05B §59) — and, inside the company, preparing and
-     * publishing those units (E-05D §19: "Scoped").
+     * And setting projects up: creating them, keeping their details and status,
+     * the company's project and unit types, and the buildings, floors and units
+     * of each (E-05A §29, §62; E-05B §59). A Company Admin held this before
+     * E-06; with administration now technical and group-level, the company's
+     * executive takes it.
      */
     projects: {
-      deny: ["project_planning.view"],
       extra: [
+        "project.unit.sales.view",
+        "project.unit.legal.view",
+        "project.unit.finance.view",
+        "project.unit.sale.approve",
         "project.create",
         "project.update",
         "project.status.manage",
         "project.type.manage",
+        "project.unit_type.manage",
         "project.structure.manage",
         "project.building.create",
         "project.building.update",
@@ -1245,42 +1258,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.update",
         "project.unit.delete",
         "project.unit.move",
-        "project.unit_type.manage",
-        "project.unit.documents.manage",
-        "project.unit.media.manage",
-        "project.unit.submit_for_publish",
-        "project.unit.publish",
-        "project.unit.revision_request",
-        "project.unit.unpublish",
-        "project.unit.archive",
-        // A Company Admin sells units inside the company too (E-05E §39).
-        "project.unit.sales.view",
-        "project.unit.sales_status.manage",
-        "project.unit.price.manage",
-        "project.unit.reserve",
-        "project.unit.reservation.extend",
-        "project.unit.reservation.release",
-        "project.unit.mark_sold",
-        "project.unit.reopen_sale",
-        "project.unit.sales_correct",
-        /*
-         * The unit's contract and collection, read; a Company Admin also asks
-         * Legal for a contract and approves a sale where the Sold rule asks
-         * (E-05F §56). Drafting and collecting need Legal's and Finance's own
-         * modules, which an Admin does not hold (PRD #24 §15-§17), so those stay
-         * with Legal, Finance and the Owner.
-         */
-        "project.unit.sale.approve",
-        "project.unit.legal.view",
-        "project.unit.contract.request",
-        "project.unit.finance.view",
       ],
     },
-  },
-  CEO: {
-    // Commercial status, prices and reservations of every unit, read (E-05E §39);
-    // its contract and collection too, and approving a sale where the Sold rule asks (E-05F §56).
-    projects: { extra: ["project.unit.sales.view", "project.unit.legal.view", "project.unit.finance.view", "project.unit.sale.approve"] },
     /**
      * Time summaries by project, and the decision on the weeks they are the
      * designated approver of — without everybody's entry text (PRD #42 §132).
@@ -1365,6 +1344,25 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
     // People operations see the project list, not its milestone plan (PRD #44 §83).
     projects: { deny: ["project_planning.view"] },
+    /**
+     * Person, candidate and employment truth, and the account request that
+     * follows a hire (E-06 §76). Never the credentials: those are Group IT's
+     * (§140). Approving a request is the Head of Group HR's (HEAD_OVERRIDES).
+     */
+    organization: {
+      extra: [
+        "person_profile.view",
+        "person_profile.create",
+        "person_profile.update",
+        "candidate.view",
+        "candidate.manage",
+        "employment.manage",
+        "provisioning_request.create",
+        "provisioning_request.submit",
+        "organization.provisioning_request.view",
+        "organization.people.view",
+      ],
+    },
   },
   PROJECT_MANAGER: {
     /**
@@ -1526,84 +1524,6 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
       ],
     },
   },
-  ARCHITECTURE_MANAGER: {
-    /**
-     * Everything an Architect does to units, on every project, and the review
-     * that follows it: publishing a unit, asking for a revision, taking a
-     * published unit back out of use and archiving it (E-05D §19, §120).
-     * The rest of this role's overrides are the Architect's.
-     */
-    projects: {
-      extra: [
-        "project.structure.manage",
-        "project.building.create",
-        "project.building.update",
-        "project.building.delete",
-        "project.floor.create",
-        "project.floor.update",
-        "project.floor.delete",
-        "project.unit.create",
-        "project.unit.update",
-        "project.unit.delete",
-        "project.unit.move",
-        "project.unit.documents.manage",
-        "project.unit.media.manage",
-        "project.unit.submit_for_publish",
-        "project.unit.publish",
-        "project.unit.revision_request",
-        "project.unit.unpublish",
-        "project.unit.archive",
-      ],
-    },
-    // Design-related work and instructions on their projects' logs (PRD #43 §135).
-    dailyLogs: { extra: ["daily_log.edit", "daily_log.activity.manage", "daily_log.instruction.manage"] },
-    /**
-     * Project budget summary only (PRD #5 §18, PRD #15 §184).
-     *
-     * Budget amount, actual summary, commitment summary and remaining budget —
-     * never a payee, an invoice, a payment reference, company receivables or
-     * company cashflow.
-     */
-    finance: {
-      deny: [
-        "finance.invoice.view",
-        "finance.payment.view",
-        "finance.expense.view",
-        "finance.budget.view",
-        "finance.commitment.view",
-        "finance.receivables.view",
-        "finance.payables.view",
-        "finance.cashflow.view",
-        "finance.approval.view",
-        "finance.report.view",
-        "finance.activity.view",
-        "finance.settings.view",
-      ],
-    },
-    /**
-     * The project's safety position, not the company's safety apparatus
-     * (PRD #22 §18, §19 — the `*` on the access matrix).
-     *
-     * An architect on a site needs to know what has gone wrong there and what
-     * is being done about it: hazards, incidents, inspections and the permits
-     * governing work near their design. The checklists the company inspects
-     * against, the approval queue, the risk register, stop-work authority and
-     * the company reports belong to the safety function.
-     */
-    hse: {
-      deny: [
-        "hse.template.view",
-        "hse.risk.view",
-        "hse.toolbox.view",
-        "hse.ppe.view",
-        "hse.environment.view",
-        "hse.stop_work.view",
-        "hse.approval.view",
-        "hse.report.view",
-        "hse.export",
-      ],
-    },
-  },
   ENGINEER: {
     finance: {
       deny: [
@@ -1624,7 +1544,7 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     procurement: { deny: ["procurement.order.view"] },
     inventory: { deny: ["inventory.movement.view"] },
   },
-  COMPANY_IT: {
+  GROUP_IT: {
     // Technical and system notices to the company (PRD #45 §228, §231).
     announcements: { extra: ["announcement.manage_company"] },
     /**
@@ -1646,16 +1566,31 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
       ],
     },
     /**
-     * IT keeps the system running without acquiring the business (PRD #24 §16,
-     * PRD #35 §124). Security and localisation are theirs to manage; Finance
-     * defaults, numbering and integration behaviour are not.
+     * Company configuration is IT's; the finance ledger's defaults are not
+     * (PRD #24 §15, §17). Base currency, tax and payment terms stay with whoever
+     * holds Finance.
      */
-    company: {
+    company: { deny: ["company.finance_settings.view", "company.finance_settings.manage"] },
+    /**
+     * Account provisioning and technical implementation across the group
+     * (E-06 §6.2, §75): creating the login HR asked for, activating and
+     * deactivating it, the companies' configuration and modules. Not an
+     * approver: which person gets an account is decided before the request
+     * reaches IT (§119).
+     */
+    organization: {
       extra: [
-        "company.security_settings.view",
-        "company.security_settings.manage",
-        "company.localization.manage",
-        "company.settings.update",
+        "organization.user.provision",
+        "organization.user.activate",
+        "organization.user.deactivate",
+        "organization.user.technical_access.manage",
+        "organization.provisioning_request.view",
+        "organization.provisioning_request.process",
+        "organization.company.configuration.manage",
+        "organization.module_configuration.manage",
+        "organization.role_template.view",
+        "organization.people.view",
+        "organization.access.view",
       ],
     },
   },
@@ -1854,61 +1789,6 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
       ],
     },
   },
-  SALES_MANAGER: {
-    // Everything Sales does to units, plus reopening a sale and correcting a reservation (E-05E §31, §39).
-    projects: {
-      extra: [
-        "project.unit.sales.view",
-        "project.unit.sales_status.manage",
-        "project.unit.price.manage",
-        "project.unit.reserve",
-        "project.unit.reservation.extend",
-        "project.unit.reservation.release",
-        "project.unit.mark_sold",
-        "project.unit.reopen_sale",
-        "project.unit.sales_correct",
-        // Sales' contract request and reading, and approving a sale where the Sold rule asks (E-05F §42, §56).
-        "project.unit.legal.view",
-        "project.unit.contract.request",
-        "project.unit.finance.view",
-        "project.unit.sale.approve",
-      ],
-    },
-    // Sales' contract and finance limits; unlike Sales, the manager decides
-    // proposals (PRD #17 §19, §20; E-05E §39).
-    /**
-     * The contract their deal became (PRD #18 §29, §400).
-     *
-     * Sales follows an accepted proposal through to a signed agreement: status,
-     * dates, value, and the lineage back to the opportunity. The obligation
-     * register, the parties' legal identifiers and the approval queue are the
-     * legal desk's work, not the account manager's.
-     */
-    contracts: {
-      deny: [
-        "legal.party.view",
-        "legal.obligation.view",
-        "legal.approval.view",
-        "legal.task.view",
-      ],
-    },
-    // Customer invoices, outstanding receivables and client payment status —
-    // never corporate cashflow, expenses or budgets (PRD #5 §22, PRD #15 §289).
-    finance: {
-      deny: [
-        "finance.payment.view",
-        "finance.expense.view",
-        "finance.budget.view",
-        "finance.commitment.view",
-        "finance.project_budget.view",
-        "finance.project_cost_summary.view",
-        "finance.payables.view",
-        "finance.cashflow.view",
-        "finance.approval.view",
-        "finance.settings.view",
-      ],
-    },
-  },
   PROCUREMENT: {
     // Delivery notes on the logs of the sites they buy for (PRD #43 §140).
     dailyLogs: { extra: ["daily_log.edit", "daily_log.delivery.manage"] },
@@ -2070,6 +1950,200 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
 };
 
 /* -------------------------------------------------------------------------- */
+/* Positions                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What a department position adds to a role (E-06 §6.3-§6.5, §7, §101).
+ *
+ * A company manager or group head of a function holds the function's role —
+ * never a manager role — and this is where the extra authority comes from. Most
+ * functions manage with the member's own row plus the organization rungs below.
+ * The two that had manager roles before E-06 keep those rows here, so an
+ * Architecture Manager still publishes units and a Sales Manager still decides
+ * proposals and reopens sales (§153, §154), while every other Architect and
+ * Sales user keeps the member row.
+ */
+const MANAGER_MATRIX: Partial<Record<RoleKey, RoleMatrixRow>> = {
+  /*
+   * The Architect's own row, across every project of the company rather than
+   * the ones they are assigned to — the head of design reviews all of it — and
+   * the approvals inbox where unit publishing requests wait (E-05D §19, §21).
+   */
+  ARCHITECT: {
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", contractors: "V/C", engineering: "A/C", projects: "C/C", tasks: "C/P", clients: "V/C", documents: "C/C",
+    finance: "V/C", hr: "V/S", qaqc: "V/C", hse: "V/C",
+    team: "V/C", support: "V/C",
+  },
+  // Sales' row; what sets the manager apart is the approval Sales is denied (E-05E §39).
+  SALES: {
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
+    finance: "V/C", sales: "M/C", contracts: "V/C",
+    team: "V/C", company: "V/C", support: "V/C",
+  },
+};
+
+const MANAGER_OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> = {
+  ARCHITECT: {
+    /**
+     * Everything an Architect does to units, on every project, and the review
+     * that follows it: publishing a unit, asking for a revision, taking a
+     * published unit back out of use and archiving it (E-05D §19, §120).
+     * The rest of this role's overrides are the Architect's.
+     */
+    projects: {
+      extra: [
+        "project.structure.manage",
+        "project.building.create",
+        "project.building.update",
+        "project.building.delete",
+        "project.floor.create",
+        "project.floor.update",
+        "project.floor.delete",
+        "project.unit.create",
+        "project.unit.update",
+        "project.unit.delete",
+        "project.unit.move",
+        "project.unit.documents.manage",
+        "project.unit.media.manage",
+        "project.unit.submit_for_publish",
+        "project.unit.publish",
+        "project.unit.revision_request",
+        "project.unit.unpublish",
+        "project.unit.archive",
+      ],
+    },
+    // Design-related work and instructions on their projects' logs (PRD #43 §135).
+    dailyLogs: { extra: ["daily_log.edit", "daily_log.activity.manage", "daily_log.instruction.manage"] },
+    /**
+     * Project budget summary only (PRD #5 §18, PRD #15 §184).
+     *
+     * Budget amount, actual summary, commitment summary and remaining budget —
+     * never a payee, an invoice, a payment reference, company receivables or
+     * company cashflow.
+     */
+    finance: {
+      deny: [
+        "finance.invoice.view",
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.commitment.view",
+        "finance.receivables.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.report.view",
+        "finance.activity.view",
+        "finance.settings.view",
+      ],
+    },
+    /**
+     * The project's safety position, not the company's safety apparatus
+     * (PRD #22 §18, §19 — the `*` on the access matrix).
+     *
+     * An architect on a site needs to know what has gone wrong there and what
+     * is being done about it: hazards, incidents, inspections and the permits
+     * governing work near their design. The checklists the company inspects
+     * against, the approval queue, the risk register, stop-work authority and
+     * the company reports belong to the safety function.
+     */
+    hse: {
+      deny: [
+        "hse.template.view",
+        "hse.risk.view",
+        "hse.toolbox.view",
+        "hse.ppe.view",
+        "hse.environment.view",
+        "hse.stop_work.view",
+        "hse.approval.view",
+        "hse.report.view",
+        "hse.export",
+      ],
+    },
+  },
+  SALES: {
+    // Everything Sales does to units, plus reopening a sale and correcting a reservation (E-05E §31, §39).
+    projects: {
+      extra: [
+        "project.unit.sales.view",
+        "project.unit.sales_status.manage",
+        "project.unit.price.manage",
+        "project.unit.reserve",
+        "project.unit.reservation.extend",
+        "project.unit.reservation.release",
+        "project.unit.mark_sold",
+        "project.unit.reopen_sale",
+        "project.unit.sales_correct",
+        // Sales' contract request and reading, and approving a sale where the Sold rule asks (E-05F §42, §56).
+        "project.unit.legal.view",
+        "project.unit.contract.request",
+        "project.unit.finance.view",
+        "project.unit.sale.approve",
+      ],
+    },
+    // Sales' contract and finance limits; unlike Sales, the manager decides
+    // proposals (PRD #17 §19, §20; E-05E §39).
+    /**
+     * The contract their deal became (PRD #18 §29, §400).
+     *
+     * Sales follows an accepted proposal through to a signed agreement: status,
+     * dates, value, and the lineage back to the opportunity. The obligation
+     * register, the parties' legal identifiers and the approval queue are the
+     * legal desk's work, not the account manager's.
+     */
+    contracts: {
+      deny: [
+        "legal.party.view",
+        "legal.obligation.view",
+        "legal.approval.view",
+        "legal.task.view",
+      ],
+    },
+    // Customer invoices, outstanding receivables and client payment status —
+    // never corporate cashflow, expenses or budgets (PRD #5 §22, PRD #15 §289).
+    finance: {
+      deny: [
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.commitment.view",
+        "finance.project_budget.view",
+        "finance.project_cost_summary.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.settings.view",
+      ],
+    },
+  },
+};
+
+/**
+ * The organization rungs a position brings (E-06 §31, §77, §78): a company
+ * manager's own department, a group head's function across every company of the
+ * group. Combined with the role's own organization cell, the wider winning.
+ */
+const POSITION_ORGANIZATION: Record<Exclude<PositionLevel, "MEMBER">, MatrixCell> = {
+  COMPANY_MANAGER: "A/D",
+  GROUP_HEAD: "A/G",
+};
+
+/** Every group head, whatever the function (E-06 §78). */
+const HEAD_EXTRAS: Permission[] = [
+  "department.group.view",
+  "department.projects.view_group",
+  "department.company_manager.manage",
+  "department.team.access.delegate",
+];
+
+/** What only the head of one particular function holds. */
+const HEAD_OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> = {
+  // The business decision that a hired person gets an account (the user's E-06 decision).
+  HR: { organization: { extra: ["organization.provisioning_request.approve"] } },
+};
+
+/* -------------------------------------------------------------------------- */
 /* Resolution                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -2113,9 +2187,48 @@ function scopedGrants(
   return grants;
 }
 
-function buildRoleAccess(role: RoleKey): Record<ModuleKey, ModuleAccessDefault> {
-  const row = MATRIX[role];
-  const overrides = OVERRIDES[role] ?? {};
+const LEVEL_RANK: AccessLevel[] = ["NONE", "VIEW", "CONTRIBUTE", "APPROVE", "MANAGE"];
+
+const codeFor = (codes: Record<string, string>, value: string) =>
+  Object.entries(codes).find(([, candidate]) => candidate === value)![0];
+
+/** The wider of two cells: the higher level, over the wider scope. */
+function widerCell(a: MatrixCell | undefined, b: MatrixCell): MatrixCell {
+  if (!a) return b;
+  const left = parseCell(a);
+  const right = parseCell(b);
+  const level = LEVEL_RANK.indexOf(left.accessLevel) >= LEVEL_RANK.indexOf(right.accessLevel) ? left.accessLevel : right.accessLevel;
+  return `${codeFor(ACCESS_CODES, level)}/${codeFor(SCOPE_CODES, widestScope(left.scope, right.scope))}`;
+}
+
+function mergeOverrides(...sources: Partial<Record<ModuleKey, Override>>[]): Partial<Record<ModuleKey, Override>> {
+  const merged: Partial<Record<ModuleKey, Override>> = {};
+  for (const source of sources) {
+    for (const [moduleKey, override] of Object.entries(source) as [ModuleKey, Override][]) {
+      const target = (merged[moduleKey] ??= {});
+      if (override.extra) target.extra = [...(target.extra ?? []), ...override.extra];
+      if (override.deny) target.deny = [...(target.deny ?? []), ...override.deny];
+    }
+  }
+  return merged;
+}
+
+function profileRow(role: RoleKey, position: PositionLevel): RoleMatrixRow {
+  if (position === "MEMBER") return MATRIX[role];
+  const row = MANAGER_MATRIX[role] ?? MATRIX[role];
+  return { ...row, organization: widerCell(row.organization, POSITION_ORGANIZATION[position]) };
+}
+
+function profileOverrides(role: RoleKey, position: PositionLevel): Partial<Record<ModuleKey, Override>> {
+  if (position === "MEMBER") return OVERRIDES[role] ?? {};
+  const manager = MANAGER_OVERRIDES[role] ?? OVERRIDES[role] ?? {};
+  if (position === "COMPANY_MANAGER") return manager;
+  return mergeOverrides(manager, { organization: { extra: HEAD_EXTRAS } }, HEAD_OVERRIDES[role] ?? {});
+}
+
+function buildRoleAccess(role: RoleKey, position: PositionLevel): Record<ModuleKey, ModuleAccessDefault> {
+  const row = profileRow(role, position);
+  const overrides = profileOverrides(role, position);
   const readOnly = Boolean(roles[role].readOnly);
 
   const result = {} as Record<ModuleKey, ModuleAccessDefault>;
@@ -2159,12 +2272,17 @@ function buildRoleAccess(role: RoleKey): Record<ModuleKey, ModuleAccessDefault> 
   return result;
 }
 
-/** Role → module → { accessLevel, scope, permissions }. */
-export const roleModuleAccess: Record<RoleKey, Record<ModuleKey, ModuleAccessDefault>> =
-  Object.fromEntries(ROLE_KEYS.map((role) => [role, buildRoleAccess(role)])) as Record<
-    RoleKey,
-    Record<ModuleKey, ModuleAccessDefault>
-  >;
+/** Position → role → module → { accessLevel, scope, permissions }. */
+export const positionModuleAccess: Record<PositionLevel, Record<RoleKey, Record<ModuleKey, ModuleAccessDefault>>> =
+  Object.fromEntries(
+    POSITION_LEVELS.map((position) => [
+      position,
+      Object.fromEntries(ROLE_KEYS.map((role) => [role, buildRoleAccess(role, position)])),
+    ]),
+  ) as Record<PositionLevel, Record<RoleKey, Record<ModuleKey, ModuleAccessDefault>>>;
+
+/** Role → module → { accessLevel, scope, permissions }, held as a department member. */
+export const roleModuleAccess: Record<RoleKey, Record<ModuleKey, ModuleAccessDefault>> = positionModuleAccess.MEMBER;
 
 /** The flat permission list a role holds across every module. */
 export const rolePermissions: Record<RoleKey, Permission[]> = Object.fromEntries(
@@ -2188,15 +2306,36 @@ export const roleScopes: Record<RoleKey, Record<ModuleKey, DataScope>> = Object.
   ]),
 ) as Record<RoleKey, Record<ModuleKey, DataScope>>;
 
-export function defaultAccessFor(role: RoleKey, moduleKey: ModuleKey): ModuleAccessDefault {
-  return roleModuleAccess[role][moduleKey];
+export function defaultAccessFor(role: RoleKey, moduleKey: ModuleKey, position: PositionLevel = "MEMBER"): ModuleAccessDefault {
+  return positionModuleAccess[position][role][moduleKey];
 }
 
-export function permissionsForRole(role: RoleKey): Permission[] {
-  return rolePermissions[role] ?? [];
+const positionPermissions = Object.fromEntries(
+  POSITION_LEVELS.map((position) => [
+    position,
+    Object.fromEntries(
+      ROLE_KEYS.map((role) => [
+        role,
+        [...new Set(MODULE_KEYS.flatMap((moduleKey) => positionModuleAccess[position][role][moduleKey].permissions))].sort(),
+      ]),
+    ),
+  ]),
+) as Record<PositionLevel, Record<RoleKey, Permission[]>>;
+
+export function permissionsForRole(role: RoleKey, position: PositionLevel = "MEMBER"): Permission[] {
+  return positionPermissions[position][role] ?? [];
 }
 
 /** Modules a role may open at all — the raw input to the navigation resolver. */
-export function accessibleModules(role: RoleKey): ModuleKey[] {
-  return MODULE_KEYS.filter((key) => roleModuleAccess[role][key].accessLevel !== "NONE");
+export function accessibleModules(role: RoleKey, position: PositionLevel = "MEMBER"): ModuleKey[] {
+  return MODULE_KEYS.filter((key) => positionModuleAccess[position][role][key].accessLevel !== "NONE");
+}
+
+/**
+ * The ladder's permissions for one module at one level: what an access grant of
+ * that level hands over (E-06 §18). Overrides are not applied — a grant carries
+ * the rung, never somebody else's exceptions.
+ */
+export function grantPermissions(moduleKey: ModuleKey, level: AccessLevel): Permission[] {
+  return ladderPermissions(moduleKey, level);
 }

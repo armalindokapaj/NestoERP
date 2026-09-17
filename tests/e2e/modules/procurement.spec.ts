@@ -201,13 +201,8 @@ test.describe("Project Manager role (PRD #19 §329)", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("roles without Procurement access (PRD #19 §332, §333)", () => {
-  test("Admin has no procurement access by default", async ({ page }) => {
-    await signIn(page, "ADMIN");
-    await expectAccessDenied(page, "/procurement");
-  });
-
-  test("Company IT has no procurement access by default", async ({ page }) => {
-    await signIn(page, "COMPANY_IT");
+  test("Group IT has no procurement access by default", async ({ page }) => {
+    await signIn(page, "GROUP_IT");
     await expectAccessDenied(page, "/procurement");
   });
 

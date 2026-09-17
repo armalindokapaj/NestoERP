@@ -11,22 +11,25 @@ import { createTaskFromLog, linkRecord, linkTask, recordCandidates, unlinkRecord
 import { dailyLogReport, missingYesterday, remindMissingDailyLogs } from "@/lib/modules/daily-logs/daily-log.reports";
 import { addCorrection, lockDailyLog, returnDailyLog, reviewDailyLog, submitDailyLog, voidDailyLog } from "@/lib/modules/daily-logs/daily-log.review";
 import { SECTION_SCHEMAS, createTaskFromLogSchema, listQuerySchema, reportQuerySchema } from "@/lib/modules/daily-logs/daily-log.schema";
+import { resolveDailyLogSettings } from "@/lib/modules/daily-logs/daily-log.settings";
 import { createDailyLog, getDailyLog, listDailyLogs, updateDailyLog } from "@/lib/modules/daily-logs/daily-log.service";
 import { canAttachToDocumentParent } from "@/lib/modules/documents/document.parent-access";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Construction daily logs, against the real database (PRD #43 §252-§268).
  *
- * The Engineer keeps the logs of the Logistics Hub (project_d), whose manager
- * is the Owner; the seed leaves that project without logs. Every log a test
- * creates there is removed after it, with the tasks, links, notifications,
- * attention and activity it left. Riverside's seeded logs are only read.
+ * Aurelia runs one project, so this file makes a second: a logistics yard
+ * whose manager is the Owner, where the Engineer keeps the logs and the
+ * Architect and the Viewer are not on the team, with a task for HSE and an
+ * HSE incident. Every log a test creates there is removed after it, with the
+ * tasks, links, notifications, attention and activity it left; the yard goes
+ * when the file ends. Riverside's seeded logs are only read.
  */
 
 const ZONE = "Europe/Tirane";
-const SITE = PROJECT.d;
-const TASK_D = "task_026"; // project_d, assigned to HSE
+const SITE = "test43_yard";
+const TASK_D = "test43_yard_task"; // on the yard, assigned to HSE
 const COMPANY_B_TASK = "task_b_01";
 
 let engineer: UserContext;
@@ -62,12 +65,31 @@ async function cleanup() {
   await prisma.projectDailyLogSettings.deleteMany({ where: { projectId: SITE } });
 }
 
+async function removeYard() {
+  await prisma.task.deleteMany({ where: { id: TASK_D } });
+  await prisma.hseIncident.deleteMany({ where: { projectId: SITE } });
+  await prisma.projectMember.deleteMany({ where: { projectId: SITE } });
+  await prisma.project.deleteMany({ where: { id: SITE } });
+}
+
+async function makeYard() {
+  await prisma.project.create({ data: { id: SITE, companyId: COMPANY.a, code: "T43-YARD", name: "Logistics Yard", status: "ACTIVE", projectManagerMemberId: "member_owner", createdBy: "test" } });
+  await prisma.projectMember.createMany({ data: ["member_engineer", "member_qaqc", "member_hse"].map((companyMemberId) => ({ companyId: COMPANY.a, projectId: SITE, companyMemberId, status: "ACTIVE" as const })) });
+  await prisma.task.create({ data: { id: TASK_D, companyId: COMPANY.a, projectId: SITE, title: "Update permit expiry register", assigneeMemberId: "member_hse", status: "TODO", createdByMemberId: "member_owner", createdBy: "user_owner" } });
+  await prisma.hseIncident.create({
+    data: { companyId: COMPANY.a, projectId: SITE, incidentNumber: "T43-INC-0001", incidentType: "INCIDENT", title: "Delivery lorry clipped the yard gate", description: "Reversing lorry clipped the gate post.", occurredAt: new Date(Date.now() - 2 * 86_400_000), severity: "LOW", reportedByMemberId: "member_hse", createdByMemberId: "member_hse" },
+  });
+}
+
 beforeAll(async () => {
   [engineer, owner, qaqc, hse, architect, viewer, pm] = await Promise.all([loginAs("ENGINEER"), loginAs("OWNER"), loginAs("QAQC"), loginAs("HSE"), loginAs("ARCHITECT"), loginAs("VIEWER"), loginAs("PROJECT_MANAGER")]);
   await cleanup();
+  await removeYard();
+  await makeYard();
 });
 afterEach(cleanup);
 afterAll(async () => {
+  await removeYard();
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -108,7 +130,7 @@ describe("creating a log (§10, §17-§19, §253)", () => {
   it("keeps a log inside its project: another project's people, another company and the Viewer off it see nothing", async () => {
     const id = await started();
     await expect(getDailyLog(architect, id)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(getDailyLog(await loginAsEmail("owner-b@nesto.test"), id)).rejects.toBeTruthy();
+    await expect(getDailyLog(await loginAsEmail(DEMO_EMAIL.tenantOwner), id)).rejects.toBeTruthy();
     await expect(createDailyLog(architect, { projectId: SITE, workDate: today() })).rejects.toBeTruthy();
     await expect(createDailyLog(engineer, { projectId: PROJECT.companyB, workDate: today() })).rejects.toMatchObject(code("DAILY_LOG_PROJECT_NOT_FOUND"));
     expect(await loadRecord(owner, "daily_log", id)).toMatchObject({ href: `/projects/${SITE}/daily-logs/${id}` });
@@ -168,7 +190,7 @@ describe("sections (§26-§61, §186-§191, §254-§258)", () => {
 
   it("references QA/QC and HSE records without changing them, and shows another reader only what they may see", async () => {
     const id = await started(addLocalDays(today(), -1));
-    const incident = await prisma.hseIncident.findFirstOrThrow({ where: { companyId: "company_demo_a", projectId: SITE } });
+    const incident = await prisma.hseIncident.findFirstOrThrow({ where: { companyId: COMPANY.a, projectId: SITE } });
     const before = incident.updatedAt;
     await expect(linkRecord(qaqc, id, { recordType: "incident", recordId: incident.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     const { linkId } = await linkRecord(hse, id, { recordType: "incident", recordId: incident.id });
@@ -329,7 +351,18 @@ describe("attention, notifications, reporting and search (§103-§111, §196-§2
 
     const search = await globalSearch(pm, "Riverside");
     expect(search.results.some((row) => row.entityType === "daily_log")).toBe(true);
-    const viewerSearch = await globalSearch(await loginAsEmail("owner-b@nesto.test"), "Riverside");
+    const viewerSearch = await globalSearch(await loginAsEmail(DEMO_EMAIL.tenantOwner), "Riverside");
     expect(viewerSearch.results.some((row) => row.entityType === "daily_log")).toBe(false);
+  });
+});
+
+describe("settings (§18, §89)", () => {
+  it("creates a company's settings once when its first reads arrive together", async () => {
+    // A page reads the list and the settings at once, so a company's first visit
+    // asks twice; neither read may fail on the other's create.
+    await prisma.dailyLogSettings.deleteMany({ where: { companyId: COMPANY.works } });
+    const rows = await Promise.all([1, 2, 3, 4].map(() => resolveDailyLogSettings(COMPANY.works)));
+    expect(rows.map((row) => row.backdateDays)).toEqual([7, 7, 7, 7]);
+    expect(await prisma.dailyLogSettings.count({ where: { companyId: COMPANY.works } })).toBe(1);
   });
 });

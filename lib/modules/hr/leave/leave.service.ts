@@ -16,6 +16,7 @@ import {
   leaveYearOf,
   toBusinessDate,
 } from "../hr.date";
+import { memberAddressed } from "../hr.person";
 import { buildEmployeeScopeWhere, buildLeaveScopeWhere, isSelf } from "../hr.scope";
 import {
   blocksOverlap,
@@ -727,7 +728,7 @@ async function assertSufficientBalance(
 
 function toDTO(context: UserContext, row: LeaveRow): LeaveRequestDTO {
   const own = isSelf(context, row.companyMemberId);
-  const user = row.employeeProfile.companyMember.user;
+  const user = memberAddressed(row.employeeProfile).companyMember.user;
 
   // The reason may be a medical detail, so it travels only to the requester
   // and to a reader who holds the grant (PRD #16 §95).

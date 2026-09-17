@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { permissionsForRole } from "@/config/role-defaults";
-import { ROLE_KEYS } from "@/config/roles";
+import { MEMBERSHIP_ROLE_KEYS, ROLE_KEYS } from "@/config/roles";
 import { instantFromLocal } from "@/lib/modules/calendar/calendar.time";
 import { deadlineDescription, lastDueWeek, submissionDeadline } from "@/lib/modules/timesheets/timesheet.deadline";
 import { buildRows, summarise } from "@/lib/modules/timesheets/timesheet.service";
@@ -146,8 +146,8 @@ describe("submission deadline (§101, §213)", () => {
 });
 
 describe("timesheet permissions by role (§128-§143)", () => {
-  it("lets everybody but the Viewer log and submit their own time", () => {
-    for (const role of ROLE_KEYS) {
+  it("lets everybody in a company but the Viewer log and submit their own time", () => {
+    for (const role of MEMBERSHIP_ROLE_KEYS) {
       const held = new Set(permissionsForRole(role));
       expect(held.has("timesheet.submit_own"), role).toBe(role !== "VIEWER");
       expect(held.has("timesheet.view_own"), role).toBe(role !== "VIEWER");

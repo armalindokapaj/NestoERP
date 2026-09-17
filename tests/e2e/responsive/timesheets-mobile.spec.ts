@@ -28,7 +28,7 @@ test("quick-logs project time from the sticky bar and submits the week", async (
 
   await bar.getByRole("button", { name: "Log time" }).click();
   const sheet = page.getByRole("dialog", { name: "Log time" });
-  await sheet.getByLabel("Project", { exact: false }).first().selectOption({ label: "PRJ-001 · Riverside Residences" });
+  await sheet.getByLabel("Project", { exact: false }).first().selectOption({ label: "A-PRJ-001 · Riverside Residences" });
   await sheet.getByRole("button", { name: "4h", exact: true }).click();
   await expect(sheet.getByRole("textbox", { name: "Duration" })).toHaveValue("4h");
   await sheet.getByRole("button", { name: "Log time" }).click();

@@ -131,13 +131,16 @@ describe("default permission policy (§54-§56, §123, §130)", () => {
     expect(holds("SALES", "project.unit.contract.request")).toBe(true);
     expect(holds("SALES", "project.unit.finance.record_payment")).toBe(false);
     expect(holds("SALES", "project.unit.contract.create")).toBe(false);
-    expect(holds("SALES_MANAGER", "project.unit.sale.approve")).toBe(true);
+    // Approving a sale comes with managing Sales, not with selling (E-06 §101).
+    expect((permissionsForRole("SALES", "COMPANY_MANAGER") as readonly string[]).includes("project.unit.sale.approve")).toBe(true);
     expect(holds("SALES", "project.unit.sale.approve")).toBe(false);
   });
 
   it("keeps Architecture and Engineering from a unit's contract and money, and the Viewer from changing either", () => {
-    for (const role of ["ARCHITECT", "ARCHITECTURE_MANAGER", "ENGINEER"] as const) {
-      expect((permissionsForRole(role) as readonly string[]).filter((permission) => /^project\.unit\.(legal|contract|finance|sale)\b/.test(permission)), role).toEqual([]);
+    for (const role of ["ARCHITECT", "ENGINEER"] as const) {
+      for (const position of ["MEMBER", "COMPANY_MANAGER", "GROUP_HEAD"] as const) {
+        expect((permissionsForRole(role, position) as readonly string[]).filter((permission) => /^project\.unit\.(legal|contract|finance|sale)\b/.test(permission)), `${role} ${position}`).toEqual([]);
+      }
     }
     expect((permissionsForRole("VIEWER") as readonly string[]).filter((permission) => /^project\.unit\.(legal|contract|finance|sale)\b/.test(permission)).sort()).toEqual(["project.unit.finance.view", "project.unit.legal.view"]);
     for (const role of ROLE_KEYS) {

@@ -9,7 +9,7 @@ import { activateScheduleSchema, createScheduleSchema } from "@/lib/modules/fina
 import { activatePaymentSchedule, createPaymentSchedule } from "@/lib/modules/finance/units/unit-finance.service";
 import { commercialDetailsSchema, reserveSchema } from "@/lib/modules/sales/units/unit-sales.schema";
 import { changeSaleStatus, reserveUnit, updateCommercialDetails } from "@/lib/modules/sales/units/unit-sales.service";
-import { loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
+import { DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
  * A unit sale from reservation to schedule, against the real database (E-05F
@@ -20,7 +20,7 @@ import { loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
  */
 
 export const COMPANY_A = "company_demo_a";
-export const MARINA = PROJECT.c;
+export const RIVERSIDE = PROJECT.a;
 const DAY = 86_400_000;
 
 export type Roles = {
@@ -36,8 +36,8 @@ export type Roles = {
 };
 
 export async function loginRoles(): Promise<Roles> {
-  const [owner, sales, manager, legal, finance, architect, pm, viewer] = await Promise.all((["OWNER", "SALES", "SALES_MANAGER", "LEGAL", "FINANCE", "ARCHITECT", "PROJECT_MANAGER", "VIEWER"] as const).map((role) => loginAs(role)));
-  return { owner, sales, manager, legal, finance, architect, pm, viewer, ownerB: await loginAsMembership("member_owner_b") };
+  const [owner, sales, legal, finance, architect, pm, viewer] = await Promise.all((["OWNER", "SALES", "LEGAL", "FINANCE", "ARCHITECT", "PROJECT_MANAGER", "VIEWER"] as const).map((role) => loginAs(role)));
+  return { owner, sales, manager: await loginAsEmail(DEMO_EMAIL.salesHead), legal, finance, architect, pm, viewer, ownerB: await loginAsMembership("member_owner_b") };
 }
 
 export async function refused(promise: Promise<unknown>, code: string, detail?: string): Promise<AccessError> {
@@ -67,15 +67,15 @@ export class SaleFixture {
 
   async setUp() {
     this.apartmentType = (await prisma.projectUnitType.findFirstOrThrow({ where: { companyId: COMPANY_A, code: "APARTMENT" }, select: { id: true } })).id;
-    const building = await prisma.projectBuilding.create({ data: { companyId: COMPANY_A, projectId: MARINA, name: `${this.prefix} Block`, nameKey: `${this.prefix} BLOCK`, sortOrder: 91, createdBy: "test" } });
-    this.floorId = (await prisma.projectFloor.create({ data: { companyId: COMPANY_A, projectId: MARINA, buildingId: building.id, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "test" } })).id;
+    const building = await prisma.projectBuilding.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, name: `${this.prefix} Block`, nameKey: `${this.prefix} BLOCK`, sortOrder: 91, createdBy: "test" } });
+    this.floorId = (await prisma.projectFloor.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, buildingId: building.id, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "test" } })).id;
   }
 
   async unit(options: { code?: string } = {}) {
     this.serial += 1;
     const code = options.code ?? `${this.prefix}-${String(this.serial).padStart(3, "0")}`;
     return prisma.projectUnit.create({
-      data: { companyId: COMPANY_A, projectId: MARINA, floorId: this.floorId, unitCode: code, unitCodeKey: code, unitTypeId: this.apartmentType, saleableArea: "100.00", sortOrder: this.serial, createdBy: "test", publicationStatus: "PUBLISHED" },
+      data: { companyId: COMPANY_A, projectId: RIVERSIDE, floorId: this.floorId, unitCode: code, unitCodeKey: code, unitTypeId: this.apartmentType, saleableArea: "100.00", sortOrder: this.serial, createdBy: "test", publicationStatus: "PUBLISHED" },
       select: { id: true, unitCode: true },
     });
   }
@@ -122,7 +122,7 @@ export class SaleFixture {
   }
 
   async cleanup() {
-    const buildings = await prisma.projectBuilding.findMany({ where: { projectId: MARINA, nameKey: { startsWith: this.prefix } }, select: { id: true } });
+    const buildings = await prisma.projectBuilding.findMany({ where: { projectId: RIVERSIDE, nameKey: { startsWith: this.prefix } }, select: { id: true } });
     const floors = await prisma.projectFloor.findMany({ where: { buildingId: { in: buildings.map((row) => row.id) } }, select: { id: true } });
     const units = await prisma.projectUnit.findMany({ where: { floorId: { in: floors.map((row) => row.id) } }, select: { id: true } });
     const unitIds = units.map((row) => row.id);

@@ -6,15 +6,15 @@ import { AuditAction, auditPolicies } from "../../lib/core/audit/audit-policy.re
  * Audit seed (PRD #28 §297-§308).
  *
  * Enough evidence to exercise every filter the viewer offers: all categories,
- * all three actor types, all three severities, a correlation chain, and a second
- * company whose events must never appear in the first one's log (PRD #28 §320).
+ * all three actor types, all three severities, a correlation chain, and another
+ * tenant whose events must never appear in the demo's log (PRD #28 §320).
  */
 
 const POLICIES = auditPolicies();
 
 export async function seedAuditEvents(
   prisma: PrismaClient,
-  companies: { companyA: { id: string }; companyB: { id: string } },
+  companies: { companyA: { id: string }; tenant: { id: string } },
 ) {
   const existing = await prisma.auditEvent.count();
   if (existing > 0) return { created: 0 };
@@ -117,12 +117,12 @@ export async function seedAuditEvents(
     },
   );
 
-  // Company B, with overlapping labels, so isolation is genuinely tested.
+  // The fixture tenant, with overlapping labels, so isolation is genuinely tested.
   rows.push({
-    companyId: companies.companyB.id,
+    companyId: companies.tenant.id,
     occurredAt: new Date(now - 3 * DAY),
     actorType: "USER",
-    actorDisplayNameSnapshot: "Company B Owner",
+    actorDisplayNameSnapshot: "Tenant Owner",
     actorRoleSnapshot: "OWNER",
     moduleKey: "settings",
     category: "CONFIGURATION",

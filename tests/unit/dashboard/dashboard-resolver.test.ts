@@ -5,7 +5,7 @@ import { kpis } from "@/config/kpis";
 import { quickActions } from "@/config/quick-actions";
 import { widgets } from "@/config/widgets";
 import { permissionsForRole } from "@/config/role-defaults";
-import { ROLE_KEYS } from "@/config/roles";
+import { MEMBERSHIP_ROLE_KEYS, ROLE_KEYS } from "@/config/roles";
 
 /**
  * Dashboard resolver tests (PRD #9 §122).
@@ -30,8 +30,8 @@ function visibleKpis(role: (typeof ROLE_KEYS)[number]) {
 }
 
 describe("dashboard configuration", () => {
-  it("defines a dashboard for all 18 roles", () => {
-    expect(Object.keys(dashboards)).toHaveLength(18);
+  it("defines a dashboard for all 16 roles", () => {
+    expect(Object.keys(dashboards)).toHaveLength(16);
     for (const role of ROLE_KEYS) {
       expect(dashboards[role], role).toBeDefined();
     }
@@ -48,8 +48,9 @@ describe("dashboard configuration", () => {
     }
   });
 
-  it("leaves every role with something on screen", () => {
-    for (const role of ROLE_KEYS) {
+  it("leaves every company role with something on screen", () => {
+    // The Platform Admin has no company dashboard: they work in the platform area (E-06 §19).
+    for (const role of MEMBERSHIP_ROLE_KEYS) {
       expect(visibleWidgets(role).length, role).toBeGreaterThan(0);
       expect(visibleKpis(role).length, role).toBeGreaterThan(0);
     }

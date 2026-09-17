@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { addLocalDays, localDate } from "../../lib/modules/calendar/calendar.time";
+import type { SeedMembers } from "./constants";
 
 /**
  * Project planning demo data (PRD #44 §311).
@@ -15,10 +16,10 @@ import { addLocalDays, localDate } from "../../lib/modules/calendar/calendar.tim
  * milestone, for isolation. Dated relative to the day the seed runs;
  * re-running replaces the seeded plan.
  */
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const FIXTURE_TENANT = "company_fixture_tenant";
 const RIVERSIDE = "project_a";
 const ZONE = "Europe/Tirane";
 
@@ -161,8 +162,8 @@ export async function seedPlanningRecords(prisma: PrismaClient, members: Members
   });
 
   // Company B: one milestone, for isolation (§295).
-  await prisma.projectPhase.create({ data: { id: "phase_b_tender", companyId: COMPANY_B, projectId: "project_b_one", name: "Tender", sortOrder: 1, createdByMemberId: ownerB } });
-  await prisma.projectMilestone.create({ data: { id: M.companyB, companyId: COMPANY_B, projectId: "project_b_one", phaseId: "phase_b_tender", name: "Tender Award", milestoneType: "CONTRACTUAL", sortOrder: 1, baselineDate: day(20), plannedDate: day(20), forecastDate: day(20), ownerMemberId: ownerB, createdByMemberId: ownerB } });
+  await prisma.projectPhase.create({ data: { id: "phase_b_tender", companyId: FIXTURE_TENANT, projectId: "project_b_one", name: "Tender", sortOrder: 1, createdByMemberId: ownerB } });
+  await prisma.projectMilestone.create({ data: { id: M.companyB, companyId: FIXTURE_TENANT, projectId: "project_b_one", phaseId: "phase_b_tender", name: "Tender Award", milestoneType: "CONTRACTUAL", sortOrder: 1, baselineDate: day(20), plannedDate: day(20), forecastDate: day(20), ownerMemberId: ownerB, createdByMemberId: ownerB } });
 
   return { phases: 7, milestones: 12, dependencies: edges.length, blockers: 3 };
 }

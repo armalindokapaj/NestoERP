@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { db } from "../db";
+import { createSpareProject, removeSpareProject } from "../structure-fixtures";
 import { mainRegion, signIn, signOut } from "../fixtures";
 
 /**
@@ -13,13 +14,14 @@ import { mainRegion, signIn, signOut } from "../fixtures";
  * Sold before the signature the company's rule asks for; an Architect sees
  * neither the contract nor the money.
  *
- * Built on a building of its own on Marina Apartments, with units reserved
+ * Built on a building of its own on a spare Aurelia project, with units reserved
  * directly in the database for a deal of its own, and removed again afterwards
  * with every contract, schedule, payment and trail the run created.
  */
 
 const COMPANY = "company_demo_a";
-const MARINA = "project_c";
+/** A bare Aurelia project of the spec's own (see createSpareProject). */
+const PROJECT = "project_e2e_harbour_05f";
 const BUILDING = "bld_e05f_e2e";
 const FLOOR = "flr_e05f_e2e_1";
 const HOME = "unit_e05f_e2e_101";
@@ -64,33 +66,35 @@ async function clear() {
 let soldRule: "RESERVATION" | "SIGNED_CONTRACT" | "DEPOSIT_RECEIVED" | "SIGNED_CONTRACT_AND_DEPOSIT" | "MANUAL_APPROVAL" = "SIGNED_CONTRACT";
 
 test.beforeAll(async () => {
+  await createSpareProject(PROJECT, "A-E2E-05F", "Harbour Residences 05F");
   soldRule = (await db.companySettings.findUniqueOrThrow({ where: { companyId: COMPANY }, select: { unitSoldRule: true } })).unitSoldRule;
   await db.companySettings.update({ where: { companyId: COMPANY }, data: { unitSoldRule: "SIGNED_CONTRACT" } });
   await clear();
   const types = new Map((await db.projectUnitType.findMany({ where: { companyId: COMPANY, code: { in: ["APARTMENT", "PARKING"] } }, select: { id: true, code: true } })).map((row) => [row.code, row.id]));
-  await db.projectBuilding.create({ data: { id: BUILDING, companyId: COMPANY, projectId: MARINA, name: "E05F Harbour", nameKey: "E05F HARBOUR", sortOrder: 97, createdBy: "seed" } });
-  await db.projectFloor.create({ data: { id: FLOOR, companyId: COMPANY, projectId: MARINA, buildingId: BUILDING, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "seed" } });
+  await db.projectBuilding.create({ data: { id: BUILDING, companyId: COMPANY, projectId: PROJECT, name: "E05F Harbour", nameKey: "E05F HARBOUR", sortOrder: 97, createdBy: "seed" } });
+  await db.projectFloor.create({ data: { id: FLOOR, companyId: COMPANY, projectId: PROJECT, buildingId: BUILDING, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "seed" } });
   await db.projectUnit.createMany({
     data: [
-      { id: HOME, companyId: COMPANY, projectId: MARINA, floorId: FLOOR, unitCode: "H-101", unitCodeKey: "H-101", unitTypeId: types.get("APARTMENT")!, sortOrder: 1, createdBy: "seed", saleableArea: "110.00", publicationStatus: "PUBLISHED" },
-      { id: PARKING, companyId: COMPANY, projectId: MARINA, floorId: FLOOR, unitCode: "H-P01", unitCodeKey: "H-P01", unitTypeId: types.get("PARKING") ?? types.get("APARTMENT")!, sortOrder: 2, createdBy: "seed", publicationStatus: "PUBLISHED" },
+      { id: HOME, companyId: COMPANY, projectId: PROJECT, floorId: FLOOR, unitCode: "H-101", unitCodeKey: "H-101", unitTypeId: types.get("APARTMENT")!, sortOrder: 1, createdBy: "seed", saleableArea: "110.00", publicationStatus: "PUBLISHED" },
+      { id: PARKING, companyId: COMPANY, projectId: PROJECT, floorId: FLOOR, unitCode: "H-P01", unitCodeKey: "H-P01", unitTypeId: types.get("PARKING") ?? types.get("APARTMENT")!, sortOrder: 2, createdBy: "seed", publicationStatus: "PUBLISHED" },
     ],
   });
   await db.opportunity.create({ data: { id: DEAL, companyId: COMPANY, name: "E05F harbour apartment", clientId: "client_acme", ownerMemberId: "member_sales", stage: "NEGOTIATION", estimatedValue: "300000", currency: "EUR", createdByMemberId: "member_sales" } });
   for (const [unitId, price] of [[HOME, "280000.00"], [PARKING, "20000.00"]] as const) {
-    await db.unitCommercialProfile.create({ data: { companyId: COMPANY, projectId: MARINA, unitId, status: "RESERVED", askingPrice: price, currency: "EUR", statusChangedAt: new Date() } });
-    await db.unitReservation.create({ data: { companyId: COMPANY, projectId: MARINA, unitId, clientId: "client_acme", opportunityId: DEAL, reservedAt: new Date(Date.now() - 86_400_000), expiresAt: new Date(Date.now() + 10 * 86_400_000), agreedPrice: price, currency: "EUR", createdByMemberId: "member_sales" } });
-    await db.opportunityUnit.create({ data: { companyId: COMPANY, projectId: MARINA, opportunityId: DEAL, unitId, agreedPrice: price, currency: "EUR", createdByMemberId: "member_sales" } });
+    await db.unitCommercialProfile.create({ data: { companyId: COMPANY, projectId: PROJECT, unitId, status: "RESERVED", askingPrice: price, currency: "EUR", statusChangedAt: new Date() } });
+    await db.unitReservation.create({ data: { companyId: COMPANY, projectId: PROJECT, unitId, clientId: "client_acme", opportunityId: DEAL, reservedAt: new Date(Date.now() - 86_400_000), expiresAt: new Date(Date.now() + 10 * 86_400_000), agreedPrice: price, currency: "EUR", createdByMemberId: "member_sales" } });
+    await db.opportunityUnit.create({ data: { companyId: COMPANY, projectId: PROJECT, opportunityId: DEAL, unitId, agreedPrice: price, currency: "EUR", createdByMemberId: "member_sales" } });
   }
 });
 
 test.afterAll(async () => {
   await db.companySettings.update({ where: { companyId: COMPANY }, data: { unitSoldRule: soldRule } });
   await clear();
+  await removeSpareProject(PROJECT);
   await db.$disconnect();
 });
 
-const unitUrl = (unitId: string, section: string) => `/projects/${MARINA}/units/${unitId}/${section}`;
+const unitUrl = (unitId: string, section: string) => `/projects/${PROJECT}/units/${unitId}/${section}`;
 const day = (offset: number) => {
   const date = new Date(Date.now() + offset * 86_400_000);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -180,7 +184,7 @@ test("Finance puts a schedule in force on the signed contract, records a payment
 });
 
 test("the project's Finance units count the contract once and filter what is overdue", async ({ page }) => {
-  await signIn(page, "FINANCE", { to: `/projects/${MARINA}/finance/units?q=H-` });
+  await signIn(page, "FINANCE", { to: `/projects/${PROJECT}/finance/units?q=H-` });
   const rows = page.getByTestId("finance-table").getByTestId("finance-row");
   await expect(rows).toHaveCount(2);
   await expect(page.getByTestId("finance-total-contracted")).toHaveText("€300,000.00");
@@ -195,7 +199,7 @@ test("the project's Finance units count the contract once and filter what is ove
 });
 
 test("an Architect sees neither the unit's contract nor its money", async ({ page }) => {
-  await signIn(page, "ARCHITECT", { to: `/projects/${MARINA}/units/${HOME}` });
+  await signIn(page, "ARCHITECT", { to: `/projects/${PROJECT}/units/${HOME}` });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("H-101");
   const sections = page.getByRole("navigation", { name: "H-101 sections" });
   await expect(sections.getByRole("link", { name: "Legal", exact: true })).toHaveCount(0);

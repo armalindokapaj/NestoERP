@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { AccessError } from "@/lib/access/guards";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
@@ -33,21 +33,89 @@ import { cleanupSessions, loginAs, prisma } from "../../helpers";
  */
 
 const COMPANY_A = "company_demo_a";
-const COMPANY_B = "company_demo_b";
+const COMPANY_B = "company_fixture_tenant";
 
 const SEED = {
   projectA: "project_a",
-  projectC: "project_c",
   openHazardA: "hse_hz_002",
-  hazardOnProjectC: "hse_hz_006",
-  inspectionOnProjectC: "hse_ins_005",
-  approvedAssessmentC: "hse_ra_002",
   draftAssessmentA: "hse_ra_010",
   pendingCloseIncident: "hse_inc_009",
   companyBIncident: "hse_inc_b_001",
   companyBMember: "member_owner_b",
   pmMember: "member_pm",
 } as const;
+
+/**
+ * A second site in Company A, with a hazard, an inspection and an approved risk
+ * assessment on it. Each demo company has one project (E-06 §49), so another
+ * project's record has to be made.
+ */
+const OTHER_SITE = {
+  project: "hseauthz_other_site",
+  hazard: "hseauthz_other_hazard",
+  inspection: "hseauthz_other_inspection",
+  assessment: "hseauthz_other_assessment",
+} as const;
+
+async function removeOtherSite() {
+  await prisma.hseHazard.deleteMany({ where: { id: OTHER_SITE.hazard } });
+  await prisma.hseInspection.deleteMany({ where: { id: OTHER_SITE.inspection } });
+  await prisma.hseRiskAssessment.deleteMany({ where: { id: OTHER_SITE.assessment } });
+  await prisma.project.deleteMany({ where: { id: OTHER_SITE.project } });
+}
+
+beforeAll(async () => {
+  await removeOtherSite();
+  const officer = "member_hse";
+  await prisma.project.create({
+    data: { id: OTHER_SITE.project, companyId: COMPANY_A, code: "HSEAUTHZ-OTHER", name: "Authorisation test site", status: "ACTIVE", createdBy: "test" },
+  });
+  await prisma.hseRiskAssessment.create({
+    data: {
+      id: OTHER_SITE.assessment,
+      companyId: COMPANY_A,
+      projectId: OTHER_SITE.project,
+      assessmentNumber: "RA-AUTHZ-0001",
+      title: "Excavation on the other site",
+      assessmentDate: new Date(),
+      status: "APPROVED",
+      approvedAt: new Date(),
+      approvedByMemberId: "member_owner",
+      createdByMemberId: officer,
+    },
+  });
+  await prisma.hseInspection.create({
+    data: {
+      id: OTHER_SITE.inspection,
+      companyId: COMPANY_A,
+      projectId: OTHER_SITE.project,
+      inspectionNumber: "INS-AUTHZ-0001",
+      inspectionType: "EXCAVATION",
+      status: "APPROVED",
+      result: "PASS",
+      assignedInspectorMemberId: officer,
+      createdByMemberId: officer,
+    },
+  });
+  await prisma.hseHazard.create({
+    data: {
+      id: OTHER_SITE.hazard,
+      companyId: COMPANY_A,
+      projectId: OTHER_SITE.project,
+      hazardNumber: "HZ-AUTHZ-0001",
+      title: "Open excavation edge",
+      description: "On the other site.",
+      hazardCategory: "EXCAVATION",
+      likelihood: 4,
+      severityScore: 5,
+      riskScore: 20,
+      riskLevel: "CRITICAL",
+      observedAt: new Date(),
+      reportedByMemberId: officer,
+      createdByMemberId: officer,
+    },
+  });
+});
 
 const created = {
   actions: [] as string[],
@@ -90,6 +158,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  await removeOtherSite();
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -234,7 +303,7 @@ describe("an HSE action's parent (PRD #47 §20)", () => {
           title: "On the wrong site",
           description: "The hazard is on project A.",
           hazardId: SEED.openHazardA,
-          projectId: SEED.projectC,
+          projectId: OTHER_SITE.project,
           assignedToMemberId: context.membershipId,
         }),
       ),
@@ -306,7 +375,7 @@ describe("links between sites (PRD #47 §51)", () => {
   it("refuses a permit relying on another project's risk assessment", async () => {
     const context = await loginAs("HSE");
     const error = await refusal(
-      permits.createPermit(context, permitInput({ riskAssessmentId: SEED.approvedAssessmentC })),
+      permits.createPermit(context, permitInput({ riskAssessmentId: OTHER_SITE.assessment })),
     );
     expect(error.code).toBe("VALIDATION_ERROR");
     expect(error.reason).toBe("CROSS_PROJECT_REFERENCE");
@@ -329,7 +398,7 @@ describe("links between sites (PRD #47 §51)", () => {
           title: "Wrong site",
           projectId: SEED.projectA,
           reason: "Raised by the authorisation suite.",
-          hazardId: SEED.hazardOnProjectC,
+          hazardId: OTHER_SITE.hazard,
         }),
       ),
     );
@@ -339,7 +408,7 @@ describe("links between sites (PRD #47 §51)", () => {
   it("refuses a hazard filed against another project's inspection", async () => {
     const context = await loginAs("HSE");
     const error = await refusal(
-      hazards.createHazard(context, hazardInput({ inspectionId: SEED.inspectionOnProjectC })),
+      hazards.createHazard(context, hazardInput({ inspectionId: OTHER_SITE.inspection })),
     );
     expect(error.reason).toBe("CROSS_PROJECT_REFERENCE");
   });

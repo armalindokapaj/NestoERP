@@ -8,9 +8,9 @@
  */
 import type { PrismaClient } from "@prisma/client";
 
-import { COMPANY_A, PROJECT_IDS, daysFromNow } from "./constants";
+import { COMPANY_A, type SeedMembers } from "./constants";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 export async function seedModuleRecords(prisma: PrismaClient, members: Members) {
   // Finance has its own seed now (prisma/seed/finance.ts): invoices with line

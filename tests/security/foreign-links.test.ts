@@ -6,7 +6,7 @@ import type { UserContext } from "@/lib/context/types";
 import { findCrossCompanyReferences } from "@/lib/core/security/company-integrity";
 import { cleanupSessions, loginAsEmail, prisma } from "../helpers";
 import { actAs } from "./harness/actor";
-import { COMPANY_A, COMPANY_B } from "./harness/companies";
+import { COMPANY_A, COMPANY_TENANT } from "./harness/companies";
 import { idsByFieldName, paramVariants } from "./harness/params";
 import { callRoute, candidateValues, discoverApiRoutes, fillPattern, loadRouteModule, NON_SESSION_ROUTES, type HttpMethod, type RouteModule } from "./harness/routes";
 import { idFieldsParsedIn } from "./harness/schemas";
@@ -24,7 +24,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: (
  * For each write route, Company A's Owner first builds a request that succeeds
  * using only Company A's own ids. Then, one link field at a time — every
  * id-shaped field in the route's schema, required or optional — the same
- * request is sent with that one field naming a Company B record. The server
+ * request is sent with that one field naming a fixture tenant record. The server
  * must never take one up: not in the record it answers with, and — the check
  * that does not depend on what an endpoint chooses to echo — not anywhere in
  * the database afterwards, which the company-integrity scan reads table by
@@ -78,10 +78,10 @@ async function validBody(handler: NonNullable<RouteModule[HttpMethod]>, method: 
 }
 
 describe.skipIf(!destructive)("no write accepts another company's record as a link (PRD #47 §21)", () => {
-  it("refuses a Company B id in every link field of every write route", async () => {
+  it("refuses a fixture tenant id in every link field of every write route", async () => {
     const ownId = await idsByFieldName(COMPANY_A);
-    const foreignId = await idsByFieldName(COMPANY_B);
-    const anyForeignId = foreignId("projectId") ?? foreignId("clientId") ?? COMPANY_B;
+    const foreignId = await idsByFieldName(COMPANY_TENANT);
+    const anyForeignId = foreignId("projectId") ?? foreignId("clientId") ?? COMPANY_TENANT;
     const findings: Finding[] = [];
     /** Accepted, but the field was never read on the path that ran: reported, not failed. */
     const ignored: Finding[] = [];
@@ -108,8 +108,8 @@ describe.skipIf(!destructive)("no write accepts another company's record as a li
 
         const fields = new Set([...idFields, ...Object.keys(baseline.body).filter((field) => /Ids?$/.test(field))]);
         for (const field of fields) {
-          // Company B is a smaller company, so it has no record of its own for
-          // many of these fields. Any id of Company B's still makes the point:
+          // The tenant is a smaller company, so it has no record of its own for
+          // many of these fields. Any id of the tenant's still makes the point:
           // the server looks the id up inside the caller's company, where it
           // does not exist, whatever kind of record it names (PRD #47 §17, §20).
           const foreign = foreignId(field.replace(/Ids$/, "Id")) ?? anyForeignId;

@@ -29,7 +29,7 @@ import {
   updateMeeting,
 } from "@/lib/modules/meetings/meeting.service";
 import { completeTask, reopenTask } from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
  * Meetings, against the real database (PRD #40 §284-§296, §302).
@@ -246,9 +246,9 @@ describe("visibility (§80-§86, §291)", () => {
   it("opens a project meeting to the project's people and nobody outside it, and hides the project from an invited outsider", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
     const architect = await loginAs("ARCHITECT");
-    // Inventory sees only its own projects; Company IT has no project access at all.
+    // Inventory sees only its own projects; Group IT has no project access at all.
     const inventory = await loginAs("INVENTORY");
-    const it = await loginAs("COMPANY_IT");
+    const it = await loginAs("GROUP_IT");
     const { meeting } = await make(pm, { visibility: "PROJECT", projectId: PROJECT.a, meetingType: "PROJECT", participants: [{ memberId: it.membershipId }] });
     expect((await getMeeting(architect, meeting.id)).project?.id).toBe(PROJECT.a);
     await expectCode(getMeeting(inventory, meeting.id), "NOT_FOUND");
@@ -280,7 +280,7 @@ describe("visibility (§80-§86, §291)", () => {
 describe("company isolation (§231-§233, §292)", () => {
   it("refuses another company's participant, project and action owner, and another company's reader", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
-    const ownerB = await loginAsEmail("owner-b@nesto.test");
+    const ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
     await expectCode(make(pm, { participants: [{ memberId: ownerB.membershipId }] }), "VALIDATION_ERROR");
     await expectCode(make(pm, { visibility: "PROJECT", projectId: PROJECT.companyB }), "VALIDATION_ERROR");
 
@@ -513,11 +513,11 @@ describe("action items and tasks (§53-§62, §233, §290, §298)", () => {
 
   it("refuses a task hand-off to somebody the caller may not assign work to, and keeps the action", async () => {
     const architect = await loginAs("ARCHITECT");
-    const engineer = await loginAs("ENGINEER");
+    const sales = await loginAs("SALES");
     const hse = await loginAs("HSE");
-    // The architect runs a project meeting but may only assign project work to the project team.
-    const meeting = await heldMeeting(architect, [{ memberId: hse.membershipId }], { visibility: "PROJECT", projectId: PROJECT.c });
-    const outcome = await createActionItem(architect, meeting.id, { title: "Check the site", description: null, ownerMemberId: engineer.membershipId, createTask: true }).then(
+    // The architect runs a project meeting but may only assign project work to the project team, which Sales is not on.
+    const meeting = await heldMeeting(architect, [{ memberId: hse.membershipId }], { visibility: "PROJECT", projectId: PROJECT.a });
+    const outcome = await createActionItem(architect, meeting.id, { title: "Check the site", description: null, ownerMemberId: sales.membershipId, createTask: true }).then(
       () => "created",
       (error: AccessError) => error.code,
     );

@@ -2,6 +2,7 @@ import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { businessDateString } from "../hr.calendar";
+import { memberAddressed } from "../hr.person";
 import { buildEmployeeScopeWhere } from "../hr.scope";
 import type { EmploymentStatus, HrProgressStatus } from "@prisma/client";
 
@@ -68,7 +69,7 @@ export async function listProgress(
     },
   });
 
-  return records.map((record) => {
+  return records.map(memberAddressed).map((record) => {
     const date = kind === "onboarding" ? record.startDate : record.endDate;
 
     return {

@@ -35,6 +35,7 @@ export const MODULE_KEYS = [
   "qaqc",
   "hse",
   "team",
+  "organization",
   "company",
   "settings",
   "support",
@@ -47,7 +48,7 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
  * turn them off, and every company has them from the moment it exists — the
  * access sync creates the switch for companies that predate a new one.
  */
-export const CORE_MODULE_KEYS = ["dashboard", "calendar", "approvals", "announcements", "team", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
+export const CORE_MODULE_KEYS = ["dashboard", "calendar", "approvals", "announcements", "team", "organization", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
 
 /** Sidebar groups, in render order (PRD #3 §8). */
 export const MODULE_GROUPS = ["primary", "work", "department", "company"] as const;
@@ -564,6 +565,24 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "invitations", label: "Invitations", permission: "team.invitation.view" },
       { key: "inactive", label: "Inactive", permission: "team.member.view" },
     ],
+  },
+  /**
+   * The parent group above the company (E-06 §127): its companies, group
+   * departments, people and the account requests that connect HR to Group IT.
+   * Part of the product rather than switchable — a company cannot opt out of
+   * belonging to its group.
+   */
+  organization: {
+    key: "organization",
+    label: "Organization",
+    description: "Your parent group, its companies, departments and people.",
+    route: "/organization",
+    icon: "Network",
+    group: "company",
+    permission: "organization.view",
+    writePermission: "organization.department.manage",
+    defaultSection: "overview",
+    sections: [{ key: "overview", label: "Overview" }],
   },
   company: {
     key: "company",

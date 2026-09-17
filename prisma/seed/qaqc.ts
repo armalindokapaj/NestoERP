@@ -21,10 +21,10 @@
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
 
-import { COMPANY_A, COMPANY_B, PROJECT_IDS, daysFromNow } from "./constants";
+import { COMPANY_A, FIXTURE_TENANT, PROJECT_IDS, daysFromNow, type SeedMembers } from "./constants";
 import { seedStoredDocument } from "./document-objects";
 
-type Members = Map<string, string>;
+type Members = SeedMembers;
 
 const qty = (value: number) => new Prisma.Decimal(value.toFixed(4));
 
@@ -245,7 +245,7 @@ async function seedRequests(
       number: "IR-2026-0004",
       title: "Level 2 blockwork",
       type: "WORK",
-      project: PROJECT_IDS.b,
+      project: PROJECT_IDS.a,
       status: "ASSIGNED",
       priority: "MEDIUM",
       inspector: people.qaqc,
@@ -256,9 +256,9 @@ async function seedRequests(
     {
       id: "ir_005",
       number: "IR-2026-0005",
-      title: "Marina apartments — unit 12 handover",
+      title: "Riverside — unit 12 handover",
       type: "GENERAL",
-      project: PROJECT_IDS.c,
+      project: PROJECT_IDS.a,
       status: "OPEN",
       priority: "LOW",
       daysAgo: 3,
@@ -399,7 +399,7 @@ const INSPECTIONS: InspectionFixture[] = [
     number: "INS-2026-0005",
     type: "WORK",
     template: "tpl_concrete",
-    project: PROJECT_IDS.b,
+    project: PROJECT_IDS.a,
     status: "PENDING_APPROVAL",
     result: "FAIL",
     daysAgo: 4,
@@ -412,7 +412,7 @@ const INSPECTIONS: InspectionFixture[] = [
     number: "INS-2026-0006",
     type: "GENERAL",
     template: "tpl_handover",
-    project: PROJECT_IDS.c,
+    project: PROJECT_IDS.a,
     status: "PENDING_APPROVAL",
     result: "PASS",
     daysAgo: 3,
@@ -437,7 +437,7 @@ const INSPECTIONS: InspectionFixture[] = [
     type: "WORK",
     template: "tpl_concrete",
     request: "ir_004",
-    project: PROJECT_IDS.b,
+    project: PROJECT_IDS.a,
     status: "IN_PROGRESS",
     result: "NOT_SET",
     daysAgo: 1,
@@ -448,7 +448,7 @@ const INSPECTIONS: InspectionFixture[] = [
     number: "INS-2026-0009",
     type: "GENERAL",
     template: "tpl_handover",
-    project: PROJECT_IDS.c,
+    project: PROJECT_IDS.a,
     status: "DRAFT",
     result: "NOT_SET",
     daysAgo: 0,
@@ -684,7 +684,7 @@ async function seedDefects(
       number: "DEF-2026-0002",
       title: "Reinforcement spacing wrong at grid D",
       description: "Bar centres at 250mm where the drawing calls for 200mm.",
-      project: PROJECT_IDS.b,
+      project: PROJECT_IDS.a,
       inspection: "ins_005",
       severity: "CRITICAL",
       status: "IN_PROGRESS",
@@ -697,7 +697,7 @@ async function seedDefects(
       number: "DEF-2026-0003",
       title: "Paint finish patchy in the stair core",
       description: "Second coat uneven over about twelve square metres.",
-      project: PROJECT_IDS.c,
+      project: PROJECT_IDS.a,
       severity: "LOW",
       status: "RESOLVED",
       daysAgo: 12,
@@ -710,7 +710,7 @@ async function seedDefects(
       number: "DEF-2026-0004",
       title: "Door frame out of plumb, unit 12",
       description: "Frame out by 9mm over the height.",
-      project: PROJECT_IDS.c,
+      project: PROJECT_IDS.a,
       severity: "MEDIUM",
       status: "OPEN",
       daysAgo: 2,
@@ -843,7 +843,7 @@ async function seedNcrs(
       number: "NCR-2026-0003",
       title: "Reinforcement spacing wrong at grid D",
       description: "Bar centres at 250mm against a specified 200mm.",
-      project: PROJECT_IDS.b,
+      project: PROJECT_IDS.a,
       inspection: "ins_005",
       defect: "def_002",
       category: "WORKMANSHIP",
@@ -976,7 +976,7 @@ async function seedCorrectiveActions(
       description: "Strip, re-set and re-tie the affected bay.",
       ncr: "ncr_003",
       defect: "def_002",
-      project: PROJECT_IDS.b,
+      project: PROJECT_IDS.a,
       status: "IN_PROGRESS",
       daysAgo: 3,
       dueIn: -1,
@@ -1154,7 +1154,7 @@ async function seedCompanyBQaqc(prisma: PrismaClient, members: Members) {
     update: {},
     create: {
       id: "tpl_b_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       code: "B-GEN",
       name: "Company B template. Must never appear in a Company A result.",
       inspectionType: "GENERAL",
@@ -1169,7 +1169,7 @@ async function seedCompanyBQaqc(prisma: PrismaClient, members: Members) {
     update: {},
     create: {
       id: "ins_b_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       inspectionNumber: "INS-2026-B001",
       inspectionType: "GENERAL",
       assignedInspectorMemberId: ownerB,
@@ -1185,7 +1185,7 @@ async function seedCompanyBQaqc(prisma: PrismaClient, members: Members) {
     update: {},
     create: {
       id: "ncr_b_001",
-      companyId: COMPANY_B,
+      companyId: FIXTURE_TENANT,
       ncrNumber: "NCR-2026-B001",
       title: "Company B NCR. Must never appear in a Company A result.",
       description: "Isolation fixture.",

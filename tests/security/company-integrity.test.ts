@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { findCrossCompanyReferences } from "@/lib/core/security/company-integrity";
 import { prisma } from "../helpers";
-import { COMPANY_A, COMPANY_B } from "./harness/companies";
+import { COMPANY_A, COMPANY_TENANT } from "./harness/companies";
 
 /**
  * The data-level isolation invariant (PRD #47 §20, §21, §189).
@@ -23,8 +23,8 @@ describe("company integrity (PRD #47 §21)", () => {
     expect(await findCrossCompanyReferences(prisma)).toEqual([]);
   }, 300_000);
 
-  it("finds a planted one: a Company A task assigned to a Company B member", async () => {
-    const memberB = await prisma.companyMember.findFirstOrThrow({ where: { companyId: COMPANY_B }, select: { id: true } });
+  it("finds a planted one: a Company A task assigned to the fixture tenant's member", async () => {
+    const memberB = await prisma.companyMember.findFirstOrThrow({ where: { companyId: COMPANY_TENANT }, select: { id: true } });
     const creatorA = await prisma.companyMember.findFirstOrThrow({ where: { companyId: COMPANY_A }, select: { id: true, userId: true } });
     await prisma.task.create({
       data: { id: PLANTED, companyId: COMPANY_A, title: "Integrity probe", assigneeMemberId: memberB.id, createdByMemberId: creatorA.id, createdBy: creatorA.userId },

@@ -270,13 +270,8 @@ test.describe("Owner (PRD #21 §406)", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("Access boundaries (PRD #21 §23, §24, §28, §29)", () => {
-  test("Admin has no QA/QC business access (§23)", async ({ page }) => {
-    await signIn(page, "ADMIN");
-    await expectAccessDenied(page, "/qaqc");
-  });
-
-  test("Company IT has no QA/QC business access (§24)", async ({ page }) => {
-    await signIn(page, "COMPANY_IT");
+  test("Group IT has no QA/QC business access (§23, §24)", async ({ page }) => {
+    await signIn(page, "GROUP_IT");
     await expectAccessDenied(page, "/qaqc");
   });
 

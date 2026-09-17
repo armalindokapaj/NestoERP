@@ -26,7 +26,7 @@ export type SalesScopeKind = "SELF" | "DEPARTMENT" | "PROJECT" | "COMPANY";
 
 export function salesScopeKind(context: UserContext): SalesScopeKind {
   const scope = getModuleScope(context, "sales");
-  if (scope === "COMPANY" || scope === "SYSTEM") return "COMPANY";
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM") return "COMPANY";
   if (scope === "DEPARTMENT") return "DEPARTMENT";
   if (scope === "PROJECT") return "PROJECT";
   return "SELF";

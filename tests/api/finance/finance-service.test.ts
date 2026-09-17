@@ -22,7 +22,7 @@ import {
   parseInvoiceQuery,
   parsePaymentQuery,
 } from "@/lib/modules/finance/finance.query";
-import { cleanupSessions, loginAs, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, prisma } from "../../helpers";
 
 /**
  * Finance authorisation, money and lifecycle tests (PRD #15 §340–§368).
@@ -76,6 +76,11 @@ async function expectError(promise: Promise<unknown>, code: string) {
   await promise.catch((error: AccessError) => expect(error.code).toBe(code));
 }
 
+/** The Owner's session in each of the five demo companies, Aurelia first. */
+function ownerInEveryCompany() {
+  return Promise.all(["member_owner", "member_owner__b", "member_owner__c", "member_owner__d", "member_owner__e"].map((id) => loginAsMembership(id)));
+}
+
 function invoiceInput(overrides: Record<string, unknown> = {}) {
   return createInvoiceSchema.parse({
     invoiceNumber: `TEST-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
@@ -94,21 +99,23 @@ function invoiceInput(overrides: Record<string, unknown> = {}) {
 /* -------------------------------------------------------------------------- */
 
 describe("module access (PRD #15 §20)", () => {
-  it("keeps Admin and Company IT out of Finance entirely", async () => {
+  it("keeps Group IT out of Finance entirely", async () => {
     // Administering NESTO is not financial authorisation. The module is
     // enabled for the company, so the refusal is FORBIDDEN rather than
     // "module unavailable" — the role is what is missing, not the module.
-    for (const role of ["ADMIN", "COMPANY_IT", "HR"] as const) {
+    for (const role of ["GROUP_IT", "HR"] as const) {
       const context = await loginAs(role);
       expect(context.moduleAccess.finance.accessLevel).toBe("NONE");
       await expectError(invoices.listInvoices(context, parseInvoiceQuery({})), "FORBIDDEN");
     }
+    // The Platform Admin has no company membership to reach it from at all.
+    await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow();
   });
 
   it("gives the Finance role the company's invoices", async () => {
     const context = await loginAs("FINANCE");
     const result = await invoices.listInvoices(context, parseInvoiceQuery({ limit: "100" }));
-    expect(result.pagination.total).toBeGreaterThanOrEqual(12);
+    expect(result.pagination.total).toBeGreaterThanOrEqual(4);
   });
 
   it("refuses an Architect the invoice list, but not the project budget", async () => {
@@ -145,7 +152,7 @@ describe("scope (PRD #15 §212, §216)", () => {
 
     expect(budgetList.data.length).toBeGreaterThan(0);
     for (const budget of budgetList.data) {
-      expect(["project_a", "project_b"]).toContain(budget.project.id);
+      expect(budget.project.id).toBe("project_a");
     }
   });
 
@@ -160,8 +167,9 @@ describe("scope (PRD #15 §212, §216)", () => {
 
   it("answers NOT_FOUND for a record outside scope (PRD #15 §174)", async () => {
     const pm = await loginAs("PROJECT_MANAGER");
-    // A 403 would confirm it exists. A 404 says nothing at all.
-    await expectError(budgets.getBudget(pm, "budget_c_v1"), "NOT_FOUND");
+    // A 403 would confirm it exists. A 404 says nothing at all. COM-012 is
+    // the PM's own company's, but it has no project to authorise it against.
+    await expectError(commitments.getCommitment(pm, "commitment_012"), "NOT_FOUND");
   });
 
   it("gives a payment no scope of its own (PRD #15 §216)", async () => {
@@ -286,8 +294,8 @@ describe("invoice creation (PRD #15 §341, §342)", () => {
     await expectError(
       invoices.createInvoice(
         finance,
-        // Project A belongs to ACME, not Beta.
-        invoiceInput({ clientId: "client_beta", projectId: "project_a" }),
+        // Project A belongs to ACME, not Nova, though both are Aurelia's clients.
+        invoiceInput({ clientId: "client_nova", projectId: "project_a" }),
       ),
       "VALIDATION_ERROR",
     );
@@ -598,9 +606,9 @@ describe("payments (PRD #15 §79, §83, §84)", () => {
   });
 
   it("inherits the record's currency rather than accepting one (PRD #15 §76)", async () => {
-    const finance = await loginAs("FINANCE");
+    // invoice_013 is Terra's, in USD. The payment must come out in USD too.
+    const finance = await loginAsMembership("member_finance__c");
 
-    // invoice_013 is in USD. The payment must come out in USD too.
     const paymentId = await payments.recordPayment(
       finance,
       createPaymentSchema.parse({
@@ -680,8 +688,8 @@ describe("budgets (PRD #15 §109–§117)", () => {
   });
 
   it("bands risk from the forecast, with all three bands present in the seed", async () => {
-    const owner = await loginAs("OWNER");
-    const rows = await reports.budgetVsActual(owner);
+    // One project a company: the bands are spread across the group.
+    const rows = (await Promise.all((await ownerInEveryCompany()).map((owner) => reports.budgetVsActual(owner)))).flat();
     const risks = new Set(rows.map((row) => row.risk));
 
     expect(risks.has("GREEN")).toBe(true);
@@ -690,7 +698,7 @@ describe("budgets (PRD #15 §109–§117)", () => {
   });
 
   it("allows only one open version per project (PRD #15 §110)", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAsMembership("member_owner__e");
 
     // project_e already has a draft in the seed.
     await expectError(
@@ -707,13 +715,14 @@ describe("budgets (PRD #15 §109–§117)", () => {
   });
 
   it("fixes the currency once a budget has been approved (PRD #15 §117)", async () => {
-    const owner = await loginAs("OWNER");
+    // Terra's project has an approved budget in euros and nothing open.
+    const owner = await loginAsMembership("member_owner__c");
 
     await expectError(
       budgets.createBudget(
         owner,
         createBudgetSchema.parse({
-          projectId: "project_d",
+          projectId: "project_c",
           currency: "USD",
           lineItems: [{ category: "SERVICES", description: "Dollar budget", plannedAmount: "100" }],
         }),
@@ -744,7 +753,7 @@ describe("budgets (PRD #15 §109–§117)", () => {
   });
 
   it("revises into a new version, leaving the approved one current", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAsMembership("member_owner__b");
 
     const revisionId = await budgets.reviseBudget(owner, "budget_b_v1");
     createdBudgets.push(revisionId);
@@ -762,11 +771,11 @@ describe("budgets (PRD #15 §109–§117)", () => {
   });
 
   it("stands the previous version down when a revision is approved (PRD #15 §113)", async () => {
-    const owner = await loginAs("OWNER");
-    const finance = await loginAs("FINANCE");
+    const owner = await loginAsMembership("member_owner__c");
+    const finance = await loginAsMembership("member_finance__c");
 
-    // Project D has one approved version and nothing open, so a revision can
-    // actually be started (project C already carries a pending v2 in the seed).
+    // Terra's budget has one approved version and nothing open, so a revision
+    // can actually be started (Forma's already carries a pending v2 in the seed).
     const revisionId = await budgets.reviseBudget(finance, "budget_d_v1");
     createdBudgets.push(revisionId);
 
@@ -774,7 +783,7 @@ describe("budgets (PRD #15 §109–§117)", () => {
     await budgets.approveBudget(owner, revisionId, null);
 
     const current = await prisma.projectBudget.findMany({
-      where: { projectId: "project_d", isCurrent: true },
+      where: { projectId: "project_c", isCurrent: true },
       select: { id: true },
     });
     // Exactly one current version, and it is the new one.
@@ -912,10 +921,10 @@ describe("commitments (PRD #15 §351)", () => {
 
 describe("approval queue (PRD #15 §352)", () => {
   it("shows the Owner every pending finance approval", async () => {
-    const owner = await loginAs("OWNER");
-    const queue = await approvals.listApprovals(owner, { status: "PENDING", limit: 100 });
+    // Each company's queue is its own; across the group they hold every type.
+    const queues = await Promise.all((await ownerInEveryCompany()).map((owner) => approvals.listApprovals(owner, { status: "PENDING", limit: 100 })));
 
-    const types = new Set(queue.data.map((entry) => entry.recordType));
+    const types = new Set(queues.flatMap((queue) => queue.data.map((entry) => entry.recordType)));
     expect(types.has("INVOICE")).toBe(true);
     expect(types.has("EXPENSE")).toBe(true);
     expect(types.has("BUDGET")).toBe(true);
@@ -934,13 +943,13 @@ describe("approval queue (PRD #15 §352)", () => {
   });
 
   it("marks the submitter's own approval as undecidable by them", async () => {
-    const finance = await loginAs("FINANCE");
-    const ceo = await loginAs("CEO");
+    const finance = await loginAsMembership("member_finance__b");
+    const ceo = await loginAsEmail(DEMO_EMAIL.ceoB);
 
     const queue = await approvals.listApprovals(ceo, { status: "PENDING", limit: 100 });
     const seeded = queue.data.find((entry) => entry.recordId === "invoice_008");
 
-    // Submitted by Finance in the seed, so the CEO may decide it.
+    // Submitted by Finance in Meridian's seed, so Meridian's CEO may decide it.
     expect(seeded?.canDecide).toBe(true);
     expect(seeded?.submittedBy.memberId).toBe(finance.membershipId);
   });
@@ -948,10 +957,10 @@ describe("approval queue (PRD #15 §352)", () => {
 
 describe("overview and reports (PRD #15 §360, §361)", () => {
   it("groups receivables by currency and never adds them together", async () => {
-    const finance = await loginAs("FINANCE");
+    const finance = await loginAsMembership("member_finance__c");
     const overview = await getFinanceOverview(finance);
 
-    // The seed has a USD invoice alongside the euro ones.
+    // Terra's seed has a USD invoice alongside the euro ones.
     const currencies = overview.receivables.map((total) => total.currency);
     expect(currencies).toContain("EUR");
     expect(currencies).toContain("USD");
@@ -969,13 +978,13 @@ describe("overview and reports (PRD #15 §360, §361)", () => {
   });
 
   it("ages receivables into buckets without storing them (PRD #15 §149, §255)", async () => {
-    const finance = await loginAs("FINANCE");
+    // Forma's seed holds the invoice longest past due.
+    const finance = await loginAsMembership("member_finance__d");
     const rows = await reports.receivablesAging(finance);
 
     const euro = rows.find((row) => row.currency === "EUR");
     expect(euro).toBeDefined();
 
-    // The seed places an invoice in every bucket.
     for (const bucket of reports.AGING_BUCKETS) {
       expect(euro!.buckets[bucket]).toMatch(/^\d+\.\d{2}$/);
     }

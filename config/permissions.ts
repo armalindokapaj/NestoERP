@@ -1107,6 +1107,60 @@ export const PERMISSIONS = [
   "team.department.update",
   "team.department.archive",
   "team.department.restore",
+
+  /* Organization (E-06) --------------------------------------------------- */
+  /**
+   * The parent group above the companies: its companies, its group departments
+   * and their company branches, the positions people hold in them, delegated
+   * access, and the account requests HR raises. Everything here is read inside
+   * the request's parent group; the organization module's scope says how much of
+   * it — GROUP for the Owner, Group IT and group heads, COMPANY or DEPARTMENT
+   * below them (E-06 §17, §72).
+   */
+  "organization.view",
+  "organization.company.view",
+  "organization.company.configuration.manage",
+  "organization.module_configuration.manage",
+  "organization.department.view",
+  "organization.department.manage",
+  "organization.department_head.assign",
+  "organization.department_manager.assign",
+  "organization.people.view",
+  "organization.role_template.view",
+  "organization.access.view",
+  "organization.access.grant",
+  "organization.audit.view",
+  // Group IT's account work (E-06 §75). None of it is a business approval.
+  "organization.user.provision",
+  "organization.user.activate",
+  "organization.user.deactivate",
+  "organization.user.technical_access.manage",
+  "organization.provisioning_request.view",
+  "organization.provisioning_request.process",
+  // The business decision that a person gets an account: Head of Group HR or the Owner.
+  "organization.provisioning_request.approve",
+
+  /* Departments (E-06 §77, §78) ------------------------------------------- */
+  // A manager's team and its project workload; a group head's function across the group.
+  "department.team.view",
+  "department.workload.view",
+  "department.project.assign",
+  "department.project.unassign",
+  "department.group.view",
+  "department.projects.view_group",
+  "department.company_manager.manage",
+  "department.team.access.delegate",
+
+  /* People and recruitment (E-06 §76) ------------------------------------- */
+  // HR's person, candidate and employment truth. Creating credentials is not here (§140).
+  "person_profile.view",
+  "person_profile.create",
+  "person_profile.update",
+  "candidate.view",
+  "candidate.manage",
+  "employment.manage",
+  "provisioning_request.create",
+  "provisioning_request.submit",
   "team.activity.view",
 
   /* Company -------------------------------------------------------------- */
@@ -1204,6 +1258,12 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   qaqc: "qaqc",
   hse: "hse",
   team: "team",
+  organization: "organization",
+  department: "organization",
+  person_profile: "organization",
+  candidate: "organization",
+  employment: "organization",
+  provisioning_request: "organization",
   company: "company",
   settings: "settings",
   support: "support",
@@ -1340,6 +1400,12 @@ const MUTATING_ACTIONS = new Set([
   "record_payment",
   "allocate_payment",
   "correct",
+  // Organization (E-06 §75-§78).
+  "grant",
+  "provision",
+  "process",
+  "unassign",
+  "delegate",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

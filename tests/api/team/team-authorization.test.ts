@@ -22,10 +22,10 @@ import { cleanupSessions, loginAsEmail, prisma } from "../../helpers";
 
 const SLUG = "prd47-team-authz";
 const EMAIL = (name: string) => `prd47-team-${name}@nesto.test`;
-const PEOPLE = ["boot", "owner1", "owner2", "owner3", "admin", "outsider", "dormant", "relisted", "promoted", "ownerinv", "superseded"];
+const PEOPLE = ["boot", "owner1", "owner2", "owner3", "groupit", "outsider", "dormant", "relisted", "promoted", "ownerinv", "superseded"];
 
 let companyId: string;
-let roles: Record<"OWNER" | "ADMIN" | "VIEWER" | "ENGINEER", string>;
+let roles: Record<"OWNER" | "GROUP_IT" | "VIEWER" | "ENGINEER", string>;
 const members: Record<string, string> = {};
 
 async function removeFixtures() {
@@ -55,6 +55,12 @@ async function removeFixtures() {
     await prisma.companySettings.deleteMany({ where: { companyId: id } });
     await prisma.companyModule.deleteMany({ where: { companyId: id } });
     await prisma.company.delete({ where: { id } });
+  }
+  // Provisioning gave the company a parent group of its own (E-06 §8).
+  const group = await prisma.parentGroup.findUnique({ where: { slug: SLUG }, select: { id: true } });
+  if (group) {
+    await prisma.groupDepartment.deleteMany({ where: { parentGroupId: group.id } });
+    await prisma.parentGroup.delete({ where: { id: group.id } });
   }
   if (userIds.length > 0) {
     await prisma.session.deleteMany({ where: { userId: { in: userIds } } });
@@ -112,13 +118,13 @@ beforeAll(async () => {
   const provisioned = await bootstrapCompany({ name: "PRD 47 Team Authorization", slug: SLUG, ownerEmail: EMAIL("boot") });
   companyId = provisioned.companyId;
 
-  const rows = await prisma.role.findMany({ where: { key: { in: ["OWNER", "ADMIN", "VIEWER", "ENGINEER"] } } });
+  const rows = await prisma.role.findMany({ where: { key: { in: ["OWNER", "GROUP_IT", "VIEWER", "ENGINEER"] } } });
   roles = Object.fromEntries(rows.map((row) => [row.key, row.id])) as typeof roles;
 
   await join("owner1", "OWNER");
   await join("owner2", "OWNER");
   await join("owner3", "OWNER", "INACTIVE");
-  await join("admin", "ADMIN");
+  await join("groupit", "GROUP_IT");
 });
 
 afterEach(async () => {
@@ -135,7 +141,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-const admin = () => loginAsEmail(EMAIL("admin"));
+const groupIt = () => loginAsEmail(EMAIL("groupit"));
 const owner1 = () => loginAsEmail(EMAIL("owner1"));
 
 /* -------------------------------------------------------------------------- */
@@ -143,8 +149,8 @@ const owner1 = () => loginAsEmail(EMAIL("owner1"));
 /* -------------------------------------------------------------------------- */
 
 describe("an Owner's role and access are the Owner grant's to change (PRD #47 §57)", () => {
-  it("refuses an Admin demoting an Owner even while another active Owner remains", async () => {
-    const context = await admin();
+  it("refuses Group IT demoting an Owner even while another active Owner remains", async () => {
+    const context = await groupIt();
     await expectCode(
       team.updateMember(context, members.owner1, updateMemberSchema.parse({ roleId: roles.VIEWER })),
       "FORBIDDEN",
@@ -153,8 +159,8 @@ describe("an Owner's role and access are the Owner grant's to change (PRD #47 §
     expect(row.roleId).toBe(roles.OWNER);
   });
 
-  it("refuses an Admin suspending, deactivating or restoring an Owner", async () => {
-    const context = await admin();
+  it("refuses Group IT suspending, deactivating or restoring an Owner", async () => {
+    const context = await groupIt();
     await expectCode(team.suspendMember(context, members.owner1), "FORBIDDEN");
     await expectCode(team.deactivateMember(context, members.owner2), "FORBIDDEN");
     await expectCode(team.reactivateMember(context, members.owner3), "FORBIDDEN");
@@ -166,8 +172,8 @@ describe("an Owner's role and access are the Owner grant's to change (PRD #47 §
     expect(rows.map((row) => row.status).sort()).toEqual(["ACTIVE", "ACTIVE", "INACTIVE"]);
   });
 
-  it("does not offer those actions on an Owner to an Admin", async () => {
-    const detail = await team.getMember(await admin(), members.owner1);
+  it("does not offer those actions on an Owner to Group IT", async () => {
+    const detail = await team.getMember(await groupIt(), members.owner1);
     expect(detail.capabilities).toMatchObject({ canAssignRole: false, canDeactivate: false, canSuspend: false });
   });
 
@@ -219,7 +225,7 @@ async function membershipOf(name: string) {
 
 describe("only the invited person activates an invitation (PRD #47 §58)", () => {
   it("refuses to reactivate an INVITED membership", async () => {
-    const context = await admin();
+    const context = await groupIt();
     const user = await person("outsider");
     await invite(context, "outsider", "VIEWER");
     const membership = await membershipOf("outsider");
@@ -230,7 +236,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
   });
 
   it("does not let an accepted link undo a deactivation, and withdraws the invitation", async () => {
-    const context = await admin();
+    const context = await groupIt();
     const user = await person("dormant");
     const sent = await invite(context, "dormant", "VIEWER");
     const membership = await membershipOf("dormant");
@@ -249,7 +255,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
   });
 
   it("applies the role of the invitation being accepted, including a re-invitation after expiry", async () => {
-    const context = await admin();
+    const context = await groupIt();
     const user = await person("relisted");
     const first = await invite(context, "relisted", "VIEWER");
     await prisma.companyInvite.update({ where: { id: first.inviteId }, data: { expiresAt: new Date(Date.now() - 60_000) } });
@@ -264,7 +270,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
   });
 
   it("uses the invitation's role at acceptance even when the membership says otherwise", async () => {
-    const context = await admin();
+    const context = await groupIt();
     const user = await person("promoted");
     const sent = await invite(context, "promoted", "ENGINEER");
     const membership = await membershipOf("promoted");
@@ -274,17 +280,17 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
     expect((await membershipOf("promoted")).roleId).toBe(roles.ENGINEER);
   });
 
-  it("re-runs the role checks on resend: an Admin cannot revive an Owner invitation", async () => {
+  it("re-runs the role checks on resend: Group IT cannot revive an Owner invitation", async () => {
     const sent = await invite(await owner1(), "ownerinv", "OWNER");
     await prisma.companyInvite.update({ where: { id: sent.inviteId }, data: { status: "EXPIRED" } });
 
-    await expectCode(invitations.resendInvitation(await admin(), sent.inviteId), "FORBIDDEN");
+    await expectCode(invitations.resendInvitation(await groupIt(), sent.inviteId), "FORBIDDEN");
     const row = await prisma.companyInvite.findUniqueOrThrow({ where: { id: sent.inviteId } });
     expect(row.status).toBe("EXPIRED");
   });
 
   it("refuses to revive an invitation a newer one replaced", async () => {
-    const context = await admin();
+    const context = await groupIt();
     const first = await invite(context, "superseded", "VIEWER");
     await prisma.companyInvite.update({ where: { id: first.inviteId }, data: { expiresAt: new Date(Date.now() - 60_000) } });
     const second = await invite(context, "superseded", "VIEWER");
@@ -301,7 +307,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
 
 describe("an invitee is an address until they accept (PRD #47 §59)", () => {
   it("shows an INVITED membership by its email only — no name, photo, phone or last sign-in", async () => {
-    const context = await admin();
+    const context = await groupIt();
     const email = EMAIL("boot");
     // The bootstrap Owner has no account yet; give the address one with a
     // full profile, then invite it as somebody else would.
@@ -338,7 +344,7 @@ describe("an invitee is an address until they accept (PRD #47 §59)", () => {
   });
 
   it("answers an inactive account's address exactly as any other", async () => {
-    const context = await admin();
+    const context = await groupIt();
     const user = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL("outsider") } });
     await prisma.user.update({ where: { id: user.id }, data: { status: "INACTIVE" } });
 

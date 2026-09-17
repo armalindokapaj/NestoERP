@@ -1,4 +1,4 @@
-import { isRoleKey, type RoleKey } from "@/config/roles";
+import { isMembershipRoleKey, type RoleKey } from "@/config/roles";
 
 /**
  * Development role switcher (spec §66).
@@ -31,5 +31,5 @@ export const isDevMode = ENVIRONMENT !== "production" && ENVIRONMENT !== "stagin
 export function resolveRole(actualRole: RoleKey, cookieValue?: string | null): RoleKey {
   if (!isDevMode) return actualRole;
   if (!cookieValue) return actualRole;
-  return isRoleKey(cookieValue) ? cookieValue : actualRole;
+  return isMembershipRoleKey(cookieValue) ? cookieValue : actualRole;
 }

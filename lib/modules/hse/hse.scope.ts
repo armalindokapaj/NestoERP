@@ -27,7 +27,7 @@ export type HseScopeKind = "SELF" | "ASSIGNED" | "PROJECT" | "DEPARTMENT" | "COM
 
 export function hseScopeKind(context: UserContext): HseScopeKind {
   const scope = getModuleScope(context, "hse");
-  if (scope === "COMPANY" || scope === "SYSTEM") return "COMPANY";
+  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM") return "COMPANY";
   if (scope === "DEPARTMENT") return "DEPARTMENT";
   if (scope === "PROJECT") return "PROJECT";
   if (scope === "ASSIGNED") return "ASSIGNED";

@@ -1,63 +1,58 @@
 /**
- * Team fixtures: membership lifecycle, department managers and invitations
- * (PRD #14 §300–§306).
+ * Team fixtures: membership lifecycle and invitations (PRD #14 §300–§306).
  *
  * Every state the Team module has to render is present in the seed, because a
  * screen that has never been seen with data in it has never really been built:
  * an active member, an invited one, a deactivated one, a suspended one, and
  * invitations that are pending, expired, cancelled and accepted (PRD #14 §304).
+ *
+ * They are test fixtures, so they live in Fixture Works rather than in a demo
+ * company (E-06 §45). A department's manager is no longer set here: it is the
+ * company manager position the organization seed creates (E-06 §13, §37).
  */
 import type { PrismaClient } from "@prisma/client";
 
 import { hashInviteToken } from "../../lib/modules/team/invitations/invite.token";
 import { hashPassword } from "../../lib/auth/password";
 import {
-  COMPANY_A,
   DEMO_EXISTING_ACCOUNT_INVITE_TOKEN,
   DEMO_INVITE_TOKEN,
   DEMO_PASSWORD,
   INVITED_USER,
+  FIXTURE_OWNER,
+  FIXTURE_WORKS,
   INVITE_IDS,
   daysFromNow,
 } from "./constants";
+import type { SeedMembers } from "./constants";
 
-/** Departments that have a named manager in the demo company (PRD #14 §117). */
-const DEPARTMENT_MANAGERS: { key: string; userId: string }[] = [
-  { key: "projects", userId: "user_pm" },
-  { key: "architecture", userId: "user_architecture_manager" },
-  { key: "sales", userId: "user_sales_manager" },
-  { key: "engineering", userId: "user_engineer" },
-  { key: "finance", userId: "user_finance" },
-  { key: "hr", userId: "user_hr" },
-];
-
-export async function seedTeamRecords(prisma: PrismaClient, members: Map<string, string>) {
+export async function seedTeamRecords(prisma: PrismaClient, members: SeedMembers) {
   const passwordHash = await hashPassword(DEMO_PASSWORD);
   const roleRows = await prisma.role.findMany({ select: { id: true, key: true } });
   const roleId = new Map(roleRows.map((row) => [row.key, row.id]));
 
   const departments = await prisma.department.findMany({
-    where: { companyId: COMPANY_A },
+    where: { companyId: FIXTURE_WORKS },
     select: { id: true, key: true },
   });
   const departmentId = new Map(departments.map((row) => [row.key, row.id]));
 
-  const owner = members.get("user_owner");
-  if (!owner) throw new Error("Seed order: team fixtures need the Company A owner.");
+  const owner = members.get(FIXTURE_OWNER.id);
+  if (!owner) throw new Error("Seed order: team fixtures need the Fixture Works owner.");
 
   /* ---- Membership lifecycle ------------------------------------------- */
 
   // Active members joined; nobody's invitedAt is invented, because most of them
   // were never invited — they are the founding seed (PRD #14 §12).
   await prisma.companyMember.updateMany({
-    where: { companyId: COMPANY_A, status: "ACTIVE", joinedAt: null },
+    where: { companyId: FIXTURE_WORKS, status: "ACTIVE" },
     data: { joinedAt: daysFromNow(-180) },
   });
 
   // The two negative-path memberships carry the dates their state implies, so
   // the Inactive section is not a list of blank cells (PRD #14 §36).
   await prisma.companyMember.updateMany({
-    where: { companyId: COMPANY_A, userId: "user_membership_inactive" },
+    where: { companyId: FIXTURE_WORKS, userId: "user_membership_inactive" },
     data: {
       joinedAt: daysFromNow(-150),
       deactivatedAt: daysFromNow(-20),
@@ -66,26 +61,13 @@ export async function seedTeamRecords(prisma: PrismaClient, members: Map<string,
   });
 
   await prisma.companyMember.updateMany({
-    where: { companyId: COMPANY_A, userId: "user_membership_suspended" },
+    where: { companyId: FIXTURE_WORKS, userId: "user_membership_suspended" },
     data: {
       joinedAt: daysFromNow(-120),
       deactivatedAt: daysFromNow(-5),
       deactivatedByMemberId: owner,
     },
   });
-
-  /* ---- Department managers -------------------------------------------- */
-
-  for (const entry of DEPARTMENT_MANAGERS) {
-    const department = departmentId.get(entry.key);
-    const manager = members.get(entry.userId);
-    if (!department || !manager) continue;
-
-    await prisma.department.update({
-      where: { id: department },
-      data: { managerMemberId: manager, status: "ACTIVE" },
-    });
-  }
 
   /* ---- Invitations ----------------------------------------------------- */
 
@@ -130,7 +112,7 @@ export async function seedTeamRecords(prisma: PrismaClient, members: Map<string,
     id: INVITE_IDS.cancelled,
     email: "withdrawn-invite@nesto.test",
     roleId: viewerRole,
-    departmentId: departmentId.get("administration") ?? null,
+    departmentId: departmentId.get("executive") ?? null,
     jobTitle: "Office Assistant",
     tokenHash: hashInviteToken("nesto-demo-cancelled-invite-token"),
     status: "CANCELLED",
@@ -144,19 +126,18 @@ export async function seedTeamRecords(prisma: PrismaClient, members: Map<string,
    * An accepted invitation pointing at a member who is really here, so the
    * list shows the ordinary end state rather than only the interesting ones.
    */
-  const architect = members.get("user_architect");
   await upsertInvite(prisma, {
     id: INVITE_IDS.accepted,
-    email: "architect@nesto.test",
-    roleId: roleId.get("ARCHITECT")!,
-    departmentId: departmentId.get("architecture") ?? null,
-    jobTitle: "Architect",
+    email: FIXTURE_OWNER.email,
+    roleId: roleId.get("OWNER")!,
+    departmentId: departmentId.get("executive") ?? null,
+    jobTitle: FIXTURE_OWNER.jobTitle,
     tokenHash: hashInviteToken("nesto-demo-accepted-invite-token"),
     status: "ACCEPTED",
     expiresAt: daysFromNow(-160),
     acceptedAt: daysFromNow(-165),
-    userId: "user_architect",
-    companyMemberId: architect ?? null,
+    userId: FIXTURE_OWNER.id,
+    companyMemberId: owner,
     createdByMemberId: owner,
     createdAt: daysFromNow(-170),
   });
@@ -184,7 +165,7 @@ export async function seedTeamRecords(prisma: PrismaClient, members: Map<string,
   });
 
   const invitedMembership = await prisma.companyMember.upsert({
-    where: { companyId_userId: { companyId: COMPANY_A, userId: INVITED_USER.id } },
+    where: { companyId_userId: { companyId: FIXTURE_WORKS, userId: INVITED_USER.id } },
     update: {
       status: "INVITED",
       invitedAt: daysFromNow(-1),
@@ -193,7 +174,7 @@ export async function seedTeamRecords(prisma: PrismaClient, members: Map<string,
     },
     create: {
       id: "member_invited",
-      companyId: COMPANY_A,
+      companyId: FIXTURE_WORKS,
       userId: INVITED_USER.id,
       roleId: viewerRole,
       departmentId: departmentId.get("projects") ?? null,
@@ -243,7 +224,7 @@ type InviteFixture = {
 /** Idempotent, so re-running the seed on an existing database converges. */
 async function upsertInvite(prisma: PrismaClient, fixture: InviteFixture) {
   const data = {
-    companyId: COMPANY_A,
+    companyId: FIXTURE_WORKS,
     email: fixture.email,
     roleId: fixture.roleId,
     departmentId: fixture.departmentId,
