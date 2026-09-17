@@ -56,6 +56,8 @@ const RULES: Rule[] = [
   { when: /\/hr\/employees\//, param: "memberId", source: { model: "EmployeeProfile", column: "companyMemberId" } },
   // An account request is the company's the person joins (E-06 §27); not a unit's contract request.
   { when: /\/user-provisioning-requests\//, param: "requestId", source: { model: "UserProvisioningRequest" } },
+  // A department appointment, not a contractor's project assignment (E-06 §90).
+  { when: /\/department-assignments\//, param: "assignmentId", source: { model: "DepartmentAssignment" } },
   { when: /\/projects\/\[projectId\]\/members\//, param: "projectMemberId", source: { model: "ProjectMember" } },
 ];
 

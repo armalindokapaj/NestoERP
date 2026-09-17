@@ -1,4 +1,5 @@
 import { AnnouncementsIndicator } from "@/components/announcements/shell";
+import { CompanySwitcher } from "@/components/layout/company-switcher";
 import { DevRoleSwitcher } from "@/components/layout/dev-role-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { MobileHeader } from "@/components/layout/mobile-header";
@@ -9,6 +10,7 @@ import type { NavigationGroup } from "@/config/navigation";
 import { isDevMode } from "@/lib/auth/dev-role";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
+import { listCompanyContexts } from "@/lib/modules/organization/company-context.service";
 
 /**
  * Universal top bar (PRD #3 §16, §76). Identical for every role.
@@ -35,7 +37,7 @@ export async function Topbar({
   /** Live announcements addressed to this member and not yet opened (PRD #45 §121-§123). */
   announcementsUnread?: number;
 }) {
-  const t = await getTranslations("roles");
+  const [t, companies] = await Promise.all([getTranslations("roles"), listCompanyContexts(context)]);
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface/85 px-4 backdrop-blur-md md:h-16 md:px-6 xl:px-8">
@@ -63,6 +65,8 @@ export async function Topbar({
             isOverridden={context.roleIsOverridden}
           />
         ) : null}
+        {/* Only for somebody who works in more than one company (E-06 §3.4). */}
+        <CompanySwitcher companies={companies} />
         {context.enabledModules.includes("announcements") && context.permissions.includes("announcement.view") ? <AnnouncementsIndicator unread={announcementsUnread} /> : null}
         <NotificationsMenu />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />

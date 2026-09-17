@@ -24,6 +24,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
     kpis: ["activeProjects", "invoicedValue", "pipelineValue", "headcount"],
     widgets: [
       "attention",
+      "groupCompanies",
       "announcements",
       "favorites",
       "recentWork",
@@ -188,6 +189,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
+      "groupFinance",
       "overdueInvoices",
       "financeSummary",
       "projectBudgets",
@@ -348,6 +350,7 @@ const managerDashboards: Partial<Record<RoleKey, DashboardConfig>> = {
       "recentWork",
       "upcomingMeetings",
       "pendingApprovals",
+      "groupPipeline",
       "salesPipeline",
       "openOpportunities",
       "openTasks",

@@ -21,6 +21,7 @@ import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.paren
 import { isThumbnailableMimeType } from "@/lib/modules/documents/storage/thumbnail.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { projectMachine, statusActionFor } from "./project.machine";
+import { authorizeTeamChange } from "./project.assignment";
 import { contextForCompany } from "./project.portfolio";
 import { requireProjectTypeChoice } from "./project-type.service";
 import * as repository from "./project.repository";
@@ -686,23 +687,12 @@ export async function addMember(
   context: UserContext,
   projectId: string,
   input: AddProjectMemberInput,
-): Promise<void> {
-  assertPermission(context, "project.member.add");
-  const project = await assertProjectInScope(context, projectId);
+): Promise<UserContext> {
+  // The project's own team door, or a department manager's (E-06 §94).
+  const { acting, project, member, via } = await authorizeTeamChange(context, projectId, input.companyMemberId, "add");
 
   if (isProjectArchived(project)) {
     throw new AccessError("CONFLICT", "Restore this project before changing its team.");
-  }
-
-  const member = await prisma.companyMember.findFirst({
-    where: { id: input.companyMemberId, companyId: context.companyId, status: "ACTIVE" },
-    select: { id: true, user: { select: { firstName: true, lastName: true } } },
-  });
-
-  if (!member) {
-    // Covers "another company", "does not exist" and "membership inactive"
-    // with one answer, so the response reveals nothing (PRD #10 §74).
-    throw new AccessError("VALIDATION_ERROR", "That person cannot be added to this project.");
   }
 
   const existing = await prisma.projectMember.findUnique({
@@ -715,17 +705,30 @@ export async function addMember(
   }
 
   await prisma.$transaction(async (tx) => {
-    await ensureProjectMember(tx, context, projectId, member.id, input.projectRole ?? null, false);
+    await ensureProjectMember(tx, acting, projectId, member.id, input.projectRole ?? null, false);
 
-    await recordActivity(tx, context, {
+    await recordActivity(tx, acting, {
       module: MODULE,
       entityType: "Project",
       entityId: projectId,
       action: "PROJECT_MEMBER_ADDED",
-      message: `added ${member.user.firstName} ${member.user.lastName} to the project`,
+      message: `added ${member.name} to the project`,
       metadata: { projectId } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      acting,
+      {
+        actionKey: AuditAction.PROJECT_MEMBER_ASSIGNED,
+        entity: { type: "Project", id: projectId, label: project.name },
+        projectId,
+        after: { companyMemberId: member.id, userId: member.userId, projectRole: input.projectRole ?? null, via },
+      },
+      { tx },
+    );
   });
+
+  return acting;
 }
 
 export async function updateMember(
@@ -775,8 +778,14 @@ export async function removeMember(
   projectId: string,
   projectMemberId: string,
 ): Promise<void> {
-  assertPermission(context, "project.member.remove");
-  const project = await assertProjectInScope(context, projectId);
+  // Inside the reader's group before anything else; the team door decides the rest (E-06 §94).
+  const found = assertFound(
+    await prisma.projectMember.findFirst({
+      where: { id: projectMemberId, projectId, project: { company: { parentGroupId: context.parentGroupId } } },
+      select: { companyMemberId: true },
+    }),
+  );
+  const { acting, project, member, via } = await authorizeTeamChange(context, projectId, found.companyMemberId, "remove");
 
   if (isProjectArchived(project)) {
     throw stateDenied("Restore this project before changing its team.");
@@ -784,12 +793,8 @@ export async function removeMember(
 
   const record = assertFound(
     await prisma.projectMember.findFirst({
-      where: { id: projectMemberId, projectId, companyId: context.companyId },
-      select: {
-        id: true,
-        companyMemberId: true,
-        member: { select: { user: { select: { firstName: true, lastName: true } } } },
-      },
+      where: { id: projectMemberId, projectId, companyId: acting.companyId },
+      select: { id: true, companyMemberId: true },
     }),
   );
 
@@ -809,14 +814,25 @@ export async function removeMember(
       data: { status: "INACTIVE", leftAt: new Date() },
     });
 
-    await recordActivity(tx, context, {
+    await recordActivity(tx, acting, {
       module: MODULE,
       entityType: "Project",
       entityId: projectId,
       action: "PROJECT_MEMBER_REMOVED",
-      message: `removed ${record.member.user.firstName} ${record.member.user.lastName} from the project`,
+      message: `removed ${member.name} from the project`,
       metadata: { projectId } as Prisma.InputJsonValue,
     });
+
+    await recordUserAction(
+      acting,
+      {
+        actionKey: AuditAction.PROJECT_MEMBER_REMOVED,
+        entity: { type: "Project", id: projectId, label: project.name },
+        projectId,
+        before: { companyMemberId: member.id, userId: member.userId, via },
+      },
+      { tx },
+    );
   });
 }
 

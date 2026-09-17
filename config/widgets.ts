@@ -43,6 +43,43 @@ export type WidgetDefinition = {
 };
 
 export const widgets: Record<string, WidgetDefinition> = {
+  /* The group, one row per company the reader works in (E-06 §108-§111). */
+  groupCompanies: {
+    key: "groupCompanies",
+    module: "organization",
+    permission: "department.group.view",
+    title: "Group Companies",
+    description: "Every company of the group, its active projects and its people.",
+    kind: "list",
+    size: "LARGE",
+    priority: 2,
+    href: "/organization",
+    emptyMessage: "The companies of your group will appear here.",
+  },
+  groupFinance: {
+    key: "groupFinance",
+    module: "finance",
+    permission: "finance.invoice.view",
+    title: "Finance by Company",
+    description: "Invoices awaiting approval, sent and overdue in each company you work in.",
+    kind: "list",
+    size: "MEDIUM",
+    priority: 3,
+    href: "/finance/invoices",
+    emptyMessage: "No company's invoices are visible to you.",
+  },
+  groupPipeline: {
+    key: "groupPipeline",
+    module: "sales",
+    permission: "sales.opportunity.view",
+    title: "Pipeline by Company",
+    description: "Open deals in each company you work in, by currency.",
+    kind: "list",
+    size: "MEDIUM",
+    priority: 3,
+    href: "/sales/opportunities",
+    emptyMessage: "No company's pipeline is visible to you.",
+  },
   myProjects: {
     key: "myProjects",
     module: "projects",
