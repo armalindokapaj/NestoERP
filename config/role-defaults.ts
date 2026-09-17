@@ -556,6 +556,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "legal.contract.mark_sent",
       "legal.contract.mark_signed",
       "legal.contract.activate",
+      "legal.contract.complete",
       "legal.contract.expire",
       "legal.contract.terminate",
       "legal.contract.cancel",
@@ -1158,6 +1159,24 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.mark_sold",
         "project.unit.reopen_sale",
         "project.unit.sales_correct",
+        // The unit's contract and its collection, and approving a sale where the Sold rule asks (E-05F §56).
+        "project.unit.sale.approve",
+        "project.unit.legal.view",
+        "project.unit.contract.request",
+        "project.unit.contract.create",
+        "project.unit.contract.update",
+        "project.unit.contract.review",
+        "project.unit.contract.sign_status",
+        "project.unit.contract.cancel",
+        "project.unit.contract.documents.manage",
+        "project.unit.contract.amend",
+        "project.unit.finance.view",
+        "project.unit.finance.manage_schedule",
+        "project.unit.finance.issue_invoice",
+        "project.unit.finance.record_payment",
+        "project.unit.finance.allocate_payment",
+        "project.unit.finance.documents.manage",
+        "project.unit.finance.correct",
       ],
     },
     // Promoting somebody to Owner is the one company action an Admin must not
@@ -1244,12 +1263,24 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.mark_sold",
         "project.unit.reopen_sale",
         "project.unit.sales_correct",
+        /*
+         * The unit's contract and collection, read; a Company Admin also asks
+         * Legal for a contract and approves a sale where the Sold rule asks
+         * (E-05F §56). Drafting and collecting need Legal's and Finance's own
+         * modules, which an Admin does not hold (PRD #24 §15-§17), so those stay
+         * with Legal, Finance and the Owner.
+         */
+        "project.unit.sale.approve",
+        "project.unit.legal.view",
+        "project.unit.contract.request",
+        "project.unit.finance.view",
       ],
     },
   },
   CEO: {
-    // Commercial status, prices and reservations of every unit, read (E-05E §39).
-    projects: { extra: ["project.unit.sales.view"] },
+    // Commercial status, prices and reservations of every unit, read (E-05E §39);
+    // its contract and collection too, and approving a sale where the Sold rule asks (E-05F §56).
+    projects: { extra: ["project.unit.sales.view", "project.unit.legal.view", "project.unit.finance.view", "project.unit.sale.approve"] },
     /**
      * Time summaries by project, and the decision on the weeks they are the
      * designated approver of — without everybody's entry text (PRD #42 §132).
@@ -1342,7 +1373,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * projects the company takes on is the Owner's or an Admin's call.
      */
     // They read their projects' units as Sales sees them, and sell none (E-05E §39).
-    projects: { deny: ["project.create"], extra: ["project.unit.sales.view"] },
+    // Its contract status and collection too, read (E-05F §56).
+    projects: { deny: ["project.create"], extra: ["project.unit.sales.view", "project.unit.legal.view", "project.unit.finance.view"] },
     // Void a mistaken RFI or transmittal on their own projects; company defaults stay the Owner's (PRD #46 §183).
     engineering: { extra: ["rfi.void", "transmittal.void"], deny: ["engineering.settings.manage"] },
     // Notices to the projects they run and the people on them — not the whole company (PRD #45 §234).
@@ -1628,8 +1660,21 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   FINANCE: {
-    // The units Finance will invoice and collect for, read (E-05E §37, §39).
-    projects: { extra: ["project.unit.sales.view"] },
+    // The units Finance will invoice and collect for, read (E-05E §37, §39); their
+    // contract, read, and their collection — schedule, invoices, payments, corrections (E-05F §54, §56).
+    projects: {
+      extra: [
+        "project.unit.sales.view",
+        "project.unit.legal.view",
+        "project.unit.finance.view",
+        "project.unit.finance.manage_schedule",
+        "project.unit.finance.issue_invoice",
+        "project.unit.finance.record_payment",
+        "project.unit.finance.allocate_payment",
+        "project.unit.finance.documents.manage",
+        "project.unit.finance.correct",
+      ],
+    },
     /**
      * Commercial context only, not the Sales workspace (PRD #5 §20,
      * PRD #17 §24, §152, §352).
@@ -1689,8 +1734,22 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   LEGAL: {
-    // The reserved units Legal will write contracts for, read (E-05E §36).
-    projects: { extra: ["project.unit.sales.view"] },
+    // The reserved units Legal will write contracts for, read (E-05E §36); their
+    // contracts, written, and their collection, read — never posting a payment (E-05F §55, §56).
+    projects: {
+      extra: [
+        "project.unit.sales.view",
+        "project.unit.legal.view",
+        "project.unit.contract.create",
+        "project.unit.contract.update",
+        "project.unit.contract.review",
+        "project.unit.contract.sign_status",
+        "project.unit.contract.cancel",
+        "project.unit.contract.documents.manage",
+        "project.unit.contract.amend",
+        "project.unit.finance.view",
+      ],
+    },
     /**
      * The role the module exists for (PRD #18 §27, §397).
      *
@@ -1745,6 +1804,10 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.reservation.extend",
         "project.unit.reservation.release",
         "project.unit.mark_sold",
+        // Asking Legal for the contract, and following it and its collection (E-05F §12, §56).
+        "project.unit.legal.view",
+        "project.unit.contract.request",
+        "project.unit.finance.view",
       ],
     },
     /**
@@ -1804,6 +1867,11 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.mark_sold",
         "project.unit.reopen_sale",
         "project.unit.sales_correct",
+        // Sales' contract request and reading, and approving a sale where the Sold rule asks (E-05F §42, §56).
+        "project.unit.legal.view",
+        "project.unit.contract.request",
+        "project.unit.finance.view",
+        "project.unit.sale.approve",
       ],
     },
     // Sales' contract and finance limits; unlike Sales, the manager decides
@@ -1996,7 +2064,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
   },
   // Scoped read of the units' commercial side, and nothing to change (E-05E §39).
   VIEWER: {
-    projects: { extra: ["project.unit.sales.view"] },
+    // Every side of a unit they can open, read (E-05E §39; E-05F §56).
+    projects: { extra: ["project.unit.sales.view", "project.unit.legal.view", "project.unit.finance.view"] },
   },
 };
 

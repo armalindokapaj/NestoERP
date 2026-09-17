@@ -186,8 +186,25 @@ export type PaymentSummaryDTO = {
   notes: string | null;
   status: PaymentStatus;
   voidReason: string | null;
-  relatedRecord: { type: "INVOICE" | "EXPENSE"; id: string; reference: string } | null;
+  /** What it settles first: the contract it was recorded against, else its first allocation's invoice or expense. */
+  relatedRecord: { type: "INVOICE" | "EXPENSE" | "CONTRACT"; id: string; reference: string } | null;
+  /** Its amount less its unreversed allocations (E-05F §34). */
+  allocatedAmount: string;
+  unallocatedAmount: string;
+  allocations: PaymentAllocationDTO[];
   capabilities: { canVoid: boolean };
+};
+
+/** One part of a payment and what it settles (E-05F §31). */
+export type PaymentAllocationDTO = {
+  id: string;
+  type: "INVOICE" | "EXPENSE" | "INSTALLMENT";
+  targetId: string;
+  reference: string;
+  invoiceId: string | null;
+  amount: string;
+  reversed: boolean;
+  reversalReason: string | null;
 };
 
 export type FinanceApprovalDTO = {

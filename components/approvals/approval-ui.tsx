@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Clock,
   FileCheck,
+  Handshake,
   Landmark,
   type LucideIcon,
   Scale,
@@ -39,6 +40,7 @@ export const SOURCE_ICONS: Record<ApprovalProviderKey, LucideIcon> = {
   hse: ShieldCheck,
   timesheets: Clock,
   projects: Building2,
+  unit_sales: Handshake,
 };
 
 export function SourceIcon({ provider, className }: { provider: ApprovalProviderKey; className?: string }) {

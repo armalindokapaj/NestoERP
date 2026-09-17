@@ -31,12 +31,13 @@ export const financeProvider: CalendarProvider = {
     });
     if (rows.length === 0) return [];
 
-    const paid = await prisma.payment.groupBy({
+    // Settled by allocations of payments that still stand (E-05F §31).
+    const paid = await prisma.paymentAllocation.groupBy({
       by: ["invoiceId"],
-      where: { invoiceId: { in: rows.map((row) => row.id) }, status: "RECORDED" },
+      where: { invoiceId: { in: rows.map((row) => row.id) }, reversedAt: null, payment: { is: { status: "RECORDED" } } },
       _sum: { amount: true },
     });
-    const paidBy = new Map(paid.map((row) => [row.invoiceId, row._sum.amount ?? new Prisma.Decimal(0)]));
+    const paidBy = new Map(paid.map((row) => [row.invoiceId, row._sum?.amount ?? new Prisma.Decimal(0)]));
 
     return compact(
       rows.map((row) => {

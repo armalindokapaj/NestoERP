@@ -28,6 +28,8 @@ export function ProjectTabs({
     dailyLogs?: boolean;
     team: boolean;
     finance?: boolean;
+    /** The units' collection (E-05F §45): opens the Finance tab on its Units view for readers without the rest of Finance. */
+    unitFinance?: boolean;
     contracts?: boolean;
     inventory?: boolean;
     qaqc?: boolean;
@@ -54,8 +56,8 @@ export function ProjectTabs({
     {
       key: "finance",
       label: "Finance",
-      href: `/projects/${projectId}/finance`,
-      visible: Boolean(show.finance),
+      href: show.finance ? `/projects/${projectId}/finance` : `/projects/${projectId}/finance/units`,
+      visible: Boolean(show.finance || show.unitFinance),
     },
     {
       key: "contracts",

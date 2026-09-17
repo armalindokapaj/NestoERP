@@ -119,6 +119,7 @@ export default async function ProjectHsePage({ params }: Params) {
           dailyLogs: projectActions.canViewDailyLogs,
           team: projectActions.canViewMembers,
           finance: projectActions.canViewFinance,
+          unitFinance: projectActions.canViewUnitFinance,
           contracts: projectActions.canViewContracts,
           inventory: projectActions.canViewInventory,
           qaqc: projectActions.canViewQaqc,

@@ -72,12 +72,17 @@ const OWNED: Record<string, string[]> = {
     "commitment",
     "financeApproval",
     "financeSettings",
+    // Collecting a unit's sale: what money settles, and the schedule it is owed on (E-05F §18-§31).
+    "paymentAllocation",
+    "paymentSchedule",
+    "paymentInstallment",
   ],
   hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord"],
   // A unit's commercial side — profile, prices, reservations, the units in a deal, the status trail
   // (E-05E) — keyed by the canonical unitId; the unit itself stays project-structure's.
-  sales: ["lead", "opportunity", "proposal", "proposalLineItem", "salesApproval", "unitCommercialProfile", "unitPriceHistory", "unitReservation", "unitReservationExtension", "opportunityUnit", "unitCommercialStatusHistory"],
-  contracts: ["contract", "contractParty", "contractObligation", "contractAmendment", "contractApproval"],
+  sales: ["lead", "opportunity", "proposal", "proposalLineItem", "salesApproval", "unitCommercialProfile", "unitPriceHistory", "unitReservation", "unitReservationExtension", "opportunityUnit", "unitCommercialStatusHistory", "unitSaleApproval"],
+  // A unit sold under a contract, and Sales' request for one (E-05F §88, §12).
+  contracts: ["contract", "contractParty", "contractObligation", "contractAmendment", "contractApproval", "contractUnit", "unitContractRequest"],
   procurement: [
     "supplier",
     "purchaseRequest",

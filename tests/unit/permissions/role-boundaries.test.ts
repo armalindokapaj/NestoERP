@@ -21,11 +21,12 @@ const matching = (role: RoleKey, pattern: RegExp) => held(role).filter((permissi
 /** Every decision a role may take on somebody else's submission (§142, §143, §179). */
 const APPROVAL = /(\.|_)approve$|\.decide$/;
 const EXPECTED_APPROVALS: Record<RoleKey, string[]> = {
-  OWNER: ["document.review.decide", "engineering_document.approve", "finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "hr.attendance.approve", "hr.leave.approve", "hse.approval.decide", "hse.inspection.approve", "hse.permit.approve", "hse.risk.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.order.finance_approve", "procurement.request.approve", "qaqc.approval.decide", "qaqc.inspection.approve", "qaqc.ncr.approve", "sales.proposal.approve", "submittal.approve", "timesheet.approve"],
-  ADMIN: ["document.review.decide"],
+  OWNER: ["document.review.decide", "engineering_document.approve", "finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "hr.attendance.approve", "hr.leave.approve", "hse.approval.decide", "hse.inspection.approve", "hse.permit.approve", "hse.risk.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.order.finance_approve", "procurement.request.approve", "project.unit.sale.approve", "qaqc.approval.decide", "qaqc.inspection.approve", "qaqc.ncr.approve", "sales.proposal.approve", "submittal.approve", "timesheet.approve"],
+  // A Company Admin approves a unit's sale where the Sold rule asks for it (E-05F §42, §56).
+  ADMIN: ["document.review.decide", "project.unit.sale.approve"],
   COMPANY_IT: [],
   HR: ["document.review.decide", "hr.attendance.approve", "hr.leave.approve", "timesheet.approve"],
-  CEO: ["finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.request.approve", "sales.proposal.approve", "timesheet.approve"],
+  CEO: ["finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.request.approve", "project.unit.sale.approve", "sales.proposal.approve", "timesheet.approve"],
   PROJECT_MANAGER: ["document.review.decide", "engineering_document.approve", "submittal.approve", "timesheet.approve"],
   ARCHITECT: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
   ARCHITECTURE_MANAGER: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
@@ -33,7 +34,7 @@ const EXPECTED_APPROVALS: Record<RoleKey, string[]> = {
   FINANCE: ["document.review.decide", "procurement.order.finance_approve"],
   LEGAL: ["document.review.decide", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve"],
   SALES: ["document.review.decide"],
-  SALES_MANAGER: ["document.review.decide", "sales.proposal.approve"],
+  SALES_MANAGER: ["document.review.decide", "project.unit.sale.approve", "sales.proposal.approve"],
   PROCUREMENT: ["document.review.decide", "procurement.approval.decide", "procurement.order.approve", "procurement.request.approve"],
   INVENTORY: ["document.review.decide"],
   QAQC: ["document.review.decide", "qaqc.approval.decide", "qaqc.inspection.approve", "qaqc.ncr.approve", "submittal.approve"],

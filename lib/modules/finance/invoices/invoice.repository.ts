@@ -41,6 +41,8 @@ export type InvoiceRow = Prisma.InvoiceGetPayload<{ select: typeof SUMMARY_SELEC
 export const DETAIL_SELECT = {
   ...SUMMARY_SELECT,
   preArchiveStatus: true,
+  contractId: true,
+  installmentId: true,
   notes: true,
   sentAt: true,
   archivedAt: true,

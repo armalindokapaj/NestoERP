@@ -13,7 +13,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
-import { COMMERCIAL_SOURCE_LABELS, UNIT_COMMERCIAL_STATUS_LABELS, UNIT_PRICE_BASIS_LABELS, UNIT_RESERVATION_STATUS_LABELS, type ReservationDTO, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
+import { FieldsDialog } from "@/components/finance/unit-finance/fields-dialog";
+import { UnitContractStatusBadge } from "@/components/finance/unit-finance/finance-status";
+import { COMMERCIAL_SOURCE_LABELS, UNIT_COMMERCIAL_STATUS_LABELS, UNIT_SOLD_RULE_LABELS, UNIT_PRICE_BASIS_LABELS, UNIT_RESERVATION_STATUS_LABELS, type ReservationDTO, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import { failureMessage } from "@/components/project-structure/structure-ui";
 import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/utils/format";
 import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
@@ -27,7 +29,7 @@ import { CorrectDialog, dateValue, PriceDialog, ReasonDialog, ReopenDialog, Rese
  * opens that dialog, when the reader may take it.
  */
 
-type Open = "price" | "hold" | "reserve" | "extend" | "release" | "sold" | "notSold" | "reopen" | "correct" | "putOnSale" | "takeOff" | "releaseHold" | null;
+type Open = "price" | "hold" | "reserve" | "extend" | "release" | "sold" | "notSold" | "reopen" | "correct" | "putOnSale" | "takeOff" | "releaseHold" | "requestApproval" | "approveSale" | "rejectSale" | null;
 
 export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; initialAction?: string | null }) {
   const router = useRouter();
@@ -125,6 +127,8 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
               ...(status === "ON_HOLD" ? [{ label: "Held", value: `${sales.heldBy ?? "—"}${sales.holdUntil ? ` · until ${formatDate(sales.holdUntil)}` : ""}` }] : []),
             ]}
           />
+          <SaleConditions sales={sales} onOpen={setOpen} />
+
           {status === "ON_HOLD" && sales.holdReason ? (
             <div className="mt-4">
               <p className="nesto-eyebrow text-fg-subtle">Hold reason</p>
@@ -303,6 +307,10 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
       </div>
 
       <PriceDialog open={open === "price"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
+      {/* A sale's approval, where the company's Sold rule asks for one (E-05F §42). */}
+      <FieldsDialog open={open === "requestApproval"} onClose={() => setOpen(null)} title={`Ask for approval to sell ${sales.unitCode}`} description="It waits in the Approvals Center. Once approved, you can mark the unit Sold." confirmLabel="Ask for approval" url={`/api/project-units/${sales.unitId}/sale-approval`} fields={[{ name: "note", label: "Note for the approver", kind: "textarea" }]} success="The sale is waiting for approval." submit={submit} testId="request-sale-approval-dialog" />
+      <FieldsDialog open={open === "approveSale"} onClose={() => setOpen(null)} title={`Approve the sale of ${sales.unitCode}?`} description="Sales can then mark it Sold for this reservation." confirmLabel="Approve" url={`/api/project-units/${sales.unitId}/sale-approval/approve`} fields={[{ name: "note", label: "Note", kind: "textarea" }]} success="The sale is approved." submit={submit} />
+      <FieldsDialog open={open === "rejectSale"} onClose={() => setOpen(null)} title={`Reject the sale of ${sales.unitCode}?`} confirmLabel="Reject" url={`/api/project-units/${sales.unitId}/sale-approval/reject`} fields={[{ name: "note", label: "Reason", kind: "textarea", required: true }]} success="The sale was rejected." submit={submit} />
       <ReserveDialog open={open === "reserve"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <ReopenDialog open={open === "reopen"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <CorrectDialog open={open === "correct"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
@@ -365,7 +373,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
       <Dialog open={open === "notSold"} onOpenChange={(value) => !value && setOpen(null)}>
         <DialogContent className="max-w-md" data-testid="not-sellable-dialog">
           <DialogTitle>{sales.unitCode} cannot be marked Sold yet</DialogTitle>
-          <DialogDescription>Complete these first:</DialogDescription>
+          <DialogDescription>The company&apos;s Sold rule is {UNIT_SOLD_RULE_LABELS[sales.soldCheck.rule].toLowerCase()}. Complete these first:</DialogDescription>
           <ul className="mt-3 space-y-2">
             {sales.soldCheck.missing.map((item) => (
               <li key={item} className="flex items-start gap-2 text-table">
@@ -422,5 +430,59 @@ function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * What the company's Sold rule asks of this sale, and where it stands (E-05F §42-§44):
+ * the rule, the unit's contract, and the sale's approval where the rule asks for one.
+ */
+function SaleConditions({ sales, onOpen }: { sales: UnitSalesDTO; onOpen: (open: Open) => void }) {
+  const approval = sales.saleApproval;
+  const manual = sales.soldCheck.rule === "MANUAL_APPROVAL";
+  if (sales.status !== "RESERVED" && !sales.contract) return null;
+  return (
+    <div className="mt-4 space-y-2 rounded-md border border-line bg-surface-muted px-3 py-2.5 text-table" data-testid="sale-conditions">
+      <p className="text-fg-muted">
+        Sold rule: <span className="font-medium text-fg">{UNIT_SOLD_RULE_LABELS[sales.soldCheck.rule]}</span>
+        {sales.status === "RESERVED" ? (sales.soldCheck.allowed ? " · met" : ` · missing ${sales.soldCheck.missing.join(", ").toLowerCase()}`) : ""}
+      </p>
+      {sales.contract ? (
+        <p className="flex flex-wrap items-center gap-2 text-fg-muted">
+          Contract{" "}
+          <Link href={`/projects/${sales.projectId}/units/${sales.unitId}/legal`} className="font-medium text-fg hover:underline" data-testid="sales-contract-link">
+            {sales.contract.number}
+          </Link>
+          <UnitContractStatusBadge status={sales.contract.status} />
+        </p>
+      ) : null}
+      {manual && sales.status === "RESERVED" ? (
+        <div className="flex flex-wrap items-center gap-2" data-testid="sale-approval">
+          {approval ? (
+            <Badge tone={approval.status === "APPROVED" ? "success" : approval.status === "PENDING" ? "warning" : "default"}>
+              {approval.status === "PENDING" ? "Waiting for approval" : approval.status === "APPROVED" ? "Sale approved" : approval.status === "REJECTED" ? "Sale rejected" : "Approval cancelled"}
+            </Badge>
+          ) : (
+            <span className="text-fg-muted">No approval asked for yet.</span>
+          )}
+          {approval?.note ? <span className="text-meta text-fg-subtle">{approval.note}</span> : null}
+          {sales.canRequestSaleApproval ? (
+            <Button size="sm" variant="secondary" onClick={() => onOpen("requestApproval")}>
+              Ask for approval
+            </Button>
+          ) : null}
+          {approval?.status === "PENDING" && sales.capabilities.canApproveSale ? (
+            <>
+              <Button size="sm" onClick={() => onOpen("approveSale")}>
+                Approve sale
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => onOpen("rejectSale")}>
+                Reject
+              </Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

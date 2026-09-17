@@ -5,6 +5,7 @@ import { prisma } from "@/lib/database/prisma";
 import { clampAtZero, subtract, ZERO, type Money } from "./finance.money";
 import { buildExpenseScopeWhere, buildInvoiceScopeWhere } from "./finance.scope";
 import { baseCurrency } from "./finance.settings";
+import { LIVE_ALLOCATION } from "./finance.settlement";
 
 /**
  * Single-number finance figures for the role dashboards (PRD #4, PRD #15 §259).
@@ -92,15 +93,16 @@ export async function invoicedByProject(context: UserContext) {
 }
 
 async function outstandingOnInvoices(where: Prisma.InvoiceWhereInput): Promise<Money> {
+  // What is allocated to these invoices (E-05F §31), against what they total.
   const [invoiced, received] = await Promise.all([
     prisma.invoice.aggregate({ where, _sum: { totalAmount: true } }),
-    prisma.payment.aggregate({
-      where: { status: "RECORDED", direction: "RECEIPT", invoice: { is: where } },
+    prisma.paymentAllocation.aggregate({
+      where: { ...LIVE_ALLOCATION, invoice: { is: where } },
       _sum: { amount: true },
     }),
   ]);
 
   return clampAtZero(
-    subtract(invoiced._sum.totalAmount ?? ZERO, received._sum.amount ?? ZERO),
+    subtract(invoiced._sum?.totalAmount ?? ZERO, received._sum?.amount ?? ZERO),
   );
 }

@@ -28,6 +28,7 @@ import { buildProposalScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { buildInvoiceScopeWhere, hasCompanyFinanceScope } from "../finance.scope";
 import { resolveFinanceSettings } from "../finance.settings";
 import { paidByInvoice, settlementFor } from "../finance.settlement";
+import { PAYMENT_SELECT, toSummaryDTO as paymentSummaryDTO } from "../payments/payment.service";
 import type { InvoiceDetailDTO, InvoiceSummaryDTO, RecordCapabilities } from "../finance.types";
 import { calculateInvoice } from "./invoice.calculation";
 import * as repository from "./invoice.repository";
@@ -104,7 +105,8 @@ export async function getInvoice(
     paidByInvoice([invoice.id]),
     can(context, "finance.payment.view")
       ? prisma.payment.findMany({
-          where: { invoiceId: invoice.id },
+          // Every payment with money allocated to this invoice (E-05F §31).
+          where: { allocations: { some: { invoiceId: invoice.id } } },
           orderBy: { paymentDate: "desc" },
           select: PAYMENT_SELECT,
         })
@@ -134,26 +136,7 @@ export async function getInvoice(
       totalAmount: toAmountString(line.totalAmount),
       sortOrder: line.sortOrder,
     })),
-    payments: payments.map((payment) => ({
-      id: payment.id,
-      direction: payment.direction,
-      paymentDate: businessDateString(payment.paymentDate),
-      currency: payment.currency,
-      amount: toAmountString(payment.amount),
-      method: payment.method,
-      reference: payment.reference,
-      notes: payment.notes,
-      status: payment.status,
-      voidReason: payment.voidReason,
-      relatedRecord: {
-        type: "INVOICE" as const,
-        id: invoice.id,
-        reference: invoice.invoiceNumber,
-      },
-      capabilities: {
-        canVoid: payment.status === "RECORDED" && can(context, "finance.payment.void"),
-      },
-    })),
+    payments: payments.map((payment) => paymentSummaryDTO(context, payment)),
     approvals: history,
     createdBy: creator,
     createdAt: invoice.createdAt.toISOString(),
@@ -248,6 +231,79 @@ export async function createInvoice(
   });
 
   return getInvoice(context, invoiceId);
+}
+
+/**
+ * The invoice for one installment of a sale contract's schedule (E-05F §26),
+ * written inside the caller's transaction. The caller — the unit's Finance
+ * section — has reached the contract through a unit the person may open and
+ * asserted `finance.invoice.create`; this numbers the invoice by the company's
+ * scheme and writes it as a draft with one line for the installment's amount,
+ * which the invoice then keeps (no tax: a sale's tax treatment is not V0.1's).
+ */
+export async function createInstallmentInvoiceRecord(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: {
+    clientId: string;
+    projectId: string;
+    contractId: string;
+    installmentId: string;
+    issueDate: Date;
+    dueDate: Date;
+    currency: string;
+    description: string;
+    amount: Prisma.Decimal;
+    notes: string;
+  },
+): Promise<{ id: string; invoiceNumber: string }> {
+  const totals = calculateInvoice([{ description: input.description, quantity: "1", unitPrice: input.amount.toFixed(2), taxRate: "0" }]);
+  const allocated = await allocateNumber({ companyId: context.companyId, moduleKey: MODULE, entityType: "invoice" }, { tx, occurredAt: input.issueDate });
+  const invoiceNumber = allocated ?? `INV-${input.installmentId.slice(-8).toUpperCase()}`;
+  await assertNumberIsFree(tx, context, invoiceNumber, null);
+
+  const invoice = await tx.invoice.create({
+    data: {
+      companyId: context.companyId,
+      invoiceNumber,
+      clientId: input.clientId,
+      projectId: input.projectId,
+      contractId: input.contractId,
+      installmentId: input.installmentId,
+      issueDate: input.issueDate,
+      dueDate: input.dueDate,
+      currency: input.currency,
+      subtotal: totals.subtotal,
+      taxAmount: totals.taxAmount,
+      totalAmount: totals.totalAmount,
+      status: "DRAFT",
+      notes: input.notes,
+      createdByMemberId: context.membershipId,
+      lineItems: {
+        create: totals.lines.map((line) => ({
+          description: line.description,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          taxRate: line.taxRate,
+          subtotal: line.subtotal,
+          taxAmount: line.taxAmount,
+          totalAmount: line.totalAmount,
+          sortOrder: line.sortOrder,
+        })),
+      },
+    },
+    select: { id: true, invoiceNumber: true },
+  });
+
+  await recordActivity(tx, context, {
+    module: MODULE,
+    entityType: ENTITY,
+    entityId: invoice.id,
+    action: "FINANCE_INVOICE_CREATED",
+    message: `raised invoice ${invoiceNumber} for an installment of a sale contract`,
+    metadata: { invoiceNumber, contractId: input.contractId, installmentId: input.installmentId, currency: input.currency, totalAmount: toAmountString(totals.totalAmount) } as Prisma.InputJsonValue,
+  });
+  return invoice;
 }
 
 /**
@@ -452,6 +508,12 @@ export async function updateInvoice(
       "CONFLICT",
       "This invoice was updated by another user. Refresh and review the latest changes.",
     );
+  }
+
+  // An installment's invoice bills that installment, for its amount: its client,
+  // project, currency and lines are the schedule's, not the form's (E-05F §26).
+  if (existing.installmentId) {
+    throw new AccessError("CONFLICT", "This invoice bills an installment of a sale contract, so its lines follow the payment schedule. Change the schedule instead.", { code: "INSTALLMENT_INVOICE_FIXED" });
   }
 
   const { client, project } = await validateRelationships(context, input);
@@ -713,12 +775,9 @@ export async function cancelInvoice(context: UserContext, invoiceId: string): Pr
   }
 
   await prisma.$transaction(async (tx) => {
-    const paid = await tx.payment.aggregate({
-      where: { invoiceId, status: "RECORDED" },
-      _sum: { amount: true },
-    });
+    const paid = (await paidByInvoice([invoiceId], tx)).get(invoiceId) ?? new Prisma.Decimal(0);
 
-    if ((paid._sum.amount ?? new Prisma.Decimal(0)).greaterThan(0)) {
+    if (paid.greaterThan(0)) {
       throw new AccessError(
         "CONFLICT",
         "This invoice has recorded payments. Void them before cancelling it.",
@@ -964,18 +1023,6 @@ async function assertNumberIsFree(
   }
 }
 
-const PAYMENT_SELECT = {
-  id: true,
-  direction: true,
-  paymentDate: true,
-  currency: true,
-  amount: true,
-  method: true,
-  reference: true,
-  notes: true,
-  status: true,
-  voidReason: true,
-} satisfies Prisma.PaymentSelect;
 
 async function memberRef(memberId: string) {
   const member = await prisma.companyMember.findUnique({

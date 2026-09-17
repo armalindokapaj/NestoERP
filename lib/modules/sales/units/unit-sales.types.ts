@@ -47,6 +47,18 @@ export const UNIT_RESERVATION_STATUS_LABELS: Record<UnitReservationStatus, strin
 
 export const COMMERCIAL_SOURCE_LABELS = { USER: "By a person", SYSTEM_EXPIRY: "Expired automatically", LEGAL: "Legal", FINANCE: "Finance", IMPORT: "Import" } as const;
 
+/** What a unit needs before Sales may mark it Sold, per company (E-05F §42, §43). */
+export const UNIT_SOLD_RULES = ["RESERVATION", "SIGNED_CONTRACT", "DEPOSIT_RECEIVED", "SIGNED_CONTRACT_AND_DEPOSIT", "MANUAL_APPROVAL"] as const;
+export type UnitSoldRule = (typeof UNIT_SOLD_RULES)[number];
+
+export const UNIT_SOLD_RULE_LABELS: Record<UnitSoldRule, string> = {
+  RESERVATION: "Reservation",
+  SIGNED_CONTRACT: "Signed contract",
+  DEPOSIT_RECEIVED: "Deposit received",
+  SIGNED_CONTRACT_AND_DEPOSIT: "Signed contract and deposit",
+  MANUAL_APPROVAL: "Manual approval",
+};
+
 export const SALES_REASON_MAX = 1_000;
 export const SALES_NOTES_MAX = 2_000;
 export const DEFAULT_RESERVATION_DAYS = 7;
@@ -67,6 +79,8 @@ export type UnitSalesCapabilities = {
   canSeeDeals: boolean;
   canCreateClient: boolean;
   canCreateDeal: boolean;
+  /** Deciding a sale under the Manual approval rule (E-05F §42). */
+  canApproveSale: boolean;
 };
 
 export type PartyRef = { id: string; name: string } | null;
@@ -88,7 +102,17 @@ export type ReservationDTO = {
   extensions: Array<{ oldExpiresAt: string; newExpiresAt: string; reason: string; extendedBy: string | null; extendedAt: string }>;
 };
 
-export type SoldCheck = { allowed: boolean; missing: string[] };
+export type SoldCheck = { allowed: boolean; missing: string[]; rule: UnitSoldRule };
+
+/** A sale approval under the Manual approval rule (E-05F §42), for the active reservation. */
+export type SaleApprovalDTO = {
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "RETURNED";
+  submittedBy: string | null;
+  submittedAt: string;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  note: string | null;
+};
 
 export type UnitSalesDTO = {
   unitId: string;
@@ -115,6 +139,11 @@ export type UnitSalesDTO = {
   statusHistory: Array<{ id: string; fromStatus: UnitCommercialStatus | null; toStatus: UnitCommercialStatus; reason: string | null; source: keyof typeof COMMERCIAL_SOURCE_LABELS; actor: string | null; changedAt: string }>;
   deals: Array<{ id: string; name: string | null; agreedPrice: string | null; currency: string | null }>;
   soldCheck: SoldCheck;
+  /** The latest sale approval of the active reservation, when the rule asks for one. */
+  saleApproval: SaleApprovalDTO | null;
+  canRequestSaleApproval: boolean;
+  /** The unit's live contract, for readers of its legal side (E-05F §44). */
+  contract: { id: string; number: string; status: string } | null;
   defaults: { reservationDays: number; currency: string };
   capabilities: UnitSalesCapabilities;
 };

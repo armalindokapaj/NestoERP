@@ -77,6 +77,12 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await runUnitReservationExpiry(now);
     return { processed: result.expired + result.warned, detail: result };
   },
+  "finance.unit-installments": async ({ now }) => {
+    // Unit installments falling due within a week, and past due, are announced once (E-05F §94-§96).
+    const { runUnitInstallmentNotices } = await import("@/lib/modules/finance/units/unit-finance.overdue");
+    const result = await runUnitInstallmentNotices(now);
+    return { processed: result.overdue + result.dueSoon, detail: result };
+  },
   "recentwork.prune": async ({ now, dryRun }) => {
     // Older than the company's retention, or past the hundred newest per member (PRD #45 §104, §105).
     const { pruneRecentWork } = await import("@/lib/modules/productivity/recent-work.service");

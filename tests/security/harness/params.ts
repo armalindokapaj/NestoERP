@@ -42,6 +42,8 @@ const RULES: Rule[] = [
   { when: /\/project-units\/\[unitId\]\/publications\//, param: "publicationId", source: { model: "UnitPublication", fill: { unitId: "unitId" } } },
   // A unit on a deal (E-05E): the deal segment is filled from the link row.
   { when: /\/sales\/opportunities\/\[opportunityId\]\/units\/\[unitId\]/, param: "unitId", source: { model: "OpportunityUnit", column: "unitId", fill: { opportunityId: "opportunityId" } } },
+  // A unit on a sale contract (E-05F): the contract segment is filled from the link row.
+  { when: /\/contracts\/\[contractId\]\/units\/\[unitId\]/, param: "unitId", source: { model: "ContractUnit", column: "unitId", fill: { contractId: "contractId" } } },
   { when: /\/project-milestones\/\[milestoneId\]\/tasks\/\[taskId\]/, param: "taskId", source: { model: "ProjectMilestoneTaskLink", column: "taskId" } },
   { when: /\/project-milestones\/\[milestoneId\]\/dependencies\//, param: "dependencyId", source: { model: "ProjectMilestoneDependency", fill: { milestoneId: "successorMilestoneId" } } },
   { when: /\/daily-logs\/\[dailyLogId\]\/evidence\//, param: "documentId", source: { model: "DailyLogDocumentLink", column: "documentId" } },
@@ -58,6 +60,7 @@ const RULES: Rule[] = [
 /** The default meaning of a segment name. */
 const BY_NAME: Record<string, string> = {
   actionItemId: "MeetingActionItem",
+  allocationId: "PaymentAllocation",
   agendaItemId: "MeetingAgendaItem",
   amendmentId: "ContractAmendment",
   announcementId: "Announcement",
@@ -80,6 +83,7 @@ const BY_NAME: Record<string, string> = {
   eventId: "CalendarEvent",
   expenseId: "Expense",
   floorId: "ProjectFloor",
+  installmentId: "PaymentInstallment",
   inviteId: "CompanyInvite",
   invoiceId: "Invoice",
   leadId: "Lead",
@@ -98,8 +102,10 @@ const BY_NAME: Record<string, string> = {
   referenceId: "RfiReference",
   reservationId: "UnitReservation",
   reminderId: "CalendarReminder",
+  requestId: "UnitContractRequest",
   reviewId: "DocumentReview",
   rfiId: "Rfi",
+  scheduleId: "PaymentSchedule",
   sectionId: "MeetingMinutesSection",
   submittalId: "TechnicalSubmittal",
   taskId: "Task",

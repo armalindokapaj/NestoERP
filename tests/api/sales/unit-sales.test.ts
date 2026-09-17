@@ -52,6 +52,7 @@ let apartmentType: string;
 let floorId: string;
 let serial = 0;
 let reservationDays: number;
+let soldRule: string;
 
 async function cleanup() {
   const buildings = await prisma.projectBuilding.findMany({ where: { projectId: MARINA, nameKey: { startsWith: T } }, select: { id: true } });
@@ -124,7 +125,11 @@ beforeAll(async () => {
   [owner, sales, manager, finance, architect, pm] = await Promise.all((["OWNER", "SALES", "SALES_MANAGER", "FINANCE", "ARCHITECT", "PROJECT_MANAGER"] as const).map((role) => loginAs(role)));
   ownerB = await loginAsMembership("member_owner_b");
   apartmentType = (await prisma.projectUnitType.findFirstOrThrow({ where: { companyId: COMPANY_A, code: "APARTMENT" }, select: { id: true } })).id;
-  reservationDays = (await prisma.companySettings.findUniqueOrThrow({ where: { companyId: COMPANY_A }, select: { unitReservationDays: true } })).unitReservationDays;
+  const settings = await prisma.companySettings.findUniqueOrThrow({ where: { companyId: COMPANY_A }, select: { unitReservationDays: true, unitSoldRule: true } });
+  reservationDays = settings.unitReservationDays;
+  soldRule = settings.unitSoldRule;
+  // E-05E's own Sold check is the reservation; the company rules on top of it are E-05F's (tests/api/finance/unit-finance.test.ts).
+  await prisma.companySettings.update({ where: { companyId: COMPANY_A }, data: { unitSoldRule: "RESERVATION" } });
   await cleanup();
 });
 
@@ -136,7 +141,7 @@ beforeEach(async () => {
 afterEach(cleanup);
 
 afterAll(async () => {
-  await prisma.companySettings.update({ where: { companyId: COMPANY_A }, data: { unitReservationDays: reservationDays } });
+  await prisma.companySettings.update({ where: { companyId: COMPANY_A }, data: { unitReservationDays: reservationDays, unitSoldRule: soldRule as never } });
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -299,7 +304,7 @@ describe("marking Sold and reopening (§29-§31, §42, §60)", () => {
     const { reservationId } = await reserve(sales, unit.id, { clientId: ACME, opportunityId: ACME_DEAL });
     const missing = await refused(markUnitSold(sales, unit.id, {}), "VALIDATION_ERROR", "UNIT_NOT_SELLABLE_YET");
     expect(missing.message).toContain("An agreed price");
-    expect((await getUnitSales(sales, unit.id)).soldCheck).toEqual({ allowed: false, missing: ["An agreed price"] });
+    expect((await getUnitSales(sales, unit.id)).soldCheck).toEqual({ allowed: false, missing: ["An agreed price"], rule: "RESERVATION" });
 
     await refused(correctReservation(sales, reservationId, { agreedPrice: "245000", currency: "EUR", notes: null, reason: "Signed offer" }), "FORBIDDEN");
     await correctReservation(manager, reservationId, { agreedPrice: "245000", currency: "EUR", notes: null, reason: "Signed offer" });

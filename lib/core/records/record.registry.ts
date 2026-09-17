@@ -14,6 +14,7 @@ import {
   buildCommitmentScopeWhere,
   buildExpenseScopeWhere,
   buildInvoiceScopeWhere,
+  buildPaymentScopeWhere,
 } from "@/lib/modules/finance/finance.scope";
 import { buildEmployeeScopeWhere, buildLeaveScopeWhere, isSelf } from "@/lib/modules/hr/hr.scope";
 import {
@@ -247,6 +248,39 @@ const DEFINITIONS: RecordDefinition[] = [
     },
     documents: { view: ["finance.document.view"], upload: ["finance.document.create"], tabHref: recordDocumentsTab, reviewable: true },
     collaboration: { requires: [] },
+  },
+  {
+    // Money received or paid out (PRD #15 §70; E-05F §51). Reached through its
+    // project like every finance record. Its files are the proof of the money —
+    // a transfer confirmation, a receipt — and a sale contract's payment opens on
+    // the unit's Finance section, where they are listed.
+    type: "payment",
+    moduleKey: "finance",
+    noun: "Payment",
+    activityEntityType: "Payment",
+    viewPermissions: ["finance.payment.view"],
+    async find(context, id) {
+      const row = await prisma.payment.findFirst({
+        where: { AND: [buildPaymentScopeWhere(context), { id, companyId: context.companyId }] },
+        select: { id: true, companyId: true, projectId: true, reference: true, amount: true, currency: true, status: true, createdByMemberId: true, contract: { select: { units: { orderBy: { createdAt: "asc" }, take: 1, select: { unitId: true, unit: { select: { projectId: true } } } } } } },
+      });
+      if (!row) return null;
+      const unit = row.contract?.units[0];
+      return {
+        type: "payment", id: row.id, companyId: row.companyId,
+        label: row.reference ? `Payment ${row.reference}` : `Payment of ${row.amount.toFixed(2)} ${row.currency}`,
+        href: unit ? `/projects/${unit.unit.projectId}/units/${unit.unitId}/finance` : `/finance/payments?search=${encodeURIComponent(row.reference ?? "")}`,
+        projectId: row.projectId, archived: row.status === "VOIDED",
+        stakeholderMemberIds: unique(row.createdByMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const rows = await prisma.payment.findMany({ where: { AND: [buildPaymentScopeWhere(context), { id: { in: ids }, companyId: context.companyId }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: { view: ["finance.document.view"], upload: ["finance.document.create"], tabHref: (summary) => summary.href, reviewable: false },
+    collaboration: null,
   },
   {
     type: "expense",

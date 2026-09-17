@@ -54,6 +54,8 @@ export const NOTIFICATION_CATEGORIES = [
   "engineering",
   // Unit reservations and sales (E-05E §52).
   "sales",
+  // Collecting a unit's sale: installments, payments, completion (E-05F §94).
+  "finance",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -220,6 +222,14 @@ export const NotificationEvent = {
   UNIT_RESERVATION_EXPIRED: "UNIT_RESERVATION_EXPIRED",
   UNIT_RESERVATION_RELEASED: "UNIT_RESERVATION_RELEASED",
   UNIT_MARKED_SOLD: "UNIT_MARKED_SOLD",
+  UNIT_CONTRACT_REQUESTED: "UNIT_CONTRACT_REQUESTED",
+  UNIT_CONTRACT_REQUEST_DECLINED: "UNIT_CONTRACT_REQUEST_DECLINED",
+  UNIT_CONTRACT_SIGNED: "UNIT_CONTRACT_SIGNED",
+  UNIT_CONTRACT_CANCELLED: "UNIT_CONTRACT_CANCELLED",
+  UNIT_INSTALLMENT_DUE_SOON: "UNIT_INSTALLMENT_DUE_SOON",
+  UNIT_INSTALLMENT_OVERDUE: "UNIT_INSTALLMENT_OVERDUE",
+  UNIT_PAYMENT_RECEIVED: "UNIT_PAYMENT_RECEIVED",
+  UNIT_FINANCIALLY_COMPLETE: "UNIT_FINANCIALLY_COMPLETE",
   RFI_OPENED: "RFI_OPENED",
   RFI_ASSIGNED: "RFI_ASSIGNED",
   RFI_DUE_SOON: "RFI_DUE_SOON",
@@ -1422,6 +1432,111 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `${text(payload, "unitCode", "A unit")} was marked Sold`,
     body: (payload) => text(payload, "projectName") || null,
     dedupe: (event, memberId, payload) => `UNIT_MARKED_SOLD:${text(payload, "reservationId", event.id)}:${memberId}`,
+  },
+  /* A unit's contract and its collection (E-05F §94) ---------------------------
+   * Sales' request goes to whoever may draft a unit's contract — Legal's queue,
+   * not a person. Everything after it goes to the people who act on it: the
+   * salesperson and the deal owner, the contract's owner, and whoever put the
+   * schedule in force. The floor is reading the unit's legal or finance side,
+   * and no title names a client or an amount owed by one.
+   */
+  {
+    eventType: NotificationEvent.UNIT_CONTRACT_REQUESTED,
+    category: "contracts",
+    priority: "NORMAL",
+    async recipients(tx, event, payload) {
+      const excluded = new Set(ids(payload, "excludeMemberIds"));
+      return (await activeMembers(tx, event.companyId)).filter((memberId) => !excluded.has(memberId));
+    },
+    permission: () => ["project.unit.legal.view", "project.unit.contract.create"],
+    title: (payload) => `A contract is requested for ${text(payload, "unitCode", "a unit")}`,
+    body: (payload) => text(payload, "projectName") || null,
+    dedupe: (event, memberId, payload) => `UNIT_CONTRACT_REQUESTED:${text(payload, "requestId", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_CONTRACT_REQUEST_DECLINED,
+    category: "contracts",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.legal.view",
+    title: (payload) => `Legal declined the contract request for ${text(payload, "unitCode", "a unit")}`,
+    body: () => "The reason is on the unit's Legal section.",
+    dedupe: (event, memberId, payload) => `UNIT_CONTRACT_REQUEST_DECLINED:${text(payload, "requestId", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_CONTRACT_SIGNED,
+    category: "contracts",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.legal.view",
+    title: (payload) => `Contract ${text(payload, "contractNumber", "")} for ${text(payload, "unitCode", "a unit")} was signed`.replace("  ", " "),
+    body: (payload) => text(payload, "projectName") || null,
+    dedupe: (event, memberId, payload) => `UNIT_CONTRACT_SIGNED:${text(payload, "contractId", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_CONTRACT_CANCELLED,
+    category: "contracts",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.legal.view",
+    title: (payload) => `Contract ${text(payload, "contractNumber", "")} for ${text(payload, "unitCode", "a unit")} was ${text(payload, "verb", "cancelled")}`.replace("  ", " "),
+    body: (payload) => text(payload, "projectName") || null,
+    dedupe: (event, memberId, payload) => `UNIT_CONTRACT_CANCELLED:${text(payload, "contractId", event.id)}:${memberId}`,
+  },
+  {
+    // Once per installment per due date: a new schedule's installment earns its own.
+    eventType: NotificationEvent.UNIT_INSTALLMENT_DUE_SOON,
+    category: "finance",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.finance.view",
+    title: (payload) => `${text(payload, "installmentLabel", "An installment")} for ${text(payload, "unitCode", "a unit")} is due ${text(payload, "dueLabel", "soon")}`,
+    body: (payload) => (text(payload, "contractNumber") ? `Contract ${text(payload, "contractNumber")}` : null),
+    dedupe: (event, memberId, payload) => `UNIT_INSTALLMENT_DUE_SOON:${text(payload, "installmentId", event.id)}:${text(payload, "dueDate")}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_INSTALLMENT_OVERDUE,
+    category: "finance",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.finance.view",
+    title: (payload) => `${text(payload, "installmentLabel", "An installment")} for ${text(payload, "unitCode", "a unit")} is overdue`,
+    body: (payload) => (text(payload, "contractNumber") ? `Contract ${text(payload, "contractNumber")}, due ${text(payload, "dueDate")}` : null),
+    dedupe: (event, memberId, payload) => `UNIT_INSTALLMENT_OVERDUE:${text(payload, "installmentId", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_PAYMENT_RECEIVED,
+    category: "finance",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.finance.view",
+    title: (payload) => `A payment was received on contract ${text(payload, "contractNumber", "")} for ${text(payload, "unitCode", "a unit")}`.replace("  ", " "),
+    body: (payload) => text(payload, "amountLabel") || null,
+    dedupe: (event, memberId, payload) => `UNIT_PAYMENT_RECEIVED:${text(payload, "paymentId", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_FINANCIALLY_COMPLETE,
+    category: "finance",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.finance.view",
+    title: (payload) => `Contract ${text(payload, "contractNumber", "")} for ${text(payload, "unitCode", "a unit")} is paid in full`.replace("  ", " "),
+    body: () => "It can be completed once Legal's conditions are met.",
+    dedupe: (event, memberId, payload) => `UNIT_FINANCIALLY_COMPLETE:${text(payload, "contractId", event.id)}:${memberId}`,
   },
 ];
 

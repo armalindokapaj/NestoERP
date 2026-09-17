@@ -50,7 +50,12 @@ async function clear() {
   await db.projectBuilding.deleteMany({ where: { id: BUILDING } });
 }
 
+let soldRule: "RESERVATION" | "SIGNED_CONTRACT" | "DEPOSIT_RECEIVED" | "SIGNED_CONTRACT_AND_DEPOSIT" | "MANUAL_APPROVAL" = "SIGNED_CONTRACT";
+
 test.beforeAll(async () => {
+  // E-05E's own Sold check is the reservation; the company's stronger rules are E-05F's, tested with it.
+  soldRule = (await db.companySettings.findUniqueOrThrow({ where: { companyId: COMPANY }, select: { unitSoldRule: true } })).unitSoldRule;
+  await db.companySettings.update({ where: { companyId: COMPANY }, data: { unitSoldRule: "RESERVATION" } });
   await clear();
   const apartment = await db.projectUnitType.findFirstOrThrow({ where: { companyId: COMPANY, code: "APARTMENT" }, select: { id: true } });
   await db.projectBuilding.create({ data: { id: BUILDING, companyId: COMPANY, projectId: MARINA, name: "E05E Quay", nameKey: "E05E QUAY", sortOrder: 98, createdBy: "seed" } });
@@ -62,6 +67,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  await db.companySettings.update({ where: { companyId: COMPANY }, data: { unitSoldRule: soldRule } });
   await clear();
   await db.$disconnect();
 });

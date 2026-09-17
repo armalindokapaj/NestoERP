@@ -1093,6 +1093,8 @@ export function projectActions(context: UserContext) {
     canViewUnits: can(context, "project.structure.view"),
     // The units as Sales sees them: price, status, reservations (E-05E §13, §38).
     canViewUnitSales: can(context, "project.structure.view") && can(context, "project.unit.sales.view"),
+    // The units as Finance collects them: contracts, schedules, payments (E-05F §45, §54).
+    canViewUnitFinance: isModuleEnabled(context, "finance") && can(context, "project.structure.view") && can(context, "project.unit.finance.view"),
     // Contractors, work packages and their compliance on the project (PRD #46 §9).
     canViewContractors: isModuleEnabled(context, "contractors") && canAccessModule(context, "contractors") && can(context, "project_contractor.view"),
     // Drawings, documents, RFIs, submittals and transmittals (PRD #46 §10).

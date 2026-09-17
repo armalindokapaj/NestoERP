@@ -37,6 +37,7 @@ import { seedPlanningRecords } from "./seed/planning";
 import { seedStructureRecords } from "./seed/structure";
 import { seedUnitPublishingRecords } from "./seed/unit-publishing";
 import { seedUnitSalesRecords } from "./seed/unit-sales";
+import { seedUnitFinanceRecords } from "./seed/unit-finance";
 import { seedAnnouncementRecords } from "./seed/announcements";
 import { seedContractorEngineeringRecords } from "./seed/engineering";
 import { validateSeed } from "./seed/validate";
@@ -88,6 +89,7 @@ async function main() {
   const structure = await seedStructureRecords(prisma, members);
   const unitPublishing = await seedUnitPublishingRecords(prisma, (userId) => members.get(userId)!);
   const unitSales = await seedUnitSalesRecords(prisma, (userId) => members.get(userId)!);
+  const unitFinance = await seedUnitFinanceRecords(prisma, (userId) => members.get(userId)!);
   const announcements = await seedAnnouncementRecords(prisma, members);
   const engineering = await seedContractorEngineeringRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
@@ -129,6 +131,7 @@ async function main() {
   console.log(`✓ Daily logs: ${dailyLogs.logs} logs, ${dailyLogs.photos} site photos, ${dailyLogs.links} QA/QC and HSE links`);
   console.log(`✓ Structure: ${structure.buildings} buildings, ${structure.floors} floors, ${structure.units} units`);
   console.log(`✓ Unit sales: ${unitSales.forSale} for sale, ${unitSales.onHold} on hold, ${unitSales.reserved} reserved, ${unitSales.sold} sold`);
+  console.log(`✓ Unit finance: ${unitFinance.contracts} units under a live sale contract, ${unitFinance.schedules} active schedules, ${unitFinance.payments} contract payments, ${unitFinance.requests} open contract requests`);
   console.log(`✓ Unit publishing: ${unitPublishing.published} published, ${unitPublishing.waiting} waiting for review, ${unitPublishing.revision} sent back, ${unitPublishing.files} unit files`);
   console.log(`✓ Planning: ${planning.phases} phases, ${planning.milestones} milestones, ${planning.dependencies} dependencies, ${planning.blockers} blockers`);
   console.log(`✓ Announcements: ${announcements.announcements} announcements (${announcements.targets} acknowledgment targets), ${announcements.favorites} favorites, ${announcements.recent} recent items`);

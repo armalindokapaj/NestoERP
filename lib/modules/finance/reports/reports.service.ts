@@ -12,6 +12,7 @@ import {
   buildPaymentScopeWhere,
 } from "../finance.scope";
 import { baseCurrency } from "../finance.settings";
+import { paidByInvoice } from "../finance.settlement";
 import { projectFinanceNumbers } from "../budgets/budget.summary";
 import type { CurrencyTotal } from "../finance.types";
 import type { BudgetRisk } from "../budgets/budget.status";
@@ -70,16 +71,7 @@ export async function receivablesAging(
 
   if (invoices.length === 0) return [];
 
-  const paid = await prisma.payment.groupBy({
-    by: ["invoiceId"],
-    where: { invoiceId: { in: invoices.map((row) => row.id) }, status: "RECORDED" },
-    _sum: { amount: true },
-  });
-  const paidById = new Map(
-    paid
-      .filter((row): row is typeof row & { invoiceId: string } => row.invoiceId !== null)
-      .map((row) => [row.invoiceId, row._sum.amount ?? ZERO]),
-  );
+  const paidById = await paidByInvoice(invoices.map((row) => row.id));
 
   const byCurrency = new Map<string, Record<AgingBucket, Money>>();
 

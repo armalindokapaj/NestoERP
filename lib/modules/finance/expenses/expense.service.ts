@@ -18,6 +18,7 @@ import { businessDateString } from "../finance.fields";
 import { toAmountString } from "../finance.money";
 import { hasCompanyFinanceScope } from "../finance.scope";
 import { paidByExpense, settlementFor } from "../finance.settlement";
+import { PAYMENT_SELECT, toSummaryDTO as paymentSummaryDTO } from "../payments/payment.service";
 import type { ExpenseDetailDTO, ExpenseSummaryDTO, RecordCapabilities } from "../finance.types";
 import { calculateExpenseTotal } from "../invoices/invoice.calculation";
 import { expenseSettlement } from "../invoices/invoice.status";
@@ -81,20 +82,10 @@ export async function getExpense(
     paidByExpense([expense.id]),
     can(context, "finance.payment.view")
       ? prisma.payment.findMany({
-          where: { expenseId: expense.id },
+          // Every payment with money allocated to this expense (E-05F §31).
+          where: { allocations: { some: { expenseId: expense.id } } },
           orderBy: { paymentDate: "desc" },
-          select: {
-            id: true,
-            direction: true,
-            paymentDate: true,
-            currency: true,
-            amount: true,
-            method: true,
-            reference: true,
-            notes: true,
-            status: true,
-            voidReason: true,
-          },
+          select: PAYMENT_SELECT,
         })
       : Promise.resolve([]),
     approvals.approvalHistory(context, "EXPENSE", expense.id),
@@ -109,26 +100,7 @@ export async function getExpense(
     taxAmount: toAmountString(expense.taxAmount),
     notes: expense.notes,
     archivedAt: expense.archivedAt?.toISOString() ?? null,
-    payments: payments.map((payment) => ({
-      id: payment.id,
-      direction: payment.direction,
-      paymentDate: businessDateString(payment.paymentDate),
-      currency: payment.currency,
-      amount: toAmountString(payment.amount),
-      method: payment.method,
-      reference: payment.reference,
-      notes: payment.notes,
-      status: payment.status,
-      voidReason: payment.voidReason,
-      relatedRecord: {
-        type: "EXPENSE" as const,
-        id: expense.id,
-        reference: expense.expenseNumber ?? expense.description,
-      },
-      capabilities: {
-        canVoid: payment.status === "RECORDED" && can(context, "finance.payment.void"),
-      },
-    })),
+    payments: payments.map((payment) => paymentSummaryDTO(context, payment)),
     approvals: history,
     createdBy: creator,
     createdAt: expense.createdAt.toISOString(),
@@ -433,12 +405,9 @@ export async function cancelExpense(context: UserContext, expenseId: string): Pr
   }
 
   await prisma.$transaction(async (tx) => {
-    const paid = await tx.payment.aggregate({
-      where: { expenseId, status: "RECORDED" },
-      _sum: { amount: true },
-    });
+    const paid = (await paidByExpense([expenseId], tx)).get(expenseId) ?? new Prisma.Decimal(0);
 
-    if ((paid._sum.amount ?? new Prisma.Decimal(0)).greaterThan(0)) {
+    if (paid.greaterThan(0)) {
       throw new AccessError(
         "CONFLICT",
         "This expense has recorded payments. Void them before cancelling it.",

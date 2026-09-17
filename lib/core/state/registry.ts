@@ -32,6 +32,8 @@ import { warehouseMachine } from "@/lib/modules/inventory/warehouses/warehouse.m
 import { projectMachine } from "@/lib/modules/projects/project.machine";
 import { unitPublicationMachine } from "@/lib/modules/project-structure/unit-publication.machine";
 import { unitCommercialMachine } from "@/lib/modules/sales/units/unit-commercial.machine";
+import { paymentScheduleMachine } from "@/lib/modules/finance/units/payment-schedule.machine";
+import { unitContractRequestMachine } from "@/lib/modules/contracts/units/unit-contract-request.machine";
 import { purchaseOrderMachine } from "@/lib/modules/procurement/orders/order.machine";
 import { supplierQuoteMachine } from "@/lib/modules/procurement/quotes/quote.machine";
 import { goodsReceiptMachine } from "@/lib/modules/procurement/receipts/receipt.machine";
@@ -81,6 +83,8 @@ export const STATE_MACHINES: ReadonlyArray<StateMachine<any, any>> = [
   invoiceMachine,
   expenseMachine,
   paymentMachine,
+  // A unit sale's payment schedule (E-05F §20, §25)
+  paymentScheduleMachine,
   projectBudgetMachine,
   commitmentMachine,
   // Procurement
@@ -104,6 +108,8 @@ export const STATE_MACHINES: ReadonlyArray<StateMachine<any, any>> = [
   contractMachine,
   contractAmendmentMachine,
   contractObligationMachine,
+  // Sales asking Legal for a unit's contract (E-05F §12)
+  unitContractRequestMachine,
   // Engineering
   engineeringDocumentMachine,
   engineeringRevisionMachine,

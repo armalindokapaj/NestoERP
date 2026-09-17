@@ -118,3 +118,7 @@ export function parseInventoryQuery(search: URLSearchParams | Record<string, str
   const parsed = inventoryQuerySchema.parse(entries);
   return { ...parsed, page: parsed.page ?? 1, limit: parsed.limit ?? 50 };
 }
+
+/** Asking for, and deciding, a sale's approval under the Manual approval rule (E-05F §42). */
+export const saleApprovalRequestSchema = z.object({ note: optionalText(SALES_REASON_MAX) });
+export const saleApprovalDecisionSchema = z.object({ note: optionalText(SALES_REASON_MAX) });

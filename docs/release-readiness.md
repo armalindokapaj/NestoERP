@@ -1202,3 +1202,150 @@ Settings → Sales visible to HR (§19.3); after the fix that file passes. Of th
 - **The development server needs a restart** after this migration and
   `prisma generate`, and `pnpm db:seed` (or `pnpm access:sync`) before anybody
   holds the new permissions.
+
+---
+
+## 20. Enhancement E-05F — A unit's contract and collection
+
+A unit sale now reaches Legal and Finance on the same unit. From a reserved
+unit's **Legal** section Sales asks for the contract; Legal drafts a sale
+agreement from its **Unit requests** queue with the reservation's client, deal
+and agreed price, adds the parking or storage sold with it, and takes it to
+signature. Finance puts a versioned **payment schedule** in force on the signed
+contract, raises an invoice per installment, and records payments **allocated**
+to what they settle; the unit's **Finance** section and the project's **Finance
+→ Units** show what is paid, outstanding and overdue. The company's **Sold rule**
+decides what unlocks Mark Sold. `docs/unit-finance.md` is the contract.
+
+### 20.1 What changed
+
+| Before | Now |
+|---|---|
+| A contract linked to a project and a client only | `ContractUnit`: a sale agreement sells one or more canonical units, its value the sum of theirs; one live contract per unit, held by a partial unique index |
+| Sales and Legal met outside the system | `UnitContractRequest`: Sales requests, Legal drafts from the request or declines with a reason, Sales withdraws; a request whose reservation ended closes itself; new `unit_contract_request` machine (3 transitions) |
+| `ContractStatus` ended at Active, Expired, Terminated, Cancelled | `COMPLETED`, reached from Active only when the contract is financially complete; `SALE_AGREEMENT` type, drafted only from a unit; the unit page reads *Under review* and *Ready for signature* |
+| — | Cancelling, terminating or expiring a sale contract releases its units and cancels its schedules in the same transaction; a unit under contract keeps its reservation (not expired, released or reopened) |
+| — | `PaymentSchedule` and `PaymentInstallment`: drafted, checked against what the contract still needs, activated once signed, superseded by a new version keeping what was paid; new `payment_schedule` machine (5 transitions) |
+| **A payment settled exactly one invoice or one expense** (`payments.invoiceId` / `expenseId`) | **Every payment settles through `PaymentAllocation`** — one engine for invoice receipts, expense disbursements and contract payments; a payment may be split across installments, left partly unallocated, allocated later, or have an allocation reversed with a reason |
+| — | Invoices for installments (one live invoice per installment), settled by the installment's allocations |
+| Mark Sold after a reservation | The company's Sold rule — Reservation, Signed contract (default), Deposit received, both, or Manual approval through the Approvals Center (`unit_sales` provider); meeting it only unlocks Mark Sold |
+| — | Project → Finance → Units: totals per currency counting each contract once, quick filters by financial status, search including invoice numbers and payment references, cards on a phone |
+| — | Job `finance.unit-installments` (hourly): due-soon and overdue notices once each, the Overdue status audited once as the system |
+| — | Notification category *Finance* with eight events; 19 audit events; permissions `project.unit.legal.view`, `project.unit.contract.*` (8), `project.unit.finance.*` (7), `project.unit.sale.approve`, `legal.contract.complete`; Legal contracts, Finance collects, Sales asks, the Sales Manager approves sales, Architecture and Engineering see neither |
+| — | Settings → Sales (translated): the Sold rule, warning on a rule a switched-off module makes impossible |
+
+Migration `20260918090000_unit_finance_e05f` is **not additive, deliberately**.
+It adds six tables, four enums, two enum values, columns on contracts, invoices,
+payments and company settings, composite foreign keys, six partial unique
+indexes and checks — and it **drops `payments.invoiceId` and
+`payments.expenseId`** after writing one allocation of each payment's whole
+amount to what it settled. It was first run on a restored copy of the
+development database, where every invoice and expense read the same paid amount
+before and after, then replayed with every other migration into an empty
+database, with no drift from the schema. **Rolling it back needs a reverse
+migration** that restores the two columns from allocations, which is only
+possible while no payment has more than one allocation; the §1 and §9 note that
+this release's migrations are additive-only no longer holds from here.
+
+### 20.2 The evidence
+
+Full vitest: **3 473 passed, 0 failed**, 11 skipped (the destructive and opt-in
+suites), after the fix in §20.3 — the first full run had one failure,
+`tests/security/module-disabled.test.ts`. Of those:
+
+- New suites: `tests/unit/finance/unit-finance-rules.test.ts` (11 — installment
+  and financial status in order, progress and the schedule target, the
+  allocation proposal, every Sold rule and a contract holding a lapsed
+  reservation, the machines, the role policy), `tests/api/contracts/unit-contracts.test.ts`
+  (7 — drafting from Sales' request and the refusals, decline and withdraw, a
+  request whose reservation ended, an apartment and its parking on one contract,
+  the signature holding the unit, cancel and terminate releasing units and
+  schedules, archive and reopen guards), `tests/api/finance/unit-finance.test.ts`
+  (9 — schedules, total check and supersede, allocations never beyond payment or
+  installment, reversal and void, every financial status, installment invoices,
+  the Sold rules and Manual approval, access by role and company, the inventory's
+  totals once per contract) and `tests/api/jobs/finance.unit-installments.test.ts`
+  (7 — idempotency, concurrency, company isolation, suspended companies and
+  Finance or Projects switched off, one failure rolling back alone).
+- Existing suites moved to allocations: the finance service suite (61), the data
+  invariants (with a new one: no payment allocated beyond its amount), the record
+  parent matrix, approvals (the `unit_sales` provider), E-05D's and E-05E's.
+- Security: a sweep narrowed to the 22 new routes makes 33 calls each way and all
+  31 foreign-id calls answer 404, nothing uncovered or unvalidated; the
+  disabled-module test finds no Finance or Contracts route answering Company B.
+  The harness now resolves `allocationId`, `installmentId`, `requestId` and
+  `scheduleId`, and a contract's unit.
+- `pnpm verify:roles` against the production build: 1 363 of 1 363 checks for all
+  18 roles.
+- Gates: typecheck, lint (0 errors, the 16 pre-existing warnings),
+  `verify:ownership` (213 models, no new cycle), `verify:authorization` (543
+  routes), `verify:state` (44 machines, 229 transitions; 87 blind and 19
+  unreadable, unchanged), `verify:workers` (22 jobs, matrix regenerated),
+  `verify:company-integrity`, `verify:production-guards`, `security:matrix
+  --check` (927 endpoints, none unguarded).
+- Migration: the backfill run on a restored copy first; then every migration
+  replayed into an empty database, with no drift from the schema.
+- Seed: `pnpm db:seed` twice in a row, validation passing (A-201 overdue on an
+  active contract with a paid, invoiced deposit; A-102's open request; Company B's
+  signed contract and schedule; every seeded payment with one allocation).
+- E2E against the production build: **434 passed, 0 failed** (9.6 min). The new
+  desktop journeys (Sales requests and is refused Sold under the default rule;
+  Legal drafts from its queue with the parking and sends it for review; Finance
+  activates a schedule, records a payment and sees the unit Overdue; the
+  project's totals count the contract once and filter; an Architect sees
+  neither section) and the phone spec pass, and so do E-05E's under the rule
+  they set.
+- Screens were checked on the production build at 1440 px and on a phone: the
+  unit's Legal and Finance sections, the Unit requests queue, a unit with an open
+  request, Project → Finance → Units, the Sales section of a sold unit, and
+  Settings → Sales; no page scrolls sideways.
+
+### 20.3 Defects found
+
+- **With Finance or Contracts switched off, their unit routes still answered.**
+  The unit grants are Projects grants, so Company B's Owner — Finance and
+  Contracts off — could read a payment schedule and reverse an allocation through
+  `/api/finance/…`. The full suite's disabled-module test caught it; its reversal
+  of a seeded allocation was undone, with the audit and activity rows it wrote.
+  Unit finance now requires the Finance module and unit contracts the Contracts
+  module, the installments job skips companies with Finance off, and a foreign
+  contract is still looked up before the reader's modules are checked, so it
+  stays *not found*.
+- **The migration as generated dropped the payment columns before the backfill
+  could read them.** It was reordered by hand: client and project, then
+  allocations, then the drops.
+- **The finance suite's cleanup did not delete allocations**, so its run failed
+  on a foreign key and 34 tests failed in cascade, leaving a draft budget behind
+  (removed). The cleanup deletes allocations first now.
+- **E-05D's `unit-publishing` test set `Project.lastActivityAt` to NULL** in its
+  cleanup, which the column refuses; it restores the value it found.
+- **The installments job's audit of a unit becoming Overdue** was not claimed
+  once per contract; it is now claimed under a key naming the contract and its
+  earliest overdue installment.
+- **On the production build**, the project Finance units table clipped its
+  Status column at 1440 px and its search placeholder, and a phone scrolled the
+  installment table sideways; the next-due column stacks, the placeholder is
+  shorter, and a phone reads installments as rows.
+- **E-05E's browser tests assumed the reservation Sold rule**; they now set it
+  for their run and restore the company's.
+
+### 20.4 Limits, stated plainly
+
+- **Admin does not collect or contract**: it may request a contract, approve a
+  sale and read.
+- **Finance is not notified when a contract is signed**; new signed contracts
+  appear under *Payment pending* on Finance → Units.
+- **No "contract nearing completion" notice** (§94, recommended).
+- **No standalone supersede or per-installment endpoints**: a schedule changes
+  by a new version.
+- **A unit's value is informational after an amendment**; the amendment holds the
+  new terms.
+- **No currency conversion**; totals are per currency.
+- **A company with Contracts or Finance switched off** cannot meet the rules that
+  need them; Settings → Sales says so, and the default is Signed contract.
+- **Module pages are English**; Settings → Sales and the notification category are
+  translated.
+- **The development server on port 3000 must be restarted.** Its Prisma client
+  predates the migration and still selects `payments.invoiceId`, which no longer
+  exists, so Finance's payment and invoice pages fail on it until it restarts.
+  `pnpm db:seed` (or `pnpm access:sync`) grants the new permissions.

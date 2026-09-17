@@ -77,28 +77,16 @@ export function buildBudgetScopeWhere(context: UserContext): Prisma.ProjectBudge
 }
 
 /**
- * A payment has no scope of its own: it inherits the invoice or expense it
- * settles (PRD #15 §216).
+ * A payment carries the project of what it settles — the invoice, the expense or
+ * the sale contract it was recorded against (PRD #15 §216; E-05F §99) — and is
+ * scoped by it like every other project-linked finance record.
  *
- * `finance.payment.view` alone is deliberately not enough — the parent has to
- * be reachable too, or the payment list becomes a way to read amounts off
- * records the reader may not open.
+ * `finance.payment.view` alone is deliberately not enough: below company scope
+ * the project has to be reachable too, or the payment list becomes a way to
+ * read amounts off records the reader may not open.
  */
 export function buildPaymentScopeWhere(context: UserContext): Prisma.PaymentWhereInput {
-  const base: Prisma.PaymentWhereInput = { companyId: context.companyId };
-  if (hasCompanyFinanceScope(context)) return base;
-
-  return {
-    AND: [
-      base,
-      {
-        OR: [
-          { invoice: { is: buildInvoiceScopeWhere(context) } },
-          { expense: { is: buildExpenseScopeWhere(context) } },
-        ],
-      },
-    ],
-  };
+  return buildProjectLinkedScopeWhere<Prisma.PaymentWhereInput>(context);
 }
 
 /** Projects a finance form may offer, so it cannot propose an unreachable one. */

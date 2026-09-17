@@ -1,5 +1,5 @@
 import type { UnitPublicationStatusKey } from "@/lib/modules/project-structure/structure.types";
-import { PRICE_BASIS_AREA, type SoldCheck, type UnitCommercialStatus, type UnitPriceBasis } from "./unit-sales.types";
+import { PRICE_BASIS_AREA, type SoldCheck, type UnitCommercialStatus, type UnitPriceBasis, type UnitSoldRule } from "./unit-sales.types";
 
 /**
  * The selling rules the unit page previews and the server enforces (E-05E §6,
@@ -31,26 +31,46 @@ export function sellability(unit: { isActive: boolean; publicationStatus: UnitPu
 }
 
 /**
- * The one place that decides whether a unit may be marked Sold (§29, §42). E-05E
- * asks for an active reservation with a client, a deal and an agreed price;
- * E-05F adds the company's Sold rule here — a signed contract, a deposit — without
- * any screen changing.
+ * The one place that decides whether a unit may be marked Sold (E-05E §29, §42;
+ * E-05F §42-§44, §122). Always: a reserved unit with an active reservation for a
+ * client, a deal and an agreed price. Then the company's Sold rule:
+ *
+ *   RESERVATION                   nothing more
+ *   SIGNED_CONTRACT               the unit's live contract is signed
+ *   DEPOSIT_RECEIVED              the active schedule's deposit is paid in full
+ *   SIGNED_CONTRACT_AND_DEPOSIT   both
+ *   MANUAL_APPROVAL               the sale approved for this reservation
+ *
+ * Meeting it only unlocks Mark Sold: a person still makes the sale, and the
+ * commercial status stays Sales' one status (§44). A reservation past its expiry
+ * is over even before the expiry job closes it (E-05E §24) — unless a contract
+ * holds the unit, which the clock does not release (E-05F §8).
  */
 export function canMarkUnitSold(input: {
   status: UnitCommercialStatus;
   reservation: { status: string; clientId: string | null; opportunityId: string | null; agreedPrice: string | null; expiresAt?: Date | string } | null;
   now?: Date;
+  rule?: UnitSoldRule;
+  contract?: { signed: boolean } | null;
+  deposit?: { exists: boolean; paid: boolean };
+  approval?: { status: string } | null;
 }): SoldCheck {
+  const rule = input.rule ?? "RESERVATION";
   const missing: string[] = [];
   if (input.status !== "RESERVED") missing.push("A reserved unit");
   const reservation = input.reservation?.status === "ACTIVE" ? input.reservation : null;
   if (!reservation) missing.push("An active reservation");
-  // Past its expiry, a reservation is over even before the expiry job has closed it (§24, §25): extend it first.
-  if (reservation?.expiresAt !== undefined && new Date(reservation.expiresAt).getTime() <= (input.now ?? new Date()).getTime()) missing.push("A reservation that has not expired");
+  if (!input.contract && reservation?.expiresAt !== undefined && new Date(reservation.expiresAt).getTime() <= (input.now ?? new Date()).getTime()) missing.push("A reservation that has not expired");
   if (reservation && !reservation.clientId) missing.push("A client");
   if (reservation && !reservation.opportunityId) missing.push("A deal");
   if (reservation && reservation.agreedPrice === null) missing.push("An agreed price");
-  return { allowed: missing.length === 0, missing };
+  if ((rule === "SIGNED_CONTRACT" || rule === "SIGNED_CONTRACT_AND_DEPOSIT") && !input.contract?.signed) missing.push("A signed contract");
+  if (rule === "DEPOSIT_RECEIVED" || rule === "SIGNED_CONTRACT_AND_DEPOSIT") {
+    if (!input.deposit?.exists) missing.push("A deposit in the active payment schedule");
+    else if (!input.deposit.paid) missing.push("The deposit paid in full");
+  }
+  if (rule === "MANUAL_APPROVAL" && input.approval?.status !== "APPROVED") missing.push(input.approval?.status === "PENDING" ? "An approved sale (waiting for a decision)" : "An approved sale");
+  return { allowed: missing.length === 0, missing, rule };
 }
 
 /** A reservation's default end: this many days from now (§24). */

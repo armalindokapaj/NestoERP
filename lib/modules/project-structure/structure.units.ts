@@ -358,7 +358,8 @@ export async function deleteUnit(context: UserContext, unitId: string): Promise<
       tx.document.count({ where: { companyId: context.companyId, entityType: "project_unit", entityId: unit.id } }),
       tx.unitPublicationApproval.count({ where: { companyId: context.companyId, recordType: "UNIT", recordId: unit.id } }),
       // Sales' references (E-05E): a price, a reservation, a deal, a status trail.
-      Promise.all([tx.unitCommercialProfile.count({ where }), tx.unitReservation.count({ where }), tx.opportunityUnit.count({ where }), tx.unitPriceHistory.count({ where })]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
+      // Legal's (E-05F): a contract that sold it, or a request for one.
+      Promise.all([tx.unitCommercialProfile.count({ where }), tx.unitReservation.count({ where }), tx.opportunityUnit.count({ where }), tx.unitPriceHistory.count({ where }), tx.contractUnit.count({ where }), tx.unitContractRequest.count({ where })]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
     ]);
     if (row?.salesPlanDocumentId || publications || media || links || files || requests) {
       throw fail("UNIT_REFERENCED", `${unit.unitCode} has documents, images or a publishing history, so it cannot be deleted. Archive it or deactivate it instead.`, "CONFLICT");

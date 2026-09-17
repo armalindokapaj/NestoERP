@@ -34,6 +34,8 @@ import type {
   ContractSummaryDTO,
 } from "../contract.types";
 import * as amendments from "../amendments/amendment.service";
+import { contractFinancialStatus } from "@/lib/modules/finance/units/unit-finance.service";
+import { afterSaleContractMove, assertSaleContractArchivable, assertSaleContractGrant, SALE_AGREEMENT } from "../units/sale-contract";
 import { contractMachine, type ContractAction } from "./contract.machine";
 import * as repository from "./contract.repository";
 import type {
@@ -305,6 +307,9 @@ export async function createContract(
 ): Promise<ContractDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "legal.contract.create");
+  if (input.contractType === SALE_AGREEMENT) {
+    throw new AccessError("VALIDATION_ERROR", "A sale agreement is drafted from the unit it sells, on the unit's Legal section.", { contractType: ["A sale agreement is drafted from the unit it sells."] });
+  }
 
   const related = await resolveRelated(context, input);
 
@@ -375,6 +380,8 @@ export async function updateContract(
   assertEditable(existing.status, "FULL");
   assertVersion(existing.updatedAt, input.versionUpdatedAt);
   assertOwnerChangeAllowed(context, existing.ownerMemberId, input.ownerMemberId);
+  await assertSaleContractGrant(prisma, context, existing, "update");
+  assertSaleTermsUnchanged(context, existing, input);
 
   const related = await resolveRelated(context, input);
 
@@ -458,6 +465,7 @@ export async function updateContractMetadata(
 
   const existing = assertFound(await repository.findContractInScope(context, contractId));
   assertEditable(existing.status, "METADATA");
+  await assertSaleContractGrant(prisma, context, existing, "update");
   assertVersion(existing.updatedAt, input.versionUpdatedAt);
   assertOwnerChangeAllowed(context, existing.ownerMemberId, input.ownerMemberId);
 
@@ -778,6 +786,45 @@ export async function activateContract(
 }
 
 /**
+ * Records an active contract's obligations as fulfilled (E-05F §83).
+ *
+ * Manual, and validated: a sale contract completes only once it is financially
+ * complete — nothing outstanding, no unallocated money, no open installment —
+ * and completing it completes its payment schedule in the same transaction.
+ */
+export async function completeContract(context: UserContext, contractId: string): Promise<void> {
+  assertModule(context, MODULE);
+  assertPermission(context, "legal.contract.complete");
+
+  const existing = assertFound(await repository.findContractInScope(context, contractId));
+  assertNotArchived(existing.archivedAt);
+
+  await prisma.$transaction(async (tx) => {
+    if (existing.contractType === SALE_AGREEMENT) {
+      const facts = await contractFinancialStatus(tx, context.companyId, contractId);
+      if (facts?.financialStatus !== "FINANCIALLY_COMPLETE") {
+        throw new AccessError(
+          "CONFLICT",
+          facts && facts.outstanding.greaterThan(0)
+            ? `This contract is not paid in full: ${facts.outstanding.toFixed(2)} ${facts.currency} is still outstanding.`
+            : "This contract is not financially complete yet: money is unallocated or an installment is still open.",
+          { code: "CONTRACT_NOT_FINANCIALLY_COMPLETE" },
+        );
+      }
+    }
+    await moveStatus(tx, context, existing, "complete", { completedAt: new Date(), completedByMemberId: context.membershipId });
+
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: contractId,
+      action: "LEGAL_CONTRACT_COMPLETED",
+      message: `completed contract ${existing.contractNumber}`,
+    });
+  });
+}
+
+/**
  * Writes down what the calendar already decided (PRD #18 §122, §123).
  *
  * Reporting has treated this contract as expired since the day it ended. This
@@ -934,8 +981,10 @@ export async function archiveContract(context: UserContext, contractId: string):
       "A contract that is live or on its way to signature stays visible. Cancel or terminate it first.",
     );
   }
+  assertSaleContractArchivable(existing, existing.status);
 
   await prisma.$transaction(async (tx) => {
+    await assertSaleContractGrant(tx, context, existing, "archive");
     await applyTransition(tx, {
       machine: contractMachine,
       action: "archive",
@@ -969,6 +1018,7 @@ export async function restoreContract(context: UserContext, contractId: string):
   if (!existing.archivedAt) throw new AccessError("CONFLICT", "This contract is not archived.");
 
   await prisma.$transaction(async (tx) => {
+    await assertSaleContractGrant(tx, context, existing, "restore");
     // Back to what it held before it was archived. A contract archived before
     // that was recorded goes back to draft, where nothing about it is final.
     await applyTransition(tx, {
@@ -1057,11 +1107,13 @@ async function runTransition(
 async function moveStatus(
   tx: Prisma.TransactionClient,
   context: UserContext,
-  existing: { id: string; status: ContractStatus },
+  existing: { id: string; status: ContractStatus; contractType: string; contractNumber: string; projectId: string | null; ownerMemberId: string },
   action: ContractAction,
   extra: Prisma.ContractUncheckedUpdateManyInput = {},
   reason?: string,
 ): Promise<void> {
+  // A sale contract also needs the unit's grant for the move (E-05F §55, §99).
+  await assertSaleContractGrant(tx, context, existing, action);
   await applyTransition(tx, {
     machine: contractMachine,
     action,
@@ -1071,6 +1123,9 @@ async function moveStatus(
     reason,
     data: { ...extra, updatedByMemberId: context.membershipId },
   });
+  // What the move means for the units a sale contract sells (E-05F §75, §82, §97).
+  const to = transitionFor(contractMachine, action)!.to as ContractStatus;
+  await afterSaleContractMove(tx, context, existing, { action, from: existing.status, to, reason, signedDate: (extra.signedDate as Date | undefined) ?? null });
 }
 
 /** The edit lost a race with a transition: the contract is no longer in the status it was edited in. */
@@ -1094,6 +1149,37 @@ function assertOwnerChangeAllowed(
   nextOwnerId: string,
 ): void {
   if (nextOwnerId !== currentOwnerId) assertPermission(context, "legal.contract.owner.assign");
+}
+
+/**
+ * A sale contract's client, deal, project, value and currency come from the units
+ * it sells (E-05F §13, §14, §90): an edit may change its text, dates and owner,
+ * and a unit's value is changed on the unit's Legal section, which keeps the
+ * contract value the sum of them.
+ */
+function assertSaleTermsUnchanged(
+  context: UserContext,
+  existing: repository.ContractDetailRow,
+  input: UpdateContractInput,
+): void {
+  const sale = existing.contractType === SALE_AGREEMENT;
+  if (!sale && input.contractType !== SALE_AGREEMENT) return;
+  const value = (amount: Prisma.Decimal | string | null | undefined) => (amount === null || amount === undefined || amount === "" ? null : new Prisma.Decimal(amount).toFixed(2));
+  const changed =
+    input.contractType !== existing.contractType ||
+    (input.clientId ?? null) !== existing.clientId ||
+    (input.projectId ?? null) !== existing.projectId ||
+    (input.opportunityId ?? null) !== existing.opportunityId ||
+    (canSeeCommercial(context) && ((input.currency ?? null) !== existing.currency || value(input.contractValue) !== value(existing.contractValue)));
+  if (changed) {
+    throw new AccessError(
+      "CONFLICT",
+      sale
+        ? "A sale contract's type, client, deal, project, value and currency come from the units it sells. Change a unit's value on the unit's Legal section."
+        : "A sale agreement is drafted from the unit it sells, on the unit's Legal section.",
+      { code: "SALE_CONTRACT_TERMS_FIXED" },
+    );
+  }
 }
 
 function assertNotArchived(archivedAt: Date | null): void {

@@ -1362,12 +1362,13 @@ const overdueHseAction = paged({
 
 async function outstandingByInvoice(invoiceIds: string[]): Promise<Map<string, Prisma.Decimal>> {
   if (invoiceIds.length === 0) return new Map();
-  const paid = await prisma.payment.groupBy({
+  // Settled by allocations of payments that still stand (E-05F §31).
+  const paid = await prisma.paymentAllocation.groupBy({
     by: ["invoiceId"],
-    where: { invoiceId: { in: invoiceIds }, status: "RECORDED" },
+    where: { invoiceId: { in: invoiceIds }, reversedAt: null, payment: { is: { status: "RECORDED" } } },
     _sum: { amount: true },
   });
-  return new Map(paid.map((row) => [row.invoiceId!, row._sum.amount ?? new Prisma.Decimal(0)]));
+  return new Map(paid.map((row) => [row.invoiceId!, row._sum?.amount ?? new Prisma.Decimal(0)]));
 }
 
 const overdueInvoice = paged({
