@@ -41,6 +41,7 @@ export default async function ProjectEngineeringLayout({ children, params }: Pro
         active="engineering"
         show={{
           planning: actions.canViewPlanning,
+          units: actions.canViewUnits,
           contractors: actions.canViewContractors,
           engineering: actions.canViewEngineering,
           tasks: actions.canViewTasks,

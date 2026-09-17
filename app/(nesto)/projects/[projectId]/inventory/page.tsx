@@ -149,6 +149,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
         active="inventory"
         show={{
           planning: actions.canViewPlanning,
+          units: actions.canViewUnits,
           contractors: actions.canViewContractors,
           engineering: actions.canViewEngineering,
           tasks: actions.canViewTasks,

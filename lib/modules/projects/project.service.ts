@@ -1089,6 +1089,8 @@ export function projectActions(context: UserContext) {
     canViewDailyLogs: isModuleEnabled(context, "dailyLogs") && canAccessModule(context, "dailyLogs") && can(context, "daily_log.view"),
     // The project's plan: phases, milestones, timeline and dependencies (PRD #44 §6, §7).
     canViewPlanning: can(context, "project_planning.view"),
+    // Buildings, floors and units: the physical project (E-05B §31, §34).
+    canViewUnits: can(context, "project.structure.view"),
     // Contractors, work packages and their compliance on the project (PRD #46 §9).
     canViewContractors: isModuleEnabled(context, "contractors") && canAccessModule(context, "contractors") && can(context, "project_contractor.view"),
     // Drawings, documents, RFIs, submittals and transmittals (PRD #46 §10).

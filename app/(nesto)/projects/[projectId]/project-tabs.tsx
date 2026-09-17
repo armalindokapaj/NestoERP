@@ -18,6 +18,7 @@ export function ProjectTabs({
   active: ProjectTabKey;
   show: {
     planning?: boolean;
+    units?: boolean;
     contractors?: boolean;
     engineering?: boolean;
     tasks: boolean;
@@ -37,6 +38,8 @@ export function ProjectTabs({
   const tabs: { key: ProjectTabKey; label: string; href: string; visible: boolean }[] = [
     { key: "overview", label: "Overview", href: `/projects/${projectId}`, visible: true },
     { key: "planning", label: "Planning", href: `/projects/${projectId}/planning`, visible: Boolean(show.planning) },
+    // Buildings, floors and units (E-05B §34: "Units", with the hierarchy inside).
+    { key: "units", label: "Units", href: `/projects/${projectId}/units`, visible: Boolean(show.units) },
     { key: "tasks", label: "Tasks", href: `/projects/${projectId}/tasks`, visible: show.tasks },
     { key: "calendar", label: "Calendar", href: `/projects/${projectId}/calendar`, visible: Boolean(show.calendar) },
     { key: "meetings", label: "Meetings", href: `/projects/${projectId}/meetings`, visible: Boolean(show.meetings) },

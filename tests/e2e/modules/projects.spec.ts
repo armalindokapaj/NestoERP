@@ -337,14 +337,16 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
     await signIn(page, "OWNER");
     await page.goto("/projects");
 
+    // Scoped to the main region: after a reload the list streams in, and for a
+    // moment React's parked copy of it is in the document too (see mainRegion).
     await mainRegion(page).getByRole("button", { name: "List view" }).click();
-    await expect(page.getByTestId("project-list")).toBeVisible();
+    await expect(mainRegion(page).getByTestId("project-list")).toBeVisible();
     await page.reload();
-    await expect(page.getByTestId("project-list")).toBeVisible();
-    await expect(page.getByTestId("project-list").getByRole("link", { name: "Marina Apartments" })).toBeVisible();
+    await expect(mainRegion(page).getByTestId("project-list")).toBeVisible();
+    await expect(mainRegion(page).getByTestId("project-list").getByRole("link", { name: "Marina Apartments" })).toBeVisible();
 
     await mainRegion(page).getByRole("button", { name: "Gallery view" }).click();
-    await expect(page.getByTestId("project-gallery")).toBeVisible();
+    await expect(mainRegion(page).getByTestId("project-gallery")).toBeVisible();
   });
 
   test("refuses a duplicate project code (PRD #10 §41)", async ({ page }) => {

@@ -170,6 +170,8 @@ const OWNED: Record<string, string[]> = {
     "dailyLogSettings",
     "projectDailyLogSettings",
   ],
+  // Buildings, floors, units and the company's unit types (E-05B §60).
+  "project-structure": ["projectBuilding", "projectFloor", "projectUnit", "projectUnitType"],
   "project-planning": [
     "projectPhase",
     "projectMilestone",

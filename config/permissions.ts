@@ -227,6 +227,33 @@ export const PERMISSIONS = [
   "project.document.view",
   "project.activity.view",
 
+  /* Project structure ----------------------------------------------------- */
+  /**
+   * Buildings, floors and units — the physical project (E-05B §58). Part of the
+   * Projects module and reached only through a project the reader can open:
+   * every write is checked against that project, never against the company
+   * alone (§78). `structure.manage` orders buildings, floors and units and
+   * moves a floor to another building; a unit's move is its own grant, because
+   * it changes where the one canonical unit sits (§52).
+   */
+  "project.structure.view",
+  "project.structure.manage",
+  "project.building.create",
+  "project.building.update",
+  "project.building.delete",
+  "project.floor.create",
+  "project.floor.update",
+  "project.floor.delete",
+  "project.unit.create",
+  "project.unit.update",
+  "project.unit.delete",
+  "project.unit.move",
+  /**
+   * Keeping the company's list of unit types (E-05B §20, §21). Company
+   * configuration, like project types, so no module ladder reaches it.
+   */
+  "project.unit_type.manage",
+
   /* Project planning ------------------------------------------------------ */
   /**
    * Phases, milestones, baselines, dependencies and blockers (PRD #44 §77).
@@ -1223,6 +1250,8 @@ const MUTATING_ACTIONS = new Set([
   "open",
   "respond",
   "waive",
+  // Project structure: a unit changes floor (E-05B §52).
+  "move",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

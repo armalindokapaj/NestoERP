@@ -47,6 +47,7 @@ export async function loadProject(
 export type ProjectTabKey =
   | "overview"
   | "planning"
+  | "units"
   | "tasks"
   | "calendar"
   | "meetings"

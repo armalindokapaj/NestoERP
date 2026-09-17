@@ -137,8 +137,25 @@ export async function callRouteWithValidBody(
   return { ...outcome, sent: body };
 }
 
+/**
+ * Fields a name and a message cannot describe. Validation errors are flattened
+ * to the top-level field, so "expected object" inside `floors[0]` is all the
+ * sweep ever hears — it cannot build the element from that. A floor `number`
+ * is tried below ground first, because the first level type offered is a
+ * basement. Ids come from the target company, so the request reaches the
+ * lookup it is attacking.
+ */
+const SHAPED: Record<string, (idFor: (field: string) => string | undefined) => unknown[]> = {
+  ids: (idFor) => [[idFor("id") ?? "sweep_unknown_id"]],
+  floors: () => [[{ number: 97, name: "Security sweep floor", levelType: "STANDARD" }]],
+  units: (idFor) => [[{ unitCode: "SWEEP-1", sourceUnitId: idFor("unitId") ?? "sweep_unknown_id" }]],
+  defaults: (idFor) => [{ unitTypeId: idFor("unitTypeId") ?? "sweep_unknown_id" }],
+  number: () => [-1, 1],
+};
+
 export function candidateValues(field: string, messages: string[], idFor: (field: string) => string | undefined): unknown[] {
   const message = messages.join(" ");
+  if (SHAPED[field]) return SHAPED[field](idFor);
   const options = [...message.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
   if (/expected one of/i.test(message) && options.length > 0) return options.slice(0, 3);
   if (/expected boolean/i.test(message)) return [true, false];

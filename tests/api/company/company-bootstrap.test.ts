@@ -9,7 +9,9 @@ import { prisma } from "../../helpers";
  * Production company bootstrap (PRD #38 §19, §21, §135).
  *
  * Provisions a company the way an operator would, then proves the Owner can
- * accept and that a rerun converges instead of duplicating.
+ * accept and that a rerun converges instead of duplicating. The lists a company
+ * keeps for itself — project types (E-05A §62) and unit types (E-05B §20) —
+ * start from the defaults once and are the company's own from then on.
  */
 
 const SLUG = "prd38-bootstrap-test";
@@ -72,7 +74,7 @@ describe("bootstrapCompany", () => {
     expect(result.owner.state).toBe("INVITED");
     const companyId = result.companyId;
 
-    const [modules, settings, integration, numbering, quota, finance, audit, projectTypes] = await Promise.all([
+    const [modules, settings, integration, numbering, quota, finance, audit, projectTypes, unitTypes] = await Promise.all([
       prisma.companyModule.findMany({ where: { companyId }, include: { module: true } }),
       prisma.companySettings.findUnique({ where: { companyId } }),
       prisma.companyIntegrationSettings.findUnique({ where: { companyId } }),
@@ -81,6 +83,7 @@ describe("bootstrapCompany", () => {
       prisma.financeSettings.findUnique({ where: { companyId } }),
       prisma.auditEvent.findFirst({ where: { companyId, actionKey: "COMPANY_CREATED" } }),
       prisma.projectType.findMany({ where: { companyId }, orderBy: { sortOrder: "asc" }, select: { name: true, isActive: true } }),
+      prisma.projectUnitType.findMany({ where: { companyId }, orderBy: { sortOrder: "asc" }, select: { code: true, name: true, category: true, isActive: true } }),
     ]);
 
     expect(modules.length).toBeGreaterThan(10);
@@ -95,6 +98,10 @@ describe("bootstrapCompany", () => {
     // New projects need a type, so a company starts with the defaults to choose from (E-05A §13, §62).
     expect(projectTypes.map((type) => type.name)).toEqual(["Residential", "Commercial", "Hospital", "Hotel", "Industrial", "Infrastructure", "Mixed use", "Other"]);
     expect(projectTypes.every((type) => type.isActive)).toBe(true);
+    // Every unit needs a type too, so the company starts with the ten defaults (E-05B §20, §21, §136).
+    expect(unitTypes.map((type) => type.code)).toEqual(["APARTMENT", "PENTHOUSE", "VILLA", "OFFICE", "SHOP", "PARKING", "GARAGE", "STORAGE", "LAND", "OTHER"]);
+    expect(unitTypes.find((type) => type.code === "PARKING")).toMatchObject({ name: "Parking", category: "PARKING" });
+    expect(unitTypes.every((type) => type.isActive)).toBe(true);
 
     const message = readOutbox().at(-1);
     expect(message?.to).toBe(OWNER);
@@ -105,6 +112,8 @@ describe("bootstrapCompany", () => {
     // A type the company's administrators removed stays removed.
     const provisioned = await prisma.company.findUniqueOrThrow({ where: { slug: SLUG } });
     await prisma.projectType.deleteMany({ where: { companyId: provisioned.id, name: "Hotel" } });
+    // And a unit type (E-05B §20).
+    await prisma.projectUnitType.deleteMany({ where: { companyId: provisioned.id, code: "GARAGE" } });
 
     const again = await bootstrapCompany({ name: "Renamed On Rerun", slug: SLUG, ownerEmail: OWNER });
     expect(again.companyCreated).toBe(false);
@@ -117,6 +126,8 @@ describe("bootstrapCompany", () => {
     const hse = await prisma.companyModule.findFirstOrThrow({ where: { companyId: company.id, module: { key: "hse" } } });
     expect(hse.enabled).toBe(false);
     expect(await prisma.projectType.count({ where: { companyId: company.id } })).toBe(7);
+    expect(await prisma.projectUnitType.count({ where: { companyId: company.id } })).toBe(9);
+    expect(await prisma.projectUnitType.count({ where: { companyId: company.id, code: "GARAGE" } })).toBe(0);
   });
 
   it("lets the invited Owner set their password and become the active Owner", async () => {
