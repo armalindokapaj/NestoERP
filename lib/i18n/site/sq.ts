@@ -225,6 +225,8 @@ export const siteSq: SiteCopy = {
       Employees: "Punonjësit",
       Leave: "Lejet",
       Attendance: "Prezenca",
+      Recruitment: "Rekrutimi",
+      "User provisioning": "Krijimi i llogarive",
       Onboarding: "Pranimi në punë",
       Offboarding: "Largimi nga puna",
       Documents: "Dokumentet",

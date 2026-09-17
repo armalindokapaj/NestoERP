@@ -71,6 +71,19 @@ export const AuditAction = {
   HR_LEAVE_REQUEST_APPROVED: "HR_LEAVE_REQUEST_APPROVED",
   HR_LEAVE_REQUEST_REJECTED: "HR_LEAVE_REQUEST_REJECTED",
   HR_COMPENSATION_CHANGED: "HR_COMPENSATION_CHANGED",
+  // The person before the login (E-06 §114)
+  HR_PERSON_PROFILE_CREATED: "HR_PERSON_PROFILE_CREATED",
+  HR_CANDIDATE_CREATED: "HR_CANDIDATE_CREATED",
+  HR_CANDIDATE_SELECTED: "HR_CANDIDATE_SELECTED",
+  HR_EMPLOYEE_CREATED: "HR_EMPLOYEE_CREATED",
+  // Account requests from HR to Group IT (E-06 §114, §115)
+  ORGANIZATION_USER_PROVISIONING_REQUESTED: "ORGANIZATION_USER_PROVISIONING_REQUESTED",
+  ORGANIZATION_USER_PROVISIONING_APPROVED: "ORGANIZATION_USER_PROVISIONING_APPROVED",
+  ORGANIZATION_USER_PROVISIONING_RETURNED: "ORGANIZATION_USER_PROVISIONING_RETURNED",
+  ORGANIZATION_USER_PROVISIONING_REJECTED: "ORGANIZATION_USER_PROVISIONING_REJECTED",
+  ORGANIZATION_USER_PROVISIONING_CANCELLED: "ORGANIZATION_USER_PROVISIONING_CANCELLED",
+  ORGANIZATION_USER_PROVISIONED: "ORGANIZATION_USER_PROVISIONED",
+  ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED: "ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED",
 
   // Projects (PRD #28 §127)
   PROJECT_CREATED: "PROJECT_CREATED",
@@ -389,6 +402,19 @@ const POLICIES: AuditPolicy[] = [
   // That pay changed is auditable; what it changed to is not, without
   // audit.sensitive.view (PRD #28 §125, §393).
   { actionKey: AuditAction.HR_COMPENSATION_CHANGED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["amount", "currency", "effectiveFrom"], redactFields: ["amount"], required: true },
+  /* Recruitment (E-06 §114). Names and contact details stay on the person, never in the log. */
+  { actionKey: AuditAction.HR_PERSON_PROFILE_CREATED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["lifecycleStatus"], required: true },
+  { actionKey: AuditAction.HR_CANDIDATE_CREATED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "targetCompanyId", "targetDepartmentId", "targetRoleKey"], required: true },
+  { actionKey: AuditAction.HR_CANDIDATE_SELECTED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYEE_CREATED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["employmentStatus", "personProfileId", "departmentId", "roleKey"], required: true },
+  /* Account provisioning (E-06 §114, §115): who asked, who approved, who created it, for whom, where. */
+  { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_REQUESTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_APPROVED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_RETURNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_REJECTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_CANCELLED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: [...["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], "username", "newAccount", "companyMemberId"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "companyId", "companyDepartmentId", "groupDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
 
   /* Projects ------------------------------------------------------------- */
   { actionKey: AuditAction.PROJECT_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "status", "clientId", "projectTypeId"], required: false },

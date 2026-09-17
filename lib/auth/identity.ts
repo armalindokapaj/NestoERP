@@ -151,3 +151,47 @@ export async function linkPersonProfile(
   const { count } = await tx.user.updateMany({ where: { id: userId, personProfileId: null }, data: { personProfileId } });
   return count === 1;
 }
+
+/**
+ * The login Group IT creates from an approved account request (E-06 §28, §93, §125).
+ *
+ * Everything that identifies the person comes from their HR record and is not
+ * typed again (§29): the name, the approved work email as contact data (§126)
+ * and the phone. Only the username is IT's to choose; left blank, it follows
+ * the firstname.lastname rule with a number where that is taken (§124). The
+ * password is temporary, must be replaced at first sign-in and expires (§125).
+ * Whether a chosen username or the email is free is the caller's to answer
+ * first, inside the same transaction.
+ */
+export async function createProvisionedUser(
+  tx: Prisma.TransactionClient,
+  input: {
+    personProfileId: string;
+    firstName: string;
+    lastName: string;
+    email: string | null;
+    phone: string | null;
+    /** Already checked by the caller; null to allocate one. */
+    username: string | null;
+    temporaryPassword: string;
+    expiresAt: Date;
+  },
+): Promise<{ id: string; username: string }> {
+  const username = input.username ?? (await allocateUsername(tx, input.firstName, input.lastName));
+  return tx.user.create({
+    data: {
+      username,
+      email: input.email,
+      phone: input.phone,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      passwordHash: await hashPassword(input.temporaryPassword),
+      passwordChangedAt: new Date(),
+      mustChangePassword: true,
+      temporaryPasswordExpiresAt: input.expiresAt,
+      personProfileId: input.personProfileId,
+      status: "ACTIVE",
+    },
+    select: { id: true, username: true },
+  });
+}

@@ -177,6 +177,34 @@ describe("seeded demo group (E-06 §42-§47, §131-§134)", () => {
     expect(employments.filter((employment) => employment.companyMember?.user.personProfileId !== employment.personProfileId).map((employment) => employment.id)).toEqual([]);
   });
 
+  it("walks recruitment from a candidate with no login to a login with the same person (E-06 §56, §57, §135)", async () => {
+    const interviewing = await prisma.candidateProfile.findMany({ where: { parentGroupId: DEMO_GROUP, status: "INTERVIEWING" }, select: { person: { select: { firstName: true, lastName: true, user: { select: { id: true } } } } } });
+    expect(interviewing.some((candidate) => candidate.person.user === null)).toBe(true);
+
+    const selected = await prisma.candidateProfile.findFirstOrThrow({
+      where: { parentGroupId: DEMO_GROUP, status: "SELECTED", person: { firstName: "Adrian", lastName: "Kola" } },
+      select: { personProfileId: true, targetCompanyId: true, person: { select: { user: { select: { id: true } } } } },
+    });
+    expect(selected.person.user).toBeNull();
+    expect(selected.targetCompanyId).toBe(COMPANY.c);
+    const approved = await prisma.userProvisioningRequest.findFirstOrThrow({
+      where: { personProfileId: selected.personProfileId, status: "APPROVED" },
+      select: { companyId: true, functionalRoleKey: true, provisionedUserId: true, employeeProfile: { select: { companyMemberId: true, personProfileId: true } } },
+    });
+    expect(approved).toMatchObject({ companyId: COMPANY.c, functionalRoleKey: "FINANCE", provisionedUserId: null });
+    expect(approved.employeeProfile).toEqual({ companyMemberId: null, personProfileId: selected.personProfileId });
+
+    const provisioned = await prisma.userProvisioningRequest.findMany({
+      where: { parentGroupId: DEMO_GROUP, status: "PROVISIONED" },
+      select: { personProfileId: true, provisionedUser: { select: { personProfileId: true } }, employeeProfile: { select: { personProfileId: true, companyMember: { select: { user: { select: { personProfileId: true } } } } } } },
+    });
+    expect(provisioned.length).toBeGreaterThanOrEqual(1);
+    for (const request of provisioned) {
+      expect(request.provisionedUser?.personProfileId).toBe(request.personProfileId);
+      expect(request.employeeProfile?.companyMember?.user.personProfileId).toBe(request.personProfileId);
+    }
+  });
+
   it("creates the required demo volumes (PRD #9 §235)", async () => {
     const companyId = { in: DEMO_COMPANIES };
 

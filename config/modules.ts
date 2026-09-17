@@ -384,6 +384,8 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
         selfPermission: "hr.self.attendance",
         selfLabel: "My attendance",
       },
+      // The person before the login: candidates, hires and their account requests (E-06 §62).
+      { key: "recruitment", label: "Recruitment", permission: "candidate.view" },
       { key: "onboarding", label: "Onboarding", permission: "hr.onboarding.view" },
       { key: "offboarding", label: "Offboarding", permission: "hr.offboarding.view" },
       {
@@ -582,7 +584,11 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     permission: "organization.view",
     writePermission: "organization.department.manage",
     defaultSection: "overview",
-    sections: [{ key: "overview", label: "Overview" }],
+    sections: [
+      { key: "overview", label: "Overview" },
+      // Account requests between HR and Group IT (E-06 §61, §64, §127).
+      { key: "provisioning", label: "User provisioning", permission: "organization.provisioning_request.view" },
+    ],
   },
   company: {
     key: "company",

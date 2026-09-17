@@ -164,6 +164,9 @@ test("Finance puts a schedule in force on the signed contract, records a payment
   await expect(page.getByTestId("schedule-draft")).toBeVisible();
   await page.getByTestId("schedule-draft").getByRole("button", { name: "Activate" }).click();
   await page.getByTestId("activate-schedule-dialog").getByRole("button", { name: "Activate" }).click();
+  // The draft had the same two rows, so wait for it to be gone: until the
+  // active schedule is on the page, a payment has nothing to be allocated to.
+  await expect(page.getByTestId("schedule-draft")).toHaveCount(0);
   await expect(page.getByTestId("payment-schedule").getByTestId("installment-row")).toHaveCount(2);
 
   await page.getByTestId("unit-finance-actions").getByRole("button", { name: "Record payment" }).click();

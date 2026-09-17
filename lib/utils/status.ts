@@ -127,6 +127,14 @@ const TONES: Record<string, StatusTone> = {
   IMPLEMENTING: "info",
   READY_FOR_VALIDATION: "warning",
 
+  /* Recruitment and account requests (E-06 §23, §27): a hire and a created account are done. */
+  INTERVIEWING: "info",
+  SELECTED: "info",
+  OFFERED: "info",
+  HIRED: "success",
+  WITHDRAWN: "default",
+  PROVISIONED: "success",
+
   /* Daily logs (PRD #43 §7, §8): a locked log is the record, a returned one needs work. */
   REVIEWED: "success",
   LOCKED: "success",

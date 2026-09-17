@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**670 route handlers, 259 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 887 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**688 route handlers, 259 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 905 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -409,6 +409,14 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/hr/attendance` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | `buildAttendanceScopeWhere` | — | — | sweep |
 | POST | `/api/hr/attendance` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | `buildAttendanceScopeWhere`, `buildEmployeeScopeWhere` | `assertFound`, `requireProfile` +1 | — | sweep |
 | GET | `/api/hr/balances` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | `buildEmployeeScopeWhere` | `assertFound`, `requireProfile` | — | sweep |
+| POST | `/api/hr/candidates/[candidateId]/hire` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | — | `assertFound` | `stateDenied` | sweep |
+| POST | `/api/hr/candidates/[candidateId]/reject` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | — | `assertFound` | `stateDenied` | sweep |
+| GET | `/api/hr/candidates/[candidateId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | — | `assertFound` | — | sweep |
+| PATCH | `/api/hr/candidates/[candidateId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +703 | — | `assertFound` | `stateDenied` | sweep |
+| POST | `/api/hr/candidates/[candidateId]/select` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | — | `assertFound` | `stateDenied` | sweep |
+| POST | `/api/hr/candidates/[candidateId]/withdraw` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | — | `assertFound` | `stateDenied` | sweep |
+| GET | `/api/hr/candidates` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +699 | — | — | — | sweep |
+| POST | `/api/hr/candidates` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +703 | — | `assertFound` | — | sweep |
 | GET | `/api/hr/employees/[memberId]/activity` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +699 | `buildEmployeeScopeWhere` | `assertFound` | — | sweep |
 | GET | `/api/hr/employees/[memberId]/compensation` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +699 | `buildEmployeeScopeWhere` | `assertFound`, `requireProfile` | — | sweep |
 | POST | `/api/hr/employees/[memberId]/compensation` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +700 | `buildEmployeeScopeWhere` | `assertFound`, `requireProfile` | — | sweep |
@@ -430,6 +438,8 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | POST | `/api/hr/leave` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | `buildEmployeeScopeWhere`, `buildLeaveScopeWhere` | `assertFound`, `requireProfile` | `canTransitionLeave` | sweep |
 | GET | `/api/hr/overview` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | `buildAttendanceScopeWhere`, `buildEmployeeScopeWhere` +1 | — | — | sweep |
 | GET | `/api/hr/reports` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +699 | `buildAttendanceScopeWhere`, `buildEmployeeScopeWhere` +1 | — | — | sweep |
+| POST | `/api/hr/user-provisioning-requests/[requestId]/submit` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
+| POST | `/api/hr/user-provisioning-requests` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | — | `assertFound` | `assertTransitionAllowed` | sweep |
 
 ## /api/hse
 
@@ -517,6 +527,19 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | POST | `/api/notifications/read-all` | AUTHENTICATED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | — | — | sweep |
 | GET | `/api/notifications` | AUTHENTICATED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | — | — | sweep |
 | GET | `/api/notifications/unread-count` | AUTHENTICATED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | `loadRecord` | — | sweep |
+
+## /api/organization
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| POST | `/api/organization/user-provisioning-requests/[requestId]/approve` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
+| POST | `/api/organization/user-provisioning-requests/[requestId]/cancel` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
+| POST | `/api/organization/user-provisioning-requests/[requestId]/provision` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +699 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
+| POST | `/api/organization/user-provisioning-requests/[requestId]/reject` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
+| POST | `/api/organization/user-provisioning-requests/[requestId]/return` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
+| GET | `/api/organization/user-provisioning-requests/[requestId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `assertTransitionAllowed` | sweep |
+| POST | `/api/organization/user-provisioning-requests/[requestId]/start` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
+| GET | `/api/organization/user-provisioning-requests` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +700 | — | — | — | sweep |
 
 ## /api/procurement
 
@@ -1291,7 +1314,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 |---|---|---|---|---|---|---|---|---|
 | ACTION | `updateCompanySettingsAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | — | — | sweep |
 | ACTION | `updateIntegrationSettingsAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | — | — | sweep |
-| ACTION | `setModuleEnabledAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | — | — | — | sweep |
+| ACTION | `setModuleEnabledAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +704 | — | — | — | sweep |
 | ACTION | `updateNumberingSchemeAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | — | — | sweep |
 
 ## Server actions — tasks
