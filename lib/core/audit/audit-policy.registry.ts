@@ -114,6 +114,19 @@ export const AuditAction = {
   PROJECT_UNIT_PUBLISHED: "PROJECT_UNIT_PUBLISHED",
   PROJECT_UNIT_UNPUBLISHED: "PROJECT_UNIT_UNPUBLISHED",
   PROJECT_UNIT_ARCHIVED: "PROJECT_UNIT_ARCHIVED",
+  /** Selling the unit (E-05E §54). */
+  UNIT_COMMERCIAL_STATUS_CHANGED: "UNIT_COMMERCIAL_STATUS_CHANGED",
+  UNIT_PRICE_CHANGED: "UNIT_PRICE_CHANGED",
+  DEAL_UNIT_LINKED: "DEAL_UNIT_LINKED",
+  DEAL_UNIT_UNLINKED: "DEAL_UNIT_UNLINKED",
+  UNIT_RESERVED: "UNIT_RESERVED",
+  UNIT_RESERVATION_EXTENDED: "UNIT_RESERVATION_EXTENDED",
+  UNIT_RESERVATION_RELEASED: "UNIT_RESERVATION_RELEASED",
+  UNIT_RESERVATION_EXPIRED: "UNIT_RESERVATION_EXPIRED",
+  UNIT_RESERVATION_CORRECTED: "UNIT_RESERVATION_CORRECTED",
+  UNIT_MARKED_SOLD: "UNIT_MARKED_SOLD",
+  UNIT_SALE_REOPENED: "UNIT_SALE_REOPENED",
+  COMPANY_SALES_SETTINGS_UPDATED: "COMPANY_SALES_SETTINGS_UPDATED",
 
   // Documents (PRD #28 §129)
   DOCUMENT_DOWNLOAD_GRANTED: "DOCUMENT_DOWNLOAD_GRANTED",
@@ -394,6 +407,18 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PROJECT_UNIT_PUBLISHED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus", "versionNumber", "publicationId", "salesPlanDocumentVersionId", "primaryMediaDocumentVersionId"], required: true },
   { actionKey: AuditAction.PROJECT_UNIT_UNPUBLISHED, moduleKey: "projects", category: "PROJECT", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus", "versionNumber", "reason"], required: true },
   { actionKey: AuditAction.PROJECT_UNIT_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus"], required: true },
+  { actionKey: AuditAction.UNIT_COMMERCIAL_STATUS_CHANGED, moduleKey: "sales", category: "SALES", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "holdReason", "holdUntil"], required: true },
+  { actionKey: AuditAction.UNIT_PRICE_CHANGED, moduleKey: "sales", category: "SALES", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["askingPrice", "currency", "priceBasis", "reason"], required: true },
+  { actionKey: AuditAction.DEAL_UNIT_LINKED, moduleKey: "sales", category: "SALES", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["opportunityId", "unitId", "agreedPrice", "currency"], required: true },
+  { actionKey: AuditAction.DEAL_UNIT_UNLINKED, moduleKey: "sales", category: "SALES", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["opportunityId", "unitId"], required: true },
+  { actionKey: AuditAction.UNIT_RESERVED, moduleKey: "sales", category: "SALES", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "reservationId", "clientId", "opportunityId", "expiresAt", "agreedPrice", "currency"], required: true },
+  { actionKey: AuditAction.UNIT_RESERVATION_EXTENDED, moduleKey: "sales", category: "SALES", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["reservationId", "expiresAt", "reason"], required: true },
+  { actionKey: AuditAction.UNIT_RESERVATION_RELEASED, moduleKey: "sales", category: "SALES", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "reservationId", "reservationStatus", "reason"], required: true },
+  { actionKey: AuditAction.UNIT_RESERVATION_EXPIRED, moduleKey: "sales", category: "SALES", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "reservationId", "reservationStatus", "expiresAt"], required: true },
+  { actionKey: AuditAction.UNIT_RESERVATION_CORRECTED, moduleKey: "sales", category: "SALES", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["reservationId", "agreedPrice", "currency", "notes", "reason"], required: true },
+  { actionKey: AuditAction.UNIT_MARKED_SOLD, moduleKey: "sales", category: "SALES", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "reservationId", "reservationStatus", "clientId", "opportunityId", "agreedPrice", "currency"], required: true },
+  { actionKey: AuditAction.UNIT_SALE_REOPENED, moduleKey: "sales", category: "SALES", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "reservationId", "reservationStatus", "reason"], required: true },
+  { actionKey: AuditAction.COMPANY_SALES_SETTINGS_UPDATED, moduleKey: "settings", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["unitReservationDays"], required: true },
 
   /* Documents ------------------------------------------------------------ */
   { actionKey: AuditAction.DOCUMENT_DOWNLOAD_GRANTED, moduleKey: "documents", category: "DOCUMENT", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },

@@ -96,11 +96,11 @@ the permission off. A transition that does not declare it refuses a step.
 
 ## What is declared
 
-Forty-one machines over 211 transitions: HSE and QA/QC, where this began,
+Forty-two machines over 220 transitions: HSE and QA/QC, where this began,
 the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
 their own — Documents, Finance, Procurement, Inventory, Legal and
-Engineering — Projects, whose status E-05A made a lifecycle of its own, and a
-unit's publication (E-05D).
+Engineering — Projects, whose status E-05A made a lifecycle of its own, a
+unit's publication (E-05D) and a unit's sale (E-05E).
 The tables below are generated from `lib/core/state/registry.ts` by
 `scripts/architecture/state-docs.ts`; an edit belongs in the machine, and the
 table is regenerated from it.
@@ -247,6 +247,27 @@ Terminal: none
 | `unpublish` | `PUBLISHED` | `READY_FOR_PUBLISHING` | `project.unit.unpublish` | required | — |
 | `archive` | `DRAFT`, `READY_FOR_PUBLISHING`, `PUBLISHED`, `REVISION_REQUIRED` | `ARCHIVED` | `project.unit.archive` | — | — |
 | `restore` | `ARCHIVED` | `DRAFT` or `PUBLISHED` or `REVISION_REQUIRED` | `project.unit.archive` | — | — |
+
+### Sales
+
+1 machine.
+
+#### `unit_commercial` — `unitCommercialProfile.status`
+
+States: `NOT_FOR_SALE`, `FOR_SALE`, `ON_HOLD`, `RESERVED`, `SOLD`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `put_on_sale` | `NOT_FOR_SALE` | `FOR_SALE` | `project.unit.sales_status.manage` | — | — |
+| `take_off_sale` | `FOR_SALE` | `NOT_FOR_SALE` | `project.unit.sales_status.manage` | — | — |
+| `hold` | `FOR_SALE` | `ON_HOLD` | `project.unit.sales_status.manage` | required | — |
+| `release_hold` | `ON_HOLD` | `FOR_SALE` | `project.unit.sales_status.manage` | — | — |
+| `reserve` | `FOR_SALE`, `ON_HOLD` | `RESERVED` | `project.unit.reserve` | — | — |
+| `release_reservation` | `RESERVED` | `FOR_SALE` | `project.unit.reservation.release` | required | — |
+| `expire_reservation` | `RESERVED` | `FOR_SALE` | `project.unit.reservation.release` | — | — |
+| `mark_sold` | `RESERVED` | `SOLD` | `project.unit.mark_sold` | — | the reservation, converted to the sale, with its client, deal and agreed price |
+| `reopen` | `SOLD` | `FOR_SALE` or `RESERVED` | `project.unit.reopen_sale` | required | — |
 
 ### Documents
 
@@ -687,7 +708,7 @@ Terminal: `VOID`
 ## What is not declared yet, and what is guarded without a machine
 
 **Other domains.** QA/QC's defects, NCRs, requests and templates, the rest of
-HSE, Sales, Clients, Team, Tasks, HR, Contractors, Calendar,
+HSE, Sales' leads and opportunities, Clients, Team, Tasks, HR, Contractors, Calendar,
 Meetings, and the notification, integration and mail infrastructure still
 transition through their own services. That is held, not ignored. `pnpm
 verify:state` counts every write that sets a state column without naming a
@@ -724,6 +745,14 @@ the state it read, but they are not that:
 - *Invitation rows on an enquiry* — `rFQSupplier` carries no company column,
   so it cannot be scoped the way `applyTransition` scopes a write. Recording a
   quote and disqualifying a supplier bind the invitation's status instead.
+- *Unit reservations* — `unitReservation.status`. A reservation lives beside
+  the unit's `unit_commercial` machine and moves only with it, in the same
+  transaction under the profile's row lock: closing one is conditional on
+  `ACTIVE` (and, for the expiry job, on the expiry having passed), so a release
+  and the job racing end it once. The job itself moves the unit with the
+  machine's `expire_reservation`, checked with `canMove` and written
+  conditional on `RESERVED`, because it has no `UserContext`
+  (`lib/modules/sales/units/unit-sales.core.ts`, `docs/unit-sales.md`).
 - *Finance commitments moved through Procurement's door* —
   `ensureCommitmentForSource` and `settleCommitmentForSource`. The door's
   contract is that the caller authorises, and a buyer need not hold a finance

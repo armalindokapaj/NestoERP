@@ -350,17 +350,20 @@ export async function deleteUnit(context: UserContext, unitId: string): Promise<
 
   await prisma.$transaction(async (tx) => {
     const where = { companyId: context.companyId, unitId: unit.id };
-    const [row, publications, media, links, files, requests] = await Promise.all([
+    const [row, publications, media, links, files, requests, sales] = await Promise.all([
       tx.projectUnit.findFirst({ where: { companyId: context.companyId, id: unit.id }, select: { salesPlanDocumentId: true } }),
       tx.unitPublication.count({ where }),
       tx.unitMedia.count({ where }),
       tx.unitDocumentLink.count({ where }),
       tx.document.count({ where: { companyId: context.companyId, entityType: "project_unit", entityId: unit.id } }),
       tx.unitPublicationApproval.count({ where: { companyId: context.companyId, recordType: "UNIT", recordId: unit.id } }),
+      // Sales' references (E-05E): a price, a reservation, a deal, a status trail.
+      Promise.all([tx.unitCommercialProfile.count({ where }), tx.unitReservation.count({ where }), tx.opportunityUnit.count({ where }), tx.unitPriceHistory.count({ where })]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
     ]);
     if (row?.salesPlanDocumentId || publications || media || links || files || requests) {
       throw fail("UNIT_REFERENCED", `${unit.unitCode} has documents, images or a publishing history, so it cannot be deleted. Archive it or deactivate it instead.`, "CONFLICT");
     }
+    if (sales) throw fail("UNIT_REFERENCED", `${unit.unitCode} has a sales history, so it cannot be deleted. Archive it or deactivate it instead.`, "CONFLICT");
     await tx.projectUnit.delete({ where: { companyId: context.companyId, id: unit.id } });
     await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_DELETED", message: `removed unit ${unit.unitCode}`, metadata: { projectId: unit.projectId, floorId: unit.floorId } });
     await recordUserAction(

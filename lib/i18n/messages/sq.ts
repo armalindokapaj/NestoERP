@@ -181,6 +181,7 @@ export const sq: Messages = {
         description: "Lidhjet ndërmjet moduleve, si kontrolli i cilësisë dhe angazhimet financiare.",
       },
       numbering: { label: "Numërimi", description: "Si gjenerohen numrat e faturave, porosive dhe regjistrimeve." },
+      sales: { label: "Shitjet", description: "Sa zgjat një rezervim njësie, dhe parazgjedhje të tjera për shitjen e njësive." },
       storage: {
         label: "Hapësira e skedarëve",
         description: "Sa hapësirë skedarësh përdor kompania juaj dhe kufijtë e saj.",
@@ -221,6 +222,7 @@ export const sq: Messages = {
         announcements: { label: "Njoftimet", description: "Njoftime drejtuar jush, njoftime kritike dhe kujtesa për konfirmim." },
         contractors: { label: "Kontraktorët", description: "Kontraktorë të caktuar në projektet tuaja, ndryshime statusi dhe pajtueshmëri që skadon ose ka skaduar." },
         engineering: { label: "Inxhinieria", description: "RFI dhe dorëzime teknike të caktuara për ju, shqyrtime në afat dhe me vonesë, vendime dhe transmetime të lëshuara." },
+        sales: { label: "Shitjet", description: "Rezervime njësish që po skadojnë, kanë skaduar ose janë liruar, dhe njësi të shënuara si të shitura." },
       },
     },
 
@@ -418,6 +420,18 @@ export const sq: Messages = {
       resetYearly: "Rinis sekuencën çdo vit",
       manualPreview: "Shkruhet nga kushdo që krijon regjistrimin",
       updated: "Numërimi për {label} u përditësua.",
+    },
+
+    sales: {
+      description: "Parazgjedhjet e kompanisë për shitjen e njësive të projekteve. Ndryshimet vlejnë vetëm për rezervimet e reja.",
+      reservationSection: "Rezervimet",
+      reservationSectionDescription: "Sa kohë e mban një rezervim njësinë kur shitësi nuk zgjedh një datë tjetër.",
+      reservationDays: "Kohëzgjatja e rezervimit (ditë)",
+      reservationDaysHint: "Nga 1 deri në 90 ditë. Rezervimet ekzistuese mbajnë datën e tyre të skadimit.",
+      reservationDaysInvalid: "Shkruani ditë të plota nga 1 deri në 90.",
+      submit: "Ruaj cilësimet e shitjeve",
+      updated: "Cilësimet e shitjeve u përditësuan.",
+      readOnly: "Mund t’i shihni këto cilësime, por jo t’i ndryshoni.",
     },
 
     storage: {

@@ -40,6 +40,8 @@ const RULES: Rule[] = [
   { when: /\/project-units\/\[unitId\]\/documents\//, param: "linkId", source: { model: "UnitDocumentLink", fill: { unitId: "unitId" } } },
   { when: /\/project-units\/\[unitId\]\/media\/\[mediaId\]/, param: "mediaId", source: { model: "UnitMedia", fill: { unitId: "unitId" } } },
   { when: /\/project-units\/\[unitId\]\/publications\//, param: "publicationId", source: { model: "UnitPublication", fill: { unitId: "unitId" } } },
+  // A unit on a deal (E-05E): the deal segment is filled from the link row.
+  { when: /\/sales\/opportunities\/\[opportunityId\]\/units\/\[unitId\]/, param: "unitId", source: { model: "OpportunityUnit", column: "unitId", fill: { opportunityId: "opportunityId" } } },
   { when: /\/project-milestones\/\[milestoneId\]\/tasks\/\[taskId\]/, param: "taskId", source: { model: "ProjectMilestoneTaskLink", column: "taskId" } },
   { when: /\/project-milestones\/\[milestoneId\]\/dependencies\//, param: "dependencyId", source: { model: "ProjectMilestoneDependency", fill: { milestoneId: "successorMilestoneId" } } },
   { when: /\/daily-logs\/\[dailyLogId\]\/evidence\//, param: "documentId", source: { model: "DailyLogDocumentLink", column: "documentId" } },
@@ -94,6 +96,7 @@ const BY_NAME: Record<string, string> = {
   projectId: "Project",
   proposalId: "Proposal",
   referenceId: "RfiReference",
+  reservationId: "UnitReservation",
   reminderId: "CalendarReminder",
   reviewId: "DocumentReview",
   rfiId: "Rfi",

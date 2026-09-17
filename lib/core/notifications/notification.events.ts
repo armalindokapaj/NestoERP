@@ -52,6 +52,8 @@ export const NOTIFICATION_CATEGORIES = [
   "announcements",
   "contractors",
   "engineering",
+  // Unit reservations and sales (E-05E §52).
+  "sales",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -214,6 +216,10 @@ export const NotificationEvent = {
   CONTRACTOR_STATUS_CHANGED: "CONTRACTOR_STATUS_CHANGED",
   CONTRACTOR_COMPLIANCE_EXPIRING: "CONTRACTOR_COMPLIANCE_EXPIRING",
   CONTRACTOR_COMPLIANCE_EXPIRED: "CONTRACTOR_COMPLIANCE_EXPIRED",
+  UNIT_RESERVATION_EXPIRING: "UNIT_RESERVATION_EXPIRING",
+  UNIT_RESERVATION_EXPIRED: "UNIT_RESERVATION_EXPIRED",
+  UNIT_RESERVATION_RELEASED: "UNIT_RESERVATION_RELEASED",
+  UNIT_MARKED_SOLD: "UNIT_MARKED_SOLD",
   RFI_OPENED: "RFI_OPENED",
   RFI_ASSIGNED: "RFI_ASSIGNED",
   RFI_DUE_SOON: "RFI_DUE_SOON",
@@ -1361,6 +1367,61 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `Action done: ${text(payload, "actionTitle", "an action item")}`,
     body: (payload) => recordName(payload, "") || null,
     dedupe: perEvent,
+  },
+  /* Unit sales (E-05E §52) ---------------------------------------------------
+   * To the salesperson who reserved the unit and the deal's owner, never to every
+   * holder of a sales grant: the people who have to act, without noise. The
+   * floor is reading the unit's commercial side. Names of clients stay out of
+   * titles; the unit code is enough to open it.
+   */
+  {
+    // Once per reservation per expiry date: an extension earns a new warning.
+    eventType: NotificationEvent.UNIT_RESERVATION_EXPIRING,
+    category: "sales",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.sales.view",
+    title: (payload) => `The reservation of ${text(payload, "unitCode", "a unit")} expires ${text(payload, "whenLabel", "within 24 hours")}`,
+    body: (payload) => text(payload, "projectName") || null,
+    dedupe: (event, memberId, payload) => `UNIT_RESERVATION_EXPIRING:${event.entityId}:${text(payload, "expiresAt", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_RESERVATION_EXPIRED,
+    category: "sales",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.sales.view",
+    title: (payload) => `The reservation of ${text(payload, "unitCode", "a unit")} expired; the unit is for sale again`,
+    body: (payload) => text(payload, "projectName") || null,
+    dedupe: (event, memberId, payload) => `UNIT_RESERVATION_EXPIRED:${text(payload, "reservationId", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_RESERVATION_RELEASED,
+    category: "sales",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.sales.view",
+    title: (payload) => `The reservation of ${text(payload, "unitCode", "a unit")} was released`,
+    body: (payload) => text(payload, "projectName") || null,
+    dedupe: (event, memberId, payload) => `UNIT_RESERVATION_RELEASED:${text(payload, "reservationId", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.UNIT_MARKED_SOLD,
+    category: "sales",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "project.unit.sales.view",
+    title: (payload) => `${text(payload, "unitCode", "A unit")} was marked Sold`,
+    body: (payload) => text(payload, "projectName") || null,
+    dedupe: (event, memberId, payload) => `UNIT_MARKED_SOLD:${text(payload, "reservationId", event.id)}:${memberId}`,
   },
 ];
 

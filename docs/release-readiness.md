@@ -1098,3 +1098,107 @@ suites). Of those:
 - **The development server needs a restart** after this migration and
   `prisma generate`, and the database needs `pnpm db:seed` (or
   `pnpm access:sync`) before anybody is given the two new roles.
+
+## 19. Enhancement E-05E — Selling units: price, reservation and sale
+
+Sales now works on the canonical units: a project's **Sales** tab lists them with
+price, price per m², commercial status, client, deal and reservation expiry, and
+each unit's page has a **Sales** section where a unit is priced, put on sale,
+held, reserved for a client and deal (either created in the same form), extended,
+released, marked Sold and — by a Sales Manager — reopened. Reservations expire on
+their own. `docs/unit-sales.md` is the contract.
+
+### 19.1 What changed
+
+| Before | Now |
+|---|---|
+| A published unit with no commercial side | `UnitCommercialProfile` beside the unit: Not For Sale, For Sale, On Hold, Reserved, Sold, moved only by the new `unit_commercial` machine (9 transitions); asking price, currency, price basis, hold and notes |
+| — | Price history on every change of price, currency or basis; price per m² derived, never stored, and filterable and sortable in the database |
+| — | `UnitReservation` for a canonical Client and the CRM's Opportunity (the *Deal*), with expiry, agreed price, extensions, and a status that is never deleted; one active reservation per unit held by a partial unique index; the status history of every move |
+| Opportunities with no units | `OpportunityUnit`: a deal holds units by id — an apartment, its parking and storage — each still reserved and released on its own; the deal page has a Units panel |
+| — | Reserve creates the client (through the Clients service, offering a similar existing client back first) and the deal (through the Opportunities service) in the reservation's own transaction |
+| — | Job `sales.unit-reservations` (every 5 min): expires reservations as the system and frees the unit; warns the salesperson and deal owner a day before |
+| — | Notification category *Sales* with four events; 12 audit events; unit activity from Sales for readers who may see sales |
+| — | 9 permissions `project.unit.sales.view`, `.sales_status.manage`, `.price.manage`, `.reserve`, `.reservation.extend`, `.reservation.release`, `.mark_sold`, `.reopen_sale`, `.sales_correct`; Sales acts, the Sales Manager also reopens and corrects, CEO, PM, Finance, Legal and Viewer read, Architecture and Engineering see only the status |
+| A published unit could be unpublished or archived at any time | Not while it is on sale, held, reserved or sold (`UNIT_ON_SALE`); a unit with any sales history is not deleted |
+| Unit header and list with publication only | The commercial status beside it, for everyone who can open the unit; a Sales column in the unit list |
+| — | Settings → Sales (translated): reservation length, 1–90 days, default 7 |
+
+Migration `20260917170000_unit_sales_e05e` is additive: six tables, four enums,
+one settings column, composite foreign keys holding every row to its unit's
+project and company, the partial unique index, and checks for non-negative prices,
+an expiry after the reservation and the settings range. Every existing unit stays
+Not For Sale. It was replayed from zero into an empty database before being
+applied. E-05D's seed now also publishes A-201 to A-204, which the new seed sells.
+
+### 19.2 The evidence
+
+Full vitest: 3 400 passed, 1 failed, 11 skipped (the destructive and opt-in
+suites). The failure was `tests/unit/permissions/settings-access.test.ts` finding
+Settings → Sales visible to HR (§19.3); after the fix that file passes. Of those:
+
+- New suites: `tests/unit/sales/unit-sales-rules.test.ts` (17 — price per m²,
+  eligibility, the Sold check, the machine, validation, the role policy),
+  `tests/api/sales/unit-sales.test.ts` (14 — price history, status and
+  eligibility, reserving with existing and new client and deal, the duplicate
+  client offered back, two people reserving at once, extend and release, a
+  multi-unit deal, Sold and reopen, the expired-reservation guard, publishing and
+  deletion guards, access by role and Company B, the inventory, the settings) and
+  `tests/api/jobs/sales.unit-reservations.test.ts` (7 — idempotency, warning once
+  per expiry date, an extension saved mid-run winning, overlapping runs, company
+  isolation, suspended companies and Projects switched off, one failure rolling
+  back alone).
+- E-05D's `publishing-rules.test.ts` narrowed to the publishing grants.
+- Security: `tests/security` passed; a sweep narrowed to the new routes makes 19
+  calls each way and all 17 foreign-id calls answer 404, nothing uncovered or
+  unvalidated. The harness now resolves `reservationId` and a deal's unit.
+- `pnpm verify:roles` against the production build: 1 363 of 1 363 checks for all
+  18 roles.
+- Gates: typecheck, lint (0 errors, the 16 pre-existing warnings),
+  `verify:ownership` (207 models), `verify:authorization` (521 routes),
+  `verify:state` (42 machines, 220 transitions; 87 blind and 19 unreadable,
+  unchanged), `verify:workers` (21 jobs, matrix regenerated),
+  `verify:company-integrity`, `verify:production-guards`, `security:matrix
+  --check` (902 endpoints, none unguarded).
+- Migration: every migration replayed into an empty database, with no drift from
+  the schema.
+- Seed: `pnpm db:seed` twice in a row, validation passing (a unit in every
+  commercial state, a deal holding two units, a Company B reservation).
+- E2E against the production build: **429 passed, 0 failed**. The new desktop
+  journeys (price, put on sale, reserve with a new client and deal, extend, sell;
+  reopen, reserve for an existing client, release; the inventory's quick filter
+  and search; a draft unit not offered; an Architect seeing only the status) and
+  the phone spec pass, and so does `responsive/mobile.spec.ts` "moves filters and
+  the sort into a sheet…", which §17.3 and §18.2 recorded as failing.
+
+### 19.3 Defects found
+
+- **Settings → Sales opened to HR.** The section was first gated on
+  `company.settings.view`, which HR holds; the full suite's settings-access test
+  caught it, and it is now behind `settings.manage` like every company section.
+- **The reserve dialog did not scroll**: with a new client its Reserve button sat
+  below a 720-pixel window and could not be reached. The sales dialogs now scroll
+  within the viewport.
+- **A reservation past its expiry could be marked Sold** in the minutes before the
+  expiry job closes it. The Sold check now requires an unexpired reservation, and
+  the page says *Expired — being released*.
+- **A new client from the reserve form skipped the CRM's duplicate check.** It now
+  offers the similar clients back and creates only on confirmation.
+- **E-05D's role test** asserted that Sales holds no `project.unit.*` grant; it now
+  excludes the selling grants, which E-05E's own policy test covers.
+- **The long-running development server** on port 3000 predates the E-05D and
+  E-05E migrations; its Prisma client lacks the new tables. Screens were checked on
+  the production build instead.
+
+### 19.4 Limits, stated plainly
+
+- **The company Sold rule and the contract handoff are E-05F.** E-05E's Sold check
+  is the reservation, client, deal and agreed price.
+- **No currency conversion**; price filters compare amounts as numbers.
+- **No bulk pricing, price lists or imports**; no unit picker on the deal page.
+- **Expiry lags by up to one job interval**, treated as expired meanwhile.
+- **Module pages are English**; Settings → Sales and the notification category are
+  translated.
+- **The development server needs a restart** after this migration and
+  `prisma generate`, and `pnpm db:seed` (or `pnpm access:sync`) before anybody
+  holds the new permissions.

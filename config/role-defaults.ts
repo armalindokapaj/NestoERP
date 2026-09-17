@@ -1148,6 +1148,16 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.revision_request",
         "project.unit.unpublish",
         "project.unit.archive",
+        // Selling units, reopening a sale and correcting a reservation included (E-05E §39).
+        "project.unit.sales.view",
+        "project.unit.sales_status.manage",
+        "project.unit.price.manage",
+        "project.unit.reserve",
+        "project.unit.reservation.extend",
+        "project.unit.reservation.release",
+        "project.unit.mark_sold",
+        "project.unit.reopen_sale",
+        "project.unit.sales_correct",
       ],
     },
     // Promoting somebody to Owner is the one company action an Admin must not
@@ -1224,10 +1234,22 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.revision_request",
         "project.unit.unpublish",
         "project.unit.archive",
+        // A Company Admin sells units inside the company too (E-05E §39).
+        "project.unit.sales.view",
+        "project.unit.sales_status.manage",
+        "project.unit.price.manage",
+        "project.unit.reserve",
+        "project.unit.reservation.extend",
+        "project.unit.reservation.release",
+        "project.unit.mark_sold",
+        "project.unit.reopen_sale",
+        "project.unit.sales_correct",
       ],
     },
   },
   CEO: {
+    // Commercial status, prices and reservations of every unit, read (E-05E §39).
+    projects: { extra: ["project.unit.sales.view"] },
     /**
      * Time summaries by project, and the decision on the weeks they are the
      * designated approver of — without everybody's entry text (PRD #42 §132).
@@ -1319,7 +1341,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * keeps the status and the details of the projects they manage; which
      * projects the company takes on is the Owner's or an Admin's call.
      */
-    projects: { deny: ["project.create"] },
+    // They read their projects' units as Sales sees them, and sell none (E-05E §39).
+    projects: { deny: ["project.create"], extra: ["project.unit.sales.view"] },
     // Void a mistaken RFI or transmittal on their own projects; company defaults stay the Owner's (PRD #46 §183).
     engineering: { extra: ["rfi.void", "transmittal.void"], deny: ["engineering.settings.manage"] },
     // Notices to the projects they run and the people on them — not the whole company (PRD #45 §234).
@@ -1605,6 +1628,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   FINANCE: {
+    // The units Finance will invoice and collect for, read (E-05E §37, §39).
+    projects: { extra: ["project.unit.sales.view"] },
     /**
      * Commercial context only, not the Sales workspace (PRD #5 §20,
      * PRD #17 §24, §152, §352).
@@ -1664,6 +1689,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   LEGAL: {
+    // The reserved units Legal will write contracts for, read (E-05E §36).
+    projects: { extra: ["project.unit.sales.view"] },
     /**
      * The role the module exists for (PRD #18 §27, §397).
      *
@@ -1704,6 +1731,22 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   SALES: {
+    /**
+     * Selling units: status, price, reservations, extensions, releases and the
+     * sale (E-05E §39). Reopening a sold unit and correcting a reservation are
+     * the Sales Manager's.
+     */
+    projects: {
+      extra: [
+        "project.unit.sales.view",
+        "project.unit.sales_status.manage",
+        "project.unit.price.manage",
+        "project.unit.reserve",
+        "project.unit.reservation.extend",
+        "project.unit.reservation.release",
+        "project.unit.mark_sold",
+      ],
+    },
     /**
      * The workspace this module exists for — and not the approver
      * (PRD #17 §19, §20).
@@ -1749,6 +1792,20 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
   },
   SALES_MANAGER: {
+    // Everything Sales does to units, plus reopening a sale and correcting a reservation (E-05E §31, §39).
+    projects: {
+      extra: [
+        "project.unit.sales.view",
+        "project.unit.sales_status.manage",
+        "project.unit.price.manage",
+        "project.unit.reserve",
+        "project.unit.reservation.extend",
+        "project.unit.reservation.release",
+        "project.unit.mark_sold",
+        "project.unit.reopen_sale",
+        "project.unit.sales_correct",
+      ],
+    },
     // Sales' contract and finance limits; unlike Sales, the manager decides
     // proposals (PRD #17 §19, §20; E-05E §39).
     /**
@@ -1936,6 +1993,10 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "qaqc.export",
       ],
     },
+  },
+  // Scoped read of the units' commercial side, and nothing to change (E-05E §39).
+  VIEWER: {
+    projects: { extra: ["project.unit.sales.view"] },
   },
 };
 

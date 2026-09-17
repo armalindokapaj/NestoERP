@@ -86,6 +86,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
         show={{
           planning: projectActions.canViewPlanning,
           units: projectActions.canViewUnits,
+          sales: projectActions.canViewUnitSales,
           contractors: projectActions.canViewContractors,
           engineering: projectActions.canViewEngineering,
           tasks: projectActions.canViewTasks,

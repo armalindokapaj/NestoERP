@@ -138,6 +138,19 @@ function assertReady(state: PublishState, action: "published" | "submitted") {
   }
 }
 
+/**
+ * A unit Sales is offering, holding, has reserved or has sold stays in use (E-05E
+ * §6): unpublishing, archiving or pulling it for revision would take away what a
+ * client is relying on. Sales takes it off sale first.
+ */
+async function assertNotOnSale(tx: Tx, companyId: string, unitId: string) {
+  const profile = await tx.unitCommercialProfile.findFirst({ where: { companyId, unitId }, select: { status: true } });
+  if (profile && profile.status !== "NOT_FOR_SALE") {
+    const words = { FOR_SALE: "for sale", ON_HOLD: "on hold for Sales", RESERVED: "reserved", SOLD: "sold" } as const;
+    throw fail("UNIT_ON_SALE", `This unit is ${words[profile.status]}. Sales must take it off sale before it is taken out of use.`, "CONFLICT");
+  }
+}
+
 function assertReason(reason: string | null | undefined): string {
   const value = reason?.trim() ?? "";
   if (!value) throw new AccessError("VALIDATION_ERROR", "Give a reason.", { field: "reason", reason: ["Give a reason."] });
@@ -337,6 +350,7 @@ export async function requestUnitRevision(
       return { status: from, version: state.row.version + 1, returnedChangesOnly: true };
     }
 
+    if (from === "PUBLISHED") await assertNotOnSale(tx, context.companyId, unit.id);
     await applyTransition(tx, {
       machine: unitPublicationMachine,
       action: "request_revision",
@@ -369,6 +383,7 @@ export async function unpublishUnit(context: UserContext, unitId: string, input:
     const state = await stateFor(tx, context, unit.id);
     checkVersion(state, input.expectedVersion);
     const from = state.row.publicationStatus;
+    await assertNotOnSale(tx, context.companyId, unit.id);
     await applyTransition(tx, {
       machine: unitPublicationMachine,
       action: "unpublish",
@@ -407,6 +422,7 @@ export async function archiveUnit(context: UserContext, unitId: string, input: {
     const state = await stateFor(tx, context, unit.id);
     checkVersion(state, input.expectedVersion);
     const from = state.row.publicationStatus;
+    await assertNotOnSale(tx, context.companyId, unit.id);
     await applyTransition(tx, {
       machine: unitPublicationMachine,
       action: "archive",

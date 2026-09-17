@@ -71,6 +71,12 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await runComplianceExpiry(now);
     return { processed: result.expiring + result.expired, detail: result };
   },
+  "sales.unit-reservations": async ({ now }) => {
+    // Unit reservations past their date expire and free the unit; a day before, the salesperson is warned (E-05E §25, §52).
+    const { runUnitReservationExpiry } = await import("@/lib/modules/sales/units/unit-sales.expiry");
+    const result = await runUnitReservationExpiry(now);
+    return { processed: result.expired + result.warned, detail: result };
+  },
   "recentwork.prune": async ({ now, dryRun }) => {
     // Older than the company's retention, or past the hundred newest per member (PRD #45 §104, §105).
     const { pruneRecentWork } = await import("@/lib/modules/productivity/recent-work.service");

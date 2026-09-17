@@ -31,6 +31,7 @@ import { inventoryLocationMachine } from "@/lib/modules/inventory/warehouses/loc
 import { warehouseMachine } from "@/lib/modules/inventory/warehouses/warehouse.machine";
 import { projectMachine } from "@/lib/modules/projects/project.machine";
 import { unitPublicationMachine } from "@/lib/modules/project-structure/unit-publication.machine";
+import { unitCommercialMachine } from "@/lib/modules/sales/units/unit-commercial.machine";
 import { purchaseOrderMachine } from "@/lib/modules/procurement/orders/order.machine";
 import { supplierQuoteMachine } from "@/lib/modules/procurement/quotes/quote.machine";
 import { goodsReceiptMachine } from "@/lib/modules/procurement/receipts/receipt.machine";
@@ -70,6 +71,8 @@ export const STATE_MACHINES: ReadonlyArray<StateMachine<any, any>> = [
   projectMachine,
   // Project structure: a unit's publication (E-05D §13, §14)
   unitPublicationMachine,
+  // Sales: a unit's commercial status (E-05E §7, §8)
+  unitCommercialMachine,
   // Documents
   documentMachine,
   documentVersionReviewMachine,

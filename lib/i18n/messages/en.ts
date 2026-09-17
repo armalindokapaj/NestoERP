@@ -190,6 +190,7 @@ export const en = {
         description: "Cross-module behaviours such as quality gating and finance commitments.",
       },
       numbering: { label: "Numbering", description: "How invoice, order and record numbers are generated." },
+      sales: { label: "Sales", description: "How long a unit reservation lasts, and other defaults for selling units." },
       storage: {
         label: "File storage",
         description: "How much file storage your company is using, and its limits.",
@@ -230,6 +231,7 @@ export const en = {
         announcements: { label: "Announcements", description: "Announcements addressed to you, critical notices and acknowledgment reminders." },
         contractors: { label: "Contractors", description: "Contractors assigned to your projects, status changes and compliance expiring or expired." },
         engineering: { label: "Engineering", description: "RFIs and submittals assigned to you, reviews due and overdue, decisions and issued transmittals." },
+        sales: { label: "Sales", description: "Unit reservations about to expire, expired or released, and units marked Sold." },
       },
     },
 
@@ -425,6 +427,18 @@ export const en = {
       resetYearly: "Restart the sequence each year",
       manualPreview: "Typed in by whoever creates the record",
       updated: "{label} numbering updated.",
+    },
+
+    sales: {
+      description: "Company defaults for selling project units. Changes apply to new reservations only.",
+      reservationSection: "Reservations",
+      reservationSectionDescription: "How long a reservation holds a unit when the salesperson does not choose another date.",
+      reservationDays: "Reservation length (days)",
+      reservationDaysHint: "From 1 to 90 days. Reservations already made keep their expiry date.",
+      reservationDaysInvalid: "Enter whole days from 1 to 90.",
+      submit: "Save sales settings",
+      updated: "Sales settings updated.",
+      readOnly: "You can see these settings but not change them.",
     },
 
     storage: {

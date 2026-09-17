@@ -10,10 +10,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { ORIENTATION_LABELS, POSITION_LABELS, type UnitDTO, type UnitListDTO } from "@/lib/modules/project-structure/structure.types";
 import { areaText, countText } from "./structure-ui";
+import { CommercialStatusBadge } from "@/components/sales/unit-sales/commercial-status";
 import { PublicationBadge } from "./unit-page/publication-badge";
 
 /**
- * The unit table (E-05B §46, §109). Inside one floor the Building and Floor
+ * The unit table (E-05B §46, §109), with each unit's publication and commercial
+ * status side by side (E-05D §13, E-05E §7). Inside one floor the Building and Floor
  * columns would say the same thing on every row, so they are left out. On a
  * phone each unit is a card with the few facts that decide which one it is.
  */
@@ -103,6 +105,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                 </>
               ) : null}
               <TableHeaderCell>Publication</TableHeaderCell>
+              <TableHeaderCell>Sales</TableHeaderCell>
               <TableHeaderCell>Position</TableHeaderCell>
               <TableHeaderCell>Orientation</TableHeaderCell>
               <TableHeaderCell className="text-right">Internal</TableHeaderCell>
@@ -135,6 +138,9 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                   <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
                   {unit.publication.hasUnpublishedChanges ? <span className="ml-1.5 text-meta text-warning-strong">Changed</span> : null}
                 </TableCell>
+                <TableCell>
+                  <CommercialStatusBadge status={unit.commercialStatus} />
+                </TableCell>
                 <TableCell className="text-fg-muted">{unit.position ? POSITION_LABELS[unit.position] : "—"}</TableCell>
                 <TableCell className="text-fg-muted">{unit.orientation ? ORIENTATION_LABELS[unit.orientation] : "—"}</TableCell>
                 <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.internalArea)}</TableCell>
@@ -154,10 +160,11 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
         {list.items.map((unit, index) => (
           <li key={unit.id} className="nesto-card flex items-start gap-3 p-3" data-testid="unit-card" data-unit-code={unit.unitCode}>
             <Link href={href(unit)} className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-body font-semibold text-fg">{unit.unitCode}</span>
                 <span className="text-table text-fg-muted">{unit.unitType.name}</span>
                 <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
+                {unit.commercialStatus === "NOT_FOR_SALE" ? null : <CommercialStatusBadge status={unit.commercialStatus} />}
                 {unit.isActive ? null : <Badge>Inactive</Badge>}
               </span>
               <span className="mt-0.5 block text-meta text-fg-subtle">

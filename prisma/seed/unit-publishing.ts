@@ -19,6 +19,8 @@ import { STRUCTURE_SEED } from "./structure";
  * - A-103 Ready for Publishing: complete, waiting for the Architecture Manager.
  * - A-104 Revision Required: returned with a reason; no primary image yet.
  * - B-101 Draft: a Sales Plan and nothing else.
+ * - A-201 to A-204 Published v1, each with its Sales Plan and floor plan: the
+ *   stock the sales seed prices, holds, reserves and sells (E-05E).
  *
  * Every file is a canonical Document filed against its unit, with version 1 and
  * real bytes, as a genuine upload leaves it. Everything else stays Draft (§105).
@@ -211,6 +213,15 @@ export async function seedUnitPublishingRecords(prisma: PrismaClient, memberId: 
   /* B-101: a draft on its way ------------------------------------------------------ */
   await salesPlan(UNIT_IDS.b101, "B-101", 3);
 
+  /* Floor 2 of Block A: published, for Sales (E-05E) ---------------------------------- */
+  const floorA2 = await prisma.projectUnit.findMany({ where: { floorId: "flr_riverside_a_2" }, orderBy: { sortOrder: "asc" }, select: { id: true, unitCode: true } });
+  const hues = ["#3b6ea0", "#a0583b", "#5b8a3b", "#7a4f8a"];
+  for (const [index, unit] of floorA2.entries()) {
+    await salesPlan(unit.id, unit.unitCode, 40 - index);
+    await floorPlan(unit.id, unit.unitCode, hues[index % hues.length]!);
+    await publish(prisma, unit.id, 1, manager, daysAgo(35 - index));
+  }
+
   const users = await prisma.companyMember.findMany({ where: { id: { in: [architect, manager] } }, select: { id: true, userId: true } });
   const userOf = new Map(users.map((row) => [row.id, row.userId]));
   const trail: Array<{ unitId: string; action: string; message: string; memberId: string; at: Date }> = [
@@ -225,6 +236,7 @@ export async function seedUnitPublishingRecords(prisma: PrismaClient, memberId: 
     { unitId: a103, action: "UNIT_SUBMITTED_FOR_PUBLISHING", message: "submitted A-103 for publishing", memberId: architect, at: daysAgo(1) },
     { unitId: UNIT_IDS.a104, action: "UNIT_SUBMITTED_FOR_PUBLISHING", message: "submitted A-104 for publishing", memberId: architect, at: daysAgo(8) },
     { unitId: UNIT_IDS.a104, action: "UNIT_REVISION_REQUIRED", message: "asked for a revision of A-104", memberId: manager, at: daysAgo(7) },
+    ...floorA2.map((unit, index) => ({ unitId: unit.id, action: "UNIT_PUBLISHED", message: `published ${unit.unitCode}`, memberId: manager, at: daysAgo(35 - index) })),
   ];
   for (const entry of trail) await activity(prisma, { ...entry, userId: userOf.get(entry.memberId)! });
 
@@ -240,5 +252,5 @@ export async function seedUnitPublishingRecords(prisma: PrismaClient, memberId: 
   await prisma.unitDocumentLink.create({ data: { companyId: "company_demo_b", projectId: munichProject, unitId: munich, documentId: specB, category: "SPECIFICATION", createdByMemberId: ownerB } });
   await publish(prisma, munich, 1, ownerB, daysAgo(8), "company_demo_b");
 
-  return { published: 2, waiting: 2, revision: 1, files: await prisma.document.count({ where: { entityType: "project_unit" } }) };
+  return { published: 2 + floorA2.length, waiting: 2, revision: 1, files: await prisma.document.count({ where: { entityType: "project_unit" } }) };
 }

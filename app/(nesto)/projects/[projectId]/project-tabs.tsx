@@ -19,6 +19,7 @@ export function ProjectTabs({
   show: {
     planning?: boolean;
     units?: boolean;
+    sales?: boolean;
     contractors?: boolean;
     engineering?: boolean;
     tasks: boolean;
@@ -40,6 +41,8 @@ export function ProjectTabs({
     { key: "planning", label: "Planning", href: `/projects/${projectId}/planning`, visible: Boolean(show.planning) },
     // Buildings, floors and units (E-05B §34: "Units", with the hierarchy inside).
     { key: "units", label: "Units", href: `/projects/${projectId}/units`, visible: Boolean(show.units) },
+    // The same units, as Sales sees them (E-05E §13).
+    { key: "sales", label: "Sales", href: `/projects/${projectId}/sales`, visible: Boolean(show.sales) },
     { key: "tasks", label: "Tasks", href: `/projects/${projectId}/tasks`, visible: show.tasks },
     { key: "calendar", label: "Calendar", href: `/projects/${projectId}/calendar`, visible: Boolean(show.calendar) },
     { key: "meetings", label: "Meetings", href: `/projects/${projectId}/meetings`, visible: Boolean(show.meetings) },

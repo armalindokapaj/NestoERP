@@ -74,7 +74,9 @@ const OWNED: Record<string, string[]> = {
     "financeSettings",
   ],
   hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord"],
-  sales: ["lead", "opportunity", "proposal", "proposalLineItem", "salesApproval"],
+  // A unit's commercial side — profile, prices, reservations, the units in a deal, the status trail
+  // (E-05E) — keyed by the canonical unitId; the unit itself stays project-structure's.
+  sales: ["lead", "opportunity", "proposal", "proposalLineItem", "salesApproval", "unitCommercialProfile", "unitPriceHistory", "unitReservation", "unitReservationExtension", "opportunityUnit", "unitCommercialStatusHistory"],
   contracts: ["contract", "contractParty", "contractObligation", "contractAmendment", "contractApproval"],
   procurement: [
     "supplier",

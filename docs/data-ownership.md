@@ -57,7 +57,7 @@ with it.
 | `documents` | `Document`, `DocumentVersion`, `DocumentReview`, `DocumentUploadSession`, storage quota and usage |
 | `finance` | `Invoice`, `Expense`, `Payment`, `ProjectBudget`, `Commitment`, `FinanceApproval`, `FinanceSettings` |
 | `hr` | `EmployeeProfile`, `Compensation`, `LeaveRequest`, `LeaveBalance`, `AttendanceRecord` |
-| `sales` | `Lead`, `Opportunity`, `Proposal`, `SalesApproval` |
+| `sales` | `Lead`, `Opportunity`, `Proposal`, `SalesApproval`; `UnitCommercialProfile`, `UnitPriceHistory`, `UnitReservation`, `UnitReservationExtension`, `OpportunityUnit`, `UnitCommercialStatusHistory` — a unit's price, commercial status, reservations and deals (E-05E). The unit stays project structure's, read through its door; clients are created through the Clients service |
 | `contracts` | `Contract`, `ContractParty`, `ContractObligation`, `ContractAmendment`, `ContractApproval` |
 | `procurement` | `Supplier`, `PurchaseRequest`, `RFQ`, `SupplierQuote`, `PurchaseOrder`, `GoodsReceipt`, procurement approvals |
 | `inventory` | `InventoryItem`, `Warehouse`, `InventoryBalance`, `StockMovement`, every stock document |

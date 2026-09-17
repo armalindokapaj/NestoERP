@@ -177,6 +177,8 @@ export type UnitDTO = {
   updatedAt: string;
   /** Where the unit stands in publishing (E-05D §13, §28): never its sales status. */
   publication: { status: UnitPublicationStatusKey; versionNumber: number | null; hasUnpublishedChanges: boolean };
+  /** Whether it is for sale, reserved or sold (E-05E §7, §33) — the status only; prices and clients need Sales' grant. */
+  commercialStatus: UnitCommercialStatusKey;
 };
 
 export type UnitListDTO = {
@@ -193,6 +195,9 @@ export type UnitDetailDTO = UnitDTO & {
 
 /** The publication states, repeated here so this file stays free of the publishing module (E-05D §13). */
 export type UnitPublicationStatusKey = "DRAFT" | "READY_FOR_PUBLISHING" | "PUBLISHED" | "REVISION_REQUIRED" | "ARCHIVED";
+
+/** The commercial states, repeated here so this file stays free of the Sales module (E-05E §7). */
+export type UnitCommercialStatusKey = "NOT_FOR_SALE" | "FOR_SALE" | "ON_HOLD" | "RESERVED" | "SOLD";
 
 /** A proposed batch, checked against the project before anything is written (E-05B §44). */
 export type BatchConflict = { index: number; value: string; reason: "EXISTS" | "REPEATED" };

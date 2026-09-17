@@ -265,6 +265,22 @@ export const PERMISSIONS = [
   "project.unit.archive",
   "project.unit.publication_history.view",
   /**
+   * Selling the unit (E-05E §38): its commercial status, asking price, holds,
+   * reservations for a client and a deal, and the sale. Sales-owned data on the
+   * canonical unit, so a reader without `sales.view` sees the status and nothing
+   * else — never a price, a client or a deal (§32, §39). Reopening a sold unit
+   * and correcting a reservation are elevated on purpose (§31).
+   */
+  "project.unit.sales.view",
+  "project.unit.sales_status.manage",
+  "project.unit.price.manage",
+  "project.unit.reserve",
+  "project.unit.reservation.extend",
+  "project.unit.reservation.release",
+  "project.unit.mark_sold",
+  "project.unit.reopen_sale",
+  "project.unit.sales_correct",
+  /**
    * Keeping the company's list of unit types (E-05B §20, §21). Company
    * configuration, like project types, so no module ladder reaches it.
    */
@@ -1272,6 +1288,12 @@ const MUTATING_ACTIONS = new Set([
   "submit_for_publish",
   "revision_request",
   "unpublish",
+  // Unit sales (E-05E §38).
+  "extend",
+  "reserve",
+  "mark_sold",
+  "reopen_sale",
+  "sales_correct",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

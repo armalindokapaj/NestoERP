@@ -8,10 +8,11 @@ import { ProposalTable } from "@/components/sales/proposal-table";
 import { SalesContractHandoff } from "@/components/contracts/sales-handoff";
 import { SalesRecordDocuments } from "@/components/sales/record-documents";
 import { SalesActivityFeed } from "@/components/sales/sales-activity";
+import { DealUnits } from "@/components/sales/unit-sales/deal-units";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
-import { can } from "@/lib/access/can";
+import { can, canAccessModule } from "@/lib/access/can";
 import { lostReasonLabels } from "@/lib/modules/sales/proposals/proposal.status";
 import * as proposals from "@/lib/modules/sales/proposals/proposal.service";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -198,6 +199,13 @@ export default async function OpportunityPage({ params }: Params) {
           </div>
         </section>
       </div>
+
+      {/* The units this deal is for (E-05E §17): only for readers who may open project units. */}
+      {canAccessModule(context, "projects") && can(context, "project.structure.view") ? (
+        <Suspense fallback={<SkeletonTable rows={2} />}>
+          <DealUnits context={context} opportunityId={opportunity.id} canEdit={opportunity.capabilities.canEdit} />
+        </Suspense>
+      ) : null}
 
       {can(context, "sales.proposal.view") ? (
         <section className="space-y-3">
