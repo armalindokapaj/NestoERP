@@ -3,6 +3,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { defaultUnitTypeRows } from "../../config/unit-types";
 import { floorKeyOf, structureKey } from "../../lib/modules/project-structure/structure.rules";
 import { clearUnitPublishing } from "./unit-publishing";
+import { clearUnitFinance } from "./unit-finance";
 import { clearUnitSales } from "./unit-sales";
 
 /**
@@ -59,7 +60,8 @@ export async function seedStructureRecords(prisma: PrismaClient, members: Map<st
 
   // Whatever a previous seed or a test left on these projects makes way.
   const projects = [RIVERSIDE, CENTRAL_TOWER, MUNICH];
-  // Their sales, publications, media, files and requests first: they point at the units (E-05D, E-05E).
+  // Their contracts and collection, sales, publications, media, files and requests first: they point at the units (E-05D, E-05E, E-05F).
+  await clearUnitFinance(prisma, projects);
   await clearUnitSales(prisma, projects);
   await clearUnitPublishing(prisma, projects);
   await prisma.projectUnit.deleteMany({ where: { projectId: { in: projects } } });

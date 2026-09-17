@@ -281,6 +281,42 @@ export const PERMISSIONS = [
   "project.unit.reopen_sale",
   "project.unit.sales_correct",
   /**
+   * Approving a unit's sale, where the company's Sold rule asks for it
+   * (E-05F §42). Deciding only unlocks Mark Sold; Sales still makes the sale.
+   */
+  "project.unit.sale.approve",
+  /**
+   * The unit's contract (E-05F §55). Legal's own on the same canonical Contract:
+   * each of these gates the unit's Legal section and the sale contract's
+   * lifecycle, and Legal's `legal.contract.*` grant is required beside it, so a
+   * reader of the unit is never handed Legal's workspace. Sales asks for a
+   * contract; Legal drafts, reviews, records the signature, cancels and amends.
+   */
+  "project.unit.legal.view",
+  "project.unit.contract.request",
+  "project.unit.contract.create",
+  "project.unit.contract.update",
+  "project.unit.contract.review",
+  "project.unit.contract.sign_status",
+  "project.unit.contract.cancel",
+  "project.unit.contract.documents.manage",
+  "project.unit.contract.amend",
+  /**
+   * Collecting the unit's sale (E-05F §54): the schedule, invoices for its
+   * installments, payments and their allocations, and the finance documents.
+   * Reading it is its own grant — seeing a project, or a unit, never shows a
+   * contract value, a payment or an overdue amount (§99, §100). Correcting —
+   * reversing an allocation, a schedule total that deliberately differs, voiding
+   * a contract payment — is elevated on purpose (§63, §81).
+   */
+  "project.unit.finance.view",
+  "project.unit.finance.manage_schedule",
+  "project.unit.finance.issue_invoice",
+  "project.unit.finance.record_payment",
+  "project.unit.finance.allocate_payment",
+  "project.unit.finance.documents.manage",
+  "project.unit.finance.correct",
+  /**
    * Keeping the company's list of unit types (E-05B §20, §21). Company
    * configuration, like project types, so no module ladder reaches it.
    */
@@ -583,6 +619,8 @@ export const PERMISSIONS = [
   "legal.contract.mark_sent",
   "legal.contract.mark_signed",
   "legal.contract.activate",
+  /** An active contract whose obligations are fulfilled (E-05F §83). */
+  "legal.contract.complete",
   "legal.contract.expire",
   "legal.contract.terminate",
   "legal.contract.cancel",
@@ -1294,6 +1332,14 @@ const MUTATING_ACTIONS = new Set([
   "mark_sold",
   "reopen_sale",
   "sales_correct",
+  // Unit legal and finance (E-05F §54, §55).
+  "sign_status",
+  "amend",
+  "manage_schedule",
+  "issue_invoice",
+  "record_payment",
+  "allocate_payment",
+  "correct",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

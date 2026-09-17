@@ -91,6 +91,7 @@ export const RECORD_TYPES = [
   "document",
   "invoice",
   "expense",
+  "payment",
   "budget",
   "commitment",
   "employee",

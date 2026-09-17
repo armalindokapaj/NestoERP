@@ -29,7 +29,9 @@ export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
               href={
                 payment.relatedRecord.type === "INVOICE"
                   ? `/finance/invoices/${payment.relatedRecord.id}`
-                  : `/finance/expenses/${payment.relatedRecord.id}`
+                  : payment.relatedRecord.type === "CONTRACT"
+                    ? `/contracts/${payment.relatedRecord.id}`
+                    : `/finance/expenses/${payment.relatedRecord.id}`
               }
               className="block truncate hover:text-accent"
             >
@@ -41,6 +43,8 @@ export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
           <span className="block truncate text-meta font-normal text-fg-subtle">
             {payment.direction === "RECEIPT" ? "Received" : "Paid out"} ·{" "}
             {orDash(payment.reference)}
+            {/* Money not yet pointed at what it settles (E-05F §34). */}
+            {payment.status === "RECORDED" && Number(payment.unallocatedAmount) > 0 ? ` · ${payment.unallocatedAmount} ${payment.currency} unallocated` : ""}
           </span>
         </span>
       ),

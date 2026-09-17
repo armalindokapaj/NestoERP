@@ -227,6 +227,43 @@ enum UnitCommercialChangeSource {
   IMPORT
 }
 
+/// What a unit needs before Sales may mark it Sold (E-05F §42, §43). A company
+/// setting; meeting it only unlocks Mark Sold — a person still makes the sale.
+enum UnitSoldRule {
+  RESERVATION
+  SIGNED_CONTRACT
+  DEPOSIT_RECEIVED
+  SIGNED_CONTRACT_AND_DEPOSIT
+  MANUAL_APPROVAL
+}
+
+/// Sales asking Legal for a unit's contract (E-05F §12): open in Legal's queue
+/// until a contract is drafted from it, it is declined, or the reservation ends.
+enum UnitContractRequestStatus {
+  OPEN
+  FULFILLED
+  DECLINED
+  CANCELLED
+}
+
+/// A payment schedule's life (E-05F §20, §25). One ACTIVE per contract; a
+/// revision supersedes it rather than rewriting it.
+enum PaymentScheduleStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+  COMPLETED
+  CANCELLED
+}
+
+/// What an installment is for (E-05F §23). A deposit is an installment of type DEPOSIT.
+enum InstallmentType {
+  DEPOSIT
+  INSTALLMENT
+  BALANCE
+  OTHER
+}
+
 enum ClientType {
   INDIVIDUAL
   COMPANY
@@ -615,6 +652,8 @@ enum ContractType {
   CONSULTING
   FRAMEWORK
   EMPLOYMENT_RELATED
+  /// The sale of one or more project units to a client (E-05F §7).
+  SALE_AGREEMENT
   OTHER
 }
 
@@ -631,6 +670,8 @@ enum ContractStatus {
   SENT
   SIGNED
   ACTIVE
+  /// Its obligations fulfilled: for a unit sale, financially complete (E-05F §9, §83).
+  COMPLETED
   EXPIRED
   TERMINATED
   CANCELLED
@@ -990,6 +1031,7 @@ model Company {
   projectFloors            ProjectFloor[]
   projectUnits             ProjectUnit[]
   unitPublicationApprovals UnitPublicationApproval[]
+  unitSaleApprovals        UnitSaleApproval[]
   clients                  Client[]
   contacts                 Contact[]
   tasks                    Task[]
@@ -1458,6 +1500,7 @@ model Project {
 
   invoices          Invoice[]
   expenses          Expense[]
+  payments          Payment[]          @relation("PaymentProject")
   budgets           ProjectBudget[]
   commitments       Commitment[]
   contracts         Contract[]
@@ -1749,6 +1792,9 @@ model ProjectUnit {
   reservations          UnitReservation[]
   opportunityLinks      OpportunityUnit[]
   commercialStatusTrail UnitCommercialStatusHistory[]
+  // Legal and Finance (E-05F): the contracts holding it and Sales' requests for one.
+  contractLinks         ContractUnit[]
+  contractRequests      UnitContractRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1848,6 +1894,44 @@ model UnitDocumentLink {
   @@index([unitId, category])
   @@index([documentId])
   @@map("unit_document_links")
+}
+
+/// A request to approve a unit's sale, when the company's Sold rule is Manual
+/// approval (E-05F §42). One row per submission, read by the Approvals Center;
+/// an approval belongs to the reservation it was asked for, so a new reservation
+/// needs a new one. A partial unique index keeps one PENDING per unit.
+model UnitSaleApproval {
+  id            String                 @id @default(cuid())
+  companyId     String
+  projectId     String
+  recordType    UnitApprovalRecordType @default(UNIT)
+  recordId      String
+  reservationId String
+
+  status UnitApprovalStatus @default(PENDING)
+
+  submittedByMemberId String
+  submittedAt         DateTime @default(now())
+  submissionNote      String?
+
+  decidedByMemberId String?
+  decidedAt         DateTime?
+  decisionNote      String?
+
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  reservation UnitReservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([recordType, recordId])
+  @@index([reservationId])
+  @@index([submittedByMemberId])
+  @@index([decidedByMemberId])
+  @@index([submittedAt])
+  @@map("unit_sale_approvals")
 }
 
 /// A request to publish a unit, one row per submission (E-05D §21, §47; PRD #41 §48).
@@ -1970,10 +2054,13 @@ model UnitReservation {
   createdByMemberId String
   version           Int    @default(1)
 
-  unit        ProjectUnit                @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
-  client      Client                     @relation("UnitReservationClient", fields: [clientId], references: [id], onDelete: Restrict)
-  opportunity Opportunity                @relation("UnitReservationOpportunity", fields: [opportunityId], references: [id], onDelete: Restrict)
-  extensions  UnitReservationExtension[]
+  unit             ProjectUnit                @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  client           Client                     @relation("UnitReservationClient", fields: [clientId], references: [id], onDelete: Restrict)
+  opportunity      Opportunity                @relation("UnitReservationOpportunity", fields: [opportunityId], references: [id], onDelete: Restrict)
+  extensions       UnitReservationExtension[]
+  // What depends on this reservation in Legal and Sales (E-05F).
+  contractRequests UnitContractRequest[]
+  saleApprovals    UnitSaleApproval[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2111,16 +2198,18 @@ model Client {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
-  contacts         Contact[]
-  projects         Project[]
-  documents        Document[]
-  invoices         Invoice[]
-  opportunities    Opportunity[]
-  proposals        Proposal[]
-  convertedLeads   Lead[]            @relation("LeadConvertedClient")
-  contracts        Contract[]
-  contractParties  ContractParty[]   @relation("ContractPartyClient")
-  unitReservations UnitReservation[] @relation("UnitReservationClient")
+  contacts             Contact[]
+  projects             Project[]
+  documents            Document[]
+  invoices             Invoice[]
+  opportunities        Opportunity[]
+  proposals            Proposal[]
+  convertedLeads       Lead[]                @relation("LeadConvertedClient")
+  contracts            Contract[]
+  contractParties      ContractParty[]       @relation("ContractPartyClient")
+  unitReservations     UnitReservation[]     @relation("UnitReservationClient")
+  unitContractRequests UnitContractRequest[] @relation("UnitContractRequestClient")
+  payments             Payment[]             @relation("PaymentClient")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2799,6 +2888,13 @@ model Invoice {
   /// proposal that prompted it, and most invoices have no proposal at all.
   sourceProposalId String?
 
+  /// The sale contract installment this invoice bills, when it bills one
+  /// (E-05F §26). Its total is the installment's amount, and it is settled by the
+  /// money allocated to that installment. The pair is one foreign key, so an
+  /// invoice cannot name an installment of another contract.
+  contractId    String?
+  installmentId String?
+
   issueDate DateTime
   dueDate   DateTime
   currency  String   @db.VarChar(3)
@@ -2824,8 +2920,12 @@ model Invoice {
 
   sourceProposal Proposal? @relation("InvoiceSourceProposal", fields: [sourceProposalId], references: [id], onDelete: SetNull)
 
-  lineItems InvoiceLineItem[]
-  payments  Payment[]
+  contract    Contract?           @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  installment PaymentInstallment? @relation(fields: [installmentId, contractId], references: [id, contractId], onDelete: Restrict)
+
+  lineItems   InvoiceLineItem[]
+  /// What has been paid against it (E-05F §31): allocations of recorded payments.
+  allocations PaymentAllocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2841,6 +2941,8 @@ model Invoice {
   @@index([currency])
   @@index([updatedAt])
   @@index([sourceProposalId])
+  @@index([contractId, status])
+  @@index([installmentId])
   @@map("invoices")
 }
 
@@ -2898,7 +3000,8 @@ model Expense {
   company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  payments Payment[]
+  /// What has been paid out against it: allocations of recorded disbursements (E-05F §31).
+  allocations PaymentAllocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2914,15 +3017,24 @@ model Expense {
   @@map("expenses")
 }
 
-/// Actual cash movement against exactly one invoice or one expense
-/// (PRD #15 §70, §74). Voided rather than deleted, so the trail survives.
+/// Actual cash received or paid out (PRD #15 §70; E-05F §29-§34). Voided rather
+/// than deleted, so the trail survives.
+///
+/// What a payment settles is its allocations, never a column here: one transfer
+/// may cover two installments, one installment may be paid in three transfers,
+/// and an invoice or an expense is settled by the money allocated to it
+/// (E-05F §31). A receipt names who paid; one recorded against a sale contract
+/// names the contract, and money not yet allocated stays visible as unallocated
+/// for Finance to review (§34). `projectId` is the project of what it settles,
+/// which is how a project-scoped reader reaches it.
 model Payment {
   id        String @id @default(cuid())
   companyId String
 
-  direction PaymentDirection
-  invoiceId String?
-  expenseId String?
+  direction  PaymentDirection
+  clientId   String?
+  contractId String?
+  projectId  String?
 
   amount      Decimal       @db.Decimal(18, 2)
   currency    String        @db.VarChar(3)
@@ -2934,14 +3046,22 @@ model Payment {
 
   status PaymentStatus @default(RECORDED)
 
+  /// A payment recorded to replace a voided one (E-05F §81).
+  replacesPaymentId String?
+
   createdByMemberId String
   voidedByMemberId  String?
   voidedAt          DateTime?
   voidReason        String?
 
-  company Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  expense Expense? @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  client   Client?   @relation("PaymentClient", fields: [clientId], references: [id], onDelete: Restrict)
+  contract Contract? @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  project  Project?  @relation("PaymentProject", fields: [projectId], references: [id], onDelete: SetNull)
+  replaces Payment?  @relation("PaymentReplacement", fields: [replacesPaymentId], references: [id], onDelete: Restrict)
+
+  replacements Payment[]           @relation("PaymentReplacement")
+  allocations  PaymentAllocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2949,11 +3069,124 @@ model Payment {
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, paymentDate])
-  @@index([invoiceId])
-  @@index([expenseId])
   @@index([direction])
   @@index([currency])
+  @@index([clientId, paymentDate])
+  @@index([contractId, paymentDate])
+  @@index([projectId])
+  @@index([replacesPaymentId])
   @@map("payments")
+}
+
+/// How much of a payment settles what (E-05F §31, §72): an installment of a sale
+/// contract, an invoice, both at once when the invoice bills that installment,
+/// or an expense. Never edited; a correction reverses it with a reason, and only
+/// unreversed allocations of recorded payments count (§81).
+model PaymentAllocation {
+  id            String  @id @default(cuid())
+  companyId     String
+  paymentId     String
+  /// Set exactly when an installment is, and always its contract.
+  contractId    String?
+  installmentId String?
+  invoiceId     String?
+  expenseId     String?
+
+  amount Decimal @db.Decimal(18, 2)
+
+  createdByMemberId  String
+  reversedAt         DateTime?
+  reversedByMemberId String?
+  reversalReason     String?
+
+  payment     Payment             @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  installment PaymentInstallment? @relation(fields: [installmentId, contractId], references: [id, contractId], onDelete: Restrict)
+  invoice     Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  expense     Expense?            @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([paymentId])
+  @@index([contractId])
+  @@index([installmentId])
+  @@index([invoiceId])
+  @@index([expenseId])
+  @@map("payment_allocations")
+}
+
+/// A sale contract's plan of payments (E-05F §18-§25, §69). Finance turns the
+/// contract's terms into installments. A draft is edited as a whole; activating
+/// it checks its total and supersedes the schedule in force, which keeps its
+/// installments and whatever was paid against them (§25, §84). Partial unique
+/// indexes keep one ACTIVE and one DRAFT per contract.
+model PaymentSchedule {
+  id            String                @id @default(cuid())
+  companyId     String
+  contractId    String
+  versionNumber Int
+  status        PaymentScheduleStatus @default(DRAFT)
+  currency      String                @db.VarChar(3)
+  notes         String?
+
+  /// Why its installments deliberately do not add up to what the contract still needs (§24).
+  totalExceptionReason     String?
+  totalExceptionByMemberId String?
+
+  activatedAt            DateTime?
+  activatedByMemberId    String?
+  supersededAt           DateTime?
+  supersededByScheduleId String?
+  cancelledAt            DateTime?
+  cancelledByMemberId    String?
+  cancelReason           String?
+  completedAt            DateTime?
+
+  createdByMemberId String
+  updatedByMemberId String?
+  version           Int     @default(1)
+
+  contract     Contract             @relation(fields: [contractId, companyId], references: [id, companyId], onDelete: Restrict)
+  installments PaymentInstallment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contractId, versionNumber])
+  @@unique([id, contractId])
+  @@index([contractId, status])
+  @@index([companyId, status])
+  @@map("payment_schedules")
+}
+
+/// One payment a schedule expects (E-05F §21, §70). Its status — upcoming, due,
+/// partly paid, paid, overdue — is derived from its due date and the money
+/// allocated to it, never stored (§22).
+model PaymentInstallment {
+  id         String          @id @default(cuid())
+  companyId  String
+  contractId String
+  scheduleId String
+  sequence   Int
+  label      String
+  type       InstallmentType @default(INSTALLMENT)
+  amount     Decimal         @db.Decimal(18, 2)
+  currency   String          @db.VarChar(3)
+  dueDate    DateTime
+  notes      String?
+
+  schedule    PaymentSchedule     @relation(fields: [scheduleId, contractId], references: [id, contractId], onDelete: Restrict)
+  allocations PaymentAllocation[]
+  invoices    Invoice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scheduleId, sequence])
+  @@unique([id, contractId])
+  @@index([scheduleId, dueDate])
+  @@index([contractId, dueDate])
+  @@index([companyId])
+  @@map("payment_installments")
 }
 
 /// A versioned project budget (PRD #15 §103, §109).
@@ -3425,11 +3658,12 @@ model Opportunity {
   sourceLead       Lead?    @relation("OpportunitySourceLead", fields: [sourceLeadId], references: [id], onDelete: SetNull)
   convertedProject Project? @relation("OpportunityConvertedProject", fields: [convertedProjectId], references: [id], onDelete: SetNull)
 
-  proposals        Proposal[]
-  contracts        Contract[]        @relation("ContractSourceOpportunity")
+  proposals            Proposal[]
+  contracts            Contract[]            @relation("ContractSourceOpportunity")
   // The units in this deal, and the reservations it holds (E-05E §17, §19).
-  units            OpportunityUnit[] @relation("OpportunityUnits")
-  unitReservations UnitReservation[] @relation("UnitReservationOpportunity")
+  units                OpportunityUnit[]     @relation("OpportunityUnits")
+  unitReservations     UnitReservation[]     @relation("UnitReservationOpportunity")
+  unitContractRequests UnitContractRequest[] @relation("UnitContractRequestOpportunity")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3626,6 +3860,10 @@ model Contract {
   terminationReason    String?
   terminatedByMemberId String?
 
+  /// When its obligations were recorded as fulfilled (E-05F §83).
+  completedAt         DateTime?
+  completedByMemberId String?
+
   createdByMemberId  String
   updatedByMemberId  String?
   archivedByMemberId String?
@@ -3649,7 +3887,16 @@ model Contract {
   contractorAssignments ProjectContractorAssignment[]
   workPackages          WorkPackage[]
 
+  // A unit sale (E-05F): the units it sells, the requests it answered, and
+  // Finance's schedules, installments, invoices and payments against it.
+  units            ContractUnit[]
+  unitRequests     UnitContractRequest[]
+  paymentSchedules PaymentSchedule[]
+  invoices         Invoice[]
+  payments         Payment[]
+
   @@unique([companyId, contractNumber])
+  @@unique([id, companyId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, expiryDate])
@@ -3665,6 +3912,84 @@ model Contract {
   @@index([currency])
   @@index([updatedAt])
   @@map("contracts")
+}
+
+/// A unit sold under a contract (E-05F §88-§90). One contract may sell an
+/// apartment, its parking and its storage; the unit is referenced, never copied.
+/// `value` is the unit's part of the contract value, starting from Sales' agreed
+/// price; a different figure carries `valueNote`, and the agreed price on the
+/// reservation is left as it was (§14).
+///
+/// `releasedAt` is set when the contract stops being the unit's contract —
+/// cancelled, terminated, expired or archived — and a partial unique index keeps
+/// one unreleased row per unit: the unit's one live contract (§8).
+model ContractUnit {
+  id         String @id @default(cuid())
+  companyId  String
+  projectId  String
+  contractId String
+  unitId     String
+
+  value     Decimal? @db.Decimal(18, 2)
+  currency  String?  @db.VarChar(3)
+  valueNote String?
+
+  releasedAt         DateTime?
+  releasedByMemberId String?
+  releaseReason      String?
+
+  createdByMemberId String
+
+  contract Contract    @relation(fields: [contractId, companyId], references: [id, companyId], onDelete: Restrict)
+  unit     ProjectUnit @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contractId, unitId])
+  @@index([unitId])
+  @@index([companyId, projectId])
+  @@map("contract_units")
+}
+
+/// Sales asking Legal to draft a unit's contract (E-05F §12). Names the unit and
+/// the reservation behind it; the client, deal and agreed price are read from the
+/// reservation, never copied here. A partial unique index keeps one OPEN request
+/// per unit.
+model UnitContractRequest {
+  id            String @id @default(cuid())
+  companyId     String
+  projectId     String
+  unitId        String
+  reservationId String
+  clientId      String
+  opportunityId String
+
+  status UnitContractRequestStatus @default(OPEN)
+  notes  String?
+
+  requestedByMemberId String
+  requestedAt         DateTime @default(now())
+
+  contractId       String?
+  closedByMemberId String?
+  closedAt         DateTime?
+  closeReason      String?
+
+  unit        ProjectUnit     @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  reservation UnitReservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  client      Client          @relation("UnitContractRequestClient", fields: [clientId], references: [id], onDelete: Restrict)
+  opportunity Opportunity     @relation("UnitContractRequestOpportunity", fields: [opportunityId], references: [id], onDelete: Restrict)
+  contract    Contract?       @relation(fields: [contractId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status, requestedAt])
+  @@index([unitId, status])
+  @@index([reservationId])
+  @@index([contractId])
+  @@map("unit_contract_requests")
 }
 
 /// A legal party to an agreement, stored as a snapshot (PRD #18 §137, §141).
@@ -5224,12 +5549,14 @@ model CompanySettings {
   dateFormat String @default("DD/MM/YYYY")
 
   /// ISO 4217. A base currency implies no FX support whatsoever (PRD #24 §32).
-  baseCurrency            String   @default("EUR") @db.VarChar(3)
-  fiscalYearStartMonth    Int      @default(1)
-  defaultPaymentTermsDays Int      @default(30)
+  baseCurrency            String       @default("EUR") @db.VarChar(3)
+  fiscalYearStartMonth    Int          @default(1)
+  defaultPaymentTermsDays Int          @default(30)
   /// How long a unit reservation lasts unless the person reserving chooses otherwise (E-05E §24).
-  unitReservationDays     Int      @default(7)
-  defaultTaxRate          Decimal? @db.Decimal(9, 4)
+  unitReservationDays     Int          @default(7)
+  /// What a unit needs before Sales may mark it Sold (E-05F §42, §43).
+  unitSoldRule            UnitSoldRule @default(SIGNED_CONTRACT)
+  defaultTaxRate          Decimal?     @db.Decimal(9, 4)
 
   /// The working day and week the calendar shades against (PRD #39 §91, §92).
   /// Local wall-clock times in `timezone`, "HH:MM".

@@ -302,23 +302,30 @@ describe("money (PRD #35 §195, §28)", () => {
   });
 
   it("records no payment larger than what it settles", async () => {
+    // Settled through allocations of recorded payments (E-05F §31).
+    const live = { reversedAt: null, payment: { is: { status: "RECORDED" as const } } };
     const invoices = await prisma.invoice.findMany({
-      where: { payments: { some: { status: "RECORDED" } } },
-      select: {
-        id: true,
-        totalAmount: true,
-        payments: { where: { status: "RECORDED" }, select: { amount: true } },
-      },
+      where: { allocations: { some: live } },
+      select: { id: true, totalAmount: true, allocations: { where: live, select: { amount: true } } },
     });
 
     const overpaid = invoices.filter((invoice) => {
-      const paid = invoice.payments.reduce(
-        (total, payment) => total.plus(payment.amount),
+      const paid = invoice.allocations.reduce(
+        (total, allocation) => total.plus(allocation.amount),
         invoice.totalAmount.minus(invoice.totalAmount),
       );
       return paid.greaterThan(invoice.totalAmount);
     });
 
     expect(overpaid.map((row) => row.id)).toEqual([]);
+  });
+
+  it("allocates no payment beyond its own amount (E-05F §79)", async () => {
+    const payments = await prisma.payment.findMany({
+      where: { allocations: { some: { reversedAt: null } } },
+      select: { id: true, amount: true, allocations: { where: { reversedAt: null }, select: { amount: true } } },
+    });
+    const over = payments.filter((payment) => payment.allocations.reduce((total, allocation) => total.plus(allocation.amount), payment.amount.minus(payment.amount)).greaterThan(payment.amount));
+    expect(over.map((row) => row.id)).toEqual([]);
   });
 });

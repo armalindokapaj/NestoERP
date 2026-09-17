@@ -24,6 +24,10 @@ import { defineStateMachine } from "@/lib/core/state/machine";
  *   report and list reads the date instead, so a lapsed contract shows as
  *   expired whether or not anybody has recorded it (§123, §193);
  *
+ *   `COMPLETED` is an active contract whose obligations are fulfilled — for a
+ *   unit sale, financially complete, which the service checks above the write
+ *   (E-05F §83). It is finished, so it may be archived;
+ *
  *   nothing is terminal. The archive is left by a restore, which returns the
  *   status the contract held before it was archived — so its destinations are
  *   exactly the states archiving is allowed from.
@@ -43,6 +47,7 @@ export type ContractAction =
   | "mark_sent"
   | "mark_signed"
   | "activate"
+  | "complete"
   | "expire"
   | "terminate"
   | "cancel"
@@ -50,13 +55,13 @@ export type ContractAction =
   | "restore";
 
 /** Finished, or never started: what may be archived, and so what a restore may return to (§134, §135). */
-const ARCHIVABLE: ContractStatus[] = ["DRAFT", "EXPIRED", "TERMINATED", "CANCELLED"];
+const ARCHIVABLE: ContractStatus[] = ["DRAFT", "COMPLETED", "EXPIRED", "TERMINATED", "CANCELLED"];
 
 export const contractMachine = defineStateMachine<ContractStatus, ContractAction>({
   key: "contract",
   model: "contract",
   field: "status",
-  states: ["DRAFT", "IN_REVIEW", "PENDING_APPROVAL", "APPROVED", "SENT", "SIGNED", "ACTIVE", "EXPIRED", "TERMINATED", "CANCELLED", "ARCHIVED"],
+  states: ["DRAFT", "IN_REVIEW", "PENDING_APPROVAL", "APPROVED", "SENT", "SIGNED", "ACTIVE", "COMPLETED", "EXPIRED", "TERMINATED", "CANCELLED", "ARCHIVED"],
   terminal: [],
   transitions: [
     { action: "submit_review", from: ["DRAFT"], to: "IN_REVIEW", permission: "legal.contract.submit_review" },
@@ -68,6 +73,7 @@ export const contractMachine = defineStateMachine<ContractStatus, ContractAction
     { action: "mark_sent", from: ["APPROVED"], to: "SENT", permission: "legal.contract.mark_sent" },
     { action: "mark_signed", from: ["SENT"], to: "SIGNED", permission: "legal.contract.mark_signed" },
     { action: "activate", from: ["SIGNED"], to: "ACTIVE", permission: "legal.contract.activate" },
+    { action: "complete", from: ["ACTIVE"], to: "COMPLETED", permission: "legal.contract.complete", freezes: "the contract, its units and its schedule" },
     { action: "expire", from: ["ACTIVE"], to: "EXPIRED", permission: "legal.contract.expire" },
     { action: "terminate", from: ["SIGNED", "ACTIVE"], to: "TERMINATED", permission: "legal.contract.terminate", requiresReason: true },
     { action: "cancel", from: ["DRAFT", "IN_REVIEW", "PENDING_APPROVAL", "APPROVED", "SENT"], to: "CANCELLED", permission: "legal.contract.cancel" },

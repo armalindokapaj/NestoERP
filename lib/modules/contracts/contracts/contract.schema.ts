@@ -32,8 +32,16 @@ export const CONTRACT_TYPES = [
   "CONSULTING",
   "FRAMEWORK",
   "EMPLOYMENT_RELATED",
+  "SALE_AGREEMENT",
   "OTHER",
 ] as const;
+
+/**
+ * The types a person picks on the contract form. A sale agreement is drafted
+ * from the unit it sells, never from a blank form, because its client, deal,
+ * project and value come from the units (E-05F §12, §13).
+ */
+export const FORM_CONTRACT_TYPES = CONTRACT_TYPES.filter((type) => type !== "SALE_AGREEMENT");
 
 export const RENEWAL_TYPES = ["NONE", "MANUAL", "AUTO_RENEW", "EVERGREEN"] as const;
 
@@ -270,5 +278,6 @@ export const contractTypeLabels: Record<(typeof CONTRACT_TYPES)[number], string>
   CONSULTING: "Consulting",
   FRAMEWORK: "Framework",
   EMPLOYMENT_RELATED: "Employment-related",
+  SALE_AGREEMENT: "Sale agreement",
   OTHER: "Other",
 };

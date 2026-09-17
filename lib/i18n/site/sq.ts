@@ -236,6 +236,7 @@ export const siteSq: SiteCopy = {
       Drafts: "Draftet",
       Review: "Rishikimi",
       Expiring: "Në skadim",
+      "Unit requests": "Kërkesat për njësi",
       Requests: "Kërkesat",
       Enquiries: "Kërkesat për ofertë",
       Orders: "Porositë",

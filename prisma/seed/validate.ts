@@ -171,6 +171,14 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Reserved units without exactly one active reservation", actual: await prisma.unitCommercialProfile.count({ where: { status: "RESERVED", unit: { reservations: { none: { status: "ACTIVE" } } } } }), expected: 0, comparison: "eq" },
     { label: "Company A deals holding more than one unit", actual: (await prisma.opportunityUnit.groupBy({ by: ["opportunityId"], where: { companyId: COMPANY_A }, _count: { _all: true } })).filter((row) => row._count._all > 1).length, expected: 1, comparison: "gte" },
     { label: "Company B active unit reservations", actual: await prisma.unitReservation.count({ where: { companyId: COMPANY_B, status: "ACTIVE" } }), expected: 1, comparison: "gte" },
+    // E-05F: a live sale contract with an active schedule, money allocated to it, a request in Legal's queue, and Company B's side.
+    { label: "Company A live sale contracts", actual: await prisma.contractUnit.count({ where: { companyId: COMPANY_A, releasedAt: null, contract: { contractType: "SALE_AGREEMENT", status: { in: ["SIGNED", "ACTIVE"] } } } }), expected: 1, comparison: "gte" },
+    { label: "Company A active payment schedules", actual: await prisma.paymentSchedule.count({ where: { companyId: COMPANY_A, status: "ACTIVE" } }), expected: 1, comparison: "gte" },
+    { label: "Company A installment allocations", actual: await prisma.paymentAllocation.count({ where: { companyId: COMPANY_A, installmentId: { not: null } } }), expected: 2, comparison: "gte" },
+    { label: "Company A open contract requests", actual: await prisma.unitContractRequest.count({ where: { companyId: COMPANY_A, status: "OPEN" } }), expected: 1, comparison: "gte" },
+    { label: "Company B sale contracts with a schedule", actual: await prisma.paymentSchedule.count({ where: { companyId: COMPANY_B, contract: { contractType: "SALE_AGREEMENT" } } }), expected: 1, comparison: "gte" },
+    { label: "Payments settling nothing", actual: await prisma.payment.count({ where: { contractId: null, allocations: { none: {} } } }), expected: 0, comparison: "eq" },
+    { label: "Units with more than one live contract", actual: (await prisma.contractUnit.groupBy({ by: ["unitId"], where: { releasedAt: null }, _count: { _all: true } })).filter((row) => row._count._all > 1).length, expected: 0, comparison: "eq" },
   ];
 
   for (const check of checks) {

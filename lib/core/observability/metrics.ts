@@ -94,6 +94,8 @@ export const Metric = {
   COMPLIANCE_EXPIRING: "contractor_compliance_expiring_count",
   UNIT_RESERVATIONS_EXPIRED: "unit_reservations_expired_count",
   UNIT_RESERVATIONS_WARNED: "unit_reservations_expiring_warned_count",
+  UNIT_INSTALLMENTS_OVERDUE: "unit_installments_overdue_notified_count",
+  UNIT_INSTALLMENTS_DUE_SOON: "unit_installments_due_soon_notified_count",
   COMPLIANCE_EXPIRED: "contractor_compliance_expired_count",
   RECENT_WORK_PRUNED: "recent_work_pruned_count",
   // Authorization (PRD #47 §196)

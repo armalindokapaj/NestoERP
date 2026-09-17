@@ -159,6 +159,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
           dailyLogs: actions.canViewDailyLogs,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
+          unitFinance: actions.canViewUnitFinance,
           contracts: actions.canViewContracts,
           inventory: true,
           qaqc: actions.canViewQaqc,

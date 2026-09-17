@@ -151,6 +151,10 @@ const SHAPED: Record<string, (idFor: (field: string) => string | undefined) => u
   units: (idFor) => [[{ unitCode: "SWEEP-1", sourceUnitId: idFor("unitId") ?? "sweep_unknown_id" }]],
   defaults: (idFor) => [{ unitTypeId: idFor("unitTypeId") ?? "sweep_unknown_id" }],
   number: () => [-1, 1],
+  // A unit sale's schedule and payments (E-05F): installments and allocations are arrays of objects.
+  installments: () => [[{ label: "Security sweep installment", type: "INSTALLMENT", amount: "1", dueDate: "2026-09-14" }]],
+  allocations: (idFor) => [[{ installmentId: idFor("installmentId") ?? "sweep_unknown_id", amount: "1" }]],
+  method: () => ["BANK_TRANSFER"],
 };
 
 export function candidateValues(field: string, messages: string[], idFor: (field: string) => string | undefined): unknown[] {

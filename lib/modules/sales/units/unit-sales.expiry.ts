@@ -9,6 +9,7 @@ import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { closeReservation, expireReservedProfile, notifyReservation, recordStatusChange, reservationAudience } from "./unit-sales.core";
+import { cancelSaleApprovals } from "./unit-sale-approval.service";
 
 /**
  * Job `sales.unit-reservations` (E-05E §25, §51, §52): every few minutes, an
@@ -21,6 +22,11 @@ import { closeReservation, expireReservedProfile, notifyReservation, recordStatu
  * Reserved, both in one transaction with the status trail, the audit event and the
  * notice. A second run finds nothing to do; an extension made a moment before the
  * job reached the row leaves it alone (PRD #51 §30-§36).
+ *
+ * A unit under a live contract is not released by the clock (E-05F §8): its
+ * reservation is neither expired nor warned about until Legal cancels or
+ * terminates the contract. A reservation that expires takes its pending sale
+ * approval with it (E-05F §42).
  */
 
 export const JOB = "sales.unit-reservations";
@@ -41,7 +47,10 @@ type Row = { id: string; unitId: string; expiresAt: Date; opportunityId: string;
 
 async function expireOne(companyId: string, row: Row, now: Date): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
+    // Re-read under the transaction: a contract drafted a moment ago keeps the unit (E-05F §8).
+    if (await tx.contractUnit.findFirst({ where: { companyId, unitId: row.unitId, releasedAt: null }, select: { id: true } })) return false;
     if (!(await closeReservation(tx, { companyId, reservationId: row.id, status: "EXPIRED", closedByMemberId: null, reason: null, expiredBefore: now }))) return false;
+    await cancelSaleApprovals(tx, null, companyId, row.unitId);
     const profile = await tx.unitCommercialProfile.findFirst({ where: { companyId, unitId: row.unitId }, select: { id: true, companyId: true, status: true } });
     if (profile?.status === "RESERVED" && (await expireReservedProfile(tx, profile))) {
       await recordStatusChange(tx, { companyId, projectId: row.unit.projectId, unitId: row.unitId, from: "RESERVED", to: "FOR_SALE", source: "SYSTEM_EXPIRY", actorMemberId: null, reservationId: row.id, opportunityId: row.opportunityId });
@@ -85,7 +94,7 @@ export async function runUnitReservationExpiry(now = new Date()): Promise<{ expi
       let failed = 0;
       const pass = async (where: object, settle: (row: Row) => Promise<boolean>, count: "expired" | "warned", idKey: string) => {
         for (let after: string | undefined; !jobStopRequested(); ) {
-          const rows = (await prisma.unitReservation.findMany({ where: { companyId, status: "ACTIVE", ...where, ...(after ? { id: { gt: after } } : {}) }, orderBy: { id: "asc" }, take: BATCH, select: ROW })) as Row[];
+          const rows = (await prisma.unitReservation.findMany({ where: { companyId, status: "ACTIVE", unit: { is: { contractLinks: { none: { releasedAt: null } } } }, ...where, ...(after ? { id: { gt: after } } : {}) }, orderBy: { id: "asc" }, take: BATCH, select: ROW })) as Row[];
           for (const row of rows) {
             try {
               if (await settle(row)) counts[count] += 1;

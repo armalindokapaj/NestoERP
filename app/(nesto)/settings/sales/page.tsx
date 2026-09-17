@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("sections.sales.label") };
 }
 
-/** The company's defaults for selling units (E-05E §24): how long a reservation lasts. */
+/** The company's defaults for selling units: how long a reservation lasts (E-05E §24) and what a sale needs (E-05F §42, §43). */
 export default async function SalesSettingsPage() {
   const context = await requireSettingsSection("sales");
   const [settings, t] = await Promise.all([getSalesSettings(context), getTranslations("settings")]);

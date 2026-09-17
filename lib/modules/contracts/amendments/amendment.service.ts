@@ -16,6 +16,9 @@ import { toAmountString } from "@/lib/modules/finance/finance.money";
 import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { canSeeCommercial, dateString } from "../contract.dto";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { assertSaleContractGrant, SALE_AGREEMENT } from "../units/sale-contract";
 import { buildContractScopeWhere } from "../contract.scope";
 import type { ContractAmendmentDTO } from "../contract.types";
 import { acceptsAmendments, daysBetween } from "../contracts/contract.status";
@@ -156,6 +159,8 @@ export async function createAmendment(
   const contract = await requireAmendableContract(context, contractId);
   const input = withoutUnseenValue(context, submitted);
   assertReductionAcknowledged(contract, input);
+  // Amending a unit's sale contract is also the unit's grant (E-05F §55).
+  await assertSaleContractGrant(prisma, context, contract, "amend");
 
   const amendmentId = await prisma.$transaction(async (tx) => {
     await assertNoAmendmentInFlight(tx, contractId, null);
@@ -190,6 +195,20 @@ export async function createAmendment(
       message: `drafted amendment ${input.amendmentNumber} to contract ${contract.contractNumber}`,
       metadata: { amendmentId: amendment.id } as Prisma.InputJsonValue,
     });
+
+    // An amendment to a unit's sale is history the unit keeps (E-05F §17, §97).
+    if (contract.contractType === SALE_AGREEMENT) {
+      await recordUserAction(
+        context,
+        {
+          actionKey: AuditAction.CONTRACT_AMENDMENT_CREATED,
+          entity: { type: "Contract", id: contract.id, label: contract.contractNumber },
+          projectId: contract.projectId,
+          after: { contractId: contract.id, amendmentId: amendment.id, amendmentNumber: input.amendmentNumber, newContractValue: input.newContractValue ?? null, effectiveDate: input.effectiveDate?.toISOString().slice(0, 10) ?? null },
+        },
+        { tx },
+      );
+    }
 
     return amendment.id;
   });
@@ -690,6 +709,8 @@ async function loadContractFacts(context: UserContext, contractId: string) {
       select: {
         id: true,
         contractNumber: true,
+        contractType: true,
+        projectId: true,
         status: true,
         archivedAt: true,
         contractValue: true,

@@ -643,8 +643,18 @@ const METHODS = ["BANK_TRANSFER", "BANK_TRANSFER", "CARD", "CASH", "CHECK"] as c
 /**
  * Payments are derived from the `settled` fractions above rather than listed
  * separately, so an invoice's recorded receipts can never drift away from the
- * settlement state its fixture claims.
+ * settlement state its fixture claims. Each is allocated in full to what it
+ * settles, with the id the E-05F migration gives an existing payment's
+ * allocation, so reseeding a migrated database changes nothing (E-05F §31).
  */
+async function allocateInFull(prisma: PrismaClient, payment: { id: string; amount: number; createdByMemberId: string }, target: { invoiceId?: string; expenseId?: string }) {
+  await prisma.paymentAllocation.upsert({
+    where: { id: `alloc_${payment.id}` },
+    update: {},
+    create: { id: `alloc_${payment.id}`, companyId: COMPANY_A, paymentId: payment.id, invoiceId: target.invoiceId ?? null, expenseId: target.expenseId ?? null, amount: payment.amount, createdByMemberId: payment.createdByMemberId },
+  });
+}
+
 async function seedPayments(prisma: PrismaClient, finance: string) {
   let index = 0;
 
@@ -653,21 +663,23 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
 
     const invoice = await prisma.invoice.findUnique({
       where: { id: fixture.id },
-      select: { totalAmount: true, currency: true, dueDate: true },
+      select: { totalAmount: true, currency: true, dueDate: true, clientId: true, projectId: true },
     });
     if (!invoice) continue;
 
     index += 1;
     const amount = round2(Number(invoice.totalAmount) * fixture.settled);
+    const paymentId = `payment_in_${index.toString().padStart(3, "0")}`;
 
     await prisma.payment.upsert({
-      where: { id: `payment_in_${index.toString().padStart(3, "0")}` },
+      where: { id: paymentId },
       update: {},
       create: {
-        id: `payment_in_${index.toString().padStart(3, "0")}`,
+        id: paymentId,
         companyId: COMPANY_A,
         direction: "RECEIPT",
-        invoiceId: fixture.id,
+        clientId: invoice.clientId,
+        projectId: invoice.projectId,
         amount,
         currency: invoice.currency,
         paymentDate: daysFromNow(fixture.due + 4),
@@ -677,6 +689,7 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
         createdByMemberId: finance,
       },
     });
+    await allocateInFull(prisma, { id: paymentId, amount, createdByMemberId: finance }, { invoiceId: fixture.id });
   }
 
   let outIndex = 0;
@@ -685,15 +698,17 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
 
     outIndex += 1;
     const total = round2(fixture.net + fixture.tax);
+    const paymentId = `payment_out_${outIndex.toString().padStart(3, "0")}`;
+    const expense = await prisma.expense.findUnique({ where: { id: fixture.id }, select: { projectId: true } });
 
     await prisma.payment.upsert({
-      where: { id: `payment_out_${outIndex.toString().padStart(3, "0")}` },
+      where: { id: paymentId },
       update: {},
       create: {
-        id: `payment_out_${outIndex.toString().padStart(3, "0")}`,
+        id: paymentId,
         companyId: COMPANY_A,
         direction: "DISBURSEMENT",
-        expenseId: fixture.id,
+        projectId: expense?.projectId ?? null,
         amount: round2(total * fixture.settled),
         currency: EUR,
         paymentDate: daysFromNow(fixture.days + 7),
@@ -703,6 +718,7 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
         createdByMemberId: finance,
       },
     });
+    await allocateInFull(prisma, { id: paymentId, amount: round2(total * fixture.settled), createdByMemberId: finance }, { expenseId: fixture.id });
   }
 
   /*
@@ -718,7 +734,8 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
       id: "payment_voided_001",
       companyId: COMPANY_A,
       direction: "RECEIPT",
-      invoiceId: "invoice_001",
+      clientId: (await prisma.invoice.findUniqueOrThrow({ where: { id: "invoice_001" }, select: { clientId: true } })).clientId,
+      projectId: (await prisma.invoice.findUniqueOrThrow({ where: { id: "invoice_001" }, select: { projectId: true } })).projectId,
       amount: 1000,
       currency: EUR,
       paymentDate: daysFromNow(-4),
@@ -731,6 +748,7 @@ async function seedPayments(prisma: PrismaClient, finance: string) {
       createdByMemberId: finance,
     },
   });
+  await allocateInFull(prisma, { id: "payment_voided_001", amount: 1000, createdByMemberId: finance }, { invoiceId: "invoice_001" });
 }
 
 /* -------------------------------------------------------------------------- */

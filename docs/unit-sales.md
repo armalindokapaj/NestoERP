@@ -100,7 +100,7 @@ Held by the database, not only the service:
 | Two people reserving at once: exactly one succeeds; the other is told *This Unit has just been reserved by another user. Refresh to see the current status.* (§50, §60) | the profile row lock, then the partial unique index as the last word; `UNIT_ALREADY_RESERVED` |
 | Extending needs a later date and a reason; it clears the expiry warning and keeps the old and new dates (§26) | `extendReservation` |
 | Releasing needs a reason; the reservation stays in history and the unit is For Sale (§27) | `releaseReservation` |
-| Marking Sold needs a reserved unit with an active, unexpired reservation, a client, a deal and an agreed price; the reservation becomes `CONVERTED_TO_SALE` and the asking and agreed prices stay distinct (§29, §30). The deal is not marked Won (§18) | `canMarkUnitSold`, the one place E-05F extends; `UNIT_NOT_SELLABLE_YET` with `details.missing` |
+| Marking Sold needs a reserved unit with an active, unexpired reservation, a client, a deal and an agreed price, and whatever the company's Sold rule adds (E-05F); the reservation becomes `CONVERTED_TO_SALE` and the asking and agreed prices stay distinct (§29, §30). The deal is not marked Won (§18) | `canMarkUnitSold`; `UNIT_NOT_SELLABLE_YET` with `details.missing` |
 | Reopening a sale is its own grant and needs a reason. Back to For Sale cancels the converted reservation; back to Reserved cancels it and opens a new active one for the same client, deal and agreed price (§31) | `reopenSale` |
 | An administrative correction of the agreed price or notes needs `sales_correct` and a reason | `correctReservation` |
 | A unit is taken out of a deal only when the deal does not hold it reserved or sold (§18) | `removeUnitFromDeal`; `DEAL_UNIT_HELD` |
@@ -216,7 +216,8 @@ reopened, added to and removed from a deal.
 - **The deal** `/sales/opportunities/:id` has a Units panel: each unit, its
   project and place, status, reservation and agreed price; units not held can be
   removed.
-- **Settings → Sales** (translated): reservation length in days.
+- **Settings → Sales** (translated): reservation length in days, and the Sold
+  rule (E-05F).
 
 ## Seed
 
@@ -241,9 +242,11 @@ B's **OF-001** is Reserved for Isarwerk Holding on its own deal.
 
 ## Limits
 
-- **The company Sold rule is E-05F.** E-05E's Sold check is the reservation, the
-  client, the deal and the agreed price; E-05F adds the company setting (signed
-  contract by default) inside `canMarkUnitSold`, which only unlocks Mark Sold.
+- **The company Sold rule is E-05F's**, now built: `canMarkUnitSold` adds the
+  company's rule (signed contract by default) to E-05E's reservation, client,
+  deal and agreed price, and only unlocks Mark Sold. A unit under a live contract
+  keeps its reservation — it is not expired, released or reopened — and
+  `docs/unit-finance.md` is the contract for both.
 - **No currency conversion.** Price filters and sorting compare amounts as
   numbers whatever their currency; a project priced in one currency reads
   correctly.

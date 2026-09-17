@@ -96,11 +96,13 @@ the permission off. A transition that does not declare it refuses a step.
 
 ## What is declared
 
-Forty-two machines over 220 transitions: HSE and QA/QC, where this began,
+Forty-four machines over 229 transitions: HSE and QA/QC, where this began,
 the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
 their own — Documents, Finance, Procurement, Inventory, Legal and
 Engineering — Projects, whose status E-05A made a lifecycle of its own, a
-unit's publication (E-05D) and a unit's sale (E-05E).
+unit's publication (E-05D), a unit's sale (E-05E), and a unit sale's payment
+schedule and Sales' request for its contract (E-05F). E-05F also gave the
+contract machine `complete`.
 The tables below are generated from `lib/core/state/registry.ts` by
 `scripts/architecture/state-docs.ts`; an edit belongs in the machine, and the
 table is regenerated from it.
@@ -308,7 +310,7 @@ Terminal: `APPROVED`, `REJECTED`, `CANCELLED`
 
 ### Finance
 
-5 machines.
+6 machines.
 
 #### `invoice` — `invoice.status`
 
@@ -349,6 +351,19 @@ Terminal: `VOIDED`
 | Action | From | To | Permission | Reason | Freezes |
 |---|---|---|---|---|---|
 | `void` | `RECORDED` | `VOIDED` | `finance.payment.void` | required | the whole payment |
+
+#### `payment_schedule` — `paymentSchedule.status`
+
+States: `DRAFT`, `ACTIVE`, `SUPERSEDED`, `COMPLETED`, `CANCELLED`
+Terminal: `SUPERSEDED`, `COMPLETED`, `CANCELLED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `activate` | `DRAFT` | `ACTIVE` | `project.unit.finance.manage_schedule` | — | its installments, amounts and due dates |
+| `supersede` | `ACTIVE` | `SUPERSEDED` | `project.unit.finance.manage_schedule` | — | — |
+| `discard` | `DRAFT` | `CANCELLED` | `project.unit.finance.manage_schedule` | — | — |
+| `cancel_with_contract` | `DRAFT`, `ACTIVE` | `CANCELLED` | `project.unit.contract.cancel` or `project.unit.finance.correct` | required | — |
+| `complete_with_contract` | `ACTIVE` | `COMPLETED` | `project.unit.contract.sign_status` or `project.unit.finance.manage_schedule` | — | — |
 
 #### `project_budget` — `projectBudget.status`
 
@@ -569,11 +584,11 @@ Terminal: `ARCHIVED`
 
 ### Legal
 
-3 machines.
+4 machines.
 
 #### `contract` — `contract.status`
 
-States: `DRAFT`, `IN_REVIEW`, `PENDING_APPROVAL`, `APPROVED`, `SENT`, `SIGNED`, `ACTIVE`, `EXPIRED`, `TERMINATED`, `CANCELLED`, `ARCHIVED`
+States: `DRAFT`, `IN_REVIEW`, `PENDING_APPROVAL`, `APPROVED`, `SENT`, `SIGNED`, `ACTIVE`, `COMPLETED`, `EXPIRED`, `TERMINATED`, `CANCELLED`, `ARCHIVED`
 Terminal: none
 
 | Action | From | To | Permission | Reason | Freezes |
@@ -587,11 +602,12 @@ Terminal: none
 | `mark_sent` | `APPROVED` | `SENT` | `legal.contract.mark_sent` | — | — |
 | `mark_signed` | `SENT` | `SIGNED` | `legal.contract.mark_signed` | — | — |
 | `activate` | `SIGNED` | `ACTIVE` | `legal.contract.activate` | — | — |
+| `complete` | `ACTIVE` | `COMPLETED` | `legal.contract.complete` | — | the contract, its units and its schedule |
 | `expire` | `ACTIVE` | `EXPIRED` | `legal.contract.expire` | — | — |
 | `terminate` | `SIGNED`, `ACTIVE` | `TERMINATED` | `legal.contract.terminate` | required | — |
 | `cancel` | `DRAFT`, `IN_REVIEW`, `PENDING_APPROVAL`, `APPROVED`, `SENT` | `CANCELLED` | `legal.contract.cancel` | — | — |
-| `archive` | `DRAFT`, `EXPIRED`, `TERMINATED`, `CANCELLED` | `ARCHIVED` | `legal.contract.archive` | — | — |
-| `restore` | `ARCHIVED` | `DRAFT` or `EXPIRED` or `TERMINATED` or `CANCELLED` | `legal.contract.restore` | — | — |
+| `archive` | `DRAFT`, `COMPLETED`, `EXPIRED`, `TERMINATED`, `CANCELLED` | `ARCHIVED` | `legal.contract.archive` | — | — |
+| `restore` | `ARCHIVED` | `DRAFT` or `COMPLETED` or `EXPIRED` or `TERMINATED` or `CANCELLED` | `legal.contract.restore` | — | — |
 
 #### `contract_amendment` — `contractAmendment.status`
 
@@ -619,6 +635,17 @@ Terminal: `COMPLETED`, `CANCELLED`
 |---|---|---|---|---|---|
 | `complete` | `OPEN` | `COMPLETED` | `legal.obligation.complete` | — | the whole obligation |
 | `cancel` | `OPEN` | `CANCELLED` | `legal.obligation.cancel` | — | the whole obligation |
+
+#### `unit_contract_request` — `unitContractRequest.status`
+
+States: `OPEN`, `FULFILLED`, `DECLINED`, `CANCELLED`
+Terminal: `FULFILLED`, `DECLINED`, `CANCELLED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `fulfil` | `OPEN` | `FULFILLED` | `project.unit.contract.create` | — | — |
+| `decline` | `OPEN` | `DECLINED` | `project.unit.contract.review` | required | — |
+| `cancel` | `OPEN` | `CANCELLED` | `project.unit.contract.request` or `project.unit.contract.review` | — | — |
 
 ### Engineering
 

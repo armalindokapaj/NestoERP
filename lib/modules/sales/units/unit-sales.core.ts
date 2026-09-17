@@ -43,6 +43,7 @@ export function salesCapabilities(context: UserContext): UnitSalesCapabilities {
     canSeeDeals: canAccessModule(context, "sales") && can(context, "sales.opportunity.view"),
     canCreateClient: canAccessModule(context, "clients") && can(context, "client.create"),
     canCreateDeal: canAccessModule(context, "sales") && can(context, "sales.opportunity.create"),
+    canApproveSale: view && has("project.unit.sale.approve"),
   };
 }
 

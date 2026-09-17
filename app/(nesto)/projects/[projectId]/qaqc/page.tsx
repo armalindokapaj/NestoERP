@@ -95,6 +95,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
           dailyLogs: projectActions.canViewDailyLogs,
           team: projectActions.canViewMembers,
           finance: projectActions.canViewFinance,
+          unitFinance: projectActions.canViewUnitFinance,
           contracts: projectActions.canViewContracts,
           inventory: projectActions.canViewInventory,
           qaqc: true,

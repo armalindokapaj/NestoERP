@@ -41,6 +41,8 @@ afterEach(async () => {
   // Payments first: an invoice with a payment cannot be deleted.
   if (createdPayments.length > 0) {
     await prisma.activity.deleteMany({ where: { entityId: { in: createdPayments } } });
+    // What a payment settles goes with it (E-05F §31).
+    await prisma.paymentAllocation.deleteMany({ where: { paymentId: { in: createdPayments } } });
     await prisma.payment.deleteMany({ where: { id: { in: createdPayments } } });
     createdPayments.length = 0;
   }

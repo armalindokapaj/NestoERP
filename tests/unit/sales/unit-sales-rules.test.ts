@@ -46,11 +46,11 @@ describe("eligibility and the Sold check (§6, §22, §29)", () => {
   const reservation = { status: "ACTIVE", clientId: "client_acme", opportunityId: "opportunity_001", agreedPrice: "126500.00" };
 
   it("allows Sold for a reserved unit with an active reservation, a client, a deal and an agreed price", () => {
-    expect(canMarkUnitSold({ status: "RESERVED", reservation })).toEqual({ allowed: true, missing: [] });
+    expect(canMarkUnitSold({ status: "RESERVED", reservation })).toEqual({ allowed: true, missing: [], rule: "RESERVATION" });
   });
 
   it("names everything missing", () => {
-    expect(canMarkUnitSold({ status: "FOR_SALE", reservation: null })).toEqual({ allowed: false, missing: ["A reserved unit", "An active reservation"] });
+    expect(canMarkUnitSold({ status: "FOR_SALE", reservation: null })).toEqual({ allowed: false, missing: ["A reserved unit", "An active reservation"], rule: "RESERVATION" });
     expect(canMarkUnitSold({ status: "RESERVED", reservation: { ...reservation, status: "EXPIRED" } }).missing).toEqual(["An active reservation"]);
     expect(canMarkUnitSold({ status: "RESERVED", reservation: { ...reservation, agreedPrice: null } }).missing).toEqual(["An agreed price"]);
     expect(canMarkUnitSold({ status: "RESERVED", reservation: { ...reservation, clientId: null, opportunityId: null } }).missing).toEqual(["A client", "A deal"]);

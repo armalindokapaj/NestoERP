@@ -438,6 +438,8 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "all", label: "All contracts", permission: "legal.contract.view" },
       { key: "drafts", label: "Drafts", permission: "legal.contract.update" },
       { key: "review", label: "Review", permission: "legal.contract.view" },
+      // Sales asking for a unit's contract (E-05F §12): Legal's queue.
+      { key: "requests", label: "Unit requests", permission: "project.unit.contract.create" },
       { key: "active", label: "Active", permission: "legal.contract.view" },
       { key: "expiring", label: "Expiring", permission: "legal.contract.view" },
       { key: "approvals", label: "Approvals", permission: "legal.approval.view" },

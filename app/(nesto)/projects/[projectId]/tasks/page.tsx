@@ -72,6 +72,7 @@ export default async function ProjectTasksPage({ params }: Params) {
           dailyLogs: actions.canViewDailyLogs,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
+          unitFinance: actions.canViewUnitFinance,
           contracts: actions.canViewContracts,
           inventory: actions.canViewInventory,
           qaqc: actions.canViewQaqc,

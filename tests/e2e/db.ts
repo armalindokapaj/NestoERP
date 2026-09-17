@@ -337,14 +337,12 @@ export async function removeTestFinanceRecords(prefix: string): Promise<void> {
   if (ids.length === 0) return;
 
   // Payments first: a record with one cannot be deleted.
-  await db.payment.deleteMany({
-    where: {
-      OR: [
-        { invoiceId: { in: invoices.map((row) => row.id) } },
-        { expenseId: { in: expenses.map((row) => row.id) } },
-      ],
-    },
+  const paid = await db.paymentAllocation.findMany({
+    where: { OR: [{ invoiceId: { in: invoices.map((row) => row.id) } }, { expenseId: { in: expenses.map((row) => row.id) } }] },
+    select: { paymentId: true },
   });
+  await db.paymentAllocation.deleteMany({ where: { paymentId: { in: paid.map((row) => row.paymentId) } } });
+  await db.payment.deleteMany({ where: { id: { in: paid.map((row) => row.paymentId) } } });
   await db.activity.deleteMany({ where: { entityId: { in: ids } } });
   await db.financeApproval.deleteMany({ where: { recordId: { in: ids } } });
   await db.invoiceLineItem.deleteMany({

@@ -28,6 +28,7 @@ const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
   document: { model: "document" },
   invoice: { model: "invoice" },
   expense: { model: "expense" },
+  payment: { model: "payment" },
   budget: { model: "projectBudget" },
   commitment: { model: "commitment" },
   employee: { model: "employeeProfile", idField: "companyMemberId" },

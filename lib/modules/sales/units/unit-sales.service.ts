@@ -1,5 +1,6 @@
 import { Prisma, type UnitCommercialStatus } from "@prisma/client";
 
+import { can, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission, invalidRecordLink } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
@@ -11,6 +12,7 @@ import { prisma } from "@/lib/database/prisma";
 import { createClientSchema } from "@/lib/modules/clients/client.schema";
 import { checkDuplicates, createClientRecord, DuplicateClientError } from "@/lib/modules/clients/client.service";
 import { fail } from "@/lib/modules/project-structure/structure.service";
+import { unitSaleReadiness } from "@/lib/modules/finance/units/unit-finance.core";
 import { resolveUnitSalesSettings } from "@/lib/modules/settings/sales-settings.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { fullName } from "@/lib/utils/format";
@@ -38,6 +40,7 @@ import {
   type SellableUnit,
 } from "./unit-sales.core";
 import { canMarkUnitSold, defaultExpiry, moneyText, pricePerSqm, sellability } from "./unit-sales.rules";
+import { cancelSaleApprovals, latestSaleApproval } from "./unit-sale-approval.service";
 import type { commercialDetailsSchema, correctReservationSchema, dealUnitSchema, extendReservationSchema, releaseReservationSchema, reopenSaleSchema, reserveSchema, saleStatusSchema } from "./unit-sales.schema";
 import { MAX_RESERVATION_DAYS, PRICE_BASIS_AREA, type ReservationDTO, type UnitSalesDTO } from "./unit-sales.types";
 import type { z } from "zod";
@@ -137,11 +140,19 @@ export async function getUnitSales(context: UserContext, unitId: string): Promis
     prisma.opportunityUnit.findMany({ where: { companyId: context.companyId, unitId: unit.id }, orderBy: { createdAt: "asc" }, select: { opportunityId: true, agreedPrice: true, currency: true, opportunity: { select: { name: true } } } }),
     resolveUnitSalesSettings(context.companyId),
   ]);
+  const activeRow = reservations.find((row) => row.status === "ACTIVE") ?? null;
+  // What Legal and Finance hold for the Sold rule (E-05F §42), and the sale's approval where the rule asks for one.
+  const [readiness, approval] = await Promise.all([
+    unitSaleReadiness(prisma, context.companyId, unit.id),
+    activeRow ? latestSaleApproval(prisma, context.companyId, unit.id, activeRow.id) : Promise.resolve(null),
+  ]);
   const names = await memberNames(context.companyId, [
     profile?.heldByMemberId,
     ...reservations.flatMap((row) => [row.createdByMemberId, ...row.extensions.map((extension) => extension.extendedByMemberId)]),
     ...prices.map((row) => row.changedByMemberId),
     ...trail.map((row) => row.actorMemberId),
+    approval?.submittedByMemberId,
+    approval?.decidedByMemberId,
   ]);
 
   const toReservation = (row: (typeof reservations)[number]): ReservationDTO => ({
@@ -190,7 +201,19 @@ export async function getUnitSales(context: UserContext, unitId: string): Promis
     priceHistory: prices.map((row) => ({ id: row.id, oldPrice: moneyText(row.oldPrice), newPrice: moneyText(row.newPrice), oldCurrency: row.oldCurrency, currency: row.currency, priceBasis: row.priceBasis, reason: row.reason, changedBy: names.get(row.changedByMemberId) ?? null, changedAt: row.changedAt.toISOString() })),
     statusHistory: trail.map((row) => ({ id: row.id, fromStatus: row.fromStatus, toStatus: row.toStatus, reason: row.reason, source: row.source, actor: row.actorMemberId ? (names.get(row.actorMemberId) ?? null) : null, changedAt: row.changedAt.toISOString() })),
     deals: caps.canSeeDeals ? links.map((link) => ({ id: link.opportunityId, name: link.opportunity.name, agreedPrice: moneyText(link.agreedPrice), currency: link.currency })) : [],
-    soldCheck: canMarkUnitSold({ status, reservation: active ? { status: active.status, clientId: active.clientId, opportunityId: active.opportunityId, agreedPrice: moneyText(active.agreedPrice), expiresAt: active.expiresAt } : null }),
+    soldCheck: canMarkUnitSold({
+      status,
+      reservation: active ? { status: active.status, clientId: active.clientId, opportunityId: active.opportunityId, agreedPrice: moneyText(active.agreedPrice), expiresAt: active.expiresAt } : null,
+      rule: settings.unitSoldRule,
+      contract: readiness.contract ? { signed: readiness.signed } : null,
+      deposit: readiness.deposit,
+      approval,
+    }),
+    saleApproval: approval
+      ? { status: approval.status, submittedBy: names.get(approval.submittedByMemberId) ?? null, submittedAt: approval.submittedAt.toISOString(), decidedBy: approval.decidedByMemberId ? (names.get(approval.decidedByMemberId) ?? null) : null, decidedAt: approval.decidedAt?.toISOString() ?? null, note: approval.decisionNote ?? approval.submissionNote }
+      : null,
+    canRequestSaleApproval: settings.unitSoldRule === "MANUAL_APPROVAL" && caps.canMarkSold && status === "RESERVED" && Boolean(active) && approval?.status !== "PENDING" && approval?.status !== "APPROVED",
+    contract: isModuleEnabled(context, "contracts") && can(context, "project.unit.legal.view") ? readiness.contract : null,
     defaults: { reservationDays: settings.unitReservationDays, currency: profile?.currency ?? settings.baseCurrency },
     capabilities: caps,
   };
@@ -402,6 +425,16 @@ async function lockReservation(tx: Tx, context: UserContext, reservationId: stri
   return row;
 }
 
+/**
+ * A unit under a live contract stays with its client (E-05F §8, §82): the
+ * reservation is not released and the sale not reopened until Legal cancels or
+ * terminates the contract. Read from Legal's table, never written here.
+ */
+async function assertNoLiveContract(tx: Tx, companyId: string, unitId: string, verb: "released" | "reopened") {
+  const live = await tx.contractUnit.findFirst({ where: { companyId, unitId, releasedAt: null }, select: { contract: { select: { contractNumber: true } } } });
+  if (live) throw fail("UNIT_UNDER_CONTRACT", `This unit is under contract ${live.contract.contractNumber}. Legal cancels or terminates the contract before the unit is ${verb}.`, "CONFLICT");
+}
+
 function assertActive(reservation: { status: string }) {
   if (reservation.status !== "ACTIVE") throw fail("RESERVATION_NOT_ACTIVE", "This reservation has already ended. Refresh to see the current status.", "CONFLICT");
 }
@@ -444,6 +477,8 @@ export async function releaseReservation(context: UserContext, reservationId: st
     const profile = await lockedProfile(tx, unit);
     const reservation = await lockReservation(tx, context, reservationId);
     assertActive(reservation);
+    await assertNoLiveContract(tx, context.companyId, unit.id, "released");
+    await cancelSaleApprovals(tx, context, context.companyId, unit.id);
     if (!(await closeReservation(tx, { companyId: context.companyId, reservationId: reservation.id, status: "RELEASED", closedByMemberId: context.membershipId, reason: input.reason }))) {
       throw fail("RESERVATION_NOT_ACTIVE", "This reservation has already ended. Refresh to see the current status.", "CONFLICT");
     }
@@ -493,12 +528,23 @@ export async function correctReservation(context: UserContext, reservationId: st
 export async function markUnitSold(context: UserContext, unitId: string, input: { expectedVersion?: number }): Promise<{ status: UnitCommercialStatus }> {
   const unit = await findSellableUnit(context, unitId);
   assertPermission(context, "project.unit.mark_sold");
+  const settings = await resolveUnitSalesSettings(context.companyId);
 
   return runInTransaction("sales.unit.mark_sold", async (tx) => {
     const profile = await lockedProfile(tx, unit);
     checkVersion(profile, input.expectedVersion);
     const reservation = await activeReservation(tx, context.companyId, unit.id);
-    const check = canMarkUnitSold({ status: profile.status, reservation: reservation ? { status: "ACTIVE", clientId: reservation.clientId, opportunityId: reservation.opportunityId, agreedPrice: moneyText(reservation.agreedPrice), expiresAt: reservation.expiresAt } : null });
+    // The company's Sold rule, read under the unit's lock (E-05F §42, §43).
+    const readiness = await unitSaleReadiness(tx, context.companyId, unit.id);
+    const approval = reservation ? await latestSaleApproval(tx, context.companyId, unit.id, reservation.id) : null;
+    const check = canMarkUnitSold({
+      status: profile.status,
+      reservation: reservation ? { status: "ACTIVE", clientId: reservation.clientId, opportunityId: reservation.opportunityId, agreedPrice: moneyText(reservation.agreedPrice), expiresAt: reservation.expiresAt } : null,
+      rule: settings.unitSoldRule,
+      contract: readiness.contract ? { signed: readiness.signed } : null,
+      deposit: readiness.deposit,
+      approval,
+    });
     if (!check.allowed) throw fail("UNIT_NOT_SELLABLE_YET", `This unit cannot be marked Sold. Missing: ${check.missing.join(", ")}.`, "VALIDATION_ERROR", { missing: check.missing });
 
     await closeReservation(tx, { companyId: context.companyId, reservationId: reservation!.id, status: "CONVERTED_TO_SALE", closedByMemberId: context.membershipId, reason: null });
@@ -533,6 +579,7 @@ export async function reopenSale(context: UserContext, unitId: string, input: z.
   return runInTransaction("sales.unit.reopen", async (tx) => {
     const profile = await lockedProfile(tx, unit);
     checkVersion(profile, input.expectedVersion);
+    await assertNoLiveContract(tx, context.companyId, unit.id, "reopened");
     const sale = await tx.unitReservation.findFirst({
       where: { companyId: context.companyId, unitId: unit.id, status: "CONVERTED_TO_SALE" },
       orderBy: { closedAt: "desc" },

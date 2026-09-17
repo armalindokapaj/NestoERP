@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Wallet } from "lucide-react";
 
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
+import { FinanceViews } from "@/components/finance/unit-finance/finance-views";
 import { CommitmentTable } from "@/components/finance/commitment-table";
 import { ExpenseTable } from "@/components/finance/expense-table";
 import { InvoiceTable } from "@/components/finance/invoice-table";
@@ -96,6 +97,7 @@ export default async function ProjectFinancePage({ params }: Params) {
           dailyLogs: actions.canViewDailyLogs,
           team: actions.canViewMembers,
           finance: true,
+          unitFinance: actions.canViewUnitFinance,
           contracts: actions.canViewContracts,
           inventory: actions.canViewInventory,
           qaqc: actions.canViewQaqc,
@@ -104,6 +106,8 @@ export default async function ProjectFinancePage({ params }: Params) {
           activity: actions.canViewActivity,
         }}
       />
+
+      <FinanceViews projectId={project.id} active="overview" both={actions.canViewUnitFinance} />
 
       {summary ? (
         summary.hasApprovedBudget ? (

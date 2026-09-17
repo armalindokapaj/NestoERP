@@ -55,10 +55,10 @@ with it.
 | `clients` | `Client`, `Contact` |
 | `tasks` | `Task` |
 | `documents` | `Document`, `DocumentVersion`, `DocumentReview`, `DocumentUploadSession`, storage quota and usage |
-| `finance` | `Invoice`, `Expense`, `Payment`, `ProjectBudget`, `Commitment`, `FinanceApproval`, `FinanceSettings` |
+| `finance` | `Invoice`, `Expense`, `Payment`, `ProjectBudget`, `Commitment`, `FinanceApproval`, `FinanceSettings`; `PaymentAllocation` — what part of a payment settles which invoice, expense or installment, the only way any payment settles anything; `PaymentSchedule`, `PaymentInstallment` — a sale contract's versioned schedule (E-05F) |
 | `hr` | `EmployeeProfile`, `Compensation`, `LeaveRequest`, `LeaveBalance`, `AttendanceRecord` |
-| `sales` | `Lead`, `Opportunity`, `Proposal`, `SalesApproval`; `UnitCommercialProfile`, `UnitPriceHistory`, `UnitReservation`, `UnitReservationExtension`, `OpportunityUnit`, `UnitCommercialStatusHistory` — a unit's price, commercial status, reservations and deals (E-05E). The unit stays project structure's, read through its door; clients are created through the Clients service |
-| `contracts` | `Contract`, `ContractParty`, `ContractObligation`, `ContractAmendment`, `ContractApproval` |
+| `sales` | `Lead`, `Opportunity`, `Proposal`, `SalesApproval`; `UnitCommercialProfile`, `UnitPriceHistory`, `UnitReservation`, `UnitReservationExtension`, `OpportunityUnit`, `UnitCommercialStatusHistory` — a unit's price, commercial status, reservations and deals (E-05E); `UnitSaleApproval` — a sale approved before it is marked Sold (E-05F). The unit stays project structure's, read through its door; clients are created through the Clients service |
+| `contracts` | `Contract`, `ContractParty`, `ContractObligation`, `ContractAmendment`, `ContractApproval`; `ContractUnit`, `UnitContractRequest` — the units a sale contract sells and Sales' requests for one (E-05F) |
 | `procurement` | `Supplier`, `PurchaseRequest`, `RFQ`, `SupplierQuote`, `PurchaseOrder`, `GoodsReceipt`, procurement approvals |
 | `inventory` | `InventoryItem`, `Warehouse`, `InventoryBalance`, `StockMovement`, every stock document |
 | `qaqc` | inspections, material releases, defects, NCRs, corrective actions |
@@ -95,6 +95,8 @@ owner decides *how*.
 | `setMeetingReminders` / `clearMeetingReminders` | calendar | meetings | The reminder row, its per-member uniqueness, its delivery. |
 | `reassignOpenSteps` | core/approvals | timesheets | Only pending steps move; a decision keeps whoever made it. |
 | `writeCompanySettings` | settings | finance | The `configVersion` bump that invalidates configuration caches. |
+| `cancelSchedulesWithContract` / `completeScheduleWithContract` | finance | contracts | A sale contract cancelled, terminated or expired cancels its schedules with the reason; completed, completes the one in force — through the `payment_schedule` machine, never a status write. |
+| `contractFinancialStatus` / `unitSaleReadiness` | finance | contracts, sales | What a contract has been paid and whether its deposit is in, read from live allocations — the facts Complete and the Sold rule need, without either domain reading Finance's tables. |
 | `setPassword`, `createUserForInvite`, `revokeSessions` | auth | account, team | Hashing, voiding outstanding reset links, what a revocation is. |
 | `recordActivity`, `recordActorActivity` | shared | everyone | The activity row's shape and its actor. |
 
@@ -108,7 +110,8 @@ door (PRD #23 §169, §170). Meetings does not set `Task.status`; it asks Tasks
 (PRD #48 §60, §75). Engineering does not reclassify a `Document`; it asks
 Documents (§89). No feature module writes `AttentionItem` or `IntegrationLink`
 (§66, §64). QA does not insert a task-shaped row of its own — there is one
-`Task` (PRD #37 §205). Sales does not create its own customer — there is one
+`Task` (PRD #37 §205). Legal does not cancel a payment schedule; it asks
+Finance (E-05F §82). Sales does not create its own customer — there is one
 `Client` (PRD #23 §6).
 
 ## Anti-duplication

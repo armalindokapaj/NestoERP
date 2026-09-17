@@ -13,6 +13,7 @@ import {
   buildPaymentScopeWhere,
 } from "../finance.scope";
 import { baseCurrency } from "../finance.settings";
+import { paidByExpense, paidByInvoice } from "../finance.settlement";
 import type { CurrencyTotal, FinanceOverviewDTO } from "../finance.types";
 
 /**
@@ -83,40 +84,32 @@ function emptyReceivables() {
 /**
  * Outstanding on sent invoices, grouped by currency.
  *
- * Two aggregates rather than a row-by-row walk: the invoice totals grouped by
- * currency, minus the recorded receipts grouped by currency (PRD #15 §249).
+ * Each sent invoice's outstanding balance — its total less what is allocated to
+ * it (E-05F §31) — summed by currency. Two queries whatever the number of
+ * invoices: the sent invoices in scope, and one grouped aggregate of their
+ * allocations (PRD #15 §249).
  */
 async function receivableTotals(context: UserContext, now: Date) {
-  const scope = buildInvoiceScopeWhere(context);
-  const sent: Prisma.InvoiceWhereInput = { AND: [scope, { status: "SENT" }] };
+  const sent: Prisma.InvoiceWhereInput = { AND: [buildInvoiceScopeWhere(context), { status: "SENT" }] };
+  const invoices = await prisma.invoice.findMany({ where: sent, select: { id: true, currency: true, totalAmount: true, dueDate: true } });
+  const paid = await paidByInvoice(invoices.map((invoice) => invoice.id));
 
-  const [invoiced, received, overdueInvoiced, overdueReceived] = await Promise.all([
-    prisma.invoice.groupBy({ by: ["currency"], where: sent, _sum: { totalAmount: true } }),
-    prisma.payment.groupBy({
-      by: ["currency"],
-      where: { status: "RECORDED", direction: "RECEIPT", invoice: { is: sent } },
-      _sum: { amount: true },
-    }),
-    prisma.invoice.groupBy({
-      by: ["currency"],
-      where: { AND: [scope, { status: "SENT", dueDate: { lt: now } }] },
-      _sum: { totalAmount: true },
-    }),
-    prisma.payment.groupBy({
-      by: ["currency"],
-      where: {
-        status: "RECORDED",
-        direction: "RECEIPT",
-        invoice: { is: { AND: [scope, { status: "SENT", dueDate: { lt: now } }] } },
-      },
-      _sum: { amount: true },
-    }),
-  ]);
+  const outstanding = new Map<string, Money>();
+  const overdue = new Map<string, Money>();
+  for (const invoice of invoices) {
+    const owed = clampAtZero(subtract(invoice.totalAmount, paid.get(invoice.id) ?? ZERO));
+    outstanding.set(invoice.currency, (outstanding.get(invoice.currency) ?? ZERO).plus(owed));
+    if (invoice.dueDate < now) overdue.set(invoice.currency, (overdue.get(invoice.currency) ?? ZERO).plus(owed));
+  }
 
-  return {
-    outstanding: difference(invoiced, "totalAmount", received, "amount"),
-    overdue: difference(overdueInvoiced, "totalAmount", overdueReceived, "amount"),
-  };
+  return { outstanding: currencyTotals(outstanding), overdue: currencyTotals(overdue) };
+}
+
+function currencyTotals(values: Map<string, Money>): CurrencyTotal[] {
+  return [...values.entries()]
+    .filter(([, value]) => !value.isZero())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([currency, value]) => ({ currency, amount: toAmountString(value) }));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -124,19 +117,15 @@ async function receivableTotals(context: UserContext, now: Date) {
 /* -------------------------------------------------------------------------- */
 
 async function payableTotals(context: UserContext): Promise<CurrencyTotal[]> {
-  const scope = buildExpenseScopeWhere(context);
-  const approved: Prisma.ExpenseWhereInput = { AND: [scope, { status: "APPROVED" }] };
+  const approved: Prisma.ExpenseWhereInput = { AND: [buildExpenseScopeWhere(context), { status: "APPROVED" }] };
+  const expenses = await prisma.expense.findMany({ where: approved, select: { id: true, currency: true, totalAmount: true } });
+  const paid = await paidByExpense(expenses.map((expense) => expense.id));
 
-  const [incurred, paid] = await Promise.all([
-    prisma.expense.groupBy({ by: ["currency"], where: approved, _sum: { totalAmount: true } }),
-    prisma.payment.groupBy({
-      by: ["currency"],
-      where: { status: "RECORDED", direction: "DISBURSEMENT", expense: { is: approved } },
-      _sum: { amount: true },
-    }),
-  ]);
-
-  return difference(incurred, "totalAmount", paid, "amount");
+  const owed = new Map<string, Money>();
+  for (const expense of expenses) {
+    owed.set(expense.currency, (owed.get(expense.currency) ?? ZERO).plus(clampAtZero(subtract(expense.totalAmount, paid.get(expense.id) ?? ZERO))));
+  }
+  return currencyTotals(owed);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -218,36 +207,6 @@ type GroupRow = { currency: string; _sum: Record<string, Prisma.Decimal | null> 
 function totals(rows: GroupRow[], field: string): CurrencyTotal[] {
   return rows
     .map((row) => ({ currency: row.currency, value: row._sum[field] ?? ZERO }))
-    .filter((entry) => !entry.value.isZero())
-    .sort((a, b) => a.currency.localeCompare(b.currency))
-    .map((entry) => ({ currency: entry.currency, amount: toAmountString(entry.value) }));
-}
-
-/**
- * `left - right`, currency by currency, never below zero.
- *
- * A negative outstanding would mean somebody overpaid, which V0.1 refuses at
- * the point of payment — so if one ever appears here it is a bug, and showing
- * it as zero is better than showing a negative receivable (PRD #15 §79).
- */
-function difference(
-  left: GroupRow[],
-  leftField: string,
-  right: GroupRow[],
-  rightField: string,
-): CurrencyTotal[] {
-  const byCurrency = new Map<string, Money>();
-
-  for (const row of left) {
-    byCurrency.set(row.currency, row._sum[leftField] ?? ZERO);
-  }
-  for (const row of right) {
-    const current = byCurrency.get(row.currency) ?? ZERO;
-    byCurrency.set(row.currency, subtract(current, row._sum[rightField] ?? ZERO));
-  }
-
-  return [...byCurrency.entries()]
-    .map(([currency, value]) => ({ currency, value: clampAtZero(value) }))
     .filter((entry) => !entry.value.isZero())
     .sort((a, b) => a.currency.localeCompare(b.currency))
     .map((entry) => ({ currency: entry.currency, amount: toAmountString(entry.value) }));

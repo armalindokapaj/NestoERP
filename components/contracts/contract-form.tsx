@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
 import {
   CONTRACT_TYPES,
+  FORM_CONTRACT_TYPES,
   RENEWAL_TYPES,
   contractTypeLabels,
 } from "@/lib/modules/contracts/contracts/contract.schema";
@@ -120,7 +121,8 @@ export function ContractForm({
             className={selectClass}
             defaultValue={values?.contractType ?? "CLIENT_AGREEMENT"}
           >
-            {CONTRACT_TYPES.map((type) => (
+            {/* A sale agreement is drafted from its unit; an existing one keeps its type (E-05F §12). */}
+            {(values?.contractType === "SALE_AGREEMENT" ? CONTRACT_TYPES : FORM_CONTRACT_TYPES).map((type) => (
               <option key={type} value={type}>
                 {contractTypeLabels[type]}
               </option>

@@ -63,7 +63,7 @@ let apartmentType: string;
 let parkingType: string;
 let storageRoot: string;
 let floorId: string;
-let startedAt: Date;
+let lastActivityAt: Date | null = null;
 
 const pdf = (label: string) => new TextEncoder().encode(`%PDF-1.4\n${label}\n%%EOF\n`);
 const png = async (shade: number) => new Uint8Array(await sharp({ create: { width: 12, height: 8, channels: 3, background: { r: shade, g: 120, b: 160 } } }).png().toBuffer());
@@ -154,7 +154,8 @@ async function readyUnit(code: string) {
 }
 
 beforeAll(async () => {
-  startedAt = new Date();
+  // The unit activity this suite records moves the project's marker (E-05A §15); it is put back after.
+  lastActivityAt = (await prisma.project.findUnique({ where: { id: MARINA }, select: { lastActivityAt: true } }))?.lastActivityAt ?? null;
   storageRoot = await mkdtemp(path.join(tmpdir(), "nesto-unit-publishing-"));
   process.env.STORAGE_URL_SECRET = "test-storage-signing-secret-value";
   setStorageProvider(new LocalStorageProvider({ root: storageRoot, baseUrl: "http://localhost:3000" }));
@@ -184,7 +185,7 @@ afterAll(async () => {
   setStorageProvider(null);
   await rm(storageRoot, { recursive: true, force: true });
   await reconcileStorageUsage();
-  await prisma.$executeRaw`UPDATE "projects" SET "lastActivityAt" = NULL WHERE "id" = ${MARINA} AND "lastActivityAt" >= ${startedAt}`;
+  if (lastActivityAt) await prisma.project.update({ where: { id: MARINA }, data: { lastActivityAt } });
   await cleanupSessions();
   await prisma.$disconnect();
 });
