@@ -303,6 +303,14 @@ const APPROVAL_SOURCES: ApprovalSource[] = [
     records: { PROPOSAL: { entityType: "proposal", noun: "Proposal", holders: ["sales.proposal.approve"] } },
   },
   {
+    // Units waiting to be published (E-05D §21).
+    moduleKey: "projects",
+    load: (companyId, page) => prisma.unitPublicationApproval.findMany({ where: { ...pendingWhere(companyId), ...after(page) }, select: approvalSelect, ...byId(page) }),
+    count: (companyId, types, recordId) =>
+      prisma.unitPublicationApproval.count({ where: { ...pendingWhere(companyId), recordId, recordType: { in: types as never } } }),
+    records: { UNIT: { entityType: "project_unit", noun: "Unit", holders: ["project.unit.publish"] } },
+  },
+  {
     moduleKey: "contracts",
     load: (companyId, page) => prisma.contractApproval.findMany({ where: { ...pendingWhere(companyId), ...after(page) }, select: approvalSelect, ...byId(page) }),
     count: (companyId, types, recordId) =>

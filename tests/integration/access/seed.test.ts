@@ -19,7 +19,7 @@ afterAll(async () => {
 });
 
 describe("seeded configuration", () => {
-  it("creates all 16 roles", async () => {
+  it("creates all 18 roles", async () => {
     const rows = await prisma.role.findMany({ select: { key: true } });
     expect(rows.map((row) => row.key).sort()).toEqual([...ROLE_KEYS].sort());
   });

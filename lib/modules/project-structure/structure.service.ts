@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { AccessError, assertModule } from "@/lib/access/guards";
+import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { readableUnitWhere, structureCapabilities, structureProjectDoor } from "./structure.permissions";
@@ -117,6 +117,9 @@ export const UNIT_SELECT = {
   version: true,
   createdAt: true,
   updatedAt: true,
+  publicationStatus: true,
+  hasUnpublishedChanges: true,
+  currentPublication: { select: { versionNumber: true } },
   unitType: { select: { id: true, name: true, code: true, category: true, isActive: true } },
   floor: { select: { id: true, name: true, number: true, levelType: true, building: { select: { id: true, name: true, code: true } } } },
 } satisfies Prisma.ProjectUnitSelect;
@@ -147,6 +150,7 @@ export function toUnitDTO(row: UnitRow): UnitDTO {
     version: row.version,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    publication: { status: row.publicationStatus, versionNumber: row.currentPublication?.versionNumber ?? null, hasUnpublishedChanges: row.hasUnpublishedChanges },
   };
 }
 
@@ -199,6 +203,8 @@ export async function listProjectUnits(context: UserContext, projectId: string, 
     ...(query.position ? [{ position: query.position }] : []),
     ...(query.bedrooms !== undefined ? [{ bedrooms: query.bedrooms }] : []),
     ...(query.bathrooms !== undefined ? [{ bathrooms: query.bathrooms }] : []),
+    ...(query.publicationStatus ? [{ publicationStatus: query.publicationStatus }] : []),
+    ...(query.unpublishedChanges ? [{ hasUnpublishedChanges: true }] : []),
   ];
   const internal = range(query.internalAreaMin, query.internalAreaMax);
   if (internal) filters.push({ internalArea: internal });
@@ -246,5 +252,38 @@ export async function getUnitDetail(context: UserContext, unitId: string, routeP
     ...toUnitDTO(row),
     project: { id: row.project.id, name: row.project.name, code: row.project.code },
     capabilities: { canUpdateUnit: capabilities.canUpdateUnit, canDeleteUnit: capabilities.canDeleteUnit, canMoveUnit: capabilities.canMoveUnit },
+  };
+}
+
+/* Activity (E-05D §48, §49) --------------------------------------------------- */
+
+export type UnitActivityDTO = { id: string; action: string; message: string | null; actor: string | null; createdAt: string };
+
+/**
+ * One unit's history, newest first (E-05D §48): created, edited, moved, its
+ * files, its publishing. Read only after the unit's own door, and with the
+ * project's activity grant — the same people who read the project's history.
+ */
+export async function listUnitActivity(context: UserContext, unitId: string, options: { page?: number; limit?: number } = {}): Promise<{ items: UnitActivityDTO[]; page: number; pageSize: number; total: number }> {
+  const unit = await findReadableUnit(context, unitId);
+  assertPermission(context, "project.activity.view");
+  const page = options.page ?? 1;
+  const limit = Math.min(options.limit ?? 50, 100);
+  const where: Prisma.ActivityWhereInput = { companyId: context.companyId, module: "projects", entityType: "ProjectUnit", entityId: unit.id };
+  const [total, rows] = await Promise.all([
+    prisma.activity.count({ where }),
+    prisma.activity.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * limit,
+      take: limit,
+      select: { id: true, action: true, message: true, createdAt: true, actorMember: { select: { user: { select: { firstName: true, lastName: true } } } } },
+    }),
+  ]);
+  return {
+    items: rows.map((row) => ({ id: row.id, action: row.action, message: row.message, actor: row.actorMember ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}` : null, createdAt: row.createdAt.toISOString() })),
+    page,
+    pageSize: limit,
+    total,
   };
 }

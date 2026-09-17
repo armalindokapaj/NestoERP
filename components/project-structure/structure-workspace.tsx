@@ -31,6 +31,7 @@ import { BuildingDialog, FloorDialog, MoveFloorDialog, MoveUnitDialog } from "./
 import { failureMessage, numberText, plural, structureApi } from "./structure-ui";
 import { UnitDialog } from "./unit-dialog";
 import { EMPTY_FILTERS, type UnitFilters } from "./unit-filters";
+import { UNIT_PUBLICATION_STATUS_LABELS, UNIT_PUBLICATION_STATUSES } from "@/lib/modules/project-structure/unit-publishing.types";
 import { UnitTable, type UnitRowActions } from "./unit-table";
 
 /**
@@ -66,6 +67,9 @@ function queryString(selection: Selection, filters: UnitFilters, page: number): 
   if (selection.floorId) params.set("floorId", selection.floorId);
   if (filters.q.trim()) params.set("q", filters.q.trim());
   for (const key of FILTER_KEYS) if (filters[key]) params.set(key, filters[key]);
+  // One control, two parameters: a publication status, or published units with unpublished changes (E-05D §28).
+  if (filters.publication === "CHANGES") params.set("unpublishedChanges", "true");
+  else if (filters.publication) params.set("publicationStatus", filters.publication);
   if (filters.sort !== "structure") params.set("sort", filters.sort);
   if (page > 1) params.set("page", String(page));
   return params.toString();
@@ -116,7 +120,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
   const projectId = structure.project.id;
   const building = structure.buildings.find((candidate) => candidate.id === selection.buildingId) ?? null;
   const floor = building?.floors.find((candidate) => candidate.id === selection.floorId) ?? null;
-  const activeFilters = FILTER_KEYS.filter((key) => filters[key]).length + (filters.q.trim() ? 1 : 0);
+  const activeFilters = FILTER_KEYS.filter((key) => filters[key]).length + (filters.q.trim() ? 1 : 0) + (filters.publication ? 1 : 0);
 
   // Search waits for typing to pause (E-05A's 300 ms), everything else applies at once.
   React.useEffect(() => {
@@ -465,6 +469,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
         {filtersOpen ? (
           <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="unit-filters">
             <FilterSelect label="Type" value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={structure.unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
+            <FilterSelect label="Publication" value={filters.publication} onChange={(publication) => setFilter({ publication })} options={[...UNIT_PUBLICATION_STATUSES.map((value) => ({ value, label: UNIT_PUBLICATION_STATUS_LABELS[value] })), { value: "CHANGES", label: "Unpublished changes" }]} />
             <FilterSelect label="Orientation" value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: ORIENTATION_LABELS[value] }))} />
             <FilterSelect label="Position" value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: POSITION_LABELS[value] }))} />
             <FilterSelect label="Bedrooms" value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))} />

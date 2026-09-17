@@ -24,7 +24,8 @@ import {
 /** Departments that have a named manager in the demo company (PRD #14 §117). */
 const DEPARTMENT_MANAGERS: { key: string; userId: string }[] = [
   { key: "projects", userId: "user_pm" },
-  { key: "architecture", userId: "user_architect" },
+  { key: "architecture", userId: "user_architecture_manager" },
+  { key: "sales", userId: "user_sales_manager" },
   { key: "engineering", userId: "user_engineer" },
   { key: "finance", userId: "user_finance" },
   { key: "hr", userId: "user_hr" },

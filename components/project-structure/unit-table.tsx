@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { ORIENTATION_LABELS, POSITION_LABELS, type UnitDTO, type UnitListDTO } from "@/lib/modules/project-structure/structure.types";
 import { areaText, countText } from "./structure-ui";
+import { PublicationBadge } from "./unit-page/publication-badge";
 
 /**
  * The unit table (E-05B §46, §109). Inside one floor the Building and Floor
@@ -101,6 +102,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                   <TableHeaderCell>Floor</TableHeaderCell>
                 </>
               ) : null}
+              <TableHeaderCell>Publication</TableHeaderCell>
               <TableHeaderCell>Position</TableHeaderCell>
               <TableHeaderCell>Orientation</TableHeaderCell>
               <TableHeaderCell className="text-right">Internal</TableHeaderCell>
@@ -129,6 +131,10 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                     <TableCell className="whitespace-nowrap">{unit.floor.name}</TableCell>
                   </>
                 ) : null}
+                <TableCell className="whitespace-nowrap">
+                  <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
+                  {unit.publication.hasUnpublishedChanges ? <span className="ml-1.5 text-meta text-warning-strong">Changed</span> : null}
+                </TableCell>
                 <TableCell className="text-fg-muted">{unit.position ? POSITION_LABELS[unit.position] : "—"}</TableCell>
                 <TableCell className="text-fg-muted">{unit.orientation ? ORIENTATION_LABELS[unit.orientation] : "—"}</TableCell>
                 <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.internalArea)}</TableCell>
@@ -151,6 +157,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
               <span className="flex items-center gap-2">
                 <span className="text-body font-semibold text-fg">{unit.unitCode}</span>
                 <span className="text-table text-fg-muted">{unit.unitType.name}</span>
+                <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
                 {unit.isActive ? null : <Badge>Inactive</Badge>}
               </span>
               <span className="mt-0.5 block text-meta text-fg-subtle">

@@ -1441,6 +1441,45 @@ const DEFINITIONS: RecordDefinition[] = [
     collaboration: { requires: [] },
   },
 
+  /* Units (E-05B §29; E-05D §33-§44, §63, §88) ---------------------------------- */
+  {
+    // The one canonical unit, reached only through a project the reader can
+    // open. Its Sales Plan, technical documents and images are canonical files
+    // filed against it, so a file on a unit is exactly as readable as the unit.
+    // Archiving the unit or its project closes it to new files; so does
+    // deactivating it.
+    type: "project_unit",
+    moduleKey: "projects",
+    noun: "Unit",
+    activityEntityType: "ProjectUnit",
+    viewPermissions: ["project.view", "project.structure.view"],
+    async find(context, id) {
+      const { readableUnitWhere } = await import("@/lib/modules/project-structure/structure.permissions");
+      const row = await prisma.projectUnit.findFirst({
+        where: { AND: [readableUnitWhere(context), { id }] },
+        select: { id: true, companyId: true, projectId: true, unitCode: true, isActive: true, publicationStatus: true, project: { select: { name: true, archivedAt: true, status: true, projectManagerMemberId: true } } },
+      });
+      return row && {
+        type: "project_unit", id: row.id, companyId: row.companyId,
+        label: `${row.unitCode} · ${row.project.name}`,
+        href: `/projects/${row.projectId}/units/${row.id}`,
+        projectId: row.projectId,
+        archived: row.publicationStatus === "ARCHIVED" || Boolean(row.project.archivedAt) || row.project.status === "ARCHIVED",
+        filesClosed: !row.isActive,
+        stakeholderMemberIds: unique(row.project.projectManagerMemberId),
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const { readableUnitWhere } = await import("@/lib/modules/project-structure/structure.permissions");
+      const rows = await prisma.projectUnit.findMany({ where: { AND: [readableUnitWhere(context), { id: { in: ids } }] }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    // A Sales Plan, a drawing or a render is added by whoever keeps the unit's documents (E-05D §18).
+    documents: { view: [], upload: ["project.unit.documents.manage"], tabHref: (summary) => `${summary.href}/documents`, reviewable: false },
+    collaboration: null,
+  },
+
   /* Announcements (PRD #45 §37-§39, §64, §280) ------------------------------ */
   {
     // Reached through its audience. Attachments sit with it while it is live;

@@ -34,6 +34,7 @@ A module that needs something about a unit adds its own table keyed by
 | API | `app/api/projects/[projectId]/{structure,buildings,buildings/reorder,units}`, `app/api/project-buildings/[buildingId]/**`, `app/api/project-floors/[floorId]/**`, `app/api/project-units/[unitId]/**`, `app/api/projects/unit-types/**` |
 | UI | `app/(nesto)/projects/[projectId]/units` (tab **Units**), `app/(nesto)/projects/[projectId]/units/[unitId]` (the unit page), `app/(nesto)/projects/unit-types`, `components/project-structure/*`, `components/projects/unit-types-manager.tsx` |
 | Demo data | `prisma/seed/structure.ts` |
+| The unit page's sections, documents, media and publishing (E-05D) | `docs/unit-publishing.md` |
 
 ## Data
 
@@ -160,13 +161,14 @@ first in every `where`. Nothing is authorised by "same company" alone.
 | Owner | yes | yes | yes |
 | Admin | yes | yes (override) | yes (override) |
 | Project Manager | own projects | own projects (MANAGE rung) | no |
+| Architecture Manager | every project of the company | yes (override) | no |
 | Architect | assigned projects | assigned projects (override) | no |
 | Engineer | assigned projects | no | no |
 | CEO, Finance, Legal, Sales, Procurement, HR, … | yes, in their scope | no | no |
 | Viewer | assigned projects | no | no |
 
-NESTO has no Parent Group Owner or Architecture Manager role; E-05B's rows for
-them are policy for when they exist. Grants are data (`config/role-defaults.ts`),
+NESTO has no Parent Group Owner role; its E-05B row is policy for when it exists.
+The Architecture Manager role arrived with E-05D and holds E-05B's row (§59). Grants are data (`config/role-defaults.ts`),
 never role names in code.
 
 **Not found, not forbidden.** A building, floor or unit id from a project the
@@ -267,7 +269,9 @@ place of the tree, units as cards. The URL holds the choice (`?floor=` or
 company / project / building / floor / code, each level a link (the building and
 floor open the Units tab there); header *A-901*, the type, *Block A · Floor 9*;
 technical data and areas; **Edit**, **Move** and delete for those who may. It is
-the one page every future module opens for this unit.
+the one page every future module opens for this unit. E-05D gave it its
+Overview, Documents, Media, Publishing and Activity sections — see
+`docs/unit-publishing.md`.
 
 **Projects → Unit types** (Owner and Admin): add with a code and category,
 rename, recode, recategorise, order, retire, use again, delete an unused one.
@@ -303,9 +307,10 @@ replaces all three.
 - **No commercial status yet.** §27's For Sale / Reserved / Sold belongs to the
   Sales PRD, which will add it to — or beside — this unit, keyed by `unitId`,
   with a state machine. The unit table has no Status column until then.
-- **Unit deletion is not guarded by references**, because nothing references a
-  unit yet. When Sales, Finance or 3D do, `deleteUnit` must refuse a referenced
-  unit and offer deactivation (§56).
+- **Unit deletion is guarded by references since E-05D**: a unit with a published
+  version, a Sales Plan, media, attached documents, files or a publishing request
+  is refused (`UNIT_REFERENCED`) and archived or deactivated instead. Sales,
+  Finance and 3D references must join that check when they arrive (§56).
 - **Page-numbered, not cursor, pagination.** The unit list is 50 per page with a
   total. At 10,000 units the whole-project list in structure order is the
   slowest read (~160-180 ms: it sorts through the floor and building join and

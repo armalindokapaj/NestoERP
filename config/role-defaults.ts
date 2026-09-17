@@ -206,6 +206,8 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project_planning.view",
       // So are its buildings, floors and units: Sales and Finance read the same units (E-05B §59, §80).
       "project.structure.view",
+      // And which versions of a unit were published, when and by whom (E-05D §50, §51).
+      "project.unit.publication_history.view",
     ],
     CONTRIBUTE: ["project.update"],
     MANAGE: [
@@ -251,6 +253,16 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project.unit.update",
       "project.unit.delete",
       "project.unit.move",
+      /*
+       * Preparing a unit for publishing: its canonical documents, its media and
+       * submitting it for review (E-05D §19). Publishing it is not on the
+       * ladder — the people who prepare a unit are not thereby the people who
+       * approve it for Sales (§89); an Architecture Manager holds it as an
+       * override, as do the Owner and the Admin.
+       */
+      "project.unit.documents.manage",
+      "project.unit.media.manage",
+      "project.unit.submit_for_publish",
     ],
   },
   tasks: {
@@ -1043,6 +1055,16 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     finance: "V/P", hr: "V/S", qaqc: "V/P", hse: "V/P",
     team: "V/P", support: "V/C",
   },
+  /*
+   * The Architect's own row, across every project of the company rather than
+   * the ones they are assigned to — the head of design reviews all of it — and
+   * the approvals inbox where unit publishing requests wait (E-05D §19, §21).
+   */
+  ARCHITECTURE_MANAGER: {
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", contractors: "V/C", engineering: "A/C", projects: "C/C", tasks: "C/P", clients: "V/C", documents: "C/C",
+    finance: "V/C", hr: "V/S", qaqc: "V/C", hse: "V/C",
+    team: "V/C", support: "V/C",
+  },
   ENGINEER: {
     calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "C/AS", contractors: "V/P", engineering: "A/P", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S",
@@ -1061,6 +1083,12 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "V/C", company: "V/C", support: "V/C",
   },
   SALES: {
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
+    finance: "V/C", sales: "M/C", contracts: "V/C",
+    team: "V/C", company: "V/C", support: "V/C",
+  },
+  // Sales' row; what sets the manager apart is the approval Sales is denied (E-05E §39).
+  SALES_MANAGER: {
     calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", projects: "V/C", tasks: "C/S", clients: "M/C", documents: "C/C",
     finance: "V/C", sales: "M/C", contracts: "V/C",
     team: "V/C", company: "V/C", support: "V/C",
@@ -1110,7 +1138,18 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     // The company's planning rules, and moving a locked baseline (PRD #44 §76, §309).
     // The company's list of project types (E-05A §62).
     // The company's list of unit types (E-05B §20, §21).
-    projects: { extra: ["project_planning.settings.manage", "project.type.manage", "project.unit_type.manage"] },
+    // Publishing units, and taking them out of use again (E-05D §19).
+    projects: {
+      extra: [
+        "project_planning.settings.manage",
+        "project.type.manage",
+        "project.unit_type.manage",
+        "project.unit.publish",
+        "project.unit.revision_request",
+        "project.unit.unpublish",
+        "project.unit.archive",
+      ],
+    },
     // Promoting somebody to Owner is the one company action an Admin must not
     // be able to take on their own (PRD #14 §95, §96).
     team: { extra: ["team.owner.assign"] },
@@ -1156,7 +1195,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * inside their company (E-05A §29, §60), and keeps the company's list of
      * project types (§62). Archiving stays with whoever holds the module outright.
      * Setting up a project includes its buildings, floors and units, and the
-     * company's unit types (E-05B §59).
+     * company's unit types (E-05B §59) — and, inside the company, preparing and
+     * publishing those units (E-05D §19: "Scoped").
      */
     projects: {
       deny: ["project_planning.view"],
@@ -1177,6 +1217,13 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.delete",
         "project.unit.move",
         "project.unit_type.manage",
+        "project.unit.documents.manage",
+        "project.unit.media.manage",
+        "project.unit.submit_for_publish",
+        "project.unit.publish",
+        "project.unit.revision_request",
+        "project.unit.unpublish",
+        "project.unit.archive",
       ],
     },
   },
@@ -1353,7 +1400,9 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     /**
      * The physical project on the projects they are assigned to (E-05B §59, §60):
      * buildings, floors and the technical data of every unit. The ladder's
-     * CONTRIBUTE rung stops short of it, which is where Engineers stay.
+     * CONTRIBUTE rung stops short of it, which is where Engineers stay. They
+     * prepare a unit for publishing — its documents, its media, the request —
+     * and do not publish it themselves (E-05D §19, §120).
      */
     projects: {
       extra: [
@@ -1368,6 +1417,87 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.update",
         "project.unit.delete",
         "project.unit.move",
+        "project.unit.documents.manage",
+        "project.unit.media.manage",
+        "project.unit.submit_for_publish",
+      ],
+    },
+    // Design-related work and instructions on their projects' logs (PRD #43 §135).
+    dailyLogs: { extra: ["daily_log.edit", "daily_log.activity.manage", "daily_log.instruction.manage"] },
+    /**
+     * Project budget summary only (PRD #5 §18, PRD #15 §184).
+     *
+     * Budget amount, actual summary, commitment summary and remaining budget —
+     * never a payee, an invoice, a payment reference, company receivables or
+     * company cashflow.
+     */
+    finance: {
+      deny: [
+        "finance.invoice.view",
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.commitment.view",
+        "finance.receivables.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.report.view",
+        "finance.activity.view",
+        "finance.settings.view",
+      ],
+    },
+    /**
+     * The project's safety position, not the company's safety apparatus
+     * (PRD #22 §18, §19 — the `*` on the access matrix).
+     *
+     * An architect on a site needs to know what has gone wrong there and what
+     * is being done about it: hazards, incidents, inspections and the permits
+     * governing work near their design. The checklists the company inspects
+     * against, the approval queue, the risk register, stop-work authority and
+     * the company reports belong to the safety function.
+     */
+    hse: {
+      deny: [
+        "hse.template.view",
+        "hse.risk.view",
+        "hse.toolbox.view",
+        "hse.ppe.view",
+        "hse.environment.view",
+        "hse.stop_work.view",
+        "hse.approval.view",
+        "hse.report.view",
+        "hse.export",
+      ],
+    },
+  },
+  ARCHITECTURE_MANAGER: {
+    /**
+     * Everything an Architect does to units, on every project, and the review
+     * that follows it: publishing a unit, asking for a revision, taking a
+     * published unit back out of use and archiving it (E-05D §19, §120).
+     * The rest of this role's overrides are the Architect's.
+     */
+    projects: {
+      extra: [
+        "project.structure.manage",
+        "project.building.create",
+        "project.building.update",
+        "project.building.delete",
+        "project.floor.create",
+        "project.floor.update",
+        "project.floor.delete",
+        "project.unit.create",
+        "project.unit.update",
+        "project.unit.delete",
+        "project.unit.move",
+        "project.unit.documents.manage",
+        "project.unit.media.manage",
+        "project.unit.submit_for_publish",
+        "project.unit.publish",
+        "project.unit.revision_request",
+        "project.unit.unpublish",
+        "project.unit.archive",
       ],
     },
     // Design-related work and instructions on their projects' logs (PRD #43 §135).
@@ -1585,6 +1715,42 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     sales: {
       deny: ["sales.proposal.approve", "sales.proposal.reject"],
     },
+    /**
+     * The contract their deal became (PRD #18 §29, §400).
+     *
+     * Sales follows an accepted proposal through to a signed agreement: status,
+     * dates, value, and the lineage back to the opportunity. The obligation
+     * register, the parties' legal identifiers and the approval queue are the
+     * legal desk's work, not the account manager's.
+     */
+    contracts: {
+      deny: [
+        "legal.party.view",
+        "legal.obligation.view",
+        "legal.approval.view",
+        "legal.task.view",
+      ],
+    },
+    // Customer invoices, outstanding receivables and client payment status —
+    // never corporate cashflow, expenses or budgets (PRD #5 §22, PRD #15 §289).
+    finance: {
+      deny: [
+        "finance.payment.view",
+        "finance.expense.view",
+        "finance.budget.view",
+        "finance.commitment.view",
+        "finance.project_budget.view",
+        "finance.project_cost_summary.view",
+        "finance.payables.view",
+        "finance.cashflow.view",
+        "finance.approval.view",
+        "finance.settings.view",
+      ],
+    },
+  },
+  SALES_MANAGER: {
+    // Sales' contract and finance limits; unlike Sales, the manager decides
+    // proposals (PRD #17 §19, §20; E-05E §39).
     /**
      * The contract their deal became (PRD #18 §29, §400).
      *

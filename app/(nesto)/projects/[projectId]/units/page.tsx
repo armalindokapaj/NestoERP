@@ -57,6 +57,7 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
     internalAreaMax: query.internalAreaMax ?? "",
     saleableAreaMin: query.saleableAreaMin ?? "",
     saleableAreaMax: query.saleableAreaMax ?? "",
+    publication: query.unpublishedChanges ? "CHANGES" : (query.publicationStatus ?? ""),
     sort: query.sort ?? "structure",
   };
   const units = structure.buildings.length

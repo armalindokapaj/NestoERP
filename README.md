@@ -45,7 +45,7 @@ cp .env.example .env          # then fill in DATABASE_URL and AUTH_SECRET
 
 createdb nesto_erp            # or point DATABASE_URL at an existing database
 pnpm db:migrate               # apply prisma/migrations
-pnpm db:seed                  # two demo companies, 16 role accounts, full dataset
+pnpm db:seed                  # two demo companies, 18 role accounts, full dataset
 
 pnpm dev                      # http://localhost:3000
 ```
@@ -79,14 +79,14 @@ itself requires both `NODE_ENV !== production` and an explicit
 | `pnpm test:api` | Projects authorisation through the real service layer |
 | `pnpm test:e2e` | Browser journeys (Playwright) |
 | `pnpm test:e2e:all-browsers` | …plus Firefox, WebKit and mobile Safari |
-| `pnpm verify:roles` | Walk all 16 roles over HTTP against a running server |
+| `pnpm verify:roles` | Walk all 18 roles over HTTP against a running server |
 
 ---
 
 ## Development accounts
 
 Two demo companies. **NESTO Demo Construction** is the primary workspace, with
-one account for each of the 16 roles. **NESTO Second Company** exists so tenant
+one account for each of the 18 roles. **NESTO Second Company** exists so tenant
 isolation can actually be proven rather than assumed — one company cannot show
 you anything about the other, and its reduced module set is how the
 "module unavailable" path is tested.
@@ -121,7 +121,7 @@ role per company well before the company switcher exists.
 
 In development the login page shows a **demo account picker** — one click signs
 you in as that role, no typing. Once inside, the **role switcher** in the top bar
-re-renders the whole workspace as any of the 16 roles without signing out.
+re-renders the whole workspace as any of the 18 roles without signing out.
 
 Both are gated on `NODE_ENV`. In a production build the picker is not rendered,
 the switcher is not rendered, and the demo sign-in action refuses. The picker
@@ -136,8 +136,13 @@ bundle, so no credential ships to the client in any build.
    table decides its navigation, its module access, its data scope and every
    granular permission it holds.
 3. Give it a dashboard in `config/dashboards.ts`.
-4. Add its demo account to `config/demo-accounts.ts`.
-5. `pnpm db:seed`.
+4. Add its demo account to `config/demo-accounts.ts`, and its label and
+   description to `lib/i18n/messages/en.ts` and `sq.ts`.
+5. Add it to the per-role test tables: `EMAIL_FOR_ROLE` in `tests/helpers.ts`,
+   `DEMO_USERNAME` in `tests/e2e/fixtures.ts` and `EXPECTED_APPROVALS` in
+   `tests/unit/permissions/role-boundaries.test.ts` — each is typed over every
+   role, so typecheck names what is missing.
+6. `pnpm db:seed`.
 
 It then appears in the sidebar, the login picker, the role switcher, the Roles
 settings page, `pnpm verify:roles` and the test matrix — without touching a
@@ -158,7 +163,7 @@ resolveUserContext()                 lib/context — the one resolver
 User → Membership → Company → Role → Permissions → Module access → Scope
    ↓
    ├── Navigation resolver  ──→  Sidebar and drawer (one data source)
-   ├── Dashboard resolver   ──→  /dashboard for all 16 roles
+   ├── Dashboard resolver   ──→  /dashboard for all 18 roles
    └── Module resolver      ──→  Tabs, actions and scoped records
                                         ↓
                                  Server authorisation
@@ -174,7 +179,7 @@ from `config/`:
 
 | File | Owns |
 | --- | --- |
-| `config/roles.ts` | The 16 roles |
+| `config/roles.ts` | The 18 roles |
 | `config/access.ts` | Access levels and data scopes |
 | `config/permissions.ts` | The permission registry — 109 `resource.action` keys |
 | `config/role-defaults.ts` | **The role × module access matrix** (PRD #5 §10) |
@@ -203,7 +208,7 @@ dashboards, module tabs, route guards, the API layer and the database seed all
 resolve from this one file, and a test asserts that the seeded rows still match
 it.
 
-There is exactly **one** dashboard page rendering all 16 role dashboards, and
+There is exactly **one** dashboard page rendering all 18 role dashboards, and
 one module-section component rendering every department module's lists.
 
 ### Permissions
@@ -734,7 +739,7 @@ app/
                       about, contact, faq, privacy, terms
     login/  forgot-password/  reset-password/
   (nesto)/            every authenticated route, inside the one AppShell
-    dashboard/        one route, 16 role dashboards
+    dashboard/        one route, 18 role dashboards
     projects/         the reference module, fully functional
     finance/ hr/ sales/   real modules, each with its own services and pages
     procurement/ …    department modules still on the shell registry
@@ -777,7 +782,7 @@ scripts/              verify-roles.ts
 
 ## Design system
 
-One visual system covers the public site and all 16 role workspaces. Nothing in
+One visual system covers the public site and all 18 role workspaces. Nothing in
 a page may invent its own colour, radius, shadow or duration.
 
 ### Tokens
@@ -976,7 +981,7 @@ CRM webhook, and add rate limiting by IP at the same time.
 
 ## What is real in V0.1
 
-**Fully functional, against PostgreSQL, for all 16 roles:**
+**Fully functional, against PostgreSQL, for all 18 roles:**
 
 - The public site, authentication, sign-out, session persistence, deep-link
   return, session expiry, password reset
@@ -984,7 +989,7 @@ CRM webhook, and add rate limiting by IP at the same time.
   unavailable, workspace unavailable, 404
 - The app shell, role navigation, active state, collapse, mobile drawer, top
   bar, user menu, development role switcher
-- All 16 role dashboards — real KPIs, widgets, attention items, approvals and
+- All 18 role dashboards — real KPIs, widgets, attention items, approvals and
   activity, every one of them scoped
 - **Projects**: overview, list, search, filters, sort, pagination, detail,
   create, edit, archive, restore, team management, tasks, documents, activity,

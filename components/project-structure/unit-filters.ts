@@ -16,7 +16,9 @@ export type UnitFilters = {
   internalAreaMax: string;
   saleableAreaMin: string;
   saleableAreaMax: string;
+  /** Publishing (E-05D §13, §28): a status, or "CHANGES" for published units with unpublished changes. */
+  publication: string;
   sort: UnitSort;
 };
 
-export const EMPTY_FILTERS: UnitFilters = { q: "", unitTypeId: "", orientation: "", position: "", bedrooms: "", bathrooms: "", internalAreaMin: "", internalAreaMax: "", saleableAreaMin: "", saleableAreaMax: "", sort: "structure" };
+export const EMPTY_FILTERS: UnitFilters = { q: "", unitTypeId: "", orientation: "", position: "", bedrooms: "", bathrooms: "", internalAreaMin: "", internalAreaMax: "", saleableAreaMin: "", saleableAreaMax: "", publication: "", sort: "structure" };

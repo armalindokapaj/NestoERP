@@ -81,6 +81,9 @@ const PROFILES: ProfileFixture[] = [
   { user: "user_it", number: "EMP-014", status: "ACTIVE", type: "FULL_TIME", start: -500, manager: "user_owner", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
   // Starts in three weeks: onboarding not begun, employment planned.
   { user: "user_admin", number: "EMP-015", status: "PLANNED", type: "FULL_TIME", start: 21, probation: 111, manager: "user_owner", location: "Tiranë HQ", weeklyHours: "40", onboarding: "NOT_STARTED", offboarding: "NOT_REQUIRED" },
+  // The two department heads (E-05D §19, E-05E §39).
+  { user: "user_architecture_manager", number: "EMP-019", status: "ACTIVE", type: "FULL_TIME", start: -980, manager: "user_ceo", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
+  { user: "user_sales_manager", number: "EMP-020", status: "ACTIVE", type: "FULL_TIME", start: -640, manager: "user_ceo", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
   // Leaving next month: offboarding under way.
   { user: "user_viewer", number: "EMP-016", status: "ACTIVE", type: "INTERN", start: -120, end: 24, manager: "user_architect", location: "Tiranë HQ", weeklyHours: "20", onboarding: "COMPLETED", offboarding: "IN_PROGRESS" },
   // Suspended employment, which is not the same as a suspended membership.
@@ -242,6 +245,8 @@ const ENTITLEMENTS: Record<string, { annual: string; sick: string }> = {
   user_hse: { annual: "22", sick: "10" },
   user_legal: { annual: "12", sick: "5" },
   user_sales: { annual: "25", sick: "10" },
+  user_architecture_manager: { annual: "28", sick: "10" },
+  user_sales_manager: { annual: "25", sick: "10" },
   user_procurement: { annual: "20", sick: "0" },
   user_inventory: { annual: "20", sick: "10" },
   user_it: { annual: "25", sick: "10" },

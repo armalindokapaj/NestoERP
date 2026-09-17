@@ -10,6 +10,7 @@ import { procurementApprovalProvider } from "./providers/procurement.provider";
 import { qaqcApprovalProvider } from "./providers/qaqc.provider";
 import { salesApprovalProvider } from "./providers/sales.provider";
 import { timesheetApprovalProvider } from "./providers/timesheets.provider";
+import { projectsApprovalProvider } from "./providers/projects.provider";
 
 /**
  * The approval provider registry (PRD #41 §10, §240).
@@ -61,4 +62,6 @@ export const approvalProviders = createApprovalRegistry([
   qaqcApprovalProvider,
   hseApprovalProvider,
   timesheetApprovalProvider,
+  // Unit publishing (E-05D §21, §47).
+  projectsApprovalProvider,
 ]);

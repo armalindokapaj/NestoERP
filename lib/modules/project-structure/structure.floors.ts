@@ -15,6 +15,7 @@ import { floorKeyOf, placeFloors, type FloorDraft } from "./structure.rules";
 import type { BulkFloorsInput, CreateFloorInput, UpdateFloorInput } from "./structure.schema";
 import { fail, STRUCTURE_PROJECT_SELECT } from "./structure.service";
 import { CONFIRM_FLOORS_ABOVE, type BatchConflict, type BatchPreview } from "./structure.types";
+import { refreshUnpublishedChanges } from "./unit-publishing.state";
 
 /**
  * Floors (E-05B §11-§15, §36-§39, §45, §53, §57, §62).
@@ -317,6 +318,9 @@ export async function moveFloor(context: UserContext, floorId: string, input: { 
     await renumber(tx, context.companyId, placeFloors(existing, [{ id: floor.id, number: floor.number, levelType: floor.levelType, sortOrder: existing.length + 1 }]));
     const left = await tx.projectFloor.findMany({ where: { companyId: context.companyId, buildingId: floor.buildingId }, orderBy: { sortOrder: "asc" }, select: { id: true, sortOrder: true } });
     await renumber(tx, context.companyId, left);
+    // Its units now stand in another building: a published one differs from its published version (E-05D §29).
+    const units = await tx.projectUnit.findMany({ where: { companyId: context.companyId, floorId: floor.id, currentPublicationId: { not: null } }, select: { id: true } });
+    await refreshUnpublishedChanges(tx, context.companyId, units.map((unit) => unit.id));
 
     await recordActivity(tx, context, { module: MODULE, entityType: FLOOR_ENTITY, entityId: floor.id, action: "FLOOR_MOVED", message: `moved ${floor.name} from ${floor.building.name} to ${target.name}`, metadata: { projectId: floor.projectId, buildingId: target.id } });
     await recordUserAction(

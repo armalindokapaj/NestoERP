@@ -49,7 +49,7 @@ export const DUE_STATE_LABELS: Record<DueState, string> = {
 export const APPROVAL_SORTS = ["urgency", "newest", "oldest", "due", "amount"] as const;
 export type ApprovalSort = (typeof APPROVAL_SORTS)[number];
 
-export const PROVIDER_KEYS = ["finance", "procurement", "hr", "sales", "legal", "documents", "qaqc", "hse", "timesheets"] as const;
+export const PROVIDER_KEYS = ["finance", "procurement", "hr", "sales", "legal", "documents", "qaqc", "hse", "timesheets", "projects"] as const;
 export type ApprovalProviderKey = (typeof PROVIDER_KEYS)[number];
 
 export type ApprovalMoney = { value: string; currency: string };

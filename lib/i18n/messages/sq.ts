@@ -122,10 +122,12 @@ export const sq: Messages = {
     CEO: { label: "CEO / Drejtor", description: "Performanca e kompanisë, miratimet dhe mbikëqyrja strategjike." },
     PROJECT_MANAGER: { label: "Menaxher projekti", description: "Drejton projektet, detyrat, ekipet dhe dorëzimin te klientët." },
     ARCHITECT: { label: "Arkitekt", description: "Projektimi, vizatimet, rishikimet dhe dokumentacioni i projektit." },
+    ARCHITECTURE_MANAGER: { label: "Menaxher arkitekture", description: "Drejton projektimin në të gjitha projektet dhe publikon njësitë që përgatisin arkitektët." },
     ENGINEER: { label: "Inxhinier", description: "Realizimi teknik, inspektimet dhe detyrat inxhinierike." },
     FINANCE: { label: "Financa", description: "Të ardhurat, kostot, faturimi dhe kontrolli financiar." },
     LEGAL: { label: "Ligjore", description: "Kontratat, miratimet, njoftimet dhe dokumentet ligjore." },
     SALES: { label: "Shitje", description: "Portofoli i shitjeve, mundësitë, ofertat dhe rritja e klientëve." },
+    SALES_MANAGER: { label: "Menaxher shitjesh", description: "Drejton ekipin e shitjeve, miraton ofertat dhe mbikëqyr shitjen e njësive." },
     PROCUREMENT: { label: "Prokurim", description: "Blerjet, furnitorët, kërkesat për ofertë dhe porositë." },
     INVENTORY: { label: "Magazina / Inventari", description: "Materialet, nivelet e stokut dhe lëvizjet." },
     QAQC: { label: "QA/QC", description: "Inspektimet, mospërputhjet dhe kontrolli i cilësisë." },
@@ -168,7 +170,7 @@ export const sq: Messages = {
       profile: { label: "Profili", description: "Të dhënat tuaja personale dhe të kontaktit." },
       company: { label: "Kompania", description: "Identiteti, adresa dhe të dhënat e kontaktit të kompanisë." },
       users: { label: "Përdoruesit", description: "Llogaritë, ftesat dhe statusi i aksesit." },
-      roles: { label: "Rolet", description: "16 rolet e NESTO dhe lejet që ka secili prej tyre." },
+      roles: { label: "Rolet", description: "18 rolet e NESTO dhe lejet që ka secili prej tyre." },
       modules: { label: "Modulet", description: "Cilat module të NESTO janë aktive për kompaninë tuaj." },
       localization: {
         label: "Lokalizimi",
@@ -323,7 +325,7 @@ export const sq: Messages = {
 
     roles: {
       description:
-        "16 rolet e NESTO, niveli i aksesit që ka secili në çdo modul dhe fusha e të dhënave që zbatohet.",
+        "18 rolet e NESTO, niveli i aksesit që ka secili në çdo modul dhe fusha e të dhënave që zbatohet.",
       modulesCount_one: "{count} modul",
       modulesCount_other: "{count} module",
       permissionsCount_one: "{count} leje",

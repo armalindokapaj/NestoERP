@@ -16,7 +16,7 @@ export const metadata: Metadata = {
  * The one dashboard route (PRD #4 §4).
  *
  * There is no /dashboard/architect and no /dashboard/finance. Every one of the
- * 16 roles lands here, and the resolver decides what they see from their role,
+ * 18 roles lands here, and the resolver decides what they see from their role,
  * permissions and data scope (PRD #4 §103).
  */
 export default async function DashboardPage() {

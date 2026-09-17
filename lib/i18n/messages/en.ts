@@ -132,10 +132,12 @@ export const en = {
     CEO: { label: "CEO / Director", description: "Company performance, approvals and strategic oversight." },
     PROJECT_MANAGER: { label: "Project Manager", description: "Runs projects, tasks, teams and client delivery." },
     ARCHITECT: { label: "Architect", description: "Design work, drawings, reviews and project documentation." },
+    ARCHITECTURE_MANAGER: { label: "Architecture Manager", description: "Leads design across projects and publishes the units architects prepare." },
     ENGINEER: { label: "Engineer", description: "Technical delivery, inspections and engineering tasks." },
     FINANCE: { label: "Finance", description: "Revenue, costs, invoicing and financial control." },
     LEGAL: { label: "Legal", description: "Contracts, approvals, notices and legal records." },
     SALES: { label: "Sales", description: "Pipeline, opportunities, proposals and client growth." },
+    SALES_MANAGER: { label: "Sales Manager", description: "Leads the sales team, approves proposals and oversees unit sales." },
     PROCUREMENT: { label: "Procurement", description: "Purchasing, suppliers, RFQs and orders." },
     INVENTORY: { label: "Stock / Inventory", description: "Materials, stock levels and movements." },
     QAQC: { label: "QA/QC", description: "Inspections, non-conformances and quality control." },
@@ -177,7 +179,7 @@ export const en = {
       profile: { label: "Profile", description: "Your personal details and contact information." },
       company: { label: "Company", description: "Company identity, address and contact details." },
       users: { label: "Users", description: "Accounts, invitations and access status." },
-      roles: { label: "Roles", description: "The 16 NESTO roles and the permissions each one holds." },
+      roles: { label: "Roles", description: "The 18 NESTO roles and the permissions each one holds." },
       modules: { label: "Modules", description: "Which NESTO modules are active for your company." },
       localization: {
         label: "Localization",
@@ -331,7 +333,7 @@ export const en = {
 
     roles: {
       description:
-        "The 16 NESTO roles, the access level each holds in every module, and the data scope that applies.",
+        "The 18 NESTO roles, the access level each holds in every module, and the data scope that applies.",
       modulesCount_one: "{count} module",
       modulesCount_other: "{count} modules",
       permissionsCount_one: "{count} permission",

@@ -208,8 +208,8 @@ describe("validation (§72, §73, §124-§126)", () => {
 describe("default role policy (§58, §59, §138)", () => {
   const WRITES = ["project.structure.manage", "project.building.create", "project.building.update", "project.building.delete", "project.floor.create", "project.floor.update", "project.floor.delete", "project.unit.create", "project.unit.update", "project.unit.delete", "project.unit.move"];
 
-  it("gives the structure to the Owner, Project Manager, Admin and Architect, and to nobody else", () => {
-    for (const permission of WRITES) expect(holders(permission), permission).toEqual(["ADMIN", "ARCHITECT", "OWNER", "PROJECT_MANAGER"]);
+  it("gives the structure to the Owner, Project Manager, Admin, Architect and Architecture Manager, and to nobody else", () => {
+    for (const permission of WRITES) expect(holders(permission), permission).toEqual(["ADMIN", "ARCHITECT", "ARCHITECTURE_MANAGER", "OWNER", "PROJECT_MANAGER"]);
     expect(holders("project.unit_type.manage")).toEqual(["ADMIN", "OWNER"]);
   });
 

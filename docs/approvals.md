@@ -41,6 +41,7 @@ ApprovalProviderRegistry  →  UnifiedApprovalService  →  /api/approvals  → 
 | `qaqc` | `QualityApproval` — inspection, NCR | QA/QC inspection and NCR services | No |
 | `hse` | `HseApproval` — inspection, risk assessment, permit, incident closure | HSE services (incident closure approves only) | No |
 | `timesheets` | `TimesheetApproval` — a week (+ one `ApprovalStep` naming the approver) | `approve/return/rejectTimesheet` (PRD #42, see `docs/timesheets.md`) | Yes, editable again |
+| `projects` (*Unit publishing*) | `UnitPublicationApproval` — a unit, or its unpublished changes | `publishUnit`, `requestUnitRevision` (E-05D, see `docs/unit-publishing.md`); no reject | Yes, Revision Required |
 
 QA/QC and HSE are included because both already own explicit approval records;
 verifying a corrective action stays their own work and never enters the Center.
@@ -191,13 +192,15 @@ is no global approve permission — deciding is always the source module's grant
 | HR, CEO, Finance, Legal, Sales, Procurement, QA/QC, HSE | Approve (history, delegation) |
 | Project Manager | Approve, project scope |
 | Admin, Company IT, Inventory | View |
+| Architecture Manager, Sales Manager | Approve (history, delegation) |
 | Architect, Engineer | View, project scope |
 | Viewer | None |
 
 ## Dashboards
 
 `pendingApprovals` (top five of Waiting for me) is on the Owner, HR, CEO,
-Project Manager, Finance, Legal, Sales, Procurement, QA/QC and HSE dashboards.
+Project Manager, Architecture Manager, Finance, Legal, Sales, Sales Manager,
+Procurement, QA/QC and HSE dashboards.
 `approvalBottlenecks` (pending by source, oldest wait, overdue) is on the Owner
 and CEO dashboards and needs `approvals.history.view`.
 

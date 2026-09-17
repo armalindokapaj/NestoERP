@@ -28,3 +28,17 @@ test("finds a unit by building and floor on a phone", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("B-104");
   await expect(page.getByTestId("unit-location")).toContainText("Block B · Floor 1");
 });
+
+test("reads a published unit's page, sections and Sales Plan on a phone (E-05D §91, §115)", async ({ page }) => {
+  await signIn(page, "SALES", { to: `/projects/${STRUCTURE_SEED.riverside}/units/${STRUCTURE_SEED.units.a101}` });
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("A-101");
+  await expect(page.getByTestId("publication-status").first()).toHaveText("Published v1");
+  await expect(page.getByTestId("unit-primary-image")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.getByRole("navigation", { name: "A-101 sections" }).getByRole("link", { name: "Documents", exact: true }).click();
+  await expect(page.getByTestId("sales-plan")).toContainText("A-101 Sales Plan.pdf");
+  await page.getByRole("navigation", { name: "A-101 sections" }).getByRole("link", { name: "Publishing", exact: true }).click();
+  await expect(page.getByTestId("publication-history")).toContainText("v1 Published");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

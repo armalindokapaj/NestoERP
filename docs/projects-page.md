@@ -137,8 +137,10 @@ New projects start Pending. Creating one in any other status needs
 Admin's grants are `extra` overrides on its View cell; the Project Manager's
 loss of `project.create` is a `deny`. A Project Manager therefore cannot turn a
 won opportunity into a new project any more — they can still link one to an
-existing project. NESTO has no Parent Group Owner or Architecture Manager role;
-E-05A's rows for them are policy for when those roles exist.
+existing project. NESTO has no Parent Group Owner role; E-05A's row for it is
+policy for when it exists. The Architecture Manager (E-05D) edits projects across
+the company like an Architect on assigned ones, and — as E-05A §8 and §58 set —
+creates projects or manages their status only where a company grants it.
 
 ## Ordering and pagination
 

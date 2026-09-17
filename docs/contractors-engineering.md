@@ -181,7 +181,7 @@ an issued and a draft transmittal. Company B has one contractor.
 
 | Suite | Covers |
 | --- | --- |
-| `tests/unit/engineering` | Names, compliance derivation, schemas without state changes, revision codes and review comments, role defaults for all sixteen roles |
+| `tests/unit/engineering` | Names, compliance derivation, schemas without state changes, revision codes and review comments, role defaults for every role |
 | `tests/api/engineering/contractors.test.ts` | Directory, duplicates, supplier and company isolation, archive and reactivation, contacts, assignments and termination, work packages, compliance worker, attention and waiver, legal and finance boundaries |
 | `tests/api/engineering/engineering.test.ts` | Register uniqueness and same-project links, revisions A→B→C with supersession, frozen files, self-review and assigned review, RFI lifecycle and references, IDOR, tasks, submittals with no procurement or stock effect, method statement links to HSE, transmittals, daily log context, search, calendar, notifications, attention, reminders, overview and reports |
 | `tests/e2e/modules/contractors-engineering.spec.ts` | Contractor setup, RFI, submittal, drawing revisions, compliance renewal |

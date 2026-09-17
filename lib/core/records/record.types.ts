@@ -129,6 +129,7 @@ export const RECORD_TYPES = [
   "timesheet",
   "daily_log",
   "project_milestone",
+  "project_unit",
   "announcement",
   "approval_delegation",
   "contractor",

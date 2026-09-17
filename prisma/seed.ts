@@ -1,7 +1,7 @@
 /**
  * NESTO V0.1 demo seed (PRD #9).
  *
- * Fresh database → migrations → seed → sign in as any of the 16 demo users and
+ * Fresh database → migrations → seed → sign in as any of the 18 demo users and
  * navigate a fully populated workspace, without creating a single record by
  * hand (PRD #9 §2).
  *
@@ -35,6 +35,7 @@ import { seedTimesheetRecords } from "./seed/timesheets";
 import { seedDailyLogRecords } from "./seed/daily-logs";
 import { seedPlanningRecords } from "./seed/planning";
 import { seedStructureRecords } from "./seed/structure";
+import { seedUnitPublishingRecords } from "./seed/unit-publishing";
 import { seedAnnouncementRecords } from "./seed/announcements";
 import { seedContractorEngineeringRecords } from "./seed/engineering";
 import { validateSeed } from "./seed/validate";
@@ -84,6 +85,7 @@ async function main() {
   const dailyLogs = await seedDailyLogRecords(prisma, members);
   const planning = await seedPlanningRecords(prisma, members);
   const structure = await seedStructureRecords(prisma, members);
+  const unitPublishing = await seedUnitPublishingRecords(prisma, (userId) => members.get(userId)!);
   const announcements = await seedAnnouncementRecords(prisma, members);
   const engineering = await seedContractorEngineeringRecords(prisma, members);
   const activities = await seedActivities(prisma, members);
@@ -124,6 +126,7 @@ async function main() {
   console.log(`✓ Meetings: ${meetings.meetings} meetings, ${meetings.series} weekly series`);
   console.log(`✓ Daily logs: ${dailyLogs.logs} logs, ${dailyLogs.photos} site photos, ${dailyLogs.links} QA/QC and HSE links`);
   console.log(`✓ Structure: ${structure.buildings} buildings, ${structure.floors} floors, ${structure.units} units`);
+  console.log(`✓ Unit publishing: ${unitPublishing.published} published, ${unitPublishing.waiting} waiting for review, ${unitPublishing.revision} sent back, ${unitPublishing.files} unit files`);
   console.log(`✓ Planning: ${planning.phases} phases, ${planning.milestones} milestones, ${planning.dependencies} dependencies, ${planning.blockers} blockers`);
   console.log(`✓ Announcements: ${announcements.announcements} announcements (${announcements.targets} acknowledgment targets), ${announcements.favorites} favorites, ${announcements.recent} recent items`);
   console.log(`✓ Contractors & engineering: ${engineering.contractors} contractors, ${engineering.workPackages} work packages, ${engineering.compliance} compliance items, ${engineering.documents} engineering documents, ${engineering.rfis} RFIs, ${engineering.submittals} submittals, ${engineering.transmittals} transmittals`);
