@@ -58,6 +58,9 @@ async function main() {
   console.log(`  group     ${result.parentGroupId}`);
   console.log(`  modules   ${result.modulesEnabled.length} enabled${result.modulesDisabled.length ? `, disabled: ${result.modulesDisabled.join(", ")}` : ""}`);
   switch (result.owner.state) {
+    case "NOT_REQUESTED":
+      console.log("  owner     not requested");
+      break;
     case "ALREADY_ACTIVE":
       console.log("  owner     already an active Owner — nothing sent");
       break;

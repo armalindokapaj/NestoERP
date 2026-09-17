@@ -36,6 +36,16 @@ export const NON_SESSION_ROUTES = new Set([
   "/api/internal/metrics",
 ]);
 
+/**
+ * The platform's own routes answer a platform session, which carries no
+ * company, so a company attacker has no company boundary to cross there; they
+ * are refused before any lookup, and tested on their own
+ * (tests/api/platform, E-06 §116, §137).
+ */
+export function isPlatformRoute(pattern: string): boolean {
+  return pattern.startsWith("/api/platform/");
+}
+
 export function discoverApiRoutes(): ApiRoute[] {
   return (readdirSync("app/api", { recursive: true }) as string[])
     .filter((entry) => entry.endsWith("route.ts"))

@@ -87,6 +87,14 @@ export const AuditAction = {
   ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED: "ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED",
   ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED: "ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED",
   ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED: "ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED",
+  // Implementing a group, on the platform (E-06 §114, §116)
+  PLATFORM_PARENT_GROUP_CREATED: "PLATFORM_PARENT_GROUP_CREATED",
+  PLATFORM_PARENT_GROUP_UPDATED: "PLATFORM_PARENT_GROUP_UPDATED",
+  PLATFORM_PARENT_GROUP_READY_FOR_VALIDATION: "PLATFORM_PARENT_GROUP_READY_FOR_VALIDATION",
+  PLATFORM_PARENT_GROUP_ACTIVATED: "PLATFORM_PARENT_GROUP_ACTIVATED",
+  PLATFORM_COMPANY_ADDED_TO_GROUP: "PLATFORM_COMPANY_ADDED_TO_GROUP",
+  PLATFORM_INITIAL_USER_PROVISIONED: "PLATFORM_INITIAL_USER_PROVISIONED",
+  PLATFORM_INITIAL_PROJECT_MEMBER_ASSIGNED: "PLATFORM_INITIAL_PROJECT_MEMBER_ASSIGNED",
 
   // Projects (PRD #28 §127)
   PROJECT_CREATED: "PROJECT_CREATED",
@@ -420,6 +428,13 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_REJECTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_CANCELLED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: [...["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], "username", "newAccount", "companyMemberId"], required: true },
+  { actionKey: AuditAction.PLATFORM_PARENT_GROUP_CREATED, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["slug", "name", "status"], required: true },
+  { actionKey: AuditAction.PLATFORM_PARENT_GROUP_UPDATED, moduleKey: "platform", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["name", "country"], required: true },
+  { actionKey: AuditAction.PLATFORM_PARENT_GROUP_READY_FOR_VALIDATION, moduleKey: "platform", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.PLATFORM_PARENT_GROUP_ACTIVATED, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
+  { actionKey: AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["companyId", "slug", "name", "groupLevelMembers"], required: true },
+  { actionKey: AuditAction.PLATFORM_INITIAL_USER_PROVISIONED, moduleKey: "platform", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "username", "personProfileId", "roleKey", "position", "companies"], required: true },
+  { actionKey: AuditAction.PLATFORM_INITIAL_PROJECT_MEMBER_ASSIGNED, moduleKey: "platform", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["projectId", "userId", "companyMemberId"], required: true },
   { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
   { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "companyId", "companyDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
   { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "companyId", "positionLevel"], required: true },

@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 
+import Link from "next/link";
+
 import { StatusBadge } from "@/components/modules/status-badge";
+import { CreateGroupButton } from "@/components/platform/platform-actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
-import { requirePlatformContext } from "@/lib/context/platform-context";
+import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { listParentGroups } from "@/lib/modules/platform/platform.service";
 import { formatDate } from "@/lib/utils/format";
 
@@ -19,6 +22,7 @@ export default async function PlatformAdminPage() {
       <PageHeader
         title="Parent groups"
         description="Every group on the platform, the companies connected to it and where its implementation stands."
+        actions={canPlatform(context, "platform.group.create") ? <CreateGroupButton /> : undefined}
       />
 
       <section className="nesto-card p-5">
@@ -39,7 +43,9 @@ export default async function PlatformAdminPage() {
               {groups.map((group) => (
                 <TableRow key={group.id}>
                   <TableCell>
-                    <p className="font-medium text-fg">{group.name}</p>
+                    <Link href={`/platform-admin/groups/${group.id}`} className="font-medium text-fg hover:text-accent-strong hover:underline">
+                      {group.name}
+                    </Link>
                     <p className="text-meta text-fg-subtle">{group.slug}</p>
                   </TableCell>
                   <TableCell>

@@ -257,6 +257,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/platform-implementation.service.ts",
+    reason:
+      "Implementing a parent group writes the opening rows of a group before any of its people can: the group and its departments, a company's first memberships for the group's Owner and IT, and the approved initial roster — person, login, memberships, positions and first project assignments — in one transaction per person. Refused once the group is active, after which each row has its owner's door (E-06 §20, §30, §138; PRD #48 §263).",
+  },
+  {
+    model: "*",
     file: "lib/config/company-config.service.ts",
     reason:
       "The same provisioning, for a company being reconfigured from the deployment's own defaults rather than by a person (PRD #48 §266).",

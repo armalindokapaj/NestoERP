@@ -75,6 +75,7 @@ async function write(
   return client.auditEvent.create({
     data: {
       companyId: context.companyId,
+      ...(context.parentGroupId ? { parentGroupId: context.parentGroupId } : {}),
       actorType: context.actor.type,
       actorUserId: context.actor.userId ?? null,
       actorMemberId: context.actor.memberId ?? null,
@@ -139,6 +140,28 @@ export async function recordUserAction(
 ): Promise<void> {
   return recordAuditEvent(
     auditContextFromUser(context, { correlationId: options.correlationId }),
+    input,
+    { tx: options.tx },
+  );
+}
+
+/**
+ * The Platform Admin implementing a group (E-06 §114, §116). The event belongs
+ * to the group, not to any company of it, and names the platform role, so it is
+ * never read as a member of the business having done it.
+ */
+export async function recordPlatformAction(
+  context: { userId: string; fullName: string; roleKey: string },
+  parentGroupId: string,
+  input: RecordAuditInput,
+  options: { tx?: Prisma.TransactionClient } = {},
+): Promise<void> {
+  return recordAuditEvent(
+    {
+      companyId: null,
+      parentGroupId,
+      actor: { type: "USER", userId: context.userId, memberId: null, displayNameSnapshot: context.fullName, roleSnapshot: context.roleKey },
+    },
     input,
     { tx: options.tx },
   );

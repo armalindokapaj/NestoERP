@@ -34,6 +34,7 @@ async function removeCompany() {
     await prisma.companyIntegrationSettings.deleteMany({ where: { companyId } });
     await prisma.companySettings.deleteMany({ where: { companyId } });
     await prisma.companyModule.deleteMany({ where: { companyId } });
+    await prisma.department.deleteMany({ where: { companyId } });
     await prisma.company.delete({ where: { id: companyId } });
   }
   if (owner) {

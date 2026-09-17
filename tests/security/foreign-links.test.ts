@@ -8,7 +8,7 @@ import { cleanupSessions, loginAsEmail, prisma } from "../helpers";
 import { actAs } from "./harness/actor";
 import { COMPANY_A, COMPANY_TENANT } from "./harness/companies";
 import { idsByFieldName, paramVariants } from "./harness/params";
-import { callRoute, candidateValues, discoverApiRoutes, fillPattern, loadRouteModule, NON_SESSION_ROUTES, type HttpMethod, type RouteModule } from "./harness/routes";
+import { callRoute, candidateValues, discoverApiRoutes, fillPattern, loadRouteModule, NON_SESSION_ROUTES, isPlatformRoute, type HttpMethod, type RouteModule } from "./harness/routes";
 import { idFieldsParsedIn } from "./harness/schemas";
 
 vi.mock("@/lib/context/resolve-user-context", () => import("./harness/actor"));
@@ -90,7 +90,7 @@ describe.skipIf(!destructive)("no write accepts another company's record as a li
     actAs(ownerA);
 
     for (const route of discoverApiRoutes()) {
-      if (NON_SESSION_ROUTES.has(route.pattern) || route.pattern.startsWith("/api/me")) continue;
+      if (NON_SESSION_ROUTES.has(route.pattern) || isPlatformRoute(route.pattern) || route.pattern.startsWith("/api/me")) continue;
       const handlers = await loadRouteModule(route);
       const variants = await paramVariants(route.pattern, route.params, { companyId: COMPANY_A, approvals: [], sessionId: null });
       const params = variants[0]?.params ?? {};

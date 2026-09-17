@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { NestoLogo } from "@/components/layout/nesto-logo";
+import { ToastProvider } from "@/components/ui/toast";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 
 export const metadata: Metadata = {
@@ -19,6 +21,8 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
   const context = await requirePlatformContext();
 
   return (
+    <ToastProvider>
+    <TooltipProvider>
     <div className="min-h-dvh bg-canvas">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -36,5 +40,7 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
     </div>
+    </TooltipProvider>
+    </ToastProvider>
   );
 }
