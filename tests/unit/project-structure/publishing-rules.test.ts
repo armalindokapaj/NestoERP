@@ -170,14 +170,16 @@ describe("default role policy (§19, §120)", () => {
     }
   });
 
-  it("gives everybody who reads a unit its published history, and no write to Sales, Finance or the Viewer", () => {
+  it("gives everybody who reads a unit its published history, and no publishing or structure write to Sales, Finance or the Viewer", () => {
     for (const role of ROLE_KEYS) {
       const granted = permissionsForRole(role) as readonly string[];
       expect(granted.includes("project.unit.publication_history.view"), role).toBe(granted.includes("project.structure.view"));
     }
     for (const role of ["SALES", "SALES_MANAGER", "FINANCE", "VIEWER", "ENGINEER"] as const) {
       const granted = permissionsForRole(role) as readonly string[];
-      expect(granted.filter((permission) => permission.startsWith("project.unit.") && permission !== "project.unit.publication_history.view"), role).toEqual([]);
+      // Selling a unit is E-05E's, and tested with it (tests/unit/sales/unit-sales-rules.test.ts).
+      const selling = (permission: string) => /^project\.unit\.(sales|sales_status|price|reserve|reservation|mark_sold|reopen_sale|sales_correct)\b/.test(permission);
+      expect(granted.filter((permission) => permission.startsWith("project.unit.") && permission !== "project.unit.publication_history.view" && !selling(permission)), role).toEqual([]);
     }
   });
 });

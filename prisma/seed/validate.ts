@@ -163,6 +163,14 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Company A unit publishing requests waiting", actual: await prisma.unitPublicationApproval.count({ where: { companyId: COMPANY_A, status: "PENDING" } }), expected: 2, comparison: "gte" },
     { label: "Company A units sent back for revision", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, publicationStatus: "REVISION_REQUIRED", revisionReason: { not: null } } }), expected: 1, comparison: "gte" },
     { label: "Company A unit Sales Plans", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, salesPlanDocumentId: { not: null } } }), expected: 5, comparison: "gte" },
+    // E-05E: a unit in each commercial state, a deal holding two units, and one reservation in Company B.
+    { label: "Company A units for sale", actual: await prisma.unitCommercialProfile.count({ where: { companyId: COMPANY_A, status: "FOR_SALE" } }), expected: 1, comparison: "gte" },
+    { label: "Company A units on hold", actual: await prisma.unitCommercialProfile.count({ where: { companyId: COMPANY_A, status: "ON_HOLD", holdReason: { not: null } } }), expected: 1, comparison: "gte" },
+    { label: "Company A reserved units", actual: await prisma.unitCommercialProfile.count({ where: { companyId: COMPANY_A, status: "RESERVED" } }), expected: 2, comparison: "gte" },
+    { label: "Company A sold units", actual: await prisma.unitCommercialProfile.count({ where: { companyId: COMPANY_A, status: "SOLD" } }), expected: 1, comparison: "gte" },
+    { label: "Reserved units without exactly one active reservation", actual: await prisma.unitCommercialProfile.count({ where: { status: "RESERVED", unit: { reservations: { none: { status: "ACTIVE" } } } } }), expected: 0, comparison: "eq" },
+    { label: "Company A deals holding more than one unit", actual: (await prisma.opportunityUnit.groupBy({ by: ["opportunityId"], where: { companyId: COMPANY_A }, _count: { _all: true } })).filter((row) => row._count._all > 1).length, expected: 1, comparison: "gte" },
+    { label: "Company B active unit reservations", actual: await prisma.unitReservation.count({ where: { companyId: COMPANY_B, status: "ACTIVE" } }), expected: 1, comparison: "gte" },
   ];
 
   for (const check of checks) {

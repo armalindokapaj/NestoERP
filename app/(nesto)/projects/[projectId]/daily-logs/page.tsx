@@ -63,6 +63,7 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
         show={{
           planning: actions.canViewPlanning,
           units: actions.canViewUnits,
+          sales: actions.canViewUnitSales,
           contractors: actions.canViewContractors,
           engineering: actions.canViewEngineering,
           tasks: actions.canViewTasks,

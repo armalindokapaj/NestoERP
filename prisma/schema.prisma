@@ -191,6 +191,42 @@ enum UnitApprovalStatus {
   RETURNED
 }
 
+/// Whether a unit can be sold, and to whom (E-05E §7). Owned by Sales, beside —
+/// never inside — the unit's publication status (§15).
+enum UnitCommercialStatus {
+  NOT_FOR_SALE
+  FOR_SALE
+  ON_HOLD
+  RESERVED
+  SOLD
+}
+
+/// Which area an asking price is per square metre of (E-05E §10).
+enum UnitPriceBasis {
+  SALEABLE_AREA
+  INTERNAL_AREA
+  GROSS_AREA
+  FIXED_UNIT_PRICE
+}
+
+/// A reservation's life (E-05E §20). Only one ACTIVE reservation per unit.
+enum UnitReservationStatus {
+  ACTIVE
+  EXPIRED
+  RELEASED
+  CANCELLED
+  CONVERTED_TO_SALE
+}
+
+/// Where a commercial status change came from (E-05E §44).
+enum UnitCommercialChangeSource {
+  USER
+  SYSTEM_EXPIRY
+  LEGAL
+  FINANCE
+  IMPORT
+}
+
 enum ClientType {
   INDIVIDUAL
   COMPANY
@@ -1702,11 +1738,17 @@ model ProjectUnit {
   floor    ProjectFloor    @relation(fields: [floorId, projectId], references: [id, projectId], onDelete: Restrict)
   unitType ProjectUnitType @relation(fields: [unitTypeId, companyId], references: [id, companyId], onDelete: Restrict)
 
-  currentPublication UnitPublication?   @relation("UnitCurrentPublication", fields: [currentPublicationId, id], references: [id, unitId], onDelete: Restrict)
-  salesPlanDocument  Document?          @relation("UnitSalesPlan", fields: [salesPlanDocumentId], references: [id], onDelete: Restrict)
-  publications       UnitPublication[]  @relation("UnitPublications")
-  media              UnitMedia[]
-  documentLinks      UnitDocumentLink[]
+  currentPublication    UnitPublication?              @relation("UnitCurrentPublication", fields: [currentPublicationId, id], references: [id, unitId], onDelete: Restrict)
+  salesPlanDocument     Document?                     @relation("UnitSalesPlan", fields: [salesPlanDocumentId], references: [id], onDelete: Restrict)
+  publications          UnitPublication[]             @relation("UnitPublications")
+  media                 UnitMedia[]
+  documentLinks         UnitDocumentLink[]
+  // Sales (E-05E): its commercial profile, prices, reservations and deals — all keyed by this id.
+  commercialProfile     UnitCommercialProfile?
+  priceHistory          UnitPriceHistory[]
+  reservations          UnitReservation[]
+  opportunityLinks      OpportunityUnit[]
+  commercialStatusTrail UnitCommercialStatusHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1839,6 +1881,178 @@ model UnitPublicationApproval {
   @@map("unit_publication_approvals")
 }
 
+/// Sales' side of a unit (E-05E §9, §40): its commercial status, asking price and
+/// hold. Not a second unit — one row per unit, created the first time Sales acts
+/// on it; a unit without one is Not For Sale (§58). The status moves only by the
+/// `unit_commercial` machine.
+model UnitCommercialProfile {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+  unitId    String @unique
+
+  status UnitCommercialStatus @default(NOT_FOR_SALE)
+
+  askingPrice Decimal?       @db.Decimal(18, 2)
+  currency    String?        @db.VarChar(3)
+  priceBasis  UnitPriceBasis @default(SALEABLE_AREA)
+
+  holdReason     String?
+  holdUntil      DateTime?
+  heldByMemberId String?
+  salesNotes     String?
+
+  statusChangedAt   DateTime?
+  version           Int       @default(1)
+  updatedByMemberId String?
+
+  unit ProjectUnit @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([unitId, projectId, companyId])
+  @@index([companyId, projectId, status])
+  @@index([projectId, askingPrice])
+  @@map("unit_commercial_profiles")
+}
+
+/// Every change to a unit's asking price, currency or basis (E-05E §12, §41).
+model UnitPriceHistory {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+  unitId    String
+
+  oldPrice      Decimal?        @db.Decimal(18, 2)
+  newPrice      Decimal?        @db.Decimal(18, 2)
+  oldCurrency   String?         @db.VarChar(3)
+  currency      String?         @db.VarChar(3)
+  oldPriceBasis UnitPriceBasis?
+  priceBasis    UnitPriceBasis
+  reason        String?
+
+  changedByMemberId String
+  changedAt         DateTime @default(now())
+
+  unit ProjectUnit @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+
+  @@index([unitId, changedAt])
+  @@map("unit_price_history")
+}
+
+/// A unit allocated to a client and a deal until a date (E-05E §19-§31, §42).
+/// Never deleted: released, expired, cancelled and converted reservations are the
+/// unit's commercial history. A partial unique index allows one ACTIVE per unit.
+model UnitReservation {
+  id            String @id @default(cuid())
+  companyId     String
+  projectId     String
+  unitId        String
+  clientId      String
+  opportunityId String
+
+  status UnitReservationStatus @default(ACTIVE)
+
+  reservedAt     DateTime  @default(now())
+  expiresAt      DateTime
+  /// When the "expires in 24 hours" notice went out, so it goes out once per expiry.
+  expiryWarnedAt DateTime?
+  closedAt       DateTime?
+
+  closedByMemberId String?
+  closeReason      String?
+
+  agreedPrice Decimal? @db.Decimal(18, 2)
+  currency    String?  @db.VarChar(3)
+  notes       String?
+
+  createdByMemberId String
+  version           Int    @default(1)
+
+  unit        ProjectUnit                @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  client      Client                     @relation("UnitReservationClient", fields: [clientId], references: [id], onDelete: Restrict)
+  opportunity Opportunity                @relation("UnitReservationOpportunity", fields: [opportunityId], references: [id], onDelete: Restrict)
+  extensions  UnitReservationExtension[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([unitId, status])
+  @@index([clientId])
+  @@index([opportunityId])
+  @@index([status, expiresAt])
+  @@index([companyId, projectId, status])
+  @@map("unit_reservations")
+}
+
+/// A reservation's expiry moved (E-05E §26): old and new date, who and why.
+model UnitReservationExtension {
+  id            String   @id @default(cuid())
+  companyId     String
+  reservationId String
+  oldExpiresAt  DateTime
+  newExpiresAt  DateTime
+  reason        String
+
+  extendedByMemberId String
+  extendedAt         DateTime @default(now())
+
+  reservation UnitReservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  @@index([reservationId, extendedAt])
+  @@map("unit_reservation_extensions")
+}
+
+/// A unit in a deal (E-05E §17, §18, §43): the CRM Opportunity is this codebase's
+/// Deal. One deal may hold an apartment, its parking and its storage; each stays
+/// independently reservable.
+model OpportunityUnit {
+  id            String @id @default(cuid())
+  companyId     String
+  projectId     String
+  opportunityId String
+  unitId        String
+
+  agreedPrice Decimal? @db.Decimal(18, 2)
+  currency    String?  @db.VarChar(3)
+
+  createdByMemberId String
+
+  unit        ProjectUnit @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  opportunity Opportunity @relation("OpportunityUnits", fields: [opportunityId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([opportunityId, unitId])
+  @@index([unitId])
+  @@map("opportunity_units")
+}
+
+/// Every commercial status change of a unit, whoever or whatever made it (E-05E §44).
+model UnitCommercialStatusHistory {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+  unitId    String
+
+  fromStatus UnitCommercialStatus?
+  toStatus   UnitCommercialStatus
+  reason     String?
+  source     UnitCommercialChangeSource @default(USER)
+
+  actorMemberId String?
+  reservationId String?
+  opportunityId String?
+
+  changedAt DateTime @default(now())
+
+  unit ProjectUnit @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+
+  @@index([unitId, changedAt])
+  @@map("unit_commercial_status_history")
+}
+
 /// How PROJECT and ASSIGNED scope are resolved: user → member → project
 /// membership → project (PRD #8 §28).
 model ProjectMember {
@@ -1897,15 +2111,16 @@ model Client {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
-  contacts        Contact[]
-  projects        Project[]
-  documents       Document[]
-  invoices        Invoice[]
-  opportunities   Opportunity[]
-  proposals       Proposal[]
-  convertedLeads  Lead[]          @relation("LeadConvertedClient")
-  contracts       Contract[]
-  contractParties ContractParty[] @relation("ContractPartyClient")
+  contacts         Contact[]
+  projects         Project[]
+  documents        Document[]
+  invoices         Invoice[]
+  opportunities    Opportunity[]
+  proposals        Proposal[]
+  convertedLeads   Lead[]            @relation("LeadConvertedClient")
+  contracts        Contract[]
+  contractParties  ContractParty[]   @relation("ContractPartyClient")
+  unitReservations UnitReservation[] @relation("UnitReservationClient")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3210,8 +3425,11 @@ model Opportunity {
   sourceLead       Lead?    @relation("OpportunitySourceLead", fields: [sourceLeadId], references: [id], onDelete: SetNull)
   convertedProject Project? @relation("OpportunityConvertedProject", fields: [convertedProjectId], references: [id], onDelete: SetNull)
 
-  proposals Proposal[]
-  contracts Contract[] @relation("ContractSourceOpportunity")
+  proposals        Proposal[]
+  contracts        Contract[]        @relation("ContractSourceOpportunity")
+  // The units in this deal, and the reservations it holds (E-05E §17, §19).
+  units            OpportunityUnit[] @relation("OpportunityUnits")
+  unitReservations UnitReservation[] @relation("UnitReservationOpportunity")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -5009,6 +5227,8 @@ model CompanySettings {
   baseCurrency            String   @default("EUR") @db.VarChar(3)
   fiscalYearStartMonth    Int      @default(1)
   defaultPaymentTermsDays Int      @default(30)
+  /// How long a unit reservation lasts unless the person reserving chooses otherwise (E-05E §24).
+  unitReservationDays     Int      @default(7)
   defaultTaxRate          Decimal? @db.Decimal(9, 4)
 
   /// The working day and week the calendar shades against (PRD #39 §91, §92).

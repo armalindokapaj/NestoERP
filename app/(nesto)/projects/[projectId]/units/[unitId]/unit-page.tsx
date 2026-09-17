@@ -5,12 +5,14 @@ import { RecordHeader } from "@/components/modules/record-header";
 import { UnitActions } from "@/components/project-structure/unit-actions";
 import { PublicationBadge, UnpublishedChangesBadge } from "@/components/project-structure/unit-page/publication-badge";
 import { PublishingActions } from "@/components/project-structure/unit-page/publishing-actions";
+import { CommercialStatusBadge } from "@/components/sales/unit-sales/commercial-status";
 import { Badge } from "@/components/ui/badge";
 import { can, canAccessModule } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { getProjectStructure, getUnitDetail } from "@/lib/modules/project-structure/structure.service";
 import { getUnitPublishing } from "@/lib/modules/project-structure/unit-publishing.service";
 import * as projects from "@/lib/modules/projects/project.service";
+import { salesCapabilities } from "@/lib/modules/sales/units/unit-sales.core";
 import { cn } from "@/lib/utils/cn";
 import { loadProject } from "../../project-context";
 import { ProjectTabs } from "../../project-tabs";
@@ -21,12 +23,14 @@ import { ProjectTabs } from "../../project-tabs";
  * Sales, Finance, Documents and the 3D explorer all open this page for this
  * unit; none of them gets a page of its own. Its sections are routes under the
  * unit — Overview, Documents, Media, Publishing, Activity — so each is a real
- * URL, and a section the reader may not open is absent (§104). A unit is found
+ * URL, and a section the reader may not open is absent (§104). Sales is one of
+ * them (E-05E §15), for readers who may see the unit's sales; everyone who can
+ * open the unit sees its commercial status beside its publication status. A unit is found
  * only through the project in the URL: a unit of another project, even one the
  * reader can open, is not found here (§86).
  */
 
-export type UnitSection = "overview" | "documents" | "media" | "publishing" | "activity";
+export type UnitSection = "overview" | "documents" | "media" | "publishing" | "sales" | "activity";
 
 export async function loadUnitPage(projectId: string, unitId: string) {
   const { context, project } = await loadProject(projectId);
@@ -48,6 +52,7 @@ const SECTIONS: Array<{ key: UnitSection; label: string; suffix: string }> = [
   { key: "documents", label: "Documents", suffix: "/documents" },
   { key: "media", label: "Media", suffix: "/media" },
   { key: "publishing", label: "Publishing", suffix: "/publishing" },
+  { key: "sales", label: "Sales", suffix: "/sales" },
   { key: "activity", label: "Activity", suffix: "/activity" },
 ];
 
@@ -59,7 +64,8 @@ export async function UnitShell({ page, active, children }: { page: Page; active
   const base = `${units}/${unit.id}`;
   // Files are listed only through the Documents module's own gate (§88); history with the project's (§48).
   const filesOpen = canAccessModule(page.context, "documents") && can(page.context, "document.view");
-  const visible = SECTIONS.filter((section) => (section.key === "documents" || section.key === "media" ? filesOpen : section.key === "activity" ? actions.canViewActivity : true));
+  const salesOpen = salesCapabilities(page.context).canView;
+  const visible = SECTIONS.filter((section) => (section.key === "documents" || section.key === "media" ? filesOpen : section.key === "activity" ? actions.canViewActivity : section.key === "sales" ? salesOpen : true));
 
   return (
     <div className="space-y-5">
@@ -78,6 +84,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
         badges={
           <>
             <PublicationBadge status={publishing.status} versionNumber={publishing.currentPublication?.versionNumber} />
+            <CommercialStatusBadge status={unit.commercialStatus} />
             {publishing.status !== "PUBLISHED" && publishing.currentPublication ? <Badge tone="default">Last published v{publishing.currentPublication.versionNumber}</Badge> : null}
             {publishing.hasUnpublishedChanges ? <UnpublishedChangesBadge /> : null}
             {publishing.pendingRequest ? <Badge tone="info">Waiting for review</Badge> : null}
@@ -101,6 +108,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
         show={{
           planning: actions.canViewPlanning,
           units: actions.canViewUnits,
+          sales: actions.canViewUnitSales,
           contractors: actions.canViewContractors,
           engineering: actions.canViewEngineering,
           tasks: actions.canViewTasks,

@@ -35,6 +35,7 @@ A module that needs something about a unit adds its own table keyed by
 | UI | `app/(nesto)/projects/[projectId]/units` (tab **Units**), `app/(nesto)/projects/[projectId]/units/[unitId]` (the unit page), `app/(nesto)/projects/unit-types`, `components/project-structure/*`, `components/projects/unit-types-manager.tsx` |
 | Demo data | `prisma/seed/structure.ts` |
 | The unit page's sections, documents, media and publishing (E-05D) | `docs/unit-publishing.md` |
+| A unit's price, commercial status, reservations and deals; the project's Sales tab (E-05E) | `docs/unit-sales.md` |
 
 ## Data
 
@@ -125,7 +126,7 @@ unit's type drops details that no longer apply. No dynamic field engine.
 | A unit moves only to a floor of its own project (§118); the code does not change with it (§119) | `moveUnit`, composite key |
 | A floor moves to another building only as its own action, its units with it (§53) | `moveFloor` |
 | A building with floors, or a floor with units, is not deleted (§57) | `BUILDING_HAS_FLOORS`, `FLOOR_HAS_UNITS` |
-| A unit may be deleted with the grant — nothing references units yet (§56) | `deleteUnit` |
+| A unit may be deleted with the grant until something references it: a publication, files or a request (E-05D), or any sales history — a price, a reservation, a deal (E-05E). Then it is archived or deactivated instead (§56) | `deleteUnit`, `UNIT_REFERENCED` |
 | A retired unit type is not offered for new units; a unit that has it keeps it (§116) | `requireUnitType` |
 | Warnings, not refusals, for unusual data: bedrooms on parking, saleable smaller than internal (§74) | `unitWarnings` |
 | Saleable area is entered, never derived (§24) | — |

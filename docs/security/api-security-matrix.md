@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**628 route handlers, 259 server actions.** AUTHENTICATED 28 · COMPANY_SCOPED 847 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**643 route handlers, 259 server actions.** AUTHENTICATED 28 · COMPANY_SCOPED 862 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -495,8 +495,8 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | POST | `/api/notifications/[notificationId]/read` | AUTHENTICATED | — | — | — | — | — | sweep |
 | POST | `/api/notifications/attention/[attentionId]/dismiss` | AUTHENTICATED | — | — | — | — | — | sweep |
 | GET | `/api/notifications/attention` | AUTHENTICATED | `approvals` | `approvals.view` | — | `loadRecord` | — | sweep |
-| GET | `/api/notifications/preferences` | AUTHENTICATED | `contractors`, `dailyLogs`, `engineering` +4 | `contractor.view`, `contractor_compliance.view`, `daily_log.create` +10 | — | — | — | sweep |
-| PATCH | `/api/notifications/preferences` | AUTHENTICATED | `contractors`, `dailyLogs`, `engineering` +4 | `contractor.view`, `contractor_compliance.view`, `daily_log.create` +10 | — | — | — | sweep |
+| GET | `/api/notifications/preferences` | AUTHENTICATED | `contractors`, `dailyLogs`, `engineering` +4 | `contractor.view`, `contractor_compliance.view`, `daily_log.create` +11 | — | — | — | sweep |
+| PATCH | `/api/notifications/preferences` | AUTHENTICATED | `contractors`, `dailyLogs`, `engineering` +4 | `contractor.view`, `contractor_compliance.view`, `daily_log.create` +11 | — | — | — | sweep |
 | POST | `/api/notifications/read-all` | AUTHENTICATED | — | — | — | — | — | sweep |
 | GET | `/api/notifications` | AUTHENTICATED | — | — | — | — | — | sweep |
 | GET | `/api/notifications/unread-count` | AUTHENTICATED | — | — | — | `loadRecord` | — | sweep |
@@ -594,12 +594,13 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
-| GET | `/api/project-units/[unitId]/activity` | COMPANY_SCOPED | `projects` | `project.activity.view`, `project.structure.view`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
+| GET | `/api/project-units/[unitId]/activity` | COMPANY_SCOPED | `projects` | `project.activity.view`, `project.structure.view`, `project.unit.sales.view` +1 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
 | POST | `/api/project-units/[unitId]/archive` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.archive`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
 | GET | `/api/project-units/[unitId]/document-candidates` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +85 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +3 | `findReadableUnit` | — | sweep |
 | DELETE | `/api/project-units/[unitId]/documents/[linkId]` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.documents.manage`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
 | GET | `/api/project-units/[unitId]/documents` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +89 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +3 | `findReadableUnit` | — | sweep |
 | POST | `/api/project-units/[unitId]/documents` | COMPANY_SCOPED | `clients`, `contracts`, `dailyLogs` +10 | `client.document.view`, `daily_log.view`, `document.company.view` +14 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableDocument`, `findReadableUnit` | — | sweep |
+| POST | `/api/project-units/[unitId]/mark-sold` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
 | PATCH | `/api/project-units/[unitId]/media/[mediaId]` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.media.manage`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
 | DELETE | `/api/project-units/[unitId]/media/[mediaId]` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.media.manage`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
 | GET | `/api/project-units/[unitId]/media/[mediaId]/thumbnail` | COMPANY_SCOPED | `clients`, `contracts`, `dailyLogs` +10 | `client.document.view`, `daily_log.view`, `document.company.view` +14 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findDocumentInScope`, `findReadableDocument` +3 | — | sweep |
@@ -611,12 +612,17 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/project-units/[unitId]/publications` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.publication_history.view`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
 | POST | `/api/project-units/[unitId]/publish` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.publish`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
 | GET | `/api/project-units/[unitId]/publishing` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.archive`, `project.unit.documents.manage` +7 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
+| POST | `/api/project-units/[unitId]/reopen-sale` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
+| POST | `/api/project-units/[unitId]/reservations` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `contact.create` +15 | `buildClientScopeWhere`, `buildOpportunityScopeWhere` +3 | `findOpportunityInScope`, `findReadableUnit` | `applyTransition` | sweep |
 | POST | `/api/project-units/[unitId]/restore` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.archive`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
 | POST | `/api/project-units/[unitId]/revision-required` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.revision_request`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
 | GET | `/api/project-units/[unitId]` | COMPANY_SCOPED | `projects` | `project.building.create`, `project.building.delete`, `project.building.update` +10 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
 | PATCH | `/api/project-units/[unitId]` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.update`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit`, `requireUnitType` | — | sweep |
 | DELETE | `/api/project-units/[unitId]` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.delete`, `project.view` | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
 | POST | `/api/project-units/[unitId]/sales-plan` | COMPANY_SCOPED | `clients`, `contracts`, `dailyLogs` +10 | `client.document.view`, `daily_log.view`, `document.company.view` +14 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableDocument`, `findReadableUnit` | — | sweep |
+| GET | `/api/project-units/[unitId]/sales` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
+| PATCH | `/api/project-units/[unitId]/sales` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | — | sweep |
+| POST | `/api/project-units/[unitId]/sales/status` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
 | POST | `/api/project-units/[unitId]/submit-for-publishing` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.publish`, `project.unit.submit_for_publish` +1 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
 | POST | `/api/project-units/[unitId]/unpublish` | COMPANY_SCOPED | `projects` | `project.structure.view`, `project.unit.publish`, `project.unit.unpublish` +1 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableUnit` | `applyTransition` | sweep |
 
@@ -665,6 +671,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | POST | `/api/projects/[projectId]/rfis` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `rfi.create`, `rfi.open` +2 | `buildProjectScopeWhere`, `engineeringProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
 | GET | `/api/projects/[projectId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +85 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | sweep |
 | PATCH | `/api/projects/[projectId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +88 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +2 | `applyTransition`, `assertTransitionAllowed` | sweep |
+| GET | `/api/projects/[projectId]/sales/units` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `structureProjectDoor` | — | — | sweep |
 | PATCH | `/api/projects/[projectId]/status` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +17 | `announcement.edit`, `announcement.view`, `approvals.view` +86 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | `applyTransition`, `assertTransitionAllowed` +1 | sweep |
 | GET | `/api/projects/[projectId]/structure` | COMPANY_SCOPED | `projects` | `project.building.create`, `project.building.delete`, `project.building.update` +10 | `buildProjectScopeWhere`, `structureProjectDoor` | — | — | sweep |
 | GET | `/api/projects/[projectId]/submittals` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `submittal.view` | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | sweep |
@@ -753,6 +760,9 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/sales/opportunities/[opportunityId]` | COMPANY_SCOPED | `documents`, `projects`, `sales` +1 | `document.view`, `sales.activity.view`, `sales.document.view` +14 | `buildOpportunityScopeWhere`, `buildProjectScopeWhere` | `assertFound`, `findOpportunityInScope` | — | sweep |
 | PATCH | `/api/sales/opportunities/[opportunityId]` | COMPANY_SCOPED | `clients`, `documents`, `projects` +2 | `client.view`, `document.view`, `sales.activity.view` +15 | `buildClientScopeWhere`, `buildOpportunityScopeWhere` +1 | `assertFound`, `findOpportunityInScope` | `assertEditable`, `canTransitionOpportunityStage` | sweep |
 | POST | `/api/sales/opportunities/[opportunityId]/stage` | COMPANY_SCOPED | `projects`, `sales` | `sales.opportunity.stage.update` | `buildOpportunityScopeWhere`, `buildProjectScopeWhere` | `assertFound`, `findOpportunityInScope` | `assertEditable`, `canTransitionOpportunityStage` | sweep |
+| DELETE | `/api/sales/opportunities/[opportunityId]/units/[unitId]` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +13 | `buildOpportunityScopeWhere`, `buildProjectScopeWhere` +2 | `findReadableUnit` | — | sweep |
+| GET | `/api/sales/opportunities/[opportunityId]/units` | COMPANY_SCOPED | `projects`, `sales` | `sales.opportunity.view` | `buildOpportunityScopeWhere`, `buildProjectScopeWhere` +1 | — | — | sweep |
+| POST | `/api/sales/opportunities/[opportunityId]/units` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +13 | `buildOpportunityScopeWhere`, `buildProjectScopeWhere` +2 | `findReadableUnit` | — | sweep |
 | POST | `/api/sales/opportunities/[opportunityId]/won` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `contact.create` +6 | `buildClientScopeWhere`, `buildOpportunityScopeWhere` +1 | `assertFound`, `findOpportunityInScope` | — | sweep |
 | GET | `/api/sales/opportunities` | COMPANY_SCOPED | `projects`, `sales` | `sales.opportunity.view` | `buildOpportunityScopeWhere`, `buildProjectScopeWhere` | — | — | sweep |
 | POST | `/api/sales/opportunities` | COMPANY_SCOPED | `clients`, `documents`, `projects` +2 | `client.view`, `document.view`, `sales.activity.view` +16 | `buildClientScopeWhere`, `buildOpportunityScopeWhere` +1 | `assertFound`, `findOpportunityInScope` | — | sweep |
@@ -790,6 +800,8 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | PATCH | `/api/settings/integrations` | COMPANY_SCOPED | `company` | `company.integrations.manage`, `company.integrations.view` | — | — | — | sweep |
 | GET | `/api/settings/numbering` | COMPANY_SCOPED | `company` | `company.numbering.manage`, `company.numbering.view` | — | — | — | sweep |
 | GET | `/api/settings/runtime` (reviewed: company timezone, locale, currency and enabled modules every member's UI reads) | COMPANY_SCOPED | — | — | — | — | — | sweep |
+| GET | `/api/settings/sales` | COMPANY_SCOPED | `company` | `company.settings.update`, `company.settings.view` | — | — | — | sweep |
+| PATCH | `/api/settings/sales` | COMPANY_SCOPED | `company` | `company.settings.update`, `company.settings.view` | — | — | — | sweep |
 
 ## /api/storage
 
@@ -890,6 +902,14 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | PATCH | `/api/transmittals/[transmittalId]` | COMPANY_SCOPED | `engineering`, `projects` | `engineering_document.view`, `project.view`, `transmittal.create` +1 | `buildProjectScopeWhere`, `engineeringProjectDoor` +2 | `findReadableTransmittal`, `loadRecord` | `assertProjectWritable` | sweep |
 | POST | `/api/transmittals/[transmittalId]/void` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `transmittal.view`, `transmittal.void` | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | `findReadableTransmittal` | `applyTransition`, `assertProjectWritable` | sweep |
 | GET | `/api/transmittals` | COMPANY_SCOPED | `engineering`, `projects` | `project.view`, `transmittal.view` | `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | sweep |
+
+## /api/unit-reservations
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| POST | `/api/unit-reservations/[reservationId]/correct` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableReservation`, `findReadableUnit` | — | sweep |
+| POST | `/api/unit-reservations/[reservationId]/extend` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableReservation`, `findReadableUnit` | — | sweep |
+| POST | `/api/unit-reservations/[reservationId]/release` | COMPANY_SCOPED | `clients`, `projects`, `sales` | `client.create`, `client.view`, `project.structure.view` +12 | `buildProjectScopeWhere`, `readableUnitWhere` +1 | `findReadableReservation`, `findReadableUnit` | `applyTransition` | sweep |
 
 ## /api/work-packages
 

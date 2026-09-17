@@ -153,39 +153,69 @@ export async function createOpportunity(
   // PRD #47 §62).
   if (input.ownerMemberId !== context.membershipId) assertCanAssign(context);
 
-  const { ownerMemberId, clientId, contactId } = await validateRelationships(context, input);
-
-  const opportunityId = await prisma.$transaction(async (tx) => {
-    const created = await tx.opportunity.create({
-      data: {
-        companyId: context.companyId,
-        ...opportunityData(input),
-        ownerMemberId,
-        clientId,
-        contactId,
-        stage: input.stage,
-        stageChangedAt: new Date(),
-        createdByMemberId: context.membershipId,
-      },
-      select: { id: true },
-    });
-
-    await recordActivity(tx, context, {
-      module: MODULE,
-      entityType: ENTITY,
-      entityId: created.id,
-      action: "SALES_OPPORTUNITY_CREATED",
-      message: `created the opportunity ${input.name}`,
-      metadata: {
-        currency: input.currency,
-        estimatedValue: toAmountString(input.estimatedValue),
-      } as Prisma.InputJsonValue,
-    });
-
-    return created.id;
-  });
+  const relationships = await validateRelationships(context, input);
+  const opportunityId = await prisma.$transaction((tx) => writeOpportunity(tx, context, input, relationships));
 
   return getOpportunity(context, opportunityId);
+}
+
+/**
+ * The same creation, inside a caller's transaction (E-05E §16, §19): a unit
+ * reservation that opens its deal in the same step, so a refused reservation
+ * leaves no deal behind. Every check `createOpportunity` makes is made here.
+ */
+export async function createOpportunityInTransaction(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: CreateOpportunityInput,
+  options: { clientCreatedInTransaction?: string } = {},
+): Promise<string> {
+  assertModule(context, MODULE);
+  assertPermission(context, "sales.opportunity.create");
+  if (input.ownerMemberId !== context.membershipId) assertCanAssign(context);
+  // A client created a moment ago in this same transaction cannot be seen from
+  // outside it; the caller created it through the client service, so it is the
+  // caller's own and in scope.
+  const relationships =
+    options.clientCreatedInTransaction && options.clientCreatedInTransaction === input.clientId && !input.contactId
+      ? { ownerMemberId: await resolveOwner(context, input.ownerMemberId), clientId: input.clientId, contactId: null }
+      : await validateRelationships(context, input);
+  return writeOpportunity(tx, context, input, relationships);
+}
+
+async function writeOpportunity(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  input: CreateOpportunityInput,
+  { ownerMemberId, clientId, contactId }: Awaited<ReturnType<typeof validateRelationships>>,
+): Promise<string> {
+  const created = await tx.opportunity.create({
+    data: {
+      companyId: context.companyId,
+      ...opportunityData(input),
+      ownerMemberId,
+      clientId,
+      contactId,
+      stage: input.stage,
+      stageChangedAt: new Date(),
+      createdByMemberId: context.membershipId,
+    },
+    select: { id: true },
+  });
+
+  await recordActivity(tx, context, {
+    module: MODULE,
+    entityType: ENTITY,
+    entityId: created.id,
+    action: "SALES_OPPORTUNITY_CREATED",
+    message: `created the opportunity ${input.name}`,
+    metadata: {
+      currency: input.currency,
+      estimatedValue: toAmountString(input.estimatedValue),
+    } as Prisma.InputJsonValue,
+  });
+
+  return created.id;
 }
 
 export async function updateOpportunity(

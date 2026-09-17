@@ -38,6 +38,7 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
         show={{
           planning: actions.canViewPlanning,
           units: actions.canViewUnits,
+          sales: actions.canViewUnitSales,
           contractors: actions.canViewContractors,
           engineering: actions.canViewEngineering,
           tasks: actions.canViewTasks,

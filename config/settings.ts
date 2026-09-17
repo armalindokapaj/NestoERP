@@ -17,6 +17,7 @@ export const SETTINGS_SLUGS = [
   "localization",
   "integrations",
   "numbering",
+  "sales",
   "storage",
   "audit",
   "appearance",
@@ -78,6 +79,12 @@ export const settingsSections: SettingsSection[] = [
   {
     slug: "numbering",
     icon: "Hash",
+    permission: "settings.manage",
+  },
+  {
+    // How long a unit reservation lasts unless a date is chosen (E-05E §24).
+    slug: "sales",
+    icon: "Handshake",
     permission: "settings.manage",
   },
   {

@@ -92,6 +92,8 @@ export const Metric = {
   SUBMITTAL_REVISION_REQUIRED: "submittal_revision_required_count",
   ENGINEERING_REVIEW_DURATION: "engineering_review_duration",
   COMPLIANCE_EXPIRING: "contractor_compliance_expiring_count",
+  UNIT_RESERVATIONS_EXPIRED: "unit_reservations_expired_count",
+  UNIT_RESERVATIONS_WARNED: "unit_reservations_expiring_warned_count",
   COMPLIANCE_EXPIRED: "contractor_compliance_expired_count",
   RECENT_WORK_PRUNED: "recent_work_pruned_count",
   // Authorization (PRD #47 §196)

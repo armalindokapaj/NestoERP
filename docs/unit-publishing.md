@@ -20,7 +20,8 @@ any working state ──archive──→ ARCHIVED ──restore──→ what it
 ```
 
 Publishing status is **not** a sales status (§15). A Published unit is not
-thereby For Sale: E-05E adds the commercial status beside it.
+thereby For Sale: E-05E adds the commercial status beside it
+(`docs/unit-sales.md`).
 
 ## Where things live
 
@@ -99,6 +100,7 @@ versions, not the files.
 | A document attached to a unit is one of the unit's own or one filed on its project — a typical floor plan is attached to many units and never copied; another project's is a 422 on `documentId` (§63, §100) | `attachUnitDocument`, `CROSS_PROJECT_REFERENCE` |
 | Media are JPEG, PNG or WebP. The first image becomes primary; choosing another clears the old one in the same transaction (§42, §76). Removing the primary leaves none | `addUnitMedia`, `updateUnitMedia` |
 | A unit with a publication, a Sales Plan, media, links, files or a request is not deleted — it is archived or deactivated (E-05B §56) | `UNIT_REFERENCED` |
+| A unit on sale — For Sale, On Hold, Reserved or Sold — is not unpublished, sent back from Published, or archived until Sales takes it off sale (E-05E §35, `docs/unit-sales.md`) | `assertNotOnSale`; `UNIT_ON_SALE` |
 
 The snapshot keeps exactly: code, name, type (id, name, category), building (id,
 name, code), floor (id, name, number, level), position, orientation, the eight
@@ -245,7 +247,9 @@ Riverside Residences, Block A, Floor 1: **A-101** Published v1 (Sales Plan, a
 floor plan image as primary, an exterior render, an electrical layout);
 **A-102** Published v2 with its saleable area corrected since and the change
 waiting for review; **A-103** Ready for Publishing; **A-104** Revision Required
-with the reviewer's reason; **B-101** Draft with a Sales Plan. Company B's
+with the reviewer's reason; **B-101** Draft with a Sales Plan; **A-201** to
+**A-204** Published v1 with a Sales Plan and a floor plan each, the stock E-05E's
+seed sells. Company B's
 **OF-001** is Published v1 with its own files, so isolation has something to
 refuse in both directions. The Architecture Manager's inbox holds the two
 requests.
@@ -274,3 +278,5 @@ requests.
 - **Publishing is per unit.** No bulk submit or publish.
 - **Unit page sections are English**, like every module page; the two new roles
   are named in Albanian as well.
+- **Sales has its own section** on the unit page since E-05E, with its own
+  contract in `docs/unit-sales.md`.

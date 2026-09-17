@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
@@ -120,6 +121,8 @@ export const UNIT_SELECT = {
   publicationStatus: true,
   hasUnpublishedChanges: true,
   currentPublication: { select: { versionNumber: true } },
+  // The commercial status is the one Sales fact everybody who reads the unit sees (E-05E §33, §39).
+  commercialProfile: { select: { status: true } },
   unitType: { select: { id: true, name: true, code: true, category: true, isActive: true } },
   floor: { select: { id: true, name: true, number: true, levelType: true, building: { select: { id: true, name: true, code: true } } } },
 } satisfies Prisma.ProjectUnitSelect;
@@ -151,6 +154,7 @@ export function toUnitDTO(row: UnitRow): UnitDTO {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     publication: { status: row.publicationStatus, versionNumber: row.currentPublication?.versionNumber ?? null, hasUnpublishedChanges: row.hasUnpublishedChanges },
+    commercialStatus: row.commercialProfile?.status ?? "NOT_FOR_SALE",
   };
 }
 
@@ -269,7 +273,9 @@ export async function listUnitActivity(context: UserContext, unitId: string, opt
   assertPermission(context, "project.activity.view");
   const page = options.page ?? 1;
   const limit = Math.min(options.limit ?? 50, 100);
-  const where: Prisma.ActivityWhereInput = { companyId: context.companyId, module: "projects", entityType: "ProjectUnit", entityId: unit.id };
+  // Sales entries name prices and deals, so they are read only with the unit's sales grant (E-05E §32, §53).
+  const modules = can(context, "project.unit.sales.view") ? ["projects", "sales"] : ["projects"];
+  const where: Prisma.ActivityWhereInput = { companyId: context.companyId, module: { in: modules }, entityType: "ProjectUnit", entityId: unit.id };
   const [total, rows] = await Promise.all([
     prisma.activity.count({ where }),
     prisma.activity.findMany({

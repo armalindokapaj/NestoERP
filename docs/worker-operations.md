@@ -369,6 +369,7 @@ are in the matrix.
 | `planning.milestones` | database | due-soon and overdue notices go out once per milestone per target date | automatic |
 | `engineering.reminders` | database | RFI and submittal notices go out once per record per due date | automatic |
 | `contractors.compliance` | database | expiring and expired moves happen on the next success, notified once per expiry date | automatic; `--run` to hurry after a missed day |
+| `sales.unit-reservations` | database | reservations past their date expire on the next success and free the unit, once; an extension saved first always wins | automatic; `--run` to hurry |
 | `meetings.series` | database | recurring meetings are generated on the next success, never twice | automatic |
 | `documents.scan` | database, object storage, scanner | files stay pending; a claim whose worker died is taken back after 15 min; a file with no verdict after 12 attempts becomes `FAILED`; a version never replaces a newer one | fix the scanner or bucket; failed files are uploaded again |
 | `storage.cleanup` | database, object storage | abandoned uploads wait; a placeholder still referenced is marked failed, not deleted | automatic; `--dry-run` before a manual apply |
