@@ -29,6 +29,8 @@ export const DEMO_USERNAME = {
   FINANCE: "group-finance",
   /** A plain Finance member of Aurelia. */
   FINANCE_A: "finance-a",
+  /** Forma's own finance manager; heads nothing (E-06 §52). */
+  FINANCE_MANAGER_D: "finance-manager-d",
   LEGAL: "group-legal",
   SALES: "sales-a",
   /** A Sales member of Nova. */

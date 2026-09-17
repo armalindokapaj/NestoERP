@@ -48,6 +48,7 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
 import { loadRecentActivity } from "./dashboard.activity";
+import { groupCompanies, groupFinance, groupPipeline } from "./dashboard.group";
 import type {
   ResolvedDashboard,
   ResolvedKpi,
@@ -432,6 +433,16 @@ async function loadKpi(context: UserContext, key: string): Promise<string> {
 
 async function loadWidget(context: UserContext, key: string): Promise<WidgetPayload> {
   switch (key) {
+    // The group, one company at a time (E-06 §108-§111).
+    case "groupCompanies":
+      return { kind: "list", items: await groupCompanies(context) };
+
+    case "groupFinance":
+      return { kind: "list", items: await groupFinance(context) };
+
+    case "groupPipeline":
+      return { kind: "list", items: await groupPipeline(context) };
+
     case "attention":
       return { kind: "alerts", items: await loadAlerts(context) };
 

@@ -84,12 +84,18 @@ export const AuditAction = {
   ORGANIZATION_USER_PROVISIONING_CANCELLED: "ORGANIZATION_USER_PROVISIONING_CANCELLED",
   ORGANIZATION_USER_PROVISIONED: "ORGANIZATION_USER_PROVISIONED",
   ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED: "ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED",
+  ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED: "ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED",
+  ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED: "ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED",
+  ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED: "ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED",
 
   // Projects (PRD #28 §127)
   PROJECT_CREATED: "PROJECT_CREATED",
   PROJECT_UPDATED: "PROJECT_UPDATED",
   PROJECT_STATUS_CHANGED: "PROJECT_STATUS_CHANGED",
   PROJECT_MANAGER_CHANGED: "PROJECT_MANAGER_CHANGED",
+  // A person put on a project's team or taken off it, by its team or by their department manager (E-06 §114)
+  PROJECT_MEMBER_ASSIGNED: "PROJECT_MEMBER_ASSIGNED",
+  PROJECT_MEMBER_REMOVED: "PROJECT_MEMBER_REMOVED",
   PROJECT_ARCHIVED: "PROJECT_ARCHIVED",
   PROJECT_RESTORED: "PROJECT_RESTORED",
   /** The company's own list of project types (E-05A §62). */
@@ -414,12 +420,17 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_REJECTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_CANCELLED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: [...["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], "username", "newAccount", "companyMemberId"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "companyId", "companyDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "companyId", "positionLevel"], required: true },
   { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "companyId", "companyDepartmentId", "groupDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
 
   /* Projects ------------------------------------------------------------- */
   { actionKey: AuditAction.PROJECT_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "status", "clientId", "projectTypeId"], required: false },
   { actionKey: AuditAction.PROJECT_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "description", "clientId", "priority", "projectTypeId", "startDate", "endDate", "address", "city", "country", "coverImageDocumentId"], required: false },
   { actionKey: AuditAction.PROJECT_STATUS_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: false },
+  { actionKey: AuditAction.PROJECT_MEMBER_ASSIGNED, moduleKey: "projects", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["companyMemberId", "userId", "projectRole", "via"], required: true },
+  { actionKey: AuditAction.PROJECT_MEMBER_REMOVED, moduleKey: "projects", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["companyMemberId", "userId", "via"], required: true },
   { actionKey: AuditAction.PROJECT_MANAGER_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["managerMemberId", "managerName"], required: false },
   { actionKey: AuditAction.PROJECT_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
   { actionKey: AuditAction.PROJECT_RESTORED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
