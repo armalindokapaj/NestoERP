@@ -38,7 +38,7 @@ export default async function NewLeavePage() {
       : null,
     // Their own balance, so the entitlement is in front of them while they ask.
     can(context, "hr.self.leave") || can(context, "hr.leave.balance.view")
-      ? leave.getBalances(context, context.membershipId, year).catch(() => [])
+      ? leave.getBalances(context, null, year).catch(() => [])
       : Promise.resolve([]),
   ]);
 
@@ -66,8 +66,8 @@ export default async function NewLeavePage() {
         employees={
           employees
             ? employees.data.map((employee) => ({
-                value: employee.memberId,
-                label: employee.name.fullName,
+                value: employee.id,
+                label: employee.accountStatus === "NO_ACCOUNT" ? `${employee.name.fullName} (no NESTO account)` : employee.name.fullName,
               }))
             : undefined
         }

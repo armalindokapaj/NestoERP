@@ -12,7 +12,6 @@ import {
   toBusinessDate,
   workedMinutesBetween,
 } from "../hr.date";
-import { memberAddressed } from "../hr.person";
 import { buildAttendanceScopeWhere, buildEmployeeScopeWhere, isSelf } from "../hr.scope";
 import { acceptsTimes, isException, isPlannable } from "../hr.status";
 import type {
@@ -56,15 +55,15 @@ const SELECT = {
   createdByMemberId: true,
   updatedByMemberId: true,
   updatedAt: true,
+  projectId: true,
+  siteId: true,
+  crewId: true,
   employeeProfile: {
     select: {
+      // Whose day it is for self-service is the employment's login now (E-04 §7).
       companyMemberId: true,
-      companyMember: {
-        select: {
-          id: true,
-          user: { select: { firstName: true, lastName: true, email: true, avatarUrl: true } },
-        },
-      },
+      personProfile: { select: { firstName: true, lastName: true, workEmail: true } },
+      companyMember: { select: { user: { select: { email: true, avatarUrl: true } } } },
     },
   },
 } satisfies Prisma.AttendanceRecordSelect;
@@ -84,29 +83,21 @@ export async function listAttendance(context: UserContext, query: AttendanceList
   const filters: Prisma.AttendanceRecordWhereInput[] = [buildAttendanceScopeWhere(context)];
 
   if (!canSeeOthers || query.mine) {
-    filters.push({ companyMemberId: context.membershipId });
+    filters.push({ employeeProfile: { companyMemberId: context.membershipId } });
   }
 
   if (query.search) {
     const term = query.search.trim();
     filters.push({
       OR: [
-        {
-          employeeProfile: {
-            companyMember: { user: { firstName: { contains: term, mode: "insensitive" } } },
-          },
-        },
-        {
-          employeeProfile: {
-            companyMember: { user: { lastName: { contains: term, mode: "insensitive" } } },
-          },
-        },
+        { employeeProfile: { personProfile: { firstName: { contains: term, mode: "insensitive" } } } },
+        { employeeProfile: { personProfile: { lastName: { contains: term, mode: "insensitive" } } } },
       ],
     });
   }
 
   if (query.status?.length) filters.push({ status: { in: query.status } });
-  if (query.companyMemberId) filters.push({ companyMemberId: query.companyMemberId });
+  if (query.employeeId) filters.push({ employeeProfileId: query.employeeId });
   if (query.from) filters.push({ date: { gte: toBusinessDate(query.from) } });
   if (query.to) filters.push({ date: { lte: toBusinessDate(query.to) } });
 
@@ -167,17 +158,15 @@ export async function createAttendance(
 ): Promise<AttendanceDTO> {
   assertModule(context, MODULE);
 
-  const forSelf = !input.companyMemberId || isSelf(context, input.companyMemberId);
-  if (forSelf) {
-    if (!can(context, "hr.attendance.create") && !can(context, "hr.self.attendance")) {
-      assertPermission(context, "hr.self.attendance");
-    }
-  } else {
-    assertPermission(context, "hr.attendance.create");
+  // Your own day needs only self-service; anybody else's — including an
+  // employee with no login, whose days are always recorded for them — needs
+  // the grant (PRD #16 §100, E-04 §51).
+  if (!can(context, "hr.attendance.create") && !can(context, "hr.self.attendance")) {
+    assertPermission(context, "hr.self.attendance");
   }
-
-  const memberId = input.companyMemberId ?? context.membershipId;
-  const profile = await requireProfile(context, memberId);
+  const profile = input.employeeId ? await requireProfile(context, input.employeeId) : await requireOwnProfile(context);
+  const forSelf = isSelf(context, profile.companyMemberId);
+  if (!forSelf) assertPermission(context, "hr.attendance.create");
 
   const date = toBusinessDate(input.date);
   assertDateAllowed(date, input.status);
@@ -186,7 +175,7 @@ export async function createAttendance(
 
   const attendanceId = await prisma.$transaction(async (tx) => {
     const clash = await tx.attendanceRecord.findUnique({
-      where: { companyMemberId_date: { companyMemberId: memberId, date } },
+      where: { employeeProfileId_date: { employeeProfileId: profile.id, date } },
       select: { id: true },
     });
     if (clash) {
@@ -200,7 +189,7 @@ export async function createAttendance(
       data: {
         companyId: context.companyId,
         employeeProfileId: profile.id,
-        companyMemberId: memberId,
+        companyMemberId: profile.companyMemberId,
         date,
         status: input.status,
         checkIn: times.checkIn,
@@ -221,7 +210,7 @@ export async function createAttendance(
       entityId: record.id,
       action: "HR_ATTENDANCE_RECORDED",
       message: `recorded ${input.status.toLowerCase().replace("_", " ")} for ${businessDateString(date)}`,
-      metadata: { memberId, date: businessDateString(date) } as Prisma.InputJsonValue,
+      metadata: { employmentId: profile.id, memberId: profile.companyMemberId, date: businessDateString(date) } as Prisma.InputJsonValue,
     });
 
     return record.id;
@@ -238,7 +227,7 @@ export async function updateAttendance(
   assertModule(context, MODULE);
 
   const existing = await requireRecord(context, attendanceId);
-  const own = isSelf(context, existing.companyMemberId);
+  const own = isSelf(context, existing.employeeProfile.companyMemberId);
 
   /*
    * A day written by approved leave is that leave's record. Only somebody with
@@ -268,7 +257,7 @@ export async function updateAttendance(
 
   await prisma.$transaction(async (tx) => {
     await tx.attendanceRecord.update({
-      where: { id: attendanceId },
+      where: { id: attendanceId, companyId: context.companyId },
       data: {
         status: input.status,
         checkIn: times.checkIn,
@@ -290,7 +279,8 @@ export async function updateAttendance(
       action: "HR_ATTENDANCE_UPDATED",
       message: `updated attendance for ${businessDateString(existing.date)}`,
       metadata: {
-        memberId: existing.companyMemberId,
+        employmentId: existing.employeeProfileId,
+        memberId: existing.employeeProfile.companyMemberId,
         date: businessDateString(existing.date),
       } as Prisma.InputJsonValue,
     });
@@ -332,18 +322,29 @@ async function requireRecord(
     }),
   );
 
-  if (!can(context, "hr.attendance.view") && !isSelf(context, row.companyMemberId)) {
+  if (!can(context, "hr.attendance.view") && !isSelf(context, row.employeeProfile.companyMemberId)) {
     throw new AccessError("NOT_FOUND");
   }
 
   return row;
 }
 
-async function requireProfile(context: UserContext, memberId: string) {
+/** An employment in this reader's HR scope, with or without a login (E-04 §51). */
+async function requireProfile(context: UserContext, employmentId: string) {
   return assertFound(
     await prisma.employeeProfile.findFirst({
-      where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: memberId }] },
-      select: { id: true },
+      where: { AND: [buildEmployeeScopeWhere(context), { id: employmentId }] },
+      select: { id: true, companyMemberId: true },
+    }),
+  );
+}
+
+/** The reader's own employment here, for self-service. */
+async function requireOwnProfile(context: UserContext) {
+  return assertFound(
+    await prisma.employeeProfile.findFirst({
+      where: { companyId: context.companyId, companyMemberId: context.membershipId },
+      select: { id: true, companyMemberId: true },
     }),
   );
 }
@@ -408,17 +409,19 @@ function timeString(value: Date | null): string | null {
 /* -------------------------------------------------------------------------- */
 
 function toDTO(context: UserContext, row: AttendanceRow): AttendanceDTO {
-  const own = isSelf(context, row.companyMemberId);
-  const user = memberAddressed(row.employeeProfile).companyMember.user;
+  const own = isSelf(context, row.employeeProfile.companyMemberId);
+  const person = row.employeeProfile.personProfile;
+  const user = row.employeeProfile.companyMember?.user ?? null;
   const fromLeave = isSystemGenerated(row);
 
   return {
     id: row.id,
     employee: {
-      memberId: row.companyMemberId,
-      fullName: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-      avatarUrl: user.avatarUrl,
+      employeeId: row.employeeProfileId,
+      memberId: row.employeeProfile.companyMemberId,
+      fullName: `${person.firstName} ${person.lastName}`,
+      email: person.workEmail ?? user?.email ?? null,
+      avatarUrl: user?.avatarUrl ?? null,
     },
     date: businessDateString(row.date),
     status: row.status,

@@ -20,7 +20,7 @@ const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
 
 /** Cancels a scheduled change before it applies (E-03 §157). */
-export function CancelScheduledChange({ memberId, changeId, label }: { memberId: string; changeId: string; label: string }) {
+export function CancelScheduledChange({ employeeId, changeId, label }: { employeeId: string; changeId: string; label: string }) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
@@ -39,7 +39,7 @@ export function CancelScheduledChange({ memberId, changeId, label }: { memberId:
         pending={pending}
         onConfirm={() =>
           startTransition(async () => {
-            const result = await cancelScheduledChangeAction(memberId, changeId);
+            const result = await cancelScheduledChangeAction(employeeId, changeId);
             if (result.ok) {
               toast({ title: "Scheduled change cancelled.", tone: "success" });
               setOpen(false);
@@ -59,7 +59,7 @@ export function CancelScheduledChange({ memberId, changeId, label }: { memberId:
  * marked as corrected; the new row names it and the reason, which is required.
  * Moving a start moves the end of the row before it.
  */
-export function CorrectHistoryRow({ memberId, kind, row, options }: { memberId: string; kind: "ASSIGNMENT" | "STATUS"; row: AssignmentRowDTO | StatusRowDTO; options: EmploymentChangeOptionsDTO }) {
+export function CorrectHistoryRow({ employeeId, kind, row, options }: { employeeId: string; kind: "ASSIGNMENT" | "STATUS"; row: AssignmentRowDTO | StatusRowDTO; options: EmploymentChangeOptionsDTO }) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
@@ -107,7 +107,7 @@ export function CorrectHistoryRow({ memberId, kind, row, options }: { memberId: 
             ...(draft.statusReason !== status!.reason ? { reason: draft.statusReason } : {}),
           };
     startTransition(async () => {
-      const result = await correctEmploymentHistoryAction(memberId, input);
+      const result = await correctEmploymentHistoryAction(employeeId, input);
       if (result.ok) {
         toast({ title: "History corrected. The original is kept.", tone: "success" });
         setOpen(false);

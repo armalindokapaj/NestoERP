@@ -49,26 +49,26 @@ export function buildHrMemberScopeWhere(context: UserContext): Prisma.CompanyMem
   return { ...base, id: context.membershipId };
 }
 
+/**
+ * The employment records this reader may see (PRD #16 §164-§168, E-04 §150).
+ *
+ * Every employment of the company is an HR record — with a login or without
+ * one (E-04 §7, §18). A department reader sees the department's employees by
+ * the employment's own department, which is where HR says they sit (E-03,
+ * ADR 0004 decision 7); a self reader sees their own, which needs a login.
+ */
 export function buildEmployeeScopeWhere(
   context: UserContext,
 ): Prisma.EmployeeProfileWhereInput {
   const kind = hrScopeKind(context);
-  // HR screens address employment by membership, so a record still waiting
-  // for its login is not one of them (E-06 §25); see `memberAddressed`.
-  const base: Prisma.EmployeeProfileWhereInput = {
-    companyId: context.companyId,
-    companyMemberId: { not: null },
-  };
+  const base: Prisma.EmployeeProfileWhereInput = { companyId: context.companyId };
 
   if (kind === "COMPANY") return base;
 
   if (kind === "DEPARTMENT" && context.department) {
     return {
       ...base,
-      OR: [
-        { companyMemberId: context.membershipId },
-        { companyMember: { departmentId: context.department.id } },
-      ],
+      OR: [{ companyMemberId: context.membershipId }, { departmentId: context.department.id }],
     };
   }
 
@@ -85,13 +85,13 @@ export function buildLeaveScopeWhere(context: UserContext): Prisma.LeaveRequestW
     return {
       ...base,
       OR: [
-        { companyMemberId: context.membershipId },
-        { employeeProfile: { companyMember: { departmentId: context.department.id } } },
+        { employeeProfile: { companyMemberId: context.membershipId } },
+        { employeeProfile: { departmentId: context.department.id } },
       ],
     };
   }
 
-  return { ...base, companyMemberId: context.membershipId };
+  return { ...base, employeeProfile: { companyMemberId: context.membershipId } };
 }
 
 export function buildAttendanceScopeWhere(
@@ -106,24 +106,25 @@ export function buildAttendanceScopeWhere(
     return {
       ...base,
       OR: [
-        { companyMemberId: context.membershipId },
-        { employeeProfile: { companyMember: { departmentId: context.department.id } } },
+        { employeeProfile: { companyMemberId: context.membershipId } },
+        { employeeProfile: { departmentId: context.department.id } },
       ],
     };
   }
 
-  return { ...base, companyMemberId: context.membershipId };
+  return { ...base, employeeProfile: { companyMemberId: context.membershipId } };
 }
 
 /**
- * Whether this record is the reader's own.
+ * Whether this record is the reader's own: the login it names is theirs.
  *
  * Self-service turns on this and nothing else: a person may file their own
  * leave and see their own employment record while holding no HR permission
- * over anybody (PRD #16 §16, §74).
+ * over anybody (PRD #16 §16, §74). An employee with no login has no self —
+ * everything about them is recorded by somebody else (E-04 §49, §63).
  */
-export function isSelf(context: UserContext, companyMemberId: string): boolean {
-  return companyMemberId === context.membershipId;
+export function isSelf(context: UserContext, companyMemberId: string | null): boolean {
+  return companyMemberId !== null && companyMemberId === context.membershipId;
 }
 
 /**
@@ -132,7 +133,7 @@ export function isSelf(context: UserContext, companyMemberId: string): boolean {
  */
 export function canReadOwn(
   context: UserContext,
-  companyMemberId: string,
+  companyMemberId: string | null,
   selfPermission: Parameters<typeof can>[1],
 ): boolean {
   return isSelf(context, companyMemberId) && can(context, selfPermission);

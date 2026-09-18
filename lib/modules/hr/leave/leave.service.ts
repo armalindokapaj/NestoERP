@@ -16,7 +16,6 @@ import {
   leaveYearOf,
   toBusinessDate,
 } from "../hr.date";
-import { memberAddressed } from "../hr.person";
 import { buildEmployeeScopeWhere, buildLeaveScopeWhere, isSelf } from "../hr.scope";
 import {
   blocksOverlap,
@@ -50,6 +49,7 @@ const ENTITY = "LeaveRequest";
 
 const SELECT = {
   id: true,
+  companyId: true,
   employeeProfileId: true,
   companyMemberId: true,
   leaveType: true,
@@ -71,14 +71,10 @@ const SELECT = {
   employeeProfile: {
     select: {
       id: true,
+      // The employment's login now, which is whose request it is for self-service (E-04 §7).
       companyMemberId: true,
-      companyMember: {
-        select: {
-          id: true,
-          departmentId: true,
-          user: { select: { firstName: true, lastName: true, email: true, avatarUrl: true } },
-        },
-      },
+      personProfile: { select: { firstName: true, lastName: true, workEmail: true } },
+      companyMember: { select: { user: { select: { email: true, avatarUrl: true } } } },
     },
   },
 } satisfies Prisma.LeaveRequestSelect;
@@ -107,30 +103,22 @@ export async function listLeave(context: UserContext, query: LeaveListQuery) {
   // Without the module grant, self-service means their own requests only —
   // whatever the scope resolver would otherwise allow (PRD #16 §16).
   if (!canSeeOthers || query.mine) {
-    filters.push({ companyMemberId: context.membershipId });
+    filters.push({ employeeProfile: { companyMemberId: context.membershipId } });
   }
 
   if (query.search) {
     const term = query.search.trim();
     filters.push({
       OR: [
-        {
-          employeeProfile: {
-            companyMember: { user: { firstName: { contains: term, mode: "insensitive" } } },
-          },
-        },
-        {
-          employeeProfile: {
-            companyMember: { user: { lastName: { contains: term, mode: "insensitive" } } },
-          },
-        },
+        { employeeProfile: { personProfile: { firstName: { contains: term, mode: "insensitive" } } } },
+        { employeeProfile: { personProfile: { lastName: { contains: term, mode: "insensitive" } } } },
       ],
     });
   }
 
   if (query.status?.length) filters.push({ status: { in: query.status } });
   if (query.leaveType?.length) filters.push({ leaveType: { in: query.leaveType } });
-  if (query.companyMemberId) filters.push({ companyMemberId: query.companyMemberId });
+  if (query.employeeId) filters.push({ employeeProfileId: query.employeeId });
   // A date filter asks "was anybody off in this window", so it matches an
   // overlap rather than a containment.
   if (query.from) filters.push({ endDate: { gte: query.from } });
@@ -170,7 +158,7 @@ export async function getLeave(
 
   // Scope alone is not enough: a department-scoped reader with no leave grant
   // still only reaches their own (PRD #16 §16).
-  if (!can(context, "hr.leave.view") && !isSelf(context, row.companyMemberId)) {
+  if (!can(context, "hr.leave.view") && !isSelf(context, row.employeeProfile.companyMemberId)) {
     throw new AccessError("NOT_FOUND");
   }
 
@@ -178,15 +166,18 @@ export async function getLeave(
 }
 
 /** An employee's balances for a year (PRD #16 §79). */
-export async function getBalances(context: UserContext, memberId: string, year: number) {
+export async function getBalances(context: UserContext, employmentId: string | null, year: number) {
   assertModule(context, MODULE);
 
-  const own = isSelf(context, memberId);
-  if (!can(context, "hr.leave.balance.view") && !(own && can(context, "hr.self.leave"))) {
+  if (!can(context, "hr.leave.balance.view") && !can(context, "hr.self.leave")) {
     assertPermission(context, "hr.leave.balance.view");
   }
 
-  const profile = await requireProfile(context, memberId);
+  // No employment named: the reader's own.
+  const profile = employmentId ? await requireProfile(context, employmentId) : await requireOwnProfile(context);
+  if (!can(context, "hr.leave.balance.view") && !isSelf(context, profile.companyMemberId)) {
+    throw new AccessError("NOT_FOUND");
+  }
   const { balancesFor, toBalanceDTO } = await import("./leave.balance");
   const rows = await balancesFor(profile.id, year);
   return rows.map(toBalanceDTO);
@@ -203,18 +194,13 @@ export async function createLeave(
   assertModule(context, MODULE);
 
   // Filing for somebody else needs the module grant; filing your own needs only
-  // self-service (PRD #16 §74, §191).
-  const forSelf = !input.companyMemberId || isSelf(context, input.companyMemberId);
-  if (forSelf) {
-    if (!can(context, "hr.leave.create") && !can(context, "hr.self.leave")) {
-      assertPermission(context, "hr.self.leave");
-    }
-  } else {
-    assertPermission(context, "hr.leave.create");
+  // self-service (PRD #16 §74, §191). Somebody with no login never files their
+  // own: HR files it for them (E-04 §63).
+  if (!can(context, "hr.leave.create") && !can(context, "hr.self.leave")) {
+    assertPermission(context, "hr.self.leave");
   }
-
-  const memberId = input.companyMemberId ?? context.membershipId;
-  const profile = await requireProfile(context, memberId);
+  const profile = input.employeeId ? await requireProfile(context, input.employeeId) : await requireOwnProfile(context);
+  if (!isSelf(context, profile.companyMemberId)) assertPermission(context, "hr.leave.create");
 
   const startDate = toBusinessDate(input.startDate);
   const endDate = toBusinessDate(input.endDate);
@@ -234,7 +220,7 @@ export async function createLeave(
       data: {
         companyId: context.companyId,
         employeeProfileId: profile.id,
-        companyMemberId: memberId,
+        companyMemberId: profile.companyMemberId,
         leaveType: input.leaveType,
         startDate,
         endDate,
@@ -254,7 +240,8 @@ export async function createLeave(
       // No reason in the message: it may be medical (PRD #16 §95, §269).
       message: `drafted ${days.toFixed(2)} days of ${input.leaveType.toLowerCase()} leave`,
       metadata: {
-        memberId,
+        employmentId: profile.id,
+        memberId: profile.companyMemberId,
         leaveType: input.leaveType,
         startDate: businessDateString(startDate),
         endDate: businessDateString(endDate),
@@ -309,7 +296,7 @@ export async function updateLeave(
     await assertNoOverlap(tx, existing.employeeProfileId, startDate, endDate, leaveId);
 
     await tx.leaveRequest.update({
-      where: { id: leaveId },
+      where: { id: leaveId, companyId: context.companyId },
       data: {
         leaveType: input.leaveType,
         startDate,
@@ -325,7 +312,7 @@ export async function updateLeave(
       entityId: leaveId,
       action: "HR_LEAVE_UPDATED",
       message: `updated the request to ${days.toFixed(2)} days`,
-      metadata: { memberId: existing.companyMemberId } as Prisma.InputJsonValue,
+      metadata: { employmentId: existing.employeeProfileId, memberId: existing.employeeProfile.companyMemberId } as Prisma.InputJsonValue,
     });
   });
 
@@ -372,7 +359,7 @@ export async function submitLeave(context: UserContext, leaveId: string): Promis
       entityId: leaveId,
       action: "HR_LEAVE_SUBMITTED",
       message: "submitted a leave request for approval",
-      metadata: { memberId: existing.companyMemberId } as Prisma.InputJsonValue,
+      metadata: { employmentId: existing.employeeProfileId, memberId: existing.employeeProfile.companyMemberId } as Prisma.InputJsonValue,
     });
   });
 }
@@ -423,7 +410,7 @@ export async function approveLeave(
     await syncAttendanceForLeave(tx, context, {
       leaveRequestId: leaveId,
       employeeProfileId: existing.employeeProfileId,
-      companyMemberId: existing.companyMemberId,
+      companyMemberId: existing.employeeProfile.companyMemberId,
       startDate: existing.startDate,
       endDate: existing.endDate,
     });
@@ -434,7 +421,7 @@ export async function approveLeave(
       entityId: leaveId,
       action: "HR_LEAVE_APPROVED",
       message: `approved ${existing.days.toFixed(2)} days of leave`,
-      metadata: { memberId: existing.companyMemberId } as Prisma.InputJsonValue,
+      metadata: { employmentId: existing.employeeProfileId, memberId: existing.employeeProfile.companyMemberId } as Prisma.InputJsonValue,
     });
 
     await recordUserAction(
@@ -453,15 +440,18 @@ export async function approveLeave(
     );
 
     // The person who asked is the person waiting for the answer (PRD #25 §33).
-    await enqueueNotificationEvent(tx, {
-      companyId: context.companyId,
-      eventType: NotificationEvent.LEAVE_DECIDED,
-      moduleKey: "hr",
-      entityType: "leave_request",
-      entityId: leaveId,
-      actorMemberId: context.membershipId,
-      payload: { memberId: existing.companyMemberId, decision: "APPROVED" },
-    });
+    // Somebody without a login has no inbox; HR told them in person (E-04 §68).
+    if (existing.employeeProfile.companyMemberId) {
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.LEAVE_DECIDED,
+        moduleKey: "hr",
+        entityType: "leave_request",
+        entityId: leaveId,
+        actorMemberId: context.membershipId,
+        payload: { memberId: existing.employeeProfile.companyMemberId, decision: "APPROVED" },
+      });
+    }
   });
 }
 
@@ -493,7 +483,7 @@ export async function rejectLeave(
       entityId: leaveId,
       action: "HR_LEAVE_REJECTED",
       message: "rejected a leave request",
-      metadata: { memberId: existing.companyMemberId, note } as Prisma.InputJsonValue,
+      metadata: { employmentId: existing.employeeProfileId, memberId: existing.employeeProfile.companyMemberId, note } as Prisma.InputJsonValue,
     });
 
     await recordUserAction(
@@ -508,15 +498,17 @@ export async function rejectLeave(
       { tx },
     );
 
-    await enqueueNotificationEvent(tx, {
-      companyId: context.companyId,
-      eventType: NotificationEvent.LEAVE_DECIDED,
-      moduleKey: "hr",
-      entityType: "leave_request",
-      entityId: leaveId,
-      actorMemberId: context.membershipId,
-      payload: { memberId: existing.companyMemberId, decision: "REJECTED", reason: note },
-    });
+    if (existing.employeeProfile.companyMemberId) {
+      await enqueueNotificationEvent(tx, {
+        companyId: context.companyId,
+        eventType: NotificationEvent.LEAVE_DECIDED,
+        moduleKey: "hr",
+        entityType: "leave_request",
+        entityId: leaveId,
+        actorMemberId: context.membershipId,
+        payload: { memberId: existing.employeeProfile.companyMemberId, decision: "REJECTED", reason: note },
+      });
+    }
   });
 }
 
@@ -531,7 +523,7 @@ export async function cancelLeave(context: UserContext, leaveId: string): Promis
   assertModule(context, MODULE);
 
   const existing = await requireLeave(context, leaveId);
-  const own = isSelf(context, existing.companyMemberId);
+  const own = isSelf(context, existing.employeeProfile.companyMemberId);
 
   if (existing.status === "APPROVED") {
     assertPermission(context, "hr.leave.cancel");
@@ -581,7 +573,7 @@ export async function cancelLeave(context: UserContext, leaveId: string): Promis
       message: wasApproved
         ? `cancelled approved leave, returning ${existing.days.toFixed(2)} days`
         : "cancelled a leave request",
-      metadata: { memberId: existing.companyMemberId } as Prisma.InputJsonValue,
+      metadata: { employmentId: existing.employeeProfileId, memberId: existing.employeeProfile.companyMemberId } as Prisma.InputJsonValue,
     });
   });
 }
@@ -598,17 +590,28 @@ async function requireLeave(context: UserContext, leaveId: string): Promise<Leav
     }),
   );
 
-  if (!can(context, "hr.leave.view") && !isSelf(context, row.companyMemberId)) {
+  if (!can(context, "hr.leave.view") && !isSelf(context, row.employeeProfile.companyMemberId)) {
     throw new AccessError("NOT_FOUND");
   }
 
   return row;
 }
 
-async function requireProfile(context: UserContext, memberId: string) {
+/** An employment in this reader's HR scope, with or without a login (E-04 §7). */
+async function requireProfile(context: UserContext, employmentId: string) {
   return assertFound(
     await prisma.employeeProfile.findFirst({
-      where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: memberId }] },
+      where: { AND: [buildEmployeeScopeWhere(context), { id: employmentId }] },
+      select: { id: true, companyMemberId: true, employmentStatus: true },
+    }),
+  );
+}
+
+/** The reader's own employment here, for self-service. */
+async function requireOwnProfile(context: UserContext) {
+  return assertFound(
+    await prisma.employeeProfile.findFirst({
+      where: { companyId: context.companyId, companyMemberId: context.membershipId },
       select: { id: true, companyMemberId: true, employmentStatus: true },
     }),
   );
@@ -616,7 +619,7 @@ async function requireProfile(context: UserContext, memberId: string) {
 
 /** Editing somebody else's request needs the module grant (PRD #16 §192). */
 function assertMayEdit(context: UserContext, row: LeaveRow): void {
-  if (isSelf(context, row.companyMemberId)) {
+  if (isSelf(context, row.employeeProfile.companyMemberId)) {
     if (can(context, "hr.self.leave") || can(context, "hr.leave.update")) return;
     assertPermission(context, "hr.self.leave");
     return;
@@ -626,7 +629,7 @@ function assertMayEdit(context: UserContext, row: LeaveRow): void {
 
 /** Nobody decides their own request (PRD #16 §90, §194). */
 function assertNotSelfApproval(context: UserContext, row: LeaveRow): void {
-  if (!isSelf(context, row.companyMemberId)) return;
+  if (!isSelf(context, row.employeeProfile.companyMemberId)) return;
   throw new AccessError(
     "FORBIDDEN",
     "This is your own leave, so somebody else has to decide it.",
@@ -649,7 +652,7 @@ async function moveStatus(
   // Conditional on the status we read, so two people acting at once cannot both
   // win (PRD #16 §265).
   const result = await tx.leaveRequest.updateMany({
-    where: { id: existing.id, status: existing.status },
+    where: { id: existing.id, companyId: existing.companyId, status: existing.status },
     data: { status: next, ...extra },
   });
 
@@ -701,7 +704,7 @@ async function assertSufficientBalance(
   const created = await ensureBalance(tx, {
     companyId: context.companyId,
     employeeProfileId: request.employeeProfileId,
-    companyMemberId: request.companyMemberId,
+    companyMemberId: request.employeeProfile.companyMemberId,
     leaveType: request.leaveType,
     year: leaveYearOf(request.startDate),
   });
@@ -727,8 +730,9 @@ async function assertSufficientBalance(
 /* -------------------------------------------------------------------------- */
 
 function toDTO(context: UserContext, row: LeaveRow): LeaveRequestDTO {
-  const own = isSelf(context, row.companyMemberId);
-  const user = memberAddressed(row.employeeProfile).companyMember.user;
+  const own = isSelf(context, row.employeeProfile.companyMemberId);
+  const person = row.employeeProfile.personProfile;
+  const user = row.employeeProfile.companyMember?.user ?? null;
 
   // The reason may be a medical detail, so it travels only to the requester
   // and to a reader who holds the grant (PRD #16 §95).
@@ -742,10 +746,11 @@ function toDTO(context: UserContext, row: LeaveRow): LeaveRequestDTO {
   return {
     id: row.id,
     employee: {
-      memberId: row.companyMemberId,
-      fullName: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-      avatarUrl: user.avatarUrl,
+      employeeId: row.employeeProfileId,
+      memberId: row.employeeProfile.companyMemberId,
+      fullName: `${person.firstName} ${person.lastName}`,
+      email: person.workEmail ?? user?.email ?? null,
+      avatarUrl: user?.avatarUrl ?? null,
     },
     leaveType: row.leaveType,
     startDate: businessDateString(row.startDate),
@@ -790,7 +795,7 @@ export { blocksOverlap };
  */
 export async function setLeaveBalance(
   context: UserContext,
-  memberId: string,
+  employmentId: string,
   input: { leaveType: Prisma.LeaveBalanceCreateInput["leaveType"]; year: number; entitledDays: string; adjustmentDays: string },
 ): Promise<void> {
   assertModule(context, MODULE);
@@ -800,23 +805,22 @@ export async function setLeaveBalance(
   // own balance is the self-approval the leave workflow already refuses
   // (PRD #16 §81, PRD #47 §98). Repairing a balance stays open — it only
   // recounts approved leave.
-  if (memberId === context.membershipId) {
+  const profile = await requireProfile(context, employmentId);
+  if (isSelf(context, profile.companyMemberId)) {
     throw new AccessError("FORBIDDEN", "Your own leave entitlement is set by somebody else in HR.");
   }
-
-  const profile = await requireProfile(context, memberId);
 
   await prisma.$transaction(async (tx) => {
     const balance = await ensureBalance(tx, {
       companyId: context.companyId,
       employeeProfileId: profile.id,
-      companyMemberId: memberId,
+      companyMemberId: profile.companyMemberId,
       leaveType: input.leaveType,
       year: input.year,
     });
 
     await tx.leaveBalance.update({
-      where: { id: balance.id },
+      where: { id: balance.id, companyId: context.companyId },
       data: {
         entitledDays: input.entitledDays,
         adjustmentDays: input.adjustmentDays,
@@ -830,7 +834,8 @@ export async function setLeaveBalance(
       action: "HR_LEAVE_BALANCE_SET",
       message: `set ${input.leaveType.toLowerCase()} leave to ${input.entitledDays} days for ${input.year}`,
       metadata: {
-        memberId,
+        employmentId: profile.id,
+        memberId: profile.companyMemberId,
         leaveType: input.leaveType,
         year: input.year,
       } as Prisma.InputJsonValue,
@@ -847,13 +852,13 @@ export async function setLeaveBalance(
  */
 export async function repairLeaveBalance(
   context: UserContext,
-  memberId: string,
+  employmentId: string,
   year: number,
 ): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "hr.leave.balance.manage");
 
-  const profile = await requireProfile(context, memberId);
+  const profile = await requireProfile(context, employmentId);
   const from = new Date(Date.UTC(year, 0, 1));
   const to = new Date(Date.UTC(year, 11, 31, 23, 59, 59));
 
@@ -886,7 +891,7 @@ export async function repairLeaveBalance(
       entityId: profile.id,
       action: "HR_LEAVE_BALANCE_REPAIRED",
       message: `recalculated leave balances for ${year}`,
-      metadata: { memberId, year } as Prisma.InputJsonValue,
+      metadata: { employmentId: profile.id, memberId: profile.companyMemberId, year } as Prisma.InputJsonValue,
     });
   });
 }

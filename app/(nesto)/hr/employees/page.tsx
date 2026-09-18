@@ -10,7 +10,7 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import { hasEmployeeProfile } from "@/lib/modules/hr/employees/employee.service";
+import { employmentIdForMember } from "@/lib/modules/hr/employees/employee.service";
 import { hrScopeKind } from "@/lib/modules/hr/hr.scope";
 import { EmployeesList } from "./employees-list";
 
@@ -30,13 +30,14 @@ export default async function EmployeesPage({
 }) {
   const context = await requireModule("hr");
 
+  const own = await employmentIdForMember(context, context.membershipId);
   if (!can(context, "hr.employee.view")) {
-    if (can(context, "hr.self.employment")) redirect(`/hr/employees/${context.membershipId}`);
+    if (own) redirect(`/hr/employees/${own}`);
     redirect("/access-denied");
   }
 
-  if (hrScopeKind(context) === "SELF" && (await hasEmployeeProfile(context, context.membershipId))) {
-    redirect(`/hr/employees/${context.membershipId}`);
+  if (hrScopeKind(context) === "SELF" && own) {
+    redirect(`/hr/employees/${own}`);
   }
 
   const experience = resolveModuleExperience(context, "hr");

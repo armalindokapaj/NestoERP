@@ -57,8 +57,8 @@ export default async function NewAttendancePage() {
         employees={
           employees
             ? employees.data.map((employee) => ({
-                value: employee.memberId,
-                label: employee.name.fullName,
+                value: employee.id,
+                label: employee.accountStatus === "NO_ACCOUNT" ? `${employee.name.fullName} (no NESTO account)` : employee.name.fullName,
               }))
             : undefined
         }

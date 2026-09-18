@@ -9,12 +9,14 @@ import {
   parseLeaveQuery,
 } from "./hr.query";
 import {
+  accountStatusLabels,
   attendanceStatusLabels,
   attendanceSourceLabels,
   employmentStatusLabels,
   employmentTypeLabels,
   leaveStatusLabels,
   leaveTypeLabels,
+  workerCategoryLabels,
 } from "./hr.status";
 import * as leave from "./leave/leave.service";
 
@@ -52,7 +54,7 @@ export async function exportHr(
     return {
       filename: "hr-employees.csv",
       csv: toCsv(
-        ["Employee", "Employee number", "Email", "Job title", "Department", "Manager", "Type", "Status", "Start date", "End date"],
+        ["Employee", "Employee number", "Email", "Job title", "Department", "Manager", "Type", "Category", "Trade", "NESTO account", "Status", "Start date", "End date"],
         result.data.map((row) => [
           row.name.fullName,
           row.employeeNumber ?? "",
@@ -61,6 +63,9 @@ export async function exportHr(
           row.department?.name ?? "",
           row.manager?.fullName ?? "",
           employmentTypeLabels[row.employmentType],
+          row.workerCategory ? workerCategoryLabels[row.workerCategory] : "",
+          row.trade?.name ?? "",
+          accountStatusLabels[row.accountStatus],
           employmentStatusLabels[row.employmentStatus],
           row.startDate ?? "",
           row.endDate ?? "",

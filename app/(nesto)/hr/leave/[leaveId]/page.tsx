@@ -83,7 +83,7 @@ export default async function LeaveDetailPage({ params }: Params) {
                 label: "Employee",
                 value: can(context, "hr.employee.view") ? (
                   <Link
-                    href={`/hr/employees/${request.employee.memberId}`}
+                    href={`/hr/employees/${request.employee.employeeId}`}
                     className="hover:text-accent"
                   >
                     {request.employee.fullName}

@@ -3,33 +3,38 @@ import { redirect } from "next/navigation";
 
 import { EmploymentForm } from "@/components/hr/employment-form";
 import { RecordContextHeader } from "@/components/modules/record-header";
-import { EmptyState } from "@/components/ui/empty-state";
-import { UserRoundPlus } from "lucide-react";
 import { can } from "@/lib/access/can";
 import { createEmployeeProfileAction } from "@/lib/actions/hr";
 import { requireModule } from "@/lib/context/current-user";
 import {
+  departmentOptions,
   managerOptions,
   membersWithoutProfile,
+  personOptions,
+  tradeOptions,
 } from "@/lib/modules/hr/employees/employee.repository";
 
-export const metadata: Metadata = { title: "New employment record" };
+export const metadata: Metadata = { title: "New employee" };
 
 /**
- * Create an employment record (PRD #16 §38, §225).
+ * Add an employee (PRD #16 §38, §225; E-04 §228-§230).
  *
- * Employment is added to somebody who already has company access, rather than
- * creating a person: one CompanyMember has at most one EmployeeProfile
- * (PRD #16 §25).
+ * Somebody new with no NESTO account is the ordinary case for a construction
+ * company's workforce: a person and an employment, and nothing to sign in with.
+ * A team member who already has a login, or a person the group already knows,
+ * is employed as themselves — never recorded twice (E-04 §5, §89).
  */
 export default async function NewEmployeePage() {
   const context = await requireModule("hr");
 
   if (!can(context, "hr.employee.create_profile")) redirect("/access-denied");
 
-  const [members, managers] = await Promise.all([
+  const [members, managers, people, departments, trades] = await Promise.all([
     membersWithoutProfile(context),
     managerOptions(context),
+    personOptions(context),
+    departmentOptions(context),
+    tradeOptions(context),
   ]);
 
   async function action(formData: FormData) {
@@ -37,50 +42,36 @@ export default async function NewEmployeePage() {
     return createEmployeeProfileAction(formData);
   }
 
-  const breadcrumbs = [
-    { label: "HR", href: "/hr" },
-    { label: "Employees", href: "/hr/employees" },
-    { label: "New employment record" },
-  ];
-
-  if (members.length === 0) {
-    return (
-      <div className="mx-auto max-w-3xl space-y-5">
-        <RecordContextHeader
-          breadcrumbs={breadcrumbs}
-          title="New employment record"
-          subtitle="Every team member in your view already has one."
-        />
-        <EmptyState
-          icon={<UserRoundPlus />}
-          title="No team member is waiting for an employment record."
-          description="Invite somebody to the company in Team first; their employment record is added here afterwards."
-          action={{ label: "Go to Team", href: "/team/invite" }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={breadcrumbs}
-        title="New employment record"
-        subtitle="Employment terms for somebody who already has company access."
+        breadcrumbs={[
+          { label: "HR", href: "/hr" },
+          { label: "Employees", href: "/hr/employees" },
+          { label: "New employee" },
+        ]}
+        title="New employee"
+        subtitle="With or without a NESTO account. A login can be requested later for the same record."
       />
 
       <EmploymentForm
         action={action}
         members={members.map((member) => ({
           value: member.id,
-          label: `${member.user.firstName} ${member.user.lastName} (${member.user.email})`,
+          label: `${member.user.firstName} ${member.user.lastName}${member.user.email ? ` (${member.user.email})` : ""}`,
         }))}
+        people={people.map((person) => ({
+          value: person.id,
+          label: person.companies.length > 0 ? `${person.name} — ${person.companies.join(", ")}` : person.name,
+        }))}
+        departments={departments.map((department) => ({ value: department.id, label: department.name }))}
+        trades={trades.map((trade) => ({ value: trade.id, label: trade.name }))}
         managers={managers.map((manager) => ({
           value: manager.id,
           label: `${manager.user.firstName} ${manager.user.lastName} — ${manager.role.name}`,
         }))}
         cancelHref="/hr/employees"
-        submitLabel="Create employment record"
+        submitLabel="Create employee"
         pendingLabel="Creating…"
       />
     </div>

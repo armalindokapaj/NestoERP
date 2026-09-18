@@ -48,7 +48,7 @@ export type DocumentCapability = {
   /** Where the record's files are listed — the return route after an upload. */
   tabHref(summary: RecordSummary): string;
   /** A second door for somebody reading their own record (HR self-service). */
-  self?: { permission: Permission; isSelf(context: UserContext, id: string): boolean };
+  self?: { permission: Permission; isSelf(context: UserContext, id: string): Promise<boolean> };
   /** Whether a version of a file on this record can be sent for review (PRD #38 §59). */
   reviewable: boolean;
 };

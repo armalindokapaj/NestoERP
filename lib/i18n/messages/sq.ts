@@ -96,6 +96,7 @@ export const sq: Messages = {
     meetings: { label: "Takimet", description: "Rendet e ditës, procesverbalet, vendimet dhe veprimet që pasojnë." },
     timesheets: { label: "Fletët e orëve", description: "Si shpenzohet koha e punës në projekte, detyra dhe punë të brendshme." },
     dailyLogs: { label: "Ditarët e kantierit", description: "Çfarë ndodhi në kantier çdo ditë: njerëzit, punimet, dorëzimet, vonesat dhe provat." },
+    workforce: { label: "Fuqia punëtore", description: "Të gjithë ata që kompania punëson në projektet e saj: skuadrat, kantieret, caktimet dhe prezenca." },
     contractors: { label: "Kontraktorët", description: "Organizatat që ndërtojnë me ju: caktimet, paketat e punës, pajtueshmëria dhe kontratat." },
     engineering: { label: "Inxhinieria", description: "Vizatimet, rishikimet, RFI-të, dorëzimet teknike dhe transmetimet — regjistri teknik i çdo projekti." },
     clients: { label: "Klientët", description: "Kompanitë dhe personat me të cilët punon kompania juaj." },

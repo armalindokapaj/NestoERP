@@ -107,6 +107,7 @@ export function RecordForm({
   submitLabel,
   pendingLabel,
   versionUpdatedAt,
+  onFailure,
   children,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
@@ -115,6 +116,8 @@ export function RecordForm({
   pendingLabel: string;
   /** Optimistic-concurrency stamp the form was loaded with. */
   versionUpdatedAt?: string;
+  /** The whole refusal, for a form that shows more than the message — the people a new employee might be (E-04 §92). */
+  onFailure?: (result: Extract<FormActionResult, { ok: false }>) => void;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -143,6 +146,7 @@ export function RecordForm({
       if (result && !result.ok) {
         setError(result.error);
         setFieldErrors(result.fieldErrors ?? {});
+        onFailure?.(result);
       } else {
         setDirty(false);
       }

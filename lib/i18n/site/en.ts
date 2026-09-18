@@ -212,6 +212,7 @@ export const siteEn = {
     calendar: "Deadlines, inspections, deliveries and company events in one permission-aware schedule.",
     timesheets: "Weekly timesheets against projects and tasks — logged in minutes, approved by the right person, reported without surveillance.",
     dailyLogs: "One site diary per project per day — workforce, work done, deliveries, delays and photos, reviewed and locked as the record.",
+    workforce: "Every worker the company employs, with or without a login — trades, crews, project sites and the attendance recorded where they work.",
     contractors: "Every contractor you engage — project assignments, work packages, insurance and guarantees, and the contracts behind them.",
     engineering: "Drawing and document registers with controlled revisions, RFIs, submittals, method statements and transmittals.",
     announcements: "Company, department and project notices that people acknowledge when it matters — no feed, no reactions.",

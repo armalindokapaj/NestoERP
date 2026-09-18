@@ -44,6 +44,7 @@ const FILTER_KEYS: Record<string, string> = {
   projectId: "Project",
   clientId: "Client",
   memberId: "CompanyMember",
+  employeeId: "EmployeeProfile",
   assigneeMemberId: "CompanyMember",
   ownerMemberId: "CompanyMember",
   requesterId: "CompanyMember",

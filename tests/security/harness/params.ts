@@ -54,9 +54,10 @@ const RULES: Rule[] = [
   { when: /\/meetings\/\[meetingId\]\/participants\//, param: "memberId", source: { model: "MeetingParticipant", column: "memberId" } },
   { when: /\/calendar\/events\/\[eventId\]\/participants\//, param: "memberId", source: { model: "CalendarEventParticipant", column: "memberId" } },
   // An employment's history rows and scheduled changes (E-03): the employee segment is filled from the row's employment.
-  { when: /\/employment-history\/\[rowId\]/, param: "rowId", source: { model: "EmploymentAssignment" } },
-  { when: /\/scheduled-changes\/\[changeId\]/, param: "changeId", source: { model: "EmploymentChange" } },
-  { when: /\/hr\/employees\//, param: "memberId", source: { model: "EmployeeProfile", column: "companyMemberId" } },
+  { when: /\/employment-history\/\[rowId\]/, param: "rowId", source: { model: "EmploymentAssignment", fill: { employeeId: "employeeProfileId" } } },
+  { when: /\/scheduled-changes\/\[changeId\]/, param: "changeId", source: { model: "EmploymentChange", fill: { employeeId: "employeeProfileId" } } },
+  // An employee is addressed by the employment, login or not (E-04 §14).
+  { when: /\/hr\/employees\//, param: "employeeId", source: { model: "EmployeeProfile" } },
   // An account request is the company's the person joins (E-06 §27); not a unit's contract request.
   { when: /\/user-provisioning-requests\//, param: "requestId", source: { model: "UserProvisioningRequest" } },
   // The group's departments (E-13): reached through the target company's branch
@@ -96,6 +97,7 @@ const BY_NAME: Record<string, string> = {
   delegationId: "ApprovalDelegation",
   departmentId: "Department",
   documentId: "Document",
+  employeeId: "EmployeeProfile",
   eventId: "CalendarEvent",
   expenseId: "Expense",
   floorId: "ProjectFloor",

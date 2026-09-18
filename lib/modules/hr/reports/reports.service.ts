@@ -6,7 +6,7 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
 import { businessDateString, today } from "../hr.date";
-import { memberAddressed, personName, PERSON_NAME_SELECT } from "../hr.person";
+import { personName, PERSON_NAME_SELECT } from "../hr.person";
 import {
   buildAttendanceScopeWhere,
   buildEmployeeScopeWhere,
@@ -144,7 +144,7 @@ export async function attendanceSummary(
       AND: [buildAttendanceScopeWhere(context), { date: { gte: from, lte: to } }],
     },
     select: {
-      companyMemberId: true,
+      employeeProfileId: true,
       status: true,
       checkIn: true,
       checkOut: true,
@@ -152,14 +152,15 @@ export async function attendanceSummary(
     },
   });
 
+  // One row per employee — with a login or without one (E-04 §179).
   const byMember = new Map<string, AttendanceSummaryRow>();
 
   for (const row of rows) {
     const person = row.employeeProfile.personProfile;
     const entry =
-      byMember.get(row.companyMemberId) ??
+      byMember.get(row.employeeProfileId) ??
       ({
-        memberId: row.companyMemberId,
+        employeeId: row.employeeProfileId,
         fullName: personName(person),
         present: 0,
         remote: 0,
@@ -179,7 +180,7 @@ export async function attendanceSummary(
       row.checkOut === null;
     if (row.status === "ABSENT" || missingCheckOut) entry.exceptions += 1;
 
-    byMember.set(row.companyMemberId, entry);
+    byMember.set(row.employeeProfileId, entry);
   }
 
   return [...byMember.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
@@ -209,13 +210,8 @@ export async function compensationReport(
     },
     select: {
       id: true,
-      companyMemberId: true,
-      companyMember: {
-        select: {
-          user: { select: { firstName: true, lastName: true } },
-          department: { select: { name: true } },
-        },
-      },
+      personProfile: PERSON_NAME_SELECT,
+      department: { select: { name: true } },
     },
   });
 
@@ -224,7 +220,7 @@ export async function compensationReport(
   // One query for every open record rather than one per employee
   // (PRD #16 §208, §258).
   const current = await prisma.compensation.findMany({
-    where: { employeeProfileId: { in: profiles.map((row) => row.id) }, effectiveTo: null },
+    where: { employeeProfileId: { in: profiles.map((row) => row.id) }, companyId: context.companyId, effectiveTo: null },
     select: {
       employeeProfileId: true,
       currency: true,
@@ -236,15 +232,14 @@ export async function compensationReport(
   const byProfile = new Map(current.map((row) => [row.employeeProfileId, row]));
 
   return profiles
-    .map(memberAddressed)
-    .map((profile) => {
+    .map((profile): CompensationReportRow | null => {
       const pay = byProfile.get(profile.id);
       if (!pay) return null;
 
       return {
-        memberId: profile.companyMemberId,
-        fullName: `${profile.companyMember.user.firstName} ${profile.companyMember.user.lastName}`,
-        department: profile.companyMember.department?.name ?? null,
+        employeeId: profile.id,
+        fullName: personName(profile.personProfile),
+        department: profile.department?.name ?? null,
         payType: pay.payType,
         currency: pay.currency,
         baseAmount: toAmountString(pay.baseAmount),
@@ -283,22 +278,18 @@ export async function upcomingEndDates(
     },
     orderBy: { endDate: "asc" },
     select: {
-      companyMemberId: true,
+      id: true,
       endDate: true,
       employmentType: true,
-      companyMember: {
-        select: {
-          user: { select: { firstName: true, lastName: true } },
-          department: { select: { name: true } },
-        },
-      },
+      personProfile: PERSON_NAME_SELECT,
+      department: { select: { name: true } },
     },
   });
 
-  return rows.map(memberAddressed).map((row) => ({
-    memberId: row.companyMemberId,
-    fullName: `${row.companyMember.user.firstName} ${row.companyMember.user.lastName}`,
-    department: row.companyMember.department?.name ?? null,
+  return rows.map((row) => ({
+    employeeId: row.id,
+    fullName: personName(row.personProfile),
+    department: row.department?.name ?? null,
     endDate: businessDateString(row.endDate!),
     employmentType: row.employmentType,
   }));

@@ -478,6 +478,8 @@ export const PERMISSIONS = [
   "hr.employee.update_profile",
   "hr.employee.status.update",
   "hr.employee.manager.assign",
+  /** Many employees at once, from a file, previewed before anything is written (E-04 §93-§98, §163). */
+  "hr.employee.import",
 
   "hr.employment.view",
   /** Promote, retitle, move department, location or employment type — each a dated change in the history (E-03 §36). */
@@ -547,6 +549,21 @@ export const PERMISSIONS = [
   "hr.self.leave",
   "hr.self.attendance",
   "hr.self.documents",
+
+  /* Workforce (E-04) ------------------------------------------------------ */
+  /**
+   * Where the company's employees work: crews, project and site assignments,
+   * and attendance recorded on site (E-04 §146). None of it is HR's private
+   * record — no pay, no contract, no reason for an absence — and a worker with
+   * no login has all of it (§149: the permissions belong to the people who
+   * record it, never to the worker).
+   */
+  "workforce.view",
+  "workforce.attendance.view",
+  "workforce.attendance.manage",
+  "workforce.crew.manage",
+  "workforce.project_assignment.manage",
+  "workforce.trade.manage",
 
   /* Sales ---------------------------------------------------------------- */
   "sales.view",
@@ -1287,6 +1304,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   document: "documents",
   finance: "finance",
   hr: "hr",
+  workforce: "workforce",
   sales: "sales",
   legal: "contracts",
   procurement: "procurement",
@@ -1444,6 +1462,8 @@ const MUTATING_ACTIONS = new Set([
   "process",
   "unassign",
   "delegate",
+  // Employees from a file (E-04 §163).
+  "import",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

@@ -5,7 +5,8 @@ import * as leave from "@/lib/modules/hr/leave/leave.service";
 export async function GET(request: Request) {
   return withContext(async (context) => {
     const url = new URL(request.url);
-    const memberId = url.searchParams.get("memberId") ?? context.membershipId;
+    // An employment, with or without a login; none is the reader's own (E-04 §7).
+    const employeeId = url.searchParams.get("employeeId");
 
     const yearValue = Number.parseInt(
       url.searchParams.get("year") ?? String(new Date().getUTCFullYear()),
@@ -15,6 +16,6 @@ export async function GET(request: Request) {
       return apiError("VALIDATION_ERROR", "That year is not valid.");
     }
 
-    return apiOk({ data: await leave.getBalances(context, memberId, yearValue) });
+    return apiOk({ data: await leave.getBalances(context, employeeId, yearValue) });
   });
 }

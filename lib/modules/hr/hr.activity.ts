@@ -25,19 +25,19 @@ const COMPENSATION_ENTITY = "Compensation";
  */
 export async function listEmployeeActivity(
   context: UserContext,
-  memberId: string,
+  employmentId: string,
   options: { page?: number; limit?: number } = {},
 ) {
   assertModule(context, "hr");
   assertPermission(context, "hr.activity.view");
 
   // The permission says the reader may read HR history; the scope says whose.
-  // Without this an employee with SELF scope could name any membership id and
+  // Without this an employee with SELF scope could name any employment id and
   // read that person's employment and pay events (PRD #16 §137, §202).
-  assertFound(
+  const employment = assertFound(
     await prisma.employeeProfile.findFirst({
-      where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: memberId }] },
-      select: { id: true },
+      where: { AND: [buildEmployeeScopeWhere(context), { id: employmentId }] },
+      select: { id: true, companyMemberId: true },
     }),
   );
 
@@ -47,9 +47,12 @@ export async function listEmployeeActivity(
   const where: Prisma.ActivityWhereInput = {
     companyId: context.companyId,
     module: "hr",
+    // The employment's own events, and the leave, attendance and pay events that
+    // name it — or, from before employments were the address, its login (E-04 §7).
     OR: [
-      { entityType: "EmployeeProfile", entityId: memberId },
-      { metadata: { path: ["memberId"], equals: memberId } },
+      { entityType: "EmployeeProfile", entityId: employment.id },
+      { metadata: { path: ["employmentId"], equals: employment.id } },
+      ...(employment.companyMemberId ? [{ metadata: { path: ["memberId"], equals: employment.companyMemberId } }] : []),
     ],
     // Pay events carry no figure, but "whose pay changed, and when" is still
     // compensation information. `hr.activity.view` does not imply

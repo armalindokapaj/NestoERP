@@ -25,11 +25,11 @@ const selectClass =
  * (PRD #16 §218).
  */
 export function LeaveBalanceForm({
-  memberId,
+  employeeId,
   year,
   employeeName,
 }: {
-  memberId: string;
+  employeeId: string;
   year: number;
   employeeName: string;
 }) {
@@ -45,7 +45,7 @@ export function LeaveBalanceForm({
     setError(null);
 
     startTransition(async () => {
-      const result = await setLeaveBalanceAction(memberId, formData);
+      const result = await setLeaveBalanceAction(employeeId, formData);
       if (result.ok) {
         setOpen(false);
         toast({ title: result.message ?? "Leave balance saved.", tone: "success" });

@@ -38,12 +38,12 @@ test("HR promotes somebody, links the amendment, and the history keeps old and n
   const restore = await snapshotEmploymentsWith(db, [isaac.employmentId]);
   const hr = await db.user.findFirstOrThrow({ where: { username: "group-hr" }, select: { id: true } });
   const amendment = await db.document.create({
-    data: { companyId: COMPANY_A, name: "E2E contract amendment.pdf", module: "hr", entityType: "employee", entityId: isaac.memberId, status: "ACTIVE", createdBy: hr.id },
+    data: { companyId: COMPANY_A, name: "E2E contract amendment.pdf", module: "hr", entityType: "employee", entityId: isaac.employmentId, status: "ACTIVE", createdBy: hr.id },
     select: { id: true },
   });
   try {
     const documents = await db.document.count();
-    await signIn(page, "HR", { to: `/hr/employees/${isaac.memberId}` });
+    await signIn(page, "HR", { to: `/hr/employees/${isaac.employmentId}` });
     await openChange(page, "Promote or change title");
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Job title").fill("Director of Inventory");
@@ -55,7 +55,7 @@ test("HR promotes somebody, links the amendment, and the history keeps old and n
     await expect(dialog).toHaveCount(0);
     await expect(mainRegion(page).getByText("Director of Inventory").first()).toBeVisible();
 
-    await page.goto(`/hr/employees/${isaac.memberId}/history`);
+    await page.goto(`/hr/employees/${isaac.employmentId}/history`);
     const timeline = page.getByRole("list", { name: /Employment timeline/ });
     await expect(timeline.getByTestId("timeline-event").first()).toContainText("Promoted to Director of Inventory");
     await expect(timeline.getByRole("link", { name: "E2E contract amendment.pdf" })).toBeVisible();
@@ -73,7 +73,7 @@ test("HR moves somebody to another company of the group, and where they were sta
   const henry = await memberOf("group-hse");
   const restore = await snapshotEmploymentsWith(db, [henry.employmentId]);
   try {
-    await signIn(page, "HR", { to: `/hr/employees/${henry.memberId}` });
+    await signIn(page, "HR", { to: `/hr/employees/${henry.employmentId}` });
     await openChange(page, "Transfer to another company");
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Company").selectOption({ label: "Meridian Developments" });
@@ -116,7 +116,7 @@ test("HR corrects a date with a reason, and the original is kept beside it (§22
   const anna = await memberOf("architect-a");
   const restore = await snapshotEmploymentsWith(db, [anna.employmentId]);
   try {
-    await signIn(page, "HR", { to: `/hr/employees/${anna.memberId}/history` });
+    await signIn(page, "HR", { to: `/hr/employees/${anna.employmentId}/history` });
     const promoted = mainRegion(page).getByTestId("assignment-row").filter({ hasText: "Promoted" });
     await promoted.getByRole("button", { name: /Correct/ }).click();
     const dialog = page.getByRole("dialog");
@@ -137,7 +137,7 @@ test("HR schedules a change, sees it waiting, and cancels it before it applies (
   const isaac = await memberOf("group-inventory");
   const restore = await snapshotEmploymentsWith(db, [isaac.employmentId]);
   try {
-    await signIn(page, "HR", { to: `/hr/employees/${isaac.memberId}` });
+    await signIn(page, "HR", { to: `/hr/employees/${isaac.employmentId}` });
     await openChange(page, "Change work location");
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Works at").selectOption("REMOTE");
@@ -147,7 +147,7 @@ test("HR schedules a change, sees it waiting, and cancels it before it applies (
     await dialog.getByRole("button", { name: "Schedule" }).click();
     await expect(dialog).toHaveCount(0);
 
-    await page.goto(`/hr/employees/${isaac.memberId}/history`);
+    await page.goto(`/hr/employees/${isaac.employmentId}/history`);
     const scheduled = mainRegion(page).getByTestId("scheduled-change");
     await expect(scheduled).toContainText("Location change");
     await scheduled.getByRole("button", { name: "Cancel" }).click();

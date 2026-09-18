@@ -17,7 +17,7 @@ import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import { countWorkingDays } from "@/lib/modules/hr/hr.calendar";
 
 export type LeaveFormValues = {
-  companyMemberId: string | null;
+  employeeId: string | null;
   leaveType: string;
   startDate: string;
   endDate: string;
@@ -70,16 +70,16 @@ export function LeaveForm({
         {employees ? (
           <Field
             label="Employee"
-            name="companyMemberId"
+            name="employeeId"
             required
             className="sm:col-span-2"
             hint="Leave empty to request your own leave."
           >
             <select
-              id="companyMemberId"
-              name="companyMemberId"
+              id="employeeId"
+              name="employeeId"
               className={selectClass}
-              defaultValue={values?.companyMemberId ?? ""}
+              defaultValue={values?.employeeId ?? ""}
             >
               <option value="">Myself</option>
               {employees.map((employee) => (

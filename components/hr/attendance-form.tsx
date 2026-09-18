@@ -17,7 +17,7 @@ import { acceptsTimes, attendanceStatusLabels } from "@/lib/modules/hr/hr.status
 import type { AttendanceStatus } from "@prisma/client";
 
 export type AttendanceFormValues = {
-  companyMemberId: string | null;
+  employeeId: string | null;
   date: string;
   status: string;
   checkIn: string | null;
@@ -77,12 +77,12 @@ export function AttendanceForm({
         }
       >
         {!lockedDate && employees ? (
-          <Field label="Employee" name="companyMemberId" hint="Leave empty to record your own day.">
+          <Field label="Employee" name="employeeId" hint="Leave empty to record your own day.">
             <select
-              id="companyMemberId"
-              name="companyMemberId"
+              id="employeeId"
+              name="employeeId"
               className={selectClass}
-              defaultValue={values?.companyMemberId ?? ""}
+              defaultValue={values?.employeeId ?? ""}
             >
               <option value="">Myself</option>
               {employees.map((employee) => (

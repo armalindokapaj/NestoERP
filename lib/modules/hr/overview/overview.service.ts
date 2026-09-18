@@ -5,7 +5,6 @@ import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { today } from "../hr.date";
-import { memberAddressed } from "../hr.person";
 import {
   buildAttendanceScopeWhere,
   buildEmployeeScopeWhere,
@@ -190,13 +189,11 @@ export async function attentionList(context: UserContext) {
 
   const scope = buildEmployeeScopeWhere(context);
   const select = {
-    companyMemberId: true,
+    id: true,
     startDate: true,
     endDate: true,
     probationEndDate: true,
-    companyMember: {
-      select: { user: { select: { firstName: true, lastName: true } } },
-    },
+    personProfile: { select: { firstName: true, lastName: true } },
   } satisfies Prisma.EmployeeProfileSelect;
 
   const [starting, ending, probation] = await Promise.all([
@@ -236,9 +233,9 @@ export async function attentionList(context: UserContext) {
   ]);
 
   const shape = (rows: typeof starting, dateKey: "startDate" | "endDate" | "probationEndDate") =>
-    rows.map(memberAddressed).map((row) => ({
-      memberId: row.companyMemberId,
-      fullName: `${row.companyMember.user.firstName} ${row.companyMember.user.lastName}`,
+    rows.map((row) => ({
+      employeeId: row.id,
+      fullName: `${row.personProfile.firstName} ${row.personProfile.lastName}`,
       date: row[dateKey] ? row[dateKey]!.toISOString().slice(0, 10) : null,
     }));
 

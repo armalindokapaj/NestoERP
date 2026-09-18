@@ -62,7 +62,7 @@ const FILE_MODELS: Record<string, Record<string, string>> = {
   "lib/actions/procurement.ts": { requestId: "PurchaseRequest", rfqId: "RFQ", quoteId: "SupplierQuote", purchaseOrderId: "PurchaseOrder", orderId: "PurchaseOrder", receiptId: "GoodsReceipt", supplierId: "Supplier" },
   "lib/actions/inventory.ts": { itemId: "InventoryItem", warehouseId: "Warehouse", receiptId: "InventoryReceipt", issueId: "StockIssue", returnId: "StockReturn", transferId: "StockTransfer", adjustmentId: "StockAdjustment", reservationId: "StockReservation", locationId: "InventoryLocation", goodsReceiptId: "GoodsReceipt" },
   "lib/actions/finance.ts": { invoiceId: "Invoice", expenseId: "Expense", budgetId: "ProjectBudget", commitmentId: "Commitment", paymentId: "Payment", proposalId: "Proposal" },
-  "lib/actions/hr.ts": { leaveId: "LeaveRequest", attendanceId: "AttendanceRecord", memberId: "CompanyMember", compensationId: "Compensation" },
+  "lib/actions/hr.ts": { leaveId: "LeaveRequest", attendanceId: "AttendanceRecord", employeeId: "EmployeeProfile", changeId: "EmploymentChange", compensationId: "Compensation" },
   "lib/actions/contracts.ts": { contractId: "Contract", amendmentId: "ContractAmendment", obligationId: "ContractObligation", partyId: "ContractParty" },
   "lib/actions/sales.ts": { leadId: "Lead", opportunityId: "Opportunity", proposalId: "Proposal" },
   "lib/actions/team.ts": { memberId: "CompanyMember", inviteId: "CompanyInvite", departmentId: "Department" },

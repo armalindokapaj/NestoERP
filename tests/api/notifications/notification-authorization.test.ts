@@ -85,13 +85,15 @@ describe("discussion notifications follow the thread's own requirements (PRD #38
     const ceo = await loginAs("CEO");
     const commentId = unique();
     dedupePrefixes.push(`COMMENT_MENTIONED:${commentId}:`);
+    // An employee record is the employment (E-04 §14).
+    const employment = await prisma.employeeProfile.findUniqueOrThrow({ where: { companyMemberId: "member_engineer" }, select: { id: true } });
 
     const status = await dispatchEvent({
       companyId: owner.companyId,
       eventType: NotificationEvent.COMMENT_MENTIONED,
       moduleKey: "hr",
       entityType: "employee",
-      entityId: "member_engineer",
+      entityId: employment.id,
       actorMemberId: owner.membershipId,
       payload: { commentId, recordLabel: "Employee record", actorName: "Owner", preview: "confidential", mentionedMemberIds: [hr.membershipId, ceo.membershipId] },
     });

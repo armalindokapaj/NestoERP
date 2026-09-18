@@ -35,7 +35,8 @@ export async function ensureBalance(
   input: {
     companyId: string;
     employeeProfileId: string;
-    companyMemberId: string;
+    /** The employee's login, if any; the balance is the employment's (E-04 §7). */
+    companyMemberId: string | null;
     leaveType: LeaveType;
     year: number;
   },

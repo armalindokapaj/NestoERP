@@ -8,6 +8,7 @@ import { requireUserContext } from "@/lib/context/current-user";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import * as compensation from "@/lib/modules/hr/compensation/compensation.service";
 import * as employees from "@/lib/modules/hr/employees/employee.service";
+import type { ProbableDuplicate } from "@/lib/modules/hr/employees/employee.service";
 import { applyEmploymentChange, cancelScheduledChange } from "@/lib/modules/hr/employment/employment.change.service";
 import { correctEmploymentHistory } from "@/lib/modules/hr/employment/employment.correction.service";
 import { cancelScheduledChangeSchema, correctionSchema, employmentChangeSchema } from "@/lib/modules/hr/employment/employment.schema";
@@ -35,16 +36,22 @@ import {
 
 export type HrActionResult =
   | { ok: true; id?: string; message?: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+  | { ok: false; error: string; fieldErrors?: Record<string, string[]>; duplicates?: ProbableDuplicate[] };
 
-function revalidateHr(memberId?: string) {
+function revalidateHr(employeeId?: string) {
   revalidatePath("/hr", "layout");
-  if (memberId) revalidatePath(`/hr/employees/${memberId}`, "layout");
+  if (employeeId) revalidatePath(`/hr/employees/${employeeId}`, "layout");
+  revalidatePath("/workforce", "layout");
   revalidatePath("/dashboard");
 }
 
 function toResult(error: unknown): HrActionResult {
-  if (error instanceof AccessError) return { ok: false, error: error.message };
+  if (error instanceof AccessError) {
+    // The people a new employee might already be, for HR to choose from (E-04 §92, §176).
+    const details = error.details as { code?: string; candidates?: ProbableDuplicate[] } | undefined;
+    if (details?.code === "PROBABLE_DUPLICATE") return { ok: false, error: error.message, duplicates: details.candidates ?? [] };
+    return { ok: false, error: error.message };
+  }
   console.error("[hr] action failed", error);
   return { ok: false, error: "We couldn't save your changes. Please try again." };
 }
@@ -77,19 +84,20 @@ export async function createEmployeeProfileAction(
   const parsed = createEmployeeProfileSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
 
-  let memberId: string;
+  let employeeId: string;
   try {
-    memberId = (await employees.createEmployeeProfile(context, parsed.data)).memberId;
+    employeeId = (await employees.createEmployeeProfile(context, parsed.data)).id;
   } catch (error) {
     return toResult(error);
   }
 
   revalidateHr();
-  redirect(`/hr/employees/${memberId}`);
+  revalidatePath("/people", "layout");
+  redirect(`/hr/employees/${employeeId}`);
 }
 
 export async function updateEmployeeProfileAction(
-  memberId: string,
+  employeeId: string,
   formData: FormData,
 ): Promise<HrActionResult> {
   const context = await requireUserContext();
@@ -98,13 +106,13 @@ export async function updateEmployeeProfileAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await employees.updateEmployeeProfile(context, memberId, parsed.data);
+    await employees.updateEmployeeProfile(context, employeeId, parsed.data);
   } catch (error) {
     return toResult(error);
   }
 
-  revalidateHr(memberId);
-  redirect(`/hr/employees/${memberId}`);
+  revalidateHr(employeeId);
+  redirect(`/hr/employees/${employeeId}`);
 }
 
 /**
@@ -112,7 +120,7 @@ export async function updateEmployeeProfileAction(
  * status, ending, rehire (E-03 §36, §74). The organization's placement door is
  * passed in, so a department's team follows the move (ADR 0004).
  */
-export async function employmentChangeAction(memberId: string, input: unknown): Promise<HrActionResult & { outcome?: EmploymentChangeResultDTO }> {
+export async function employmentChangeAction(employeeId: string, input: unknown): Promise<HrActionResult & { outcome?: EmploymentChangeResultDTO }> {
   const context = await requireUserContext();
 
   const parsed = employmentChangeSchema.safeParse(input);
@@ -120,12 +128,12 @@ export async function employmentChangeAction(memberId: string, input: unknown): 
 
   let outcome: EmploymentChangeResultDTO;
   try {
-    outcome = await applyEmploymentChange(context, memberId, parsed.data, { placement: placeMembership });
+    outcome = await applyEmploymentChange(context, employeeId, parsed.data, { placement: placeMembership });
   } catch (error) {
     return toResult(error);
   }
 
-  revalidateHr(memberId);
+  revalidateHr(employeeId);
   revalidatePath("/people", "layout");
   return {
     ok: true,
@@ -134,53 +142,53 @@ export async function employmentChangeAction(memberId: string, input: unknown): 
   };
 }
 
-export async function cancelScheduledChangeAction(memberId: string, changeId: string, reason?: string): Promise<HrActionResult> {
+export async function cancelScheduledChangeAction(employeeId: string, changeId: string, reason?: string): Promise<HrActionResult> {
   const context = await requireUserContext();
   const parsed = cancelScheduledChangeSchema.safeParse({ reason });
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await cancelScheduledChange(context, memberId, changeId, parsed.data.reason);
+    await cancelScheduledChange(context, employeeId, changeId, parsed.data.reason);
   } catch (error) {
     return toResult(error);
   }
 
-  revalidateHr(memberId);
+  revalidateHr(employeeId);
   return { ok: true };
 }
 
 /** A correction of one history row, with its reason (E-03 §42-§44, §76, §224). */
-export async function correctEmploymentHistoryAction(memberId: string, input: unknown): Promise<HrActionResult> {
+export async function correctEmploymentHistoryAction(employeeId: string, input: unknown): Promise<HrActionResult> {
   const context = await requireUserContext();
 
   const parsed = correctionSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await correctEmploymentHistory(context, memberId, parsed.data, { placement: placeMembership });
+    await correctEmploymentHistory(context, employeeId, parsed.data, { placement: placeMembership });
   } catch (error) {
     return toResult(error);
   }
 
-  revalidateHr(memberId);
+  revalidateHr(employeeId);
   revalidatePath("/people", "layout");
   return { ok: true };
 }
 
 export async function progressAction(
-  memberId: string,
+  employeeId: string,
   kind: "onboarding" | "offboarding",
   status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "NOT_REQUIRED",
 ): Promise<HrActionResult> {
   const context = await requireUserContext();
 
   try {
-    await employees.setProgress(context, memberId, kind, status);
+    await employees.setProgress(context, employeeId, kind, status);
   } catch (error) {
     return toResult(error);
   }
 
-  revalidateHr(memberId);
+  revalidateHr(employeeId);
   return { ok: true };
 }
 
@@ -189,7 +197,7 @@ export async function progressAction(
 /* -------------------------------------------------------------------------- */
 
 export async function recordCompensationAction(
-  memberId: string,
+  employeeId: string,
   formData: FormData,
 ): Promise<HrActionResult> {
   const context = await requireUserContext();
@@ -198,13 +206,13 @@ export async function recordCompensationAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await compensation.recordCompensation(context, memberId, parsed.data);
+    await compensation.recordCompensation(context, employeeId, parsed.data);
   } catch (error) {
     return toResult(error);
   }
 
-  revalidateHr(memberId);
-  redirect(`/hr/employees/${memberId}/compensation`);
+  revalidateHr(employeeId);
+  redirect(`/hr/employees/${employeeId}/compensation`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -285,7 +293,7 @@ export async function rejectLeaveAction(
 }
 
 export async function setLeaveBalanceAction(
-  memberId: string,
+  employeeId: string,
   formData: FormData,
 ): Promise<HrActionResult> {
   const context = await requireUserContext();
@@ -294,12 +302,12 @@ export async function setLeaveBalanceAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await leave.setLeaveBalance(context, memberId, parsed.data);
+    await leave.setLeaveBalance(context, employeeId, parsed.data);
   } catch (error) {
     return toResult(error);
   }
 
-  revalidateHr(memberId);
+  revalidateHr(employeeId);
   return { ok: true, message: "Leave balance saved." };
 }
 

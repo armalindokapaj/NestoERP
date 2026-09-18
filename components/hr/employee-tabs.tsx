@@ -26,11 +26,12 @@ const TABS = [
 export type EmployeeTabKey = (typeof TABS)[number]["key"];
 
 export function EmployeeTabs({
-  memberId,
+  employeeId,
   active,
   show,
 }: {
-  memberId: string;
+  /** The employment (E-04 §14). */
+  employeeId: string;
   active: EmployeeTabKey;
   show: Partial<Record<EmployeeTabKey, boolean>>;
 }) {
@@ -46,7 +47,7 @@ export function EmployeeTabs({
           return (
             <li key={tab.key}>
               <Link
-                href={`/hr/employees/${memberId}${tab.suffix}`}
+                href={`/hr/employees/${employeeId}${tab.suffix}`}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",

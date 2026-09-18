@@ -99,12 +99,12 @@ type EmploymentHead = {
  * wherever self-service allows it; with no membership in that company, it is
  * still their own history (E-03 §57).
  */
-export function historyViewOf(context: UserContext | null, employment: { companyId: string; companyMemberId: string | null; memberDepartmentId: string | null }, ownPerson: boolean): HistoryView | null {
+export function historyViewOf(context: UserContext | null, employment: { companyId: string; companyMemberId: string | null; departmentId: string | null }, ownPerson: boolean): HistoryView | null {
   const inCompany = context !== null && context.companyId === employment.companyId;
   const ownMembership = inCompany && employment.companyMemberId !== null && employment.companyMemberId === context!.membershipId;
   if (inCompany && canAccessModule(context!, "hr")) {
     const kind = hrScopeKind(context!);
-    const inScope = kind === "COMPANY" || ownMembership || (kind === "DEPARTMENT" && context!.department !== null && employment.memberDepartmentId === context!.department.id);
+    const inScope = kind === "COMPANY" || ownMembership || (kind === "DEPARTMENT" && context!.department !== null && employment.departmentId === context!.department.id);
     if (inScope && can(context!, "hr.employment_history.view")) return "HR";
     if ((ownMembership || ownPerson) && can(context!, "hr.self.employment")) return "SELF";
     return null;
@@ -113,12 +113,12 @@ export function historyViewOf(context: UserContext | null, employment: { company
   return null;
 }
 
-/** One employment's history, from HR's employee page (E-03 §58, §162). */
-export async function getEmploymentHistory(context: UserContext, memberId: string): Promise<EmploymentHistoryDTO> {
+/** One employment's history, from HR's employee page (E-03 §58, §162) — with a login or without one (E-04 §86). */
+export async function getEmploymentHistory(context: UserContext, employmentId: string): Promise<EmploymentHistoryDTO> {
   assertModule(context, "hr");
-  const row = await repository.findEmployeeByMember(context, memberId);
+  const row = await repository.findEmployee(context, employmentId);
   if (!row) throw new AccessError("NOT_FOUND");
-  const view = historyViewOf(context, { companyId: context.companyId, companyMemberId: row.companyMemberId, memberDepartmentId: row.companyMember.department?.id ?? null }, false);
+  const view = historyViewOf(context, { companyId: context.companyId, companyMemberId: row.companyMemberId, departmentId: row.department?.id ?? null }, false);
   // Somebody who may see the record but not its history (the CEO, a manager) is refused, not shown an empty history.
   if (!view) throw new AccessError("FORBIDDEN");
   const head = await prisma.employeeProfile.findFirstOrThrow({
@@ -152,7 +152,7 @@ export async function getPersonEmploymentHistory(session: UserContext, personId:
       startDate: true,
       endDate: true,
       company: { select: { id: true, name: true, legalName: true } },
-      companyMember: { select: { departmentId: true } },
+      departmentId: true,
     },
     orderBy: [{ startDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
   });
@@ -164,7 +164,7 @@ export async function getPersonEmploymentHistory(session: UserContext, personId:
     const context = contexts.get(employment.companyId) ?? null;
     // Self-service is a permission too: somebody whose role has no HR self-service in their session sees none.
     if (ownPerson && !context && !can(session, "hr.self.employment")) continue;
-    const view = historyViewOf(context, { companyId: employment.companyId, companyMemberId: employment.companyMemberId, memberDepartmentId: employment.companyMember?.departmentId ?? null }, ownPerson);
+    const view = historyViewOf(context, { companyId: employment.companyId, companyMemberId: employment.companyMemberId, departmentId: employment.departmentId }, ownPerson);
     if (!view) continue;
     visible.push(await buildEmploymentHistory(context, employment, view));
   }

@@ -102,6 +102,20 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
    * adds reopening an approved week and the company's rules.
    */
   /**
+   * Workforce (E-04 §146-§152).
+   *
+   * Reading the workforce shows who works where — trade, crew, project, site —
+   * and never HR's private record. Recording attendance on site is the
+   * contributor's rung: a project manager or site engineer does it for the
+   * workers on their projects (§48). Crews, assignments and the trade list are
+   * managed at MANAGE.
+   */
+  workforce: {
+    VIEW: ["workforce.view", "workforce.attendance.view"],
+    CONTRIBUTE: ["workforce.attendance.manage"],
+    MANAGE: ["workforce.crew.manage", "workforce.project_assignment.manage", "workforce.trade.manage"],
+  },
+  /**
    * Daily logs (PRD #43 §126-§144). Field authors write the day; the project
    * manager reviews and locks it; MANAGE adds voiding and the controlled
    * correction of a locked record. Company rules are the Owner's alone — a
@@ -426,6 +440,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "hr.employee.update_profile",
       "hr.employee.status.update",
       "hr.employee.manager.assign",
+      "hr.employee.import",
       "hr.employment.update",
       "hr.employment.transfer_entity",
       "hr.employment.schedule",
@@ -1045,7 +1060,7 @@ type RoleMatrixRow = Partial<Record<ModuleKey, MatrixCell>>;
  */
 const MATRIX: Record<RoleKey, RoleMatrixRow> = {
   OWNER: {
-    calendar: "M/C", approvals: "M/C", announcements: "M/C", meetings: "M/C", timesheets: "M/C", dailyLogs: "M/C", contractors: "M/C", engineering: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
+    calendar: "M/C", approvals: "M/C", announcements: "M/C", meetings: "M/C", timesheets: "M/C", dailyLogs: "M/C", workforce: "M/C", contractors: "M/C", engineering: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
     finance: "M/C", hr: "M/C", sales: "M/C", contracts: "M/C",
     procurement: "M/C", inventory: "M/C", qaqc: "M/C", hse: "M/C",
     team: "M/C", company: "M/C", settings: "M/C", support: "V/C", organization: "M/G",
@@ -1063,17 +1078,17 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "M/C", company: "M/C", settings: "M/SYS", support: "M/SYS", organization: "V/G",
   },
   HR: {
-    calendar: "M/C", approvals: "A/C", announcements: "M/C", meetings: "C/C", timesheets: "M/C", projects: "V/C", tasks: "C/S", documents: "C/D", hr: "M/C",
+    calendar: "M/C", approvals: "A/C", announcements: "M/C", meetings: "C/C", timesheets: "M/C", workforce: "M/C", projects: "V/C", tasks: "C/S", documents: "C/D", hr: "M/C",
     team: "M/C", company: "V/C", settings: "V/S", support: "V/C", organization: "V/C",
   },
   CEO: {
-    calendar: "C/C", approvals: "A/C", announcements: "M/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", contractors: "V/C", engineering: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
+    calendar: "C/C", approvals: "A/C", announcements: "M/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", workforce: "V/C", contractors: "V/C", engineering: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
     finance: "A/C", hr: "V/C", sales: "A/C", contracts: "A/C",
     procurement: "A/C", inventory: "V/C", qaqc: "V/C", hse: "V/C",
     team: "V/C", company: "V/C", support: "V/C", organization: "V/C",
   },
   PROJECT_MANAGER: {
-    calendar: "C/C", approvals: "A/P", announcements: "A/P", meetings: "C/C", timesheets: "A/P", dailyLogs: "M/P", contractors: "M/P", engineering: "A/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
+    calendar: "C/C", approvals: "A/P", announcements: "A/P", meetings: "C/C", timesheets: "A/P", dailyLogs: "M/P", workforce: "M/P", contractors: "M/P", engineering: "A/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
     finance: "V/P", hr: "V/P", sales: "V/P", contracts: "V/P",
     procurement: "C/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", company: "V/C", support: "V/C",
@@ -1084,7 +1099,7 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "V/P", support: "V/C",
   },
   ENGINEER: {
-    calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "C/AS", contractors: "V/P", engineering: "A/P", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
+    calendar: "C/C", approvals: "V/P", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "C/AS", workforce: "C/AS", contractors: "V/P", engineering: "A/P", projects: "C/AS", tasks: "C/AS", clients: "V/P", documents: "C/P",
     finance: "V/P", hr: "V/S",
     procurement: "V/P", inventory: "V/P", qaqc: "C/P", hse: "C/P",
     team: "V/P", support: "V/C",
@@ -1117,12 +1132,12 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "V/C", company: "V/C", support: "V/C",
   },
   QAQC: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", contractors: "V/C", engineering: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", workforce: "V/P", contractors: "V/C", engineering: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "M/C", hse: "V/P",
     team: "V/P", company: "V/C", support: "V/C",
   },
   HSE: {
-    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", contractors: "V/C", engineering: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
+    calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/P", workforce: "V/C", contractors: "V/C", engineering: "V/P", projects: "V/P", tasks: "C/P", documents: "C/P", hr: "V/S",
     qaqc: "V/P", hse: "M/C",
     team: "V/P", company: "V/C", support: "V/C",
   },

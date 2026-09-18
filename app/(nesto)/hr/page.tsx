@@ -212,7 +212,7 @@ function AttentionPanel({
   emptyLabel,
 }: {
   title: string;
-  rows: { memberId: string; fullName: string; date: string | null }[];
+  rows: { employeeId: string; fullName: string; date: string | null }[];
   emptyLabel: string;
 }) {
   return (
@@ -223,9 +223,9 @@ function AttentionPanel({
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {rows.map((row) => (
-            <li key={row.memberId} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+            <li key={row.employeeId} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
               <Link
-                href={`/hr/employees/${row.memberId}`}
+                href={`/hr/employees/${row.employeeId}`}
                 className="min-w-0 truncate text-table text-fg transition-colors hover:text-accent"
               >
                 {row.fullName}

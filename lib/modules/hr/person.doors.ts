@@ -159,6 +159,12 @@ export async function linkEmploymentToLogin(
     if (linked.count === 0) {
       throw new AccessError("CONFLICT", "That employment record already has a login, or belongs to somebody else.", { code: "EMPLOYMENT_LINKED" });
     }
+    // Leave and attendance HR kept before the login existed are this login's
+    // from now on, so self-service, approvals and timesheets find them (E-04 §88).
+    const owned = { employeeProfileId: input.employeeProfileId, companyId: input.companyId, companyMemberId: null };
+    await tx.leaveRequest.updateMany({ where: owned, data: { companyMemberId: input.companyMemberId } });
+    await tx.leaveBalance.updateMany({ where: owned, data: { companyMemberId: input.companyMemberId } });
+    await tx.attendanceRecord.updateMany({ where: owned, data: { companyMemberId: input.companyMemberId } });
     // A request without a manager leaves the employment's own manager alone.
     if (input.managerMemberId) await recordManagerFromRequest(tx, input.employeeProfileId, input.companyId, input.managerMemberId, input.actor);
     await followMembership(tx, { companyId: input.companyId, userId: input.userId, actor: input.actor });

@@ -60,13 +60,13 @@ export function ProgressTable({
       caption={kind === "onboarding" ? "Onboarding" : "Offboarding"}
       columns={columns}
       records={rows}
-      rowKey={(row) => row.memberId}
-      rowHref={(row) => `/hr/employees/${row.memberId}`}
+      rowKey={(row) => row.employeeId}
+      rowHref={(row) => `/hr/employees/${row.employeeId}`}
       actions={
         canManage
           ? (row) => (
               <ProgressActions
-                memberId={row.memberId}
+                employeeId={row.employeeId}
                 kind={kind}
                 current={row.progress}
                 name={row.fullName}

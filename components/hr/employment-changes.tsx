@@ -71,7 +71,7 @@ export function EmploymentChanges({ employee, options, today }: { employee: Empl
     <>
       {employee.capabilities.canEditEmployment ? (
         <Button asChild variant="secondary" size="sm">
-          <Link href={`/hr/employees/${employee.memberId}/employment/edit`}>
+          <Link href={`/hr/employees/${employee.id}/employment/edit`}>
             <PenLine aria-hidden="true" />
             Edit details
           </Link>
@@ -190,7 +190,7 @@ function ChangeDialog({ action, employee, options, today, onClose }: { action: A
     setError(null);
     setFieldErrors({});
     startTransition(async () => {
-      const result = await employmentChangeAction(employee.memberId, payload());
+      const result = await employmentChangeAction(employee.id, payload());
       if (result.ok) {
         toast({ title: result.message ?? "Saved.", tone: "success" });
         onClose();
@@ -378,7 +378,7 @@ function ChangeDialog({ action, employee, options, today, onClose }: { action: A
             ) : (
               <p className="text-meta text-fg-subtle">
                 To link a contract or letter, first file it in the{" "}
-                <Link className="text-accent-strong hover:underline" href={`/hr/employees/${employee.memberId}/documents`}>
+                <Link className="text-accent-strong hover:underline" href={`/hr/employees/${employee.id}/documents`}>
                   employee&apos;s documents
                 </Link>
                 .

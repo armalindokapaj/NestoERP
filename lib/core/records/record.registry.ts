@@ -17,7 +17,7 @@ import {
   buildPaymentScopeWhere,
 } from "@/lib/modules/finance/finance.scope";
 import { personName, PERSON_NAME_SELECT } from "@/lib/modules/hr/hr.person";
-import { buildEmployeeScopeWhere, buildLeaveScopeWhere, isSelf } from "@/lib/modules/hr/hr.scope";
+import { buildEmployeeScopeWhere, buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
 import {
   buildActionScopeWhere as buildHseActionScopeWhere,
   buildHazardScopeWhere,
@@ -372,7 +372,7 @@ const DEFINITIONS: RecordDefinition[] = [
 
   /* HR -------------------------------------------------------------------- */
   {
-    // Addressed by membership id, the way every HR route is.
+    // Addressed by the employment, with or without a login (E-04 §7, §61).
     type: "employee",
     moduleKey: "hr",
     noun: "Employee record",
@@ -381,34 +381,33 @@ const DEFINITIONS: RecordDefinition[] = [
     viewPermissions: ["hr.employee.view"],
     async find(context, id) {
       const row = await prisma.employeeProfile.findFirst({
-        where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: id, companyId: context.companyId }] },
+        where: { AND: [buildEmployeeScopeWhere(context), { id, companyId: context.companyId }] },
         select: {
-          companyMemberId: true,
+          id: true,
           companyId: true,
-          managerMemberId: true,
           personProfile: PERSON_NAME_SELECT,
         },
       });
-      return row?.companyMemberId ? {
-        type: "employee", id: row.companyMemberId, companyId: row.companyId,
+      return row ? {
+        type: "employee", id: row.id, companyId: row.companyId,
         label: personName(row.personProfile),
-        href: `/hr/employees/${row.companyMemberId}`, projectId: null, archived: false,
+        href: `/hr/employees/${row.id}`, projectId: null, archived: false,
         stakeholderMemberIds: [],
       } : null;
     },
     async reachable(context, ids) {
       if (ids.length === 0) return [];
       const rows = await prisma.employeeProfile.findMany({
-        where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: { in: ids }, companyId: context.companyId }] },
-        select: { companyMemberId: true },
+        where: { AND: [buildEmployeeScopeWhere(context), { id: { in: ids }, companyId: context.companyId }] },
+        select: { id: true },
       });
-      return rows.flatMap((row) => (row.companyMemberId ? [row.companyMemberId] : []));
+      return rows.map((row) => row.id);
     },
     documents: {
       view: ["hr.document.view"],
       upload: ["hr.document.create"],
       tabHref: recordDocumentsTab,
-      self: { permission: "hr.self.documents", isSelf },
+      self: { permission: "hr.self.documents", isSelf: ownEmployment },
       reviewable: false,
     },
     // An HR discussion about somebody is more confidential than their record:
@@ -1866,4 +1865,9 @@ export async function loadRecord(context: UserContext, type: string, id: string)
 
 export async function canReadRecord(context: UserContext, type: string, id: string): Promise<boolean> {
   return (await loadRecord(context, type, id)) !== null;
+}
+
+/** Somebody's own employment here: the login it names is theirs (HR self-service, E-04 §7). */
+async function ownEmployment(context: UserContext, id: string): Promise<boolean> {
+  return (await prisma.employeeProfile.count({ where: { id, companyId: context.companyId, companyMemberId: context.membershipId } })) > 0;
 }

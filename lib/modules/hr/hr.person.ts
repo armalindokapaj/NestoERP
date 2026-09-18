@@ -4,13 +4,13 @@ import { linkPersonProfile } from "@/lib/auth/identity";
 import type { UserContext } from "@/lib/context/types";
 
 /**
- * The person behind an employment record (E-06 §22, §25).
+ * The person behind an employment record (E-06 §22, §25; E-04 §2-§7).
  *
- * An employment record always names a person, and names a membership once
- * Group IT has provisioned a login. Every V0.1 HR screen is addressed by
- * membership id, so the HR scope builders only reach records that have one;
- * `memberAddressed` narrows the rows those queries return to match, and says
- * so loudly if a record without a login ever slips through.
+ * An employment record always names a person, and names a membership only
+ * once Group IT has provisioned a login — which many employees never need: a
+ * mason, a driver, a site labourer (E-04 §1). So HR addresses an employee by
+ * the employment, names them from the person, and treats the login as one
+ * optional fact about them: whether they have a NESTO account.
  */
 
 export const PERSON_NAME_SELECT = {
@@ -23,18 +23,34 @@ export function personName(person: PersonName): string {
   return `${person.firstName} ${person.lastName}`;
 }
 
-type MemberBearing = { companyMemberId: string | null; companyMember: unknown };
+/**
+ * Whether the employee has a NESTO account (E-04 §17, §20): none at all, one
+ * they can use, or one that is switched off. Derived, never stored — the
+ * membership and the user are the account's own records.
+ */
+export type AccountStatus = "HAS_ACCOUNT" | "NO_ACCOUNT" | "ACCOUNT_SUSPENDED";
 
-export type MemberAddressed<T extends MemberBearing> = T & {
-  companyMemberId: string;
-  companyMember: NonNullable<T["companyMember"]>;
-};
+export const ACCOUNT_STATUSES = ["HAS_ACCOUNT", "NO_ACCOUNT", "ACCOUNT_SUSPENDED"] as const satisfies readonly AccountStatus[];
 
-export function memberAddressed<T extends MemberBearing>(row: T): MemberAddressed<T> {
-  if (row.companyMemberId === null || row.companyMember === null) {
-    throw new Error("An employment record without a login reached a screen addressed by membership.");
+export function accountStatusOf(member: { status: string; user: { status: string } | null } | null): AccountStatus {
+  if (!member) return "NO_ACCOUNT";
+  const usable = (member.status === "ACTIVE" || member.status === "INVITED") && member.user?.status === "ACTIVE";
+  return usable ? "HAS_ACCOUNT" : "ACCOUNT_SUSPENDED";
+}
+
+/** The employments whose account is in this state, as a filter (E-04 §20, §263). */
+export function accountStatusWhere(status: AccountStatus): Prisma.EmployeeProfileWhereInput {
+  switch (status) {
+    case "NO_ACCOUNT":
+      return { companyMemberId: null };
+    case "HAS_ACCOUNT":
+      return { companyMember: { is: { status: { in: ["ACTIVE", "INVITED"] }, user: { status: "ACTIVE" } } } };
+    case "ACCOUNT_SUSPENDED":
+      return {
+        companyMemberId: { not: null },
+        NOT: { companyMember: { is: { status: { in: ["ACTIVE", "INVITED"] }, user: { status: "ACTIVE" } } } },
+      };
   }
-  return row as MemberAddressed<T>;
 }
 
 /**

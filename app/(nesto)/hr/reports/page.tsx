@@ -284,8 +284,8 @@ async function AttendanceReport({ context }: { context: UserContext }) {
           caption="Attendance summary"
           columns={columns}
           records={rows}
-          rowKey={(row) => row.memberId}
-          rowHref={(row) => `/hr/employees/${row.memberId}/attendance`}
+          rowKey={(row) => row.employeeId}
+          rowHref={(row) => `/hr/employees/${row.employeeId}/attendance`}
         />
       )}
     </ReportShell>
@@ -335,8 +335,8 @@ async function EndingSoonReport({ context }: { context: UserContext }) {
           caption="Employment ending"
           columns={columns}
           records={rows}
-          rowKey={(row) => row.memberId}
-          rowHref={(row) => `/hr/employees/${row.memberId}`}
+          rowKey={(row) => row.employeeId}
+          rowHref={(row) => `/hr/employees/${row.employeeId}`}
         />
       )}
     </ReportShell>
@@ -391,8 +391,8 @@ async function CompensationReport({ context }: { context: UserContext }) {
           caption="Compensation"
           columns={columns}
           records={rows}
-          rowKey={(row) => row.memberId}
-          rowHref={(row) => `/hr/employees/${row.memberId}/compensation`}
+          rowKey={(row) => row.employeeId}
+          rowHref={(row) => `/hr/employees/${row.employeeId}/compensation`}
         />
       )}
     </ReportShell>

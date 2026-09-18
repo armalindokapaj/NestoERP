@@ -35,9 +35,9 @@ export async function employmentsVisibleTo(session: UserContext, personProfileId
       workLocation: true,
       workLocationType: true,
       jobTitle: true,
+      departmentId: true,
       department: { select: { name: true } },
       company: { select: { id: true, name: true, legalName: true, registrationNumber: true } },
-      companyMember: { select: { departmentId: true } },
       managerMember: { select: { user: { select: { firstName: true, lastName: true } } } },
     },
     orderBy: [{ startDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
@@ -55,12 +55,12 @@ export async function employmentsVisibleTo(session: UserContext, personProfileId
     const inScope =
       kind === "COMPANY" ||
       own ||
-      (kind === "DEPARTMENT" && context.department !== null && employment.companyMember?.departmentId === context.department.id);
+      (kind === "DEPARTMENT" && context.department !== null && employment.departmentId === context.department.id);
     const allowed = (can(context, "hr.employee.view") && inScope) || (own && can(context, "hr.self.employment"));
     if (!allowed) continue;
 
-    // HR's own pages are addressed by membership, in the session's company.
-    const hrHref = employment.companyMemberId && employment.companyId === session.companyId ? `/hr/employees/${employment.companyMemberId}` : null;
+    // HR's own pages are addressed by the employment, in the session's company (E-04 §14).
+    const hrHref = employment.companyId === session.companyId ? `/hr/employees/${employment.id}` : null;
     visible.push({
       id: employment.id,
       company: employment.company,

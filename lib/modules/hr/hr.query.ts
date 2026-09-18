@@ -8,6 +8,7 @@ import {
   LEAVE_SORT_KEYS,
   LEAVE_STATUSES,
   LEAVE_TYPES,
+  WORKER_CATEGORIES,
   attendanceListQuerySchema,
   employeeListQuerySchema,
   leaveListQuerySchema,
@@ -15,6 +16,7 @@ import {
   type EmployeeListQuery,
   type LeaveListQuery,
 } from "./hr.schema";
+import { ACCOUNT_STATUSES } from "./hr.person";
 
 /**
  * URL search parameters → validated list queries (PRD #16 §207).
@@ -80,6 +82,9 @@ export function parseEmployeeQuery(
     employmentType: list(read(params, "employmentType"), EMPLOYMENT_TYPES),
     departmentId: read(params, "departmentId") || undefined,
     managerMemberId: read(params, "managerMemberId") || undefined,
+    accountStatus: list(read(params, "accountStatus"), ACCOUNT_STATUSES),
+    workerCategory: list(read(params, "workerCategory"), WORKER_CATEGORIES),
+    tradeId: read(params, "tradeId") || undefined,
     page: page(params),
     limit: limit(params),
     sort: sortKey(read(params, "sort"), EMPLOYEE_SORT_KEYS, defaults.sort ?? "name-asc"),

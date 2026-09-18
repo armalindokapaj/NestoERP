@@ -197,4 +197,24 @@ export const attendanceSourceLabels = {
   SELF: "Self-recorded",
   IMPORT: "Imported",
   SYSTEM: "From approved leave",
+  SITE: "Recorded on site",
+} as const;
+
+/** Whether an employee can sign in to NESTO (E-04 §17). */
+export const accountStatusLabels = {
+  HAS_ACCOUNT: "Has a NESTO account",
+  NO_ACCOUNT: "No NESTO account",
+  ACCOUNT_SUSPENDED: "Account suspended",
+} as const;
+
+/** The kind of worker somebody is (E-04 §10). Not a NESTO role. */
+export const workerCategoryLabels = {
+  OFFICE: "Office",
+  FIELD: "Field",
+  SITE: "Site",
+  CONSTRUCTION_WORKER: "Construction worker",
+  DRIVER: "Driver",
+  TECHNICIAN: "Technician",
+  SUPERVISOR: "Supervisor",
+  OTHER: "Other",
 } as const;

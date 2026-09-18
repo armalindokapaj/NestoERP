@@ -605,6 +605,40 @@ enum WorkLocationType {
   OTHER
 }
 
+/// What kind of worker somebody is (E-04 §10). Not a security role (§13).
+enum WorkerCategory {
+  OFFICE
+  FIELD
+  SITE
+  CONSTRUCTION_WORKER
+  DRIVER
+  TECHNICIAN
+  SUPERVISOR
+  OTHER
+}
+
+enum ProjectSiteStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum WorkforceCrewStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum HseIncidentInvolvement {
+  INJURED
+  WITNESS
+  INVOLVED
+}
+
+enum EmployeeImportStatus {
+  PREVIEWED
+  COMMITTED
+  DISCARDED
+}
+
 /// Why an employment's organizational state changed (E-03 §29). "Role change"
 /// there means the job, never the NESTO security role (§107-§109), so it is
 /// TITLE_CHANGE here.
@@ -716,6 +750,8 @@ enum AttendanceSource {
   SELF
   IMPORT
   SYSTEM
+  /// Recorded on site by whoever runs the crew or the project (E-04 §48, §52).
+  SITE
 }
 
 /// Sales (PRD #17 §173, §174).
@@ -1217,51 +1253,59 @@ model Company {
   uploadSessions      DocumentUploadSession[]
   numberingSchemes    CompanyNumberingScheme[]
 
-  financeSettings         FinanceSettings?
-  invoices                Invoice[]
-  expenses                Expense[]
-  payments                Payment[]
-  projectBudgets          ProjectBudget[]
-  commitments             Commitment[]
-  financeApprovals        FinanceApproval[]
-  employeeProfiles        EmployeeProfile[]
-  compensations           Compensation[]
-  employmentAssignments   EmploymentAssignment[]
-  employmentStatusHistory EmploymentStatusHistory[]
-  employmentChanges       EmploymentChange[]
-  leaveRequests           LeaveRequest[]
-  leaveBalances           LeaveBalance[]
-  attendanceRecords       AttendanceRecord[]
-  leads                   Lead[]
-  opportunities           Opportunity[]
-  proposals               Proposal[]
-  salesApprovals          SalesApproval[]
-  contracts               Contract[]
-  contractParties         ContractParty[]
-  contractObligations     ContractObligation[]
-  contractAmendments      ContractAmendment[]
-  contractApprovals       ContractApproval[]
-  suppliers               Supplier[]
-  purchaseRequests        PurchaseRequest[]
-  purchaseOrders          PurchaseOrder[]
-  rfqs                    RFQ[]
-  supplierQuotes          SupplierQuote[]
-  goodsReceipts           GoodsReceipt[]
-  procurementApprovals    ProcurementApproval[]
-  inventoryItems          InventoryItem[]
-  warehouses              Warehouse[]
-  inventoryLocations      InventoryLocation[]
-  inventoryBalances       InventoryBalance[]
-  stockMovements          StockMovement[]
-  inventoryReceipts       InventoryReceipt[]
-  stockIssues             StockIssue[]
-  stockReturns            StockReturn[]
-  stockTransfers          StockTransfer[]
-  stockAdjustments        StockAdjustment[]
-  stockReservations       StockReservation[]
-  qualityRecords          QualityRecord[]
-  hseRecords              HseRecord[]
-  supportRequests         SupportRequest[]
+  financeSettings            FinanceSettings?
+  invoices                   Invoice[]
+  expenses                   Expense[]
+  payments                   Payment[]
+  projectBudgets             ProjectBudget[]
+  commitments                Commitment[]
+  financeApprovals           FinanceApproval[]
+  employeeProfiles           EmployeeProfile[]
+  compensations              Compensation[]
+  employmentAssignments      EmploymentAssignment[]
+  employmentStatusHistory    EmploymentStatusHistory[]
+  employmentChanges          EmploymentChange[]
+  leaveRequests              LeaveRequest[]
+  leaveBalances              LeaveBalance[]
+  attendanceRecords          AttendanceRecord[]
+  // E-04: the workforce — trades, crews, where people work, and people imported in bulk.
+  workforceTrades            WorkforceTrade[]
+  workforceCrews             WorkforceCrew[]
+  workforceCrewMembers       WorkforceCrewMember[]
+  employeeProjectAssignments EmployeeProjectAssignment[]
+  projectSites               ProjectSite[]
+  hseInductions              HseInduction[]
+  employeeImportBatches      EmployeeImportBatch[]
+  leads                      Lead[]
+  opportunities              Opportunity[]
+  proposals                  Proposal[]
+  salesApprovals             SalesApproval[]
+  contracts                  Contract[]
+  contractParties            ContractParty[]
+  contractObligations        ContractObligation[]
+  contractAmendments         ContractAmendment[]
+  contractApprovals          ContractApproval[]
+  suppliers                  Supplier[]
+  purchaseRequests           PurchaseRequest[]
+  purchaseOrders             PurchaseOrder[]
+  rfqs                       RFQ[]
+  supplierQuotes             SupplierQuote[]
+  goodsReceipts              GoodsReceipt[]
+  procurementApprovals       ProcurementApproval[]
+  inventoryItems             InventoryItem[]
+  warehouses                 Warehouse[]
+  inventoryLocations         InventoryLocation[]
+  inventoryBalances          InventoryBalance[]
+  stockMovements             StockMovement[]
+  inventoryReceipts          InventoryReceipt[]
+  stockIssues                StockIssue[]
+  stockReturns               StockReturn[]
+  stockTransfers             StockTransfer[]
+  stockAdjustments           StockAdjustment[]
+  stockReservations          StockReservation[]
+  qualityRecords             QualityRecord[]
+  hseRecords                 HseRecord[]
+  supportRequests            SupportRequest[]
 
   inspectionRequests          InspectionRequest[]
   inspectionTemplates         InspectionTemplate[]
@@ -1604,6 +1648,7 @@ model CompanyMember {
   responsiblePermits     HseWorkPermit[]            @relation("HsePermitResponsible")
   performedPpeChecks     PpeCheck[]                 @relation("PpeChecker")
   subjectPpeChecks       PpeCheck[]                 @relation("PpeSubject")
+  conductedInductions    HseInduction[]             @relation("HseInductionConductor")
   reportedObservations   EnvironmentalObservation[] @relation("EnvObservationReporter")
   assignedObservations   EnvironmentalObservation[] @relation("EnvObservationAssignee")
   issuedStopWorks        StopWorkRecord[]           @relation("StopWorkIssuer")
@@ -1653,25 +1698,25 @@ model CompanyMember {
 // ---------------------------------------------------------------------------
 
 model ParentGroup {
-  id            String            @id @default(cuid())
-  slug          String            @unique
-  name          String
-  legalName     String?
+  id                 String            @id @default(cuid())
+  slug               String            @unique
+  name               String
+  legalName          String?
   /// The group's own registration number (the NIPT in Albania) and city (D-01
   /// §4), beside its companies' own (E-01, ADR 0002).
   registrationNumber String?
-  city          String?
-  country       String?
-  timezone      String?
-  currency      String?
-  logoUrl       String?
-  status        ParentGroupStatus @default(IMPLEMENTING)
+  city               String?
+  country            String?
+  timezone           String?
+  currency           String?
+  logoUrl            String?
+  status             ParentGroupStatus @default(IMPLEMENTING)
   /// A deterministic test tenant: kept out of the Platform Admin's group list and
   /// the demo sign-in screen (E-06 §45, §150). Never set outside the seed.
-  isTestFixture Boolean           @default(false)
+  isTestFixture      Boolean           @default(false)
   /// A demonstration tenant (D-01 §68, §69): real public facts beside synthetic
   /// operational data, so every page says so. Set by a demo seed, never a form.
-  isDemo        Boolean           @default(false)
+  isDemo             Boolean           @default(false)
 
   activatedAt       DateTime?
   activatedByUserId String?
@@ -2133,19 +2178,26 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  calendarEvents   CalendarEvent[]
-  meetings         Meeting[]
-  meetingSeries    MeetingSeries[]
-  workLogs         WorkLog[]
-  dailyLogs        DailyLog[]
-  dailyLogSettings ProjectDailyLogSettings?
-  phases           ProjectPhase[]
-  milestones       ProjectMilestone[]
+  calendarEvents       CalendarEvent[]
+  meetings             Meeting[]
+  meetingSeries        MeetingSeries[]
+  workLogs             WorkLog[]
+  dailyLogs            DailyLog[]
+  dailyLogSettings     ProjectDailyLogSettings?
+  phases               ProjectPhase[]
+  milestones           ProjectMilestone[]
   /// The physical structure: buildings, their floors, the units on them (E-05B §3).
-  buildings        ProjectBuilding[]
-  floors           ProjectFloor[]
-  units            ProjectUnit[]
-  announcements    Announcement[]
+  buildings            ProjectBuilding[]
+  /// Where on the ground the work happens (E-04 §38): a project with none is its own single site.
+  sites                ProjectSite[]
+  // E-04: who works here, in which crews, and what was recorded on site.
+  workforceCrews       WorkforceCrew[]
+  workforceAssignments EmployeeProjectAssignment[]
+  attendanceRecords    AttendanceRecord[]
+  hseInductions        HseInduction[]
+  floors               ProjectFloor[]
+  units                ProjectUnit[]
+  announcements        Announcement[]
 
   contractorAssignments ProjectContractorAssignment[]
   workPackages          WorkPackage[]
@@ -2309,6 +2361,42 @@ model ProjectFloor {
   @@index([buildingId, sortOrder])
   @@index([companyId, projectId])
   @@map("project_floors")
+}
+
+/// A place a project's work happens (E-04 §38, §172): a plot, a compound, a
+/// second building site. Optional — a project without any is its own single
+/// site — and archived rather than deleted once anything refers to it.
+model ProjectSite {
+  id         String            @id @default(cuid())
+  companyId  String
+  projectId  String
+  name       String
+  code       String?
+  address    String?
+  city       String?
+  notes      String?
+  status     ProjectSiteStatus @default(ACTIVE)
+  archivedAt DateTime?
+
+  createdByMemberId String?
+  updatedByMemberId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  crews             WorkforceCrew[]
+  assignments       EmployeeProjectAssignment[]
+  attendanceRecords AttendanceRecord[]
+  inductions        HseInduction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, name])
+  @@unique([id, projectId])
+  @@unique([id, companyId])
+  @@index([companyId, projectId, status])
+  @@map("project_sites")
 }
 
 /// The one canonical unit (E-05B §2, §16-§30).
@@ -3983,6 +4071,12 @@ model EmployeeProfile {
   workLocation     String?
   weeklyHours      Decimal?          @db.Decimal(6, 2)
 
+  /// What kind of worker, and their trade (E-04 §10-§12). Workforce facts about
+  /// the job, never NESTO roles (§13): somebody without a login has a trade and
+  /// no role at all.
+  workerCategory WorkerCategory?
+  tradeId        String?
+
   onboardingStatus  HrProgressStatus @default(NOT_STARTED)
   offboardingStatus HrProgressStatus @default(NOT_REQUIRED)
 
@@ -3996,6 +4090,7 @@ model EmployeeProfile {
   provisioningRequests UserProvisioningRequest[]
   managerMember        CompanyMember?            @relation("EmployeeProfileManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
   department           Department?               @relation("EmployeeProfileDepartment", fields: [departmentId, companyId], references: [id, companyId], onDelete: Restrict)
+  trade                WorkforceTrade?           @relation(fields: [tradeId, companyId], references: [id, companyId], onDelete: Restrict)
 
   compensations     Compensation[]
   leaveRequests     LeaveRequest[]
@@ -4005,6 +4100,16 @@ model EmployeeProfile {
   assignments      EmploymentAssignment[]
   statusHistory    EmploymentStatusHistory[]
   scheduledChanges EmploymentChange[]
+
+  // E-04: where the employee works and with whom — none of it needs a login (§33-§42, §70-§74).
+  crewMemberships          WorkforceCrewMember[]
+  supervisedCrews          WorkforceCrew[]             @relation("WorkforceCrewSupervisor")
+  projectAssignments       EmployeeProjectAssignment[]
+  hseInductions            HseInduction[]
+  toolboxParticipations    ToolboxTalkParticipant[]
+  ppeChecks                PpeCheck[]                  @relation("PpeSubjectEmployee")
+  hseIncidentInvolvements  HseIncidentPerson[]
+  hseWorkPermitAssignments HseWorkPermitWorker[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4018,6 +4123,8 @@ model EmployeeProfile {
   @@index([personProfileId])
   @@index([companyId, employmentStatus])
   @@index([companyId, employmentType])
+  @@index([companyId, workerCategory])
+  @@index([companyId, tradeId])
   @@index([managerMemberId])
   @@index([startDate])
   @@index([endDate])
@@ -4163,6 +4270,179 @@ model EmploymentChange {
   @@map("employment_changes")
 }
 
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Workforce (E-04)
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+/// A company's list of trades — masons, electricians, steel fixers (E-04 §11).
+/// Configurable per company, like project types; a trade in use is retired,
+/// never deleted.
+model WorkforceTrade {
+  id        String  @id @default(cuid())
+  companyId String
+  name      String
+  code      String?
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdByMemberId String?
+  updatedByMemberId String?
+
+  company     Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees   EmployeeProfile[]
+  crews       WorkforceCrew[]
+  assignments EmployeeProjectAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name])
+  @@unique([id, companyId])
+  @@index([companyId, isActive, sortOrder])
+  @@map("workforce_trades")
+}
+
+/// A crew: a named team of the company's workers, usually on one project and
+/// site, led by a supervisor who may themselves have no login (E-04 §28, §31).
+model WorkforceCrew {
+  id                   String              @id @default(cuid())
+  companyId            String
+  name                 String
+  projectId            String?
+  siteId               String?
+  tradeId              String?
+  /// The foreman: an employment, not a login (E-04 §31, §32).
+  supervisorEmployeeId String?
+  status               WorkforceCrewStatus @default(ACTIVE)
+  notes                String?
+  archivedAt           DateTime?
+
+  createdByMemberId String?
+  updatedByMemberId String?
+
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project    Project?         @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  site       ProjectSite?     @relation(fields: [siteId, projectId], references: [id, projectId], onDelete: Restrict)
+  trade      WorkforceTrade?  @relation(fields: [tradeId, companyId], references: [id, companyId], onDelete: Restrict)
+  supervisor EmployeeProfile? @relation("WorkforceCrewSupervisor", fields: [supervisorEmployeeId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  members           WorkforceCrewMember[]
+  attendanceRecords AttendanceRecord[]
+  dailyLogEntries   DailyLogWorkforceEntry[]
+  permitAssignments HseWorkPermitWorker[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name])
+  @@unique([id, companyId])
+  @@index([companyId, status])
+  @@index([companyId, projectId])
+  @@index([supervisorEmployeeId])
+  @@map("workforce_crews")
+}
+
+/// One period of one employee in one crew (E-04 §29, §30). Never edited: a move
+/// ends this row and opens another, so the crew history is the rows. Both dates
+/// are inclusive business dates; the database refuses two overlapping periods
+/// for the same employee.
+model WorkforceCrewMember {
+  id                String    @id @default(cuid())
+  companyId         String
+  crewId            String
+  employeeProfileId String
+  role              String?
+  startDate         DateTime  @db.Date
+  endDate           DateTime? @db.Date
+  endReason         String?
+
+  createdByUserId String?
+  endedByUserId   String?
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  crew            WorkforceCrew   @relation(fields: [crewId, companyId], references: [id, companyId], onDelete: Cascade)
+  employeeProfile EmployeeProfile @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, crewId, endDate])
+  @@index([companyId, employeeProfileId, endDate])
+  @@map("workforce_crew_members")
+}
+
+/// Where an employee actually works: a project, and a site of it (E-04 §33-§42).
+/// Not `ProjectMember`, which is platform access and collaboration (§35): a
+/// worker without a login is assigned here and nowhere else. A transfer ends
+/// one row and opens another; the database refuses two overlapping periods on
+/// the same project, and two overlapping primary ones.
+model EmployeeProjectAssignment {
+  id                String    @id @default(cuid())
+  companyId         String
+  employeeProfileId String
+  projectId         String
+  siteId            String?
+  tradeId           String?
+  role              String?
+  isPrimary         Boolean   @default(false)
+  startDate         DateTime  @db.Date
+  endDate           DateTime? @db.Date
+  endReason         String?
+
+  createdByUserId String?
+  endedByUserId   String?
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeProfile EmployeeProfile @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Restrict)
+  project         Project         @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  site            ProjectSite?    @relation(fields: [siteId, projectId], references: [id, projectId], onDelete: Restrict)
+  trade           WorkforceTrade? @relation(fields: [tradeId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, projectId, endDate])
+  @@index([companyId, employeeProfileId, endDate])
+  @@index([companyId, siteId, endDate])
+  @@map("employee_project_assignments")
+}
+
+/// A bulk import of employees (E-04 §93-§98, §189): the rows as validated at
+/// preview and each one's outcome. Commit applies these rows, never a copy
+/// sent back by the browser.
+model EmployeeImportBatch {
+  id           String               @id @default(cuid())
+  companyId    String
+  fileName     String
+  status       EmployeeImportStatus @default(PREVIEWED)
+  rowCount     Int
+  validCount   Int
+  errorCount   Int
+  warningCount Int                  @default(0)
+  createdCount Int                  @default(0)
+  /// Whether the file carried pay — which only somebody allowed to record it may import (§95).
+  includesPay  Boolean              @default(false)
+  rows         Json
+
+  createdByUserId   String
+  committedAt       DateTime?
+  committedByUserId String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, createdAt])
+  @@map("employee_import_batches")
+}
+
 /// Pay, behind its own permission (PRD #16 §17, §58).
 ///
 /// Effective-dated rather than overwritten: a raise opens a new record and
@@ -4199,10 +4479,11 @@ model Compensation {
 }
 
 model LeaveRequest {
-  id                String @id @default(cuid())
+  id                String  @id @default(cuid())
   companyId         String
   employeeProfileId String
-  companyMemberId   String
+  /// The login the employee had, if any: leave is the employment's (E-04 §7).
+  companyMemberId   String?
 
   leaveType LeaveType
   startDate DateTime
@@ -4252,7 +4533,8 @@ model LeaveBalance {
   id                String    @id @default(cuid())
   companyId         String
   employeeProfileId String
-  companyMemberId   String
+  /// The login the employee had, if any: leave is the employment's (E-04 §7).
+  companyMemberId   String?
   leaveType         LeaveType
   year              Int
 
@@ -4279,10 +4561,17 @@ model LeaveBalance {
 /// leave is cancelled, take exactly those rows back out again — without
 /// touching anything a person entered by hand (PRD #16 §109, §110).
 model AttendanceRecord {
-  id                String @id @default(cuid())
+  id                String  @id @default(cuid())
   companyId         String
   employeeProfileId String
-  companyMemberId   String
+  /// The login the employee had when this was recorded, if any. Attendance is
+  /// the employment's; somebody without a NESTO account has it too (E-04 §51).
+  companyMemberId   String?
+
+  /// Where the day was worked, when it was recorded on site (E-04 §123, §243).
+  projectId String?
+  siteId    String?
+  crewId    String?
 
   date   DateTime
   status AttendanceStatus
@@ -4302,13 +4591,20 @@ model AttendanceRecord {
 
   company         Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   employeeProfile EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+  project         Project?        @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  site            ProjectSite?    @relation(fields: [siteId, projectId], references: [id, projectId], onDelete: Restrict)
+  crew            WorkforceCrew?  @relation(fields: [crewId, companyId], references: [id, companyId], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyMemberId, date])
+  @@unique([employeeProfileId, date])
   @@index([companyId])
   @@index([companyId, date])
+  @@index([companyId, employeeProfileId, date])
+  @@index([companyId, projectId, date])
+  @@index([companyId, siteId, date])
+  @@index([companyId, crewId, date])
   @@index([companyMemberId])
   @@index([employeeProfileId])
   @@index([status])
@@ -8096,11 +8392,14 @@ model HseIncident {
 
   actions   HseAction[]
   stopWorks StopWorkRecord[]
+  /// Who was hurt, saw it, or was involved (E-04 §73) — HSE's record, restricted like the incident.
+  people    HseIncidentPerson[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, incidentNumber])
+  @@unique([id, companyId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, incidentType])
@@ -8337,20 +8636,24 @@ model ToolboxTalkParticipant {
   id            String @id @default(cuid())
   toolboxTalkId String
 
-  companyMemberId String?
-  externalName    String?
+  companyMemberId   String?
+  /// A worker without a login is a participant by their employment (E-04 §71).
+  employeeProfileId String?
+  externalName      String?
 
   attendanceStatus  ToolboxAttendanceStatus
   signatureRecorded Boolean                 @default(false)
 
-  toolboxTalk   ToolboxTalk    @relation(fields: [toolboxTalkId], references: [id], onDelete: Cascade)
-  companyMember CompanyMember? @relation("ToolboxParticipant", fields: [companyMemberId], references: [id], onDelete: SetNull)
+  toolboxTalk     ToolboxTalk      @relation(fields: [toolboxTalkId], references: [id], onDelete: Cascade)
+  companyMember   CompanyMember?   @relation("ToolboxParticipant", fields: [companyMemberId], references: [id], onDelete: SetNull)
+  employeeProfile EmployeeProfile? @relation(fields: [employeeProfileId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([toolboxTalkId])
   @@index([companyMemberId])
+  @@index([employeeProfileId])
   @@index([attendanceStatus])
   @@map("toolbox_talk_participants")
 }
@@ -8407,11 +8710,14 @@ model HseWorkPermit {
   responsible CompanyMember? @relation("HsePermitResponsible", fields: [responsibleMemberId], references: [id], onDelete: SetNull)
 
   actions HseAction[]
+  /// The workers and crews the permit covers (E-04 §74).
+  workers HseWorkPermitWorker[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, permitNumber])
+  @@unique([id, companyId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([projectId])
@@ -8441,8 +8747,10 @@ model PpeCheck {
 
   checkedByMemberId String
 
-  subjectMemberId     String?
-  externalSubjectName String?
+  subjectMemberId          String?
+  /// Whose PPE was checked, when they have no login (E-04 §72).
+  subjectEmployeeProfileId String?
+  externalSubjectName      String?
 
   helmetOk                Boolean?
   eyeProtectionOk         Boolean?
@@ -8462,8 +8770,9 @@ model PpeCheck {
   company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  checkedBy CompanyMember  @relation("PpeChecker", fields: [checkedByMemberId], references: [id], onDelete: Restrict)
-  subject   CompanyMember? @relation("PpeSubject", fields: [subjectMemberId], references: [id], onDelete: SetNull)
+  checkedBy       CompanyMember    @relation("PpeChecker", fields: [checkedByMemberId], references: [id], onDelete: Restrict)
+  subject         CompanyMember?   @relation("PpeSubject", fields: [subjectMemberId], references: [id], onDelete: SetNull)
+  subjectEmployee EmployeeProfile? @relation("PpeSubjectEmployee", fields: [subjectEmployeeProfileId, companyId], references: [id, companyId], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -8474,8 +8783,91 @@ model PpeCheck {
   @@index([checkDate])
   @@index([checkedByMemberId])
   @@index([subjectMemberId])
+  @@index([subjectEmployeeProfileId])
   @@index([result])
   @@map("ppe_checks")
+}
+
+/// Somebody hurt by, witnessing or involved in an incident (E-04 §73): an
+/// employee of the company — with or without a login — or a named outsider.
+/// Read with the incident and nowhere else (§84).
+model HseIncidentPerson {
+  id                String                 @id @default(cuid())
+  companyId         String
+  incidentId        String
+  employeeProfileId String?
+  externalName      String?
+  involvement       HseIncidentInvolvement
+  notes             String?
+
+  createdByMemberId String
+
+  incident        HseIncident      @relation(fields: [incidentId, companyId], references: [id, companyId], onDelete: Cascade)
+  employeeProfile EmployeeProfile? @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([incidentId, employeeProfileId])
+  @@index([companyId, employeeProfileId])
+  @@map("hse_incident_people")
+}
+
+/// A worker or a whole crew a work permit covers (E-04 §74).
+model HseWorkPermitWorker {
+  id                String  @id @default(cuid())
+  companyId         String
+  permitId          String
+  employeeProfileId String?
+  crewId            String?
+
+  createdByMemberId String
+
+  permit          HseWorkPermit    @relation(fields: [permitId, companyId], references: [id, companyId], onDelete: Cascade)
+  employeeProfile EmployeeProfile? @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Restrict)
+  crew            WorkforceCrew?   @relation(fields: [crewId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([permitId, employeeProfileId])
+  @@unique([permitId, crewId])
+  @@index([companyId, employeeProfileId])
+  @@index([companyId, crewId])
+  @@map("hse_work_permit_workers")
+}
+
+/// A site induction given to a worker before they start on a project (E-04 §71,
+/// §270). A record of training, kept when it lapses; a wrong entry is voided
+/// with a reason, never deleted.
+model HseInduction {
+  id                  String    @id @default(cuid())
+  companyId           String
+  employeeProfileId   String
+  projectId           String
+  siteId              String?
+  inductedOn          DateTime  @db.Date
+  validUntil          DateTime? @db.Date
+  conductedByMemberId String
+  notes               String?
+
+  voidedAt         DateTime?
+  voidedByMemberId String?
+  voidReason       String?
+
+  createdByMemberId String
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeProfile EmployeeProfile @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Restrict)
+  project         Project         @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  site            ProjectSite?    @relation(fields: [siteId, projectId], references: [id, projectId], onDelete: Restrict)
+  conductedBy     CompanyMember   @relation("HseInductionConductor", fields: [conductedByMemberId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, employeeProfileId, inductedOn])
+  @@index([companyId, projectId, inductedOn])
+  @@index([conductedByMemberId])
+  @@map("hse_inductions")
 }
 
 /**
@@ -9894,10 +10286,13 @@ model DailyLogWorkforceEntry {
   workPackageId    String?
   trade            String?
   crewName         String?
+  /// One of the company's own crews, when the entry was taken from the workforce (E-04 §43, §182).
+  crewId           String?
   headcount        Int
   notes            String?
 
-  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  dailyLog DailyLog       @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  crew     WorkforceCrew? @relation(fields: [crewId, companyId], references: [id, companyId], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -9906,6 +10301,7 @@ model DailyLogWorkforceEntry {
   @@index([companyId, supplierId])
   @@index([companyId, contractorId])
   @@index([companyId, workPackageId])
+  @@index([companyId, crewId])
   @@map("daily_log_workforce_entries")
 }
 

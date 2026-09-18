@@ -2,7 +2,6 @@ import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { businessDateString } from "../hr.calendar";
-import { memberAddressed } from "../hr.person";
 import { buildEmployeeScopeWhere } from "../hr.scope";
 import type { EmploymentStatus, HrProgressStatus } from "@prisma/client";
 
@@ -16,7 +15,7 @@ import type { EmploymentStatus, HrProgressStatus } from "@prisma/client";
 export type ProgressKind = "onboarding" | "offboarding";
 
 export type ProgressRow = {
-  memberId: string;
+  employeeId: string;
   fullName: string;
   department: string | null;
   manager: string | null;
@@ -53,29 +52,25 @@ export async function listProgress(
     orderBy: kind === "onboarding" ? [{ startDate: "asc" }] : [{ endDate: "asc" }],
     take: 100,
     select: {
-      companyMemberId: true,
+      id: true,
       startDate: true,
       endDate: true,
       employmentStatus: true,
       onboardingStatus: true,
       offboardingStatus: true,
-      companyMember: {
-        select: {
-          user: { select: { firstName: true, lastName: true } },
-          department: { select: { name: true } },
-        },
-      },
+      personProfile: { select: { firstName: true, lastName: true } },
+      department: { select: { name: true } },
       managerMember: { select: { user: { select: { firstName: true, lastName: true } } } },
     },
   });
 
-  return records.map(memberAddressed).map((record) => {
+  return records.map((record) => {
     const date = kind === "onboarding" ? record.startDate : record.endDate;
 
     return {
-      memberId: record.companyMemberId,
-      fullName: `${record.companyMember.user.firstName} ${record.companyMember.user.lastName}`,
-      department: record.companyMember.department?.name ?? null,
+      employeeId: record.id,
+      fullName: `${record.personProfile.firstName} ${record.personProfile.lastName}`,
+      department: record.department?.name ?? null,
       manager: record.managerMember
         ? `${record.managerMember.user.firstName} ${record.managerMember.user.lastName}`
         : null,

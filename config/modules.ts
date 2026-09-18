@@ -22,6 +22,7 @@ export const MODULE_KEYS = [
   "meetings",
   "timesheets",
   "dailyLogs",
+  "workforce",
   "contractors",
   "engineering",
   "clients",
@@ -233,6 +234,29 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "team", label: "Team", permission: "timesheet.team.view" },
       { key: "projects", label: "Projects", permission: "timesheet.project.view" },
       { key: "settings", label: "Settings", permission: "timesheet.settings.manage" },
+    ],
+  },
+  /**
+   * The company's workforce (E-04 §18, §123, §136): everybody employed —
+   * whether or not they have a NESTO login — by trade, crew, project and site,
+   * and the attendance recorded where they work. A worker's own page is their
+   * person profile (E-09 §7); HR's employment record stays in HR.
+   */
+  workforce: {
+    key: "workforce",
+    label: "Workforce",
+    description: "Everyone the company employs on its projects: crews, sites, assignments and attendance.",
+    route: "/workforce",
+    icon: "Hammer",
+    group: "work",
+    permission: "workforce.view",
+    writePermission: "workforce.crew.manage",
+    defaultSection: "workers",
+    sections: [
+      { key: "workers", label: "Workers" },
+      { key: "crews", label: "Crews" },
+      { key: "attendance", label: "Attendance", permission: "workforce.attendance.view" },
+      { key: "trades", label: "Trades", permission: "workforce.trade.manage" },
     ],
   },
   /** The project's daily site record (PRD #43 §5, §6). Also a tab on every project. */
