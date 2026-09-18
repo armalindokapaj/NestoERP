@@ -35,6 +35,7 @@
     "verify:state": "tsx scripts/verify-state.ts",
     "verify:workers": "tsx scripts/verify-workers.ts",
     "verify:company-integrity": "tsx scripts/verify-company-integrity.ts",
+    "verify:organization": "tsx scripts/verify-organization.ts",
     "security:matrix": "tsx scripts/security/api-matrix.ts",
     "postinstall": "prisma generate",
     "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$DATABASE_URL\" --exit-code && echo 'no drift'",

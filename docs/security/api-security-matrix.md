@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**701 route handlers, 259 server actions.** AUTHENTICATED 31 · COMPANY_SCOPED 908 · PLATFORM 9 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**705 route handlers, 259 server actions.** AUTHENTICATED 31 · COMPANY_SCOPED 912 · PLATFORM 9 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -533,6 +533,10 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
+| GET | `/api/organization/access-diagnostics` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +705 | — | — | — | sweep |
+| POST | `/api/organization/access-grants/[grantId]/revoke` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +706 | — | `assertFound` | — | sweep |
+| GET | `/api/organization/access-grants` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +706 | — | — | — | sweep |
+| POST | `/api/organization/access-grants` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +706 | — | — | — | sweep |
 | POST | `/api/organization/department-assignments/[assignmentId]/end` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | — | sweep |
 | POST | `/api/organization/department-assignments` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | — | sweep |
 | POST | `/api/organization/user-provisioning-requests/[requestId]/approve` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +701 | — | `assertFound` | `applyTransition`, `assertTransitionAllowed` | sweep |
@@ -1332,7 +1336,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 |---|---|---|---|---|---|---|---|---|
 | ACTION | `updateCompanySettingsAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | — | — | sweep |
 | ACTION | `updateIntegrationSettingsAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | — | — | sweep |
-| ACTION | `setModuleEnabledAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +704 | — | — | — | sweep |
+| ACTION | `setModuleEnabledAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +705 | — | — | — | sweep |
 | ACTION | `updateNumberingSchemeAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +23 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +698 | — | — | — | sweep |
 
 ## Server actions — tasks

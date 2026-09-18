@@ -87,6 +87,9 @@ export const AuditAction = {
   ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED: "ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED",
   ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED: "ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED",
   ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED: "ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED",
+  // Delegated access (E-06 §18): the grant, and its end.
+  ORGANIZATION_ACCESS_GRANTED: "ORGANIZATION_ACCESS_GRANTED",
+  ORGANIZATION_ACCESS_GRANT_REVOKED: "ORGANIZATION_ACCESS_GRANT_REVOKED",
   // Implementing a group, on the platform (E-06 §114, §116)
   PLATFORM_PARENT_GROUP_CREATED: "PLATFORM_PARENT_GROUP_CREATED",
   PLATFORM_PARENT_GROUP_UPDATED: "PLATFORM_PARENT_GROUP_UPDATED",
@@ -438,6 +441,8 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
   { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "companyId", "companyDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
   { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "companyId", "positionLevel"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_ACCESS_GRANTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "moduleKey", "scopeType", "scopeId", "accessLevel", "startsAt", "expiresAt"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_ACCESS_GRANT_REVOKED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "moduleKey", "scopeType", "scopeId", "accessLevel"], required: true },
   { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "companyId", "companyDepartmentId", "groupDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
 
   /* Projects ------------------------------------------------------------- */

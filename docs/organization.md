@@ -28,7 +28,7 @@ PLATFORM ADMIN ──implements──→ PARENT GROUP (IMPLEMENTING → READY_FO
 
 | Concern | Code |
 | --- | --- |
-| Group, departments, positions, grants, account requests | `lib/modules/organization/` (`organization.service`, `department.service`, `appointment.service`, `access-portfolio.service`, `company-context.service`, `provisioning/`) |
+| Group, departments, positions, grants, account requests | `lib/modules/organization/` (`organization.service`, `department.service`, `appointment.service`, `access-grant.service`, `access-diagnostics.service`, `access-portfolio.service`, `company-context.service`, `organization-integrity`, `provisioning/`) |
 | Candidates and the person behind an employment | `lib/modules/hr/recruitment/`, `lib/modules/hr/hr.person.ts` |
 | A person's positions in a context | `lib/context/organization-access.ts` (`positionFor`, `assignmentsInCompany`), `lib/context/member-context.ts` (`contextInCompany`) |
 | Role × position permissions | `config/role-defaults.ts` (`permissionsForRole(role, position)`, `POSITION_ORGANIZATION`, `HEAD_EXTRAS`, `HEAD_OVERRIDES`) |
@@ -48,8 +48,8 @@ PLATFORM ADMIN ──implements──→ PARENT GROUP (IMPLEMENTING → READY_FO
   `functionalRoleKey`, `positionLevel`, access level, status, dates). A group
   head's assignment has no company. Composite keys hold every reference inside
   the group.
-- `AccessGrant` (delegated access, group or company scope; recorded, not yet
-  given out through an API).
+- `AccessGrant` (delegated access, group or company scope): made and revoked
+  through Organization → Access & roles (below).
 - `PlatformAccess` (role `PLATFORM_ADMIN`), never a `CompanyMember`.
 - `PersonProfile` (group-scoped person; `User.personProfileId` one-to-one),
   `CandidateProfile`, `EmployeeProfile.personProfileId` with `companyMemberId`
@@ -121,6 +121,55 @@ The appointee must already work as a role of that department
 (`Department.managerMemberId`) through Team's door. `POST
 /api/organization/department-assignments` (`branchCompanyId` for a manager),
 `POST …/:assignmentId/end`. Group IT and local managers appoint nobody.
+
+## Delegated access
+
+An access grant raises one module, for one person, to one rung of the ladder —
+in one company of the group (COMPANY) or in all of them (GROUP, read
+company-wide inside each). The session resolver applies live grants on every
+request (`grantsInCompany`, `buildModuleAccess`); a read-only role stays
+read-only whatever it is handed.
+
+| Rule | |
+| --- | --- |
+| Who delegates | The Owner (`organization.access.grant`), any function's module. A group department head (`department.team.access.delegate`), only their own function's modules (`GROUP_DEPARTMENTS[].modules`), only to that function's people (its role, or a member of one of its branches). Nobody to themselves. |
+| What | Only the functions' business modules (`GRANTABLE_MODULE_KEYS`): HR, Projects, Tasks, Daily logs, Engineering, Finance, Contracts, Sales, Clients, Procurement, Contractors, Inventory, QA/QC, HSE. Administration (Team, Organization, Company, Settings, Support) and the shell's shared modules are never delegated. |
+| Ceiling | In every company the grant reaches, the grantor's own role and position open the module at the granted rung or higher, company-wide. What was delegated to the grantor does not count, so a grant is never passed along. |
+| Where | GROUP or COMPANY. DEPARTMENT, PROJECT and RECORD grants widen nothing in V0.1 and are refused. A company grant needs the holder to work in that company and the company to have the module on. |
+| Once | One live grant per person, module and place; change one by revoking it. |
+| Ending | Revoked by the Owner, the head of the function, or whoever made it — taking access away is always safe. It expires on its own at `expiresAt`. Either way it stays as history. |
+
+`POST /api/organization/access-grants`, `GET` the same (the Owner and Group IT
+read every grant, a head the grants in their function's modules),
+`POST …/:grantId/revoke`. A company grant is audited in that company as the
+grantor's membership there, a group grant in the session's company:
+`ORGANIZATION_ACCESS_GRANTED`, `ORGANIZATION_ACCESS_GRANT_REVOKED`.
+
+**Organization → Access & roles** (`/organization/access`, E-06 §127) has three
+views for those who keep access (`organization.access.view`: the Owner and Group
+IT): *Delegated access* (in force, or all with history; delegate and revoke
+where the reader may), *Roles* (each role's modules as a member, as a company
+department manager and as a group department head) and *Check access*. A group
+head sees the section as *Delegated access*, their function's grants only.
+
+**Check access** (`GET /api/organization/access-diagnostics?userId=&targetCompanyId=[&permission=]`)
+answers why a person of the group can or cannot do something in one of its
+companies: what blocks them (account, membership, company, group, unknown
+role), the role and the position with the appointments behind it, the grants
+that reach the company, and for every module what the role gives, what the
+position gives, what is in effect and why (role, position, delegated, module
+off). The effective column is the real resolver's answer (`buildMemberContext`).
+With a permission, it says whether it is held and, if not, which of those it
+comes down to. It changes nothing and says nothing about another group.
+
+`pnpm verify:organization` (also in CI, after the suites) reads the
+organization side by side: memberships holding a role no membership may hold,
+platform users with a membership, positions held with another department's role
+or pointing outside the group, managers without a branch, grants for
+undelegable modules or outside the group are **errors**; the group's Owner or
+Group IT missing from a company, missing branches, positions that widen nothing,
+branch managers nobody appointed, grants now above their grantor's authority
+and logins without a person record are **warnings**.
 
 ## Project assignment
 
@@ -239,6 +288,8 @@ Construction and Other companies.
 | --- | --- |
 | `tests/integration/access/seed.test.ts` | §131-§135, including the recruitment lifecycle |
 | `tests/api/hr/recruitment.test.ts` | candidate without login, duplicates, select/hire keeping the person, reach, notes |
+| `tests/api/organization/access-grants.test.ts` | the Owner's and a head's doors, the ceiling (no re-delegation, company-wide only), refusals, one live grant, expiry, who reads and revokes, the access check |
+| `tests/api/organization/organization-integrity.test.ts` | `verify:organization` is clean on the seed and names manufactured faults |
 | `tests/api/organization/provisioning.test.ts` | HR → approval → Group IT, separation of duties, HR cannot provision, one person/one login, return/reject/cancel, attribution |
 | `tests/api/organization/appointments.test.ts` | heads by the Owner, managers by the Owner or the function's head, refusals, positions taking effect |
 | `tests/api/organization/group-views.test.ts` | access portfolio (stacked roles, two-company architect), departments by reach, group dashboard rows |
@@ -246,12 +297,13 @@ Construction and Other companies.
 | `tests/api/platform/platform-implementation.test.ts` | §137, §138: group, companies, roster, checklist, activation, closed roster |
 | `tests/security/sibling-companies.test.ts` | Meridian's CEO against every route with Aurelia's ids; Meridian's accountant against Terra's Finance (§144) |
 | `tests/security/cross-company-api.test.ts` | Aurelia against the fixture tenant in another group, both ways |
-| `tests/e2e/modules/{recruitment-provisioning,organization-group,platform-admin,projects-multi-company}.spec.ts` | the flows in a browser |
+| `tests/e2e/modules/{recruitment-provisioning,organization-group,organization-access,platform-admin,projects-multi-company}.spec.ts` | the flows in a browser |
 
 ## Limits
 
-- **Access grants** are modelled and resolved, but no API creates one yet.
-- **The Organization People and Access & Roles pages** (§127) are not built;
-  Team lists a company's people and Settings → Roles its role templates.
+- **The Organization People page** (§127) is not built; Team lists a company's
+  people. The group-wide people directory belongs to E-08.
+- **Grants widen a module, not a record.** DEPARTMENT, PROJECT and RECORD
+  scopes are in the model and refused by the door.
 - **Department pages are English**; the section names are translated.
 - **Forced password change** after a temporary password is not enforced (above).

@@ -237,6 +237,7 @@ pnpm verify:authorization     # routes classified and wrapped, actions resolve a
 pnpm security:matrix --check  # docs/security/api-security-matrix.md is current, and
                               # no company-scoped endpoint reaches zero checks
 pnpm verify:company-integrity # the data has no cross-company reference
+pnpm verify:organization      # positions, branches, grants and memberships agree
 pnpm verify:roles             # the role/permission matrix
 ```
 

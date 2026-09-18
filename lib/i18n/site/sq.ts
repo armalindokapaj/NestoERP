@@ -227,6 +227,8 @@ export const siteSq: SiteCopy = {
       Attendance: "Prezenca",
       Recruitment: "Rekrutimi",
       "User provisioning": "Krijimi i llogarive",
+      "Access & roles": "Qasja dhe rolet",
+      "Delegated access": "Qasja e deleguar",
       Onboarding: "Pranimi në punë",
       Offboarding: "Largimi nga puna",
       Documents: "Dokumentet",
