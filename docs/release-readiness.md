@@ -1399,12 +1399,14 @@ people back; the positions it created say who was a manager.
 `20260918130000_provisioning_rejection_reason_e06` is additive. Both were
 replayed into empty databases, with no drift from the schema.
 
-**The development database (`nesto_erp`) has not been migrated or reseeded.**
-The demo changed shape: companies were renamed and split, projects moved
-between companies, and the fixtures moved to their own group. So after `pnpm
-prisma migrate deploy`, the demo needs a fresh database and `pnpm db:seed`, not
-a seed on top of the old data. Everything above was verified on throwaway
-databases.
+**The development database (`nesto_erp`) was not migrated or reseeded when
+this record was written.** The demo changed shape: companies were renamed and
+split, projects moved between companies, and the fixtures moved to their own
+group. So after `pnpm prisma migrate deploy`, the demo needs a fresh database
+and `pnpm db:seed`, not a seed on top of the old data. Everything above was
+verified on throwaway databases. *Update 2026-09-18 (§22):* `nesto_erp` has
+since been reset and reseeded; it carries all 58 migrations and the five-company
+demo.
 
 ### 21.2 The evidence
 
@@ -1484,3 +1486,63 @@ databases.
 - **Module pages are English.** The new section names are translated.
 - **The development server on port 3000 must be restarted** after migrating. Its
   Prisma client predates both migrations.
+
+---
+
+## 22. Reconciliation baseline (2026-09-18)
+
+Before anything else from the PRD implementation audit of 2026-09-17 is
+applied, the audit asks for a clean, recorded baseline (its §6, Phase 0). This
+is it, on `74b4221` (E-06 stage 5), branch `integration/prd-reconciliation`.
+
+### 22.1 What was done
+
+- **The development database was backed up and the backup restored.**
+  `pg_dump -Fc nesto_erp` and a tarball of `.storage` went outside the
+  repository. The dump was restored into a scratch database and compared:
+  50 users, 8 companies, 121 documents, 1 494 audit events and 58 applied
+  migrations on both sides. The scratch database was then dropped.
+- **`nesto_erp` is on the current shape.** All 58 migrations are applied, and
+  it holds the NESTO Demo Group (five companies), the fixture group and
+  `platform-admin`. §21.1's warning that it had not been migrated is history.
+- **Three fresh databases** were built from nothing — every migration, then
+  `prisma/seed.ts` — one each for vitest, the E2E suite and the verification
+  gates, each with its own document storage root. Seed validation passed on
+  all three.
+
+### 22.2 The evidence
+
+| Gate | Result |
+|---|---|
+| Typecheck | clean |
+| Lint | 0 errors, 14 warnings (unchanged from §21) |
+| Schema drift | none |
+| verify:authorization | 571 routes, 320 server actions |
+| verify:ownership / state / workers | pass (222 models, 45 machines, 22 jobs) |
+| verify:company-integrity / production-guards | pass |
+| security:matrix | 960 endpoints, 0 company-scoped routes without a check |
+| verify:roles | 1 614 of 1 614 |
+| vitest | 3 574 passed, 3 failed, 11 skipped — see 22.3 |
+| E2E (production build) | 430 of 431 — see 22.3 |
+
+### 22.3 The four failures, and what they were
+
+None was a defect in the application.
+
+- **Two storage concurrency tests** (`storage-pipeline.test.ts`, "cannot be
+  raced past the quota", "keeps every document and key distinct") failed with
+  *Unable to start a transaction in the given time*. The run had capped the
+  database pool at five connections, a setting meant for parallel E2E servers;
+  the tests race seven uploads on purpose. With the default pool both pass.
+- **The calendar availability test failed on Fridays.** It books an event three
+  days out at 10:00 and expected a busy interval to start exactly then. Three
+  days from a Friday is a Monday, when the seeded weekly Riverside coordination
+  meeting (09:00-10:00) touches it, and busy time is merged — correctly — into
+  one interval starting at 09:00. The test now checks that the event is
+  covered, and that a declined invitation leaves availability unchanged.
+- **The mobile filter-sheet E2E test was flaky** (one run in three). It
+  reopened the sheet while it was still sliding shut; the reopen lost. It now
+  waits for the sheet to close, as a person does, and passed eight times in a
+  row.
+
+With those two test fixes the baseline is green.
