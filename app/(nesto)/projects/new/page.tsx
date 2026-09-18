@@ -102,6 +102,8 @@ export default async function NewProjectPage({ searchParams }: Props) {
           address: "",
           city: "",
           country: "",
+          builtArea: "",
+          isKeyProject: "NO",
         }}
         action={action}
       />

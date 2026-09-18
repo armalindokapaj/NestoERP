@@ -1930,3 +1930,105 @@ On freshly built databases (one per suite), on the final tree:
   (`20260918150000`, `160000`, `170000`); they are applied only with the
   owner's consent.
 - The history pages are English, like the rest of HR's pages.
+
+## 27. Demo PRD D-01 — the ARMAAR Group demo tenant and the group's executive dashboard
+
+D-01 asks for a realistic tenant for ARMAAR GROUP sh.p.k. — built from its
+public facts and clearly synthetic data — and an executive dashboard for the
+group. It is reconciled onto what exists: [ADR 0005](adr/0005-d01-armaar-demo-tenant.md)
+classifies every section and records eleven decisions; `docs/demo-armaar.md` is
+the presenter's guide. It was asked for directly after E-03 ("then armaar
+prd"); the four questions asked when it arrived were not answered, and the
+recommended defaults were used.
+
+### 27.1 What changed
+
+| Before | Now |
+|---|---|
+| One visible parent group, fictional | A second group, **ARMAAR GROUP**: thirteen companies (nine active, four suspended), thirteen departments named ARMAAR's way and activated per company, 81 people with 205 company logins, employments with history, eleven public projects, 129 units, 69 sales under 69 sale contracts, suppliers, contractors, procurement, budgets, contracts, documents, tasks, meetings, calendar, announcements, HSE and QA/QC. Seeded by the main seed and by `pnpm seed:armaar`; a rerun adds and changes nothing |
+| — | **Public facts kept apart**: only D-01's source set is public, in one file with its source; `demo_records` says for the group, companies, departments, people and projects what is PUBLIC, SYNTHETIC or INFERRED, field by field; `pnpm verify:demo` fails if a public fact is replaced |
+| The Owner's dashboard: the current company's figures, and one row per company | The **group's executive view**: a banner (name, NIPT, city, active and suspended companies), five figures — companies, active projects, employees, external companies, portfolio value — key projects as cards (cover, company, place, type, status, progress from the plan), the portfolio by status and type, departments by their people, the next milestones, the group's recent activity. Each figure computed company by company as the reader; a company-only reader gets nothing group-wide. `GET /api/dashboard/group` answers the same in one response |
+| — | A **demo tenant says so** on every page (`ParentGroup.isDemo`): a notice in the top bar and on the dashboard |
+| A group had no registration number or city | `ParentGroup.registrationNumber` (the NIPT, as NESTO's Albanian labels call it) and `city` |
+| — | **Ownership** in Settings → Company: who owns the company and how much (`CompanyOwner`) |
+| — | A project's published **built area** and whether it is a **key project**, on its form and overview |
+| The dashboard's activity feed left out a unit's sale, contract and payment events | They are shown where the unit and its tab are reachable, in every group |
+
+**Migration `20260918180000_demo_tenant_d01`** is additive: three columns on
+`parent_groups`, two on `projects`, the tables `company_owners` (a share above
+0 and at most 100) and `demo_records`, and the `DemoSourceType` enum.
+
+**Rollback:** drop `demo_records` and `company_owners`, the enum
+`DemoSourceType`, the columns `registrationNumber`, `city` and `isDemo` of
+`parent_groups` and `builtArea` and `isKeyProject` of `projects`, and the
+migration's `_prisma_migrations` row. ARMAAR's own rows are the ones in its
+group (`armaar_group`) and its companies; rebuilding the database without the
+seed's ARMAAR stage removes them.
+
+### 27.2 The evidence
+
+On freshly built databases holding both groups, on the final tree:
+
+- **vitest: 3 670 passed, 0 failed**, 11 skipped. New: the group's dashboard
+  (7 — every figure against the database, one external company across three
+  registers, key projects with the plan's progress, the charts, a company-only
+  reader refused, a group head given Finance's figure and not HR's, each group's
+  figures kept inside it) and the ARMAAR tenant (6 — D-01's checks, a rerun that
+  adds nothing, provenance field by field, one person per login, suspended
+  companies without work, no product file naming ARMAAR). Every other suite now
+  runs beside a second, realistic group; one seed test changed with it.
+- **E2E on the production build: 455 of 456.** New: the ARMAAR dashboard (4 —
+  the Owner's banner, figures and key projects, a company-only reader without
+  them, no notice in the five-company demo, a phone without sideways scroll).
+  The one failure was an existing calendar test on a phone (§27.3); after the
+  fix it passed four runs of four.
+- **verify:roles 1 676 of 1 676.** verify:authorization (608 routes),
+  ownership (227 models), state, workers, company-integrity, production-guards
+  pass; **verify:organization**, **verify:employment** and the new
+  **verify:demo** clean before and after both suites; security:matrix 1 001
+  endpoints, 0 company-scoped without a check; the sweeps, part of the suite,
+  attack the new endpoint too. Typecheck clean; lint 0 errors, 14 warnings (none
+  new); no drift.
+- **The migration** applied to an empty database (every lane) and to a copy of
+  `nesto_erp`'s data with E-01, E-13 and E-03 applied: nothing existing changed,
+  and the share check refused 120%. `seed:armaar` then added the tenant to that
+  copy and every integrity check stayed clean. Seeding twice leaves every count
+  unchanged.
+
+### 27.3 Defects found
+
+- **The dashboard's activity feed never showed a unit's sale, contract or
+  payment**, in any group: Sales, Legal and Finance write them against the unit
+  under their own module, and the feed trusted only the unit's projects entry.
+  Found because D-01 §62 asks for "unit reserved"; they are now read where the
+  unit and its tab are reachable.
+- **A group figure appeared in a company with its module switched off**: the
+  external-companies figure is gated on the group permission, and still counted
+  client companies for the fixture tenant's Owner, whose procurement is off. The
+  module-disabled suite caught it; the resolver now drops any figure or widget
+  whose module is off in the reader's company. No persona lost anything else.
+- **NIPT is the registration number, not the tax number**: NESTO's Albanian
+  labels already say so. ARMAAR's NIPT was first written as a tax number; it was
+  moved, and the group's new field named for it, before the migration reached
+  any database but the lanes.
+- **An existing calendar test on a phone was flaky**: "Event created" also
+  matched the toast's live region. It matches the text exactly now.
+- Two gates held the new code to the rules: the demo provenance table first
+  cascaded deletes from a group across domains (now Restrict), and the group's
+  identity was first read by id alone (now through the session's company).
+
+### 27.4 Limits
+
+- **No non-login workers** and no Workers figure: E-04.
+- **External companies are counted across the registers**, once each by tax
+  number or name; the canonical register and the contractor chain after its
+  contract (progress, invoice, verification, payment) are E-11's.
+- **Activity is NESTO's feed**, not E-12's.
+- **Announcements reach a company at most**: there is no group audience; the
+  Owner's welcome is published in BUILDING CONSTRUCTION INVEST.
+- **Public facts are D-01's only.** Company NIPTs, and the location and company
+  of ten of the eleven projects, are empty or assigned for the demo until a
+  source set gives them.
+- **Covers are generated illustrations**, not the projects' own renders.
+- **`nesto_erp` lacks the E-01, E-13, E-03 and D-01 migrations**; they are
+  applied, and ARMAAR seeded there, only with the owner's consent.

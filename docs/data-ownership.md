@@ -40,7 +40,8 @@ with it.
 | `auth` | `User`, `Session`, `PasswordResetToken`, `AuthEvent` |
 | `core/access` | `Role`, `Permission`, `RolePermission`, `Module`, `RoleModuleAccess` |
 | `team` | `CompanyMember`, `Department`, `CompanyInvite` |
-| `settings` | `Company`, `CompanySettings`, `CompanyIntegrationSettings`, `CompanyNumberingScheme`, `CompanyModule` |
+| `settings` | `Company`, `CompanyOwner`, `CompanySettings`, `CompanyIntegrationSettings`, `CompanyNumberingScheme`, `CompanyModule` |
+| `platform` | `PlatformAccess`; `DemoRecord` — where a demonstration tenant's seeded facts come from, written by its seed and read by `verify:demo` only (D-01, ADR 0005) |
 | `shared` | `Activity` |
 | `core/audit` | `AuditEvent` |
 | `core/notifications` | `Notification`, `NotificationPreference`, `NotificationEventOutbox`, `AttentionItem` |

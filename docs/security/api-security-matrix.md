@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**743 route handlers, 257 server actions.** AUTHENTICATED 31 · COMPANY_SCOPED 938 · PLATFORM 19 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**744 route handlers, 257 server actions.** AUTHENTICATED 31 · COMPANY_SCOPED 939 · PLATFORM 19 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -233,6 +233,12 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/daily-logs` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +24 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | `buildProjectScopeWhere`, `projectDoor` +1 | — | — | sweep |
 | GET | `/api/daily-logs/settings` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +24 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +702 | — | — | — | sweep |
 | PUT | `/api/daily-logs/settings` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +24 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +703 | — | — | — | sweep |
+
+## /api/dashboard
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| GET | `/api/dashboard/group` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +24 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +708 | `buildBudgetScopeWhere`, `buildClientScopeWhere` +5 | — | — | sweep |
 
 ## /api/departments
 

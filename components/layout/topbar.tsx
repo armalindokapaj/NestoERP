@@ -1,4 +1,5 @@
 import { AnnouncementsIndicator } from "@/components/announcements/shell";
+import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
 import { CompanySwitcher } from "@/components/layout/company-switcher";
 import { DevRoleSwitcher } from "@/components/layout/dev-role-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
@@ -64,6 +65,17 @@ export async function Topbar({
             actualRole={context.actualRole}
             isOverridden={context.roleIsOverridden}
           />
+        ) : null}
+        {/* A demonstration tenant says so on every page (D-01 §68, §69). */}
+        {context.parentGroup.isDemo ? (
+          <span
+            title={DEMO_DISCLAIMER}
+            aria-label={DEMO_DISCLAIMER}
+            data-testid="demo-notice"
+            className="hidden shrink-0 rounded-full border border-line px-2.5 py-0.5 text-meta font-medium text-fg-muted sm:inline-flex"
+          >
+            Demo data
+          </span>
         ) : null}
         {/* Only for somebody who works in more than one company (E-06 §3.4). */}
         <CompanySwitcher companies={companies} />

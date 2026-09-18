@@ -41,6 +41,10 @@ export type ProjectDetailDTO = {
   } | null;
   schedule: { startDate: string | null; endDate: string | null };
   location: { address: string | null; city: string | null; country: string | null };
+  /** The built area the project publishes, in m² (D-01 §16). */
+  builtArea: number | null;
+  /** Among the group's key projects on its dashboard (D-01 §31). */
+  isKeyProject: boolean;
   /** The managing company, shown in the workspace breadcrumb (E-05A §26). */
   company: { id: string; name: string };
   projectType: { id: string; name: string } | null;

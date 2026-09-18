@@ -6,7 +6,7 @@ import { quickActions } from "@/config/quick-actions";
 import { widgets } from "@/config/widgets";
 import type { Permission } from "@/config/permissions";
 import { listReadableAttention } from "@/lib/core/notifications/attention.service";
-import { can, canAccessModule } from "@/lib/access/can";
+import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import {
   buildClientScopeWhere,
   buildProjectLinkedScopeWhere,
@@ -48,7 +48,23 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
 import { loadRecentActivity } from "./dashboard.activity";
-import { groupCompanies, groupFinance, groupPipeline } from "./dashboard.group";
+import {
+  groupActiveProjects,
+  groupActivity,
+  groupCompanies,
+  groupCompanyCount,
+  groupDepartments,
+  groupEmployees,
+  groupExternalCompanies,
+  groupFinance,
+  groupKeyProjects,
+  groupMilestones,
+  groupPipeline,
+  groupPortfolioByStatus,
+  groupPortfolioValue,
+  groupProjectTypes,
+  type GroupFigure,
+} from "./dashboard.group";
 import type {
   ResolvedDashboard,
   ResolvedKpi,
@@ -71,18 +87,21 @@ import type {
 export async function resolveDashboard(context: UserContext): Promise<ResolvedDashboard> {
   const config = dashboardForRole(context.role, context.position);
 
+  // A switched-off module is absent from the dashboard (PRD #47 §26) — including a
+  // group figure gated on a group permission rather than on the module's own.
   const visibleKpis = config.kpis
     .map((key) => kpis[key])
     .filter(
       (definition) =>
         definition &&
+        isModuleEnabled(context, definition.module) &&
         can(context, definition.permission) &&
         (KPI_ALSO_REQUIRES[definition.key] ?? []).every((permission) => can(context, permission)),
     );
 
   const visibleWidgets = config.widgets
     .map((key) => widgets[key])
-    .filter((definition) => definition && can(context, definition.permission))
+    .filter((definition) => definition && isModuleEnabled(context, definition.module) && can(context, definition.permission))
     .sort((a, b) => a.priority - b.priority);
 
   const visibleActions = config.quickActions
@@ -91,14 +110,17 @@ export async function resolveDashboard(context: UserContext): Promise<ResolvedDa
 
   const [resolvedKpis, resolvedWidgets] = await Promise.all([
     Promise.all(
-      visibleKpis.map(async (definition): Promise<ResolvedKpi> => {
+      visibleKpis.map(async (definition): Promise<ResolvedKpi | null> => {
         const value = await loadKpi(context, definition.key).catch(() => null);
+        // A group figure with nothing behind it for this reader is left out, not shown as a dash (D-01 §66).
+        if (value === NOT_FOR_READER) return null;
+        if (value !== null && typeof value === "object") return { definition, value: value.value, hint: value.hint };
         return {
           definition,
           value: value ?? "—",
         };
       }),
-    ),
+    ).then((rows) => rows.filter((row): row is ResolvedKpi => row !== null)),
     Promise.all(
       visibleWidgets.map(async (definition): Promise<ResolvedWidget> => {
         const payload = await loadWidget(context, definition.key).catch(
@@ -134,8 +156,26 @@ const KPI_ALSO_REQUIRES: Partial<Record<string, Permission[]>> = {
   projectInvoiced: ["finance.invoice.view"],
 };
 
-async function loadKpi(context: UserContext, key: string): Promise<string> {
+/** A group KPI the reader has nothing behind: no company where its figure is theirs to read. */
+const NOT_FOR_READER = Symbol("not for this reader");
+
+async function groupFigure(figure: Promise<GroupFigure | null>): Promise<GroupFigure | typeof NOT_FOR_READER> {
+  return (await figure) ?? NOT_FOR_READER;
+}
+
+async function loadKpi(context: UserContext, key: string): Promise<string | GroupFigure | typeof NOT_FOR_READER> {
   switch (key) {
+    case "groupCompanyCount":
+      return groupFigure(groupCompanyCount(context));
+    case "groupActiveProjects":
+      return groupFigure(groupActiveProjects(context));
+    case "groupEmployees":
+      return groupFigure(groupEmployees(context));
+    case "groupExternalCompanies":
+      return groupFigure(groupExternalCompanies(context));
+    case "groupPortfolioValue":
+      return groupFigure(groupPortfolioValue(context));
+
     case "activeProjects":
       return String(
         await prisma.project.count({
@@ -442,6 +482,20 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
 
     case "groupPipeline":
       return { kind: "list", items: await groupPipeline(context) };
+
+    // The group's executive view (D-01 §30-§36).
+    case "keyProjects":
+      return { kind: "projects", items: await groupKeyProjects(context) };
+    case "portfolioStatus":
+      return { kind: "breakdown", items: await groupPortfolioByStatus(context) };
+    case "projectTypes":
+      return { kind: "breakdown", items: await groupProjectTypes(context) };
+    case "groupDepartments":
+      return { kind: "breakdown", items: await groupDepartments(context) };
+    case "groupMilestones":
+      return { kind: "list", items: await groupMilestones(context) };
+    case "groupActivity":
+      return { kind: "activity", items: await groupActivity(context) };
 
     case "attention":
       return { kind: "alerts", items: await loadAlerts(context) };

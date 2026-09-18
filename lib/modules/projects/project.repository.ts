@@ -126,6 +126,8 @@ const DETAIL_SELECT = {
   address: true,
   city: true,
   country: true,
+  builtArea: true,
+  isKeyProject: true,
   projectTypeId: true,
   projectType: { select: { id: true, name: true } },
   coverImageDocumentId: true,

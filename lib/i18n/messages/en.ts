@@ -334,6 +334,12 @@ export const en = {
       website: "Website",
       slug: "Workspace identifier",
       readOnly: "Company details are read-only in V0.1. Editing arrives with the settings module.",
+      ownership: "Ownership",
+      ownershipDescription: "Who owns the company, and how much.",
+      ownershipHolder: "Owner",
+      ownershipShare: "Share",
+      ownershipGroup: "The group",
+      ownershipEmpty: "No owners recorded.",
     },
 
     users: {

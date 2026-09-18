@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, ProjectStatus } from "@prisma/client";
 import { cache } from "react";
 import { z } from "zod";
 
@@ -507,6 +507,49 @@ export async function listPortfolioProjects(session: UserContext, query: Portfol
       visibleCompanyCount: companyCounts.length,
       matchingCount,
     },
+  };
+}
+
+/**
+ * The projects a group shows as its key projects (D-01 §31): marked so on the
+ * project, among those this person can discover — the same authorisation, cover
+ * rule and card as the Projects page. Active first, each by its published built
+ * area and then its name. An empty list for somebody who can open projects
+ * nowhere.
+ */
+export async function keyPortfolioProjects(session: UserContext, limit = 4): Promise<PortfolioProjectDTO[]> {
+  const portfolio = await resolveProjectPortfolio(session);
+  if (portfolio.length === 0) return [];
+  const { ids: favorites, enabledCompanies } = await favoriteProjectIds(portfolio);
+  const rows = await prisma.project.findMany({
+    where: { AND: [portfolioProjectWhere(portfolio), IN_DISCOVERY, { isKeyProject: true }] },
+    // The largest published first, so a group's flagship leads.
+    orderBy: [{ builtArea: { sort: "desc", nulls: "last" } }, { name: "asc" }, { id: "asc" }],
+    select: LIST_SELECT,
+  });
+  const ordered = [...rows.filter((row) => row.status === "ACTIVE"), ...rows.filter((row) => row.status !== "ACTIVE")].slice(0, limit);
+  const [covers, roles] = await Promise.all([readableCovers(portfolio, ordered), effectiveRoles(portfolio, ordered)]);
+  return ordered.map((row) => toPortfolioDTO(row, portfolio, { favorites, enabledCompanies, covers, roles }));
+}
+
+/** How the projects this person can discover divide by status and by type (D-01 §32, §33). */
+export async function portfolioBreakdown(session: UserContext): Promise<{ byStatus: Array<{ status: ProjectStatus; count: number }>; byType: Array<{ name: string; count: number }> }> {
+  const portfolio = await resolveProjectPortfolio(session);
+  if (portfolio.length === 0) return { byStatus: [], byType: [] };
+  const authorised: Prisma.ProjectWhereInput = { AND: [portfolioProjectWhere(portfolio), IN_DISCOVERY] };
+  const [statuses, types] = await Promise.all([
+    prisma.project.groupBy({ by: ["status"], where: authorised, _count: { _all: true } }),
+    prisma.project.findMany({ where: authorised, select: { projectType: { select: { name: true } } } }),
+  ]);
+  // Types are each company's own; the same name across companies is one category.
+  const byType = new Map<string, number>();
+  for (const row of types) {
+    const name = row.projectType?.name ?? "Other";
+    byType.set(name, (byType.get(name) ?? 0) + 1);
+  }
+  return {
+    byStatus: statuses.map((row) => ({ status: row.status, count: row._count._all })),
+    byType: [...byType].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
   };
 }
 

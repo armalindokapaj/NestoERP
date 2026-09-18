@@ -194,6 +194,11 @@ jobs:
         # (E-03 §180-§182, §215).
         run: pnpm verify:employment
 
+      - name: Demo tenant
+        # The ARMAAR demo tenant the seed builds is still what D-01 says: public
+        # facts unchanged, companies, people, projects and provenance (ADR 0005).
+        run: pnpm verify:demo
+
       - name: Upload failure artefacts
         if: failure()
         uses: actions/upload-artifact@v4

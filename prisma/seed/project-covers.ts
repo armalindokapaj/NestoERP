@@ -15,14 +15,14 @@ import { seedStoredDocument } from "./document-objects";
  * is East Gate Logistics Hub, so the placeholder is on the page too.
  */
 
-type Mass = { x: number; w: number; h: number; fill: string; glass: string; cols: number; rows: number };
-type Scene = { sky: [string, string]; ground: string; sun?: { cx: number; cy: number; r: number; fill: string }; water?: string; masses: Mass[] };
+export type Mass = { x: number; w: number; h: number; fill: string; glass: string; cols: number; rows: number };
+export type Scene = { sky: [string, string]; ground: string; sun?: { cx: number; cy: number; r: number; fill: string }; water?: string; masses: Mass[] };
 
 const WIDTH = 1200;
 const HEIGHT = 1600;
 const HORIZON = 1180;
 
-function svgFor(scene: Scene): string {
+export function svgFor(scene: Scene): string {
   const masses = scene.masses
     .map((mass) => {
       const top = HORIZON - mass.h;

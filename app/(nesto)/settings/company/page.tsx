@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireSettingsSection } from "../settings-access";
 import { getCompany } from "@/lib/database/queries";
+import { getCompanyOwners } from "@/lib/modules/settings/company-settings.service";
 import { getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function CompanySettingsPage() {
   const user = await requireSettingsSection("company");
-  const company = await getCompany(user.companyId);
+  const [company, owners] = await Promise.all([getCompany(user.companyId), getCompanyOwners(user)]);
 
   if (!company) notFound();
 
@@ -53,6 +54,29 @@ export default async function CompanySettingsPage() {
           ))}
         </div>
         <p className="mt-4 text-meta text-fg-subtle">{t("company.readOnly")}</p>
+      </section>
+
+      {/* D-01 §6: who owns the company, kept with its details. */}
+      <section className="nesto-card p-6" aria-labelledby="company-ownership">
+        <h2 id="company-ownership" className="text-card font-semibold text-fg">{t("company.ownership")}</h2>
+        <p className="mt-0.5 text-meta text-fg-subtle">{t("company.ownershipDescription")}</p>
+        {owners.length ? (
+          <ul className="mt-4 divide-y divide-line" data-testid="company-owners">
+            {owners.map((owner) => (
+              <li key={owner.id} className="flex items-center justify-between gap-4 py-2.5 first:pt-0">
+                <div className="min-w-0">
+                  <p className="truncate text-table font-medium text-fg">{owner.holderName}</p>
+                  <p className="text-meta text-fg-subtle">{[owner.isGroup ? t("company.ownershipGroup") : null, owner.holderRegistration].filter(Boolean).join(" · ")}</p>
+                </div>
+                <span className="shrink-0 text-table font-semibold tabular-nums text-fg" aria-label={t("company.ownershipShare")}>
+                  {owner.sharePercent.toLocaleString("en-US", { maximumFractionDigits: 2 })}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-table text-fg-subtle">{t("company.ownershipEmpty")}</p>
+        )}
       </section>
     </div>
   );

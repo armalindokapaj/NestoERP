@@ -35,7 +35,7 @@ type Member = (userId: string) => string;
 const DAY = 86_400_000;
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY);
 
-function floorPlanSvg(label: string, hue: string): string {
+export function floorPlanSvg(label: string, hue: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
     <rect width="1200" height="900" fill="#f7f5f0"/>
     <rect x="120" y="110" width="960" height="680" fill="none" stroke="#2f3a42" stroke-width="14"/>
@@ -59,12 +59,12 @@ function renderSvg(): string {
   </svg>`;
 }
 
-async function jpeg(svg: string): Promise<Uint8Array> {
+export async function jpeg(svg: string): Promise<Uint8Array> {
   return new Uint8Array(await sharp(Buffer.from(svg)).jpeg({ quality: 80 }).toBuffer());
 }
 
 /** A seeded file filed against its unit, with the version 1 a real upload creates first (PRD #38 §56). */
-async function unitFile(prisma: PrismaClient, input: { id: string; unitId: string; name: string; bytes: Uint8Array; memberId: string; createdBy: string; uploaded: Date; companyId?: string }) {
+export async function unitFile(prisma: PrismaClient, input: { id: string; unitId: string; name: string; bytes: Uint8Array; memberId: string; createdBy: string; uploaded: Date; companyId?: string }) {
   const companyId = input.companyId ?? COMPANY_A;
   await seedStoredDocument(prisma, {
     id: input.id,
@@ -107,7 +107,7 @@ async function unitFile(prisma: PrismaClient, input: { id: string; unitId: strin
 }
 
 /** Publishes the unit as it now stands, the way the publish transaction would (E-05D §23). */
-async function publish(prisma: PrismaClient, unitId: string, versionNumber: number, publisher: string, at: Date, companyId = COMPANY_A) {
+export async function publish(prisma: PrismaClient, unitId: string, versionNumber: number, publisher: string, at: Date, companyId = COMPANY_A) {
   const state = (await loadPublishStates(prisma as unknown as Prisma.TransactionClient, companyId, [unitId])).get(unitId)!;
   if (!state.readiness.ready) throw new Error(`Seed unit ${state.row.unitCode} is not ready to publish: ${state.readiness.missing.join(", ")}`);
   const snapshot = buildSnapshot(state.facts);

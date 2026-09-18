@@ -24,6 +24,12 @@ const optionalId = z
   .optional()
   .transform((value) => (value === "" ? undefined : value));
 
+/** A published built area in m² (D-01 §16): above nothing, at most ten million. */
+const optionalArea = z
+  .union([z.coerce.number().positive("Built area must be above zero").max(10_000_000, "Built area is at most 10,000,000 m²"), z.literal("")])
+  .optional()
+  .transform((value) => (value === "" || value === undefined ? undefined : (value as number)));
+
 const optionalDate = z
   .union([z.coerce.date(), z.literal("")])
   .optional()
@@ -63,6 +69,9 @@ const projectFields = {
   address: optionalText(300),
   city: optionalText(120),
   country: optionalText(120),
+  builtArea: optionalArea,
+  /** Shown among the group's key projects (D-01 §31). A select, so an untouched form never clears it. */
+  isKeyProject: optionalEnum(["YES", "NO"] as const),
 };
 
 /** End date must never precede start date (PRD #10 §38). */

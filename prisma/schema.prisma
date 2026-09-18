@@ -75,6 +75,13 @@ enum DataScope {
 
 /// A parent group's lifecycle (E-06 §8, §21). The Platform Admin implements a
 /// group while it is IMPLEMENTING; normal operation begins at ACTIVE.
+/// Where a demonstration tenant's fact comes from (D-01 §3).
+enum DemoSourceType {
+  PUBLIC
+  SYNTHETIC
+  INFERRED
+}
+
 enum ParentGroupStatus {
   IMPLEMENTING
   READY_FOR_VALIDATION
@@ -1187,6 +1194,7 @@ model Company {
   invites     CompanyInvite[]
   departments Department[]
   modules     CompanyModule[]
+  owners      CompanyOwner[]
 
   projects                 Project[]
   projectTypes             ProjectType[]
@@ -1649,6 +1657,10 @@ model ParentGroup {
   slug          String            @unique
   name          String
   legalName     String?
+  /// The group's own registration number (the NIPT in Albania) and city (D-01
+  /// §4), beside its companies' own (E-01, ADR 0002).
+  registrationNumber String?
+  city          String?
   country       String?
   timezone      String?
   currency      String?
@@ -1657,6 +1669,9 @@ model ParentGroup {
   /// A deterministic test tenant: kept out of the Platform Admin's group list and
   /// the demo sign-in screen (E-06 §45, §150). Never set outside the seed.
   isTestFixture Boolean           @default(false)
+  /// A demonstration tenant (D-01 §68, §69): real public facts beside synthetic
+  /// operational data, so every page says so. Set by a demo seed, never a form.
+  isDemo        Boolean           @default(false)
 
   activatedAt       DateTime?
   activatedByUserId String?
@@ -1670,6 +1685,8 @@ model ParentGroup {
   candidates            CandidateProfile[]
   provisioningRequests  UserProvisioningRequest[]
   auditEvents           AuditEvent[]
+  companyHoldings       CompanyOwner[]
+  demoRecords           DemoRecord[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1696,6 +1713,62 @@ model ParentGroupMember {
   @@unique([parentGroupId, userId])
   @@index([userId])
   @@map("parent_group_members")
+}
+
+/// Who owns a company, and how much (D-01 §6): the parent group itself, or
+/// anybody else by name. Kept on the company, read in its settings; not a
+/// governance module. Shares are percentages, each above 0 and at most 100.
+model CompanyOwner {
+  id                  String    @id @default(cuid())
+  companyId           String
+  /// Set when the holder is a parent group — normally the company's own.
+  holderParentGroupId String?
+  holderName          String
+  holderTaxNumber     String?
+  sharePercent        Decimal   @db.Decimal(5, 2)
+  since               DateTime? @db.Date
+
+  company           Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  holderParentGroup ParentGroup? @relation(fields: [holderParentGroupId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([holderParentGroupId])
+  @@map("company_owners")
+}
+
+/// Where a demonstration tenant's facts come from (D-01 §2, §3, §73, §107).
+///
+/// A demo seed writes one row per record it seeds under a stable key
+/// (`ARMAAR:PROJECT:TIRANA_LAKE`): the key makes a rerun reuse the record rather
+/// than duplicate it, and the source says whether the record is public fact,
+/// synthetic demo data or inferred — per field where it is mixed. Nothing in the
+/// product reads it to decide anything; `verify:demo` does, and nothing is
+/// shown as verified that is not.
+model DemoRecord {
+  id               String         @id @default(cuid())
+  key              String         @unique
+  parentGroupId    String
+  entityType       String
+  entityId         String
+  sourceType       DemoSourceType
+  /// Field → source, for a record mixing public and synthetic values.
+  fieldSources     Json?
+  sourceLabel      String?
+  sourceUrl        String?
+  sourceVerifiedAt DateTime?
+  note             String?
+
+  parentGroup ParentGroup @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([parentGroupId, sourceType])
+  @@map("demo_records")
 }
 
 /// One of the group's functions — Finance, Architecture, HR (E-06 §11). Defined
@@ -1983,6 +2056,11 @@ model Project {
   country                String?
   /// One of the company's own project types (E-05A §30, §62).
   projectTypeId          String?
+  /// The built area the project publishes, in m² (D-01 §16, §18) — a fact about
+  /// the project, not the sum of its units' areas.
+  builtArea              Decimal?         @db.Decimal(12, 2)
+  /// Shown among the key projects on the group's dashboard (D-01 §31).
+  isKeyProject           Boolean          @default(false)
   /// The one canonical cover render. The document keeps its own file and its own
   /// access rules; the project only points at it (E-05A §8).
   coverImageDocumentId   String?

@@ -24,7 +24,8 @@ export type WidgetKind =
   | "alerts"
   | "approvals"
   | "activity"
-  | "progress";
+  | "progress"
+  | "projects";
 
 export type WidgetDefinition = {
   key: string;
@@ -55,6 +56,77 @@ export const widgets: Record<string, WidgetDefinition> = {
     priority: 2,
     href: "/organization",
     emptyMessage: "The companies of your group will appear here.",
+  },
+  /* The group's executive view (D-01 §30-§36). */
+  keyProjects: {
+    key: "keyProjects",
+    module: "projects",
+    permission: "department.group.view",
+    title: "Key Projects",
+    description: "The projects the group follows most closely.",
+    kind: "projects",
+    size: "FULL",
+    // Straight after what needs attention: the executive view leads with its projects (D-01 §31).
+    priority: 1,
+    href: "/projects",
+    emptyMessage: "No project is marked as a key project yet.",
+  },
+  portfolioStatus: {
+    key: "portfolioStatus",
+    module: "projects",
+    permission: "department.group.view",
+    title: "Portfolio",
+    description: "Projects by status across the group.",
+    kind: "breakdown",
+    size: "MEDIUM",
+    priority: 3,
+    href: "/projects",
+    emptyMessage: "No projects in your view.",
+  },
+  projectTypes: {
+    key: "projectTypes",
+    module: "projects",
+    permission: "department.group.view",
+    title: "Project Types",
+    description: "Projects by type across the group.",
+    kind: "breakdown",
+    size: "MEDIUM",
+    priority: 3,
+    emptyMessage: "No projects in your view.",
+  },
+  groupDepartments: {
+    key: "groupDepartments",
+    module: "organization",
+    permission: "department.group.view",
+    title: "Group Departments",
+    description: "People in each department, across the companies.",
+    kind: "breakdown",
+    size: "MEDIUM",
+    priority: 4,
+    href: "/organization/departments",
+    emptyMessage: "Nobody is placed in a department yet.",
+  },
+  groupMilestones: {
+    key: "groupMilestones",
+    module: "projects",
+    permission: "department.group.view",
+    title: "Upcoming Milestones",
+    description: "Late first, then the next thirty days, across the group's projects.",
+    kind: "list",
+    size: "LARGE",
+    priority: 4,
+    emptyMessage: "No milestones in the next thirty days.",
+  },
+  groupActivity: {
+    key: "groupActivity",
+    module: "dashboard",
+    permission: "department.group.view",
+    title: "Recent Activity",
+    description: "Across the group's companies, where you could open the record.",
+    kind: "activity",
+    size: "MEDIUM",
+    priority: 5,
+    emptyMessage: "Nothing recent in your view.",
   },
   groupFinance: {
     key: "groupFinance",
