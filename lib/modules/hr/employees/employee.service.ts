@@ -1,21 +1,23 @@
-import { Prisma, type EmploymentStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
+import { recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
+import { dayOf, todayDay } from "../employment/employment.dates";
+import { openAssignment, startHistory, syncCache } from "../employment/employment.history";
+import { employmentCapabilities } from "../employment/employment.capabilities";
+import { validateManager } from "../employment/employment.validate";
 import { businessDateString, toBusinessDate } from "../hr.date";
 import { buildHrMemberScopeWhere, isSelf } from "../hr.scope";
 import { personForMember } from "../hr.person";
-import { canTransitionEmployment } from "../hr.status";
 import type {
   CreateEmployeeProfileInput,
   EmployeeListQuery,
-  EmploymentStatusInput,
   UpdateEmployeeProfileInput,
 } from "../hr.schema";
 import type { EmployeeDetailDTO, EmployeeSummaryDTO } from "../hr.types";
@@ -23,6 +25,11 @@ import * as repository from "./employee.repository";
 
 /**
  * Employment records (PRD #16 §25–§57).
+ *
+ * Where somebody sits — department, title, manager, location, type — and their
+ * status are not edited here: each is a dated change in the employment's
+ * history, made through `employment/employment.change.service.ts` (E-03 §7,
+ * §37, §187). This service creates the record and edits what is not history.
  *
  * Three rules live here and nowhere else:
  *
@@ -76,9 +83,9 @@ export async function getEmployee(
   // Out of scope answers "not found", so the response cannot confirm that
   // somebody works here to a reader who may not see them (PRD #16 §202).
   const profile = assertFound(await repository.findEmployeeByMember(context, memberId));
-  const guards = await employmentGuards(context, profile.id, profile.companyMemberId);
+  const [guards, current] = await Promise.all([employmentGuards(context, profile.id, profile.companyMemberId), openAssignment(prisma, profile.id)]);
 
-  return toDetailDTO(context, profile, guards);
+  return toDetailDTO(context, profile, guards, current?.id ?? null);
 }
 
 /** Whether a profile exists for this member at all, for the Team cross-link. */
@@ -101,9 +108,9 @@ export async function createEmployeeProfile(
 ): Promise<EmployeeDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "hr.employee.create_profile");
+  if (input.managerMemberId) assertPermission(context, "hr.employee.manager.assign");
 
   const member = await validateMember(context, input.companyMemberId);
-  const manager = await validateManager(context, input.managerMemberId, input.companyMemberId);
 
   const memberId = await prisma.$transaction(async (tx) => {
     const existing = await tx.employeeProfile.findUnique({
@@ -117,28 +124,50 @@ export async function createEmployeeProfile(
     if (input.employeeNumber) {
       await assertNumberIsFree(tx, context, input.employeeNumber, null);
     }
+    const manager = input.managerMemberId
+      ? await validateManager(tx, { companyId: context.companyId, managerMemberId: input.managerMemberId, subjectMemberId: member.id })
+      : null;
 
-    await tx.employeeProfile.create({
+    const personProfileId = await personForMember(tx, context, member);
+    const employment = await tx.employeeProfile.create({
       data: {
         companyId: context.companyId,
-        personProfileId: await personForMember(tx, context, member),
+        personProfileId,
         companyMemberId: member.id,
         employeeNumber: input.employeeNumber ?? null,
         // A profile always starts PLANNED. Making somebody active is its own
         // action, so the date it happened is recorded (PRD #16 §38, §54).
         employmentStatus: "PLANNED",
         employmentType: input.employmentType,
-        startDate: input.startDate ? toBusinessDate(input.startDate) : null,
-        probationEndDate: input.probationEndDate
-          ? toBusinessDate(input.probationEndDate)
-          : null,
+        probationEndDate: input.probationEndDate ? toBusinessDate(input.probationEndDate) : null,
         endDate: input.endDate ? toBusinessDate(input.endDate) : null,
-        managerMemberId: manager?.id ?? null,
-        workLocation: input.workLocation ?? null,
         weeklyHours: input.weeklyHours ?? null,
         createdByMemberId: context.membershipId,
       },
+      select: { id: true },
     });
+    // Where they will sit is the history's first row: the membership's
+    // department and title, the manager and location given here (E-03 §8, §183).
+    await startHistory(tx, {
+      employmentId: employment.id,
+      companyId: context.companyId,
+      placement: {
+        departmentId: member.departmentId,
+        jobTitle: member.jobTitle,
+        managerMemberId: manager?.id ?? null,
+        workLocationType: input.workLocationType ?? null,
+        workLocation: input.workLocation ?? null,
+        employmentType: input.employmentType,
+      },
+      start: input.startDate ? dayOf(toBusinessDate(input.startDate)) : todayDay(),
+      status: "PLANNED",
+      statusFrom: todayDay(),
+      assignmentReason: "HIRE",
+      statusReason: "HIRE",
+      source: "CHANGE",
+      actorUserId: context.userId,
+    });
+    await syncCache(tx, { id: employment.id, companyId: context.companyId }, { actorMemberId: context.membershipId });
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -148,6 +177,15 @@ export async function createEmployeeProfile(
       message: `created an employment record for ${member.name}`,
       metadata: { memberId: member.id, employmentType: input.employmentType } as Prisma.InputJsonValue,
     });
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.HR_EMPLOYEE_CREATED,
+        entity: { type: ENTITY, id: employment.id, label: member.name },
+        after: { employmentStatus: "PLANNED", personProfileId, departmentId: member.departmentId },
+      },
+      { tx },
+    );
 
     return member.id;
   });
@@ -155,6 +193,10 @@ export async function createEmployeeProfile(
   return getEmployee(context, memberId);
 }
 
+/**
+ * The details of an employment that are not history (E-03 §37, §187): its
+ * number, probation end, planned end and weekly hours.
+ */
 export async function updateEmployeeProfile(
   context: UserContext,
   memberId: string,
@@ -165,9 +207,8 @@ export async function updateEmployeeProfile(
 
   const existing = assertFound(await repository.findEmployeeByMember(context, memberId));
 
-  // Ended employment is history: its dates, type and manager are what was
-  // true while the person worked here. It reopens through a rehire, and the
-  // record page offers no edit for it (PRD #16 §56, PRD #47 §85).
+  // Ended employment is history: it reopens through a rehire, and the record
+  // page offers no edit for it (PRD #16 §56, PRD #47 §85).
   if (existing.employmentStatus === "ENDED") {
     throw stateDenied("Ended employment is not edited. Rehire to reopen it.");
   }
@@ -181,13 +222,9 @@ export async function updateEmployeeProfile(
       "This record was updated by another user. Refresh and review the latest changes.",
     );
   }
-
-  const managerChanged = (input.managerMemberId ?? null) !== (existing.managerMember?.id ?? null);
-  if (managerChanged) assertPermission(context, "hr.employee.manager.assign");
-
-  const manager = managerChanged
-    ? await validateManager(context, input.managerMemberId, memberId)
-    : existing.managerMember;
+  if (input.endDate && existing.startDate && input.endDate.getTime() < existing.startDate.getTime()) {
+    throw new AccessError("VALIDATION_ERROR", "The end date cannot be before the start date.", { field: "endDate" });
+  }
 
   await prisma.$transaction(async (tx) => {
     if (input.employeeNumber) {
@@ -200,14 +237,8 @@ export async function updateEmployeeProfile(
       where: { id: existing.id, companyId: context.companyId, employmentStatus: existing.employmentStatus },
       data: {
         employeeNumber: input.employeeNumber ?? null,
-        employmentType: input.employmentType,
-        startDate: input.startDate ? toBusinessDate(input.startDate) : null,
-        probationEndDate: input.probationEndDate
-          ? toBusinessDate(input.probationEndDate)
-          : null,
+        probationEndDate: input.probationEndDate ? toBusinessDate(input.probationEndDate) : null,
         endDate: input.endDate ? toBusinessDate(input.endDate) : null,
-        managerMemberId: manager?.id ?? null,
-        workLocation: input.workLocation ?? null,
         weeklyHours: input.weeklyHours ?? null,
         updatedByMemberId: context.membershipId,
       },
@@ -216,180 +247,17 @@ export async function updateEmployeeProfile(
       throw stateDenied("This record changed while you were working on it. Refresh and review it.");
     }
 
-    if (managerChanged) {
-      await recordActivity(tx, context, {
-        module: MODULE,
-        entityType: ENTITY,
-        entityId: memberId,
-        action: "HR_EMPLOYEE_MANAGER_CHANGED",
-        message: manager
-          ? `set their manager to ${managerName(manager)}`
-          : "removed their manager",
-        metadata: {
-          memberId,
-          ...(changeMetadata({
-            managerMemberId: {
-              from: existing.managerMember?.id ?? null,
-              to: manager?.id ?? null,
-            },
-          }) as object),
-        } as Prisma.InputJsonValue,
-      });
-    } else {
-      await recordActivity(tx, context, {
-        module: MODULE,
-        entityType: ENTITY,
-        entityId: memberId,
-        action: "HR_EMPLOYEE_PROFILE_UPDATED",
-        message: "updated their employment record",
-        metadata: { memberId } as Prisma.InputJsonValue,
-      });
-    }
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: memberId,
+      action: "HR_EMPLOYEE_PROFILE_UPDATED",
+      message: "updated their employment record",
+      metadata: { memberId } as Prisma.InputJsonValue,
+    });
   });
 
   return getEmployee(context, memberId);
-}
-
-/**
- * Changes employment status (PRD #16 §54, §55).
- *
- * Company access is deliberately untouched. Ending employment and removing
- * somebody's login are two decisions, taken by two modules, and a person whose
- * last day is next Friday still needs to sign in until then (PRD #16 §230).
- */
-export async function changeEmploymentStatus(
-  context: UserContext,
-  memberId: string,
-  input: EmploymentStatusInput,
-): Promise<void> {
-  assertModule(context, MODULE);
-  assertPermission(context, "hr.employee.status.update");
-
-  const existing = assertFound(await repository.findEmployeeByMember(context, memberId));
-  const next = input.status as EmploymentStatus;
-
-  if (existing.employmentStatus === next) {
-    throw new AccessError("CONFLICT", `This record is already ${next.toLowerCase()}.`);
-  }
-
-  if (!canTransitionEmployment(existing.employmentStatus, next)) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      existing.employmentStatus === "ENDED"
-        ? "Ended employment is reopened by rehiring, which needs a new start date."
-        : `Employment cannot move from ${existing.employmentStatus} to ${next}.`,
-    );
-  }
-
-  if (next === "ENDED" && !input.endDate && !existing.endDate) {
-    throw new AccessError("VALIDATION_ERROR", "An end date is required to end employment.");
-  }
-
-  await prisma.$transaction(async (tx) => {
-    const result = await tx.employeeProfile.updateMany({
-      where: { id: existing.id, employmentStatus: existing.employmentStatus },
-      data: {
-        employmentStatus: next,
-        ...(next === "ENDED"
-          ? {
-              endDate: input.endDate ? toBusinessDate(input.endDate) : existing.endDate,
-              // Ending employment opens offboarding, rather than silently
-              // leaving it "not required" (PRD #16 §124).
-              offboardingStatus:
-                existing.offboardingStatus === "NOT_REQUIRED"
-                  ? "NOT_STARTED"
-                  : existing.offboardingStatus,
-            }
-          : {}),
-        updatedByMemberId: context.membershipId,
-      },
-    });
-
-    if (result.count === 0) {
-      throw new AccessError("CONFLICT", "This record changed while you were working on it.");
-    }
-
-    await recordActivity(tx, context, {
-      module: MODULE,
-      entityType: ENTITY,
-      entityId: memberId,
-      action: `HR_EMPLOYMENT_${next}`,
-      message: STATUS_MESSAGES[next],
-      metadata: {
-        memberId,
-        ...(input.note ? { note: input.note } : {}),
-        ...(changeMetadata({
-          employmentStatus: { from: existing.employmentStatus, to: next },
-        }) as object),
-      } as Prisma.InputJsonValue,
-    });
-
-    // Employment status decides pay, leave and access downstream, so its
-    // policy is `required` (PRD #28 §124, §136).
-    await recordUserAction(
-      context,
-      {
-        actionKey: AuditAction.HR_EMPLOYMENT_STATUS_CHANGED,
-        entity: {
-          type: ENTITY,
-          id: memberId,
-          label: managerName(existing.companyMember),
-        },
-        before: { employmentStatus: existing.employmentStatus },
-        after: { employmentStatus: next },
-        reason: input.note ?? null,
-      },
-      { tx },
-    );
-  });
-}
-
-/**
- * Rehire (PRD #16 §56).
- *
- * Its own action rather than a transition, because it needs a new start date
- * and must clear the old end date — an "ENDED → ACTIVE" edit would leave a
- * record claiming somebody both left and is working.
- */
-export async function rehireEmployee(
-  context: UserContext,
-  memberId: string,
-  startDate: Date,
-): Promise<void> {
-  assertModule(context, MODULE);
-  assertPermission(context, "hr.employee.status.update");
-
-  const existing = assertFound(await repository.findEmployeeByMember(context, memberId));
-
-  if (existing.employmentStatus !== "ENDED") {
-    throw new AccessError("CONFLICT", "Only ended employment can be reopened by a rehire.");
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.employeeProfile.update({
-      where: { id: existing.id },
-      data: {
-        employmentStatus: "ACTIVE",
-        startDate: toBusinessDate(startDate),
-        endDate: null,
-        onboardingStatus: "NOT_STARTED",
-        offboardingStatus: "NOT_REQUIRED",
-        updatedByMemberId: context.membershipId,
-      },
-    });
-
-    await recordActivity(tx, context, {
-      module: MODULE,
-      entityType: ENTITY,
-      entityId: memberId,
-      action: "HR_EMPLOYEE_REHIRED",
-      message: `rehired them from ${businessDateString(toBusinessDate(startDate))}`,
-      metadata: {
-        memberId,
-        previousEndDate: existing.endDate ? businessDateString(existing.endDate) : null,
-      } as Prisma.InputJsonValue,
-    });
-  });
 }
 
 /** Onboarding and offboarding progress (PRD #16 §117, §121, §123). */
@@ -436,14 +304,6 @@ export async function setProgress(
 /* Internals                                                                   */
 /* -------------------------------------------------------------------------- */
 
-const STATUS_MESSAGES: Record<EmploymentStatus, string> = {
-  PLANNED: "set their employment back to planned",
-  ACTIVE: "marked their employment active",
-  ON_LEAVE: "marked them on extended leave",
-  SUSPENDED: "suspended their employment",
-  ENDED: "recorded the end of their employment",
-};
-
 async function validateMember(context: UserContext, companyMemberId: string) {
   const member = await prisma.companyMember.findFirst({
     where: { AND: [buildHrMemberScopeWhere(context), { id: companyMemberId }] },
@@ -451,6 +311,7 @@ async function validateMember(context: UserContext, companyMemberId: string) {
       id: true,
       userId: true,
       jobTitle: true,
+      departmentId: true,
       user: { select: { firstName: true, lastName: true } },
     },
   });
@@ -459,35 +320,9 @@ async function validateMember(context: UserContext, companyMemberId: string) {
     id: member.id,
     userId: member.userId,
     jobTitle: member.jobTitle,
+    departmentId: member.departmentId,
     name: `${member.user.firstName} ${member.user.lastName}`,
   };
-}
-
-/**
- * A manager must be somebody else in this company (PRD #16 §32).
- *
- * Self-management is refused here and by a check constraint, because an
- * approval chain that loops back to the requester is not an approval chain.
- */
-async function validateManager(
-  context: UserContext,
-  managerMemberId: string | undefined,
-  subjectMemberId: string,
-) {
-  if (!managerMemberId) return null;
-
-  if (managerMemberId === subjectMemberId) {
-    throw new AccessError("VALIDATION_ERROR", "Somebody cannot be their own manager.");
-  }
-
-  const manager = await prisma.companyMember.findFirst({
-    where: { companyId: context.companyId, id: managerMemberId, status: "ACTIVE" },
-    select: { id: true, user: { select: { firstName: true, lastName: true } } },
-  });
-  if (!manager) {
-    throw new AccessError("VALIDATION_ERROR", "That manager is not an active team member.");
-  }
-  return manager;
 }
 
 function managerName(manager: {
@@ -553,8 +388,8 @@ export function toSummaryDTO(row: repository.EmployeeRow): EmployeeSummaryDTO {
     email: row.companyMember.user.email,
     avatarUrl: row.companyMember.user.avatarUrl,
     employeeNumber: row.employeeNumber,
-    jobTitle: row.companyMember.jobTitle,
-    department: row.companyMember.department,
+    jobTitle: row.jobTitle ?? row.companyMember.jobTitle,
+    department: row.department ?? row.companyMember.department,
     employmentStatus: row.employmentStatus,
     employmentType: row.employmentType,
     startDate: row.startDate ? businessDateString(row.startDate) : null,
@@ -570,6 +405,7 @@ function toDetailDTO(
   context: UserContext,
   row: repository.EmployeeDetailRow,
   guards: EmployeeDetailDTO["guards"],
+  currentAssignmentId: string | null,
 ): EmployeeDetailDTO {
   const own = isSelf(context, row.companyMemberId);
   const ended = row.employmentStatus === "ENDED";
@@ -577,7 +413,9 @@ function toDetailDTO(
   return {
     ...toSummaryDTO(row as unknown as repository.EmployeeRow),
     probationEndDate: row.probationEndDate ? businessDateString(row.probationEndDate) : null,
+    workLocationType: row.workLocationType,
     workLocation: row.workLocation,
+    currentAssignmentId,
     weeklyHours: row.weeklyHours?.toString() ?? null,
     onboardingStatus: row.onboardingStatus,
     offboardingStatus: row.offboardingStatus,
@@ -604,7 +442,10 @@ function toDetailDTO(
         can(context, "document.view"),
       canViewActivity: can(context, "hr.activity.view"),
       canManageOnboarding: can(context, "hr.onboarding.manage"),
+      // The history is its own permission: the current record is not how somebody got here (E-03 §56-§59, §195).
+      canViewHistory: can(context, "hr.employment_history.view") || (own && can(context, "hr.self.employment")),
     },
+    employment: employmentCapabilities(context, row.employmentStatus),
 
     guards,
   };

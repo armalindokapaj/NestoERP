@@ -3,7 +3,10 @@ import type { Prisma } from "@prisma/client";
 import { AccessError } from "@/lib/access/guards";
 import { linkPersonProfile } from "@/lib/auth/identity";
 import type { UserContext } from "@/lib/context/types";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { prisma } from "@/lib/database/prisma";
+import { dayOf, todayDay } from "./employment/employment.dates";
+import { assignmentFacts, auditEmployment, followMembership, historyRaced, lockEmployment, openAssignment, syncCache, writeAssignment } from "./employment/employment.history";
 import { recruitsAcrossGroup } from "./recruitment/candidate.service";
 
 /*
@@ -119,4 +122,83 @@ export async function updatePersonWorkProfile(
     },
   });
   if (updated.count === 0) throw new AccessError("NOT_FOUND");
+}
+
+/**
+ * HR's door for account provisioning (E-06 §25, §28, §93).
+ *
+ * The employment HR recorded without a login gains the membership Group IT
+ * just created; the person is an employee from here on, and a candidacy still
+ * open for that company is closed as hired. An employment that already has a
+ * login, or belongs to somebody else, is refused — the request was made for
+ * that record and nothing else.
+ *
+ * The request is HR's own statement of where the person joins, so the
+ * employment's history takes it in (E-03 §7, ADR 0004): the manager it names,
+ * and the department and title the new membership carries, are recorded as
+ * changes — a planned employment's plan revised, a running one's history moved
+ * on from today — never written over.
+ */
+export async function linkEmploymentToLogin(
+  tx: Prisma.TransactionClient,
+  input: {
+    employeeProfileId: string | null;
+    personProfileId: string;
+    companyId: string;
+    companyMemberId: string;
+    userId: string;
+    managerMemberId: string | null;
+    actor: UserContext | null;
+  },
+): Promise<void> {
+  if (input.employeeProfileId) {
+    const linked = await tx.employeeProfile.updateMany({
+      where: { id: input.employeeProfileId, companyId: input.companyId, personProfileId: input.personProfileId, companyMemberId: null },
+      data: { companyMemberId: input.companyMemberId },
+    });
+    if (linked.count === 0) {
+      throw new AccessError("CONFLICT", "That employment record already has a login, or belongs to somebody else.", { code: "EMPLOYMENT_LINKED" });
+    }
+    // A request without a manager leaves the employment's own manager alone.
+    if (input.managerMemberId) await recordManagerFromRequest(tx, input.employeeProfileId, input.companyId, input.managerMemberId, input.actor);
+    await followMembership(tx, { companyId: input.companyId, userId: input.userId, actor: input.actor });
+  }
+  await tx.personProfile.updateMany({
+    where: { id: input.personProfileId, lifecycleStatus: { in: ["CANDIDATE", "SELECTED"] } },
+    data: { lifecycleStatus: "EMPLOYEE" },
+  });
+  // A candidacy still open for this company ends here: the person is hired.
+  await tx.candidateProfile.updateMany({
+    where: { personProfileId: input.personProfileId, targetCompanyId: input.companyId, status: { in: ["SELECTED", "OFFERED"] } },
+    data: { status: "HIRED", decidedAt: new Date() },
+  });
+}
+
+async function recordManagerFromRequest(tx: Prisma.TransactionClient, employmentId: string, companyId: string, managerMemberId: string, actor: UserContext | null): Promise<void> {
+  await lockEmployment(tx, employmentId);
+  const [employment, open] = await Promise.all([
+    tx.employeeProfile.findFirstOrThrow({ where: { id: employmentId, companyId }, select: { employmentStatus: true, managerMemberId: true } }),
+    openAssignment(tx, employmentId),
+  ]);
+  if (!open || employment.employmentStatus === "ENDED" || employment.managerMemberId === managerMemberId) return;
+  const today = todayDay();
+  const openStart = dayOf(open.startDate);
+  const effective = employment.employmentStatus === "PLANNED" || openStart > today ? openStart : today;
+  const write = await writeAssignment(tx, {
+    employmentId,
+    companyId,
+    patch: { managerMemberId },
+    effective,
+    reason: "MANAGER_CHANGE",
+    source: "SYNC",
+    actorUserId: actor?.userId ?? null,
+  }).catch(historyRaced);
+  if (!write) return;
+  await syncCache(tx, { id: employmentId, companyId });
+  await auditEmployment(tx, actor ? { kind: "member", context: actor } : { kind: "system", companyId, onBehalfOfUserId: null }, companyId, {
+    actionKey: AuditAction.HR_EMPLOYMENT_ASSIGNMENT_CHANGED,
+    entity: { type: "EmployeeProfile", id: employmentId, label: "Employment" },
+    before: assignmentFacts(write.before),
+    after: { ...assignmentFacts(write.after), effectiveDate: effective, changeType: "MANAGER_CHANGE", source: "SYNC" },
+  });
 }

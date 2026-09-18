@@ -52,25 +52,16 @@ const hrDate = z
   .optional()
   .transform((value) => (value === "" || value === undefined ? undefined : (value as Date)));
 
-const employmentFields = {
-  employeeNumber: optionalText(60),
-  employmentType: z.enum(EMPLOYMENT_TYPES, { message: "Choose an employment type" }),
-  startDate: hrDate,
-  probationEndDate: hrDate,
-  endDate: hrDate,
-  managerMemberId: optionalId,
-  workLocation: optionalText(160),
-  weeklyHours: z
-    .string()
-    .optional()
-    .transform((value) => (value === undefined || value.trim() === "" ? undefined : value.trim()))
-    .refine((value) => value === undefined || /^\d{1,3}(\.\d{1,2})?$/.test(value), {
-      message: "Weekly hours must be a number with at most 2 decimal places",
-    })
-    .refine((value) => value === undefined || Number.parseFloat(value) <= 168, {
-      message: "A week has 168 hours",
-    }),
-};
+const weeklyHours = z
+  .string()
+  .optional()
+  .transform((value) => (value === undefined || value.trim() === "" ? undefined : value.trim()))
+  .refine((value) => value === undefined || /^\d{1,3}(\.\d{1,2})?$/.test(value), {
+    message: "Weekly hours must be a number with at most 2 decimal places",
+  })
+  .refine((value) => value === undefined || Number.parseFloat(value) <= 168, {
+    message: "A week has 168 hours",
+  });
 
 /** `endDate >= startDate`: employment cannot end before it starts. */
 const datesInOrder = <T extends { startDate?: Date; endDate?: Date }>(schema: z.ZodType<T>) =>
@@ -80,28 +71,43 @@ const datesInOrder = <T extends { startDate?: Date; endDate?: Date }>(schema: z.
     { message: "The end date cannot be before the start date.", path: ["endDate"] },
   );
 
+/**
+ * A new employment record for a member (PRD #16 §25): its terms and where the
+ * person will sit, which become the first row of its history (E-03 §8). The
+ * department and title are the membership's.
+ */
 export const createEmployeeProfileSchema = datesInOrder(
   z.object({
     companyMemberId: z.string().trim().min(1, "Choose a team member"),
-    ...employmentFields,
+    employeeNumber: optionalText(60),
+    employmentType: z.enum(EMPLOYMENT_TYPES, { message: "Choose an employment type" }),
+    startDate: hrDate,
+    probationEndDate: hrDate,
+    endDate: hrDate,
+    managerMemberId: optionalId,
+    workLocationType: z.union([z.enum(["OFFICE", "SITE", "REMOTE", "HYBRID", "OTHER"]), z.literal("")]).optional().transform((value) => (value === "" ? undefined : value)),
+    workLocation: optionalText(160),
+    weeklyHours,
   }),
 );
 
-export const updateEmployeeProfileSchema = datesInOrder(
-  z.object({ ...employmentFields, versionUpdatedAt: optionalDate }),
-);
+/**
+ * The details of an employment that are not where somebody sits (E-03 §37,
+ * §187): its number, probation, its planned end and weekly hours. Department,
+ * title, manager, location, type, status and dates are changes with a date,
+ * made through the employment change service and kept as history.
+ */
+export const updateEmployeeProfileSchema = z.object({
+  employeeNumber: optionalText(60),
+  probationEndDate: hrDate,
+  /** A running employment's planned end — a fixed term — not its history. */
+  endDate: hrDate,
+  weeklyHours,
+  versionUpdatedAt: optionalDate,
+});
 
 export type CreateEmployeeProfileInput = z.infer<typeof createEmployeeProfileSchema>;
 export type UpdateEmployeeProfileInput = z.infer<typeof updateEmployeeProfileSchema>;
-
-/** Status is its own action, never a field on the update form (PRD #16 §54). */
-export const employmentStatusSchema = z.object({
-  status: z.enum(EMPLOYMENT_STATUSES),
-  endDate: hrDate,
-  note: optionalText(2000),
-});
-
-export type EmploymentStatusInput = z.infer<typeof employmentStatusSchema>;
 
 export const progressSchema = z.object({
   status: z.enum(PROGRESS_STATUSES),

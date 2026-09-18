@@ -188,6 +188,12 @@ jobs:
         # with each other after every suite has run (E-06 §11-§18, §73).
         run: pnpm verify:organization
 
+      - name: Employment integrity
+        # Every employment's current fields match its history, every login is
+        # placed where its employment says, and no reporting line loops
+        # (E-03 §180-§182, §215).
+        run: pnpm verify:employment
+
       - name: Upload failure artefacts
         if: failure()
         uses: actions/upload-artifact@v4

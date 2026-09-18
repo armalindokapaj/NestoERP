@@ -56,7 +56,7 @@ with it.
 | `tasks` | `Task` |
 | `documents` | `Document`, `DocumentVersion`, `DocumentReview`, `DocumentUploadSession`, storage quota and usage |
 | `finance` | `Invoice`, `Expense`, `Payment`, `ProjectBudget`, `Commitment`, `FinanceApproval`, `FinanceSettings`; `PaymentAllocation` — what part of a payment settles which invoice, expense or installment, the only way any payment settles anything; `PaymentSchedule`, `PaymentInstallment` — a sale contract's versioned schedule (E-05F) |
-| `hr` | `EmployeeProfile`, `Compensation`, `LeaveRequest`, `LeaveBalance`, `AttendanceRecord` |
+| `hr` | `EmployeeProfile`, `Compensation`, `LeaveRequest`, `LeaveBalance`, `AttendanceRecord`, `EmploymentAssignment`, `EmploymentStatusHistory`, `EmploymentChange` |
 | `sales` | `Lead`, `Opportunity`, `Proposal`, `SalesApproval`; `UnitCommercialProfile`, `UnitPriceHistory`, `UnitReservation`, `UnitReservationExtension`, `OpportunityUnit`, `UnitCommercialStatusHistory` — a unit's price, commercial status, reservations and deals (E-05E); `UnitSaleApproval` — a sale approved before it is marked Sold (E-05F). The unit stays project structure's, read through its door; clients are created through the Clients service |
 | `contracts` | `Contract`, `ContractParty`, `ContractObligation`, `ContractAmendment`, `ContractApproval`; `ContractUnit`, `UnitContractRequest` — the units a sale contract sells and Sales' requests for one (E-05F) |
 | `procurement` | `Supplier`, `PurchaseRequest`, `RFQ`, `SupplierQuote`, `PurchaseOrder`, `GoodsReceipt`, procurement approvals |
@@ -101,7 +101,10 @@ owner decides *how*.
 | `ensurePersonForUser` | hr | team (handed in by the invitation action) | Every login working in a group is a person of it: linked by email to an unlinked person of the group, or made from the account (E-01 §219). |
 | `updatePersonWorkProfile` | hr | people | Only the work-profile columns, only inside the group; one email per person in the group. |
 | `openBranch`, `closeBranch`, `renameBranches`, `nameBranchManager` / `clearBranchManager`, `placeHomeIfUnplaced` / `moveHome` | team | organization | The branch row and the membership: a branch is opened again rather than duplicated, closed rather than deleted; a manager is cleared only if still theirs; a home is moved only if still where the caller left it (E-13, ADR 0003). |
-| `placeMembership` | organization | team (handed in by the member and invitation actions) | Where Team places a membership, its member place on that department's team follows: ended in the old branch, made in the new one, with the membership's role (ADR 0003 decision 5). |
+| `placeMembership` | organization | team (handed in by the member and invitation actions), hr (handed in by the employment routes, actions and job) | Where Team places a membership, its member place on that department's team follows: ended in the old branch, made in the new one, with the membership's role (ADR 0003 decision 5); then HR's history follows the membership (ADR 0004). |
+| `setMemberPlacement` | team | hr | A membership's department and title set to what its employment says — only those two columns, never the role (E-03, ADR 0004 decision 7). |
+| `followMembership` | hr | organization | A running employment records the department or title its membership now has, as a change dated today (source SYNC), or revises a planned employment's plan; nothing when they agree (ADR 0004 decision 7). |
+| `linkEmploymentToLogin` | hr (`person.doors.ts`) | organization | The employment gains the provisioned login; the manager the request named and the membership's department and title are recorded as history, never written over. |
 | `employmentsVisibleTo` (read) | hr | people | Each employment judged in its own company by HR's own permission and scope; pay never included. |
 | `recordActivity`, `recordActorActivity` | shared | everyone | The activity row's shape and its actor. |
 

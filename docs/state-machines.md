@@ -799,6 +799,12 @@ the state it read, but they are not that:
   machine's `expire_reservation`, checked with `canMove` and written
   conditional on `RESERVED`, because it has no `UserContext`
   (`lib/modules/sales/units/unit-sales.core.ts`, `docs/unit-sales.md`).
+- *Scheduled employment changes* — `employmentChange.status`. The job claims
+  a due change `SCHEDULED` → `APPLIED` in the transaction that applies it, and
+  cancelling or failing one is conditional on `SCHEDULED` too, so a cancel and
+  the job racing settle it once. An employment's own status is not a column a
+  service moves: it is recomputed from its status history
+  (`docs/employment-history.md`).
 - *Finance commitments moved through Procurement's door* —
   `ensureCommitmentForSource` and `settleCommitmentForSource`. The door's
   contract is that the caller authorises, and a buyer need not hold a finance

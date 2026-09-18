@@ -11,27 +11,27 @@ import {
   type SelectOption,
 } from "@/components/forms/record-form";
 import { Input } from "@/components/ui/input";
+import { workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
 import { EMPLOYMENT_TYPES } from "@/lib/modules/hr/hr.schema";
 import { employmentTypeLabels } from "@/lib/modules/hr/hr.status";
 
 export type EmploymentFormValues = {
   employeeNumber: string | null;
-  employmentType: string;
-  startDate: string | null;
   probationEndDate: string | null;
   endDate: string | null;
-  managerMemberId: string | null;
-  workLocation: string | null;
   weeklyHours: string | null;
 };
 
 /**
- * Create and edit an employment record (PRD #16 §38, §50).
+ * Create an employment record, and edit what of it is not history (PRD #16
+ * §38, §50; E-03 §37, §187).
  *
- * Employment status is deliberately absent: it is a transition with its own
- * rules and its own activity entry, not a dropdown on an edit form
- * (PRD #16 §54). So is company access — ending employment here never touches
- * somebody's membership (PRD #16 §230).
+ * On create, where the person will sit — type, manager, planned start,
+ * location — becomes the first row of the employment's history; the department
+ * and title are the membership's. On edit, only the number, probation, planned
+ * end and hours: department, title, manager, location, type and status are
+ * dated changes, made through "Change employment" and kept (E-03 §7). Company
+ * access is never touched here (PRD #16 §230).
  */
 export function EmploymentForm({
   action,
@@ -47,9 +47,9 @@ export function EmploymentForm({
   action: (formData: FormData) => Promise<FormActionResult>;
   /** Only on create: members who have no employment record yet (PRD #16 §225). */
   members?: SelectOption[];
-  managers: SelectOption[];
+  managers?: SelectOption[];
   values?: EmploymentFormValues;
-  /** On edit, so the manager list can exclude the employee themselves. */
+  /** On create only, as a stand-in for the member chosen. */
   memberId?: string;
   versionUpdatedAt?: string;
   cancelHref: string;
@@ -57,11 +57,12 @@ export function EmploymentForm({
   pendingLabel: string;
 }) {
   const [selectedMember, setSelectedMember] = React.useState(members?.[0]?.value ?? "");
+  const creating = members !== undefined;
 
   // Nobody manages themselves: a loop would make the approval chain infinite
   // (PRD #16 §32).
   const self = memberId ?? selectedMember;
-  const managerChoices = managers.filter((manager) => manager.value !== self);
+  const managerChoices = (managers ?? []).filter((manager) => manager.value !== self);
 
   return (
     <RecordForm
@@ -102,12 +103,13 @@ export function EmploymentForm({
           </Field>
         ) : null}
 
+        {creating ? (
         <Field label="Employment type" name="employmentType" required>
           <select
             id="employmentType"
             name="employmentType"
             className={selectClass}
-            defaultValue={values?.employmentType ?? "FULL_TIME"}
+            defaultValue="FULL_TIME"
           >
             {EMPLOYMENT_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -116,6 +118,7 @@ export function EmploymentForm({
             ))}
           </select>
         </Field>
+        ) : null}
 
         <Field label="Employee number" name="employeeNumber" hint="Optional, and unique.">
           <Input
@@ -127,12 +130,13 @@ export function EmploymentForm({
           />
         </Field>
 
+        {creating ? (
         <Field label="Manager" name="managerMemberId" hint="Who this person reports to.">
           <select
             id="managerMemberId"
             name="managerMemberId"
             className={selectClass}
-            defaultValue={values?.managerMemberId ?? ""}
+            defaultValue=""
           >
             <option value="">No manager</option>
             {managerChoices.map((manager) => (
@@ -142,17 +146,25 @@ export function EmploymentForm({
             ))}
           </select>
         </Field>
+        ) : (
+          <p className="text-meta text-fg-subtle sm:col-span-2">
+            Department, job title, manager, work location, employment type and status change through
+            “Change employment”, each from a date, and are kept in the history.
+          </p>
+        )}
       </FormSection>
 
       <FormSection title="Dates" description="Employment cannot end before it starts.">
-        <Field label="Start date" name="startDate">
+        {creating ? (
+        <Field label="Planned start" name="startDate" hint="The employment is planned until HR starts it.">
           <Input
             id="startDate"
             name="startDate"
             type="date"
-            defaultValue={values?.startDate ?? ""}
+            defaultValue=""
           />
         </Field>
+        ) : null}
 
         <Field label="Probation ends" name="probationEndDate">
           <Input
@@ -173,15 +185,23 @@ export function EmploymentForm({
       </FormSection>
 
       <FormSection title="Working arrangement">
-        <Field label="Work location" name="workLocation">
-          <Input
-            id="workLocation"
-            name="workLocation"
-            maxLength={160}
-            defaultValue={values?.workLocation ?? ""}
-            placeholder="Tirana office"
-          />
-        </Field>
+        {creating ? (
+          <>
+            <Field label="Works at" name="workLocationType">
+              <select id="workLocationType" name="workLocationType" className={selectClass} defaultValue="">
+                <option value="">Not set</option>
+                {Object.entries(workLocationTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Work location" name="workLocation">
+              <Input id="workLocation" name="workLocation" maxLength={160} defaultValue="" placeholder="Tirana office" />
+            </Field>
+          </>
+        ) : null}
 
         <Field label="Weekly hours" name="weeklyHours" hint="Contracted hours, such as 40.">
           <Input

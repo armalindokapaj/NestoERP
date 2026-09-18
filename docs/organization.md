@@ -108,6 +108,11 @@ scope builders.
 
 ## Departments (E-13, ADR 0003)
 
+> Since E-03 ([employment history](employment-history.md)), a move of somebody's
+> home branch — from Team, from a department's team here, or at provisioning —
+> is recorded in their running employment's history, and HR's department
+> transfers move the home branch and the department place with them.
+
 A department is defined **once for the group** and **activated per company**:
 activating it gives the company a branch of it, deactivating closes that branch
 and keeps it, reactivating reopens the same branch. The chart's thirteen

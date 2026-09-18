@@ -1,5 +1,6 @@
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { auditContextFromUser, recordAuditEvent } from "@/lib/core/audit/audit.service";
+import { followMembership } from "@/lib/modules/hr/employment/employment.history";
 import type { PlacementDoor } from "@/lib/modules/team/team.placement";
 
 /**
@@ -9,8 +10,18 @@ import type { PlacementDoor } from "@/lib/modules/team/team.placement";
  * group's departments has a team; a department a company made for itself
  * before E-06 has none. A head's or a manager's appointment is not a member
  * place and is left alone.
+ *
+ * Then HR's employment history follows the membership (E-03 §7, §187, ADR
+ * 0004): somebody employed here who was moved or retitled in Team has the
+ * change recorded in their employment, dated today — or, when HR made the
+ * change, finds it already there.
  */
 export const placeMembership: PlacementDoor = async (tx, input) => {
+  await placeInTeam(tx, input);
+  await followMembership(tx, { companyId: input.companyId, userId: input.userId, actor: input.actor });
+};
+
+const placeInTeam: PlacementDoor = async (tx, input) => {
   if (input.fromDepartmentId === input.toDepartmentId) return;
   const ids = [input.fromDepartmentId, input.toDepartmentId].filter((id): id is string => Boolean(id));
   const branches = await tx.department.findMany({

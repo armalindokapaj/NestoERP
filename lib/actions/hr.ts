@@ -2,20 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
 import { requireUserContext } from "@/lib/context/current-user";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import * as compensation from "@/lib/modules/hr/compensation/compensation.service";
 import * as employees from "@/lib/modules/hr/employees/employee.service";
+import { applyEmploymentChange, cancelScheduledChange } from "@/lib/modules/hr/employment/employment.change.service";
+import { correctEmploymentHistory } from "@/lib/modules/hr/employment/employment.correction.service";
+import { cancelScheduledChangeSchema, correctionSchema, employmentChangeSchema } from "@/lib/modules/hr/employment/employment.schema";
+import type { EmploymentChangeResultDTO } from "@/lib/modules/hr/employment/employment.types";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
+import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
 import {
   createAttendanceSchema,
   createCompensationSchema,
   createEmployeeProfileSchema,
   createLeaveSchema,
-  employmentStatusSchema,
   leaveBalanceSchema,
   updateAttendanceSchema,
   updateEmployeeProfileSchema,
@@ -104,17 +107,40 @@ export async function updateEmployeeProfileAction(
   redirect(`/hr/employees/${memberId}`);
 }
 
-export async function employmentStatusAction(
-  memberId: string,
-  input: { status: string; endDate?: string; note?: string },
-): Promise<HrActionResult> {
+/**
+ * One dated employment change — promotion, transfer, manager, location, type,
+ * status, ending, rehire (E-03 §36, §74). The organization's placement door is
+ * passed in, so a department's team follows the move (ADR 0004).
+ */
+export async function employmentChangeAction(memberId: string, input: unknown): Promise<HrActionResult & { outcome?: EmploymentChangeResultDTO }> {
   const context = await requireUserContext();
 
-  const parsed = employmentStatusSchema.safeParse(input);
+  const parsed = employmentChangeSchema.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error);
+
+  let outcome: EmploymentChangeResultDTO;
+  try {
+    outcome = await applyEmploymentChange(context, memberId, parsed.data, { placement: placeMembership });
+  } catch (error) {
+    return toResult(error);
+  }
+
+  revalidateHr(memberId);
+  revalidatePath("/people", "layout");
+  return {
+    ok: true,
+    outcome,
+    message: outcome.outcome === "SCHEDULED" ? "Scheduled." : outcome.needsAccountIn ? `Transferred. ${outcome.needsAccountIn.companyName} has no NESTO login for them yet.` : "Saved.",
+  };
+}
+
+export async function cancelScheduledChangeAction(memberId: string, changeId: string, reason?: string): Promise<HrActionResult> {
+  const context = await requireUserContext();
+  const parsed = cancelScheduledChangeSchema.safeParse({ reason });
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await employees.changeEmploymentStatus(context, memberId, parsed.data);
+    await cancelScheduledChange(context, memberId, changeId, parsed.data.reason);
   } catch (error) {
     return toResult(error);
   }
@@ -123,24 +149,21 @@ export async function employmentStatusAction(
   return { ok: true };
 }
 
-const rehireSchema = z.object({ startDate: z.coerce.date() });
-
-export async function rehireAction(
-  memberId: string,
-  startDate: string,
-): Promise<HrActionResult> {
+/** A correction of one history row, with its reason (E-03 §42-§44, §76, §224). */
+export async function correctEmploymentHistoryAction(memberId: string, input: unknown): Promise<HrActionResult> {
   const context = await requireUserContext();
 
-  const parsed = rehireSchema.safeParse({ startDate });
+  const parsed = correctionSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await employees.rehireEmployee(context, memberId, parsed.data.startDate);
+    await correctEmploymentHistory(context, memberId, parsed.data, { placement: placeMembership });
   } catch (error) {
     return toResult(error);
   }
 
   revalidateHr(memberId);
+  revalidatePath("/people", "layout");
   return { ok: true };
 }
 

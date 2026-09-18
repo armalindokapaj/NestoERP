@@ -13,6 +13,7 @@ import type { PrismaClient } from "@prisma/client";
 import { GROUP_DEPARTMENTS } from "../../config/group-departments";
 import { MODULE_KEYS } from "../../config/modules";
 import { ROLE_KEYS } from "../../config/roles";
+import { findEmploymentFindings } from "../../lib/modules/hr/employment/employment.integrity";
 import {
   COMPANY_A,
   DEMO_COMPANY_IDS,
@@ -29,6 +30,11 @@ type Check = { label: string; actual: number; expected: number; comparison: "eq"
 
 export async function validateSeed(prisma: PrismaClient): Promise<void> {
   const problems: string[] = [];
+
+  // Every employment agrees with its history, and every login with its employment (E-03 §181, §215).
+  for (const finding of await findEmploymentFindings(prisma)) {
+    if (finding.level === "error") problems.push(`employment: ${finding.code} — ${finding.message}`);
+  }
 
   const checks: Check[] = [
     { label: "roles", actual: await prisma.role.count(), expected: ROLE_KEYS.length, comparison: "eq" },

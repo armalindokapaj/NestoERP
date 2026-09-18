@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { EmploymentTimeline } from "@/components/hr/employment-timeline";
 import { EditOwnProfileButton, ManageProfileButton } from "@/components/people/work-profile-editor";
 import { WORK_STATUS } from "@/components/people/work-status";
 import { Avatar } from "@/components/ui/avatar";
@@ -14,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
+import { getPersonEmploymentHistory } from "@/lib/modules/hr/employment/employment.query";
 import { getEmploymentView, getPrivateProfile, getWorkProfile } from "@/lib/modules/people/people.service";
 import type { WorkProfileDTO } from "@/lib/modules/people/people.types";
 import { cn } from "@/lib/utils/cn";
@@ -129,7 +131,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
       {tab === "overview" ? <Overview profile={profile} /> : null}
       {tab === "projects" ? <Projects profile={profile} /> : null}
       {tab === "activity" ? <Activity profile={profile} /> : null}
-      {tab === "employment" ? <Employment context={context} personId={profile.personId} /> : null}
+      {tab === "employment" ? <Employment context={context} personId={profile.personId} withHistory={profile.capabilities.canViewHistory} /> : null}
       {tab === "private" ? <Private context={context} personId={profile.personId} /> : null}
     </div>
   );
@@ -277,10 +279,31 @@ function Activity({ profile }: { profile: WorkProfileDTO }) {
   );
 }
 
-async function Employment({ context, personId }: { context: UserContext; personId: string }) {
-  const employments = await getEmploymentView(context, personId);
+/**
+ * Employment (E-01 §98; E-03 §54, §57, §58, §160, §161): each employment as HR
+ * lets this reader see it, and — for the person themselves and for HR in scope —
+ * the organization history across the group's companies, newest first.
+ */
+async function Employment({ context, personId, withHistory }: { context: UserContext; personId: string; withHistory: boolean }) {
+  const [employments, history] = await Promise.all([
+    getEmploymentView(context, personId),
+    withHistory ? getPersonEmploymentHistory(context, personId).catch((error) => (error instanceof AccessError ? null : Promise.reject(error))) : Promise.resolve(null),
+  ]);
   return (
     <div className="space-y-4">
+      {history ? (
+        <section className="nesto-card p-5" aria-labelledby="organization-history" data-testid="organization-history">
+          <h2 id="organization-history" className="text-card font-semibold text-fg">
+            Organization history
+          </h2>
+          <p className="mt-1 text-meta text-fg-subtle">
+            {history.isSelf ? "Your positions, companies, departments and managers over time." : "Positions, companies, departments and managers over time, as HR records them."}
+          </p>
+          <div className="mt-4">
+            <EmploymentTimeline events={history.timeline} showCompany={history.employments.length > 1} />
+          </div>
+        </section>
+      ) : null}
       {employments.map((employment) => (
         <section key={employment.id} className="nesto-card p-5" data-testid="employment-record">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -292,6 +315,8 @@ async function Employment({ context, personId }: { context: UserContext; personI
             items={[
               { label: "Registration number", value: orDash(employment.company.registrationNumber) },
               { label: "Employee number", value: orDash(employment.employeeNumber) },
+              { label: "Job title", value: orDash(employment.jobTitle) },
+              { label: "Department", value: orDash(employment.department) },
               { label: "Employment type", value: statusLabel(employment.type) },
               { label: "Started", value: employment.startDate ? formatDate(employment.startDate) : "—" },
               { label: "Probation ends", value: employment.probationEndDate ? formatDate(employment.probationEndDate) : "—" },

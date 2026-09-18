@@ -480,7 +480,24 @@ export const PERMISSIONS = [
   "hr.employee.manager.assign",
 
   "hr.employment.view",
+  /** Promote, retitle, move department, location or employment type — each a dated change in the history (E-03 §36). */
   "hr.employment.update",
+  /** Move somebody to another company of the group; needs HR authority there too (E-03 §98). */
+  "hr.employment.transfer_entity",
+  /** Schedule a change for a future date, and cancel it before it applies (E-03 §31, §157). */
+  "hr.employment.schedule",
+
+  /**
+   * Employment history (E-03 §55-§62, §191-§195). Seeing the current record
+   * (`hr.employee.view`, which the CEO holds) is not seeing how somebody got
+   * there: the history is its own permission, and the private reason behind a
+   * status change and the right to correct history are each a grant of their
+   * own, held by HR and the Owner.
+   */
+  "hr.employment_history.view",
+  "hr.employment_history.view_private",
+  /** Correct a history row, or backdate a change (E-03 §42-§44, §86). */
+  "hr.employment_history.correct",
 
   /**
    * Pay is its own permission, never implied by employee access

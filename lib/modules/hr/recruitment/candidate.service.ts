@@ -10,6 +10,8 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
+import { dayOf, todayDay } from "../employment/employment.dates";
+import { startHistory, syncCache } from "../employment/employment.history";
 import { toBusinessDate } from "../hr.date";
 import type { CandidateListQuery, CreateCandidateInput, HireCandidateInput, UpdateCandidateInput } from "./candidate.schema";
 
@@ -598,11 +600,26 @@ export async function hireCandidate(context: UserContext, candidateId: string, i
         employmentStatus: "PLANNED",
         employmentType: input.employmentType,
         startDate: input.startDate ? toBusinessDate(input.startDate) : null,
-        managerMemberId: manager?.id ?? null,
         createdByMemberId: acting.companyId === companyId ? acting.membershipId : null,
       },
       select: { id: true },
     });
+    // The hire is the employment's first history: where they will sit, planned from today (E-03 §8, §183).
+    if (!planned) {
+      await startHistory(tx, {
+        employmentId: employment.id,
+        companyId,
+        placement: { departmentId: candidate.targetDepartmentId, jobTitle: candidate.targetJobTitle, managerMemberId: manager?.id ?? null, workLocationType: null, workLocation: null, employmentType: input.employmentType },
+        start: input.startDate ? dayOf(toBusinessDate(input.startDate)) : todayDay(),
+        status: "PLANNED",
+        statusFrom: todayDay(),
+        assignmentReason: "HIRE",
+        statusReason: "HIRE",
+        source: "CHANGE",
+        actorUserId: context.userId,
+      });
+      await syncCache(tx, { id: employment.id, companyId });
+    }
     await tx.personProfile.updateMany({
       where: { id: candidate.personProfileId, lifecycleStatus: candidate.person.lifecycleStatus },
       data: { lifecycleStatus: "EMPLOYEE", jobTitle: candidate.targetJobTitle },

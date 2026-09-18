@@ -201,6 +201,7 @@ export async function updateMember(
 
   const roleChanged = input.roleId !== existing.role.id;
   const departmentChanged = (input.departmentId ?? null) !== (existing.department?.id ?? null);
+  const titleChanged = (input.jobTitle ?? null) !== (existing.jobTitle ?? null);
 
   const nextRole = roleChanged ? await validateRole(context, input.roleId) : existing.role;
   const nextDepartment = departmentChanged
@@ -231,7 +232,8 @@ export async function updateMember(
         departmentId: nextDepartment?.id ?? null,
       },
     });
-    if (departmentChanged) {
+    // A department or a title is a placement: the organization and HR keep their records true to it (ADR 0003, ADR 0004).
+    if (departmentChanged || titleChanged) {
       await options.placement(tx, {
         companyId: context.companyId,
         userId: existing.user.id,

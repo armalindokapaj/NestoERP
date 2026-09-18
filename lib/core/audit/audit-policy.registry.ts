@@ -76,6 +76,17 @@ export const AuditAction = {
   HR_CANDIDATE_CREATED: "HR_CANDIDATE_CREATED",
   HR_CANDIDATE_SELECTED: "HR_CANDIDATE_SELECTED",
   HR_EMPLOYEE_CREATED: "HR_EMPLOYEE_CREATED",
+  // Employment history (E-03 §134-§137)
+  HR_EMPLOYMENT_ASSIGNMENT_CHANGED: "HR_EMPLOYMENT_ASSIGNMENT_CHANGED",
+  HR_EMPLOYMENT_TERMINATED: "HR_EMPLOYMENT_TERMINATED",
+  HR_EMPLOYMENT_REHIRED: "HR_EMPLOYMENT_REHIRED",
+  HR_EMPLOYMENT_ENTITY_TRANSFERRED: "HR_EMPLOYMENT_ENTITY_TRANSFERRED",
+  HR_EMPLOYMENT_HISTORY_CORRECTED: "HR_EMPLOYMENT_HISTORY_CORRECTED",
+  HR_EMPLOYMENT_CHANGE_SCHEDULED: "HR_EMPLOYMENT_CHANGE_SCHEDULED",
+  HR_EMPLOYMENT_CHANGE_CANCELLED: "HR_EMPLOYMENT_CHANGE_CANCELLED",
+  HR_EMPLOYMENT_CHANGE_APPLIED: "HR_EMPLOYMENT_CHANGE_APPLIED",
+  HR_EMPLOYMENT_CHANGE_FAILED: "HR_EMPLOYMENT_CHANGE_FAILED",
+  HR_EMPLOYMENT_CACHE_REPAIRED: "HR_EMPLOYMENT_CACHE_REPAIRED",
   // Account requests from HR to Group IT (E-06 §114, §115)
   ORGANIZATION_USER_PROVISIONING_REQUESTED: "ORGANIZATION_USER_PROVISIONING_REQUESTED",
   ORGANIZATION_USER_PROVISIONING_APPROVED: "ORGANIZATION_USER_PROVISIONING_APPROVED",
@@ -370,6 +381,27 @@ export type AuditActionKey = (typeof AuditAction)[keyof typeof AuditAction];
  * branch, assignment and person it is about, by id and by the name it had, and
  * the position. The previous holder of a replaced position is the `before`.
  */
+/** An employment's organizational state as the audit keeps it (E-03 §136). */
+const EMPLOYMENT_AUDIT_FIELDS = [
+  "assignmentId",
+  "departmentId",
+  "departmentName",
+  "jobTitle",
+  "managerMemberId",
+  "managerName",
+  "workLocationType",
+  "workLocation",
+  "employmentType",
+  "startDate",
+  "endDate",
+  "reason",
+  "documentId",
+  "effectiveDate",
+  "changeType",
+  "source",
+  "scheduledChangeId",
+];
+
 const DEPARTMENT_AUDIT_FIELDS = [
   "groupDepartmentId",
   "companyId",
@@ -451,7 +483,18 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.CLIENT_RESTORED, moduleKey: "clients", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
 
   /* HR ------------------------------------------------------------------- */
-  { actionKey: AuditAction.HR_EMPLOYMENT_STATUS_CHANGED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["employmentStatus"], required: true },
+  // E-03 §136, §137: ids, dates, codes and names as they read that day — never a private reason, only whether one was recorded.
+  { actionKey: AuditAction.HR_EMPLOYMENT_STATUS_CHANGED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["employmentStatus", "effectiveDate", "statusReason", "privateReasonRecorded", "documentId", "source"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_ASSIGNMENT_CHANGED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: EMPLOYMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_TERMINATED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["employmentStatus", "lastWorkingDay", "effectiveDate", "statusReason", "privateReasonRecorded", "documentId", "cancelledScheduledChanges", "source"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_REHIRED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["employmentStatus", "endedFrom", "effectiveDate", "departmentId", "jobTitle", "managerMemberId", "employmentType", "documentId", "source"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_ENTITY_TRANSFERRED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["employmentStatus", "employeeProfileId", "companyId", "targetCompanyId", "targetEmploymentId", "effectiveDate", "lastWorkingDay", "departmentId", "departmentName", "jobTitle", "managerMemberId", "documentId", "reopened", "source"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_HISTORY_CORRECTED, moduleKey: "hr", category: "HR", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["row", "previous", "correctionReason", "kind"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_CHANGE_SCHEDULED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["scheduledChangeId", "changeType", "effectiveDate", "documentId", "targetCompanyId"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_CHANGE_CANCELLED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["scheduledChangeId", "changeStatus", "changeType", "effectiveDate"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_CHANGE_APPLIED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["scheduledChangeId", "changeStatus", "changeType", "effectiveDate", "requestedByUserId"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_CHANGE_FAILED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["scheduledChangeId", "changeStatus", "changeType", "effectiveDate", "failureReason"], required: true },
+  { actionKey: AuditAction.HR_EMPLOYMENT_CACHE_REPAIRED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["departmentId", "jobTitle", "managerMemberId", "workLocationType", "workLocation", "employmentType", "employmentStatus", "startDate", "endDate"], required: true },
   { actionKey: AuditAction.HR_LEAVE_REQUEST_APPROVED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status", "startDate", "endDate"], required: false },
   { actionKey: AuditAction.HR_LEAVE_REQUEST_REJECTED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: false },
   // That pay changed is auditable; what it changed to is not, without

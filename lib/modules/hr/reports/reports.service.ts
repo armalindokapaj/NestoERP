@@ -11,6 +11,7 @@ import {
   buildAttendanceScopeWhere,
   buildEmployeeScopeWhere,
   buildLeaveScopeWhere,
+  hrScopeKind,
 } from "../hr.scope";
 import type {
   AttendanceSummaryRow,
@@ -52,6 +53,8 @@ export async function headcountReport(context: UserContext): Promise<HeadcountRo
     where: buildEmployeeScopeWhere(context),
     select: {
       employmentStatus: true,
+      // The employment's own department (E-03 §6); the membership's for a record older than its history.
+      department: { select: { id: true, name: true } },
       companyMember: { select: { department: { select: { id: true, name: true } } } },
     },
   });
@@ -59,7 +62,7 @@ export async function headcountReport(context: UserContext): Promise<HeadcountRo
   const byDepartment = new Map<string, HeadcountRow>();
 
   for (const row of rows) {
-    const department = row.companyMember?.department ?? null;
+    const department = row.department ?? row.companyMember?.department ?? null;
     const key = department?.id ?? "";
 
     const entry =
@@ -309,5 +312,7 @@ export function availableReports(context: UserContext) {
     attendance: can(context, "hr.report.view") && can(context, "hr.attendance.view"),
     compensation: can(context, "hr.report.view") && can(context, "hr.compensation.view"),
     endingSoon: can(context, "hr.report.view") && can(context, "hr.employee.view"),
+    // As of any day, from the history's effective dates (E-03 §141-§144); history is its own permission.
+    organization: can(context, "hr.report.view") && can(context, "hr.employment_history.view") && hrScopeKind(context) === "COMPANY",
   };
 }

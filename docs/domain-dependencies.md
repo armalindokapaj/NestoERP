@@ -87,4 +87,6 @@ be argued for rather than merged.
    `PlacementDoor` in `team.placement.ts`) and the server action or route that
    calls Team hands in HR's `ensurePersonForUser` and the organization's
    `placeMembership` (E-01, ADR 0002; E-13, ADR 0003). The call is required, so
-   no caller can skip it.
+   no caller can skip it. HR's employment changes take `placeMembership` the
+   same way — the organization imports HR — and the organization's door calls
+   HR's `followMembership` directly (E-03, ADR 0004).

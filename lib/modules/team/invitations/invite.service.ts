@@ -703,10 +703,9 @@ export async function acceptInvite(
     const company = await tx.company.findUniqueOrThrow({ where: { id: invite.companyId }, select: { parentGroupId: true } });
     await options.personDoor(tx, { userId: user.id, parentGroupId: company.parentGroupId, jobTitle: invite.jobTitle });
 
-    // Joining a department is joining its team (E-13, ADR 0003), through the organization's door.
-    if (terms.departmentId) {
-      await options.placement(tx, { companyId: invite.companyId, userId: user.id, fromDepartmentId: null, toDepartmentId: terms.departmentId, actor: null });
-    }
+    // Joining a department is joining its team (E-13, ADR 0003), and an employment already on this
+    // login follows where the membership now places it (E-03, ADR 0004) — both through the organization's door.
+    await options.placement(tx, { companyId: invite.companyId, userId: user.id, fromDepartmentId: null, toDepartmentId: terms.departmentId ?? null, actor: null });
 
     // Consuming the token is what makes the link single-use (PRD #14 §239).
     const consumed = await tx.companyInvite.updateMany({

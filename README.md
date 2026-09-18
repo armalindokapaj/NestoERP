@@ -607,6 +607,8 @@ lib/modules/hr/
   hr.scope.ts         SELF / DEPARTMENT / COMPANY, with PROJECT folded into SELF
   hr.status.ts        employment, leave and attendance lifecycles
   employees/          the employment record, and onboarding/offboarding readiness
+  employment/         its history: dated changes, corrections, scheduled changes,
+                      reads and reports as of a date (E-03, docs/employment-history.md)
   compensation/       effective-dated pay, behind its own permission
   leave/              requests, decisions, and leave.balance.ts
   attendance/         days worked, and attendance.sync.ts for approved leave
@@ -618,6 +620,14 @@ their membership, and deactivating a membership does not end their employment.
 They are different facts, owned by different modules, changed by different
 people: HR records that somebody left, and a Team manager removes their access
 deliberately. Neither ever happens as a side effect of the other.
+
+**History is never overwritten.** Department, title, manager, location, type
+and status change only as dated changes: the old period closes, the new one
+opens, and the employment's current fields are recomputed from the rows. A
+wrong row is corrected with a reason, and the original stays beside it. For
+somebody employed, the membership's department and title follow the
+employment, and a Team or Organization edit of them is recorded as a change
+rather than lost (E-03, ADR 0004).
 
 **Pay is never part of an employee DTO.** Compensation has its own service, its
 own route and its own permission, and `hr.compensation.view` sits on no rung of

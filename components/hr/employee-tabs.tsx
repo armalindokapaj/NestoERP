@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils/cn";
 const TABS = [
   { key: "overview", label: "Overview", suffix: "" },
   { key: "employment", label: "Employment", suffix: "/employment" },
+  { key: "history", label: "History", suffix: "/history" },
   { key: "compensation", label: "Compensation", suffix: "/compensation" },
   { key: "leave", label: "Leave", suffix: "/leave" },
   { key: "attendance", label: "Attendance", suffix: "/attendance" },
