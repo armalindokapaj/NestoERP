@@ -590,6 +590,9 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "departments", label: "Departments", permission: "organization.department.view" },
       // Account requests between HR and Group IT (E-06 §61, §64, §127).
       { key: "provisioning", label: "User provisioning", permission: "organization.provisioning_request.view" },
+      // Role catalog, delegated access and the access check (E-06 §18, §73, §127). A group
+      // head reaches only the delegated access of their own function.
+      { key: "access", label: "Access & roles", permission: "organization.access.view", selfPermission: "department.team.access.delegate", selfLabel: "Delegated access" },
     ],
   },
   company: {

@@ -1546,3 +1546,65 @@ None was a defect in the application.
   row.
 
 With those two test fixes the baseline is green.
+
+---
+
+## 23. E-06 completed — delegated access, Access & roles, access diagnostics
+
+The audit's Phase 1 closes E-06's known gaps without redesigning its models:
+access grants get a door, Organization gets its Access & roles page, and the
+authorization data gets a diagnostic — for a person (the access check) and for
+the whole organization (`verify:organization`). The People page stays E-08's.
+`docs/organization.md` ("Delegated access") is the contract.
+
+### 23.1 What changed
+
+| Before | Now |
+|---|---|
+| `AccessGrant` rows were resolved but nothing could create one | `POST /api/organization/access-grants`: the Owner for any function's module, a group head for their own function's modules and people; `…/:grantId/revoke`; `GET` for those who keep access (a head sees their function's) |
+| — | The ceiling: in every company a grant reaches, the grantor's own role and position hold the module at that rung, company-wide. Delegated access never counts towards it, so nothing is passed along a chain |
+| Every module could in principle be named in a grant | Only the functions' business modules (`GROUP_DEPARTMENTS[].modules`); administration never |
+| — | Organization → Access & roles: delegated access (in force / with history, delegate, revoke), each role by position (member, company manager, group head), and Check access |
+| — | `GET /api/organization/access-diagnostics`: blockers, role, position and the appointments behind it, grants, each module's access by role, by position and in effect with its source, and a permission's answer — from the real resolver |
+| — | `pnpm verify:organization`, in CI after the suites: memberships, platform users, positions, branches, branch managers, grants and people read side by side |
+| — | Audit: `ORGANIZATION_ACCESS_GRANTED` (critical), `ORGANIZATION_ACCESS_GRANT_REVOKED` |
+
+No schema change and no migration.
+
+### 23.2 The evidence
+
+On three freshly built databases (every migration, then the seed):
+
+- **vitest: 3 595 passed, 0 failed**, 11 skipped. New: access grants (16),
+  organization integrity (2).
+- **E2E on the production build: 435 of 435.** New: organization access (4).
+- **verify:roles 1 614 of 1 614.** verify:authorization (574 routes),
+  ownership, state, company-integrity, production-guards pass;
+  **verify:organization** clean on all three databases and on `nesto_erp`, 0
+  warnings, before and after the suites. security:matrix: 964 endpoints, 0
+  company-scoped without a check. Typecheck clean; no schema drift.
+
+### 23.3 Decisions
+
+- **Which modules a function owns** is new configuration, not a PRD table:
+  HR → HR; Projects → Projects, Tasks, Daily logs; Architecture and Engineering
+  → Engineering; Finance → Finance; Legal → Contracts; Sales → Sales, Clients;
+  Procurement → Procurement, Contractors; Inventory, QA/QC, HSE → their own.
+  Executive and IT own none.
+- **A group grant reads as GROUP scope**, which the scope builders already treat
+  as company-wide inside each company; the company filter stays.
+- **A read-only holder is refused above View** rather than stored and clamped.
+- **Grants for DEPARTMENT, PROJECT or RECORD scope are refused**: the resolver
+  applies none of them in V0.1, and a stored grant that does nothing is a
+  promise nobody keeps.
+
+### 23.4 Limits
+
+- **The Organization People page** is E-08's group directory (and E-01's, see
+  ADR 0002).
+- **A grant is not re-checked when its grantor loses authority.** It stays in
+  force until revoked or expired; `verify:organization` warns about it
+  (`GRANT_ABOVE_GRANTOR`).
+- **The access check explains a company context.** It does not simulate a
+  record: whether a project-scoped reader sees one particular invoice is still
+  the module's own scope builder's answer.
