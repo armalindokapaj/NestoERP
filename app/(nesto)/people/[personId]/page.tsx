@@ -6,6 +6,7 @@ import { DetailGrid } from "@/components/modules/record-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { EmploymentTimeline } from "@/components/hr/employment-timeline";
 import { EditOwnProfileButton, ManageProfileButton } from "@/components/people/work-profile-editor";
+import { WorkerWorkforce } from "@/components/workforce/worker-workforce";
 import { WORK_STATUS } from "@/components/people/work-status";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -18,13 +19,14 @@ import type { UserContext } from "@/lib/context/types";
 import { getPersonEmploymentHistory } from "@/lib/modules/hr/employment/employment.query";
 import { getEmploymentView, getPrivateProfile, getWorkProfile } from "@/lib/modules/people/people.service";
 import type { WorkProfileDTO } from "@/lib/modules/people/people.types";
+import { personInWorkforce } from "@/lib/modules/workforce/workforce.directory";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { statusLabel } from "@/lib/utils/status";
 
 type Props = { params: Promise<{ personId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-const TABS = ["overview", "projects", "activity", "employment", "private"] as const;
+const TABS = ["overview", "projects", "workforce", "activity", "employment", "private"] as const;
 type Tab = (typeof TABS)[number];
 
 async function load(context: UserContext, personId: string): Promise<WorkProfileDTO> {
@@ -60,7 +62,9 @@ export default async function PersonPage({ params, searchParams }: Props) {
   const context = await requireModule("people");
   const profile = await load(context, personId);
   const requested = (await searchParams).tab;
-  const visible: Tab[] = TABS.filter((tab) => (tab === "employment" ? profile.capabilities.canViewEmployment : tab === "private" ? profile.capabilities.canViewPrivate : true));
+  // Where they work and with whom, for a reader who sees this company's workforce (E-04 §139, E-09 §7).
+  const inWorkforce = await personInWorkforce(context, profile.personId);
+  const visible: Tab[] = TABS.filter((tab) => (tab === "employment" ? profile.capabilities.canViewEmployment : tab === "private" ? profile.capabilities.canViewPrivate : tab === "workforce" ? inWorkforce : true));
   const tab: Tab = visible.find((candidate) => candidate === requested) ?? "overview";
   const status = WORK_STATUS[profile.status];
   const editable = {
@@ -130,6 +134,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
 
       {tab === "overview" ? <Overview profile={profile} /> : null}
       {tab === "projects" ? <Projects profile={profile} /> : null}
+      {tab === "workforce" ? <WorkerWorkforce context={context} personId={profile.personId} /> : null}
       {tab === "activity" ? <Activity profile={profile} /> : null}
       {tab === "employment" ? <Employment context={context} personId={profile.personId} withHistory={profile.capabilities.canViewHistory} /> : null}
       {tab === "private" ? <Private context={context} personId={profile.personId} /> : null}

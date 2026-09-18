@@ -40,7 +40,7 @@ import { validateDocument } from "./employment.validate";
 
 const ENTITY = "EmployeeProfile";
 
-export async function correctEmploymentHistory(context: UserContext, employmentId: string, input: CorrectionInput, options: ChangeOptions): Promise<void> {
+export async function correctEmploymentHistory(context: UserContext, employmentId: string, input: CorrectionInput, options: Pick<ChangeOptions, "placement">): Promise<void> {
   assertModule(context, "hr");
   assertPermission(context, "hr.employment_history.correct");
   if (input.kind === "STATUS" && input.privateReason !== undefined) assertPermission(context, "hr.employment_history.view_private");

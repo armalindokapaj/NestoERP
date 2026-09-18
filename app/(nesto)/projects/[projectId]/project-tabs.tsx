@@ -26,6 +26,8 @@ export function ProjectTabs({
     calendar?: boolean;
     meetings?: boolean;
     dailyLogs?: boolean;
+    /** Who works on it, its sites and its crews (E-04 §38, §181). */
+    workforce?: boolean;
     team: boolean;
     finance?: boolean;
     /** The units' collection (E-05F §45): opens the Finance tab on its Units view for readers without the rest of Finance. */
@@ -49,6 +51,7 @@ export function ProjectTabs({
     { key: "calendar", label: "Calendar", href: `/projects/${projectId}/calendar`, visible: Boolean(show.calendar) },
     { key: "meetings", label: "Meetings", href: `/projects/${projectId}/meetings`, visible: Boolean(show.meetings) },
     { key: "dailyLogs", label: "Daily Logs", href: `/projects/${projectId}/daily-logs`, visible: Boolean(show.dailyLogs) },
+    { key: "workforce", label: "Workforce", href: `/projects/${projectId}/workforce`, visible: Boolean(show.workforce) },
     // Who builds it and the technical record of it (PRD #46 §7, §9, §10).
     { key: "contractors", label: "Contractors", href: `/projects/${projectId}/contractors`, visible: Boolean(show.contractors) },
     { key: "engineering", label: "Engineering", href: `/projects/${projectId}/engineering`, visible: Boolean(show.engineering) },

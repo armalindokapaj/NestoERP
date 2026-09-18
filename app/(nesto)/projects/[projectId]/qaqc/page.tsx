@@ -93,6 +93,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
           calendar: projectActions.canViewCalendar,
           meetings: projectActions.canViewMeetings,
           dailyLogs: projectActions.canViewDailyLogs,
+          workforce: projectActions.canViewWorkforce,
           team: projectActions.canViewMembers,
           finance: projectActions.canViewFinance,
           unitFinance: projectActions.canViewUnitFinance,

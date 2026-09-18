@@ -58,6 +58,9 @@ const FILTER_KEYS: Record<string, string> = {
   supplierId: "Supplier",
   milestoneId: "ProjectMilestone",
   dailyLogId: "DailyLog",
+  crewId: "WorkforceCrew",
+  tradeId: "WorkforceTrade",
+  siteId: "ProjectSite",
 };
 
 async function filterQuery(target: SweepTarget): Promise<{ query: string; supplied: string[] }> {

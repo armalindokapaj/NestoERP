@@ -22,6 +22,7 @@ import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { createProvisioningRequestSchema } from "@/lib/modules/organization/provisioning/provisioning.schema";
 import * as provisioning from "@/lib/modules/organization/provisioning/provisioning.service";
 import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+import { endWorkforce } from "@/lib/modules/workforce/workforce.end";
 import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
 
 /**
@@ -120,6 +121,7 @@ function newWorker(firstName: string, extra: Record<string, unknown> = {}) {
 async function start(employmentId: string) {
   await applyEmploymentChange(hr, employmentId, employmentChangeSchema.parse({ action: "STATUS", status: "ACTIVE", reason: "HIRE", effectiveDate: todayDay() }), {
     placement: placeMembership,
+    workforce: endWorkforce,
   });
 }
 
