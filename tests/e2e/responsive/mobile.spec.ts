@@ -101,6 +101,9 @@ test.describe("mobile module layout (PRD #9 §184)", () => {
     await expect(page).toHaveURL(/type=Commercial/);
     await expect(page).toHaveURL(/sort=name-desc/);
     await expect(page.locator("#nesto-main").getByTestId("project-card")).toHaveCount(1);
+    // Reopening while the sheet is still sliding out (180ms) raced its closing
+    // and left it shut about one run in three; a person waits for it to go.
+    await expect(sheet).toBeHidden();
 
     // Reset clears the sheet; Apply then clears the page.
     await page.locator("#nesto-main").getByTestId("projects-filters-open").click();

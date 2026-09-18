@@ -401,12 +401,18 @@ describe("availability and conflicts (§86-§90, §188, §189)", () => {
     const answer = await getAvailability(pm, { memberIds: [engineer.membershipId, "member_owner_b"], ...window }, ZONE);
     expect(answer.map((row) => row.memberId)).toEqual([engineer.membershipId]);
     expect(JSON.stringify(answer)).not.toContain("dentist");
-    expect(answer[0].busy.some((slot) => slot.startsAt === event.startsAt)).toBe(true);
+    // Busy time is merged, so a seeded event touching this one (the Monday
+    // coordination meeting, whenever the test runs on a Friday) moves the
+    // interval's start. What must hold is that the event is covered.
+    const covers = (slot: { startsAt: string; endsAt: string }, target: { startsAt: string; endsAt: string | null }) =>
+      slot.startsAt <= target.startsAt && slot.endsAt >= (target.endsAt ?? target.startsAt);
+    expect(answer[0].busy.some((slot) => covers(slot, event))).toBe(true);
 
     const invite = await make(pm, { eventType: "TEAM_EVENT", visibility: "SELECTED_MEMBERS", participantIds: [engineer.membershipId], startTime: "15:00", endTime: "16:00" });
     await respondToEvent(engineer, invite.event.id, "DECLINED");
     const after = await getAvailability(pm, { memberIds: [engineer.membershipId], ...window }, ZONE);
-    expect(after[0].busy.some((slot) => slot.startsAt === invite.event.startsAt)).toBe(false);
+    // A declined invitation adds no busy time: the answer is what it was before it.
+    expect(after[0].busy).toEqual(answer[0].busy);
 
     await expect(getAvailability(await loginAs("VIEWER"), { memberIds: [engineer.membershipId], ...window }, ZONE)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
