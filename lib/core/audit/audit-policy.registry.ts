@@ -542,7 +542,7 @@ const POLICIES: AuditPolicy[] = [
 
   /* Projects ------------------------------------------------------------- */
   { actionKey: AuditAction.PROJECT_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "status", "clientId", "projectTypeId"], required: false },
-  { actionKey: AuditAction.PROJECT_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "description", "clientId", "priority", "projectTypeId", "startDate", "endDate", "address", "city", "country", "coverImageDocumentId"], required: false },
+  { actionKey: AuditAction.PROJECT_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "description", "clientId", "priority", "projectTypeId", "startDate", "endDate", "address", "city", "country", "builtArea", "isKeyProject", "coverImageDocumentId"], required: false },
   { actionKey: AuditAction.PROJECT_STATUS_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status"], required: false },
   { actionKey: AuditAction.PROJECT_MEMBER_ASSIGNED, moduleKey: "projects", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["companyMemberId", "userId", "projectRole", "via"], required: true },
   { actionKey: AuditAction.PROJECT_MEMBER_REMOVED, moduleKey: "projects", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["companyMemberId", "userId", "via"], required: true },

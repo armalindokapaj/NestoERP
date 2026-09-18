@@ -45,6 +45,24 @@ export type WidgetActivityItem = {
   actor: string;
   message: string;
   createdAt: string;
+  /** The company it happened in, on a view across the group's companies. */
+  context?: string;
+};
+
+/** A project as a card on the group's dashboard (D-01 §31). */
+export type WidgetProjectCard = {
+  id: string;
+  name: string;
+  href: string;
+  company: string;
+  location: string | null;
+  /** Its type, and the kinds of unit it holds. */
+  tags: string[];
+  status: string;
+  /** Completed milestones over those not cancelled; null when its plan is not the reader's to read. */
+  progress: number | null;
+  /** Null when there is no cover or the reader cannot open its document. */
+  coverUrl: string | null;
 };
 
 export type WidgetPayload =
@@ -54,6 +72,7 @@ export type WidgetPayload =
   | { kind: "approvals"; items: WidgetApproval[] }
   | { kind: "activity"; items: WidgetActivityItem[] }
   | { kind: "progress"; items: WidgetBreakdownItem[] }
+  | { kind: "projects"; items: WidgetProjectCard[] }
   | { kind: "error" };
 
 export type ResolvedWidget = {

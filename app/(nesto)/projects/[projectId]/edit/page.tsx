@@ -109,6 +109,8 @@ export default async function EditProjectPage({ params }: Params) {
           address: project.location.address ?? "",
           city: project.location.city ?? "",
           country: project.location.country ?? "",
+          builtArea: project.builtArea === null ? "" : String(project.builtArea),
+          isKeyProject: project.isKeyProject ? "YES" : "NO",
         }}
         action={action}
       />

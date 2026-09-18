@@ -294,3 +294,25 @@ export async function updateCompanySettings(
 
   return getCompanySettings(context);
 }
+
+export type CompanyOwnerView = { id: string; holderName: string; holderRegistration: string | null; sharePercent: number; since: string | null; isGroup: boolean };
+
+/**
+ * Who owns the company and how much (D-01 §6): read with the company's own
+ * details in its settings, largest share first. Not a governance module.
+ */
+export async function getCompanyOwners(context: UserContext): Promise<CompanyOwnerView[]> {
+  const rows = await prisma.companyOwner.findMany({
+    where: { companyId: context.companyId },
+    orderBy: [{ sharePercent: "desc" }, { holderName: "asc" }],
+    select: { id: true, holderName: true, holderTaxNumber: true, sharePercent: true, since: true, holderParentGroupId: true },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    holderName: row.holderName,
+    holderRegistration: row.holderTaxNumber,
+    sharePercent: Number(row.sharePercent),
+    since: row.since?.toISOString().slice(0, 10) ?? null,
+    isGroup: row.holderParentGroupId === context.parentGroupId,
+  }));
+}

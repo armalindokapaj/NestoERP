@@ -21,6 +21,46 @@ export type KpiDefinition = {
 };
 
 export const kpis: Record<string, KpiDefinition> = {
+  /* The group as a group (D-01 §27, §28): each figure computed company by company, as the reader. */
+  groupCompanyCount: {
+    key: "groupCompanyCount",
+    module: "organization",
+    permission: "department.group.view",
+    label: "Group Companies",
+    icon: "Building2",
+    href: "/organization/companies",
+  },
+  groupActiveProjects: {
+    key: "groupActiveProjects",
+    module: "projects",
+    permission: "department.group.view",
+    label: "Active Projects",
+    icon: "FolderKanban",
+    href: "/projects?status=ACTIVE",
+  },
+  groupEmployees: {
+    key: "groupEmployees",
+    module: "hr",
+    permission: "department.group.view",
+    label: "Employees",
+    icon: "UsersRound",
+    href: "/people",
+  },
+  groupExternalCompanies: {
+    key: "groupExternalCompanies",
+    module: "procurement",
+    permission: "department.group.view",
+    label: "External Companies",
+    icon: "Handshake",
+  },
+  groupPortfolioValue: {
+    key: "groupPortfolioValue",
+    module: "finance",
+    permission: "department.group.view",
+    label: "Portfolio Value",
+    icon: "Landmark",
+    currency: true,
+  },
   activeProjects: {
     key: "activeProjects",
     module: "projects",

@@ -244,6 +244,8 @@ export async function createProjectRecord(
       address: input.address ?? null,
       city: input.city ?? null,
       country: input.country ?? null,
+      builtArea: input.builtArea ?? null,
+      isKeyProject: input.isKeyProject === "YES",
       createdBy: context.userId,
     },
     select: { id: true, code: true, name: true },
@@ -346,6 +348,8 @@ export async function updateProject(
     address: input.address ?? null,
     city: input.city ?? null,
     country: input.country ?? null,
+    builtArea: input.builtArea ?? null,
+    isKeyProject: input.isKeyProject === undefined ? existing.isKeyProject : input.isKeyProject === "YES",
     coverImageDocumentId,
   };
   const changed = changedFields(before, after);
@@ -379,6 +383,8 @@ export async function updateProject(
           address: after.address,
           city: after.city,
           country: after.country,
+          builtArea: after.builtArea,
+          isKeyProject: after.isKeyProject,
           coverImageDocumentId: after.coverImageDocumentId,
           projectManagerMemberId: managerMemberId,
           updatedBy: context.userId,
@@ -548,6 +554,8 @@ type ProjectDetails = {
   address: string | null;
   city: string | null;
   country: string | null;
+  builtArea: number | null;
+  isKeyProject: boolean;
   coverImageDocumentId: string | null;
 };
 
@@ -564,6 +572,8 @@ function detailsOf(row: repository.ProjectDetailRow): ProjectDetails {
     address: row.address,
     city: row.city,
     country: row.country,
+    builtArea: row.builtArea === null ? null : Number(row.builtArea),
+    isKeyProject: row.isKeyProject,
     coverImageDocumentId: row.coverImageDocumentId,
   };
 }
@@ -1075,6 +1085,8 @@ function toDetailDTO(
       endDate: row.endDate?.toISOString() ?? null,
     },
     location: { address: row.address, city: row.city, country: row.country },
+    builtArea: row.builtArea === null ? null : Number(row.builtArea),
+    isKeyProject: row.isKeyProject,
     company: { id: row.company.id, name: row.company.name },
     projectType: row.projectType ? { id: row.projectType.id, name: row.projectType.name } : null,
     coverImageDocumentId: row.coverImageDocumentId,

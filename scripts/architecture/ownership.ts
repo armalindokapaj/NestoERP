@@ -36,7 +36,8 @@ const OWNED: Record<string, string[]> = {
   auth: ["user", "session", "passwordResetToken", "authEvent"],
   "core/access": ["role", "permission", "rolePermission", "module", "roleModuleAccess"],
   team: ["companyMember", "department", "companyInvite"],
-  settings: ["company", "companySettings", "companyIntegrationSettings", "companyNumberingScheme", "companyModule"],
+  // A company and who owns it (D-01 §6): its settings, not a governance module.
+  settings: ["company", "companyOwner", "companySettings", "companyIntegrationSettings", "companyNumberingScheme", "companyModule"],
   // The group above the companies, positions in its departments, delegated
   // access, and the account requests between HR and Group IT (E-06 §8-§18, §27).
   organization: [
@@ -47,8 +48,9 @@ const OWNED: Record<string, string[]> = {
     "accessGrant",
     "userProvisioningRequest",
   ],
-  // Access held outside every group (E-06 §19).
-  platform: ["platformAccess"],
+  // Access held outside every group (E-06 §19), and where a demonstration
+  // tenant's seeded facts come from (D-01 §3).
+  platform: ["platformAccess", "demoRecord"],
 
   /* Shared foundation ------------------------------------------------------ */
   shared: ["activity"],

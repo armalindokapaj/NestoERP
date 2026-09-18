@@ -70,7 +70,9 @@ itself requires both `NODE_ENV !== production` and an explicit
 | `pnpm lint` | ESLint |
 | `pnpm db:migrate` | Create / apply Prisma migrations |
 | `pnpm db:deploy` | Apply migrations without generating one (CI, deploys) |
-| `pnpm db:seed` | Seed the demo dataset and validate it |
+| `pnpm db:seed` | Seed the demo dataset and validate it (the ARVELA demo tenant included) |
+| `pnpm seed:arvela` | Add or update the ARVELA demo tenant in an existing database ([docs/demo-arvela.md](docs/demo-arvela.md)) |
+| `pnpm verify:demo` | Hold the ARVELA demo tenant to D-01: public facts, companies, people, provenance |
 | `pnpm db:reset:demo` | Drop, re-migrate and re-seed |
 | `pnpm db:studio` | Prisma Studio |
 | `pnpm test` | Unit + integration + API (vitest) |
@@ -137,6 +139,14 @@ Terra, and the approved account request waits in Organization → User
 provisioning for `group-it` to create the login. Ermira Tafa (`finance-c`)
 went all the way. `platform-admin` signs in to `/platform-admin`, where a new
 group is created, given companies and people, and activated.
+
+**The ARVELA Group demo tenant** sits beside it: ARVELA GROUP sh.p.k., its
+thirteen companies, eleven public projects and a working day of synthetic
+operations, for presenting NESTO to that client (Demo PRD D-01, ADR 0005). Its
+people sign in as `arvela.owner`, `avi.director`, `avi.pm` and so on, with
+`ARVELA_DEMO_PASSWORD` or, in development, the demo's password; every page says
+it is a demo. The guide, logins and walkthrough are in
+[docs/demo-arvela.md](docs/demo-arvela.md).
 
 **Test fixtures are not demo data.** They live in a hidden fixture group, never
 in the demo: `tenant-owner` and `tenant-viewer` in a second tenant with seven

@@ -35,6 +35,8 @@ export type ProjectFormValues = {
   address: string;
   city: string;
   country: string;
+  builtArea: string;
+  isKeyProject: "YES" | "NO";
 };
 
 export type SelectOption = { value: string; label: string };
@@ -353,6 +355,15 @@ export function ProjectForm({
         </Field>
         <Field label="Country" name="country" error={fieldErrors.country}>
           <Input id="country" name="country" defaultValue={initial.country} maxLength={120} />
+        </Field>
+        <Field label="Built area (m²)" name="builtArea" error={fieldErrors.builtArea}>
+          <Input id="builtArea" name="builtArea" type="number" inputMode="decimal" min={0} step="0.01" defaultValue={initial.builtArea} />
+        </Field>
+        <Field label="Key project on the group's dashboard" name="isKeyProject" error={fieldErrors.isKeyProject}>
+          <select id="isKeyProject" name="isKeyProject" defaultValue={initial.isKeyProject} className={selectClass}>
+            <option value="NO">No</option>
+            <option value="YES">Yes</option>
+          </select>
         </Field>
       </Section>
 

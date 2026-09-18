@@ -21,10 +21,17 @@ export type DashboardConfig = {
 export const dashboards: Record<RoleKey, DashboardConfig> = {
   OWNER: {
     focus: "Performance across every company and department of the group.",
-    kpis: ["activeProjects", "invoicedValue", "pipelineValue", "headcount"],
+    // The group as a group (D-01 §27): each figure company by company, as the Owner.
+    kpis: ["groupCompanyCount", "groupActiveProjects", "groupEmployees", "groupExternalCompanies", "groupPortfolioValue"],
     widgets: [
       "attention",
+      "keyProjects",
       "groupCompanies",
+      "portfolioStatus",
+      "projectTypes",
+      "groupDepartments",
+      "groupMilestones",
+      "groupActivity",
       "announcements",
       "favorites",
       "recentWork",
@@ -40,7 +47,6 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "workforce",
       "qualityRecords",
       "hseHazardsByRisk",
-      "recentActivity",
     ],
     quickActions: ["newProject", "newClient", "newInvoice", "uploadDocument"],
   },

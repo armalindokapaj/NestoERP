@@ -12,11 +12,13 @@ import { cn } from "@/lib/utils/cn";
  * mobile. Widget spans are declared alongside it so a "full width" widget
  * stays full width at every size.
  */
-export function KpiGrid({ className, ...props }: React.ComponentProps<"div">) {
+/** Four to a row; five sit in one row on a wide screen rather than leaving one alone (D-01 §27). */
+export function KpiGrid({ className, count, ...props }: React.ComponentProps<"div"> & { count?: number }) {
   return (
     <div
       className={cn(
         "grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:gap-4 lg:grid-cols-4 [&>*]:min-w-0",
+        count === 5 && "xl:grid-cols-5",
         className,
       )}
       {...props}

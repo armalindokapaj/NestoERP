@@ -34,6 +34,8 @@ export type ParentGroupContext = {
   slug: string;
   name: string;
   status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED";
+  /** A demonstration tenant: every page says its operational data is synthetic (D-01 §69). */
+  isDemo: boolean;
 };
 
 export type DepartmentContext = {

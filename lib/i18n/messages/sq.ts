@@ -326,6 +326,12 @@ export const sq: Messages = {
       slug: "Identifikuesi i hapësirës së punës",
       readOnly:
         "Të dhënat e kompanisë janë vetëm për lexim në V0.1. Redaktimi vjen me modulin e cilësimeve.",
+      ownership: "Pronësia",
+      ownershipDescription: "Kush e zotëron kompaninë, dhe sa.",
+      ownershipHolder: "Pronari",
+      ownershipShare: "Pjesa",
+      ownershipGroup: "Grupi",
+      ownershipEmpty: "Nuk ka pronarë të regjistruar.",
     },
 
     users: {

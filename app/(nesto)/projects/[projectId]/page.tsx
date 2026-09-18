@@ -254,6 +254,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
                   [project.location.city, project.location.country].filter(Boolean).join(", "),
                 ),
               },
+              ...(project.builtArea === null ? [] : [{ label: "Built area", value: `${project.builtArea.toLocaleString("en-US")} m²` }]),
             ]}
           />
         </section>

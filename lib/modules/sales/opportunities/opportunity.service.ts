@@ -437,6 +437,8 @@ export async function markWon(
         address: undefined,
         city: undefined,
         country: undefined,
+        builtArea: undefined,
+        isKeyProject: undefined,
         clientId,
         projectManagerMemberId: null,
       });

@@ -51,7 +51,7 @@ test("opens on Agenda, filters in a sheet, opens an event and creates one", asyn
   await form.getByLabel("Start").fill("08:30");
   await form.getByLabel("End").fill("09:00");
   await form.getByRole("button", { name: "Create event" }).click();
-  await expect(page.getByText("Event created")).toBeVisible();
+  await expect(page.getByText("Event created", { exact: true })).toBeVisible();
 
   // Back on the agenda, with nothing lost: no horizontal scroll either.
   await expect(page.getByRole("tab", { name: "Agenda" })).toHaveAttribute("aria-selected", "true");

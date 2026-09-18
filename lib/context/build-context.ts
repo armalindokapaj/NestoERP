@@ -196,6 +196,7 @@ export function assembleContext(input: {
       slug: company.parentGroup.slug,
       name: company.parentGroup.name,
       status: company.parentGroup.status,
+      isDemo: company.parentGroup.isDemo,
     },
 
     role,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, TriangleAlert } from "lucide-react";
+import { ArrowRight, Building2, MapPin, TriangleAlert } from "lucide-react";
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { widgetSpanClasses } from "@/components/dashboard/dashboard-grid";
@@ -211,8 +211,65 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
                 <p className="text-table text-fg">
                   <span className="font-medium">{item.actor}</span> {item.message}
                 </p>
-                <p className="text-meta text-fg-subtle">{item.createdAt}</p>
+                <p className="text-meta text-fg-subtle">{item.context ? `${item.createdAt} · ${item.context}` : item.createdAt}</p>
               </div>
+            </li>
+          ))}
+        </ul>
+      );
+
+    case "projects":
+      return (
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {payload.items.map((project) => (
+            <li key={project.id} className="min-w-0">
+              <Link href={project.href} className="group block overflow-hidden rounded-lg border border-line transition-colors hover:border-line-strong" data-testid="key-project">
+                <div className="relative aspect-[4/3] bg-hover">
+                  {project.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- an authorised thumbnail route, not a static asset
+                    <img src={project.coverUrl} alt="" className="size-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="grid size-full place-items-center text-fg-subtle">
+                      <Building2 aria-hidden="true" className="size-8" />
+                    </div>
+                  )}
+                  <span className="absolute left-2 top-2">
+                    <StatusBadge status={project.status} />
+                  </span>
+                </div>
+                <div className="space-y-2 p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-table font-semibold text-fg transition-colors group-hover:text-accent">{project.name}</p>
+                    <p className="truncate text-meta text-fg-subtle">{project.company}</p>
+                  </div>
+                  {project.location ? (
+                    <p className="flex min-w-0 items-center gap-1 text-meta text-fg-muted">
+                      <MapPin aria-hidden="true" className="size-3.5 shrink-0" />
+                      <span className="truncate">{project.location}</span>
+                    </p>
+                  ) : null}
+                  {project.tags.length ? (
+                    <ul className="flex flex-wrap gap-1" aria-label="Type">
+                      {project.tags.map((tag) => (
+                        <li key={tag} className="rounded-full bg-hover px-2 py-0.5 text-meta text-fg-muted">
+                          {tag}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {project.progress !== null ? (
+                    <div>
+                      <div className="flex items-baseline justify-between text-meta">
+                        <span className="text-fg-muted">Progress</span>
+                        <span className="font-medium tabular-nums text-fg">{project.progress}%</span>
+                      </div>
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-hover" role="progressbar" aria-label={`${project.name} progress`} aria-valuenow={project.progress} aria-valuemin={0} aria-valuemax={100}>
+                        <div className="h-full rounded-full bg-accent" style={{ width: `${project.progress}%` }} />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </Link>
             </li>
           ))}
         </ul>
