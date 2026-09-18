@@ -57,6 +57,13 @@ export const ATTENTION_CONDITIONS = [
   "SUBMITTAL_REVIEW_OVERDUE",
   "SUBMITTAL_REVISION_REQUIRED",
   "ENGINEERING_REVIEW_OVERDUE",
+  // Employee documents and qualifications (E-02 §149, §153, §154).
+  "EMPLOYEE_DOCUMENT_EXPIRING",
+  "EMPLOYEE_DOCUMENT_EXPIRED",
+  "EMPLOYEE_DOCUMENT_UNVERIFIED",
+  "QUALIFICATION_EXPIRING",
+  "QUALIFICATION_EXPIRED",
+  "QUALIFICATION_UNVERIFIED",
 ] as const;
 
 export type AttentionConditionKey = (typeof ATTENTION_CONDITIONS)[number];
@@ -958,6 +965,54 @@ function complianceCondition(key: "CONTRACTOR_COMPLIANCE_EXPIRING" | "CONTRACTOR
   });
 }
 
+/**
+ * An employee document or qualification expiring within 30 days, past its
+ * date, or waiting to be checked (E-02 §149, §153, §154). HR's verifiers hear
+ * of all three; the person, of their own deadlines where they may see the
+ * record — never asked to check their own (§74). Renewing it ends the
+ * condition, and the item with it (§91, §194).
+ */
+function credentialCondition(key: AttentionConditionKey, kind: "employee_document" | "person_qualification", condition: "EXPIRING" | "EXPIRED" | "UNVERIFIED"): AttentionConditionDefinition {
+  const verifier = kind === "employee_document" ? "hr.document.verify" : "hr.qualification.verify";
+  const rows = async (companyId: string, now: Date, id?: string, page?: AttentionRowPage) => {
+    const { documentsInCondition, qualificationsInCondition } = await import("@/lib/modules/hr/credentials/credential.expiry");
+    return (kind === "employee_document" ? documentsInCondition : qualificationsInCondition)(companyId, condition, now, id, page);
+  };
+  return paged({
+    key,
+    moduleKey: kind === "employee_document" ? "hr" : "people",
+    sources: [
+      source(
+        (companyId, now, page) => rows(companyId, now, undefined, page),
+        async (found) => {
+          const { credentialDateLabel } = await import("@/lib/modules/hr/credentials/credential.expiry");
+          return found.map((row): AttentionCandidate => ({
+            entityType: kind, entityId: row.id, projectId: null,
+            title: `${condition === "UNVERIFIED" ? "To verify" : condition === "EXPIRED" ? "Expired" : "Expiring"}: ${row.label} · ${row.personName}`,
+            body: row.expiresAt ? `${condition === "EXPIRED" ? "Expired" : "Expires"} ${credentialDateLabel(row.expiresAt)}` : null,
+            priority: condition === "EXPIRED" ? "HIGH" : "NORMAL", dismissible: condition !== "EXPIRED",
+            episode: row.episode,
+            recipients: [row.selfMemberId],
+            holders: [verifier],
+            exclude: condition === "UNVERIFIED" ? row.ownMemberIds : [],
+          }));
+        },
+      ),
+    ],
+    async holds(companyId, type, id, now) {
+      if (type !== kind) return false;
+      return (await rows(companyId, now, id)).length > 0;
+    },
+  });
+}
+
+const documentExpiring = credentialCondition("EMPLOYEE_DOCUMENT_EXPIRING", "employee_document", "EXPIRING");
+const documentExpired = credentialCondition("EMPLOYEE_DOCUMENT_EXPIRED", "employee_document", "EXPIRED");
+const documentUnverified = credentialCondition("EMPLOYEE_DOCUMENT_UNVERIFIED", "employee_document", "UNVERIFIED");
+const qualificationExpiring = credentialCondition("QUALIFICATION_EXPIRING", "person_qualification", "EXPIRING");
+const qualificationExpired = credentialCondition("QUALIFICATION_EXPIRED", "person_qualification", "EXPIRED");
+const qualificationUnverified = credentialCondition("QUALIFICATION_UNVERIFIED", "person_qualification", "UNVERIFIED");
+
 const complianceExpiring = complianceCondition("CONTRACTOR_COMPLIANCE_EXPIRING", "EXPIRING");
 const complianceExpired = complianceCondition("CONTRACTOR_COMPLIANCE_EXPIRED", "EXPIRED");
 const complianceMissing = complianceCondition("CONTRACTOR_COMPLIANCE_MISSING", "MISSING");
@@ -1489,6 +1544,12 @@ const DEFINITIONS: AttentionConditionDefinition[] = [
   complianceExpiring,
   complianceExpired,
   complianceMissing,
+  documentExpiring,
+  documentExpired,
+  documentUnverified,
+  qualificationExpiring,
+  qualificationExpired,
+  qualificationUnverified,
   rfiOverdue,
   rfiResponseRequired,
   submittalReviewOverdue,

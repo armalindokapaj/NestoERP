@@ -532,8 +532,31 @@ export const PERMISSIONS = [
   "hr.offboarding.view",
   "hr.offboarding.manage",
 
+  /**
+   * The employee file (PRD #16 §133, E-02 §112). `hr.document.view` and
+   * `.create` reach an employee's professional documents — diplomas,
+   * certificates, licences, training, a CV. What is private to HR needs more
+   * (E-02 §38-§42, §110): contracts, amendments, letters and identity papers
+   * are `hr.document.private.*`; pay evidence is `hr.compensation.*`, as pay
+   * itself is. Checking a document or a qualification is its own grant, and
+   * never over one's own (§73, §74).
+   */
   "hr.document.view",
   "hr.document.create",
+  "hr.document.private.view",
+  "hr.document.private.manage",
+  "hr.document.verify",
+  /**
+   * Doors for somebody outside HR, given explicitly and held by no role but
+   * the Owner by default (E-02 §40, §50, §107, §108): Finance reading the pay
+   * evidence HR shared with Finance, and management or Legal reading what HR
+   * marked restricted to management.
+   */
+  "hr.document.finance.view",
+  "hr.document.restricted.view",
+  /** Somebody's skills, diplomas, licences and certificates: record, correct, renew; and check them (E-02 §69-§79). */
+  "hr.qualification.manage",
+  "hr.qualification.verify",
 
   "hr.report.view",
   "hr.export",
@@ -549,6 +572,8 @@ export const PERMISSIONS = [
   "hr.self.leave",
   "hr.self.attendance",
   "hr.self.documents",
+  /** Add your own diploma, certificate, licence, training record or CV — never a contract or pay (E-02 §47, §48). */
+  "hr.self.documents.upload",
 
   /* Workforce (E-04) ------------------------------------------------------ */
   /**
@@ -1155,6 +1180,8 @@ export const PERMISSIONS = [
   "people.directory.view",
   "people.profile.view",
   "people.profile.edit_self",
+  /** Your own skills and qualifications: add them, correct them until checked, resubmit a rejected one (E-02 §69, §79). */
+  "people.qualification.add_self",
 
   /* Organization (E-06) --------------------------------------------------- */
   /**
@@ -1468,6 +1495,9 @@ const MUTATING_ACTIONS = new Set([
   "delegate",
   // Employees from a file (E-04 §163).
   "import",
+  // Employee documents and qualifications (E-02 §112).
+  "upload",
+  "add_self",
 ]);
 
 export function isMutatingPermission(permission: string): boolean {

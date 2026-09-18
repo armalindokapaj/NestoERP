@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import type { ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
@@ -47,8 +49,24 @@ export type DocumentCapability = {
   upload: Permission[] | null;
   /** Where the record's files are listed — the return route after an upload. */
   tabHref(summary: RecordSummary): string;
-  /** A second door for somebody reading their own record (HR self-service). */
-  self?: { permission: Permission; isSelf(context: UserContext, id: string): Promise<boolean> };
+  /**
+   * A second door for somebody reading their own record (HR self-service), and
+   * — where `upload` is named — adding files to it without a grant over anybody
+   * else's (E-02 §47).
+   */
+  self?: { permission: Permission; upload?: Permission; isSelf(context: UserContext, id: string): Promise<boolean> };
+  /**
+   * For a record whose files are not all alike — an employee file, where a
+   * contract and a diploma have different readers (E-02 §7, §38-§46) — the
+   * record's own policy decides, in place of "reach the record, read every
+   * file": which of its files a reader may open, as a clause over Document
+   * applied at the query source (§204-§206), and whether they may change one
+   * through the Documents module (§63, §67).
+   */
+  policy?: {
+    readable(context: UserContext): Promise<Prisma.DocumentWhereInput | null>;
+    changeable(context: UserContext, documentId: string): Promise<boolean>;
+  };
   /** Whether a version of a file on this record can be sent for review (PRD #38 §59). */
   reviewable: boolean;
 };
@@ -95,6 +113,8 @@ export const RECORD_TYPES = [
   "budget",
   "commitment",
   "employee",
+  "employee_document",
+  "person_qualification",
   "leave_request",
   "lead",
   "opportunity",

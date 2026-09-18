@@ -53,7 +53,7 @@ export async function RecordDocuments({
     canAccessModule(context, "documents") &&
     can(context, "document.view") &&
     (capability.view.every((permission) => can(context, permission)) ||
-      Boolean(capability.self && can(context, capability.self.permission) && capability.self.isSelf(context, entityId)));
+      Boolean(capability.self && can(context, capability.self.permission) && (await capability.self.isSelf(context, entityId))));
   if (!mayRead) return null;
 
   if (title) {

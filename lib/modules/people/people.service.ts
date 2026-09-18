@@ -7,9 +7,13 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { listEmployeeDocuments } from "@/lib/modules/hr/documents/employee-document.service";
+import type { EmployeeDocumentsDTO } from "@/lib/modules/hr/documents/employee-document.types";
 import { employmentsVisibleTo } from "@/lib/modules/hr/employees/employment.view";
 import { canViewPersonHistory } from "@/lib/modules/hr/employment/employment.query";
 import { personInRecordReach, updatePersonWorkProfile, type WorkProfileChange } from "@/lib/modules/hr/person.doors";
+import { getPersonQualifications } from "@/lib/modules/hr/qualifications/qualification.service";
+import type { PersonQualificationsDTO } from "@/lib/modules/hr/qualifications/qualification.types";
 import { portfolioProjectWhere, resolveProjectPortfolio } from "@/lib/modules/projects/project.portfolio";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import type { PersonDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
@@ -535,6 +539,52 @@ export async function updateManagedWorkProfile(context: UserContext, personId: s
     throw new AccessError("CONFLICT", "Their job title comes from their employment. Change it in HR, where the change is kept as history.", { field: "jobTitle", code: "TITLE_FROM_EMPLOYMENT" });
   }
   return applyChange(context, personId, { preferredName: input.preferredName, jobTitle: employed ? undefined : input.jobTitle, workEmail: input.workEmail, workPhoneExtension: input.workPhoneExtension, officeLocation: input.officeLocation }, "MANAGED");
+}
+
+/* -------------------------------------------------------------------------- */
+/* Documents and qualifications (E-02)                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The Skills & qualifications tab (E-02 §100-§105): the person as this reader
+ * may see them at all, then what the qualification rules give this reader —
+ * the full records, or the verified summaries shared with the group.
+ */
+export async function getQualificationsTab(context: UserContext, personId: string): Promise<PersonQualificationsDTO> {
+  assertModule(context, MODULE);
+  assertPermission(context, "people.profile.view");
+  const { row } = await visiblePerson(context, personId);
+  return getPersonQualifications(context, row.id);
+}
+
+export type DocumentsTabDTO = {
+  /** The person's employments in this company, each as the employee-file policy lets this reader see it. */
+  employments: EmployeeDocumentsDTO[];
+  /** Companies of the group that keep this person's other employment files — read there, not here (E-02 §9, §127). */
+  elsewhere: string[];
+};
+
+/**
+ * The Documents tab (E-02 §94-§99): an employee's documents belong to their
+ * employment, and an employment to one company, so this company's files are
+ * listed here and the others are named, not shown.
+ */
+export async function getDocumentsTab(context: UserContext, personId: string): Promise<DocumentsTabDTO> {
+  assertModule(context, MODULE);
+  assertPermission(context, "people.profile.view");
+  const { row } = await visiblePerson(context, personId);
+  const here = [...row.employments.filter((employment) => employment.companyId === context.companyId)].sort(
+    (a, b) => EMPLOYMENT_RANK[a.employmentStatus] - EMPLOYMENT_RANK[b.employmentStatus] || b.createdAt.getTime() - a.createdAt.getTime(),
+  );
+  const employments: EmployeeDocumentsDTO[] = [];
+  if (context.moduleAccess.hr?.enabled) {
+    for (const employment of here) {
+      const documents = await listEmployeeDocuments(context, employment.id).catch((error: unknown) => (error instanceof AccessError && error.code === "NOT_FOUND" ? null : Promise.reject(error)));
+      if (documents) employments.push(documents);
+    }
+  }
+  const elsewhere = [...new Set(row.employments.filter((employment) => employment.companyId !== context.companyId).map((employment) => employment.company.name))];
+  return { employments, elsewhere };
 }
 
 /** The signed-in person's own profile id, for `/people/me`. */

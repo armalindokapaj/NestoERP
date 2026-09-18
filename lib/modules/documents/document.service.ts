@@ -15,7 +15,7 @@ import { attachDocumentFromBytes } from "./storage/upload.service";
 import { readDocumentBytes } from "./storage/download.service";
 import { frozenFileReason } from "./storage/version.promote";
 import * as repository from "./document.repository";
-import { classifyDocumentParent, loadDocumentParentRecord } from "./document.parent-access";
+import { classifyDocumentParent, documentChangeAllowed, loadDocumentParentRecord } from "./document.parent-access";
 import { recordPath } from "@/lib/core/records/record.registry";
 import type {
   CreateDocumentInput,
@@ -202,6 +202,17 @@ export async function createDocument(
   return getDocument(context, documentId);
 }
 
+/**
+ * Reading a file is not changing it. A record with its own document policy —
+ * the employee file — says who may rename, archive or restore one of its
+ * files, whatever else the reader holds (E-02 §63, §67).
+ */
+async function assertChangeable(context: UserContext, document: { id: string; projectId: string | null; clientId: string | null; module: string | null; entityType: string | null; entityId: string | null }): Promise<void> {
+  if (!(await documentChangeAllowed(context, document))) {
+    throw new AccessError("FORBIDDEN", "Only HR changes this document. Ask HR to replace or archive it.");
+  }
+}
+
 export async function updateDocument(
   context: UserContext,
   documentId: string,
@@ -211,6 +222,7 @@ export async function updateDocument(
   assertPermission(context, "document.update");
 
   const existing = assertFound(await repository.findDocumentInScope(context, documentId));
+  await assertChangeable(context, existing);
 
   // An archived document is read-only: it must be restored first (PRD #13 §113).
   if (isArchived(existing)) {
@@ -294,6 +306,7 @@ export async function archiveDocument(context: UserContext, documentId: string):
   assertPermission(context, "document.archive");
 
   const existing = assertFound(await repository.findDocumentInScope(context, documentId));
+  await assertChangeable(context, existing);
   if (isArchived(existing)) {
     throw new AccessError("CONFLICT", "This document is already archived.");
   }
@@ -376,6 +389,7 @@ export async function restoreDocument(context: UserContext, documentId: string):
   assertPermission(context, "document.restore");
 
   const existing = assertFound(await repository.findDocumentInScope(context, documentId));
+  await assertChangeable(context, existing);
   if (!isArchived(existing)) {
     throw new AccessError("CONFLICT", "This document is not archived.");
   }

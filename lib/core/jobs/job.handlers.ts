@@ -71,6 +71,12 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await runComplianceExpiry(now);
     return { processed: result.expiring + result.expired, detail: result };
   },
+  "hr.credential-expiry": async ({ now }) => {
+    // Employee documents and qualifications: reminders at 90/60/30/7 days and once expired, each once (E-02 §83-§90).
+    const { runCredentialExpiry } = await import("@/lib/modules/hr/credentials/credential.expiry");
+    const result = await runCredentialExpiry(now);
+    return { processed: result.reminded + result.expired, detail: result };
+  },
   "sales.unit-reservations": async ({ now }) => {
     // Unit reservations past their date expire and free the unit; a day before, the salesperson is warned (E-05E §25, §52).
     const { runUnitReservationExpiry } = await import("@/lib/modules/sales/units/unit-sales.expiry");

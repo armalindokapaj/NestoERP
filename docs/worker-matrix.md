@@ -21,6 +21,7 @@ and `docs/worker-operations.md`.
 | `planning.milestones` | project-planning | SCHEDULED | every 1 h, `scheduled` group | per company; suspended skipped | MILESTONE_DUE_SOON | MILESTONE_OVERDUE + companyId + milestone + target date | 4 attempts, 1 min doubling to 30 min | 15 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `engineering.reminders` | engineering | SCHEDULED | every 1 h, `scheduled` group | per company; suspended skipped | RFI_OVERDUE | RFI_DUE_SOON | SUBMITTAL_* + companyId + record + due date | 4 attempts, 1 min doubling to 30 min | 15 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `contractors.compliance` | contractors | SCHEDULED | every 1 day, `scheduled` group | per company; suspended skipped | CONTRACTOR_COMPLIANCE_EXPIRING | _EXPIRED + companyId + item + expiry date | 3 attempts, 5 min doubling to 2 h | 30 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
+| `hr.credential-expiry` | hr | SCHEDULED | every 1 day, `scheduled` group | per company; suspended skipped | EMPLOYEE_DOCUMENT_* | QUALIFICATION_* + companyId + record + window (90/60/30/7/EXPIRED) + expiry date | 3 attempts, 5 min doubling to 2 h | 30 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `sales.unit-reservations` | sales | SCHEDULED | every 5 min, `scheduled` group | per company; suspended skipped | UNIT_RESERVATION_EXPIRED + companyId + reservation | UNIT_RESERVATION_EXPIRING + companyId + reservation + expiry | 5 attempts, 15 s doubling to 5 min | 15 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `hr.employment-changes` | hr | SCHEDULED | every 1 h, `scheduled` group | per company; suspended skipped | EMPLOYMENT_CHANGE + companyId + scheduled change (SCHEDULED → APPLIED commits with the change) | 5 attempts, 15 s doubling to 5 min | 30 min (lease 10 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `finance.unit-installments` | finance | SCHEDULED | every 1 h, `scheduled` group | per company; suspended skipped | UNIT_INSTALLMENT_OVERDUE + companyId + installment | UNIT_INSTALLMENT_DUE_SOON + companyId + installment + due date | 5 attempts, 15 s doubling to 5 min | 30 min (lease 10 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
@@ -154,6 +155,16 @@ Moves compliance items to EXPIRING and EXPIRED and tells the people responsible,
 - **Dry run:** not supported.
 - **Manual run:** `pnpm worker --run=contractors.compliance` (add `--company=<id>` for one company).
 - **Contract tests:** `tests/api/jobs/contractors.compliance.test.ts` — idempotency, failure, company isolation, suspended company.
+
+### `hr.credential-expiry`
+
+Reminds about employee documents and qualifications 90, 60, 30 and 7 days before they expire and once after, and marks verified ones EXPIRED.
+
+- **Missed runs:** Recomputed each run: a missed window is replaced by the one the date is in now; a date already past goes straight to EXPIRED.
+- **Stale after:** 49 h without a success.
+- **Dry run:** not supported.
+- **Manual run:** `pnpm worker --run=hr.credential-expiry` (add `--company=<id>` for one company).
+- **Contract tests:** `tests/api/jobs/hr.credential-expiry.test.ts` — idempotency, failure, company isolation, suspended company.
 
 ### `sales.unit-reservations`
 

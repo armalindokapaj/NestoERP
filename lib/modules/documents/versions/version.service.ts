@@ -8,7 +8,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { DOWNLOAD_URL_TTL_SECONDS, StorageError } from "@/lib/core/storage";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
-import { canAttachToDocumentParent, classifyDocumentParent } from "../document.parent-access";
+import { canChangeDocumentFile, classifyDocumentParent } from "../document.parent-access";
 import { requireDocument } from "../storage/storage-access.service";
 import type { DownloadGrant } from "../storage/storage.types";
 
@@ -100,7 +100,7 @@ export async function listVersions(context: UserContext, documentId: string): Pr
     !archived &&
     document.storageStatus === "AVAILABLE" &&
     can(context, "document.update") &&
-    (await canAttachToDocumentParent(context, document));
+    (await canChangeDocumentFile(context, document));
 
   return {
     documentId: document.id,

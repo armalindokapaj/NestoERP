@@ -23,7 +23,7 @@ import {
   verifyContent,
 } from "@/lib/core/storage";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
-import { canAttachToDocumentParent, resolveDocumentParent } from "../document.parent-access";
+import { canAttachToDocumentParent, canChangeDocumentFile, resolveDocumentParent } from "../document.parent-access";
 import * as quota from "./quota.service";
 import { frozenFileReason, lockDocumentForSwap, promoteVersion } from "./version.promote";
 import { runScanForDocument } from "./scan.service";
@@ -755,7 +755,7 @@ export async function createVersionUploadSession(
   if (document.storageStatus !== "AVAILABLE") {
     throw new AccessError("CONFLICT", "The current version is still being processed.");
   }
-  if (!(await canAttachToDocumentParent(context, document))) {
+  if (!(await canChangeDocumentFile(context, document))) {
     throw new AccessError("FORBIDDEN", "You cannot add files to that record.");
   }
   // A file carried by a submitted engineering revision or an issued transmittal
@@ -895,7 +895,7 @@ async function completeVersionUpload(
   if (document.status === "ARCHIVED" || document.archivedAt) {
     throw stateDenied("Restore this document before adding a version.");
   }
-  if (!(await canAttachToDocumentParent(context, document))) {
+  if (!(await canChangeDocumentFile(context, document))) {
     throw new AccessError("FORBIDDEN", "You cannot add files to that record.");
   }
   const frozen = await frozenFileReason(document.id);

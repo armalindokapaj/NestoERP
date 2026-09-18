@@ -92,6 +92,25 @@ export const AuditAction = {
   WORKFORCE_ENDED_WITH_EMPLOYMENT: "WORKFORCE_ENDED_WITH_EMPLOYMENT",
   WORKFORCE_ATTENDANCE_RECORDED: "WORKFORCE_ATTENDANCE_RECORDED",
   WORKFORCE_IMPORT_COMMITTED: "WORKFORCE_IMPORT_COMMITTED",
+  // Employee documents and qualifications (E-02 §142)
+  EMPLOYEE_DOCUMENT_LINKED: "EMPLOYEE_DOCUMENT_LINKED",
+  EMPLOYEE_DOCUMENT_METADATA_UPDATED: "EMPLOYEE_DOCUMENT_METADATA_UPDATED",
+  EMPLOYEE_DOCUMENT_VISIBILITY_CHANGED: "EMPLOYEE_DOCUMENT_VISIBILITY_CHANGED",
+  EMPLOYEE_DOCUMENT_VERIFIED: "EMPLOYEE_DOCUMENT_VERIFIED",
+  EMPLOYEE_DOCUMENT_REJECTED: "EMPLOYEE_DOCUMENT_REJECTED",
+  EMPLOYEE_DOCUMENT_RESUBMITTED: "EMPLOYEE_DOCUMENT_RESUBMITTED",
+  EMPLOYEE_DOCUMENT_SUPERSEDED: "EMPLOYEE_DOCUMENT_SUPERSEDED",
+  EMPLOYEE_DOCUMENT_RENEWED: "EMPLOYEE_DOCUMENT_RENEWED",
+  EMPLOYEE_DOCUMENT_ARCHIVED: "EMPLOYEE_DOCUMENT_ARCHIVED",
+  EMPLOYEE_DOCUMENT_EXPIRED: "EMPLOYEE_DOCUMENT_EXPIRED",
+  EMPLOYEE_QUALIFICATION_CREATED: "EMPLOYEE_QUALIFICATION_CREATED",
+  EMPLOYEE_QUALIFICATION_UPDATED: "EMPLOYEE_QUALIFICATION_UPDATED",
+  EMPLOYEE_QUALIFICATION_VERIFIED: "EMPLOYEE_QUALIFICATION_VERIFIED",
+  EMPLOYEE_QUALIFICATION_REJECTED: "EMPLOYEE_QUALIFICATION_REJECTED",
+  EMPLOYEE_QUALIFICATION_RESUBMITTED: "EMPLOYEE_QUALIFICATION_RESUBMITTED",
+  EMPLOYEE_QUALIFICATION_RENEWED: "EMPLOYEE_QUALIFICATION_RENEWED",
+  EMPLOYEE_QUALIFICATION_ARCHIVED: "EMPLOYEE_QUALIFICATION_ARCHIVED",
+  EMPLOYEE_QUALIFICATION_EXPIRED: "EMPLOYEE_QUALIFICATION_EXPIRED",
   // Employment history (E-03 §134-§137)
   HR_EMPLOYMENT_ASSIGNMENT_CHANGED: "HR_EMPLOYMENT_ASSIGNMENT_CHANGED",
   HR_EMPLOYMENT_TERMINATED: "HR_EMPLOYMENT_TERMINATED",
@@ -439,6 +458,37 @@ const DEPARTMENT_AUDIT_FIELDS = [
   "memberCount",
 ];
 
+const DOCUMENT_FIELDS = ["employeeId", "documentId", "category", "visibility", "verificationStatus", "isCurrent", "issueDate", "expiryDate", "effectiveFrom", "effectiveTo", "amendsId", "replacesId", "replacementId", "archived"];
+const QUALIFICATION_FIELDS = ["personId", "type", "title", "issuer", "issueDate", "expiryDate", "proficiency", "visibility", "verificationStatus", "isCurrent", "supportingDocumentId", "renewsId", "archived"];
+
+function hrPolicy(actionKey: string, fields: string[], severity: AuditPolicy["severity"] = "INFO"): AuditPolicy {
+  return { actionKey, moduleKey: "hr", category: "HR", severity, snapshotMode: "BEFORE_AFTER", allowFields: fields, required: true };
+}
+
+const EMPLOYEE_DOCUMENT_POLICIES: AuditPolicy[] = [
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_LINKED, DOCUMENT_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_METADATA_UPDATED, DOCUMENT_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_VISIBILITY_CHANGED, DOCUMENT_FIELDS, "IMPORTANT"),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_VERIFIED, DOCUMENT_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_REJECTED, DOCUMENT_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_RESUBMITTED, DOCUMENT_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_SUPERSEDED, DOCUMENT_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_RENEWED, DOCUMENT_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_ARCHIVED, DOCUMENT_FIELDS, "IMPORTANT"),
+  hrPolicy(AuditAction.EMPLOYEE_DOCUMENT_EXPIRED, DOCUMENT_FIELDS),
+];
+
+const QUALIFICATION_POLICIES: AuditPolicy[] = [
+  hrPolicy(AuditAction.EMPLOYEE_QUALIFICATION_CREATED, QUALIFICATION_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_QUALIFICATION_UPDATED, QUALIFICATION_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_QUALIFICATION_VERIFIED, QUALIFICATION_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_QUALIFICATION_REJECTED, QUALIFICATION_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_QUALIFICATION_RESUBMITTED, QUALIFICATION_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_QUALIFICATION_RENEWED, QUALIFICATION_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_QUALIFICATION_ARCHIVED, QUALIFICATION_FIELDS),
+  hrPolicy(AuditAction.EMPLOYEE_QUALIFICATION_EXPIRED, QUALIFICATION_FIELDS),
+];
+
 const POLICIES: AuditPolicy[] = [
   /* Authentication ------------------------------------------------------- */
   { actionKey: AuditAction.AUTH_LOGIN_SUCCEEDED, moduleKey: "settings", category: "AUTHENTICATION", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },
@@ -539,6 +589,12 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.WORKFORCE_PROJECT_ASSIGNMENT_ENDED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["projectId", "siteId", "employeeProfileId", "startDate", "endDate", "endReason"], required: true },
   { actionKey: AuditAction.WORKFORCE_ENDED_WITH_EMPLOYMENT, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["employeeProfileId", "lastDay", "reason", "crewMembershipsEnded", "crewMembershipsWithdrawn", "projectAssignmentsEnded", "projectAssignmentsWithdrawn"], required: true },
   { actionKey: AuditAction.WORKFORCE_IMPORT_COMMITTED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["fileName", "rowCount", "createdCount", "failedCount", "skippedCount", "assignedCount", "crewedCount"], required: true },
+  /*
+   * E-02 §142-§144: what was filed, checked, replaced or put away — the category, the reach and the
+   * dates, never a title, a number or a note a salary or an identity paper could be read from.
+   */
+  ...EMPLOYEE_DOCUMENT_POLICIES,
+  ...QUALIFICATION_POLICIES,
   { actionKey: AuditAction.WORKFORCE_ATTENDANCE_RECORDED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["date", "projectId", "siteId", "crewId", "created", "updated", "unchanged"], required: true },
   /* Account provisioning (E-06 §114, §115): who asked, who approved, who created it, for whom, where. */
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_REQUESTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], required: true },

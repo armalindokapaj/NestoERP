@@ -417,10 +417,12 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "hr.self.leave",
       "hr.self.attendance",
       "hr.self.documents",
+      "hr.self.documents.upload",
     ],
     CONTRIBUTE: [
       "hr.export",
       "hr.document.create",
+      "hr.qualification.manage",
       "hr.leave.create",
       "hr.leave.update",
       "hr.leave.submit",
@@ -449,6 +451,12 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "hr.leave.reason.view",
       "hr.onboarding.manage",
       "hr.offboarding.manage",
+      // What is private to HR in the employee file, and checking documents and
+      // qualifications — HR's own work, not a consequence of reading HR (E-02 §38, §73, §110).
+      "hr.document.private.view",
+      "hr.document.private.manage",
+      "hr.document.verify",
+      "hr.qualification.verify",
     ],
   },
   /**
@@ -1009,7 +1017,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
    */
   people: {
     VIEW: ["people.directory.view", "people.profile.view"],
-    CONTRIBUTE: ["people.profile.edit_self"],
+    CONTRIBUTE: ["people.profile.edit_self", "people.qualification.add_self"],
   },
   settings: {
     VIEW: ["settings.view"],
@@ -1220,7 +1228,18 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     contracts: { extra: ["legal.approval.self", "legal.confidential_terms.view"] },
     // Pay is never on the ladder; the Owner holds it explicitly (PRD #16 §17).
     // Nor are the private reasons behind a status change, or correcting history (E-03 §105, §76).
-    hr: { extra: ["hr.compensation.view", "hr.compensation.update", "hr.employment_history.view_private", "hr.employment_history.correct"] },
+    // Nor the doors for Finance and management into the employee file, held by nobody else by
+    // default (E-02 §40, §107, §108).
+    hr: {
+      extra: [
+        "hr.compensation.view",
+        "hr.compensation.update",
+        "hr.employment_history.view_private",
+        "hr.employment_history.correct",
+        "hr.document.finance.view",
+        "hr.document.restricted.view",
+      ],
+    },
     /**
      * Audit is evidence about everyone, including administrators, so it is not
      * on any ladder. Only the Owner holds it by default — an Admin is not
