@@ -48,6 +48,8 @@ A candidate is recruitment's, in HR, until they are hired.
 | Work profile | `GET /api/people/:id` | everybody who may see the person (`people.profile.view`) | name, preferred name, job title, employing company, department, work email, phone and extension, office, bio, group and company positions, NESTO role, manager, projects, activity, a status without its reason |
 | Employment | `GET /api/people/:id/employment` | per employment, in that employment's company: `hr.employee.view` within HR's scope, or your own through `hr.self.employment` | company and its legal identity, employee number, status, type, dates, work location, manager, links to HR's own pages; never pay |
 | Private | `GET /api/people/:id/private` | yourself, or `person_profile.view` within reach | personal email and phone, date of birth, address |
+| Skills & qualifications | `GET /api/people/:id/qualifications` | the person and HR in full; everybody who may see the person, the verified summaries the person shares with the group | see [employee-qualifications.md](employee-qualifications.md) (E-02) |
+| Documents | `GET /api/hr/employees/:employeeId/documents` | per employment in the reader's company, by the employee-file rules; colleagues the verified summaries shared with the group | see [employee-documents.md](employee-documents.md) (E-02) |
 
 "Within reach" is the reach HR recruits with: the reader's own company, or the
 whole group for somebody whose organization scope is group-wide (the Head of

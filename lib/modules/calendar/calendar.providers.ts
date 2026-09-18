@@ -9,6 +9,7 @@ import { calendarOwnedProvider } from "./providers/calendar-owned.provider";
 import { documentProvider } from "./providers/document.provider";
 import { financeProvider } from "./providers/finance.provider";
 import { hrProvider } from "./providers/hr.provider";
+import { credentialCalendarProvider } from "./providers/hr-credentials.provider";
 import { hseProvider } from "./providers/hse.provider";
 import { legalProvider } from "./providers/legal.provider";
 import { procurementProvider } from "./providers/procurement.provider";
@@ -52,6 +53,7 @@ for (const provider of [
   calendarOwnedProvider,
   taskProvider,
   hrProvider,
+  credentialCalendarProvider,
   financeProvider,
   legalProvider,
   procurementProvider,

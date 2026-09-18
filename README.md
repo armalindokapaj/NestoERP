@@ -703,6 +703,19 @@ somebody works is not project access — no assignment ever makes a
 `ProjectMember` — and the database, not the service, refuses two overlapping
 crew periods or two main projects at once.
 
+### Employee documents and qualifications
+
+A contract, a salary document or a licence scan is one canonical `Document`
+filed on the employment, with an `EmployeeDocumentLink` saying what it is to
+HR: category, dates, visibility, verification. A skill, a degree or a licence
+as a fact is a `PersonQualification`, held by the person across the group
+(E-02, ADR 0007; `docs/employee-documents.md`, `docs/employee-qualifications.md`).
+Who opens a file depends on what it is — the professional file, HR's private
+papers and pay evidence have different readers — and the Documents module asks
+the same rule through the registry's `documents.policy`, so it is no side door.
+Colleagues see only a verified summary the person shares; nobody verifies
+their own; `hr.credential-expiry` reminds at 90, 60, 30 and 7 days.
+
 
 ### Sales: the pipeline, not a second CRM
 

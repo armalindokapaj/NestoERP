@@ -12,8 +12,9 @@ import type { EmployeeDocumentsDTO } from "@/lib/modules/hr/documents/employee-d
 import { employmentsVisibleTo } from "@/lib/modules/hr/employees/employment.view";
 import { canViewPersonHistory } from "@/lib/modules/hr/employment/employment.query";
 import { personInRecordReach, updatePersonWorkProfile, type WorkProfileChange } from "@/lib/modules/hr/person.doors";
+import { summaryQualificationWhere } from "@/lib/modules/hr/qualifications/qualification.access";
 import { getPersonQualifications } from "@/lib/modules/hr/qualifications/qualification.service";
-import type { PersonQualificationsDTO } from "@/lib/modules/hr/qualifications/qualification.types";
+import { QUALIFICATION_TYPE_RULES, type PersonQualificationsDTO } from "@/lib/modules/hr/qualifications/qualification.types";
 import { portfolioProjectWhere, resolveProjectPortfolio } from "@/lib/modules/projects/project.portfolio";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import type { PersonDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
@@ -57,7 +58,8 @@ const EMPLOYMENT_RANK: Record<EmploymentStatus, number> = { ACTIVE: 0, ON_LEAVE:
 /* -------------------------------------------------------------------------- */
 
 /** People who work in the group today: an active login in an active company, or a current employment (E-01 §35, §40). */
-function workingWhere(parentGroupId: string): Prisma.PersonProfileWhereInput {
+/** People working in the group today: the directory's own reach, which search reuses so it never finds somebody the directory would not list. */
+export function workingPeopleWhere(parentGroupId: string): Prisma.PersonProfileWhereInput {
   return {
     parentGroupId,
     OR: [
@@ -221,7 +223,7 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
   const group = context.parentGroupId;
   const includeFormer = query.status === "all" && seesFormerPeople(context);
 
-  const and: Prisma.PersonProfileWhereInput[] = [includeFormer ? everWorkedWhere(group) : workingWhere(group)];
+  const and: Prisma.PersonProfileWhereInput[] = [includeFormer ? everWorkedWhere(group) : workingPeopleWhere(group)];
   // Every word must match a name, a title or a work contact (E-01 §37).
   for (const word of (query.q ?? "").split(/\s+/).filter(Boolean).slice(0, 4)) {
     and.push({
@@ -321,7 +323,7 @@ export async function directoryFilterOptions(context: UserContext): Promise<Dire
  */
 async function visiblePerson(context: UserContext, personId: string): Promise<{ row: PersonRow; isSelf: boolean }> {
   const self = (await ownPersonId(context)) === personId;
-  const scope = self ? { parentGroupId: context.parentGroupId } : seesFormerPeople(context) ? everWorkedWhere(context.parentGroupId) : workingWhere(context.parentGroupId);
+  const scope = self ? { parentGroupId: context.parentGroupId } : seesFormerPeople(context) ? everWorkedWhere(context.parentGroupId) : workingPeopleWhere(context.parentGroupId);
   const row = await prisma.personProfile.findFirst({ where: { AND: [{ id: personId }, scope] }, select: personSelect(context.parentGroupId) });
   if (!row) throw new AccessError("NOT_FOUND");
   return { row, isSelf: self };
@@ -334,7 +336,7 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
   const card = toCard(row);
   const userId = row.user?.id ?? null;
 
-  const [details, assignments, projects, employments, reach] = await Promise.all([
+  const [details, assignments, projects, employments, reach, verified] = await Promise.all([
     prisma.personProfile.findFirstOrThrow({ where: { id: row.id, parentGroupId: context.parentGroupId }, select: { professionalBio: true, parentGroup: { select: { name: true } } } }),
     userId
       ? prisma.departmentAssignment.findMany({
@@ -356,6 +358,13 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
     userId ? projectsOf(context, userId) : Promise.resolve([]),
     employmentsVisibleTo(context, row.id),
     personInRecordReach(context, row.id),
+    // Professional activity colleagues may see: what the person shares with the group, once verified (E-02 §145, §146).
+    prisma.personQualification.findMany({
+      where: { AND: [summaryQualificationWhere(context), { personProfileId: row.id, verifiedAt: { not: null } }] },
+      select: { type: true, title: true, verifiedAt: true },
+      orderBy: { verifiedAt: "desc" },
+      take: 20,
+    }),
   ]);
 
   const now = new Date();
@@ -402,6 +411,7 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
         ...(position.endsAt && position.endsAt <= now ? [{ at: position.endsAt.toISOString(), kind: "POSITION_ENDED" as const, text: `No longer ${text}` }] : []),
       ];
     }),
+    ...verified.map((qualification) => ({ at: qualification.verifiedAt!.toISOString(), kind: "QUALIFICATION_VERIFIED" as const, text: `${QUALIFICATION_TYPE_RULES[qualification.type].label} verified: ${qualification.title}` })),
   ]
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 20);

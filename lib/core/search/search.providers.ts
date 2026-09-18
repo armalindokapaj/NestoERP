@@ -20,8 +20,10 @@ import {
   buildPermitScopeWhere,
 } from "@/lib/modules/hse/hse.scope";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
+import { summaryQualificationWhere } from "@/lib/modules/hr/qualifications/qualification.access";
+import { PROFICIENCY_LABELS, QUALIFICATION_TYPE_RULES } from "@/lib/modules/hr/qualifications/qualification.types";
 import { directoryQuerySchema } from "@/lib/modules/people/people.schema";
-import { listPeople } from "@/lib/modules/people/people.service";
+import { listPeople, workingPeopleWhere } from "@/lib/modules/people/people.service";
 import { buildTeamScopeWhere } from "@/lib/modules/team/team.scope";
 import { SCORE, scoreMatch, type GlobalSearchProvider, type GlobalSearchQuery, type GlobalSearchResultDTO } from "./search.types";
 
@@ -166,12 +168,19 @@ const documentProvider: GlobalSearchProvider = {
      * the *title* of a confidential document to anyone holding a generic
      * `document.view`, and a title is precisely what §160 says must not be
      * confirmable (PRD #13 §270, PRD #29 §3, §248).
+     *
+     * An employee's file is never found here, whoever may open it: a contract
+     * or pay document's title, an identity number, HR's own papers stay out of
+     * ordinary search, and are searched on the employee's record (E-02 §138,
+     * §140, §176). What colleagues may know of somebody's qualifications is
+     * found through the person, below.
      */
     const rows = await prisma.document.findMany({
       where: {
         AND: [
           await buildDocumentAccessWhere(context),
           { archivedAt: null },
+          { OR: [{ entityType: null }, { entityType: { not: "employee" } }] },
           // A placeholder whose upload never completed is not a document yet
           // (PRD #29 §162, §233).
           { storageStatus: "AVAILABLE" },
@@ -219,6 +228,44 @@ const peopleProvider: GlobalSearchProvider = {
       href: `/people/${person.personId}`,
       score: scoreMatch(query.text, person.name),
     }));
+  },
+};
+
+/**
+ * Who holds a qualification (E-02 §139, §140): only what the person shares with
+ * the group once HR has verified it, of people the directory lists — found by
+ * its title or issuer, and shown as the person, never its number or its file.
+ */
+const qualificationProvider: GlobalSearchProvider = {
+  moduleKey: "people",
+  entityTypes: ["person_qualification"],
+  async search(context, query) {
+    if (!available(context, "people", "people.directory.view") || !can(context, "people.profile.view")) return [];
+    const rows = await prisma.personQualification.findMany({
+      where: {
+        AND: [
+          summaryQualificationWhere(context),
+          { person: workingPeopleWhere(context.parentGroupId) },
+          { OR: [{ title: { contains: query.text, mode: "insensitive" } }, { issuer: { contains: query.text, mode: "insensitive" } }] },
+        ],
+      },
+      select: { id: true, type: true, title: true, proficiency: true, personProfileId: true, person: { select: { firstName: true, lastName: true, preferredName: true } } },
+      orderBy: { title: "asc" },
+      take: query.limitPerProvider,
+    });
+    return rows.map((row) => {
+      const name = `${row.person.preferredName ?? row.person.firstName} ${row.person.lastName}`;
+      const level = row.proficiency ? ` · ${PROFICIENCY_LABELS[row.proficiency]}` : "";
+      return {
+        moduleKey: "people",
+        entityType: "person_qualification",
+        entityId: row.id,
+        title: name,
+        subtitle: `${row.title} · ${QUALIFICATION_TYPE_RULES[row.type].label}${level}`,
+        href: `/people/${row.personProfileId}?tab=qualifications`,
+        score: scoreMatch(query.text, row.title),
+      };
+    });
   },
 };
 
@@ -993,6 +1040,7 @@ export const searchProviders: GlobalSearchProvider[] = [
   clientProvider,
   documentProvider,
   peopleProvider,
+  qualificationProvider,
   teamProvider,
   invoiceProvider,
   opportunityProvider,
