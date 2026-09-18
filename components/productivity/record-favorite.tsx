@@ -2,7 +2,7 @@ import { after } from "next/server";
 
 import type { UserContext } from "@/lib/context/types";
 import { isFavorite } from "@/lib/modules/productivity/favorites.service";
-import type { NavigableType } from "@/lib/modules/productivity/navigable.registry";
+import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
 import { resolveProductivitySettings } from "@/lib/modules/productivity/productivity.settings";
 import { recordRecentAccess } from "@/lib/modules/productivity/recent-work.service";
 import { FavoriteButton } from "./favorite-button";
