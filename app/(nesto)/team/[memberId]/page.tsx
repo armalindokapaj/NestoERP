@@ -81,6 +81,18 @@ export default async function MemberOverviewPage({ params }: Params) {
             label: "Joined",
             value: member.membership.joinedAt ? formatDate(member.membership.joinedAt) : "—",
           },
+          ...(member.personId
+            ? [
+                {
+                  label: "Profile",
+                  value: (
+                    <Link href={`/people/${member.personId}`} className="text-fg transition-colors hover:text-accent">
+                      Group profile
+                    </Link>
+                  ),
+                },
+              ]
+            : []),
         ]}
         actions={<MemberActions member={member} />}
       />

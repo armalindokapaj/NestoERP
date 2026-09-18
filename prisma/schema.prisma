@@ -1080,18 +1080,22 @@ model User {
 }
 
 model Company {
-  id        String        @id @default(cuid())
-  slug      String        @unique
-  name      String
-  legalName String?
-  logoUrl   String?
-  industry  String?
-  country   String?
-  address   String?
-  email     String?
-  phone     String?
-  website   String?
-  status    CompanyStatus @default(ACTIVE)
+  id                 String        @id @default(cuid())
+  slug               String        @unique
+  name               String
+  legalName          String?
+  /// A company is the employing legal entity (E-01 §7, §28; ADR 0002): its
+  /// registration and tax numbers sit beside its legal name.
+  registrationNumber String?
+  taxNumber          String?
+  logoUrl            String?
+  industry           String?
+  country            String?
+  address            String?
+  email              String?
+  phone              String?
+  website            String?
+  status             CompanyStatus @default(ACTIVE)
 
   /// The business root this company belongs to (E-06 §3.1, §9). Exactly one in
   /// V0.1, and never changed: it is part of the company's isolation boundary.
@@ -1726,22 +1730,27 @@ model PlatformAccess {
 /// Work contact is what colleagues may see; personal contact, birth date and
 /// address are HR-private (E-08 §30).
 model PersonProfile {
-  id              String                @id @default(cuid())
-  parentGroupId   String
-  firstName       String
-  lastName        String
-  preferredName   String?
-  jobTitle        String?
-  workEmail       String?
-  workPhone       String?
-  personalEmail   String?
-  personalPhone   String?
-  dateOfBirth     DateTime?
-  address         String?
-  city            String?
-  country         String?
-  lifecycleStatus PersonLifecycleStatus @default(CANDIDATE)
-  createdByUserId String?
+  id                 String                @id @default(cuid())
+  parentGroupId      String
+  firstName          String
+  lastName           String
+  preferredName      String?
+  jobTitle           String?
+  workEmail          String?
+  workPhone          String?
+  /// The work profile a colleague reads (E-01 §14, §18; ADR 0002). The person
+  /// keeps the bio, the extension and where to find them; HR keeps the rest.
+  workPhoneExtension String?
+  officeLocation     String?
+  professionalBio    String?
+  personalEmail      String?
+  personalPhone      String?
+  dateOfBirth        DateTime?
+  address            String?
+  city               String?
+  country            String?
+  lifecycleStatus    PersonLifecycleStatus @default(CANDIDATE)
+  createdByUserId    String?
 
   parentGroup          ParentGroup               @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
   user                 User?

@@ -38,6 +38,8 @@ export async function seedDemoOrganization(prisma: PrismaClient, passwordHash: s
       slug: company.slug,
       name: company.name,
       legalName: company.legalName,
+      registrationNumber: company.registrationNumber,
+      taxNumber: company.taxNumber,
       industry: company.industry,
       country: DEMO_GROUP.country,
       address: company.address,

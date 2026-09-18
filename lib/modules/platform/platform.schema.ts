@@ -36,6 +36,9 @@ export const createGroupCompanySchema = z.object({
   name: requiredText(2, 120, "Name"),
   slug,
   legalName: unset(optionalText(200)),
+  // The company is the employing legal entity (E-01 §28, ADR 0002).
+  registrationNumber: unset(optionalText(60)),
+  taxNumber: unset(optionalText(60)),
   industry: unset(optionalText(120)),
   country: unset(optionalText(80)),
   address: unset(optionalText(300)),

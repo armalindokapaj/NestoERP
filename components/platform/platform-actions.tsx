@@ -95,6 +95,8 @@ export function GroupImplementationActions({ implementation }: { implementation:
           { name: "name", label: "Name", type: "text", required: true },
           { name: "slug", label: "Slug", type: "text", required: true },
           { name: "legalName", label: "Legal name", type: "text" },
+          { name: "registrationNumber", label: "Registration number", type: "text", hint: "The company is the employing legal entity." },
+          { name: "taxNumber", label: "Tax number", type: "text" },
           { name: "industry", label: "Industry", type: "text" },
           { name: "country", label: "Country", type: "text" },
           { name: "address", label: "Address", type: "text", wide: true },

@@ -222,6 +222,8 @@ export async function createGroupCompany(context: PlatformContext, groupId: stri
     name: input.name,
     slug: input.slug,
     legalName: input.legalName,
+    registrationNumber: input.registrationNumber,
+    taxNumber: input.taxNumber,
     country: input.country,
     industry: input.industry,
     address: input.address,

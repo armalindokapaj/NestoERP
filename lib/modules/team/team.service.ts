@@ -672,6 +672,8 @@ function toDetailDTO(
   return {
     id: row.id,
     userId: row.userId,
+    // The person behind the membership, whose group-wide profile is at /people (E-01, ADR 0002).
+    personId: invited ? null : row.user.personProfileId,
     updatedAt: row.updatedAt.toISOString(),
     profile: {
       ...(invited ?? {

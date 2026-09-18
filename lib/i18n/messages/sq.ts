@@ -109,6 +109,7 @@ export const sq: Messages = {
     qaqc: { label: "QA/QC", description: "Inspektimet, mospërputhjet dhe kontrolli i cilësisë." },
     hse: { label: "HSE", description: "Performanca e shëndetit, sigurisë dhe mjedisit." },
     team: { label: "Ekipi", description: "Të gjithë ata që punojnë në hapësirën e punës së kompanisë suaj." },
+    people: { label: "Njerëzit", description: "Të gjithë në grupin tuaj: kush janë, ku punojnë dhe si t’i kontaktoni." },
     organization: { label: "Organizata", description: "Grupi juaj mëmë, kompanitë, departamentet dhe njerëzit e tij." },
     company: { label: "Kompania", description: "Identiteti i kompanisë dhe të dhënat e organizimit." },
     settings: { label: "Cilësimet", description: "Profili juaj dhe konfigurimi i kompanisë." },
@@ -312,6 +313,9 @@ export const sq: Messages = {
     company: {
       metaTitle: "Cilësimet e kompanisë",
       name: "Emri i kompanisë",
+      legalName: "Emri ligjor",
+      registrationNumber: "Numri i regjistrimit (NIPT)",
+      taxNumber: "Numri tatimor",
       industry: "Industria",
       country: "Shteti",
       address: "Adresa",

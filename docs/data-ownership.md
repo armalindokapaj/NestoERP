@@ -98,6 +98,9 @@ owner decides *how*.
 | `cancelSchedulesWithContract` / `completeScheduleWithContract` | finance | contracts | A sale contract cancelled, terminated or expired cancels its schedules with the reason; completed, completes the one in force — through the `payment_schedule` machine, never a status write. |
 | `contractFinancialStatus` / `unitSaleReadiness` | finance | contracts, sales | What a contract has been paid and whether its deposit is in, read from live allocations — the facts Complete and the Sold rule need, without either domain reading Finance's tables. |
 | `setPassword`, `createUserForInvite`, `revokeSessions` | auth | account, team | Hashing, voiding outstanding reset links, what a revocation is. |
+| `ensurePersonForUser` | hr | team (handed in by the invitation action) | Every login working in a group is a person of it: linked by email to an unlinked person of the group, or made from the account (E-01 §219). |
+| `updatePersonWorkProfile` | hr | people | Only the work-profile columns, only inside the group; one email per person in the group. |
+| `employmentsVisibleTo` (read) | hr | people | Each employment judged in its own company by HR's own permission and scope; pay never included. |
 | `recordActivity`, `recordActorActivity` | shared | everyone | The activity row's shape and its actor. |
 
 Each takes `(tx, context, …)` and does no I/O of its own beyond the database,

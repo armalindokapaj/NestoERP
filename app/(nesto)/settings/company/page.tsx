@@ -23,6 +23,10 @@ export default async function CompanySettingsPage() {
 
   const fields = [
     { id: "name", label: t("company.name"), value: company.name },
+    // The company is the employing legal entity (E-01 §7, §28; ADR 0002).
+    { id: "legalName", label: t("company.legalName"), value: company.legalName ?? "" },
+    { id: "registrationNumber", label: t("company.registrationNumber"), value: company.registrationNumber ?? "" },
+    { id: "taxNumber", label: t("company.taxNumber"), value: company.taxNumber ?? "" },
     { id: "industry", label: t("company.industry"), value: company.industry ?? "" },
     { id: "country", label: t("company.country"), value: company.country ?? "" },
     { id: "address", label: t("company.address"), value: company.address ?? "" },

@@ -5,6 +5,7 @@ import * as departments from "@/lib/modules/team/departments/department.service"
 import * as invitations from "@/lib/modules/team/invitations/invite.service";
 import { hashInviteToken } from "@/lib/modules/team/invitations/invite.token";
 import { teamListQuerySchema, updateMemberSchema } from "@/lib/modules/team/team.schema";
+import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
 import * as team from "@/lib/modules/team/team.service";
 import { clearOutbox, readOutbox, setMailProvider } from "@/lib/mail";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
@@ -525,7 +526,7 @@ describe("invitations (PRD #14 §61–§80)", () => {
         firstName: "Someone",
         lastName: "Else",
         password: "a-brand-new-password",
-      }),
+      }, { personDoor: ensurePersonForUser }),
       "UNAUTHENTICATED",
     );
   });
@@ -536,7 +537,7 @@ describe("invitations (PRD #14 §61–§80)", () => {
     await expectError(
       invitations.acceptInvite(
         { token: "nesto-demo-existing-account-invite-token" },
-        { authenticatedUserId: owner.userId },
+        { authenticatedUserId: owner.userId, personDoor: ensurePersonForUser },
       ),
       "FORBIDDEN",
     );
@@ -636,11 +637,16 @@ describe("invitation delivery (PRD #38 §14, §15, §21)", () => {
         firstName: "Accepted",
         lastName: "Person",
         password: "a-long-enough-password",
-      });
+      }, { personDoor: ensurePersonForUser });
       createdMembers.push(accepted.membershipId);
 
       const membership = await prisma.companyMember.findUniqueOrThrow({ where: { id: accepted.membershipId } });
       expect(membership.status).toBe("ACTIVE");
+
+      // Joining makes the account a person of the company's group (E-01 §219, ADR 0002).
+      const joined = await prisma.user.findUniqueOrThrow({ where: { email: "delivery-accept@nesto.test" }, select: { personProfile: { select: { parentGroupId: true, firstName: true, lifecycleStatus: true } } } });
+      const company = await prisma.company.findUniqueOrThrow({ where: { id: membership.companyId }, select: { parentGroupId: true } });
+      expect(joined.personProfile).toMatchObject({ parentGroupId: company.parentGroupId, firstName: "Accepted", lifecycleStatus: "EMPLOYEE" });
 
       const audit = await prisma.auditEvent.findFirst({
         where: { actionKey: "TEAM_MEMBER_ACTIVATED", entityId: accepted.membershipId },
@@ -648,7 +654,7 @@ describe("invitation delivery (PRD #38 §14, §15, §21)", () => {
       expect(audit).not.toBeNull();
 
       await expectError(
-        invitations.acceptInvite({ token, firstName: "Again", lastName: "Person", password: "a-long-enough-password" }),
+        invitations.acceptInvite({ token, firstName: "Again", lastName: "Person", password: "a-long-enough-password" }, { personDoor: ensurePersonForUser }),
         "NOT_FOUND",
       );
     } finally {
@@ -660,6 +666,7 @@ describe("invitation delivery (PRD #38 §14, §15, §21)", () => {
         await prisma.companyMember.deleteMany({ where: { userId: user.id } });
         createdMembers.length = 0;
         await prisma.user.delete({ where: { id: user.id } });
+        if (user.personProfileId) await prisma.personProfile.delete({ where: { id: user.personProfileId } });
       }
     }
   });

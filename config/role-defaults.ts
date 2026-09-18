@@ -984,6 +984,15 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     APPROVE: ["department.project.assign", "department.project.unassign"],
     MANAGE: ["organization.department.manage", "organization.people.view", "organization.access.view", "organization.role_template.view"],
   },
+  /**
+   * The people directory and work profiles (E-01, ADR 0002). VIEW reads them;
+   * CONTRIBUTE edits your own. Nothing restricted is a rung here: HR's records
+   * and the private person record keep their own permissions.
+   */
+  people: {
+    VIEW: ["people.directory.view", "people.profile.view"],
+    CONTRIBUTE: ["people.profile.edit_self"],
+  },
   settings: {
     VIEW: ["settings.view"],
     MANAGE: ["settings.manage"],
@@ -2234,8 +2243,11 @@ function buildRoleAccess(role: RoleKey, position: PositionLevel): Record<ModuleK
   const result = {} as Record<ModuleKey, ModuleAccessDefault>;
 
   for (const moduleKey of MODULE_KEYS) {
-    // Every authenticated role reaches their own dashboard (PRD #4 §4).
-    const cell = moduleKey === "dashboard" ? "V/S" : row[moduleKey];
+    // Every authenticated role reaches their own dashboard (PRD #4 §4), and
+    // everybody who works in a company knows the group's people and edits their
+    // own profile (E-01 §103, §104): group-wide, whatever else the role opens.
+    // The Platform Admin, who works in no company, has neither.
+    const cell = moduleKey === "dashboard" ? "V/S" : moduleKey === "people" ? (Object.keys(MATRIX[role]).length > 0 ? "C/G" : undefined) : row[moduleKey];
 
     if (!cell) {
       result[moduleKey] = {

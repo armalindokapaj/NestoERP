@@ -7,6 +7,7 @@ import { setMailProvider } from "@/lib/mail";
 import { bootstrapCompany } from "@/lib/modules/company/company-bootstrap.service";
 import * as invitations from "@/lib/modules/team/invitations/invite.service";
 import { teamListQuerySchema, updateMemberSchema } from "@/lib/modules/team/team.schema";
+import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
 import * as team from "@/lib/modules/team/team.service";
 import { cleanupSessions, loginAsEmail, prisma } from "../../helpers";
 
@@ -58,16 +59,19 @@ async function removeFixtures() {
     await prisma.department.deleteMany({ where: { companyId: id } });
     await prisma.company.delete({ where: { id } });
   }
-  // Provisioning gave the company a parent group of its own (E-06 §8).
-  const group = await prisma.parentGroup.findUnique({ where: { slug: SLUG }, select: { id: true } });
-  if (group) {
-    await prisma.groupDepartment.deleteMany({ where: { parentGroupId: group.id } });
-    await prisma.parentGroup.delete({ where: { id: group.id } });
-  }
   if (userIds.length > 0) {
     await prisma.session.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.authEvent.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+  }
+  // Provisioning gave the company a parent group of its own (E-06 §8), and an
+  // accepted invitation a person in it (E-01 §219) — after the logins that
+  // point at them.
+  const group = await prisma.parentGroup.findUnique({ where: { slug: SLUG }, select: { id: true } });
+  if (group) {
+    await prisma.personProfile.deleteMany({ where: { parentGroupId: group.id } });
+    await prisma.groupDepartment.deleteMany({ where: { parentGroupId: group.id } });
+    await prisma.parentGroup.delete({ where: { id: group.id } });
   }
 }
 
@@ -250,7 +254,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
     // Even a link that somehow stayed live does not reactivate the membership.
     await prisma.companyInvite.update({ where: { id: sent.inviteId }, data: { status: "PENDING", cancelledAt: null } });
     await expectCode(
-      invitations.acceptInvite({ token: tokenOf(sent) }, { authenticatedUserId: user.id }),
+      invitations.acceptInvite({ token: tokenOf(sent) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser }),
       "NOT_FOUND",
     );
     expect((await membershipOf("dormant")).status).toBe("INACTIVE");
@@ -266,7 +270,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
     // The pending membership already describes the new terms.
     expect((await membershipOf("relisted")).roleId).toBe(roles.ENGINEER);
 
-    const accepted = await invitations.acceptInvite({ token: tokenOf(second) }, { authenticatedUserId: user.id });
+    const accepted = await invitations.acceptInvite({ token: tokenOf(second) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser });
     const joined = await prisma.companyMember.findUniqueOrThrow({ where: { id: accepted.membershipId } });
     expect(joined).toMatchObject({ status: "ACTIVE", roleId: roles.ENGINEER });
   });
@@ -278,7 +282,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
     const membership = await membershipOf("promoted");
     await prisma.companyMember.update({ where: { id: membership.id }, data: { roleId: roles.VIEWER } });
 
-    await invitations.acceptInvite({ token: tokenOf(sent) }, { authenticatedUserId: user.id });
+    await invitations.acceptInvite({ token: tokenOf(sent) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser });
     expect((await membershipOf("promoted")).roleId).toBe(roles.ENGINEER);
   });
 
@@ -366,6 +370,6 @@ describe("an invitee is an address until they accept (PRD #47 §59)", () => {
     expect(result.deliveryStatus).toBe(unknown.deliveryStatus);
 
     // Acceptance still refuses the disabled account.
-    await expectCode(invitations.acceptInvite({ token: tokenOf(result) }, { authenticatedUserId: user.id }), "CONFLICT");
+    await expectCode(invitations.acceptInvite({ token: tokenOf(result) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser }), "CONFLICT");
   });
 });

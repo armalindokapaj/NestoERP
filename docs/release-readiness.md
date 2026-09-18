@@ -1578,8 +1578,9 @@ On three freshly built databases (every migration, then the seed):
 - **vitest: 3 595 passed, 0 failed**, 11 skipped. New: access grants (16),
   organization integrity (2).
 - **E2E on the production build: 435 of 435.** New: organization access (4).
-- **verify:roles 1 614 of 1 614.** verify:authorization (574 routes),
-  ownership, state, company-integrity, production-guards pass;
+- **verify:roles 1 614 of 1 614.** verify:authorization (574 routes — run
+  before the last file was added; the committed tree failed its role-name rule,
+  see §24.3), ownership, state, company-integrity, production-guards pass;
   **verify:organization** clean on all three databases and on `nesto_erp`, 0
   warnings, before and after the suites. security:matrix: 964 endpoints, 0
   company-scoped without a check. Typecheck clean; no schema drift.
@@ -1608,3 +1609,90 @@ On three freshly built databases (every migration, then the seed):
 - **The access check explains a company context.** It does not simulate a
   record: whether a project-scoped reader sees one particular invoice is still
   the module's own scope builder's answer.
+
+---
+
+## 24. Enhancement E-01 — the group's people, reconciled onto the person record
+
+The audit makes E-01 the next PRD and asks for it to be reconciled, not pasted
+in. E-01 predates E-06 and keys the profile to a membership with a new
+`LegalEntity`; built literally it would undo E-06's person-first identity.
+[ADR 0002](adr/0002-e01-person-identity-reconciliation.md) classifies every
+requirement against the code (the audit's protocol steps 1-3) and records six
+decisions; `docs/people.md` is the contract.
+
+### 24.1 What changed
+
+| Before | Now |
+|---|---|
+| A person could be seen only as a membership of your own company (Team) | **People** (`/people`): everybody who works in the group, across its companies, searched by name, title or work contact and narrowed by company, department, project, title and place, a page at a time. Every internal role has it |
+| — | A profile per person (`/people/[personId]`): who, job title apart from the NESTO role, employing company, department, manager, contact, office, bio, where they work in each company and at group level, projects (linked only where the reader can open them), activity |
+| HR's records could be read only on HR's pages | The profile's Employment tab, judged employment by employment in its own company by HR's own permission and scope; the Private tab for the person and HR within reach; both absent, not locked, for anybody else |
+| — | A person edits their bio, extension, office and preferred name; HR the job title and work email too; audited as `PERSON_WORK_PROFILE_UPDATED` |
+| An invited account joined a company with no person behind it | Accepting an invitation gives the account its person, through HR's door, in the same transaction; a migration backfills anybody left without one; `verify:organization` fails on a login without a person |
+| A company had a legal name only | Registration and tax numbers, set when a company is created and shown in Settings and on the employment; the company is the employing entity (no `LegalEntity` model) |
+| Global search found company members | A `people` result type with the directory's own reach and fields |
+| — | New core module `people` (`people.directory.view`, `people.profile.view`, `people.profile.edit_self`); every membership role opens it group-wide, a read-only role cannot edit |
+
+**Migration `20260918150000_person_work_profile_e01`** adds three nullable
+columns to `person_profiles` and two to `companies`, then backfills persons:
+a login working in a group with no person is linked to an unlinked person of
+the group with the same email, or given one made from the account. It is
+re-runnable. Replayed into an empty database, and against a restored copy of
+`nesto_erp` with three logins' persons removed on purpose: two were relinked
+by email, one got a new person, and a second run changed nothing. Rollback:
+drop the five columns; the backfilled persons are ordinary persons.
+
+### 24.2 The evidence
+
+On three freshly built databases:
+
+- **vitest: 3 608 passed, 0 failed**, 11 skipped. New: people (13); the
+  invitation test now checks the person.
+- **E2E on the production build: 441 of 441.** New: people (6). That run's
+  build predates the last change (a profile no longer carries the id of a
+  project the reader cannot open); the People, Team, Access and Platform specs
+  were run again on a build of the final tree: 25 of 25.
+- **verify:roles 1 675 of 1 675** (the People module on every persona).
+  verify:authorization (581 routes), ownership (56 domains, no new circle),
+  state, workers, company-integrity, production-guards pass;
+  **verify:organization** clean before and after both suites; security:matrix
+  971 endpoints, 0 company-scoped without a check. Typecheck clean; lint 0
+  errors, 14 warnings; no drift.
+
+### 24.3 Defects found
+
+- **§23's commit (`85ebf6d`) did not pass `verify:authorization`.** The gate
+  was run before `organization-integrity.ts` was written, and that file
+  compares role names — legitimately, as a read-only consistency check, but the
+  gate requires the exception to be recorded. It is now, with its reason. §23.2's
+  "every gate green" was wrong for that commit.
+- **A module the browser reaches had started to need the database.**
+  `hr.person.ts`' name helpers are read from modules that end up in client
+  bundles; E-01's doors first went there and broke the production build. They
+  live in `hr/person.doors.ts`.
+- **Team importing HR would have closed a five-domain import circle** (Team →
+  HR → Finance → Sales → Projects → Team). Accepting an invitation takes HR's
+  person door as a parameter instead, handed in by the server action.
+- **The sibling-company sweep flagged the directory**: Meridian's CEO was shown
+  Aurelia's company id — the employing company of Aurelia's people, which E-01
+  makes visible to the whole group (§5, §7, §32). The sweep now exempts a
+  company's own id on `/api/people` routes, and only when the target company is
+  in the attacker's own group; its records' ids stay forbidden, and a company
+  of another group is never exempt. In the same pass the profile stopped
+  carrying the id of a project the reader cannot open (the name and code
+  remain, §44), and the sweep learned to attack `/api/people/[personId]`, which
+  it had skipped for want of a person id: 11 calls, 0 violations, the
+  restricted views answering 403.
+
+### 24.4 Limits
+
+- **No photo, skills, qualifications, employee documents or expiry** — E-02's
+  (ADR 0002 decision 6). The avatar is initials.
+- **No employment or organization history**; department, title and manager are
+  current values — E-03's.
+- **Names elsewhere do not link to profiles yet** — E-08's `PersonLink`.
+- **A person without a login** appears once they have a current employment;
+  the directory has none in the demo until E-04 brings the workforce.
+- **Company identity cannot be edited after creation**; Settings shows it
+  read-only.

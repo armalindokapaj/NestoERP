@@ -64,6 +64,7 @@ const DETAIL_SELECT = {
       phone: true,
       avatarUrl: true,
       lastLoginAt: true,
+      personProfileId: true,
     },
   },
 } satisfies Prisma.CompanyMemberSelect;

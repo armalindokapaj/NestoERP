@@ -119,6 +119,7 @@ export const en = {
     qaqc: { label: "QA/QC", description: "Inspections, non-conformances and quality control." },
     hse: { label: "HSE", description: "Health, safety and environment performance." },
     team: { label: "Team", description: "Everyone working inside your company workspace." },
+    people: { label: "People", description: "Everyone in your group: who they are, where they work and how to reach them." },
     organization: { label: "Organization", description: "Your parent group, its companies, departments and people." },
     company: { label: "Company", description: "Company identity and organisation details." },
     settings: { label: "Settings", description: "Your profile and company configuration." },
@@ -321,6 +322,9 @@ export const en = {
     company: {
       metaTitle: "Company settings",
       name: "Company name",
+      legalName: "Legal name",
+      registrationNumber: "Registration number",
+      taxNumber: "Tax number",
       industry: "Industry",
       country: "Country",
       address: "Address",
