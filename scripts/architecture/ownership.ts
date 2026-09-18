@@ -90,7 +90,8 @@ const OWNED: Record<string, string[]> = {
     "paymentInstallment",
   ],
   // HR owns the person and the candidate as well as the employment (E-06 §82).
-  hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord", "personProfile", "candidateProfile"],
+  // …and the employment's history: where the employee sat, their status over time, and changes scheduled (E-03, ADR 0004).
+  hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord", "personProfile", "candidateProfile", "employmentAssignment", "employmentStatusHistory", "employmentChange"],
   // A unit's commercial side — profile, prices, reservations, the units in a deal, the status trail
   // (E-05E) — keyed by the canonical unitId; the unit itself stays project-structure's.
   sales: ["lead", "opportunity", "proposal", "proposalLineItem", "salesApproval", "unitCommercialProfile", "unitPriceHistory", "unitReservation", "unitReservationExtension", "opportunityUnit", "unitCommercialStatusHistory", "unitSaleApproval"],

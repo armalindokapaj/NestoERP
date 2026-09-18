@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
-import { EmployeeActions } from "@/components/hr/employee-actions";
+import { EmploymentChanges } from "@/components/hr/employment-changes";
 import { EmployeeTabs } from "@/components/hr/employee-tabs";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { todayDay } from "@/lib/modules/hr/employment/employment.dates";
+import { workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
+import { employmentChangeOptions } from "@/lib/modules/hr/employment/employment.options";
 import { employmentTypeLabels, progressStatusLabels } from "@/lib/modules/hr/hr.status";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "./employee-context";
@@ -31,7 +34,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  */
 export default async function EmployeeDetailPage({ params }: Params) {
   const { memberId } = await params;
-  const { employee } = await loadEmployee(memberId);
+  const { context, employee } = await loadEmployee(memberId);
+  const caps = employee.employment;
+  const changes = Object.values(caps).some(Boolean) || employee.capabilities.canEditEmployment;
+  const options = changes ? await employmentChangeOptions(context, memberId) : { departments: [], managers: [], documents: [], companies: [] };
 
   return (
     <div className="space-y-5">
@@ -61,7 +67,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
             value: employee.startDate ? formatDate(employee.startDate) : "—",
           },
         ]}
-        actions={<EmployeeActions employee={employee} />}
+        actions={<EmploymentChanges employee={employee} options={options} today={todayDay()} />}
       />
 
       <EmployeeTabs
@@ -126,10 +132,22 @@ export default async function EmployeeDetailPage({ params }: Params) {
                 label: "End date",
                 value: employee.endDate ? formatDate(employee.endDate) : "—",
               },
-              { label: "Work location", value: orDash(employee.workLocation) },
+              {
+                label: "Work location",
+                value: orDash([employee.workLocationType ? workLocationTypeLabels[employee.workLocationType] : null, employee.workLocation].filter(Boolean).join(", ")),
+              },
               { label: "Weekly hours", value: orDash(employee.weeklyHours) },
             ]}
           />
+          {employee.capabilities.canViewHistory ? (
+            <p className="mt-4 border-t border-line pt-3 text-meta text-fg-subtle">
+              How they got here — every position, department, manager and status, from its date — is in the{" "}
+              <Link href={`/hr/employees/${employee.memberId}/history`} className="text-accent-strong hover:underline">
+                employment history
+              </Link>
+              .
+            </p>
+          ) : null}
         </section>
 
         <div className="space-y-4">

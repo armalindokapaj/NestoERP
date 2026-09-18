@@ -14,17 +14,21 @@ import {
   createEmployeeProfileSchema,
   createLeaveSchema,
   employeeListQuerySchema,
-  employmentStatusSchema,
   leaveListQuerySchema,
   updateEmployeeProfileSchema,
   updateLeaveSchema,
 } from "@/lib/modules/hr/hr.schema";
+import { applyEmploymentChange } from "@/lib/modules/hr/employment/employment.change.service";
+import { addDays, todayDay } from "@/lib/modules/hr/employment/employment.dates";
+import { employmentChangeSchema } from "@/lib/modules/hr/employment/employment.schema";
+import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { getHrOverview } from "@/lib/modules/hr/overview/overview.service";
 import * as reports from "@/lib/modules/hr/reports/reports.service";
 import { permissionsForRole } from "@/config/role-defaults";
 import { resolveContextForSession } from "@/lib/context/build-context";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsPlatformAdmin, prisma } from "../../helpers";
+import { snapshotEmployments } from "./employment-fixture";
 
 /**
  * HR authorisation and lifecycle tests (PRD #16 §272–§295, §342).
@@ -206,15 +210,13 @@ function employmentInput(input: { companyMemberId: string; employmentType: "FULL
   return createEmployeeProfileSchema.parse(input);
 }
 
-function employmentUpdate(input: {
-  employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACTOR" | "INTERN" | "TEMPORARY" | "OTHER";
-  managerMemberId?: string;
-}) {
+function employmentUpdate(input: { weeklyHours?: string; employeeNumber?: string }) {
   return updateEmployeeProfileSchema.parse(input);
 }
 
-function statusInput(input: { status: "ENDED" | "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "PLANNED"; endDate?: Date }) {
-  return employmentStatusSchema.parse(input);
+/** A dated employment change, through the one typed service (E-03 §36). */
+function change(context: Parameters<typeof applyEmploymentChange>[0], memberId: string, input: Record<string, unknown>) {
+  return applyEmploymentChange(context, memberId, employmentChangeSchema.parse({ effectiveDate: todayDay(), ...input }), { placement: placeMembership });
 }
 
 function attendanceInput(input: {
@@ -1032,19 +1034,12 @@ describe("employment lifecycle (PRD #16 §285–§287)", () => {
     );
   });
 
-  it("refuses to make somebody their own manager (PRD #16 §32, §287)", async () => {
+  it("refuses to make somebody their own manager (PRD #16 §32, §287; E-03 §113)", async () => {
     const hr = await loginAs("HR");
     const memberId = await memberIdFor("engineer@nesto.test");
 
     // A manager loop would make the department approval chain infinite.
-    await expectError(
-      employees.updateEmployeeProfile(
-        hr,
-        memberId,
-        employmentUpdate({ employmentType: "FULL_TIME", managerMemberId: memberId }),
-      ),
-      "VALIDATION_ERROR",
-    );
+    await expectError(change(hr, memberId, { action: "MANAGER", managerMemberId: memberId }), "VALIDATION_ERROR");
   });
 
   it("refuses a manager from another company (PRD #16 §159)", async () => {
@@ -1054,20 +1049,13 @@ describe("employment lifecycle (PRD #16 §285–§287)", () => {
     // Another group's company, and a sibling company HR also works in.
     for (const email of [DEMO_EMAIL.tenantOwner, DEMO_EMAIL.pmB]) {
       const foreignManager = await memberIdFor(email);
-      await expectError(
-        employees.updateEmployeeProfile(
-          hr,
-          memberId,
-          employmentUpdate({ employmentType: "FULL_TIME", managerMemberId: foreignManager }),
-        ),
-        "VALIDATION_ERROR",
-      );
+      await expectError(change(hr, memberId, { action: "MANAGER", managerMemberId: foreignManager }), "VALIDATION_ERROR");
     }
   });
 
   it("refuses an end date before the start date", async () => {
-    const { updateEmployeeProfileSchema } = await import("@/lib/modules/hr/hr.schema");
-    const result = updateEmployeeProfileSchema.safeParse({
+    const result = createEmployeeProfileSchema.safeParse({
+      companyMemberId: "member",
       employmentType: "FULL_TIME",
       startDate: "2026-06-01",
       endDate: "2026-05-01",
@@ -1078,24 +1066,21 @@ describe("employment lifecycle (PRD #16 §285–§287)", () => {
 
   it("refuses a week longer than a week", async () => {
     const { updateEmployeeProfileSchema } = await import("@/lib/modules/hr/hr.schema");
-    expect(
-      updateEmployeeProfileSchema.safeParse({ employmentType: "FULL_TIME", weeklyHours: "200" })
-        .success,
-    ).toBe(false);
-    expect(
-      updateEmployeeProfileSchema.safeParse({ employmentType: "FULL_TIME", weeklyHours: "37.50" })
-        .success,
-    ).toBe(true);
+    expect(updateEmployeeProfileSchema.safeParse({ weeklyHours: "200" }).success).toBe(false);
+    expect(updateEmployeeProfileSchema.safeParse({ weeklyHours: "37.50" }).success).toBe(true);
   });
 
-  it("requires an end date to end employment (PRD #16 §286)", async () => {
-    const hr = await loginAs("HR");
-    const memberId = await memberIdFor("sales@nesto.test");
+  it("keeps where somebody sits off the edit form (E-03 §37, §187)", async () => {
+    const { updateEmployeeProfileSchema } = await import("@/lib/modules/hr/hr.schema");
+    const parsed = updateEmployeeProfileSchema.parse({ weeklyHours: "40", managerMemberId: "somebody", employmentType: "INTERN", workLocation: "Moon", startDate: "2020-01-01" });
+    expect(Object.keys(parsed)).not.toEqual(expect.arrayContaining(["managerMemberId"]));
+    expect(parsed).not.toHaveProperty("employmentType");
+    expect(parsed).not.toHaveProperty("workLocation");
+    expect(parsed).not.toHaveProperty("startDate");
+  });
 
-    await expectError(
-      employees.changeEmploymentStatus(hr, memberId, statusInput({ status: "ENDED" })),
-      "VALIDATION_ERROR",
-    );
+  it("requires a last working day to end employment (PRD #16 §286, E-03 §104)", async () => {
+    expect(employmentChangeSchema.safeParse({ action: "TERMINATE", reason: "RESIGNATION" }).success).toBe(false);
   });
 
   it("never reopens ended employment with a status change (PRD #16 §56)", async () => {
@@ -1107,75 +1092,48 @@ describe("employment lifecycle (PRD #16 §285–§287)", () => {
     });
 
     expect(can(owner, "hr.employee.status.update")).toBe(true);
-    await expectError(
-      employees.changeEmploymentStatus(
-        owner,
-        endedMember.companyMemberId!,
-        statusInput({ status: "ACTIVE" }),
-      ),
-      "VALIDATION_ERROR",
-    );
+    await expect(change(owner, endedMember.companyMemberId!, { action: "STATUS", status: "ACTIVE" })).rejects.toMatchObject({ code: "CONFLICT", reason: "STATE_DENIED" });
   });
 
-  it("leaves company access exactly as it was when employment ends (PRD #16 §230)", async () => {
+  it("leaves company access exactly as it was when employment ends (PRD #16 §230, E-03 §92)", async () => {
     const hr = await loginAs("HR");
     const memberId = await memberIdFor("sales@nesto.test");
+    const employment = await prisma.employeeProfile.findUniqueOrThrow({ where: { companyMemberId: memberId }, select: { id: true } });
+    const restore = await snapshotEmployments([employment.id]);
 
-    const before = await prisma.companyMember.findUniqueOrThrow({
-      where: { id: memberId },
-      select: { status: true, roleId: true, departmentId: true },
-    });
+    try {
+      const before = await prisma.companyMember.findUniqueOrThrow({
+        where: { id: memberId },
+        select: { status: true, roleId: true, departmentId: true },
+      });
 
-    const endDate = today();
-    await employees.changeEmploymentStatus(hr, memberId, statusInput({ status: "ENDED", endDate }));
+      await change(hr, memberId, { action: "TERMINATE", lastWorkingDay: addDays(todayDay(), -1), reason: "RESIGNATION" });
 
-    const after = await prisma.companyMember.findUniqueOrThrow({
-      where: { id: memberId },
-      select: { status: true, roleId: true, departmentId: true },
-    });
+      const after = await prisma.companyMember.findUniqueOrThrow({
+        where: { id: memberId },
+        select: { status: true, roleId: true, departmentId: true },
+      });
 
-    // Employment is not access: ending one never touches the other.
-    expect(after).toEqual(before);
+      // Employment is not access: ending one never touches the other.
+      expect(after).toEqual(before);
 
-    const profile = await prisma.employeeProfile.findUniqueOrThrow({
-      where: { companyMemberId: memberId },
-      select: { offboardingStatus: true },
-    });
-    expect(profile.offboardingStatus).toBe("NOT_STARTED");
-
-    // Put the fixture back the way the seed left it.
-    await prisma.employeeProfile.update({
-      where: { companyMemberId: memberId },
-      data: {
-        employmentStatus: "ACTIVE",
-        endDate: null,
-        offboardingStatus: "NOT_REQUIRED",
-      },
-    });
-    await prisma.activity.deleteMany({
-      where: { module: "hr", entityId: memberId, action: "HR_EMPLOYMENT_ENDED" },
-    });
+      const profile = await prisma.employeeProfile.findUniqueOrThrow({
+        where: { companyMemberId: memberId },
+        select: { offboardingStatus: true, employmentStatus: true },
+      });
+      expect(profile).toEqual({ offboardingStatus: "NOT_STARTED", employmentStatus: "ENDED" });
+    } finally {
+      await restore();
+      await prisma.activity.deleteMany({ where: { module: "hr", entityId: memberId, action: "HR_EMPLOYMENT_ENDED" } });
+    }
   });
 
   it("denies a self-scoped reader any employment write at all", async () => {
     const context = await loginAs("ENGINEER");
 
-    await expectError(
-      employees.updateEmployeeProfile(
-        context,
-        context.membershipId,
-        employmentUpdate({ employmentType: "CONTRACTOR" }),
-      ),
-      "FORBIDDEN",
-    );
-    await expectError(
-      employees.changeEmploymentStatus(
-        context,
-        context.membershipId,
-        statusInput({ status: "ON_LEAVE" }),
-      ),
-      "FORBIDDEN",
-    );
+    await expectError(employees.updateEmployeeProfile(context, context.membershipId, employmentUpdate({ weeklyHours: "30" })), "FORBIDDEN");
+    await expectError(change(context, context.membershipId, { action: "STATUS", status: "ON_LEAVE" }), "FORBIDDEN");
+    await expectError(change(context, context.membershipId, { action: "POSITION", jobTitle: "Chief Engineer", reason: "PROMOTION" }), "FORBIDDEN");
   });
 });
 

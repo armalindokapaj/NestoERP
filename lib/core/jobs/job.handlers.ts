@@ -77,6 +77,14 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await runUnitReservationExpiry(now);
     return { processed: result.expired + result.warned, detail: result };
   },
+  "hr.employment-changes": async ({ now }) => {
+    // Scheduled employment changes take effect on their day, once each (E-03 §153-§157). The organization's
+    // placement door keeps a department's team true to a transfer, as it does for a change made by hand.
+    const { runScheduledEmploymentChanges } = await import("@/lib/modules/hr/employment/employment.schedule");
+    const { placeMembership } = await import("@/lib/modules/organization/departments/placement.door");
+    const result = await runScheduledEmploymentChanges(now, { placement: placeMembership });
+    return { processed: result.applied + result.failed, detail: result };
+  },
   "finance.unit-installments": async ({ now }) => {
     // Unit installments falling due within a week, and past due, are announced once (E-05F §94-§96).
     const { runUnitInstallmentNotices } = await import("@/lib/modules/finance/units/unit-finance.overdue");

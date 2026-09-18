@@ -588,6 +588,83 @@ enum EmploymentType {
   OTHER
 }
 
+/// Where somebody works, in E-03 §120's terms. The place itself is
+/// `workLocation`, free text beside it.
+enum WorkLocationType {
+  OFFICE
+  SITE
+  REMOTE
+  HYBRID
+  OTHER
+}
+
+/// Why an employment's organizational state changed (E-03 §29). "Role change"
+/// there means the job, never the NESTO security role (§107-§109), so it is
+/// TITLE_CHANGE here.
+enum EmploymentAssignmentReason {
+  HIRE
+  REHIRE
+  PROMOTION
+  DEMOTION
+  TITLE_CHANGE
+  DEPARTMENT_TRANSFER
+  LEGAL_ENTITY_TRANSFER
+  MANAGER_CHANGE
+  LOCATION_CHANGE
+  EMPLOYMENT_TYPE_CHANGE
+  REORGANIZATION
+  CORRECTION
+  OTHER
+}
+
+/// Why an employment's status changed (E-03 §23, §104). HR-restricted: a
+/// colleague sees a state, never why (§24).
+enum EmploymentStatusReason {
+  HIRE
+  REHIRE
+  LEAVE
+  RETURN
+  SUSPENSION
+  RESIGNATION
+  DISMISSAL
+  END_OF_CONTRACT
+  RETIREMENT
+  MUTUAL_AGREEMENT
+  LEGAL_ENTITY_TRANSFER
+  CORRECTION
+  OTHER
+}
+
+/// How a history row came to be (E-03 §185): an HR change, a scheduled change
+/// applied by the worker, a correction, the E-03 migration, or a placement made
+/// in Team or the Organization and recorded here.
+enum EmploymentHistorySource {
+  CHANGE
+  SCHEDULED
+  CORRECTION
+  MIGRATION
+  SYNC
+}
+
+/// A future-dated employment change (E-03 §31-§34, §153-§157).
+enum EmploymentChangeType {
+  POSITION_CHANGE
+  DEPARTMENT_TRANSFER
+  MANAGER_CHANGE
+  LOCATION_CHANGE
+  EMPLOYMENT_TYPE_CHANGE
+  STATUS_CHANGE
+  TERMINATION
+  LEGAL_ENTITY_TRANSFER
+}
+
+enum EmploymentChangeStatus {
+  SCHEDULED
+  APPLIED
+  CANCELLED
+  FAILED
+}
+
 enum HrProgressStatus {
   NOT_STARTED
   IN_PROGRESS
@@ -1132,48 +1209,51 @@ model Company {
   uploadSessions      DocumentUploadSession[]
   numberingSchemes    CompanyNumberingScheme[]
 
-  financeSettings      FinanceSettings?
-  invoices             Invoice[]
-  expenses             Expense[]
-  payments             Payment[]
-  projectBudgets       ProjectBudget[]
-  commitments          Commitment[]
-  financeApprovals     FinanceApproval[]
-  employeeProfiles     EmployeeProfile[]
-  compensations        Compensation[]
-  leaveRequests        LeaveRequest[]
-  leaveBalances        LeaveBalance[]
-  attendanceRecords    AttendanceRecord[]
-  leads                Lead[]
-  opportunities        Opportunity[]
-  proposals            Proposal[]
-  salesApprovals       SalesApproval[]
-  contracts            Contract[]
-  contractParties      ContractParty[]
-  contractObligations  ContractObligation[]
-  contractAmendments   ContractAmendment[]
-  contractApprovals    ContractApproval[]
-  suppliers            Supplier[]
-  purchaseRequests     PurchaseRequest[]
-  purchaseOrders       PurchaseOrder[]
-  rfqs                 RFQ[]
-  supplierQuotes       SupplierQuote[]
-  goodsReceipts        GoodsReceipt[]
-  procurementApprovals ProcurementApproval[]
-  inventoryItems       InventoryItem[]
-  warehouses           Warehouse[]
-  inventoryLocations   InventoryLocation[]
-  inventoryBalances    InventoryBalance[]
-  stockMovements       StockMovement[]
-  inventoryReceipts    InventoryReceipt[]
-  stockIssues          StockIssue[]
-  stockReturns         StockReturn[]
-  stockTransfers       StockTransfer[]
-  stockAdjustments     StockAdjustment[]
-  stockReservations    StockReservation[]
-  qualityRecords       QualityRecord[]
-  hseRecords           HseRecord[]
-  supportRequests      SupportRequest[]
+  financeSettings         FinanceSettings?
+  invoices                Invoice[]
+  expenses                Expense[]
+  payments                Payment[]
+  projectBudgets          ProjectBudget[]
+  commitments             Commitment[]
+  financeApprovals        FinanceApproval[]
+  employeeProfiles        EmployeeProfile[]
+  compensations           Compensation[]
+  employmentAssignments   EmploymentAssignment[]
+  employmentStatusHistory EmploymentStatusHistory[]
+  employmentChanges       EmploymentChange[]
+  leaveRequests           LeaveRequest[]
+  leaveBalances           LeaveBalance[]
+  attendanceRecords       AttendanceRecord[]
+  leads                   Lead[]
+  opportunities           Opportunity[]
+  proposals               Proposal[]
+  salesApprovals          SalesApproval[]
+  contracts               Contract[]
+  contractParties         ContractParty[]
+  contractObligations     ContractObligation[]
+  contractAmendments      ContractAmendment[]
+  contractApprovals       ContractApproval[]
+  suppliers               Supplier[]
+  purchaseRequests        PurchaseRequest[]
+  purchaseOrders          PurchaseOrder[]
+  rfqs                    RFQ[]
+  supplierQuotes          SupplierQuote[]
+  goodsReceipts           GoodsReceipt[]
+  procurementApprovals    ProcurementApproval[]
+  inventoryItems          InventoryItem[]
+  warehouses              Warehouse[]
+  inventoryLocations      InventoryLocation[]
+  inventoryBalances       InventoryBalance[]
+  stockMovements          StockMovement[]
+  inventoryReceipts       InventoryReceipt[]
+  stockIssues             StockIssue[]
+  stockReturns            StockReturn[]
+  stockTransfers          StockTransfer[]
+  stockAdjustments        StockAdjustment[]
+  stockReservations       StockReservation[]
+  qualityRecords          QualityRecord[]
+  hseRecords              HseRecord[]
+  supportRequests         SupportRequest[]
 
   inspectionRequests          InspectionRequest[]
   inspectionTemplates         InspectionTemplate[]
@@ -1289,9 +1369,12 @@ model Department {
   groupDepartmentId String?
   groupDepartment   GroupDepartment? @relation(fields: [groupDepartmentId], references: [id], onDelete: Restrict)
 
-  assignments          DepartmentAssignment[]
-  provisioningRequests UserProvisioningRequest[]
-  candidateTargets     CandidateProfile[]
+  assignments           DepartmentAssignment[]
+  provisioningRequests  UserProvisioningRequest[]
+  candidateTargets      CandidateProfile[]
+  /// Employments whose current department this is, and the history rows that name it (E-03).
+  employeeProfiles      EmployeeProfile[]         @relation("EmployeeProfileDepartment")
+  employmentAssignments EmploymentAssignment[]    @relation("EmploymentAssignmentDepartment")
 
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -1471,11 +1554,12 @@ model CompanyMember {
 
   activityActions Activity[] @relation("ActivityActorMember")
 
-  employeeProfile         EmployeeProfile?  @relation("EmployeeProfileMember")
-  managedEmployeeProfiles EmployeeProfile[] @relation("EmployeeProfileManager")
-  ownedLeads              Lead[]            @relation("LeadOwner")
-  ownedOpportunities      Opportunity[]     @relation("OpportunityOwner")
-  ownedContracts          Contract[]        @relation("ContractOwner")
+  employeeProfile              EmployeeProfile?       @relation("EmployeeProfileMember")
+  managedEmployeeProfiles      EmployeeProfile[]      @relation("EmployeeProfileManager")
+  managedEmploymentAssignments EmploymentAssignment[] @relation("EmploymentAssignmentManager")
+  ownedLeads                   Lead[]                 @relation("LeadOwner")
+  ownedOpportunities           Opportunity[]          @relation("OpportunityOwner")
+  ownedContracts               Contract[]             @relation("ContractOwner")
 
   responsibleContractObligations ContractObligation[] @relation("ContractObligationResponsible")
 
@@ -2864,12 +2948,19 @@ model Document {
   unitMedia        UnitMedia[]        @relation("UnitMediaDocument")
   unitLinks        UnitDocumentLink[] @relation("UnitDocumentLinkDocument")
 
+  // E-03: the employment changes this document supports — references, never copies.
+  employmentAssignments   EmploymentAssignment[]    @relation("EmploymentAssignmentDocument")
+  employmentStatusHistory EmploymentStatusHistory[] @relation("EmploymentStatusDocument")
+  employmentChanges       EmploymentChange[]        @relation("EmploymentChangeDocument")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   /// One object, one document. An upload can never be pointed at a key another
   /// row already owns (PRD #29 §179, §180, §349).
   @@unique([storageKey])
+  /// The target of composite keys that must name a document of their own company (E-03 §202).
+  @@unique([id, companyId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, updatedAt])
@@ -3776,10 +3867,13 @@ model FinanceApproval {
 
 /// The canonical employment record (PRD #16 §25, §26).
 ///
-/// One per company membership. It carries employment facts — dates, type,
-/// manager, hours — and deliberately not identity: a person's name, email and
-/// phone belong to their `User`, and their role and department to their
-/// `CompanyMember` (PRD #16 §2).
+/// A person's employment by one company of the group — E-03's employment
+/// record, the company its legal entity (ADR 0002, ADR 0004). It carries
+/// employment facts and the current organizational state, and deliberately not
+/// identity: the name belongs to the person, the NESTO role to the membership
+/// (PRD #16 §2, §53; E-03 §107). Where the employee sat over time is its
+/// `EmploymentAssignment` history; its status over time its
+/// `EmploymentStatusHistory` (E-03 §6, §7).
 model EmployeeProfile {
   id              String  @id @default(cuid())
   companyId       String
@@ -3799,9 +3893,17 @@ model EmployeeProfile {
   probationEndDate DateTime?
   endDate          DateTime?
 
-  managerMemberId String?
-  workLocation    String?
-  weeklyHours     Decimal? @db.Decimal(6, 2)
+  /// The current organizational state (E-03 §6): a cache of the open
+  /// `EmploymentAssignment`, written only by the employment history service in
+  /// the same transaction as that row, never by a form (§180, §181, §187).
+  /// The department is a branch of this company; the title is the job, not the
+  /// NESTO role (§107).
+  departmentId     String?
+  jobTitle         String?
+  managerMemberId  String?
+  workLocationType WorkLocationType?
+  workLocation     String?
+  weeklyHours      Decimal?          @db.Decimal(6, 2)
 
   onboardingStatus  HrProgressStatus @default(NOT_STARTED)
   offboardingStatus HrProgressStatus @default(NOT_REQUIRED)
@@ -3815,16 +3917,25 @@ model EmployeeProfile {
   personProfile        PersonProfile             @relation(fields: [personProfileId], references: [id], onDelete: Restrict)
   provisioningRequests UserProvisioningRequest[]
   managerMember        CompanyMember?            @relation("EmployeeProfileManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
+  department           Department?               @relation("EmployeeProfileDepartment", fields: [departmentId, companyId], references: [id, companyId], onDelete: Restrict)
 
   compensations     Compensation[]
   leaveRequests     LeaveRequest[]
   leaveBalances     LeaveBalance[]
   attendanceRecords AttendanceRecord[]
 
+  assignments      EmploymentAssignment[]
+  statusHistory    EmploymentStatusHistory[]
+  scheduledChanges EmploymentChange[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// The target of the history tables' composite keys: a history row can only
+  /// name an employment of its own company.
+  @@unique([id, companyId])
   @@unique([companyId, employeeNumber])
+  @@index([companyId, departmentId])
   @@index([companyId])
   @@index([personProfileId])
   @@index([companyId, employmentStatus])
@@ -3833,6 +3944,145 @@ model EmployeeProfile {
   @@index([startDate])
   @@index([endDate])
   @@map("employee_profiles")
+}
+
+/// One period of an employment's organizational state (E-03 §9-§12): where the
+/// employee sat — company (the employment's, E-03's legal entity), department,
+/// title, manager, work location and type — from `startDate` to `endDate`,
+/// both inclusive business dates; the open row (`endDate` null) is the current
+/// state the employment caches (§180).
+///
+/// Never edited. A change closes the open row and opens the next (§7); a
+/// correction marks the rows it replaces `supersededAt` and writes corrected
+/// ones that name them (§42-§44, §171). The database refuses two open rows and
+/// two overlapping rows among those not superseded (§40, §41, §89).
+/// Department and manager names are kept as they read on the day, so a later
+/// rename does not rewrite what the history says (§19).
+model EmploymentAssignment {
+  id                String @id @default(cuid())
+  companyId         String
+  employeeProfileId String
+
+  departmentId     String?
+  departmentName   String?
+  jobTitle         String?
+  managerMemberId  String?
+  managerName      String?
+  workLocationType WorkLocationType?
+  workLocation     String?
+  employmentType   EmploymentType
+
+  startDate DateTime  @db.Date
+  endDate   DateTime? @db.Date
+
+  reason    EmploymentAssignmentReason
+  /// Always true in V0.1; kept so multi-assignment can be introduced without a migration (E-03 §11).
+  isPrimary Boolean                    @default(true)
+
+  /// A canonical document the change rests on, referenced, never copied (E-03 §45-§53).
+  sourceDocumentId String?
+  source           EmploymentHistorySource @default(CHANGE)
+  /// HR's own note; never shown to the employee or a colleague (E-03 §128).
+  note             String?
+  createdByUserId  String?
+
+  supersededAt       DateTime?
+  supersededByUserId String?
+  /// The row this one corrects, and why (E-03 §43, §171).
+  correctsId         String?
+  correctionReason   String?
+
+  company         Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employeeProfile EmployeeProfile        @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Cascade)
+  department      Department?            @relation("EmploymentAssignmentDepartment", fields: [departmentId, companyId], references: [id, companyId], onDelete: Restrict)
+  managerMember   CompanyMember?         @relation("EmploymentAssignmentManager", fields: [managerMemberId], references: [id], onDelete: SetNull)
+  sourceDocument  Document?              @relation("EmploymentAssignmentDocument", fields: [sourceDocumentId, companyId], references: [id, companyId], onDelete: Restrict)
+  corrects        EmploymentAssignment?  @relation("EmploymentAssignmentCorrection", fields: [correctsId], references: [id], onDelete: Restrict)
+  correctedBy     EmploymentAssignment[] @relation("EmploymentAssignmentCorrection")
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, employeeProfileId, endDate])
+  @@index([companyId, startDate, endDate])
+  @@index([companyId, departmentId, startDate, endDate])
+  @@index([companyId, managerMemberId, startDate, endDate])
+  @@index([employeeProfileId, startDate])
+  @@index([sourceDocumentId])
+  @@map("employment_assignments")
+}
+
+/// An employment's status over time (E-03 §22-§24): one row per period, both
+/// dates inclusive, the open row the current status. A period's first ACTIVE
+/// row carries HIRE or REHIRE, which is how employment periods are told apart
+/// (E-03 §26-§28). The private reason is HR's alone (§24, §105, §137).
+model EmploymentStatusHistory {
+  id                String @id @default(cuid())
+  companyId         String
+  employeeProfileId String
+
+  status        EmploymentStatus
+  effectiveFrom DateTime               @db.Date
+  effectiveTo   DateTime?              @db.Date
+  reason        EmploymentStatusReason
+  privateReason String?
+
+  sourceDocumentId String?
+  source           EmploymentHistorySource @default(CHANGE)
+  createdByUserId  String?
+
+  supersededAt       DateTime?
+  supersededByUserId String?
+  correctsId         String?
+  correctionReason   String?
+
+  company         Company                   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employeeProfile EmployeeProfile           @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Cascade)
+  sourceDocument  Document?                 @relation("EmploymentStatusDocument", fields: [sourceDocumentId, companyId], references: [id, companyId], onDelete: Restrict)
+  corrects        EmploymentStatusHistory?  @relation("EmploymentStatusCorrection", fields: [correctsId], references: [id], onDelete: Restrict)
+  correctedBy     EmploymentStatusHistory[] @relation("EmploymentStatusCorrection")
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, employeeProfileId, effectiveTo])
+  @@index([companyId, status, effectiveFrom, effectiveTo])
+  @@index([employeeProfileId, effectiveFrom])
+  @@index([sourceDocumentId])
+  @@map("employment_status_history")
+}
+
+/// A future-dated employment change, applied once on its day by the worker
+/// (E-03 §31-§34, §153-§157). The payload is the change's own typed input,
+/// validated again when it applies. Cancelled only before it applies; after,
+/// history is corrected instead (§157).
+model EmploymentChange {
+  id                String                 @id @default(cuid())
+  companyId         String
+  employeeProfileId String
+  type              EmploymentChangeType
+  effectiveDate     DateTime               @db.Date
+  payload           Json
+  status            EmploymentChangeStatus @default(SCHEDULED)
+
+  sourceDocumentId  String?
+  requestedByUserId String
+
+  appliedAt         DateTime?
+  cancelledAt       DateTime?
+  cancelledByUserId String?
+  cancelReason      String?
+  /// Why the worker could not apply it (E-03 §226: a scheduled change never fails silently).
+  failureReason     String?
+
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employeeProfile EmployeeProfile @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Cascade)
+  sourceDocument  Document?       @relation("EmploymentChangeDocument", fields: [sourceDocumentId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status, effectiveDate])
+  @@index([employeeProfileId, status])
+  @@map("employment_changes")
 }
 
 /// Pay, behind its own permission (PRD #16 §17, §58).

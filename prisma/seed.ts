@@ -27,6 +27,7 @@ import { COMPANY_A, DEMO_COMPANY_IDS, DEMO_GROUP, DEMO_PASSWORD, FIXTURE_TENANT 
 import { seedMembers } from "./seed/members";
 import { seedDemoOrganization } from "./seed/demo/organization";
 import { syncMemberPlaces } from "./seed/organization-helpers";
+import { seedEmploymentHistoryStories, syncEmploymentHistory } from "./seed/employment-history";
 import { seedFixtureOrganization } from "./seed/fixtures/organization";
 import { PRIMARY_DEMO_ACCOUNTS } from "../config/demo-accounts";
 import { hashPassword } from "../lib/auth/password";
@@ -117,6 +118,9 @@ async function main() {
 
   // Everybody placed in a department is on its team (E-13, ADR 0003).
   await syncMemberPlaces(prisma);
+  // Every employment has its history, and a few have more of it to show (E-03, ADR 0004).
+  await syncEmploymentHistory(prisma);
+  await seedEmploymentHistoryStories(prisma);
 
   await validateSeed(prisma);
 

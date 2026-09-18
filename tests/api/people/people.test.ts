@@ -177,10 +177,12 @@ describe("changing a work profile (E-01 §53-§54, §116, §142)", () => {
   });
 
   it("lets HR correct a work profile, keeps one email per person in the group, and refuses everybody else", async () => {
-    const original = await prisma.personProfile.findUniqueOrThrow({ where: { id: person.pmA }, select: { jobTitle: true, workEmail: true } });
+    const original = await prisma.personProfile.findUniqueOrThrow({ where: { id: person.pmA }, select: { jobTitle: true, workEmail: true, workPhoneExtension: true } });
     try {
-      const updated = await updateManagedWorkProfile(hr, person.pmA, managedWorkProfileSchema.parse({ jobTitle: "Lead Project Manager" }));
-      expect(updated.jobTitle).toBe("Lead Project Manager");
+      const updated = await updateManagedWorkProfile(hr, person.pmA, managedWorkProfileSchema.parse({ workPhoneExtension: "299" }));
+      expect(updated.workPhoneExtension).toBe("299");
+      // Somebody employed has the title of their employment, changed in HR as history (E-03 §187, ADR 0004).
+      await expect(updateManagedWorkProfile(hr, person.pmA, managedWorkProfileSchema.parse({ jobTitle: "Lead Project Manager" }))).rejects.toMatchObject({ code: "CONFLICT" });
       const clash = await prisma.personProfile.findUniqueOrThrow({ where: { id: person.ceoB }, select: { workEmail: true } });
       await expect(updateManagedWorkProfile(hr, person.pmA, managedWorkProfileSchema.parse({ workEmail: clash.workEmail }))).rejects.toMatchObject({ code: "CONFLICT" });
       await expect(updateManagedWorkProfile(pm, person.ceoB, managedWorkProfileSchema.parse({ jobTitle: "Nope" }))).rejects.toMatchObject({ code: "FORBIDDEN" });

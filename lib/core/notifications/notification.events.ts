@@ -175,6 +175,9 @@ export const NotificationEvent = {
   HSE_ACTION_ASSIGNED: "HSE_ACTION_ASSIGNED",
   CONTRACT_OBLIGATION_DUE: "CONTRACT_OBLIGATION_DUE",
   LEAVE_DECIDED: "LEAVE_DECIDED",
+  // Employment history (E-03 §151, §152, §226)
+  EMPLOYMENT_CHANGE_EFFECTIVE: "EMPLOYMENT_CHANGE_EFFECTIVE",
+  EMPLOYMENT_CHANGE_FAILED: "EMPLOYMENT_CHANGE_FAILED",
   CALENDAR_EVENT_CREATED: "CALENDAR_EVENT_CREATED",
   CALENDAR_EVENT_UPDATED: "CALENDAR_EVENT_UPDATED",
   CALENDAR_EVENT_CANCELLED: "CALENDAR_EVENT_CANCELLED",
@@ -1221,6 +1224,31 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     },
     title: (payload) => `Your leave request was ${text(payload, "decision", "decided").toLowerCase()}`,
     body: (payload) => (payload.reason ? text(payload, "reason") : null),
+    dedupe: perEvent,
+  },
+  {
+    // To the employee whose promotion, department or manager took effect — what changed, never why (E-03 §151, §152).
+    eventType: NotificationEvent.EMPLOYMENT_CHANGE_EFFECTIVE,
+    category: "hr",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => text(payload, "change", "Your employment changed"),
+    body: (payload) => (payload.effectiveDate ? `Effective ${text(payload, "effectiveDate")}.` : null),
+    dedupe: perEvent,
+  },
+  {
+    // To whoever scheduled a change the worker could not apply: it never fails silently (E-03 §226).
+    eventType: NotificationEvent.EMPLOYMENT_CHANGE_FAILED,
+    category: "hr",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    permission: () => "hr.employment.schedule",
+    title: (payload) => `A scheduled change could not be applied: ${text(payload, "change", "employment change")}`,
+    body: (payload) => text(payload, "reason") || null,
     dedupe: perEvent,
   },
 

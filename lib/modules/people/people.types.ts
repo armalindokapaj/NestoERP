@@ -70,6 +70,8 @@ export type WorkProfileDTO = PersonCardDTO & {
     canEditOwn: boolean;
     canManage: boolean;
     canViewEmployment: boolean;
+    /** The employment history of E-03: the person's own, or HR's in scope — never a colleague's (E-03 §56). */
+    canViewHistory: boolean;
     canViewPrivate: boolean;
   };
 };
@@ -91,6 +93,9 @@ export type EmploymentViewDTO = {
   probationEndDate: string | null;
   endDate: string | null;
   workLocation: string | null;
+  /** Where the employment says they sit (E-03 §54, §160). */
+  department: string | null;
+  jobTitle: string | null;
   manager: string | null;
   /** HR's own page for this employment, when the reader may open it; pay is only ever there (E-01 §99). */
   hrHref: string | null;

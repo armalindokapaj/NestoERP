@@ -1802,3 +1802,131 @@ On freshly built databases (one per suite), on the final tree:
 - **Selectors are plain lists** of the group's eligible people, not a search
   box; enough for groups of tens, not hundreds.
 - **Department pages are English**; the section names are translated.
+
+## 26. Enhancement E-03 — employment and organization history
+
+E-03 makes an employee's placement a history: company, department, title,
+manager, work location, employment type and status are effective-dated rows
+that are never edited, changed only by named actions, scheduled for a later
+day or corrected with a reason, and read as of any date. It is reconciled onto
+HR's employment record (`EmployeeProfile`) rather than the parallel
+`EmploymentRecord` / `LegalEntity` / `JobPosition` model the PRD sketches.
+[ADR 0004](adr/0004-e03-employment-history-reconciliation.md) classifies every
+requirement and records thirteen decisions; `docs/employment-history.md` is the
+contract. It is the next step of the reconciliation audit's order, after E-01
+and E-13.
+
+### 26.1 What changed
+
+| Before | Now |
+|---|---|
+| An edit of the employment overwrote its manager, dates, type and location; a rehire overwrote the start date | Every change **closes the open row and opens the next** (`employment_assignments`, `employment_status_history`); a correction supersedes rows and writes corrected ones naming them, with a required reason. The originals stay |
+| Department and title lived on the membership, edited in Team and moved by the Organization, with no history | For somebody employed, **the employment owns department and title** and the membership mirrors it. Team's member edit, invitation acceptance, the Organization's department moves and a provisioned account are **recorded** in the history (source SYNC), not lost |
+| A PATCH changed organization fields; separate `/status` and `/rehire` routes | One typed change, `POST …/employment-changes`: promote or change title, department, manager, location, employment type, status, end, rehire, transfer to another company. PATCH keeps the number, probation, planned end and hours; the two routes are removed |
+| — | **When it takes effect decides how**: today applies; a later day is scheduled (`hr.employment.schedule`) and applied by the job `hr.employment-changes` on the day, dated its own day even if the job missed a week; an earlier day is backdated (`hr.employment_history.correct`) within the current period only. A planned employment's changes revise the plan |
+| Moving somebody to a sibling company meant ending one record and creating another by hand | **Transfer to another company** ends the employment here the day before and begins (or reopens) one in the other company, with HR authority in both; the login there is linked if the person has one |
+| — | A **before/after review** for every change; ending employment and a company transfer need a confirmation; a stale form (the history moved on) is refused |
+| — | A **supporting document** is linked by id — a document of the same company the person linking it can open — and shown only to readers who can open it. Nothing is copied |
+| — | HR's employee record has a **History** tab (timeline, scheduled changes, positions and placements, status); the People profile's Employment tab shows the person's timeline across the group's companies |
+| — | Who reads history: HR (`hr.employment_history.view`, MANAGE rung) and the Owner — private reasons only with `hr.employment_history.view_private`; **the employee** their own, without notes, private reasons, corrections or who recorded them. The CEO, managers, Finance, IT and colleagues see the current record only; the history endpoints refuse them |
+| — | HR → Reports → **Organization**: headcount on a day by company, department, title and status as they were that day; joiners, leavers, promotions, department and company transfers, manager and status changes in a period |
+| People's managed edit could change anybody's title | It refuses the title of somebody employed: HR changes it, and it is recorded |
+| — | The employee is notified when a promotion, department or manager change takes effect, never why; the requester when a scheduled change fails |
+| — | `verify:employment` in CI; `repair:employment --apply` rewrites a drifted current state from the history, audited, and never touches history |
+| — | The demo has stories: a promotion, a department transfer, a manager change, the multi-company architect's move from Forma to Aurelia, and two scheduled changes |
+
+**Migration `20260918170000_employment_history_e03`** is additive: the
+`btree_gist` extension; six enums; three tables; `departmentId`, `jobTitle`
+and `workLocationType` on `employee_profiles`; unique `(id, companyId)` keys on
+`employee_profiles` and `documents` for the composite foreign keys; date
+checks, one-open-row partial unique indexes and no-overlap exclusion
+constraints; the current fields filled from the membership (or, with no login,
+the hire's target); and each employment's first rows, marked MIGRATION, with
+deterministic ids. It refuses to run, before changing anything, when an
+employment's login belongs to another company. Tested on an empty database and
+on a copy of `nesto_erp` (41 assignments and 44 status rows written, a rerun
+of the data steps added none, no drift), with an overlapping row and a
+cross-company login manufactured to see the constraint and the check refuse
+them.
+
+**Rollback:** drop `employment_changes`, `employment_status_history` and
+`employment_assignments`; drop the foreign key
+`employee_profiles_departmentId_companyId_fkey`, the index
+`employee_profiles_companyId_departmentId_idx`, the columns `departmentId`,
+`jobTitle` and `workLocationType`, and the unique indexes
+`employee_profiles_id_companyId_key` and `documents_id_companyId_key`; drop the
+six enums (`WorkLocationType`, `EmploymentAssignmentReason`,
+`EmploymentStatusReason`, `EmploymentHistorySource`, `EmploymentChangeType`,
+`EmploymentChangeStatus`); delete the migration's `_prisma_migrations` row.
+`btree_gist` may stay. The previous commit brings back the PATCH of placement
+and the `/status` and `/rehire` routes; the membership still holds department
+and title, so nothing needs copying back.
+
+### 26.2 The evidence
+
+On freshly built databases (one per suite), on the final tree:
+
+- **vitest: 3 657 passed, 0 failed**, 11 skipped. New: employment history (21 — promotion, department
+  transfer with the department's team following, manager history and loops,
+  stale forms and concurrent changes, backdating, scheduling, the job's
+  catch-up and once-only application, cancellation, failure, ending and
+  rehire, company transfer, another group refused, correction, who sees
+  history and private reasons, directory search of current titles only,
+  documents by reference, Team's edit recorded as SYNC, People's title edit
+  refused, drift and repair, headcount as of a date, the demo's transfer);
+  the job's contract test (4). HR's lifecycle tests now go through the typed
+  changes; People's managed title edit of an employee is a conflict.
+- **E2E on the production build: 452 of 452** (new: employment history, 8 —
+  promotion with a linked amendment, company transfer, the employee's own
+  history on a phone, a colleague refused, correction, scheduling and
+  cancelling, the organization report, the CEO not offered it).
+- **Security sweeps** aim every new route at the target company's real
+  employment, history row and scheduled-change ids: sibling companies 12 calls
+  and a sibling's accountant 69, another group into the demo 12 — 0
+  violations. The demo attacking the other group reaches nothing to aim at,
+  because that group has no employees; this holds for every HR route, as
+  before.
+- **verify:roles 1 675 of 1 675.** verify:authorization (607 routes),
+  ownership (the three new models are HR's), state, workers (the new job has
+  its contract test),
+  company-integrity, production-guards pass; **verify:organization** and
+  **verify:employment** clean before and after both suites; security:matrix
+  1 000 endpoints, 0 company-scoped without a check. Typecheck clean; lint 0
+  errors, 14 warnings (none new); no drift.
+
+### 26.3 Defects found
+
+- **The transfer dialog carried this company's manager to the other one.** It
+  showed "No manager" — the manager is not a choice in the other company — but
+  sent the current manager's id, which the service rightly refused. A transfer
+  now starts with nothing chosen in the other company, and choosing another
+  company clears department and manager.
+- **A correction met the no-overlap constraint** when it wrote the corrected
+  row while the original still stood; it now supersedes first, then writes.
+  The constraint did its job.
+- **An employee could not read an employment of theirs** in a company where
+  they have a login that is not linked to it; the person's own employments are
+  now read with `hr.self.employment` in that company.
+- **The audit of a cancelled, applied or failed scheduled change** dropped the
+  change's id (unchanged fields are left out of a change diff); those events
+  record before and after in full.
+- **An E2E test signed out by clearing cookies** while the previous page's
+  requests were still in flight, and one of them set the session again. The
+  two readers now have a test each.
+
+### 26.4 Limits
+
+- **An HR screen is addressed by a login's membership.** An employment with
+  no login — a hire before its account, the other half of a transfer to a
+  company where the person has none — is in the person's history but not in
+  HR's lists until E-04.
+- **No job-position catalog**: the title is recorded on each row. E-10's
+  `JobPosition` is a recruitment opening, a different thing.
+- **A manager is of the employment's own company**, stricter than E-03's
+  "same group", because leave approval routes on it.
+- **Promotions are not published to company activity**; bulk changes and
+  import are not built (E-03 §189).
+- **`nesto_erp` lacks the E-01, E-13 and E-03 migrations**
+  (`20260918150000`, `160000`, `170000`); they are applied only with the
+  owner's consent.
+- The history pages are English, like the rest of HR's pages.

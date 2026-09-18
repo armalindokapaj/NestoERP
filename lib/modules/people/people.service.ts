@@ -8,6 +8,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { employmentsVisibleTo } from "@/lib/modules/hr/employees/employment.view";
+import { canViewPersonHistory } from "@/lib/modules/hr/employment/employment.query";
 import { personInRecordReach, updatePersonWorkProfile, type WorkProfileChange } from "@/lib/modules/hr/person.doors";
 import { portfolioProjectWhere, resolveProjectPortfolio } from "@/lib/modules/projects/project.portfolio";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
@@ -124,6 +125,9 @@ function personSelect(parentGroupId: string) {
         employmentStatus: true,
         startDate: true,
         createdAt: true,
+        // Where the employment says they sit today (E-03 §6, §54; ADR 0004 decision 9).
+        jobTitle: true,
+        department: { select: { name: true, groupDepartment: { select: { key: true } } } },
         company: { select: { id: true, name: true } },
         managerMember: { select: { jobTitle: true, user: { select: { firstName: true, lastName: true, personProfileId: true, personProfile: { select: { jobTitle: true } } } } } },
       },
@@ -163,17 +167,33 @@ function workStatus(row: PersonRow): WorkStatus {
   return "INACTIVE";
 }
 
+/**
+ * The job title and department a profile shows (ADR 0004 decision 9): the
+ * current employment's, which HR keeps as history; for somebody with no running
+ * employment, the person's professional title and the membership's department.
+ */
+function currentTitle(row: PersonRow): string | null {
+  const employment = primaryEmployment(row);
+  const running = employment && employment.employmentStatus !== "ENDED" ? employment : null;
+  return running?.jobTitle ?? row.jobTitle ?? primaryMembership(row)?.jobTitle ?? null;
+}
+
+function currentDepartment(row: PersonRow): PersonCardDTO["department"] {
+  const employment = primaryEmployment(row);
+  const department = (employment && employment.employmentStatus !== "ENDED" ? employment.department : null) ?? primaryMembership(row)?.department ?? null;
+  return department ? { name: department.name, groupDepartmentKey: department.groupDepartment?.key ?? null } : null;
+}
+
 function toCard(row: PersonRow): PersonCardDTO {
   const employment = primaryEmployment(row);
-  const membership = primaryMembership(row);
   return {
     personId: row.id,
     name: `${row.firstName} ${row.lastName}`,
     preferredName: row.preferredName,
     initials: { firstName: row.firstName, lastName: row.lastName },
-    jobTitle: row.jobTitle ?? membership?.jobTitle ?? null,
+    jobTitle: currentTitle(row),
     employingCompany: employment ? employment.company : null,
-    department: membership?.department ? { name: membership.department.name, groupDepartmentKey: membership.department.groupDepartment?.key ?? null } : null,
+    department: currentDepartment(row),
     workEmail: row.workEmail,
     workPhone: row.workPhone,
     workPhoneExtension: row.workPhoneExtension,
@@ -209,6 +229,8 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
         { workEmail: contains(word) },
         { workPhone: contains(word) },
         { user: { is: { memberships: { some: { company: { parentGroupId: group }, jobTitle: contains(word) } } } } },
+        // The current title of a running employment — never a past one (E-03 §138, §139).
+        { employments: { some: { company: { parentGroupId: group }, employmentStatus: { in: WORKING }, jobTitle: contains(word) } } },
       ],
     });
   }
@@ -222,18 +244,29 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
   }
   if (query.department) {
     and.push({
-      user: {
-        is: {
-          OR: [
-            { memberships: { some: { status: "ACTIVE", company: { parentGroupId: group }, department: { groupDepartment: { key: query.department } } } } },
-            { departmentAssignments: { some: { parentGroupId: group, status: "ACTIVE", groupDepartment: { key: query.department } } } },
-          ],
+      OR: [
+        {
+          user: {
+            is: {
+              OR: [
+                { memberships: { some: { status: "ACTIVE", company: { parentGroupId: group }, department: { groupDepartment: { key: query.department } } } } },
+                { departmentAssignments: { some: { parentGroupId: group, status: "ACTIVE", groupDepartment: { key: query.department } } } },
+              ],
+            },
+          },
         },
-      },
+        { employments: { some: { company: { parentGroupId: group }, employmentStatus: { in: WORKING }, department: { groupDepartment: { key: query.department } } } } },
+      ],
     });
   }
   if (query.title) {
-    and.push({ OR: [{ jobTitle: contains(query.title) }, { user: { is: { memberships: { some: { company: { parentGroupId: group }, jobTitle: contains(query.title) } } } } }] });
+    and.push({
+      OR: [
+        { jobTitle: contains(query.title) },
+        { user: { is: { memberships: { some: { company: { parentGroupId: group }, jobTitle: contains(query.title) } } } } },
+        { employments: { some: { company: { parentGroupId: group }, employmentStatus: { in: WORKING }, jobTitle: contains(query.title) } } },
+      ],
+    });
   }
   if (query.project) {
     and.push({ user: { is: { memberships: { some: { company: { parentGroupId: group }, projectMemberships: { some: { projectId: query.project, status: "ACTIVE" } } } } } } });
@@ -346,7 +379,8 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
     ? {
         personId: employment.managerMember.user.personProfileId,
         name: `${employment.managerMember.user.firstName} ${employment.managerMember.user.lastName}`,
-        jobTitle: employment.managerMember.user.personProfile?.jobTitle ?? employment.managerMember.jobTitle,
+        // The manager's title where they manage from: their membership carries their employment's (ADR 0004).
+        jobTitle: employment.managerMember.jobTitle ?? employment.managerMember.user.personProfile?.jobTitle ?? null,
       }
     : null;
   const membership = primaryMembership(row);
@@ -384,6 +418,7 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
       canEditOwn: isSelf && can(context, "people.profile.edit_self"),
       canManage: can(context, "person_profile.update") && reach,
       canViewEmployment: employments.length > 0,
+      canViewHistory: employments.length > 0 && (await canViewPersonHistory(context, row.id)),
       canViewPrivate: isSelf || (can(context, "person_profile.view") && reach),
     },
   };
@@ -491,9 +526,15 @@ export async function updateOwnWorkProfile(context: UserContext, input: OwnWorkP
 export async function updateManagedWorkProfile(context: UserContext, personId: string, input: ManagedWorkProfileInput): Promise<WorkProfileDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "person_profile.update");
-  await visiblePerson(context, personId);
+  const { row } = await visiblePerson(context, personId);
   if (!(await personInRecordReach(context, personId))) throw new AccessError("NOT_FOUND");
-  return applyChange(context, personId, { preferredName: input.preferredName, jobTitle: input.jobTitle, workEmail: input.workEmail, workPhoneExtension: input.workPhoneExtension, officeLocation: input.officeLocation }, "MANAGED");
+  // Somebody employed has the title their employment says, changed as a dated
+  // change in HR and kept as history — not overwritten here (E-03 §187, ADR 0004).
+  const employed = row.employments.some((employment) => employment.employmentStatus !== "ENDED");
+  if (employed && input.jobTitle !== undefined && (input.jobTitle ?? null) !== (row.jobTitle ?? null)) {
+    throw new AccessError("CONFLICT", "Their job title comes from their employment. Change it in HR, where the change is kept as history.", { field: "jobTitle", code: "TITLE_FROM_EMPLOYMENT" });
+  }
+  return applyChange(context, personId, { preferredName: input.preferredName, jobTitle: employed ? undefined : input.jobTitle, workEmail: input.workEmail, workPhoneExtension: input.workPhoneExtension, officeLocation: input.officeLocation }, "MANAGED");
 }
 
 /** The signed-in person's own profile id, for `/people/me`. */

@@ -12,7 +12,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { assertTransitionAllowed, applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
-import { linkEmploymentToLogin } from "@/lib/modules/hr/hr.person";
+import { linkEmploymentToLogin } from "@/lib/modules/hr/person.doors";
 import { RECRUITABLE_ROLE_KEYS } from "@/lib/modules/hr/recruitment/candidate.schema";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
@@ -598,7 +598,9 @@ export async function provisionAccount(context: UserContext, requestId: string, 
       personProfileId: row.personProfileId,
       companyId: row.companyId,
       companyMemberId: membership.id,
+      userId: user.id,
       managerMemberId: manager?.memberId ?? null,
+      actor: acting.companyId === row.companyId ? acting : null,
     });
 
     const now = new Date();

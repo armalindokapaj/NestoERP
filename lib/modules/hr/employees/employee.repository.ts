@@ -16,7 +16,7 @@ const ORDER: Record<EmployeeSortKey, Prisma.EmployeeProfileOrderByWithRelationIn
   "start-asc": [{ startDate: { sort: "asc", nulls: "last" } }],
   "status-asc": [{ employmentStatus: "asc" }, { companyMember: { user: { firstName: "asc" } } }],
   "department-asc": [
-    { companyMember: { department: { name: "asc" } } },
+    { department: { name: "asc" } },
     { companyMember: { user: { firstName: "asc" } } },
   ],
 };
@@ -30,6 +30,9 @@ export const SUMMARY_SELECT = {
   startDate: true,
   endDate: true,
   updatedAt: true,
+  // Where the employment says they sit (E-03 §6); the membership's are the fallback for a record older than its history.
+  jobTitle: true,
+  department: { select: { id: true, name: true } },
   companyMember: {
     select: {
       id: true,
@@ -50,6 +53,7 @@ export type EmployeeRow = MemberAddressed<
 export const DETAIL_SELECT = {
   ...SUMMARY_SELECT,
   probationEndDate: true,
+  workLocationType: true,
   workLocation: true,
   weeklyHours: true,
   onboardingStatus: true,
@@ -93,6 +97,7 @@ export function buildEmployeeListWhere(
       OR: [
         { employeeNumber: { contains: term, mode: "insensitive" } },
         { workLocation: { contains: term, mode: "insensitive" } },
+        { jobTitle: { contains: term, mode: "insensitive" } },
         { companyMember: { jobTitle: { contains: term, mode: "insensitive" } } },
         { companyMember: { user: { firstName: { contains: term, mode: "insensitive" } } } },
         { companyMember: { user: { lastName: { contains: term, mode: "insensitive" } } } },
@@ -104,7 +109,7 @@ export function buildEmployeeListWhere(
   if (query.status?.length) filters.push({ employmentStatus: { in: query.status } });
   if (query.employmentType?.length) filters.push({ employmentType: { in: query.employmentType } });
   if (query.departmentId) {
-    filters.push({ companyMember: { departmentId: query.departmentId } });
+    filters.push({ departmentId: query.departmentId });
   }
   if (query.managerMemberId) filters.push({ managerMemberId: query.managerMemberId });
 
@@ -159,7 +164,7 @@ export async function employeeFilterOptions(context: UserContext) {
     prisma.department.findMany({
       where: {
         companyId: context.companyId,
-        members: { some: { employeeProfile: { is: scope } } },
+        employeeProfiles: { some: scope },
       },
       select: { id: true, name: true },
       orderBy: { name: "asc" },

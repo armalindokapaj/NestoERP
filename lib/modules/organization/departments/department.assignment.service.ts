@@ -4,6 +4,7 @@ import { AccessError, assertFound } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { prisma } from "@/lib/database/prisma";
+import { followMembership } from "@/lib/modules/hr/employment/employment.history";
 import { clearBranchManager, moveHome, nameBranchManager, placeHomeIfUnplaced } from "@/lib/modules/team/departments/branch.doors";
 
 import { actorUserId, assertWorksAs, auditDepartment, authorizeHead, authorizeManager, authorizeMembers, groupOf, type DepartmentActor } from "./department.actor";
@@ -34,6 +35,13 @@ function raced(error: unknown): never {
 
 const actorMember = (actor: DepartmentActor, acting: UserContext | null) => (actor.kind === "member" ? (acting ?? actor.context).membershipId : null);
 
+/** The member acting in a company, for HR's record of a placement there; the platform acts as nobody's member. */
+function memberActor(actor: DepartmentActor, acting: UserContext | null, companyId: string): UserContext | null {
+  if (actor.kind !== "member") return null;
+  const context = acting ?? actor.context;
+  return context.companyId === companyId ? context : null;
+}
+
 async function endRow(tx: Prisma.TransactionClient, id: string, actor: DepartmentActor): Promise<void> {
   const ended = await tx.departmentAssignment.updateMany({ where: { id, status: "ACTIVE" }, data: { status: "INACTIVE", endsAt: new Date(), endedByUserId: actorUserId(actor) } });
   if (ended.count === 0) throw new AccessError("CONFLICT", "That place has already ended.", { code: "ALREADY_ENDED" });
@@ -44,13 +52,15 @@ async function endRow(tx: Prisma.TransactionClient, id: string, actor: Departmen
  * follows them: to another branch they still hold a place in there, or nowhere
  * (ADR 0003, the home-branch rule).
  */
-async function rehome(tx: Prisma.TransactionClient, input: { userId: string; companyId: string; fromBranchId: string }): Promise<void> {
+async function rehome(tx: Prisma.TransactionClient, input: { userId: string; companyId: string; fromBranchId: string; actor: UserContext | null }): Promise<void> {
   const next = await tx.departmentAssignment.findFirst({
     where: { userId: input.userId, companyId: input.companyId, positionLevel: "MEMBER", status: "ACTIVE", companyDepartmentId: { not: input.fromBranchId } },
     select: { companyDepartmentId: true },
     orderBy: { createdAt: "asc" },
   });
   await moveHome(tx, { companyId: input.companyId, userId: input.userId, fromDepartmentId: input.fromBranchId, toDepartmentId: next?.companyDepartmentId ?? null });
+  // An employee's department moved with their home: HR's history records it (E-03 §7, ADR 0004).
+  await followMembership(tx, { companyId: input.companyId, userId: input.userId, actor: input.actor });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -168,7 +178,7 @@ export async function appointCompanyManager(actor: DepartmentActor, branchId: st
 /* Members                                                                     */
 /* -------------------------------------------------------------------------- */
 
-async function createMemberRow(tx: Prisma.TransactionClient, input: { actor: DepartmentActor; parentGroupId: string; branch: LoadedBranch; userId: string; roleKey: string; placeHome: boolean }) {
+async function createMemberRow(tx: Prisma.TransactionClient, input: { actor: DepartmentActor; acting: UserContext | null; parentGroupId: string; branch: LoadedBranch; userId: string; roleKey: string; placeHome: boolean }) {
   const existing = await tx.departmentAssignment.count({ where: { userId: input.userId, companyDepartmentId: input.branch.id, positionLevel: "MEMBER", status: "ACTIVE" } });
   if (existing > 0) throw new AccessError("CONFLICT", `Already in ${input.branch.groupDepartment.name} in ${input.branch.company.name}.`, { code: "ALREADY_MEMBER" });
   const row = await tx.departmentAssignment.create({
@@ -176,7 +186,10 @@ async function createMemberRow(tx: Prisma.TransactionClient, input: { actor: Dep
     select: { id: true },
   });
   // Somebody who works in that company and is placed nowhere there yet is placed here.
-  if (input.placeHome) await placeHomeIfUnplaced(tx, { companyId: input.branch.companyId, userId: input.userId, departmentId: input.branch.id });
+  if (input.placeHome) {
+    await placeHomeIfUnplaced(tx, { companyId: input.branch.companyId, userId: input.userId, departmentId: input.branch.id });
+    await followMembership(tx, { companyId: input.branch.companyId, userId: input.userId, actor: memberActor(input.actor, input.acting, input.branch.companyId) });
+  }
   return row;
 }
 
@@ -196,7 +209,7 @@ export async function addDepartmentMember(actor: DepartmentActor, branchId: stri
 
   return prisma
     .$transaction(async (tx) => {
-      const row = await createMemberRow(tx, { actor, parentGroupId, branch, userId: person.userId, roleKey, placeHome: membership !== null });
+      const row = await createMemberRow(tx, { actor, acting, parentGroupId, branch, userId: person.userId, roleKey, placeHome: membership !== null });
       await auditDepartment(tx, actor, acting, {
         actionKey: AuditAction.ORGANIZATION_DEPARTMENT_MEMBER_ASSIGNED,
         entity: { type: ENTITY, id: branch.groupDepartment.id, label: branch.groupDepartment.name },
@@ -252,8 +265,8 @@ export async function moveDepartmentMember(actor: DepartmentActor, assignmentId:
   return prisma
     .$transaction(async (tx) => {
       await endRow(tx, assignment.id, actor);
-      await rehome(tx, { userId: assignment.userId, companyId: from.companyId, fromBranchId: from.id });
-      const row = await createMemberRow(tx, { actor, parentGroupId, branch: to, userId: assignment.userId, roleKey, placeHome: membership !== null });
+      await rehome(tx, { userId: assignment.userId, companyId: from.companyId, fromBranchId: from.id, actor: memberActor(actor, leaving, from.companyId) });
+      const row = await createMemberRow(tx, { actor, acting: joining, parentGroupId, branch: to, userId: assignment.userId, roleKey, placeHome: membership !== null });
       await auditDepartment(tx, actor, joining ?? leaving, {
         actionKey: AuditAction.ORGANIZATION_DEPARTMENT_MEMBER_UPDATED,
         entity: { type: ENTITY, id: to.groupDepartment.id, label: to.groupDepartment.name },
@@ -301,7 +314,7 @@ export async function endDepartmentAssignment(actor: DepartmentActor, assignment
       const member = await tx.companyMember.findFirst({ where: { userId: assignment.userId, companyId: assignment.companyId! }, select: { id: true } });
       if (member) await clearBranchManager(tx, { departmentId: assignment.companyDepartmentId, companyId: assignment.companyId!, memberId: member.id });
     }
-    if (branch) await rehome(tx, { userId: assignment.userId, companyId: branch.companyId, fromBranchId: branch.id });
+    if (branch) await rehome(tx, { userId: assignment.userId, companyId: branch.companyId, fromBranchId: branch.id, actor: memberActor(actor, acting, branch.companyId) });
 
     const facts = { groupDepartmentId: department.id, companyId: assignment.companyId, companyName: assignment.company?.name ?? null, companyDepartmentId: assignment.companyDepartmentId, assignmentId: assignment.id, userId: assignment.userId, personId: assignment.user.personProfileId, personName, positionLevel: assignment.positionLevel };
     await auditDepartment(tx, actor, acting, {

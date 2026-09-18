@@ -427,6 +427,9 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "hr.employee.status.update",
       "hr.employee.manager.assign",
       "hr.employment.update",
+      "hr.employment.transfer_entity",
+      "hr.employment.schedule",
+      "hr.employment_history.view",
       "hr.leave.balance.manage",
       "hr.leave.reason.view",
       "hr.onboarding.manage",
@@ -1198,7 +1201,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     sales: { extra: ["sales.approval.self"] },
     contracts: { extra: ["legal.approval.self", "legal.confidential_terms.view"] },
     // Pay is never on the ladder; the Owner holds it explicitly (PRD #16 §17).
-    hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
+    // Nor are the private reasons behind a status change, or correcting history (E-03 §105, §76).
+    hr: { extra: ["hr.compensation.view", "hr.compensation.update", "hr.employment_history.view_private", "hr.employment_history.correct"] },
     /**
      * Audit is evidence about everyone, including administrators, so it is not
      * on any ladder. Only the Owner holds it by default — an Admin is not
@@ -1347,8 +1351,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
   },
   HR: {
     // The role the module exists for: everything on the ladder, plus pay
-    // (PRD #16 §17).
-    hr: { extra: ["hr.compensation.view", "hr.compensation.update"] },
+    // (PRD #16 §17), the private reasons and correcting history (E-03 §76, §105).
+    hr: { extra: ["hr.compensation.view", "hr.compensation.update", "hr.employment_history.view_private", "hr.employment_history.correct"] },
     // People operations see the project list, not its milestone plan (PRD #44 §83).
     projects: { deny: ["project_planning.view"] },
     /**

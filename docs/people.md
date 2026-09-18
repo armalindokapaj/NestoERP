@@ -61,17 +61,19 @@ at all (E-01 §121); a tab a reader may not open is absent, not locked (§165).
 
 | Shown | Source |
 | --- | --- |
-| Job title | the person's professional title (HR keeps it), else the title of the membership in the employing company |
+| Job title | the current employment's title (HR's, kept as history — E-03); for somebody not employed, the person's professional title, else the membership's |
 | Employing company | the current employment (active, on leave, suspended; else the most recent) |
-| Department | the membership's branch in the employing company |
+| Department | the current employment's department; for somebody not employed, the membership's branch |
 | Manager | the current employment's manager |
 | Companies | each active membership: company, role, in-company title, department, manager position |
 | Departments | every live place in an open department — department, company or the whole group, head, manager or member (E-13 §87) |
 | Projects | `ProjectMember` rows of the person's memberships in the group, linked only where the reader can open the project |
 | Activity | project joins and departures, appointments and their ends — from those records, not from the audit log |
 
-Making the employment the single current truth for placement, with history, is
-E-03's.
+The employment is the single current truth for placement, with history
+(E-03, [employment history](employment-history.md)): the membership mirrors it,
+the managed edit refuses the title of somebody employed, and the Employment tab
+shows the organization history to the person and to HR.
 
 ## Changing a profile
 

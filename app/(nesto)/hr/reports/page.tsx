@@ -13,6 +13,9 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import { employmentTypeLabels, leaveTypeLabels } from "@/lib/modules/hr/hr.status";
+import { isDay } from "@/lib/modules/hr/employment/employment.dates";
+import { getOrganizationReport } from "@/lib/modules/hr/employment/employment.report";
+import type { HeadcountRowDTO } from "@/lib/modules/hr/employment/employment.types";
 import * as reports from "@/lib/modules/hr/reports/reports.service";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
@@ -33,6 +36,7 @@ const REPORTS = [
   { key: "attendance", label: "Attendance summary" },
   { key: "ending-soon", label: "Employment ending" },
   { key: "compensation", label: "Compensation" },
+  { key: "organization", label: "Organization" },
 ] as const;
 
 type ReportKey = (typeof REPORTS)[number]["key"];
@@ -40,14 +44,14 @@ type ReportKey = (typeof REPORTS)[number]["key"];
 export default async function HrReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ report?: string }>;
+  searchParams: Promise<{ report?: string; asOf?: string; from?: string; to?: string }>;
 }) {
   const context = await requireModule("hr");
 
   if (!can(context, "hr.report.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hr");
-  const { report: requested } = await searchParams;
+  const { report: requested, asOf, from, to } = await searchParams;
 
   const allowed = reports.availableReports(context);
   const available = REPORTS.filter((entry) =>
@@ -98,6 +102,7 @@ export default async function HrReportsPage({
         {active === "attendance" ? <AttendanceReport context={context} /> : null}
         {active === "ending-soon" ? <EndingSoonReport context={context} /> : null}
         {active === "compensation" ? <CompensationReport context={context} /> : null}
+        {active === "organization" ? <OrganizationReport context={context} query={{ asOf, from, to }} /> : null}
       </div>
     </ModulePage>
   );
@@ -390,6 +395,104 @@ async function CompensationReport({ context }: { context: UserContext }) {
           rowHref={(row) => `/hr/employees/${row.memberId}/compensation`}
         />
       )}
+    </ReportShell>
+  );
+}
+
+/**
+ * The organization as of a day, and what moved in a period (E-03 §141-§144):
+ * every figure from the history's effective dates, never from when a row was
+ * written.
+ */
+async function OrganizationReport({ context, query }: { context: UserContext; query: { asOf?: string; from?: string; to?: string } }) {
+  const valid = (value?: string) => (value && isDay(value) ? value : undefined);
+  const report = await getOrganizationReport(context, { asOf: valid(query.asOf), from: valid(query.from), to: valid(query.to) });
+  const breakdown = (title: string, rows: HeadcountRowDTO[], testId: string) => (
+    <section className="nesto-card p-5" aria-label={title} data-testid={testId}>
+      <h3 className="text-table font-semibold text-fg">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-meta text-fg-subtle">Nobody.</p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-table">
+          {rows.map((row) => (
+            <li key={row.key} className="flex justify-between gap-3">
+              <span className="text-fg-muted">{row.label}</span>
+              <span className="tabular-nums font-medium text-fg">{row.count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+  const moves = report.movements;
+  return (
+    <ReportShell title="Organization" description={`Headcount on ${formatDate(report.asOf)} — employed that day, active or on leave, where they sat that day — and what changed from ${formatDate(report.period.from)} to ${formatDate(report.period.to)}.`}>
+      <form method="get" className="flex flex-wrap items-end gap-3" aria-label="Report dates">
+        <input type="hidden" name="report" value="organization" />
+        <label className="space-y-1 text-meta text-fg-muted">
+          <span className="block">As of</span>
+          <input type="date" name="asOf" defaultValue={report.asOf} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg" />
+        </label>
+        <label className="space-y-1 text-meta text-fg-muted">
+          <span className="block">Changes from</span>
+          <input type="date" name="from" defaultValue={report.period.from} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg" />
+        </label>
+        <label className="space-y-1 text-meta text-fg-muted">
+          <span className="block">to</span>
+          <input type="date" name="to" defaultValue={report.period.to} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg" />
+        </label>
+        <button type="submit" className="h-9 rounded-md border border-line-strong px-3 text-table font-medium text-fg hover:bg-hover">
+          Show
+        </button>
+      </form>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="nesto-card p-4" data-testid="org-headcount">
+          <p className="text-meta text-fg-subtle">Headcount</p>
+          <p className="text-2xl font-semibold tabular-nums text-fg">{report.headcount}</p>
+        </div>
+        <div className="nesto-card p-4">
+          <p className="text-meta text-fg-subtle">Joiners · leavers</p>
+          <p className="text-2xl font-semibold tabular-nums text-fg">
+            {moves.joiners} · {moves.leavers}
+          </p>
+        </div>
+        <div className="nesto-card p-4">
+          <p className="text-meta text-fg-subtle">Promotions · transfers</p>
+          <p className="text-2xl font-semibold tabular-nums text-fg">
+            {moves.promotions} · {moves.departmentTransfers + moves.companyTransfers}
+          </p>
+        </div>
+        <div className="nesto-card p-4">
+          <p className="text-meta text-fg-subtle">Average tenure</p>
+          <p className="text-2xl font-semibold tabular-nums text-fg">{report.tenure.averageYears === null ? "—" : `${report.tenure.averageYears} yrs`}</p>
+        </div>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {breakdown("By company", report.byCompany, "org-by-company")}
+        {breakdown("By department", report.byDepartment, "org-by-department")}
+        {breakdown("By job title", report.byTitle, "org-by-title")}
+        {breakdown("By status", report.byStatus, "org-by-status")}
+      </div>
+      <section className="nesto-card p-5" aria-label="Movements">
+        <h3 className="text-table font-semibold text-fg">Movements in the period</h3>
+        <dl className="mt-2 grid gap-2 text-table sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Joiners", moves.joiners],
+            ["Leavers", moves.leavers],
+            ["Promotions", moves.promotions],
+            ["Department transfers", moves.departmentTransfers],
+            ["Company transfers", moves.companyTransfers],
+            ["Manager changes", moves.managerChanges],
+            ["Status changes", moves.statusChanges],
+            ["Median tenure", report.tenure.medianYears === null ? "—" : `${report.tenure.medianYears} yrs`],
+          ].map(([label, value]) => (
+            <div key={label as string} className="flex justify-between gap-3">
+              <dt className="text-fg-muted">{label}</dt>
+              <dd className="tabular-nums font-medium text-fg">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
     </ReportShell>
   );
 }

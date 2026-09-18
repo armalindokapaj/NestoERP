@@ -22,6 +22,7 @@ and `docs/worker-operations.md`.
 | `engineering.reminders` | engineering | SCHEDULED | every 1 h, `scheduled` group | per company; suspended skipped | RFI_OVERDUE | RFI_DUE_SOON | SUBMITTAL_* + companyId + record + due date | 4 attempts, 1 min doubling to 30 min | 15 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `contractors.compliance` | contractors | SCHEDULED | every 1 day, `scheduled` group | per company; suspended skipped | CONTRACTOR_COMPLIANCE_EXPIRING | _EXPIRED + companyId + item + expiry date | 3 attempts, 5 min doubling to 2 h | 30 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `sales.unit-reservations` | sales | SCHEDULED | every 5 min, `scheduled` group | per company; suspended skipped | UNIT_RESERVATION_EXPIRED + companyId + reservation | UNIT_RESERVATION_EXPIRING + companyId + reservation + expiry | 5 attempts, 15 s doubling to 5 min | 15 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
+| `hr.employment-changes` | hr | SCHEDULED | every 1 h, `scheduled` group | per company; suspended skipped | EMPLOYMENT_CHANGE + companyId + scheduled change (SCHEDULED → APPLIED commits with the change) | 5 attempts, 15 s doubling to 5 min | 30 min (lease 10 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `finance.unit-installments` | finance | SCHEDULED | every 1 h, `scheduled` group | per company; suspended skipped | UNIT_INSTALLMENT_OVERDUE + companyId + installment | UNIT_INSTALLMENT_DUE_SOON + companyId + installment + due date | 5 attempts, 15 s doubling to 5 min | 30 min (lease 10 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `meetings.series` | meetings | SCHEDULED | every 6 h, `scheduled` group | per company; suspended skipped | series + occurrence index (unique meeting row) | 4 attempts, 1 min doubling to 30 min | 30 min (lease 2 min, extended while running) | NORMAL | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `documents.scan` | documents | OUTBOX | every 15 s, `documents` group | per work item's company; suspended included | document or document version id, claimed on the scan columns as read (status, scanStartedAt, scanAttempts) | 5 attempts, 15 s doubling to 5 min | 10 min (lease 2 min, extended while running) | CRITICAL | `WorkerCriticalJobFailed`, `WorkerCriticalJobStale`, `ScanQueueStuck`, `ScanFilesFailed`, `ScanClaimsAbandoned`, `ScanQuarantineOwed` (page) |
@@ -163,6 +164,16 @@ Expires unit reservations past their date, returning the unit to For Sale, and w
 - **Dry run:** not supported.
 - **Manual run:** `pnpm worker --run=sales.unit-reservations` (add `--company=<id>` for one company).
 - **Contract tests:** `tests/api/jobs/sales.unit-reservations.test.ts` — idempotency, failure, company isolation, suspended company.
+
+### `hr.employment-changes`
+
+Applies scheduled employment changes — promotions, transfers, manager, location, type, status and endings — on their effective date, once each; a change that can no longer apply is marked failed and its requester told.
+
+- **Missed runs:** Every change already past its effective date is applied on the next run, once, dated its own effective date; one a later change has overtaken is marked failed.
+- **Stale after:** 3 h without a success.
+- **Dry run:** not supported.
+- **Manual run:** `pnpm worker --run=hr.employment-changes` (add `--company=<id>` for one company).
+- **Contract tests:** `tests/api/jobs/hr.employment-changes.test.ts` — idempotency, failure, company isolation, suspended company.
 
 ### `finance.unit-installments`
 

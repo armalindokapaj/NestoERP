@@ -53,6 +53,9 @@ const RULES: Rule[] = [
   { when: /\/documents\/uploads\//, param: "sessionId", source: { model: "DocumentUploadSession" } },
   { when: /\/meetings\/\[meetingId\]\/participants\//, param: "memberId", source: { model: "MeetingParticipant", column: "memberId" } },
   { when: /\/calendar\/events\/\[eventId\]\/participants\//, param: "memberId", source: { model: "CalendarEventParticipant", column: "memberId" } },
+  // An employment's history rows and scheduled changes (E-03): the employee segment is filled from the row's employment.
+  { when: /\/employment-history\/\[rowId\]/, param: "rowId", source: { model: "EmploymentAssignment" } },
+  { when: /\/scheduled-changes\/\[changeId\]/, param: "changeId", source: { model: "EmploymentChange" } },
   { when: /\/hr\/employees\//, param: "memberId", source: { model: "EmployeeProfile", column: "companyMemberId" } },
   // An account request is the company's the person joins (E-06 §27); not a unit's contract request.
   { when: /\/user-provisioning-requests\//, param: "requestId", source: { model: "UserProvisioningRequest" } },

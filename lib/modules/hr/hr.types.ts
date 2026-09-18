@@ -1,3 +1,4 @@
+import type { EmploymentCapabilitiesDTO } from "./employment/employment.types";
 import type {
   AttendanceSource,
   AttendanceStatus,
@@ -7,6 +8,7 @@ import type {
   HrProgressStatus,
   LeaveRequestStatus,
   LeaveType,
+  WorkLocationType,
 } from "@prisma/client";
 
 /**
@@ -44,7 +46,10 @@ export type EmployeeSummaryDTO = {
 
 export type EmployeeDetailDTO = EmployeeSummaryDTO & {
   probationEndDate: string | null;
+  workLocationType: WorkLocationType | null;
   workLocation: string | null;
+  /** The open history row the page was built on; a change sends it back so a stale form is refused (E-03 §40). */
+  currentAssignmentId: string | null;
   weeklyHours: string | null;
   onboardingStatus: HrProgressStatus;
   offboardingStatus: HrProgressStatus;
@@ -66,7 +71,10 @@ export type EmployeeDetailDTO = EmployeeSummaryDTO & {
     canViewDocuments: boolean;
     canViewActivity: boolean;
     canManageOnboarding: boolean;
+    canViewHistory: boolean;
   };
+  /** Which dated employment changes this reader may make (E-03 §163). */
+  employment: EmploymentCapabilitiesDTO;
 
   /** Why an action is unavailable when the reason is a rule (PRD #16 §127). */
   guards: { openLeaveRequests: number; managedEmployees: number };

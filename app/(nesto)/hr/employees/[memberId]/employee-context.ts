@@ -47,5 +47,6 @@ export function employeeTabVisibility(employee: EmployeeDetailDTO) {
     attendance: employee.capabilities.canViewAttendance,
     documents: employee.capabilities.canViewDocuments,
     activity: employee.capabilities.canViewActivity,
+    history: employee.capabilities.canViewHistory,
   };
 }

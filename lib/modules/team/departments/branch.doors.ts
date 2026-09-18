@@ -101,6 +101,23 @@ export async function placeHomeIfUnplaced(tx: Prisma.TransactionClient, input: {
 }
 
 /**
+ * A membership placed where the person's employment says they work (E-03
+ * §180, §187; ADR 0004): HR's employment record is the authority for the
+ * department and job title of somebody it employs, and the membership carries
+ * the same two facts for everything that reads Team. Only these two columns;
+ * the NESTO role is never a consequence of a job change (E-03 §107).
+ */
+export async function setMemberPlacement(
+  tx: Prisma.TransactionClient,
+  input: { companyId: string; memberId: string; departmentId: string | null; jobTitle: string | null },
+): Promise<void> {
+  await tx.companyMember.updateMany({
+    where: { id: input.memberId, companyId: input.companyId },
+    data: { departmentId: input.departmentId, jobTitle: input.jobTitle },
+  });
+}
+
+/**
  * Somebody taken off the branch that is their home is placed in the next
  * branch they still belong to in that company, or nowhere. Only if the home is
  * still that branch: a move somebody else made in between is not undone.
