@@ -1066,6 +1066,10 @@ export const PERMISSIONS = [
   "hse.toolbox.update",
   "hse.toolbox.complete",
   "hse.toolbox.cancel",
+  // Site inductions of workers, with or without a NESTO login (E-04 §71, §270).
+  "hse.induction.view",
+  "hse.induction.record",
+  "hse.induction.void",
 
   "hse.permit.view",
   "hse.permit.create",

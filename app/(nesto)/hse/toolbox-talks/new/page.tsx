@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createToolboxTalkAction } from "@/lib/actions/hse";
+import { WORKER_PREFIX } from "@/lib/modules/hse/hse.schema";
 import * as toolbox from "@/lib/modules/hse/toolbox/toolbox.service";
 
 export const metadata: Metadata = { title: "Record a toolbox talk" };
@@ -47,6 +48,7 @@ export default async function NewToolboxTalkPage() {
           value: member.id,
           label: `${member.user.firstName} ${member.user.lastName}`,
         }))}
+        workers={options.workers.map((worker) => ({ value: `${WORKER_PREFIX}${worker.id}`, label: worker.name }))}
       />
     </div>
   );

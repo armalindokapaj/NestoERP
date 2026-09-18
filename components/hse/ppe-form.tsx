@@ -46,6 +46,7 @@ export function PpeForm({
   pendingLabel,
   projects,
   members,
+  workers = [],
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
   values?: PpeFormValues;
@@ -54,6 +55,8 @@ export function PpeForm({
   pendingLabel: string;
   projects: Option[];
   members: Option[];
+  /** Workers without a NESTO login, as `employee:<id>` (E-04 §72). */
+  workers?: Option[];
 }) {
   const [items, setItems] = React.useState<Record<string, string>>(values?.items ?? {});
 
@@ -119,6 +122,15 @@ export function PpeForm({
                 {member.label}
               </option>
             ))}
+            {workers.length > 0 ? (
+              <optgroup label="Workers without a NESTO account">
+                {workers.map((worker) => (
+                  <option key={worker.value} value={worker.value}>
+                    {worker.label}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
         </Field>
 

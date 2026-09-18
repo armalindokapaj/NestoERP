@@ -63,13 +63,14 @@ with it.
 | `procurement` | `Supplier`, `PurchaseRequest`, `RFQ`, `SupplierQuote`, `PurchaseOrder`, `GoodsReceipt`, procurement approvals |
 | `inventory` | `InventoryItem`, `Warehouse`, `InventoryBalance`, `StockMovement`, every stock document |
 | `qaqc` | inspections, material releases, defects, NCRs, corrective actions |
-| `hse` | inspections, hazards, incidents, risk assessments, permits, toolbox talks |
+| `hse` | inspections, hazards, incidents, risk assessments, permits, toolbox talks; `HseIncidentPerson`, `HseWorkPermitWorker`, `HseInduction` — the employees an incident involved, the workers or crews a permit covers, site inductions (E-04) |
+| `workforce` | `WorkforceTrade`, `WorkforceCrew`, `WorkforceCrewMember`, `EmployeeProjectAssignment` — where employees work and with whom, login or not; `EmployeeImportBatch` — a bulk import's validated rows (E-04, ADR 0006). The employment stays HR's |
 | `calendar` | `CalendarEvent`, `CalendarEventParticipant`, `CalendarReminder`, `CalendarReminderDelivery` |
 | `meetings` | `Meeting`, `MeetingSeries`, agenda, minutes, decisions, action items |
 | `timesheets` | `Timesheet`, `WorkLog`, timesheet approvals and settings |
 | `daily-logs` | `DailyLog` and its sections, `DailyLogCorrection`, settings |
 | `project-planning` | `ProjectPhase`, `ProjectMilestone`, dependencies, blockers |
-| `project-structure` | `ProjectBuilding`, `ProjectFloor`, `ProjectUnit`, `ProjectUnitType` — the one canonical unit every module references by id (E-05B); `UnitPublication`, `UnitMedia`, `UnitDocumentLink`, `UnitPublicationApproval` — its published versions, images, document references and publishing requests (E-05D). The Documents they point at stay the Documents domain's |
+| `project-structure` | `ProjectSite` — a named place of a project where its work happens (E-04); `ProjectBuilding`, `ProjectFloor`, `ProjectUnit`, `ProjectUnitType` — the one canonical unit every module references by id (E-05B); `UnitPublication`, `UnitMedia`, `UnitDocumentLink`, `UnitPublicationApproval` — its published versions, images, document references and publishing requests (E-05D). The Documents they point at stay the Documents domain's |
 | `announcements` | `Announcement`, audience, reads, acknowledgments |
 | `productivity` | `UserFavorite`, `RecentItem`, `ProductivitySettings` |
 | `contractors` | `ContractorProfile`, assignments, compliance items |
@@ -106,6 +107,9 @@ owner decides *how*.
 | `setMemberPlacement` | team | hr | A membership's department and title set to what its employment says — only those two columns, never the role (E-03, ADR 0004 decision 7). |
 | `followMembership` | hr | organization | A running employment records the department or title its membership now has, as a change dated today (source SYNC), or revises a planned employment's plan; nothing when they agree (ADR 0004 decision 7). |
 | `linkEmploymentToLogin` | hr (`person.doors.ts`) | organization | The employment gains the provisioned login; the manager the request named and the membership's department and title are recorded as history, never written over. |
+| `createImportedEmployment` | hr (`employee.doors.ts`) | workforce (import) | A new person and an employment with its first history rows and audit, made as HR makes one by hand; no login (E-04, ADR 0006). |
+| `writeSiteAttendance` | hr (`attendance.doors.ts`) | workforce (site sheet) | One attendance row per employment and day, source `SITE`, never over a day HR recorded; refused for an employment not working. |
+| `endWorkforce` | workforce | hr (handed in as `ChangeOptions.workforce` by the employment routes, actions and job) | An employment ending or transferring ends its open crew memberships and project assignments on the last day, and withdraws those not yet begun. |
 | `employmentsVisibleTo` (read) | hr | people | Each employment judged in its own company by HR's own permission and scope; pay never included. |
 | `recordActivity`, `recordActorActivity` | shared | everyone | The activity row's shape and its actor. |
 

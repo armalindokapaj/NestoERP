@@ -140,6 +140,8 @@ export type WorkforceEntryDTO = {
   workPackage: Ref | null;
   trade: string | null;
   crewName: string | null;
+  /** One of the company's crews, when the entry came from the workforce (E-04 §43). */
+  crewId: string | null;
   headcount: number;
   notes: string | null;
   updatedAt: string;

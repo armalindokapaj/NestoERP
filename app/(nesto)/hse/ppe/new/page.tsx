@@ -7,6 +7,7 @@ import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createPpeCheckAction } from "@/lib/actions/hse";
 import * as ppe from "@/lib/modules/hse/ppe/ppe.service";
+import { WORKER_PREFIX } from "@/lib/modules/hse/hse.schema";
 
 export const metadata: Metadata = { title: "New PPE check" };
 
@@ -48,6 +49,7 @@ export default async function NewPpeCheckPage() {
           value: member.id,
           label: `${member.user.firstName} ${member.user.lastName}`,
         }))}
+        workers={options.workers.map((worker) => ({ value: `${WORKER_PREFIX}${worker.id}`, label: worker.name }))}
       />
     </div>
   );

@@ -7,6 +7,7 @@ import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { updateToolboxTalkAction } from "@/lib/actions/hse";
+import { WORKER_PREFIX } from "@/lib/modules/hse/hse.schema";
 import * as toolbox from "@/lib/modules/hse/toolbox/toolbox.service";
 
 export const metadata: Metadata = { title: "Edit toolbox talk" };
@@ -60,6 +61,7 @@ export default async function EditToolboxTalkPage({ params }: Params) {
           value: member.id,
           label: `${member.user.firstName} ${member.user.lastName}`,
         }))}
+        workers={options.workers.map((worker) => ({ value: `${WORKER_PREFIX}${worker.id}`, label: worker.name }))}
         values={{
           title: talk.title,
           topic: talk.topic,
@@ -69,7 +71,7 @@ export default async function EditToolboxTalkPage({ params }: Params) {
           conductedByMemberId: talk.conductedBy?.memberId ?? "",
           notes: talk.notes ?? "",
           participants: talk.participants.map((participant) => ({
-            companyMemberId: participant.member?.memberId ?? "",
+            companyMemberId: participant.member?.memberId ?? (participant.worker ? `${WORKER_PREFIX}${participant.worker.employeeId}` : ""),
             externalName: participant.externalName ?? "",
             attendanceStatus: participant.attendanceStatus,
             signatureRecorded: participant.signatureRecorded,

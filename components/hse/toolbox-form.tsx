@@ -63,6 +63,7 @@ export function ToolboxForm({
   pendingLabel,
   projects,
   members,
+  workers = [],
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
   values?: ToolboxFormValues;
@@ -72,6 +73,8 @@ export function ToolboxForm({
   pendingLabel: string;
   projects: Option[];
   members: Option[];
+  /** Workers without a NESTO login, as `employee:<id>` (E-04 §71). Participants only: they do not give talks. */
+  workers?: Option[];
 }) {
   const [participants, setParticipants] = React.useState<ParticipantValue[]>(
     values?.participants && values.participants.length > 0
@@ -221,6 +224,15 @@ export function ToolboxForm({
                         {member.label}
                       </option>
                     ))}
+                    {workers.length > 0 ? (
+                      <optgroup label="Workers without a NESTO account">
+                        {workers.map((worker) => (
+                          <option key={worker.value} value={worker.value}>
+                            {worker.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
                   </select>
                 </div>
 

@@ -14,6 +14,7 @@ import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import { buildHseMemberWhere, buildHseProjectWhere, buildToolboxScopeWhere } from "../hse.scope";
+import { hseWorkerOptions, requireHseWorkers } from "../hse.workforce";
 import type { ToolboxInput, ToolboxListQuery } from "../hse.schema";
 import {
   isToolboxCancellable,
@@ -80,6 +81,7 @@ const DETAIL_SELECT = {
       externalName: true,
       attendanceStatus: true,
       signatureRecorded: true,
+      employeeProfile: { select: { id: true, personProfileId: true, personProfile: { select: { firstName: true, lastName: true } } } },
     },
   },
 } satisfies Prisma.ToolboxTalkSelect;
@@ -165,6 +167,13 @@ export async function getToolboxTalk(
     member: participant.companyMemberId
       ? (members.get(participant.companyMemberId) ?? null)
       : null,
+    worker: participant.employeeProfile
+      ? {
+          employeeId: participant.employeeProfile.id,
+          personId: participant.employeeProfile.personProfileId,
+          name: `${participant.employeeProfile.personProfile.firstName} ${participant.employeeProfile.personProfile.lastName}`,
+        }
+      : null,
     externalName: participant.externalName,
     attendanceStatus: participant.attendanceStatus,
     signatureRecorded: participant.signatureRecorded,
@@ -240,7 +249,10 @@ export async function toolboxFormOptions(context: UserContext) {
     }),
   ]);
 
-  return { projects, members };
+  // Workers without a login attend too, and are offered beside members (E-04 §71).
+  const workers = await hseWorkerOptions(context);
+
+  return { projects, members, workers };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -257,6 +269,7 @@ export async function createToolboxTalk(
   if (input.projectId) await requireProject(context, input.projectId);
   await requireMember(context, input.conductedByMemberId);
   await assertParticipantsAreMembers(context, input.participants);
+  await requireHseWorkers(context.companyId, input.participants.map((participant) => participant.employeeProfileId));
 
   const id = await prisma.$transaction(async (tx) => {
     const talkNumber = await nextHseNumber(tx, "toolboxTalk", context.companyId);
@@ -314,6 +327,13 @@ export async function updateToolboxTalk(
   if (input.projectId) await requireProject(context, input.projectId);
   await requireMember(context, input.conductedByMemberId);
   await assertParticipantsAreMembers(context, input.participants);
+  // Somebody who attended and has since left stays on the sheet they attended.
+  const attended = await prisma.toolboxTalkParticipant.findMany({ where: { toolboxTalkId: talkId, employeeProfileId: { not: null } }, select: { employeeProfileId: true } });
+  await requireHseWorkers(
+    context.companyId,
+    input.participants.map((participant) => participant.employeeProfileId),
+    attended.map((row) => row.employeeProfileId!),
+  );
 
   await prisma.$transaction(async (tx) => {
     await tx.toolboxTalkParticipant.deleteMany({ where: { toolboxTalkId: talkId } });
@@ -441,6 +461,7 @@ export async function cancelToolboxTalk(
 function toParticipantData(participant: ToolboxInput["participants"][number]) {
   return {
     companyMemberId: participant.companyMemberId ?? null,
+    employeeProfileId: participant.employeeProfileId ?? null,
     externalName: participant.externalName ?? null,
     attendanceStatus: participant.attendanceStatus,
     signatureRecorded: participant.signatureRecorded,

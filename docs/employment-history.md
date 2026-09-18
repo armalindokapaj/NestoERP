@@ -42,7 +42,7 @@ history, and is edited on the record.
 
 ## Changing an employment
 
-`POST /api/hr/employees/:memberId/employment-changes`, one of:
+`POST /api/hr/employees/:employeeId/employment-changes`, one of:
 
 | Action | Changes | Permission |
 | --- | --- | --- |
@@ -83,7 +83,7 @@ group, and its departments, are refused.
 
 ### Corrections
 
-`POST /api/hr/employees/:memberId/employment-history/:rowId/correct` with
+`POST /api/hr/employees/:employeeId/employment-history/:rowId/correct` with
 `kind` ASSIGNMENT or STATUS, the corrected values and a required
 `correctionReason`, with `hr.employment_history.correct` (and
 `hr.employment_history.view_private` to change a private reason). The row and —
@@ -93,7 +93,7 @@ it was true then. Audited as `HR_EMPLOYMENT_HISTORY_CORRECTED` with the reason.
 
 ### Scheduled changes
 
-`GET/POST /api/hr/employees/:memberId/scheduled-changes`,
+`GET/POST /api/hr/employees/:employeeId/scheduled-changes`,
 `POST …/scheduled-changes/:changeId/cancel` (`hr.employment.schedule`). A second
 change for the same day is refused; nothing may be scheduled after a scheduled
 ending, and an ending may not be scheduled before other changes.
@@ -131,7 +131,7 @@ somebody employed.
 | The CEO, managers, Finance, Group IT, colleagues | the current record where they could already see it; no history — the history endpoints refuse |
 
 A supporting document appears only when the reader may open it; otherwise not
-even its name. `GET /api/hr/employees/:memberId/employment-history` is one
+even its name. `GET /api/hr/employees/:employeeId/employment-history` is one
 employment; `GET /api/people/:personId/employment-history` is the person
 across the group's companies, each employment judged in its own company. The
 People profile's Employment tab shows the timeline; HR's employee record has a

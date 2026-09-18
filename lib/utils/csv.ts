@@ -34,3 +34,45 @@ export function toCsv(
   };
   return [headers, ...rows].map((row) => row.map(cell).join(",")).join(options.lineBreak ?? "\n");
 }
+
+/**
+ * CSV text to rows of cells (RFC 4180): quoted cells may hold commas, quotes
+ * written twice and line breaks; `\r\n` and `\n` both end a row; a byte-order
+ * mark is dropped; wholly empty lines are skipped. A cell `csvCell` guarded
+ * with an apostrophe comes back as the apostrophe-prefixed text it was written as.
+ */
+export function parseCsv(text: string): string[][] {
+  const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index]!;
+    if (quoted) {
+      if (char === '"' && source[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+    if (char === '"' && cell === "") quoted = true;
+    else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n" || char === "\r") {
+      if (char === "\r" && source[index + 1] === "\n") index += 1;
+      row.push(cell);
+      if (row.some((value) => value.trim() !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else cell += char;
+  }
+  row.push(cell);
+  if (row.some((value) => value.trim() !== "")) rows.push(row);
+  return rows;
+}

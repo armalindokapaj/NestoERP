@@ -659,14 +659,14 @@ export function PpeTable({
           <Link href={`/hse/ppe/${row.id}/edit`} className="flex flex-col hover:text-accent">
             <span className="font-medium text-fg">{row.checkNumber}</span>
             <span className="text-meta text-fg-subtle">
-              {row.subject?.fullName ?? row.externalSubjectName ?? "Area spot check"}
+              {row.subject?.fullName ?? row.subjectWorker?.name ?? row.externalSubjectName ?? "Area spot check"}
             </span>
           </Link>
         ) : (
           <span className="flex flex-col">
             <span className="font-medium text-fg">{row.checkNumber}</span>
             <span className="text-meta text-fg-subtle">
-              {row.subject?.fullName ?? row.externalSubjectName ?? "Area spot check"}
+              {row.subject?.fullName ?? row.subjectWorker?.name ?? row.externalSubjectName ?? "Area spot check"}
             </span>
           </span>
         ),

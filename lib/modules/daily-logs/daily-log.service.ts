@@ -495,7 +495,7 @@ export async function getDailyLog(context: UserContext, dailyLogId: string): Pro
       notes: entry.notes,
       updatedAt: entry.updatedAt.toISOString(),
     })),
-    workforce: row.workforce.map((entry) => ({ id: entry.id, organizationName: entry.organizationName, supplier: refs.supplier(entry.supplierId), contractor: refs.contractor(entry.contractorId), workPackage: refs.workPackage(entry.workPackageId), trade: entry.trade, crewName: entry.crewName, headcount: entry.headcount, notes: entry.notes, updatedAt: entry.updatedAt.toISOString() })),
+    workforce: row.workforce.map((entry) => ({ id: entry.id, organizationName: entry.organizationName, supplier: refs.supplier(entry.supplierId), contractor: refs.contractor(entry.contractorId), workPackage: refs.workPackage(entry.workPackageId), trade: entry.trade, crewName: entry.crewName, crewId: entry.crewId, headcount: entry.headcount, notes: entry.notes, updatedAt: entry.updatedAt.toISOString() })),
     activities: row.workActivities.map((entry) => ({
       id: entry.id, title: entry.title, description: entry.description, projectArea: entry.projectArea, floorZone: entry.floorZone, trade: entry.trade,
       progressPercent: decimal(entry.progressPercent), task: refs.task(entry.linkedTaskId), contractor: refs.contractor(entry.contractorId), workPackage: refs.workPackage(entry.workPackageId), createdBy: person(entry.createdByMemberId), updatedAt: entry.updatedAt.toISOString(),

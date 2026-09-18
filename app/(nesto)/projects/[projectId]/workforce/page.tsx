@@ -4,9 +4,12 @@ import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { ProjectInductions } from "@/components/workforce/project-inductions";
 import { SitesManager } from "@/components/workforce/sites-manager";
 import { AssignProjectButton, EndMembershipButton } from "@/components/workforce/workforce-actions";
 import { CrewTable } from "@/components/workforce/workforce-tables";
+import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
+import { hseEmploymentOptions, inductionsForProject, workersMissingInduction } from "@/lib/modules/hse/hse.workforce";
 import { structureCapabilities } from "@/lib/modules/project-structure/structure.permissions";
 import { listSites } from "@/lib/modules/project-structure/structure.sites";
 import * as projects from "@/lib/modules/projects/project.service";
@@ -45,6 +48,12 @@ export default async function ProjectWorkforcePage({ params }: Params) {
   ]);
   const activeSites = sites.filter((site) => site.status === "ACTIVE").map((site) => ({ id: site.id, projectId: project.id, name: site.name }));
   const canManageSites = structureCapabilities(context).canManageStructure;
+  // Who has been inducted here, and who works here without it (E-04 §71, §183).
+  const showInductions = isModuleEnabled(context, "hse") && canAccessModule(context, "hse") && can(context, "hse.induction.view");
+  const canInduct = showInductions && can(context, "hse.induction.record") && project.status !== "ARCHIVED";
+  const [inductions, missing, inductees] = showInductions
+    ? await Promise.all([inductionsForProject(context, project.id), workersMissingInduction(context, project.id), canInduct ? hseEmploymentOptions(context).then((options) => options.employees) : []])
+    : [[], [], []];
 
   return (
     <div className="space-y-5">
@@ -131,6 +140,17 @@ export default async function ProjectWorkforcePage({ params }: Params) {
           </Table>
         )}
       </section>
+
+      {showInductions ? (
+        <ProjectInductions
+          projectId={project.id}
+          inductions={inductions}
+          missing={missing}
+          canRecord={canInduct}
+          employees={inductees}
+          sites={activeSites.map((site) => ({ value: site.id, label: site.name }))}
+        />
+      ) : null}
 
       <SitesManager projectId={project.id} sites={sites} canManage={canManageSites && project.status !== "ARCHIVED"} />
 

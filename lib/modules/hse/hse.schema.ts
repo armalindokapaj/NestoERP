@@ -401,24 +401,45 @@ export const actionListSchema = paginationSchema.extend({
 /* Toolbox talks                                                               */
 /* -------------------------------------------------------------------------- */
 
-export const toolboxParticipantSchema = z
-  .object({
-    id: optionalId,
-    companyMemberId: optionalId,
-    externalName: optionalText(200),
-    attendanceStatus: z.enum(ATTENDANCE_STATUSES).default("ATTENDED"),
-    signatureRecorded: optionalBoolean.default(false),
-  })
-  .refine(
-    (value) =>
-      value.companyMemberId !== undefined || (value.externalName ?? "").trim().length > 0,
-    {
-      // A participant who is neither a member nor a name is an empty row on an
-      // attendance sheet (PRD #22 §133).
-      message: "Name the person, or pick a colleague.",
-      path: ["externalName"],
-    },
-  );
+/**
+ * A people picker offers workers without a NESTO login beside members, sending
+ * them as `employee:<employment id>` (E-04 §70-§72). Split here, so every
+ * service receives a member id or an employment id and never has to guess.
+ */
+export const WORKER_PREFIX = "employee:";
+
+function splitWorker(memberKey: string, workerKey: string) {
+  return (raw: unknown) => {
+    if (!raw || typeof raw !== "object") return raw;
+    const value = (raw as Record<string, unknown>)[memberKey];
+    if (typeof value !== "string" || !value.startsWith(WORKER_PREFIX)) return raw;
+    return { ...(raw as Record<string, unknown>), [memberKey]: "", [workerKey]: value.slice(WORKER_PREFIX.length) };
+  };
+}
+
+export const toolboxParticipantSchema = z.preprocess(
+  splitWorker("companyMemberId", "employeeProfileId"),
+  z
+    .object({
+      id: optionalId,
+      companyMemberId: optionalId,
+      /** A worker without a login attends by their employment (E-04 §71). */
+      employeeProfileId: optionalId,
+      externalName: optionalText(200),
+      attendanceStatus: z.enum(ATTENDANCE_STATUSES).default("ATTENDED"),
+      signatureRecorded: optionalBoolean.default(false),
+    })
+    .refine(
+      (value) =>
+        value.companyMemberId !== undefined || value.employeeProfileId !== undefined || (value.externalName ?? "").trim().length > 0,
+      {
+        // A participant who is neither a member nor a name is an empty row on an
+        // attendance sheet (PRD #22 §133).
+        message: "Name the person, or pick a colleague.",
+        path: ["externalName"],
+      },
+    ),
+);
 
 export const toolboxSchema = z.object({
   title: requiredText(3, 200, "Title"),
@@ -492,40 +513,45 @@ export const permitListSchema = paginationSchema.extend({
 /* PPE checks                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export const ppeCheckSchema = z
-  .object({
-    projectId: optionalId,
-    checkDate: businessDate,
-    locationText: optionalText(200),
-    subjectMemberId: optionalId,
-    externalSubjectName: optionalText(200),
-    helmetOk: z.enum(["yes", "no", ""]).optional(),
-    eyeProtectionOk: z.enum(["yes", "no", ""]).optional(),
-    hearingProtectionOk: z.enum(["yes", "no", ""]).optional(),
-    respiratoryProtectionOk: z.enum(["yes", "no", ""]).optional(),
-    glovesOk: z.enum(["yes", "no", ""]).optional(),
-    harnessOk: z.enum(["yes", "no", ""]).optional(),
-    footwearOk: z.enum(["yes", "no", ""]).optional(),
-    otherPpeNote: optionalText(2000),
-    notes: optionalText(2000),
-  })
-  .refine(
-    (value) =>
-      [
-        value.helmetOk,
-        value.eyeProtectionOk,
-        value.hearingProtectionOk,
-        value.respiratoryProtectionOk,
-        value.glovesOk,
-        value.harnessOk,
-        value.footwearOk,
-      ].some((item) => item === "yes" || item === "no"),
-    {
-      // A check that looked at nothing is not a pass (PRD #22 §160).
-      message: "Record at least one item of equipment.",
-      path: ["helmetOk"],
-    },
-  );
+export const ppeCheckSchema = z.preprocess(
+  splitWorker("subjectMemberId", "subjectEmployeeProfileId"),
+  z
+    .object({
+      projectId: optionalId,
+      checkDate: businessDate,
+      locationText: optionalText(200),
+      subjectMemberId: optionalId,
+      /** Whose PPE was checked, when they have no login (E-04 §72). */
+      subjectEmployeeProfileId: optionalId,
+      externalSubjectName: optionalText(200),
+      helmetOk: z.enum(["yes", "no", ""]).optional(),
+      eyeProtectionOk: z.enum(["yes", "no", ""]).optional(),
+      hearingProtectionOk: z.enum(["yes", "no", ""]).optional(),
+      respiratoryProtectionOk: z.enum(["yes", "no", ""]).optional(),
+      glovesOk: z.enum(["yes", "no", ""]).optional(),
+      harnessOk: z.enum(["yes", "no", ""]).optional(),
+      footwearOk: z.enum(["yes", "no", ""]).optional(),
+      otherPpeNote: optionalText(2000),
+      notes: optionalText(2000),
+    })
+    .refine(
+      (value) =>
+        [
+          value.helmetOk,
+          value.eyeProtectionOk,
+          value.hearingProtectionOk,
+          value.respiratoryProtectionOk,
+          value.glovesOk,
+          value.harnessOk,
+          value.footwearOk,
+        ].some((item) => item === "yes" || item === "no"),
+      {
+        // A check that looked at nothing is not a pass (PRD #22 §160).
+        message: "Record at least one item of equipment.",
+        path: ["helmetOk"],
+      },
+    ),
+);
 
 export const ppeListSchema = paginationSchema.extend({
   search: z.string().trim().max(200).optional(),
@@ -642,3 +668,46 @@ export type ObservationListQuery = z.infer<typeof observationListSchema>;
 export type StopWorkInput = z.infer<typeof stopWorkSchema>;
 export type StopWorkListQuery = z.infer<typeof stopWorkListSchema>;
 export type ApprovalDecisionInput = z.infer<typeof approvalDecisionSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Workers without a login on the safety record (E-04 §70-§74)                 */
+/* -------------------------------------------------------------------------- */
+
+const workforceDay = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.");
+const nullableId = z
+  .union([z.string().trim().min(1).max(64), z.literal(""), z.null()])
+  .optional()
+  .transform((value) => (value ? value : null));
+const nullableText = (max: number) =>
+  z
+    .union([z.string().trim().max(max), z.null()])
+    .optional()
+    .transform((value) => (value ? value : null));
+
+export const INCIDENT_INVOLVEMENTS = ["INJURED", "WITNESS", "INVOLVED"] as const;
+
+/** Somebody the incident involved: an employee of the company, or the name of somebody it does not employ (§73). */
+export const incidentPersonSchema = z.object({
+  employeeId: nullableId,
+  externalName: nullableText(200),
+  involvement: z.enum(INCIDENT_INVOLVEMENTS),
+  notes: nullableText(1000),
+});
+
+/** A person or a whole crew a permit covers (§74). */
+export const permitWorkerSchema = z.object({ employeeId: nullableId, crewId: nullableId });
+
+/** A site induction given to somebody, with or without a login (§71, §270). */
+export const inductionSchema = z.object({
+  employeeId: z.string().trim().min(1, "Choose who was inducted.").max(64),
+  projectId: z.string().trim().min(1, "Choose the project.").max(64),
+  siteId: nullableId,
+  inductedOn: workforceDay,
+  validUntil: z
+    .union([workforceDay, z.literal(""), z.null()])
+    .optional()
+    .transform((value) => (value ? value : null)),
+  notes: nullableText(1000),
+});
+
+export const voidInductionSchema = z.object({ reason: z.string().trim().min(3, "Say why it is void.").max(500) });

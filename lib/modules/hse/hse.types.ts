@@ -445,6 +445,8 @@ export type ActionDetailDTO = ActionSummaryDTO & {
 export type ToolboxParticipantDTO = {
   id: string;
   member: MemberRef | null;
+  /** A worker of the company without a NESTO login (E-04 §71). */
+  worker: { employeeId: string; personId: string; name: string } | null;
   /** Subcontractors attend too, and are not members (§133). */
   externalName: string | null;
   attendanceStatus: ToolboxAttendanceStatus;
@@ -553,6 +555,8 @@ export type PpeCheckDTO = {
   locationText: string | null;
   checkedBy: MemberRef | null;
   subject: MemberRef | null;
+  /** A worker of the company without a NESTO login (E-04 §72). */
+  subjectWorker: { employeeId: string; personId: string; name: string } | null;
   externalSubjectName: string | null;
   result: PpeCheckResult;
   /** Only the equipment the check actually spoke to (§159). */
