@@ -171,6 +171,29 @@ function Overview({ profile }: { profile: WorkProfileDTO }) {
         />
       </section>
 
+      {profile.departments.length > 0 ? (
+        <section className="nesto-card p-5" aria-labelledby="departments-heading">
+          <h2 id="departments-heading" className="text-card font-semibold text-fg">
+            Departments
+          </h2>
+          <ul className="mt-3 space-y-1.5" data-testid="person-departments">
+            {profile.departments.map((place) => (
+              <li key={`${place.department.id}:${place.company?.id ?? "group"}:${place.position}`} className="text-table">
+                <Link href={`/organization/departments/${encodeURIComponent(place.department.id)}`} className="font-medium text-fg hover:text-accent-strong hover:underline">
+                  {place.department.name}
+                </Link>
+                <span className="text-fg-muted">
+                  {" · "}
+                  {place.company?.name ?? "the whole group"}
+                  {" · "}
+                  {place.position === "GROUP_HEAD" ? "Group head" : place.position === "COMPANY_MANAGER" ? "Manager" : "Member"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="nesto-card p-5" aria-labelledby="companies-heading">
         <h2 id="companies-heading" className="text-card font-semibold text-fg">
           Where they work

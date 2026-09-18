@@ -1792,6 +1792,37 @@ const DEFINITIONS: RecordDefinition[] = [
     documents: null,
     collaboration: null,
   },
+
+  /* Organization (E-13 §93) ------------------------------------------------ */
+  {
+    // A function of the reader's own group: what a department notification is
+    // about. Its companies' branches, team and history have their own checks on
+    // the department page; the record itself is the group's chart.
+    type: "group_department",
+    moduleKey: "organization",
+    noun: "Department",
+    activityEntityType: "GroupDepartment",
+    route: "/organization/departments",
+    viewPermissions: ["organization.department.view"],
+    async find(context, id) {
+      const row = await prisma.groupDepartment.findFirst({
+        where: { id, parentGroupId: context.parentGroupId },
+        select: { id: true, name: true, status: true },
+      });
+      return row && {
+        type: "group_department", id: row.id, companyId: context.companyId, label: row.name,
+        href: `/organization/departments/${encodeURIComponent(row.id)}`, projectId: null, archived: row.status !== "ACTIVE",
+        stakeholderMemberIds: [],
+      };
+    },
+    async reachable(context, ids) {
+      if (ids.length === 0) return [];
+      const rows = await prisma.groupDepartment.findMany({ where: { id: { in: ids }, parentGroupId: context.parentGroupId }, select: { id: true } });
+      return rows.map((row) => row.id);
+    },
+    documents: null,
+    collaboration: null,
+  },
 ];
 
 const BY_TYPE = new Map<RecordType, RecordDefinition>();

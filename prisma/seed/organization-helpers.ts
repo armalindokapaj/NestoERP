@@ -145,3 +145,33 @@ export async function roleIds(prisma: PrismaClient): Promise<Map<string, string>
   const rows = await prisma.role.findMany({ select: { id: true, key: true } });
   return new Map(rows.map((row) => [row.key, row.id]));
 }
+
+/**
+ * Every membership placed in a branch of one of its group's departments holds
+ * its member place on that branch's team (E-13, ADR 0003): the rule migration
+ * `20260918160000_department_management_e13` applied to existing data, applied
+ * to the seed's own. The same statement, the same deterministic ids — a rerun
+ * adds nothing.
+ */
+export async function syncMemberPlaces(prisma: PrismaClient): Promise<number> {
+  return prisma.$executeRaw`
+    INSERT INTO "department_assignments" (
+      "id", "parentGroupId", "userId", "groupDepartmentId", "companyId", "companyDepartmentId",
+      "functionalRoleKey", "positionLevel", "accessLevel", "status", "startsAt", "createdAt", "updatedAt"
+    )
+    SELECT 'dam_e13_' || md5(m."id" || ':' || d."id"),
+           c."parentGroupId", m."userId", d."groupDepartmentId", m."companyId", d."id",
+           r."key", 'MEMBER', 'CONTRIBUTE', 'ACTIVE', COALESCE(m."joinedAt", m."createdAt"), now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC'
+    FROM "company_members" m
+    JOIN "departments" d ON d."id" = m."departmentId" AND d."companyId" = m."companyId"
+    JOIN "companies" c ON c."id" = m."companyId"
+    JOIN "group_departments" g ON g."id" = d."groupDepartmentId" AND g."parentGroupId" = c."parentGroupId"
+    JOIN "roles" r ON r."id" = m."roleId"
+    WHERE m."status" = 'ACTIVE'
+      AND NOT EXISTS (
+        SELECT 1 FROM "department_assignments" a
+        WHERE a."userId" = m."userId" AND a."companyDepartmentId" = d."id"
+          AND a."positionLevel" = 'MEMBER' AND a."status" = 'ACTIVE'
+      )
+    ON CONFLICT DO NOTHING`;
+}

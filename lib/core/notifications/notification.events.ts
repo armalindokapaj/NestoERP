@@ -56,6 +56,8 @@ export const NOTIFICATION_CATEGORIES = [
   "sales",
   // Collecting a unit's sale: installments, payments, completion (E-05F §94).
   "finance",
+  // Your place in the group's departments (E-13 §93).
+  "organization",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -230,6 +232,11 @@ export const NotificationEvent = {
   UNIT_INSTALLMENT_OVERDUE: "UNIT_INSTALLMENT_OVERDUE",
   UNIT_PAYMENT_RECEIVED: "UNIT_PAYMENT_RECEIVED",
   UNIT_FINANCIALLY_COMPLETE: "UNIT_FINANCIALLY_COMPLETE",
+  // Department positions and places (E-13 §93)
+  DEPARTMENT_HEAD_ASSIGNED: "DEPARTMENT_HEAD_ASSIGNED",
+  DEPARTMENT_MANAGER_ASSIGNED: "DEPARTMENT_MANAGER_ASSIGNED",
+  DEPARTMENT_MEMBER_ADDED: "DEPARTMENT_MEMBER_ADDED",
+  DEPARTMENT_ASSIGNMENT_CHANGED: "DEPARTMENT_ASSIGNMENT_CHANGED",
   RFI_OPENED: "RFI_OPENED",
   RFI_ASSIGNED: "RFI_ASSIGNED",
   RFI_DUE_SOON: "RFI_DUE_SOON",
@@ -1537,6 +1544,52 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `Contract ${text(payload, "contractNumber", "")} for ${text(payload, "unitCode", "a unit")} is paid in full`.replace("  ", " "),
     body: () => "It can be completed once Legal's conditions are met.",
     dedupe: (event, memberId, payload) => `UNIT_FINANCIALLY_COMPLETE:${text(payload, "contractId", event.id)}:${memberId}`,
+  },
+
+  /* Departments (E-13 §93) ------------------------------------------------- */
+  // Told to the person whose place it is, through their membership in the
+  // company it concerns; the record is the group department itself.
+  {
+    eventType: NotificationEvent.DEPARTMENT_HEAD_ASSIGNED,
+    category: "organization",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `You were appointed head of ${recordName(payload, "a department")}`,
+    body: () => "You oversee the function across the group's companies.",
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.DEPARTMENT_MANAGER_ASSIGNED,
+    category: "organization",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `You now manage ${recordName(payload, "a department")} in ${text(payload, "companyName", "a company")}`,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.DEPARTMENT_MEMBER_ADDED,
+    category: "organization",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `You were added to ${recordName(payload, "a department")} in ${text(payload, "companyName", "a company")}`,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.DEPARTMENT_ASSIGNMENT_CHANGED,
+    category: "organization",
+    priority: "LOW",
+    async recipients(_tx, _event, payload) {
+      return [text(payload, "memberId")];
+    },
+    title: (payload) => `Your place in ${recordName(payload, "a department")} changed`,
+    body: (payload) => text(payload, "change") || null,
+    dedupe: perEvent,
   },
 ];
 

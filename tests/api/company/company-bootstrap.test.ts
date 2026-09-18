@@ -5,6 +5,7 @@ import { bootstrapCompany, validateModuleSelection } from "@/lib/modules/company
 import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
 import { acceptInvite } from "@/lib/modules/team/invitations/invite.service";
 import { prisma } from "../../helpers";
+import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
 
 /**
  * Production company bootstrap (PRD #38 §19, §21, §135).
@@ -153,7 +154,7 @@ describe("bootstrapCompany", () => {
       firstName: "First",
       lastName: "Owner",
       password: "a-long-enough-owner-password",
-    }, { personDoor: ensurePersonForUser });
+    }, { personDoor: ensurePersonForUser, placement: placeMembership });
 
     const membership = await prisma.companyMember.findUniqueOrThrow({
       where: { id: accepted.membershipId },

@@ -46,6 +46,11 @@ export const createGroupCompanySchema = z.object({
   phone: unset(optionalText(40)),
   website: unset(optionalText(200)),
   disabledModules: z.array(z.enum(MODULE_KEYS)).default([]),
+  /**
+   * The group departments the company runs (E-13 §48, §49, §75, §121): a
+   * branch of each is created, and of nothing else. Left out, every active one.
+   */
+  departmentIds: z.array(z.string().trim().min(1).max(128)).max(100).optional(),
 });
 export type CreateGroupCompanyInput = z.infer<typeof createGroupCompanySchema>;
 

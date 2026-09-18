@@ -1,5 +1,6 @@
 import { apiOk, readJson, withContext } from "@/lib/api/respond";
 import { updateMemberSchema } from "@/lib/modules/team/team.schema";
+import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
 import * as team from "@/lib/modules/team/team.service";
 
 type Params = { params: Promise<{ memberId: string }> };
@@ -19,6 +20,6 @@ export async function PATCH(request: Request, { params }: Params) {
     // Membership fields only: status has dedicated endpoints, and name, phone
     // and avatar belong to the person's own profile (PRD #14 §86, §155).
     const input = updateMemberSchema.parse(await readJson(request));
-    return apiOk({ data: await team.updateMember(context, memberId, input) });
+    return apiOk({ data: await team.updateMember(context, memberId, input, { placement: placeMembership }) });
   });
 }

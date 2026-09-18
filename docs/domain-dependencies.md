@@ -80,3 +80,11 @@ be argued for rather than merged.
    that runs both ways — extract the narrow interface the other side needs,
    then record it with `pnpm verify:ownership --update-baseline` and add a row
    to the table above saying why.
+5. **When the door's owner already imports the caller, the door is passed in.**
+   The organization imports Team's branch doors, and HR's person record is
+   reached from Finance, Sales and Projects, so Team cannot import either back.
+   Team declares the shape it needs (`PersonDoor` in the invitation service,
+   `PlacementDoor` in `team.placement.ts`) and the server action or route that
+   calls Team hands in HR's `ensurePersonForUser` and the organization's
+   `placeMembership` (E-01, ADR 0002; E-13, ADR 0003). The call is required, so
+   no caller can skip it.

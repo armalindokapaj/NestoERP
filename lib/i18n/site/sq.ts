@@ -276,6 +276,7 @@ export const siteSq: SiteCopy = {
       "Stop work": "Ndalimi i punës",
       People: "Personat",
       Departments: "Departamentet",
+      Companies: "Kompanitë",
       Invitations: "Ftesat",
       Inactive: "Joaktivë",
       "Company Details": "Të dhënat e kompanisë",

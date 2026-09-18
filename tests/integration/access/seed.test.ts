@@ -141,7 +141,7 @@ describe("seeded demo group (E-06 §42-§47, §131-§134)", () => {
 
   it("stacks a group head and a company manager position on one account (E-06 §51, §134)", async () => {
     const positions = await prisma.departmentAssignment.findMany({
-      where: { user: { email: "finance@nesto.test" }, status: "ACTIVE" },
+      where: { user: { email: "finance@nesto.test" }, status: "ACTIVE", positionLevel: { in: ["GROUP_HEAD", "COMPANY_MANAGER"] } },
       select: { positionLevel: true, companyId: true, companyDepartmentId: true, groupDepartment: { select: { key: true } } },
     });
     expect(positions).toHaveLength(2);

@@ -70,6 +70,13 @@ export const bootstrapCompanySchema = z.object({
   phone: z.string().trim().max(40).optional(),
   website: z.string().trim().max(200).optional(),
   disabledModules: z.array(z.enum(MODULE_KEYS)).default([]),
+  /**
+   * The group departments the company runs (E-13 §48, §49, §75, §121), by key.
+   * A new company gets a branch of exactly these — of every active one when
+   * none are named. A rerun adds only the ones named: a department a company
+   * chose not to run is not "missing configuration".
+   */
+  departmentKeys: z.array(z.string().trim().min(1).max(80)).max(100).optional(),
   timezone: z.string().trim().max(64).optional(),
   locale: z.string().trim().max(16).optional(),
   baseCurrency: z.string().trim().length(3).toUpperCase().optional(),
@@ -176,13 +183,20 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
       }));
     const companyId = company.id;
 
-    // The company's branch of every group department (E-06 §12, §35, §36): created
-    // where missing, never renamed or removed on a rerun.
-    const groupDepartments = await tx.groupDepartment.findMany({ where: { parentGroupId, status: "ACTIVE" }, select: { id: true, key: true, name: true } });
-    await tx.department.createMany({
-      data: groupDepartments.map((department) => ({ companyId, name: department.name, key: department.key, groupDepartmentId: department.id, status: "ACTIVE" as const })),
-      skipDuplicates: true,
-    });
+    // The company's branches of the departments it runs (E-06 §12, §35; E-13 §48,
+    // §49): created where missing, never renamed or removed on a rerun.
+    const chosen = input.departmentKeys ? new Set(input.departmentKeys) : null;
+    if (chosen || !existing) {
+      const groupDepartments = await tx.groupDepartment.findMany({ where: { parentGroupId, status: "ACTIVE" }, select: { id: true, key: true, name: true } });
+      const unknown = chosen ? [...chosen].filter((key) => !groupDepartments.some((department) => department.key === key)) : [];
+      if (unknown.length > 0) throw new Error(`Unknown or inactive group departments: ${unknown.join(", ")}`);
+      await tx.department.createMany({
+        data: groupDepartments
+          .filter((department) => !chosen || chosen.has(department.key))
+          .map((department) => ({ companyId, name: department.name, key: department.key, groupDepartmentId: department.id, status: "ACTIVE" as const })),
+        skipDuplicates: true,
+      });
+    }
 
     // Module switches: created where missing, never flipped on a rerun — an
     // administrator may have changed them since.

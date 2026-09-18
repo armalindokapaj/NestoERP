@@ -1,27 +1,18 @@
+import Link from "next/link";
+
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
-import { DepartmentActions } from "@/components/team/department-actions";
 import type { DepartmentSummaryDTO } from "@/lib/modules/team/team.types";
 import { orDash } from "@/lib/utils/format";
 
 /**
- * Departments (PRD #14 §113, §114).
+ * The company's departments (PRD #14 §113, §114; E-13 §39).
  *
- * A department is organisational metadata: it groups people and gives reports
- * something to slice by. Managing one grants no access of its own
- * (PRD #14 §120).
+ * Each is the company's branch of one of the group's departments. It is
+ * activated, deactivated and given its manager from Organization, where a
+ * branch of the group's department links to; here it is read.
  */
-export function DepartmentTable({
-  departments,
-  canUpdate,
-  canArchive,
-  canRestore,
-}: {
-  departments: DepartmentSummaryDTO[];
-  canUpdate: boolean;
-  canArchive: boolean;
-  canRestore: boolean;
-}) {
+export function DepartmentTable({ departments, linkToOrganization }: { departments: DepartmentSummaryDTO[]; linkToOrganization: boolean }) {
   const columns: TableColumn<DepartmentSummaryDTO>[] = [
     {
       key: "name",
@@ -29,7 +20,13 @@ export function DepartmentTable({
       primary: true,
       render: (department) => (
         <span className="min-w-0">
-          <span className="block truncate">{department.name}</span>
+          {linkToOrganization && department.groupDepartmentId ? (
+            <Link href={`/organization/departments/${encodeURIComponent(department.groupDepartmentId)}`} className="block truncate hover:text-accent-strong hover:underline">
+              {department.name}
+            </Link>
+          ) : (
+            <span className="block truncate">{department.name}</span>
+          )}
           {department.description ? (
             <span className="block truncate text-meta font-normal text-fg-subtle">
               {department.description}
@@ -54,11 +51,11 @@ export function DepartmentTable({
         ),
     },
     {
-      key: "key",
-      label: "Key",
+      key: "code",
+      label: "Code",
       hideBelow: "xl",
       render: (department) => (
-        <span className="font-mono text-meta text-fg-subtle">{orDash(department.key)}</span>
+        <span className="font-mono text-meta text-fg-subtle">{orDash(department.code)}</span>
       ),
     },
     {
@@ -76,29 +73,5 @@ export function DepartmentTable({
     },
   ];
 
-  const showActions = canUpdate || canArchive || canRestore;
-
-  return (
-    <DataTable
-      caption="Departments"
-      columns={columns}
-      records={departments}
-      rowKey={(department) => department.id}
-      actions={
-        showActions
-          ? (department) => (
-              <DepartmentActions
-                departmentId={department.id}
-                name={department.name}
-                archived={department.status === "ARCHIVED"}
-                activeMembers={department.activeMembers}
-                canUpdate={canUpdate}
-                canArchive={canArchive}
-                canRestore={canRestore}
-              />
-            )
-          : undefined
-      }
-    />
-  );
+  return <DataTable caption="Departments" columns={columns} records={departments} rowKey={(department) => department.id} />;
 }

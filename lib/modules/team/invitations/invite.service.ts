@@ -11,6 +11,7 @@ import { hitThrottle, retryAfterMinutes } from "@/lib/core/security/throttle";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordAuditEvent, recordUserAction } from "@/lib/core/audit/audit.service";
+import type { PlacementDoor } from "../team.placement";
 import type { InviteMemberInput } from "../team.schema";
 import type { InvitationDTO } from "../team.types";
 import {
@@ -152,12 +153,13 @@ async function resolveInviteGrants(
 
   const department = departmentId
     ? await prisma.department.findFirst({
-        where: { id: departmentId, companyId: context.companyId, status: { not: "ARCHIVED" } },
+        where: { id: departmentId, companyId: context.companyId, status: "ACTIVE", OR: [{ groupDepartmentId: null }, { groupDepartment: { status: "ACTIVE" } }] },
         select: { id: true },
       })
     : null;
+  // An inactive department takes nobody new (E-13 §89, §90).
   if (departmentId && !department) {
-    throw new AccessError("VALIDATION_ERROR", "That department does not exist.");
+    throw new AccessError("VALIDATION_ERROR", "That department does not exist or is not active.");
   }
   if (department) assertPermission(context, "team.member.department.assign");
 
@@ -571,7 +573,7 @@ export type PersonDoor = (
 
 export async function acceptInvite(
   input: AcceptInviteRequest,
-  options: { authenticatedUserId?: string; personDoor: PersonDoor },
+  options: { authenticatedUserId?: string; personDoor: PersonDoor; placement: PlacementDoor },
 ): Promise<AcceptResult> {
   const tokenHash = hashInviteToken(input.token);
 
@@ -641,12 +643,12 @@ export async function acceptInvite(
     /*
      * The terms are the invitation's, applied now (PRD #47 §58): the role,
      * department and title the inviter chose, not whatever an older invitation
-     * left on the membership. A department archived in the meantime is dropped
-     * rather than joined.
+     * left on the membership. A department deactivated in the meantime is
+     * dropped rather than joined (E-13 §89).
      */
     const department = invite.departmentId
       ? await tx.department.findFirst({
-          where: { id: invite.departmentId, companyId: invite.companyId, status: { not: "ARCHIVED" }, archivedAt: null },
+          where: { id: invite.departmentId, companyId: invite.companyId, status: "ACTIVE", archivedAt: null, OR: [{ groupDepartmentId: null }, { groupDepartment: { status: "ACTIVE" } }] },
           select: { id: true },
         })
       : null;
@@ -700,6 +702,11 @@ export async function acceptInvite(
     // already has one.
     const company = await tx.company.findUniqueOrThrow({ where: { id: invite.companyId }, select: { parentGroupId: true } });
     await options.personDoor(tx, { userId: user.id, parentGroupId: company.parentGroupId, jobTitle: invite.jobTitle });
+
+    // Joining a department is joining its team (E-13, ADR 0003), through the organization's door.
+    if (terms.departmentId) {
+      await options.placement(tx, { companyId: invite.companyId, userId: user.id, fromDepartmentId: null, toDepartmentId: terms.departmentId, actor: null });
+    }
 
     // Consuming the token is what makes the link single-use (PRD #14 §239).
     const consumed = await tx.companyInvite.updateMany({

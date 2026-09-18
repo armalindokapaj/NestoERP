@@ -1,14 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  canTransitionDepartmentStatus,
   canTransitionMembershipStatus,
   isCompanyAccessAllowed,
-  isDepartmentArchived,
   membershipStatusLabels,
 } from "@/lib/modules/team/membership.status";
 
-/** Membership and department lifecycle rules (PRD #14 §109, §110, §128). */
+/** Membership lifecycle rules (PRD #14 §109, §110). Department status is E-13's since (ADR 0003). */
 describe("membership transitions (PRD #14 §109)", () => {
   it("never activates an invitation by administration — only acceptance does (PRD #47 §58)", () => {
     expect(canTransitionMembershipStatus("INVITED", "ACTIVE")).toBe(false);
@@ -51,29 +49,5 @@ describe("membership transitions (PRD #14 §109)", () => {
       "INVITED",
       "SUSPENDED",
     ]);
-  });
-});
-
-describe("department transitions (PRD #14 §128)", () => {
-  it("moves between active and inactive", () => {
-    expect(canTransitionDepartmentStatus("ACTIVE", "INACTIVE")).toBe(true);
-    expect(canTransitionDepartmentStatus("INACTIVE", "ACTIVE")).toBe(true);
-  });
-
-  it("does not reach ARCHIVED through an ordinary transition", () => {
-    // Archiving is its own action with its own guard — the department must be
-    // empty — so it is deliberately unreachable from the status table.
-    expect(canTransitionDepartmentStatus("ACTIVE", "ARCHIVED")).toBe(false);
-    expect(canTransitionDepartmentStatus("INACTIVE", "ARCHIVED")).toBe(false);
-  });
-
-  it("does not leave ARCHIVED through an ordinary transition", () => {
-    expect(canTransitionDepartmentStatus("ARCHIVED", "ACTIVE")).toBe(false);
-  });
-
-  it("reads archived from either the status or the timestamp", () => {
-    expect(isDepartmentArchived({ status: "ARCHIVED", archivedAt: null })).toBe(true);
-    expect(isDepartmentArchived({ status: "ACTIVE", archivedAt: new Date() })).toBe(true);
-    expect(isDepartmentArchived({ status: "ACTIVE", archivedAt: null })).toBe(false);
   });
 });

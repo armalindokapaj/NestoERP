@@ -3,7 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserContext } from "@/lib/context/types";
 import { groupCompanies, groupFinance, groupPipeline } from "@/lib/modules/dashboard/dashboard.group";
 import { getAccessPortfolio } from "@/lib/modules/organization/access-portfolio.service";
-import { getDepartmentWorkspace, listGroupDepartments } from "@/lib/modules/organization/department.service";
+import { memberActor } from "@/lib/modules/organization/departments/department.actor";
+import { getDepartmentDetail, getDepartmentTeam, listGroupDepartments } from "@/lib/modules/organization/departments/department.query";
+import { teamQuerySchema } from "@/lib/modules/organization/departments/department.schema";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
 
 /**
@@ -63,42 +65,44 @@ describe("the access portfolio (§16, §95)", () => {
   });
 });
 
-describe("departments (§11-§13, §65-§68)", () => {
+describe("departments (§11-§13, §65-§68; E-13)", () => {
+  const team = (context: UserContext, id: string) => getDepartmentTeam(memberActor(context), id, teamQuerySchema.parse({}));
+
   it("shows the Owner every group department with a branch in each of the five companies", async () => {
-    const departments = await listGroupDepartments(owner);
+    const departments = await listGroupDepartments(memberActor(owner));
     const finance = departments.find((department) => department.key === "finance")!;
-    expect(finance.heads.map((head) => head.name)).toEqual(["Fiona Blake"]);
-    expect(finance.branches.map((branch) => branch.company.name).sort()).toEqual(DEMO_NAMES);
-    expect(finance.branches.find((branch) => branch.company.id === COMPANY.c)?.managers.map((manager) => manager.name)).toEqual(["Fiona Blake"]);
+    expect(finance.groupHead?.name).toBe("Fiona Blake");
+    const detail = await getDepartmentDetail(memberActor(owner), finance.id);
+    expect(detail.companies.filter((row) => row.branch?.status === "ACTIVE").map((row) => row.company.name).sort()).toEqual(DEMO_NAMES);
+    expect(detail.companies.find((row) => row.company.id === COMPANY.c)?.branch?.manager?.name).toBe("Fiona Blake");
   });
 
   it("gives the head of a function its people in every company, with the projects they may be assigned to", async () => {
-    const architecture = (await listGroupDepartments(architectureHead)).find((department) => department.key === "architecture")!;
-    const workspace = await getDepartmentWorkspace(architectureHead, architecture.id);
-    expect(workspace.reach).toBe("GROUP");
-    const architectD = workspace.members!.find((member) => member.memberId === "member_architect_d")!;
+    const architecture = (await listGroupDepartments(memberActor(architectureHead))).find((department) => department.key === "architecture")!;
+    expect((await getDepartmentDetail(memberActor(architectureHead), architecture.id)).reach).toBe("GROUP");
+    const people = await team(architectureHead, architecture.id);
+    const architectD = people.data.find((member) => member.person.personId === "person_architect_d")!;
     expect(architectD.projects.map((project) => project.projectId)).toContain(PROJECT.d);
-    expect(architectD.canUnassign).toBe(true);
-    expect(new Set(workspace.members!.map((member) => member.company.id)).size).toBeGreaterThan(1);
+    expect(architectD.canUnassignProjects).toBe(true);
+    expect(new Set(people.data.flatMap((member) => member.coverage.map((place) => place.company.id))).size).toBeGreaterThan(1);
   });
 
   it("keeps a local manager to their own branch", async () => {
-    const architecture = (await listGroupDepartments(meridianManager)).find((department) => department.key === "architecture")!;
-    const workspace = await getDepartmentWorkspace(meridianManager, architecture.id);
-    expect(workspace.reach).toBe("MANAGED");
-    expect(workspace.branches.map((branch) => branch.company.id)).toEqual([COMPANY.b]);
-    expect(workspace.members!.every((member) => member.company.id === COMPANY.b)).toBe(true);
+    const architecture = (await listGroupDepartments(memberActor(meridianManager))).find((department) => department.key === "architecture")!;
+    const detail = await getDepartmentDetail(memberActor(meridianManager), architecture.id);
+    expect(detail.reach).toBe("MANAGED");
+    expect(detail.companies.map((row) => row.company.id)).toEqual([COMPANY.b]);
+    expect((await team(meridianManager, architecture.id)).data.every((member) => member.coverage.every((place) => place.company.id === COMPANY.b))).toBe(true);
   });
 
   it("shows Group IT the people behind each branch, and a head of another function none of them (§113)", async () => {
     const groupIt = await loginAs("GROUP_IT");
-    const finance = (await listGroupDepartments(groupIt)).find((department) => department.key === "finance")!;
-    const forIt = await getDepartmentWorkspace(groupIt, finance.id);
-    expect(forIt.branches).toHaveLength(5);
-    expect(forIt.members!.every((member) => member.assignable.length === 0 && !member.canUnassign)).toBe(true);
+    const finance = (await listGroupDepartments(memberActor(groupIt))).find((department) => department.key === "finance")!;
+    expect((await getDepartmentDetail(memberActor(groupIt), finance.id)).companies).toHaveLength(5);
+    const forIt = await team(groupIt, finance.id);
+    expect(forIt.data.every((member) => member.assignable.length === 0 && !member.canUnassignProjects)).toBe(true);
 
-    const forHse = await getDepartmentWorkspace(await loginAs("HSE"), finance.id);
-    expect(forHse.members).toBeNull();
+    await expect(team(await loginAs("HSE"), finance.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

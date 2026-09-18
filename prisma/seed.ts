@@ -26,6 +26,7 @@ import { seedHseRecords } from "./seed/hse";
 import { COMPANY_A, DEMO_COMPANY_IDS, DEMO_GROUP, DEMO_PASSWORD, FIXTURE_TENANT } from "./seed/constants";
 import { seedMembers } from "./seed/members";
 import { seedDemoOrganization } from "./seed/demo/organization";
+import { syncMemberPlaces } from "./seed/organization-helpers";
 import { seedFixtureOrganization } from "./seed/fixtures/organization";
 import { PRIMARY_DEMO_ACCOUNTS } from "../config/demo-accounts";
 import { hashPassword } from "../lib/auth/password";
@@ -113,6 +114,9 @@ async function main() {
   await seedDocumentVersions(prisma);
   await seedStorageQuotas(prisma);
   await reconcileStorageUsage();
+
+  // Everybody placed in a department is on its team (E-13, ADR 0003).
+  await syncMemberPlaces(prisma);
 
   await validateSeed(prisma);
 

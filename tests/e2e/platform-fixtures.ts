@@ -19,6 +19,8 @@ export async function removePlatformGroup(slug: string): Promise<void> {
   for (const { id: companyId } of companies) {
     await db.projectMember.deleteMany({ where: { companyId } });
     await db.project.deleteMany({ where: { companyId } });
+    await db.notification.deleteMany({ where: { companyId } });
+    await db.notificationEventOutbox.deleteMany({ where: { companyId } });
     await db.mailDelivery.deleteMany({ where: { companyId } });
     await db.auditEvent.deleteMany({ where: { companyId } });
     await db.activity.deleteMany({ where: { companyId } });

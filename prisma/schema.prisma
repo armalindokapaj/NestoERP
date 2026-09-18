@@ -1303,6 +1303,9 @@ model Department {
   @@unique([companyId, name])
   @@unique([companyId, key])
   @@unique([id, companyId])
+  /// One branch per group department and company (E-13 §16): activating again
+  /// reuses it, deactivating keeps it.
+  @@unique([groupDepartmentId, companyId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([groupDepartmentId])
@@ -1612,14 +1615,23 @@ model ParentGroupMember {
 }
 
 /// One of the group's functions — Finance, Architecture, HR (E-06 §11). Defined
-/// once per group; each company's `Department` is a branch of one (§12).
+/// once per group; each company's `Department` is a branch of one (§12), made by
+/// activating the function in that company (E-13 §17).
+///
+/// `key` is the function's permanent identity: the chart in
+/// `config/group-departments.ts` binds a key to the roles that may hold its
+/// positions and the modules it owns. A department the group adds itself gets a
+/// `custom-` key, binds no role, and its positions widen nothing (E-13 ADR 0003).
+/// `code` is the short name people read (FIN, HR), unique in the group (E-13 §10).
 model GroupDepartment {
-  id            String           @id @default(cuid())
-  parentGroupId String
-  key           String
-  name          String
-  description   String?
-  status        DepartmentStatus @default(ACTIVE)
+  id              String           @id @default(cuid())
+  parentGroupId   String
+  key             String
+  code            String
+  name            String
+  description     String?
+  status          DepartmentStatus @default(ACTIVE)
+  createdByUserId String?
 
   parentGroup ParentGroup            @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
   branches    Department[]
@@ -1629,6 +1641,8 @@ model GroupDepartment {
   updatedAt DateTime @updatedAt
 
   @@unique([parentGroupId, key])
+  @@unique([parentGroupId, code])
+  @@unique([parentGroupId, name])
   @@unique([id, parentGroupId])
   @@index([parentGroupId, status])
   @@map("group_departments")
@@ -1642,6 +1656,14 @@ model GroupDepartment {
 /// The composite keys make the database refuse an assignment whose company or
 /// group department belongs to another parent group, and a branch that belongs
 /// to another company.
+///
+/// Since E-13 the row is the whole of a person's organizational participation:
+/// a MEMBER row per branch they work in (several companies = several rows), a
+/// COMPANY_MANAGER row for the one manager a branch may have, a GROUP_HEAD row
+/// for the one head a group department may have — the last two enforced by
+/// partial unique indexes (migration `20260918160000_department_management_e13`).
+/// A membership's home branch (`CompanyMember.departmentId`) always has its
+/// MEMBER row. Ending an assignment keeps it as history.
 model DepartmentAssignment {
   id                  String                  @id @default(cuid())
   parentGroupId       String

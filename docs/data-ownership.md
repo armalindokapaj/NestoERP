@@ -100,6 +100,8 @@ owner decides *how*.
 | `setPassword`, `createUserForInvite`, `revokeSessions` | auth | account, team | Hashing, voiding outstanding reset links, what a revocation is. |
 | `ensurePersonForUser` | hr | team (handed in by the invitation action) | Every login working in a group is a person of it: linked by email to an unlinked person of the group, or made from the account (E-01 §219). |
 | `updatePersonWorkProfile` | hr | people | Only the work-profile columns, only inside the group; one email per person in the group. |
+| `openBranch`, `closeBranch`, `renameBranches`, `nameBranchManager` / `clearBranchManager`, `placeHomeIfUnplaced` / `moveHome` | team | organization | The branch row and the membership: a branch is opened again rather than duplicated, closed rather than deleted; a manager is cleared only if still theirs; a home is moved only if still where the caller left it (E-13, ADR 0003). |
+| `placeMembership` | organization | team (handed in by the member and invitation actions) | Where Team places a membership, its member place on that department's team follows: ended in the old branch, made in the new one, with the membership's role (ADR 0003 decision 5). |
 | `employmentsVisibleTo` (read) | hr | people | Each employment judged in its own company by HR's own permission and scope; pay never included. |
 | `recordActivity`, `recordActorActivity` | shared | everyone | The activity row's shape and its actor. |
 

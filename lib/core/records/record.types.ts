@@ -140,6 +140,7 @@ export const RECORD_TYPES = [
   "rfi",
   "technical_submittal",
   "transmittal",
+  "group_department",
 ] as const;
 
 export type RecordType = (typeof RECORD_TYPES)[number];

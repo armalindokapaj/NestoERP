@@ -1102,11 +1102,9 @@ export const PERMISSIONS = [
   "team.invitation.view",
   "team.invitation.resend",
   "team.invitation.cancel",
+  // Reading the company's departments. Activating, deactivating and staffing
+  // them is the organization's since E-13 (ADR 0003).
   "team.department.view",
-  "team.department.create",
-  "team.department.update",
-  "team.department.archive",
-  "team.department.restore",
 
   /* People (E-01, ADR 0002) ----------------------------------------------- */
   /**
@@ -1134,9 +1132,13 @@ export const PERMISSIONS = [
   "organization.company.configuration.manage",
   "organization.module_configuration.manage",
   "organization.department.view",
+  // Configuring the departments themselves: creating, editing, deactivating a
+  // group department and activating it in a company (E-13 §53). The Owner and Group IT.
   "organization.department.manage",
   "organization.department_head.assign",
   "organization.department_manager.assign",
+  // Staffing any branch of the group, not only one you manage (E-13 §52): the Owner.
+  "organization.department.member.manage",
   "organization.people.view",
   "organization.role_template.view",
   "organization.access.view",
@@ -1162,6 +1164,11 @@ export const PERMISSIONS = [
   "department.projects.view_group",
   "department.company_manager.manage",
   "department.team.access.delegate",
+  // Adding people to the branch you manage, or to your function's branches as its
+  // head, and taking them off it (E-13 §13, §55, §85). Never a User, an Employee
+  // or a membership: only the department assignment (§45, §83).
+  "department.member.assign",
+  "department.member.remove",
 
   /* People and recruitment (E-06 §76) ------------------------------------- */
   // HR's person, candidate and employment truth. Creating credentials is not here (§140).

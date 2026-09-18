@@ -1,18 +1,14 @@
-import { apiOk, readJson, withContext } from "@/lib/api/respond";
+import { apiOk, withContext } from "@/lib/api/respond";
 import * as departments from "@/lib/modules/team/departments/department.service";
-import { createDepartmentSchema } from "@/lib/modules/team/team.schema";
 
+/**
+ * GET /api/departments — the company's departments (PRD #14). Read only since
+ * E-13: a department is activated in a company from Organization
+ * (`/api/organization/departments/:id/companies`), never created here.
+ */
 export async function GET(request: Request) {
   return withContext(async (context) => {
-    const includeArchived = new URL(request.url).searchParams.get("archived") === "true";
-    return apiOk({ data: await departments.listDepartments(context, { includeArchived }) });
-  });
-}
-
-export async function POST(request: Request) {
-  return withContext(async (context) => {
-    const input = createDepartmentSchema.parse(await readJson(request));
-    const id = await departments.createDepartment(context, input);
-    return apiOk({ data: await departments.getDepartment(context, id) }, { status: 201 });
+    const includeInactive = new URL(request.url).searchParams.get("inactive") === "true";
+    return apiOk({ data: await departments.listDepartments(context, { includeInactive }) });
   });
 }

@@ -90,7 +90,7 @@ export function GroupImplementationActions({ implementation }: { implementation:
         open={open === "company"}
         onOpenChange={close}
         title="New company"
-        description="Its settings, modules, numbering and a branch of every group department are created with it. The group's Owner and IT join it."
+        description="Its settings, modules and numbering are created with it, and a branch of each department chosen below. The group's Owner and IT join it."
         fields={[
           { name: "name", label: "Name", type: "text", required: true },
           { name: "slug", label: "Slug", type: "text", required: true },
@@ -103,12 +103,17 @@ export function GroupImplementationActions({ implementation }: { implementation:
           { name: "email", label: "Email", type: "email" },
           { name: "phone", label: "Phone", type: "text" },
           { name: "website", label: "Website", type: "text" },
+          // The departments the company runs (E-13 §48, §49): only these get a branch.
+          ...implementation.departmentOptions.map((department) => ({ name: `department:${department.id}`, label: `${department.name} (${department.code})`, type: "checkbox" as const })),
         ]}
+        initial={Object.fromEntries(implementation.departmentOptions.map((department) => [`department:${department.id}`, true]))}
         submitLabel="Create company"
         wide
         testId="create-company-dialog"
         onSubmit={async (payload) => {
-          await engineeringApi(`${base}/companies`, { body: { ...payload, disabledModules: [] } });
+          const departmentIds = Object.entries(payload).filter(([key, value]) => key.startsWith("department:") && value === true).map(([key]) => key.slice("department:".length));
+          const company = Object.fromEntries(Object.entries(payload).filter(([key]) => !key.startsWith("department:")));
+          await engineeringApi(`${base}/companies`, { body: { ...company, disabledModules: [], departmentIds } });
           await run("company", async () => null, "Company created.");
         }}
       />

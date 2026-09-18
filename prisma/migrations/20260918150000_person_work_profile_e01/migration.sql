@@ -43,8 +43,9 @@ SELECT DISTINCT ON (u.id)
        u."email",
        u."phone",
        'EMPLOYEE'::"PersonLifecycleStatus",
-       now(),
-       now()
+       -- Prisma stores UTC in timestamp-without-zone columns; now() alone is the server's local time.
+       now() AT TIME ZONE 'UTC',
+       now() AT TIME ZONE 'UTC'
 FROM "users" u
 JOIN "company_members" cm ON cm."userId" = u.id AND cm."status" = 'ACTIVE'
 JOIN "companies" c ON c.id = cm."companyId"

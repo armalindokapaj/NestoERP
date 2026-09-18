@@ -408,6 +408,19 @@ async function validateOrganization(prisma: PrismaClient, problems: string[]) {
   const stacked = await prisma.departmentAssignment.groupBy({ by: ["userId"], where: { parentGroupId: DEMO_GROUP.id, status: "ACTIVE", positionLevel: { in: ["GROUP_HEAD", "COMPANY_MANAGER"] } }, _count: { _all: true } });
   if (!stacked.some((row) => row._count._all > 1)) problems.push("no user holds a group head and a company manager position at once");
 
+  // E-13, ADR 0003: a membership's department is a place on that department's team,
+  // there is one head per department and one manager per branch, and every department has its code.
+  const homesWithoutPlace = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count FROM "company_members" m
+    JOIN "departments" d ON d."id" = m."departmentId" AND d."groupDepartmentId" IS NOT NULL
+    WHERE m."status" = 'ACTIVE' AND NOT EXISTS (
+      SELECT 1 FROM "department_assignments" a
+      WHERE a."userId" = m."userId" AND a."companyDepartmentId" = d."id" AND a."positionLevel" = 'MEMBER' AND a."status" = 'ACTIVE'
+    )`;
+  if (Number(homesWithoutPlace[0]?.count ?? 0) > 0) problems.push(`${homesWithoutPlace[0]!.count} membership(s) placed in a department with no place on its team`);
+  const coverage = await prisma.departmentAssignment.groupBy({ by: ["userId", "groupDepartmentId"], where: { parentGroupId: DEMO_GROUP.id, status: "ACTIVE", positionLevel: "MEMBER" }, _count: { _all: true } });
+  if (!coverage.some((row) => row._count._all > 1)) problems.push("nobody covers one department in more than one company");
+
   const multiCompany = await prisma.companyMember.groupBy({ by: ["userId"], where: { companyId: { in: DEMO_COMPANY_IDS }, status: "ACTIVE", userId: { in: COMPANY_USERS.map((user) => user.id) } }, _count: { _all: true } });
   if (!multiCompany.some((row) => row._count._all > 1)) problems.push("no company user works in more than one company");
 

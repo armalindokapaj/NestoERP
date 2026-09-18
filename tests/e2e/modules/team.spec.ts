@@ -1,22 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-import {
-  db,
-  removeTestDepartments,
-  removeTestInvitations,
-  resetTeamFixtures,
-} from "../db";
+import { db, removeTestInvitations, resetTeamFixtures } from "../db";
 import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures";
 
 /**
  * The Team journey (PRD #14 §256–§280).
  */
 const INVITE_PREFIX = "e2e-invite";
-const DEPARTMENT_PREFIX = "E2E Department";
 
 test.afterAll(async () => {
   await removeTestInvitations(INVITE_PREFIX);
-  await removeTestDepartments(DEPARTMENT_PREFIX);
   await resetTeamFixtures();
   await db.$disconnect();
 });
@@ -74,32 +67,14 @@ test.describe("Owner (PRD #14 §257)", () => {
     expect(row.status).toBe("CANCELLED");
   });
 
-  test("creates a department and archives it again", async ({ page }) => {
-    await page.goto("/team/departments/new");
-
-    const name = `${DEPARTMENT_PREFIX} Facilities`;
-    await page.getByLabel("Name").fill(name);
-    await page.getByRole("button", { name: "Create department" }).click();
-
-    await page.waitForURL(/\/team\/departments$/);
-    await expect(recordTable(page).getByText(name)).toBeVisible();
-
-    await recordTable(page).getByRole("button", { name: `Actions for ${name}` }).click();
-    await page.getByRole("menuitem", { name: "Archive department" }).click();
-    await page.getByRole("button", { name: "Archive department" }).click();
-
-    await expect(page.getByText("Department archived.").first()).toBeVisible();
-    await expect(mainRegion(page).getByText(name)).toHaveCount(0);
-  });
-
-  test("cannot archive a department that still has members (PRD #14 §127)", async ({ page }) => {
+  test("reads the company's departments here and manages them in Organization (E-13 §39)", async ({ page }) => {
     await page.goto("/team/departments");
-
-    await recordTable(page).getByRole("button", { name: "Actions for Engineering" }).click();
-    await page.getByRole("menuitem", { name: "Archive department" }).click();
-
-    // The refusal is stated before the press, not discovered after it.
-    await expect(page.getByText(/still assigned to this department/i)).toBeVisible();
+    await expect(recordTable(page).getByRole("link", { name: "Engineering", exact: true })).toBeVisible();
+    // Nothing is created, edited or archived from the company side any more.
+    await expect(mainRegion(page).getByRole("link", { name: "New department" })).toHaveCount(0);
+    await mainRegion(page).getByRole("link", { name: "Manage in Organization" }).click();
+    await page.waitForURL(/\/organization\/companies\/company_demo_a$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Aurelia Construction" })).toBeVisible();
   });
 
   test("cannot remove its own access (PRD #14 §167)", async ({ page }) => {

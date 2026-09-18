@@ -4,7 +4,10 @@ import { ModulePage } from "@/components/modules/module-page";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { resolveModuleExperience } from "@/lib/access/module-access";
+import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { memberActor } from "@/lib/modules/organization/departments/department.actor";
+import { listGroupDepartments, listOrganizationCompanies } from "@/lib/modules/organization/departments/department.query";
 import { getOrganizationOverview, type PersonRefDTO } from "@/lib/modules/organization/organization.service";
 
 export const metadata: Metadata = { title: "Organization" };
@@ -17,10 +20,29 @@ export default async function OrganizationPage() {
   const context = await requireModule("organization");
   const experience = resolveModuleExperience(context, "organization");
   const overview = await getOrganizationOverview(context);
+  // How far the departments are set up, within the reader's reach (E-13 §97).
+  const metrics = can(context, "organization.department.view")
+    ? await Promise.all([listGroupDepartments(memberActor(context)), listOrganizationCompanies(memberActor(context))]).then(([departments, companies]) => [
+        { label: "Group departments", value: departments.length },
+        { label: "Active company departments", value: companies.reduce((sum, company) => sum + company.activeDepartments, 0) },
+        { label: "Departments without a group head", value: departments.filter((department) => department.activeCompanyCount > 0 && !department.groupHead).length },
+        { label: "Company departments without a manager", value: companies.reduce((sum, company) => sum + company.activeDepartments - company.withManager, 0) },
+      ])
+    : null;
 
   return (
     <ModulePage experience={experience} activeSection="overview">
       <div className="space-y-5">
+        {metrics ? (
+          <section aria-label="Departments at a glance" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="nesto-card p-4" data-testid="department-metric">
+                <p className="text-meta text-fg-subtle">{metric.label}</p>
+                <p className="text-section font-semibold tabular-nums text-fg">{metric.value}</p>
+              </div>
+            ))}
+          </section>
+        ) : null}
         <section className="nesto-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">

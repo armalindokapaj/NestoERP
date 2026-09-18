@@ -1,4 +1,4 @@
-import type { CompanyMember, DepartmentStatus, MembershipStatus } from "@prisma/client";
+import type { CompanyMember, MembershipStatus } from "@prisma/client";
 
 /**
  * Membership status rules an administrator may apply (PRD #14 §109, §110).
@@ -49,28 +49,3 @@ export const membershipStatusLabels: Record<MembershipStatus, string> = {
   SUSPENDED: "Suspended",
 };
 
-/* -------------------------------------------------------------------------- */
-/* Departments                                                                 */
-/* -------------------------------------------------------------------------- */
-
-const DEPARTMENT_TRANSITIONS: Record<DepartmentStatus, DepartmentStatus[]> = {
-  ACTIVE: ["INACTIVE"],
-  INACTIVE: ["ACTIVE"],
-  ARCHIVED: [],
-};
-
-export const EDITABLE_DEPARTMENT_STATUSES: DepartmentStatus[] = ["ACTIVE", "INACTIVE"];
-
-export function canTransitionDepartmentStatus(
-  from: DepartmentStatus,
-  to: DepartmentStatus,
-): boolean {
-  if (from === to) return true;
-  return DEPARTMENT_TRANSITIONS[from].includes(to);
-}
-
-export function isDepartmentArchived(
-  department: Pick<{ status: DepartmentStatus; archivedAt: Date | null }, "status" | "archivedAt">,
-): boolean {
-  return department.status === "ARCHIVED" || department.archivedAt !== null;
-}

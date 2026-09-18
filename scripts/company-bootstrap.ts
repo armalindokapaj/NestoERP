@@ -13,7 +13,11 @@
  *     --name="Acme Construction" --slug=acme --owner-email=owner@acme.example \
  *     [--legal-name="Acme Construction Sh.p.k."] [--country=Albania] \
  *     [--timezone=Europe/Tirane] [--locale=sq-AL] [--currency=EUR] \
- *     [--disable=hse,qaqc] [--group=acme-group --group-name="Acme Group"]
+ *     [--disable=hse,qaqc] [--group=acme-group --group-name="Acme Group"] \
+ *     [--departments=finance,hr,procurement]
+ *
+ * `--departments` names the group departments the company runs (E-13 §49); a
+ * new company without it runs every one of its group's.
  *
  * Run `pnpm access:sync` first on a fresh database.
  */
@@ -52,6 +56,10 @@ async function main() {
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean) as ModuleKey[],
+    departmentKeys: arg("departments")
+      ?.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
   });
 
   console.log(`  company   ${result.slug} (${result.companyId}) — ${result.companyCreated ? "created" : "already existed"}`);

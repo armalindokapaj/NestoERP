@@ -20,8 +20,11 @@ import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../.
 
 const COMPANY_A = "company_demo_a";
 
-/** The Prisma model behind each registry type, and the column its id lives in. */
-const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
+/**
+ * The Prisma model behind each registry type, and the column its id lives in.
+ * A record of the group rather than of one company says where to find it.
+ */
+const SOURCE: Record<RecordType, { model: string; idField?: string; where?: Record<string, string> }> = {
   project: { model: "project" },
   client: { model: "client" },
   task: { model: "task" },
@@ -77,6 +80,7 @@ const SOURCE: Record<RecordType, { model: string; idField?: string }> = {
   rfi: { model: "rfi" },
   technical_submittal: { model: "technicalSubmittal" },
   transmittal: { model: "documentTransmittal" },
+  group_department: { model: "groupDepartment", where: { parentGroupId: "group_demo_nesto" } },
 };
 
 let owner: UserContext;
@@ -92,7 +96,7 @@ beforeAll(async () => {
     const source = SOURCE[definition.type];
     const idField = source.idField ?? "id";
     const delegate = (prisma as unknown as Record<string, { findMany(args: unknown): Promise<Record<string, string>[]> }>)[source.model];
-    const rows = await delegate.findMany({ where: { companyId: COMPANY_A }, select: { [idField]: true }, take: 25 });
+    const rows = await delegate.findMany({ where: source.where ?? { companyId: COMPANY_A }, select: { [idField]: true }, take: 25 });
     for (const row of rows) {
       const record = await loadRecord(owner, definition.type, row[idField]);
       if (record && !record.archived && !record.filesClosed) {
