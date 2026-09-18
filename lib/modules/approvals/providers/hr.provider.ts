@@ -65,6 +65,7 @@ const SELECT = {
   cancelledAt: true,
   decisionNote: true,
   employeeProfileId: true,
+  employeeProfile: { select: { personProfile: { select: { firstName: true, lastName: true } } } },
 } satisfies Prisma.LeaveRequestSelect;
 
 type LeaveRow = Prisma.LeaveRequestGetPayload<{ select: typeof SELECT }>;
@@ -101,7 +102,10 @@ async function buildItems(context: UserContext, entries: Array<{ row: LeaveRow; 
   return entries.flatMap(({ row, sortAt }) => {
     const status = STATUS[row.status];
     if (!status || !row.submittedAt) return [];
-    const person = personOrUnknown(names, row.companyMemberId);
+    // HR records leave for employees with no login too (E-04 §5): they are named from the person.
+    const person = row.companyMemberId
+      ? personOrUnknown(names, row.companyMemberId)
+      : { memberId: "", name: `${row.employeeProfile.personProfile.firstName} ${row.employeeProfile.personProfile.lastName}` };
     const pending = status === "PENDING";
     const own = row.companyMemberId === context.membershipId;
     const startsSoon = row.startDate.getTime() - today.getTime() <= 2 * DAY;

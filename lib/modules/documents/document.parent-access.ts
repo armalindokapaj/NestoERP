@@ -183,17 +183,11 @@ function recordDocumentReadHeld(context: UserContext, definition: RecordDefiniti
 /** The self-service door: somebody's own record, reached without a grant over anybody else. */
 async function selfDoorOpen(context: UserContext, definition: RecordDefinition, id: string): Promise<boolean> {
   const self = definition.documents?.self;
-  if (!self || !self.isSelf(context, id) || !can(context, self.permission)) return false;
+  if (!self || !can(context, self.permission)) return false;
   const access = context.moduleAccess[definition.moduleKey];
   if (!access?.enabled) return false;
-  if (definition.type === "employee") {
-    const profile = await prisma.employeeProfile.findFirst({
-      where: { companyId: context.companyId, companyMemberId: id },
-      select: { id: true },
-    });
-    return Boolean(profile);
-  }
-  return false;
+  // The record is theirs — for an employee record, the employment names their login (E-04 §7).
+  return self.isSelf(context, id);
 }
 
 /**

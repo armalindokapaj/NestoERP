@@ -184,6 +184,12 @@ async function memberIdFor(email: string): Promise<string> {
   return user.memberships[0]!.id;
 }
 
+/** The employment a membership holds — how HR addresses an employee (E-04 §14); anything else is passed through. */
+async function employmentOf(id: string): Promise<string> {
+  const employment = await prisma.employeeProfile.findUnique({ where: { companyMemberId: id }, select: { id: true } });
+  return employment?.id ?? id;
+}
+
 /** A future range that starts on a Monday, so it always contains working days. */
 function futureRange(weeksAhead: number, workingDays = 3) {
   const start = today();
@@ -201,7 +207,7 @@ function leaveInput(input: {
   startDate: Date;
   endDate: Date;
   reason?: string;
-  companyMemberId?: string;
+  employeeId?: string;
 }) {
   return createLeaveSchema.parse(input);
 }
@@ -214,13 +220,13 @@ function employmentUpdate(input: { weeklyHours?: string; employeeNumber?: string
   return updateEmployeeProfileSchema.parse(input);
 }
 
-/** A dated employment change, through the one typed service (E-03 §36). */
-function change(context: Parameters<typeof applyEmploymentChange>[0], memberId: string, input: Record<string, unknown>) {
-  return applyEmploymentChange(context, memberId, employmentChangeSchema.parse({ effectiveDate: todayDay(), ...input }), { placement: placeMembership });
+/** A dated employment change, through the one typed service (E-03 §36), to the employment a member holds. */
+async function change(context: Parameters<typeof applyEmploymentChange>[0], memberId: string, input: Record<string, unknown>) {
+  return applyEmploymentChange(context, await employmentOf(memberId), employmentChangeSchema.parse({ effectiveDate: todayDay(), ...input }), { placement: placeMembership });
 }
 
 function attendanceInput(input: {
-  companyMemberId?: string;
+  employeeId?: string;
   date: Date;
   status: "PRESENT" | "ABSENT" | "ON_LEAVE" | "REMOTE" | "HOLIDAY" | "OFF";
   checkIn?: string;
@@ -289,12 +295,12 @@ describe("employee list scope (PRD #16 §273)", () => {
     const ownerMember = await memberIdFor("owner@nesto.test");
 
     // 403 would confirm the Owner has an employment record. 404 says nothing.
-    await expectError(employees.getEmployee(context, ownerMember), "NOT_FOUND");
+    await expectError(employees.getEmployee(context, await employmentOf(ownerMember)), "NOT_FOUND");
   });
 
   it("lets a self-scoped reader open their own record through self-service (PRD #16 §16)", async () => {
     const context = await loginAs("ENGINEER");
-    const employee = await employees.getEmployee(context, context.membershipId);
+    const employee = await employees.getEmployee(context, await employmentOf(context.membershipId));
 
     expect(employee.email).toBe("engineer@nesto.test");
     expect(employee.capabilities.canEditEmployment).toBe(false);
@@ -329,12 +335,12 @@ describe("employee list scope (PRD #16 §273)", () => {
     const engineerMember = await memberIdFor("engineer@nesto.test");
 
     const tenant = await loginAsEmail(DEMO_EMAIL.tenantOwner);
-    await expectError(employees.getEmployee(tenant, engineerMember), "NOT_FOUND");
+    await expectError(employees.getEmployee(tenant, await employmentOf(engineerMember)), "NOT_FOUND");
 
     // A sibling company in the same group is another company all the same.
     const sibling = await loginAsEmail(DEMO_EMAIL.ceoB);
     expect(can(sibling, "hr.employee.view")).toBe(true);
-    await expectError(employees.getEmployee(sibling, engineerMember), "NOT_FOUND");
+    await expectError(employees.getEmployee(sibling, await employmentOf(engineerMember)), "NOT_FOUND");
   });
 });
 
@@ -346,7 +352,7 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
   it("lets HR read pay", async () => {
     const context = await loginAs("HR");
     const memberId = await memberIdFor("engineer@nesto.test");
-    const records = await compensation.listCompensation(context, memberId);
+    const records = await compensation.listCompensation(context, await employmentOf(memberId));
 
     expect(records.length).toBeGreaterThan(0);
     expect(records.some((record) => record.isCurrent)).toBe(true);
@@ -364,7 +370,7 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
       const memberId = await memberIdFor("engineer@nesto.test");
 
       expect(can(context, "hr.compensation.view")).toBe(false);
-      await expectError(compensation.listCompensation(context, memberId), "FORBIDDEN");
+      await expectError(compensation.listCompensation(context, await employmentOf(memberId)), "FORBIDDEN");
     },
   );
 
@@ -373,7 +379,7 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
     // module makes: there is deliberately no self-service door here.
     const context = await loginAs("ENGINEER");
     await expectError(
-      compensation.listCompensation(context, context.membershipId),
+      compensation.listCompensation(context, await employmentOf(context.membershipId)),
       "FORBIDDEN",
     );
   });
@@ -381,7 +387,7 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
   it("keeps pay out of the employee DTO entirely (PRD #16 §169)", async () => {
     const context = await loginAs("HR");
     const memberId = await memberIdFor("engineer@nesto.test");
-    const employee = await employees.getEmployee(context, memberId);
+    const employee = await employees.getEmployee(context, await employmentOf(memberId));
 
     const serialised = JSON.stringify(employee);
     expect(serialised).not.toContain("baseAmount");
@@ -394,7 +400,7 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
     const memberId = await memberIdFor("engineer@nesto.test");
 
     const effectiveFrom = new Date(Date.UTC(today().getUTCFullYear() + 1, 0, 15, 12));
-    await compensation.recordCompensation(context, memberId, {
+    await compensation.recordCompensation(context, await employmentOf(memberId), {
       currency: "EUR",
       payType: "SALARY",
       baseAmount: "3650.00",
@@ -402,7 +408,7 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
       notes: "Annual review.",
     });
 
-    const history = await compensation.listCompensation(context, memberId);
+    const history = await compensation.listCompensation(context, await employmentOf(memberId));
     const open = history.filter((record) => record.effectiveTo === null);
     createdCompensation.push(open[0]!.id);
 
@@ -421,7 +427,7 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
     const context = await loginAs("HR");
     const memberId = await memberIdFor("architect@nesto.test");
 
-    await compensation.recordCompensation(context, memberId, {
+    await compensation.recordCompensation(context, await employmentOf(memberId), {
       currency: "EUR",
       payType: "SALARY",
       baseAmount: "4123.45",
@@ -429,13 +435,13 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
       notes: "Sensitive note that must not be copied.",
     });
 
-    const history = await compensation.listCompensation(context, memberId);
+    const history = await compensation.listCompensation(context, await employmentOf(memberId));
     const created = history.find((record) => record.effectiveTo === null)!;
     createdCompensation.push(created.id);
 
     // The trail is filed against the employee, never the pay record itself.
     const entries = await prisma.activity.findMany({
-      where: { module: "hr", entityId: memberId, action: "HR_COMPENSATION_RECORDED" },
+      where: { module: "hr", entityId: await employmentOf(memberId), action: "HR_COMPENSATION_RECORDED" },
       select: { message: true, metadata: true },
     });
 
@@ -515,7 +521,7 @@ describe("leave self-service (PRD #16 §74, §275)", () => {
 
   it("lets somebody see their own balance without the company grant", async () => {
     const context = await loginAs("ENGINEER");
-    const balances = await leave.getBalances(context, context.membershipId, today().getUTCFullYear());
+    const balances = await leave.getBalances(context, await employmentOf(context.membershipId), today().getUTCFullYear());
 
     expect(balances.length).toBeGreaterThan(0);
     expect(balances.find((row) => row.leaveType === "ANNUAL")?.tracked).toBe(true);
@@ -530,7 +536,7 @@ describe("leave self-service (PRD #16 §74, §275)", () => {
 
     expect(can(context, "hr.leave.balance.view")).toBe(true);
     await expectError(
-      leave.getBalances(context, other, today().getUTCFullYear()),
+      leave.getBalances(context, await employmentOf(other), today().getUTCFullYear()),
       "NOT_FOUND",
     );
   });
@@ -583,7 +589,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
 
     const range = await bookable(engineer.membershipId, 32, 2);
     const year = range.year;
-    const before = await leave.getBalances(hr, engineer.membershipId, year);
+    const before = await leave.getBalances(hr, await employmentOf(engineer.membershipId), year);
     const annualBefore = before.find((row) => row.leaveType === "ANNUAL")!;
 
     const created = await leave.createLeave(engineer, leaveInput({ leaveType: "ANNUAL", ...range }));
@@ -595,7 +601,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     expect(approved.status).toBe("APPROVED");
     expect(approved.decidedBy).toBeTruthy();
 
-    const after = await leave.getBalances(hr, engineer.membershipId, year);
+    const after = await leave.getBalances(hr, await employmentOf(engineer.membershipId), year);
     const annualAfter = after.find((row) => row.leaveType === "ANNUAL")!;
 
     expect(Number(annualAfter.usedDays) - Number(annualBefore.usedDays)).toBe(2);
@@ -608,7 +614,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
 
     const range = await bookable(engineer.membershipId, 33, 3);
     const year = range.year;
-    const before = await leave.getBalances(hr, engineer.membershipId, year);
+    const before = await leave.getBalances(hr, await employmentOf(engineer.membershipId), year);
     const annualBefore = Number(
       before.find((row) => row.leaveType === "ANNUAL")!.availableDays,
     );
@@ -619,7 +625,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     await leave.approveLeave(hr, created.id, null);
     await leave.cancelLeave(hr, created.id);
 
-    const after = await leave.getBalances(hr, engineer.membershipId, year);
+    const after = await leave.getBalances(hr, await employmentOf(engineer.membershipId), year);
     expect(Number(after.find((row) => row.leaveType === "ANNUAL")!.availableDays)).toBe(
       annualBefore,
     );
@@ -631,7 +637,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
 
     const range = await bookable(engineer.membershipId, 34, 4);
     const year = range.year;
-    const before = await leave.getBalances(hr, engineer.membershipId, year);
+    const before = await leave.getBalances(hr, await employmentOf(engineer.membershipId), year);
     const usedBefore = Number(before.find((row) => row.leaveType === "ANNUAL")!.usedDays);
 
     const created = await leave.createLeave(engineer, leaveInput({ leaveType: "ANNUAL", ...range }));
@@ -639,7 +645,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     await leave.submitLeave(engineer, created.id);
     await leave.rejectLeave(hr, created.id, "Clashes with the handover week.");
 
-    const after = await leave.getBalances(hr, engineer.membershipId, year);
+    const after = await leave.getBalances(hr, await employmentOf(engineer.membershipId), year);
     expect(Number(after.find((row) => row.leaveType === "ANNUAL")!.usedDays)).toBe(usedBefore);
 
     const rejected = await leave.getLeave(hr, created.id);
@@ -664,7 +670,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     await leave.submitLeave(engineer, created.id);
     await leave.approveLeave(hr, created.id, null);
 
-    const balances = await leave.getBalances(hr, engineer.membershipId, range.year);
+    const balances = await leave.getBalances(hr, await employmentOf(engineer.membershipId), range.year);
     expect(balances.find((row) => row.leaveType === "SICK")?.tracked).toBe(false);
   });
 
@@ -695,7 +701,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
 
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
 
-    const balance = (await leave.getBalances(hr, engineer.membershipId, first.year)).find(
+    const balance = (await leave.getBalances(hr, await employmentOf(engineer.membershipId), first.year)).find(
       (row) => row.leaveType === "ANNUAL",
     )!;
     expect(Number(balance.usedDays)).toBeLessThanOrEqual(Number(balance.entitledDays));
@@ -833,7 +839,7 @@ describe("leave writes attendance (PRD #16 §108, §283)", () => {
 
     // A present day inside the range: approving would have to overwrite a fact.
     const clash = await attendance.createAttendance(hr, attendanceInput({
-      companyMemberId: engineer.membershipId,
+      employeeId: await employmentOf(engineer.membershipId),
       date: range.startDate,
       status: "HOLIDAY",
     }));
@@ -871,7 +877,7 @@ describe("attendance (PRD #16 §281, §282)", () => {
     const date = pastWorkingDay(3);
 
     const record = await attendance.createAttendance(hr, attendanceInput({
-      companyMemberId: memberId,
+      employeeId: await employmentOf(memberId),
       date,
       status: "PRESENT",
       checkIn: "08:15",
@@ -888,7 +894,7 @@ describe("attendance (PRD #16 §281, §282)", () => {
     const memberId = await memberIdFor("sales@nesto.test");
 
     const record = await attendance.createAttendance(hr, attendanceInput({
-      companyMemberId: memberId,
+      employeeId: await employmentOf(memberId),
       date: pastWorkingDay(4),
       status: "ABSENT",
       checkIn: "09:00",
@@ -908,7 +914,7 @@ describe("attendance (PRD #16 §281, §282)", () => {
 
     await expectError(
       attendance.createAttendance(hr, attendanceInput({
-        companyMemberId: memberId,
+        employeeId: await employmentOf(memberId),
         date: pastWorkingDay(5),
         status: "PRESENT",
         checkIn: "17:00",
@@ -924,14 +930,14 @@ describe("attendance (PRD #16 §281, §282)", () => {
     const date = pastWorkingDay(6);
 
     const first = await attendance.createAttendance(hr, attendanceInput({
-      companyMemberId: memberId,
+      employeeId: await employmentOf(memberId),
       date,
       status: "PRESENT",
     }));
     createdAttendance.push(first.id);
 
     await expectError(
-      attendance.createAttendance(hr, attendanceInput({ companyMemberId: memberId, date, status: "REMOTE" })),
+      attendance.createAttendance(hr, attendanceInput({ employeeId: await employmentOf(memberId), date, status: "REMOTE" })),
       "CONFLICT",
     );
   });
@@ -943,13 +949,13 @@ describe("attendance (PRD #16 §281, §282)", () => {
     future.setUTCDate(future.getUTCDate() + 10);
 
     await expectError(
-      attendance.createAttendance(hr, attendanceInput({ companyMemberId: memberId, date: future, status: "PRESENT" })),
+      attendance.createAttendance(hr, attendanceInput({ employeeId: await employmentOf(memberId), date: future, status: "PRESENT" })),
       "VALIDATION_ERROR",
     );
 
     // A holiday is a decision made in advance, so it is allowed.
     const planned = await attendance.createAttendance(hr, attendanceInput({
-      companyMemberId: memberId,
+      employeeId: await employmentOf(memberId),
       date: future,
       status: "HOLIDAY",
     }));
@@ -963,7 +969,7 @@ describe("attendance (PRD #16 §281, §282)", () => {
 
     await expectError(
       attendance.createAttendance(tenant, attendanceInput({
-        companyMemberId: engineerMember,
+        employeeId: await employmentOf(engineerMember),
         date: pastWorkingDay(7),
         status: "PRESENT",
       })),
@@ -1124,14 +1130,14 @@ describe("employment lifecycle (PRD #16 §285–§287)", () => {
       expect(profile).toEqual({ offboardingStatus: "NOT_STARTED", employmentStatus: "ENDED" });
     } finally {
       await restore();
-      await prisma.activity.deleteMany({ where: { module: "hr", entityId: memberId, action: "HR_EMPLOYMENT_ENDED" } });
+      await prisma.activity.deleteMany({ where: { module: "hr", entityId: employment.id, action: "HR_EMPLOYMENT_ENDED" } });
     }
   });
 
   it("denies a self-scoped reader any employment write at all", async () => {
     const context = await loginAs("ENGINEER");
 
-    await expectError(employees.updateEmployeeProfile(context, context.membershipId, employmentUpdate({ weeklyHours: "30" })), "FORBIDDEN");
+    await expectError(employees.updateEmployeeProfile(context, await employmentOf(context.membershipId), employmentUpdate({ weeklyHours: "30" })), "FORBIDDEN");
     await expectError(change(context, context.membershipId, { action: "STATUS", status: "ON_LEAVE" }), "FORBIDDEN");
     await expectError(change(context, context.membershipId, { action: "POSITION", jobTitle: "Chief Engineer", reason: "PROMOTION" }), "FORBIDDEN");
   });
@@ -1218,19 +1224,19 @@ describe("overview and reports (PRD #16 §291, §292)", () => {
     const engineerMember = await memberIdFor("engineer@nesto.test");
     const ownerMember = await memberIdFor("owner@nesto.test");
 
-    const trail = await listEmployeeActivity(hr, engineerMember);
+    const trail = await listEmployeeActivity(hr, await employmentOf(engineerMember));
     expect(trail.data.length).toBeGreaterThanOrEqual(0);
 
     // A self-scoped reader holds hr.activity.view, so the permission alone is
     // not what stops them reading the Owner's employment and pay events.
     const engineer = await loginAs("ENGINEER");
     expect(can(engineer, "hr.activity.view")).toBe(true);
-    await expectError(listEmployeeActivity(engineer, ownerMember), "NOT_FOUND");
-    await expect(listEmployeeActivity(engineer, engineerMember)).resolves.toBeTruthy();
+    await expectError(listEmployeeActivity(engineer, await employmentOf(ownerMember)), "NOT_FOUND");
+    await expect(listEmployeeActivity(engineer, await employmentOf(engineerMember))).resolves.toBeTruthy();
 
     // No HR access at all: refused before the scope is even consulted.
     const sales = await loginAs("SALES");
-    await expectError(listEmployeeActivity(sales, engineerMember), "FORBIDDEN");
+    await expectError(listEmployeeActivity(sales, await employmentOf(engineerMember)), "FORBIDDEN");
   });
 
   it("lists onboarding and offboarding behind their own permissions (PRD #16 §121)", async () => {
@@ -1270,7 +1276,7 @@ describe("role rules (PRD #16 §18, §19)", () => {
     expect(can(context, "hr.self.employment")).toBe(true);
     expect(can(context, "hr.self.leave")).toBe(true);
 
-    const own = await employees.getEmployee(context, context.membershipId);
+    const own = await employees.getEmployee(context, await employmentOf(context.membershipId));
     expect(own.email).toBe("it@nesto.test");
   });
 

@@ -130,20 +130,19 @@ export function changePermissions(input: EmploymentChangeInput, timing: Timing):
   return need;
 }
 
-/** The employment this membership holds, within HR's scope; out of scope is not found (PRD #16 §202). */
-export async function loadTarget(context: UserContext, memberId: string): Promise<Target> {
+/** An employment within HR's scope, with or without a login; out of scope is not found (PRD #16 §202, E-04 §86). */
+export async function loadTarget(context: UserContext, employmentId: string): Promise<Target> {
   // Out of HR's scope answers "not found" (PRD #16 §202).
-  const row = await repository.findEmployeeByMember(context, memberId);
+  const row = await repository.findEmployee(context, employmentId);
   if (!row) throw new AccessError("NOT_FOUND");
-  const extra = await prisma.employeeProfile.findFirstOrThrow({ where: { id: row.id, companyId: context.companyId }, select: { personProfileId: true, offboardingStatus: true } });
   return {
     id: row.id,
     companyId: context.companyId,
     companyMemberId: row.companyMemberId,
-    personProfileId: extra.personProfileId,
+    personProfileId: row.personProfileId,
     employmentStatus: row.employmentStatus,
-    offboardingStatus: extra.offboardingStatus,
-    name: `${row.companyMember.user.firstName} ${row.companyMember.user.lastName}`,
+    offboardingStatus: row.offboardingStatus,
+    name: `${row.personProfile.firstName} ${row.personProfile.lastName}`,
   };
 }
 
@@ -188,12 +187,12 @@ function timingOf(status: EmploymentStatus, input: EmploymentChangeInput, today:
  */
 export async function applyEmploymentChange(
   context: UserContext,
-  memberId: string,
+  employmentId: string,
   input: EmploymentChangeInput,
   options: ChangeOptions,
 ): Promise<EmploymentChangeResultDTO> {
   assertModule(context, MODULE);
-  const target = await loadTarget(context, memberId);
+  const target = await loadTarget(context, employmentId);
   const today = todayDay();
   const timing = timingOf(target.employmentStatus, input, today);
   for (const permission of changePermissions(input, timing)) assertPermission(context, permission);
@@ -361,11 +360,11 @@ async function recordAssignmentChange(tx: Prisma.TransactionClient, run: Perform
     after: { ...assignmentFacts(write.after), effectiveDate: effective, changeType, source: run.source, scheduledChangeId: run.scheduledChangeId ?? null },
   });
   const summary = describeAssignmentChange(write);
-  if (run.actor.kind === "member" && target.companyMemberId && run.actor.context.companyId === target.companyId) {
+  if (run.actor.kind === "member" && run.actor.context.companyId === target.companyId) {
     await recordActivity(tx, run.actor.context, {
       module: MODULE,
       entityType: ENTITY,
-      entityId: target.companyMemberId,
+      entityId: target.id,
       action: `HR_EMPLOYMENT_${changeType}`,
       message: `${summary}, effective ${effective}`,
       metadata: { memberId: target.companyMemberId, employmentId: target.id, assignmentId: write.after.id, effectiveDate: effective, changeType } as Prisma.InputJsonValue,
@@ -378,7 +377,7 @@ async function recordAssignmentChange(tx: Prisma.TransactionClient, run: Perform
       eventType: NotificationEvent.EMPLOYMENT_CHANGE_EFFECTIVE,
       moduleKey: MODULE,
       entityType: "employee",
-      entityId: target.companyMemberId,
+      entityId: target.id,
       actorMemberId: memberOf(run.actor, target.companyId) ?? null,
       payload: { memberId: target.companyMemberId, change: summary, effectiveDate: effective },
     });
@@ -421,11 +420,11 @@ async function changeStatus(tx: Prisma.TransactionClient, run: PerformInput, nex
     before: { employmentStatus: current.employmentStatus },
     after: { employmentStatus: next, effectiveDate: run.effective, statusReason: reason ?? (current.employmentStatus === "PLANNED" ? "HIRE" : DEFAULT_STATUS_REASON[next]), privateReasonRecorded: Boolean(privateReason), documentId: run.input.documentId ?? null, source: run.source },
   });
-  if (run.actor.kind === "member" && target.companyMemberId && run.actor.context.companyId === target.companyId) {
+  if (run.actor.kind === "member" && run.actor.context.companyId === target.companyId) {
     await recordActivity(tx, run.actor.context, {
       module: MODULE,
       entityType: ENTITY,
-      entityId: target.companyMemberId,
+      entityId: target.id,
       action: `HR_EMPLOYMENT_${next}`,
       message: current.employmentStatus === "PLANNED" ? `started their employment on ${run.effective}` : `set their employment to ${next.toLowerCase().replace("_", " ")} from ${run.effective}`,
       metadata: { memberId: target.companyMemberId, employmentId: target.id, from: current.employmentStatus, to: next, effectiveDate: run.effective } as Prisma.InputJsonValue,
@@ -500,11 +499,11 @@ async function terminate(tx: Prisma.TransactionClient, run: PerformInput, lastWo
     before: { employmentStatus: current.employmentStatus },
     after: { employmentStatus: "ENDED", lastWorkingDay: current.employmentStatus === "PLANNED" ? null : lastWorkingDay, effectiveDate: effective, statusReason: reason, privateReasonRecorded: Boolean(privateReason), documentId: run.input.documentId ?? null, cancelledScheduledChanges: cancelled.count, source: run.source },
   });
-  if (run.actor.kind === "member" && target.companyMemberId && run.actor.context.companyId === target.companyId) {
+  if (run.actor.kind === "member" && run.actor.context.companyId === target.companyId) {
     await recordActivity(tx, run.actor.context, {
       module: MODULE,
       entityType: ENTITY,
-      entityId: target.companyMemberId,
+      entityId: target.id,
       action: "HR_EMPLOYMENT_ENDED",
       message: current.employmentStatus === "PLANNED" ? "withdrew the planned employment" : `recorded the end of their employment, last day ${lastWorkingDay}`,
       metadata: { memberId: target.companyMemberId, employmentId: target.id, lastWorkingDay, effectiveDate: effective } as Prisma.InputJsonValue,
@@ -567,11 +566,11 @@ async function rehire(tx: Prisma.TransactionClient, run: PerformInput, input: Ex
     before: { employmentStatus: "ENDED", endedFrom },
     after: { employmentStatus: startsNow ? "ACTIVE" : "PLANNED", effectiveDate: input.effectiveDate, departmentId: placement.departmentId, jobTitle: placement.jobTitle, managerMemberId: placement.managerMemberId, employmentType: placement.employmentType, documentId: input.documentId ?? null, source: run.source },
   });
-  if (run.actor.kind === "member" && target.companyMemberId && run.actor.context.companyId === target.companyId) {
+  if (run.actor.kind === "member" && run.actor.context.companyId === target.companyId) {
     await recordActivity(tx, run.actor.context, {
       module: MODULE,
       entityType: ENTITY,
-      entityId: target.companyMemberId,
+      entityId: target.id,
       action: "HR_EMPLOYEE_REHIRED",
       message: `rehired them from ${input.effectiveDate}`,
       metadata: { memberId: target.companyMemberId, employmentId: target.id, previousEndDate: addDays(endedFrom, -1), effectiveDate: input.effectiveDate } as Prisma.InputJsonValue,
@@ -667,11 +666,11 @@ async function transferToCompany(tx: Prisma.TransactionClient, run: PerformInput
   const facts = { employeeProfileId: target.id, companyId: target.companyId, targetCompanyId: company.id, targetEmploymentId: employmentId, effectiveDate: effective, lastWorkingDay: lastDay, departmentId: department.id, departmentName: department.name, jobTitle: input.jobTitle, managerMemberId: manager?.id ?? null, documentId: input.documentId ?? null, reopened: Boolean(existing), source: run.source };
   await auditEmployment(tx, run.actor, target.companyId, { actionKey: AuditAction.HR_EMPLOYMENT_ENTITY_TRANSFERRED, entity: { type: ENTITY, id: target.id, label: target.name }, before: { employmentStatus: target.employmentStatus }, after: { ...facts, employmentStatus: "ENDED" } });
   await auditEmployment(tx, run.targetContext ? { kind: "member", context: run.targetContext } : run.actor, company.id, { actionKey: AuditAction.HR_EMPLOYMENT_ENTITY_TRANSFERRED, entity: { type: ENTITY, id: employmentId, label: target.name }, after: { ...facts, employmentStatus: "ACTIVE" } });
-  if (run.actor.kind === "member" && target.companyMemberId && run.actor.context.companyId === target.companyId) {
+  if (run.actor.kind === "member" && run.actor.context.companyId === target.companyId) {
     await recordActivity(tx, run.actor.context, {
       module: MODULE,
       entityType: ENTITY,
-      entityId: target.companyMemberId,
+      entityId: target.id,
       action: "HR_EMPLOYMENT_LEGAL_ENTITY_TRANSFER",
       message: `transferred them to ${company.name} from ${effective}`,
       metadata: { memberId: target.companyMemberId, employmentId: target.id, targetEmploymentId: employmentId, targetCompanyId: company.id, effectiveDate: effective } as Prisma.InputJsonValue,
@@ -684,7 +683,7 @@ async function transferToCompany(tx: Prisma.TransactionClient, run: PerformInput
       eventType: NotificationEvent.EMPLOYMENT_CHANGE_EFFECTIVE,
       moduleKey: MODULE,
       entityType: "employee",
-      entityId: linked.companyMemberId,
+      entityId: employmentId,
       actorMemberId: run.targetContext?.membershipId ?? null,
       payload: { memberId: linked.companyMemberId, change: `You now work for ${company.name}`, effectiveDate: effective },
     });
@@ -739,26 +738,24 @@ async function scheduleChange(context: UserContext, target: Target, input: Emplo
         entity: { type: ENTITY, id: target.id, label: target.name },
         after: { scheduledChangeId: change.id, changeType: type, effectiveDate: effective, documentId: input.documentId ?? null, ...(input.action === "LEGAL_ENTITY" ? { targetCompanyId: input.targetCompanyId } : {}) },
       });
-      if (target.companyMemberId) {
-        await recordActivity(tx, context, {
-          module: MODULE,
-          entityType: ENTITY,
-          entityId: target.companyMemberId,
-          action: "HR_EMPLOYMENT_CHANGE_SCHEDULED",
-          message: `scheduled a ${changeTypeLabels[type].toLowerCase()} for ${effective}`,
-          metadata: { memberId: target.companyMemberId, employmentId: target.id, scheduledChangeId: change.id, changeType: type, effectiveDate: effective } as Prisma.InputJsonValue,
-        });
-      }
+      await recordActivity(tx, context, {
+        module: MODULE,
+        entityType: ENTITY,
+        entityId: target.id,
+        action: "HR_EMPLOYMENT_CHANGE_SCHEDULED",
+        message: `scheduled a ${changeTypeLabels[type].toLowerCase()} for ${effective}`,
+        metadata: { memberId: target.companyMemberId, employmentId: target.id, scheduledChangeId: change.id, changeType: type, effectiveDate: effective } as Prisma.InputJsonValue,
+      });
       return { outcome: "SCHEDULED" as const, employmentId: target.id, scheduledChangeId: change.id, needsAccountIn: null };
     })
     .catch(historyRaced);
 }
 
 /** Cancels a change before it applies (E-03 §157, §210). After, the history is corrected instead. */
-export async function cancelScheduledChange(context: UserContext, memberId: string, changeId: string, reason: string | undefined): Promise<void> {
+export async function cancelScheduledChange(context: UserContext, employmentId: string, changeId: string, reason: string | undefined): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "hr.employment.schedule");
-  const target = await loadTarget(context, memberId);
+  const target = await loadTarget(context, employmentId);
   await prisma.$transaction(async (tx) => {
     const change = await tx.employmentChange.findFirst({ where: { id: changeId, employeeProfileId: target.id, companyId: target.companyId }, select: { id: true, status: true, type: true, effectiveDate: true } });
     if (!change) throw new AccessError("NOT_FOUND");
@@ -775,15 +772,13 @@ export async function cancelScheduledChange(context: UserContext, memberId: stri
       before: { scheduledChangeId: change.id, changeStatus: "SCHEDULED" },
       after: { scheduledChangeId: change.id, changeStatus: "CANCELLED", changeType: change.type, effectiveDate: dayOf(change.effectiveDate) },
     });
-    if (target.companyMemberId) {
-      await recordActivity(tx, context, {
-        module: MODULE,
-        entityType: ENTITY,
-        entityId: target.companyMemberId,
-        action: "HR_EMPLOYMENT_CHANGE_CANCELLED",
-        message: `cancelled the ${changeTypeLabels[change.type].toLowerCase()} scheduled for ${dayOf(change.effectiveDate)}`,
-        metadata: { memberId: target.companyMemberId, employmentId: target.id, scheduledChangeId: change.id } as Prisma.InputJsonValue,
-      });
-    }
+    await recordActivity(tx, context, {
+      module: MODULE,
+      entityType: ENTITY,
+      entityId: target.id,
+      action: "HR_EMPLOYMENT_CHANGE_CANCELLED",
+      message: `cancelled the ${changeTypeLabels[change.type].toLowerCase()} scheduled for ${dayOf(change.effectiveDate)}`,
+      metadata: { memberId: target.companyMemberId, employmentId: target.id, scheduledChangeId: change.id } as Prisma.InputJsonValue,
+    });
   });
 }

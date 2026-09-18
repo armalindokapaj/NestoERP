@@ -38,7 +38,7 @@ export default async function EditLeavePage({ params }: Params) {
       <LeaveForm
         action={action}
         values={{
-          companyMemberId: request.employee.memberId,
+          employeeId: request.employee.employeeId,
           leaveType: request.leaveType,
           startDate: request.startDate,
           endDate: request.endDate,

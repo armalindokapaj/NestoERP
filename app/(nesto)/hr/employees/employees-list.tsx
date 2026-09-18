@@ -7,8 +7,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseEmployeeQuery } from "@/lib/modules/hr/hr.query";
-import { EMPLOYMENT_TYPES } from "@/lib/modules/hr/hr.schema";
-import { employmentStatusLabels, employmentTypeLabels } from "@/lib/modules/hr/hr.status";
+import { ACCOUNT_STATUSES } from "@/lib/modules/hr/hr.person";
+import { EMPLOYMENT_TYPES, WORKER_CATEGORIES } from "@/lib/modules/hr/hr.schema";
+import { accountStatusLabels, employmentStatusLabels, employmentTypeLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
 import { employeeFilterOptions } from "@/lib/modules/hr/employees/employee.repository";
 import * as employees from "@/lib/modules/hr/employees/employee.service";
 
@@ -40,7 +41,10 @@ export async function EmployeesList({
       query.status?.length ||
       query.employmentType?.length ||
       query.departmentId ||
-      query.managerMemberId,
+      query.managerMemberId ||
+      query.accountStatus?.length ||
+      query.workerCategory?.length ||
+      query.tradeId,
   );
 
   const filters: FilterConfig[] = [
@@ -70,6 +74,20 @@ export async function EmployeesList({
       label: "Manager",
       options: options.managers.map((manager) => ({ value: manager.id, label: manager.name })),
     },
+    // Employment is not access: most site workers have no login, and HR finds them by that (E-04 §19).
+    {
+      param: "accountStatus",
+      label: "NESTO account",
+      options: ACCOUNT_STATUSES.map((value) => ({ value, label: accountStatusLabels[value] })),
+    },
+    {
+      param: "workerCategory",
+      label: "Category",
+      options: WORKER_CATEGORIES.map((value) => ({ value, label: workerCategoryLabels[value] })),
+    },
+    ...(options.trades.length > 0
+      ? [{ param: "tradeId", label: "Trade", options: options.trades.map((trade) => ({ value: trade.id, label: trade.name })) }]
+      : []),
   ];
 
   function buildHref(page: number) {
@@ -109,7 +127,7 @@ export async function EmployeesList({
           <EmptyState
             icon={<UserRoundCog />}
             title="No employee profiles yet."
-            description="An employment record is created for a team member who already has company access."
+            description="Add the people the company employs, whether or not they will ever sign in to NESTO."
             action={
               can(context, "hr.employee.create_profile")
                 ? { label: "Add employment record", href: "/hr/employees/new" }

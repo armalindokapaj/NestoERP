@@ -106,6 +106,7 @@ export const en = {
     meetings: { label: "Meetings", description: "Agendas, minutes, decisions and the actions that follow." },
     timesheets: { label: "Timesheets", description: "How working time is spent across projects, tasks and internal work." },
     dailyLogs: { label: "Daily Logs", description: "What happened on site each day: people, work, deliveries, delays and evidence." },
+    workforce: { label: "Workforce", description: "Everyone the company employs on its projects: crews, sites, assignments and attendance." },
     contractors: { label: "Contractors", description: "The organisations building with you: assignments, work packages, compliance and contracts." },
     engineering: { label: "Engineering", description: "Drawings, revisions, RFIs, submittals and transmittals — the technical record of every project." },
     clients: { label: "Clients", description: "Companies and people your company works with." },

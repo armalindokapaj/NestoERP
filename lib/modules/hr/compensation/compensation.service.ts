@@ -37,17 +37,17 @@ const ENTITY = "Compensation";
 
 export async function listCompensation(
   context: UserContext,
-  memberId: string,
+  employmentId: string,
 ): Promise<CompensationDTO[]> {
   assertModule(context, MODULE);
   // No self-service exception: seeing your own salary is a company decision,
   // not something the module assumes (PRD #16 §67).
   assertPermission(context, "hr.compensation.view");
 
-  const profile = await requireProfile(context, memberId);
+  const profile = await requireProfile(context, employmentId);
 
   const rows = await prisma.compensation.findMany({
-    where: { employeeProfileId: profile.id },
+    where: { employeeProfileId: profile.id, companyId: context.companyId },
     orderBy: [{ effectiveFrom: "desc" }],
     select: {
       id: true,
@@ -120,7 +120,7 @@ export async function currentCompensation(context: UserContext, profileIds: stri
  */
 export async function recordCompensation(
   context: UserContext,
-  memberId: string,
+  employmentId: string,
   input: CreateCompensationInput,
 ): Promise<void> {
   assertModule(context, MODULE);
@@ -129,16 +129,15 @@ export async function recordCompensation(
   // Nobody sets their own pay. HR's grant is over other people's records; a
   // raise for the person holding it is somebody else's decision, or it is a
   // decision nobody checked (PRD #16 §67, PRD #47 §98).
-  if (memberId === context.membershipId) {
+  const profile = await requireProfile(context, employmentId);
+  if (profile.companyMemberId !== null && profile.companyMemberId === context.membershipId) {
     throw new AccessError("FORBIDDEN", "Your own compensation is recorded by somebody else in HR.");
   }
-
-  const profile = await requireProfile(context, memberId);
   const effectiveFrom = toBusinessDate(input.effectiveFrom);
 
   await prisma.$transaction(async (tx) => {
     const current = await tx.compensation.findFirst({
-      where: { employeeProfileId: profile.id, effectiveTo: null },
+      where: { employeeProfileId: profile.id, companyId: context.companyId, effectiveTo: null },
       select: { id: true, effectiveFrom: true },
     });
 
@@ -156,7 +155,7 @@ export async function recordCompensation(
       closesOn.setUTCDate(closesOn.getUTCDate() - 1);
 
       await tx.compensation.update({
-        where: { id: current.id },
+        where: { id: current.id, companyId: context.companyId },
         data: { effectiveTo: closesOn, updatedByMemberId: context.membershipId },
       });
     }
@@ -177,13 +176,14 @@ export async function recordCompensation(
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: ENTITY,
-      entityId: memberId,
+      entityId: profile.id,
       action: "HR_COMPENSATION_RECORDED",
       // Deliberately no amount and no currency: the trail records that pay
       // changed and who changed it, not what anybody earns (PRD #16 §270).
       message: "recorded a new compensation record",
       metadata: {
-        memberId,
+        employmentId: profile.id,
+        memberId: profile.companyMemberId,
         effectiveFrom: businessDateString(effectiveFrom),
         payType: input.payType,
       } as Prisma.InputJsonValue,
@@ -198,7 +198,7 @@ export async function recordCompensation(
       context,
       {
         actionKey: AuditAction.HR_COMPENSATION_CHANGED,
-        entity: { type: ENTITY, id: memberId },
+        entity: { type: ENTITY, id: profile.id },
         after: {
           amount: String(input.baseAmount),
           currency: input.currency,
@@ -214,12 +214,13 @@ export async function recordCompensation(
 /* Internals                                                                   */
 /* -------------------------------------------------------------------------- */
 
-async function requireProfile(context: UserContext, memberId: string) {
+async function requireProfile(context: UserContext, employmentId: string) {
   // Read through the HR scope, so an employee this reader cannot see has no
-  // compensation to read either (PRD #16 §203).
+  // compensation to read either (PRD #16 §203). With a login or without one:
+  // pay is the employment's (E-04 §55, §267).
   return assertFound(
     await prisma.employeeProfile.findFirst({
-      where: { AND: [buildEmployeeScopeWhere(context), { companyMemberId: memberId }] },
+      where: { AND: [buildEmployeeScopeWhere(context), { id: employmentId }] },
       select: { id: true, companyMemberId: true },
     }),
   );

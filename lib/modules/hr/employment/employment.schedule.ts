@@ -140,13 +140,13 @@ async function fail(companyId: string, row: Due, reason: string): Promise<"FAILE
       { tx },
     );
     const requester = await tx.companyMember.findFirst({ where: { companyId, userId: row.requestedByUserId, status: "ACTIVE" }, select: { id: true } });
-    if (requester && employment?.companyMemberId) {
+    if (requester && employment) {
       await enqueueNotificationEvent(tx, {
         companyId,
         eventType: NotificationEvent.EMPLOYMENT_CHANGE_FAILED,
         moduleKey: "hr",
         entityType: "employee",
-        entityId: employment.companyMemberId,
+        entityId: employment.id,
         actorMemberId: null,
         payload: { memberIds: [requester.id], change: `${changeTypeLabels[row.type as keyof typeof changeTypeLabels] ?? "Change"} for ${name}`, effectiveDate: dayOf(row.effectiveDate), reason: reason.slice(0, 300) },
       });

@@ -120,6 +120,7 @@ export async function busyIntervals(
       })
     : [];
   for (const row of leave) {
+    if (!row.companyMemberId) continue;
     const span = allDaySpan(businessDate(row.startDate), businessDate(row.endDate), options.timezone);
     result.get(row.companyMemberId)?.push(span);
   }

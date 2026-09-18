@@ -119,7 +119,9 @@ describe("recent activity shows only what the reader could open (PRD #47 §59, �
   });
 
   it("drops pay events written against the employee record for a reader without the compensation grant", async () => {
-    const payOnProfile = await activity("hr", "EmployeeProfile", "member_engineer", "HR_COMPENSATION_RECORDED");
+    // Filed against the employment, which is how HR addresses an employee (E-04 §14).
+    const employment = await prisma.employeeProfile.findUniqueOrThrow({ where: { companyMemberId: "member_engineer" }, select: { id: true } });
+    const payOnProfile = await activity("hr", "EmployeeProfile", employment.id, "HR_COMPENSATION_RECORDED");
     const owner = await loginAs("OWNER");
     const ownerFeed = (await loadRecentActivity(owner)).map((row) => row.message);
     expect(ownerFeed).toContain(payOnProfile);

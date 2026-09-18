@@ -439,7 +439,7 @@ const ASSIGNED_APPROVAL_SOURCES: AttentionSource[] = [
         episode: `${row.id}:${row.submittedAt?.toISOString() ?? "draft"}`,
         recipients: [],
         holders: ["hr.leave.approve"],
-        exclude: [row.companyMemberId],
+        exclude: row.companyMemberId ? [row.companyMemberId] : [],
       })),
   ),
   // A week goes to its one designated approver (PRD #42 §73).
@@ -568,7 +568,7 @@ const approvalOverdue = paged({
         rows.map((row): AttentionCandidate => ({
           entityType: "leave_request", entityId: row.id, projectId: null,
           title: "Leave began without a decision", body: `Started ${isoDate(row.startDate)}`,
-          priority: "HIGH", dismissible: true, episode: isoDate(row.startDate), recipients: [], holders: ["hr.leave.approve"], exclude: [row.companyMemberId],
+          priority: "HIGH", dismissible: true, episode: isoDate(row.startDate), recipients: [], holders: ["hr.leave.approve"], exclude: row.companyMemberId ? [row.companyMemberId] : [],
         })),
     ),
     source(

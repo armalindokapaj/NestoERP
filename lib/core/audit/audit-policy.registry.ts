@@ -76,6 +76,8 @@ export const AuditAction = {
   HR_CANDIDATE_CREATED: "HR_CANDIDATE_CREATED",
   HR_CANDIDATE_SELECTED: "HR_CANDIDATE_SELECTED",
   HR_EMPLOYEE_CREATED: "HR_EMPLOYEE_CREATED",
+  // Workforce employees, with or without a login (E-04 §184-§188)
+  HR_EMPLOYEE_UPDATED: "HR_EMPLOYEE_UPDATED",
   // Employment history (E-03 §134-§137)
   HR_EMPLOYMENT_ASSIGNMENT_CHANGED: "HR_EMPLOYMENT_ASSIGNMENT_CHANGED",
   HR_EMPLOYMENT_TERMINATED: "HR_EMPLOYMENT_TERMINATED",
@@ -505,6 +507,8 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.HR_CANDIDATE_CREATED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "targetCompanyId", "targetDepartmentId", "targetRoleKey"], required: true },
   { actionKey: AuditAction.HR_CANDIDATE_SELECTED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.HR_EMPLOYEE_CREATED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["employmentStatus", "personProfileId", "departmentId", "roleKey"], required: true },
+  /* E-04 §184-§188: the employee's workforce facts; never pay or an identifier beyond the employee number. */
+  { actionKey: AuditAction.HR_EMPLOYEE_UPDATED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["employeeNumber", "workerCategory", "tradeId"], required: true },
   /* Account provisioning (E-06 §114, §115): who asked, who approved, who created it, for whom, where. */
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_REQUESTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], required: true },
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_APPROVED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], required: true },

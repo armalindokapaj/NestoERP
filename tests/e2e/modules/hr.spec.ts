@@ -37,6 +37,12 @@ test.describe("HR role (PRD #16 §296)", () => {
     await expect(page.getByRole("heading", { name: "Employment" }).first()).toBeVisible();
   });
 
+  test("follows a link written before employments were the address (E-04 §14)", async ({ page }) => {
+    const memberId = await memberIdFor("engineer@nesto.test");
+    await page.goto(`/hr/employees/${memberId}/leave`);
+    await expect(page).toHaveURL(new RegExp(`/hr/employees/${await employmentIdFor(memberId)}/leave$`));
+  });
+
   test("sees pay on its own tab, and nowhere else", async ({ page }) => {
     await page.goto("/hr/employees");
     await recordTable(page).getByRole("link", { name: /Ethan Cole/ }).click();
@@ -54,7 +60,7 @@ test.describe("HR role (PRD #16 §296)", () => {
 
   test("records a new pay level, closing the one it replaces", async ({ page }) => {
     const memberId = await memberIdFor("architect@nesto.test");
-    await page.goto(`/hr/employees/${memberId}/compensation/new`);
+    await page.goto(`/hr/employees/${await employmentIdFor(memberId)}/compensation/new`);
 
     await page.locator("#baseAmount").fill("4250.00");
     await page.locator("#effectiveFrom").fill("2027-03-01");
@@ -242,15 +248,15 @@ test.describe("Employee self-service (PRD #16 §299)", () => {
   });
 
   test("is not offered pay, on any route", async ({ page }) => {
-    const memberId = await memberIdFor("engineer@nesto.test");
-    await page.goto(`/hr/employees/${memberId}`);
+    const employmentId = await employmentIdFor(await memberIdFor("engineer@nesto.test"));
+    await page.goto(`/hr/employees/${employmentId}`);
     await expect(
       page.getByRole("navigation", { name: "Employee sections" }).getByRole("link", {
         name: "Compensation",
       }),
     ).toHaveCount(0);
 
-    const response = await page.goto(`/hr/employees/${memberId}/compensation`);
+    const response = await page.goto(`/hr/employees/${employmentId}/compensation`);
     expect(response?.status()).toBe(404);
   });
 });
@@ -292,8 +298,10 @@ test("an employment record that is out of view is not found, never forbidden", a
   const ownerMember = await memberIdFor("owner@nesto.test");
 
   // 403 would confirm the Owner has an employment record (PRD #16 §202).
-  const response = await page.goto(`/hr/employees/${ownerMember}`);
+  const response = await page.goto(`/hr/employees/${await employmentIdFor(ownerMember)}`);
   expect(response?.status()).toBe(404);
+  // Nor does the Owner's login, the address links used before employments were (E-04 §14).
+  expect((await page.goto(`/hr/employees/${ownerMember}`))?.status()).toBe(404);
 });
 
 /**
@@ -322,6 +330,11 @@ async function memberIdFor(email: string): Promise<string> {
     select: { memberships: { where: { status: { not: "INACTIVE" } }, take: 1, select: { id: true } } },
   });
   return user.memberships[0]!.id;
+}
+
+/** The employment a login holds: how HR addresses an employee (E-04 §14). */
+async function employmentIdFor(memberId: string): Promise<string> {
+  return (await db.employeeProfile.findUniqueOrThrow({ where: { companyMemberId: memberId }, select: { id: true } })).id;
 }
 
 /** A balance belongs to a leave year, so the year is part of the question. */

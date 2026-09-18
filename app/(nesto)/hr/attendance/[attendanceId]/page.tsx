@@ -80,7 +80,7 @@ export default async function AttendanceDetailPage({ params }: Params) {
                 label: "Employee",
                 value: can(context, "hr.employee.view") ? (
                   <Link
-                    href={`/hr/employees/${record.employee.memberId}`}
+                    href={`/hr/employees/${record.employee.employeeId}`}
                     className="hover:text-accent"
                   >
                     {record.employee.fullName}
@@ -104,7 +104,7 @@ export default async function AttendanceDetailPage({ params }: Params) {
                 employee: record.employee.fullName,
               }}
               values={{
-                companyMemberId: record.employee.memberId,
+                employeeId: record.employee.employeeId,
                 date: record.date,
                 status: record.status,
                 checkIn: record.checkIn,

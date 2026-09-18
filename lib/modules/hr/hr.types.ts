@@ -8,8 +8,10 @@ import type {
   HrProgressStatus,
   LeaveRequestStatus,
   LeaveType,
+  WorkerCategory,
   WorkLocationType,
 } from "@prisma/client";
+import type { AccountStatus } from "./hr.person";
 
 /**
  * HR DTOs (PRD #16 §169–§175).
@@ -20,16 +22,24 @@ import type {
  * strings for the same reason as Finance: a float is not the amount.
  */
 
+/**
+ * An employee as another record names them: by their employment, which every
+ * employee has, and by their login only when they have one (E-04 §7).
+ */
 export type EmployeeRef = {
-  memberId: string;
+  employeeId: string;
+  memberId: string | null;
   fullName: string;
   email: string | null;
   avatarUrl: string | null;
 };
 
 export type EmployeeSummaryDTO = {
+  /** The employment: how every HR record addresses an employee (E-04 §7, §14). */
   id: string;
-  memberId: string;
+  /** Their login in this company, if they have one. */
+  memberId: string | null;
+  personId: string;
   name: { firstName: string; lastName: string; fullName: string };
   email: string | null;
   avatarUrl: string | null;
@@ -38,9 +48,14 @@ export type EmployeeSummaryDTO = {
   department: { id: string; name: string } | null;
   employmentStatus: EmploymentStatus;
   employmentType: EmploymentType;
+  workerCategory: WorkerCategory | null;
+  trade: { id: string; name: string } | null;
+  /** Has a NESTO account, has none, or has one switched off (E-04 §17). */
+  accountStatus: AccountStatus;
   startDate: string | null;
   endDate: string | null;
-  manager: { memberId: string; fullName: string } | null;
+  /** The manager's login, and their own employment record here when they have one (E-04 §14). */
+  manager: { memberId: string; employmentId: string | null; fullName: string } | null;
   updatedAt: string;
 };
 
@@ -54,9 +69,10 @@ export type EmployeeDetailDTO = EmployeeSummaryDTO & {
   onboardingStatus: HrProgressStatus;
   offboardingStatus: HrProgressStatus;
   phone: string | null;
-  role: { id: string; name: string };
+  /** The NESTO role of their login; none without one (E-04 §13). */
+  role: { id: string; name: string } | null;
   /** Company access, which HR never changes on its own (PRD #16 §230, §231). */
-  membershipStatus: string;
+  membershipStatus: string | null;
   createdAt: string;
 
   /** Server-derived UX hints; every mutation re-checks authorisation. */
@@ -72,6 +88,8 @@ export type EmployeeDetailDTO = EmployeeSummaryDTO & {
     canViewActivity: boolean;
     canManageOnboarding: boolean;
     canViewHistory: boolean;
+    /** Ask Group IT for a login for somebody who has none (E-06 §27, E-04 §88). */
+    canRequestAccount: boolean;
   };
   /** Which dated employment changes this reader may make (E-03 §163). */
   employment: EmploymentCapabilitiesDTO;
@@ -187,7 +205,7 @@ export type LeaveSummaryRow = {
 };
 
 export type AttendanceSummaryRow = {
-  memberId: string;
+  employeeId: string;
   fullName: string;
   present: number;
   remote: number;
@@ -197,7 +215,7 @@ export type AttendanceSummaryRow = {
 };
 
 export type CompensationReportRow = {
-  memberId: string;
+  employeeId: string;
   fullName: string;
   department: string | null;
   payType: CompensationPayType;
@@ -207,7 +225,7 @@ export type CompensationReportRow = {
 };
 
 export type UpcomingEndRow = {
-  memberId: string;
+  employeeId: string;
   fullName: string;
   department: string | null;
   endDate: string;

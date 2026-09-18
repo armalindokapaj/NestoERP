@@ -1,6 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
-import { employmentTypeLabels } from "@/lib/modules/hr/hr.status";
+import { accountStatusLabels, employmentTypeLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
 import type { EmployeeSummaryDTO } from "@/lib/modules/hr/hr.types";
 import { formatDate, orDash } from "@/lib/utils/format";
 
@@ -23,6 +23,16 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
           <span className="block truncate text-meta font-normal text-fg-subtle">
             {orDash(employee.jobTitle)}
           </span>
+        </span>
+      ),
+    },
+    {
+      key: "work",
+      label: "Category · trade",
+      hideBelow: "lg",
+      render: (employee) => (
+        <span className="text-fg-muted">
+          {[employee.workerCategory ? workerCategoryLabels[employee.workerCategory] : null, employee.trade?.name].filter(Boolean).join(" · ") || "—"}
         </span>
       ),
     },
@@ -64,6 +74,16 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
       render: (employee) => <StatusBadge status={employee.employmentStatus} />,
     },
     {
+      key: "account",
+      label: "NESTO account",
+      hideBelow: "md",
+      render: (employee) => (
+        <span className={employee.accountStatus === "HAS_ACCOUNT" ? "text-fg-muted" : "text-fg-subtle"}>
+          {employee.accountStatus === "HAS_ACCOUNT" ? "Yes" : accountStatusLabels[employee.accountStatus]}
+        </span>
+      ),
+    },
+    {
       key: "startDate",
       label: "Started",
       hideBelow: "lg",
@@ -81,7 +101,7 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
       columns={columns}
       records={employees}
       rowKey={(employee) => employee.id}
-      rowHref={(employee) => `/hr/employees/${employee.memberId}`}
+      rowHref={(employee) => `/hr/employees/${employee.id}`}
     />
   );
 }

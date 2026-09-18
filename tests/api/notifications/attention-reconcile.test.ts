@@ -189,7 +189,8 @@ describe("notification deep links re-authorise (PRD #38 §82)", () => {
   it("says unavailable — and nothing more — once access to the record is gone", async () => {
     // A record this member cannot read: another person's HR file.
     const viewer = await loginAs("VIEWER");
-    const hrRecord = await notificationFor(viewer.membershipId, viewer.companyId, "employee", "member_owner");
+    const ownerEmployment = await prisma.employeeProfile.findUniqueOrThrow({ where: { companyMemberId: "member_owner" }, select: { id: true } });
+    const hrRecord = await notificationFor(viewer.membershipId, viewer.companyId, "employee", ownerEmployment.id);
     expect(await openNotification(viewer, hrRecord.id)).toEqual({ unavailable: true });
 
     // A record that no longer exists answers exactly the same way.

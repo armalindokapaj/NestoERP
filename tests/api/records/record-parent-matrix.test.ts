@@ -34,7 +34,7 @@ const SOURCE: Record<RecordType, { model: string; idField?: string; where?: Reco
   payment: { model: "payment" },
   budget: { model: "projectBudget" },
   commitment: { model: "commitment" },
-  employee: { model: "employeeProfile", idField: "companyMemberId" },
+  employee: { model: "employeeProfile" },
   leave_request: { model: "leaveRequest" },
   lead: { model: "lead" },
   opportunity: { model: "opportunity" },

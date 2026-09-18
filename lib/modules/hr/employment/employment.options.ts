@@ -41,13 +41,15 @@ async function companyChoices(companyId: string, excludeMemberId: string | null)
   };
 }
 
-export async function employmentChangeOptions(context: UserContext, memberId: string): Promise<EmploymentChangeOptionsDTO> {
-  const here = await companyChoices(context.companyId, memberId);
+export async function employmentChangeOptions(context: UserContext, employmentId: string): Promise<EmploymentChangeOptionsDTO> {
+  // Nobody manages themselves: their own login, if they have one, is not offered (PRD #16 §32).
+  const employment = await prisma.employeeProfile.findFirst({ where: { id: employmentId, companyId: context.companyId }, select: { companyMemberId: true } });
+  const here = await companyChoices(context.companyId, employment?.companyMemberId ?? null);
 
   // Supporting documents: the ones filed on this employee's record, that this reader can open (§165, §166).
   const filed = can(context, "document.view")
     ? await prisma.document.findMany({
-        where: { companyId: context.companyId, entityType: "employee", entityId: memberId, status: "ACTIVE" },
+        where: { companyId: context.companyId, entityType: "employee", entityId: employmentId, status: "ACTIVE" },
         select: { id: true },
         orderBy: { createdAt: "desc" },
         take: 50,

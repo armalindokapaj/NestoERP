@@ -71,14 +71,55 @@ const datesInOrder = <T extends { startDate?: Date; endDate?: Date }>(schema: z.
     { message: "The end date cannot be before the start date.", path: ["endDate"] },
   );
 
+export const WORKER_CATEGORIES = [
+  "OFFICE",
+  "FIELD",
+  "SITE",
+  "CONSTRUCTION_WORKER",
+  "DRIVER",
+  "TECHNICIAN",
+  "SUPERVISOR",
+  "OTHER",
+] as const;
+
+const blankToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
+  z.union([schema, z.literal("")]).optional().transform((value) => (value === "" ? undefined : (value as z.infer<T> | undefined)));
+
+const workerCategory = blankToUndefined(z.enum(WORKER_CATEGORIES));
+
 /**
- * A new employment record for a member (PRD #16 §25): its terms and where the
- * person will sit, which become the first row of its history (E-03 §8). The
- * department and title are the membership's.
+ * Who a new employment is for (E-04 §5, §88, §229):
+ *
+ *   MEMBER   somebody who already has a login in this company — their
+ *            department and title are the membership's, as before;
+ *   PERSON   somebody the group already knows (a former employee of another
+ *            company, a hired candidate) — never a second person record;
+ *   NEW      somebody with no login and no record yet: a construction worker,
+ *            a driver — a person and an employment, and no account at all.
+ */
+export const EMPLOYEE_SUBJECTS = ["MEMBER", "PERSON", "NEW"] as const;
+
+/**
+ * A new employment record (PRD #16 §25, E-04 §229): its terms and where the
+ * person will sit, which become the first row of its history (E-03 §8).
  */
 export const createEmployeeProfileSchema = datesInOrder(
   z.object({
-    companyMemberId: z.string().trim().min(1, "Choose a team member"),
+    subject: z.enum(EMPLOYEE_SUBJECTS).default("MEMBER"),
+    companyMemberId: optionalId,
+    personProfileId: optionalId,
+    firstName: optionalText(80),
+    lastName: optionalText(80),
+    dateOfBirth: hrDate,
+    workPhone: optionalText(40),
+    personalPhone: optionalText(40),
+    /** Set once HR has looked at the people it might be and says it is none of them (E-04 §92, §176). */
+    confirmNewPerson: z.union([z.boolean(), z.literal("true"), z.literal("on"), z.literal("")]).optional().transform((value) => value === true || value === "true" || value === "on"),
+    /** Where somebody without a membership sits; a member's come from the membership. */
+    departmentId: optionalId,
+    jobTitle: optionalText(160),
+    workerCategory,
+    tradeId: optionalId,
     employeeNumber: optionalText(60),
     employmentType: z.enum(EMPLOYMENT_TYPES, { message: "Choose an employment type" }),
     startDate: hrDate,
@@ -89,16 +130,31 @@ export const createEmployeeProfileSchema = datesInOrder(
     workLocation: optionalText(160),
     weeklyHours,
   }),
-);
+).superRefine((value, issue) => {
+  if (value.subject === "MEMBER" && !value.companyMemberId) {
+    issue.addIssue({ code: "custom", message: "Choose a team member", path: ["companyMemberId"] });
+  }
+  if (value.subject === "PERSON" && !value.personProfileId) {
+    issue.addIssue({ code: "custom", message: "Choose the person", path: ["personProfileId"] });
+  }
+  if (value.subject === "NEW") {
+    if (!value.firstName) issue.addIssue({ code: "custom", message: "Enter the first name", path: ["firstName"] });
+    if (!value.lastName) issue.addIssue({ code: "custom", message: "Enter the last name", path: ["lastName"] });
+  }
+});
 
 /**
  * The details of an employment that are not where somebody sits (E-03 §37,
- * §187): its number, probation, its planned end and weekly hours. Department,
- * title, manager, location, type, status and dates are changes with a date,
- * made through the employment change service and kept as history.
+ * §187; E-04 §156): its number, probation, its planned end, weekly hours, and
+ * what kind of worker and which trade. Department, title, manager, location,
+ * type, status and dates are changes with a date, made through the employment
+ * change service and kept as history.
  */
 export const updateEmployeeProfileSchema = z.object({
   employeeNumber: optionalText(60),
+  /** Absent leaves it as it is; empty clears it. */
+  workerCategory: z.union([z.enum(WORKER_CATEGORIES), z.literal(""), z.null()]).optional().transform((value) => (value === "" ? null : value)),
+  tradeId: z.union([z.string().trim().max(64), z.null()]).optional().transform((value) => (value === "" ? null : value)),
   probationEndDate: hrDate,
   /** A running employment's planned end — a fixed term — not its history. */
   endDate: hrDate,
@@ -130,6 +186,10 @@ export const employeeListQuerySchema = z.object({
   employmentType: z.array(z.enum(EMPLOYMENT_TYPES)).optional(),
   departmentId: z.string().optional(),
   managerMemberId: z.string().optional(),
+  /** With a login, without one, or with one switched off (E-04 §19, §20). */
+  accountStatus: z.array(z.enum(["HAS_ACCOUNT", "NO_ACCOUNT", "ACCOUNT_SUSPENDED"])).optional(),
+  workerCategory: z.array(z.enum(WORKER_CATEGORIES)).optional(),
+  tradeId: z.string().optional(),
   page: z.number().int().min(1).default(1),
   limit: z.number().int().min(1).max(100).default(25),
   sort: z.enum(EMPLOYEE_SORT_KEYS).default("name-asc"),
@@ -189,9 +249,10 @@ const leaveDatesInOrder = <T extends { startDate: Date; endDate: Date }>(
 
 export const createLeaveSchema = leaveDatesInOrder(
   z.object({
-    // HR may file leave on somebody's behalf; a person filing their own leaves
-    // this empty and the service uses their own membership (PRD #16 §191).
-    companyMemberId: optionalId,
+    // HR may file leave on somebody's behalf — with or without a login; a
+    // person filing their own leaves this empty and the service uses their own
+    // employment (PRD #16 §191, E-04 §7).
+    employeeId: optionalId,
     ...leaveFields,
   }),
 );
@@ -216,7 +277,7 @@ export const leaveListQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   status: z.array(z.enum(LEAVE_STATUSES)).optional(),
   leaveType: z.array(z.enum(LEAVE_TYPES)).optional(),
-  companyMemberId: z.string().optional(),
+  employeeId: z.string().optional(),
   from: optionalDate,
   to: optionalDate,
   mine: z.boolean().default(false),
@@ -272,7 +333,8 @@ const timeOfDay = z
   });
 
 export const createAttendanceSchema = z.object({
-  companyMemberId: optionalId,
+  /** Whose day: an employment, with or without a login; empty is your own (E-04 §51). */
+  employeeId: optionalId,
   date: z.coerce.date(),
   status: z.enum(ATTENDANCE_STATUSES, { message: "Choose a status" }),
   checkIn: timeOfDay,
@@ -297,7 +359,7 @@ export type AttendanceSortKey = (typeof ATTENDANCE_SORT_KEYS)[number];
 export const attendanceListQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   status: z.array(z.enum(ATTENDANCE_STATUSES)).optional(),
-  companyMemberId: z.string().optional(),
+  employeeId: z.string().optional(),
   from: optionalDate,
   to: optionalDate,
   mine: z.boolean().default(false),

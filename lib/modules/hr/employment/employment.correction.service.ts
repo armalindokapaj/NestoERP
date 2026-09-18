@@ -40,11 +40,11 @@ import { validateDocument } from "./employment.validate";
 
 const ENTITY = "EmployeeProfile";
 
-export async function correctEmploymentHistory(context: UserContext, memberId: string, input: CorrectionInput, options: ChangeOptions): Promise<void> {
+export async function correctEmploymentHistory(context: UserContext, employmentId: string, input: CorrectionInput, options: ChangeOptions): Promise<void> {
   assertModule(context, "hr");
   assertPermission(context, "hr.employment_history.correct");
   if (input.kind === "STATUS" && input.privateReason !== undefined) assertPermission(context, "hr.employment_history.view_private");
-  const target = await loadTarget(context, memberId);
+  const target = await loadTarget(context, employmentId);
   if (input.documentId) await validateDocument(context, target.companyId, input.documentId);
 
   await prisma
@@ -59,16 +59,14 @@ export async function correctEmploymentHistory(context: UserContext, memberId: s
         before: facts.before,
         after: { ...facts.after, correctionReason: input.correctionReason, kind: input.kind },
       });
-      if (target.companyMemberId) {
-        await recordActivity(tx, context, {
-          module: "hr",
-          entityType: ENTITY,
-          entityId: target.companyMemberId,
-          action: "HR_EMPLOYMENT_HISTORY_CORRECTED",
-          message: "corrected their employment history",
-          metadata: { memberId: target.companyMemberId, employmentId: target.id, rowId: input.rowId, kind: input.kind } as Prisma.InputJsonValue,
-        });
-      }
+      await recordActivity(tx, context, {
+        module: "hr",
+        entityType: ENTITY,
+        entityId: target.id,
+        action: "HR_EMPLOYMENT_HISTORY_CORRECTED",
+        message: "corrected their employment history",
+        metadata: { memberId: target.companyMemberId, employmentId: target.id, rowId: input.rowId, kind: input.kind } as Prisma.InputJsonValue,
+      });
     })
     .catch(historyRaced);
 }

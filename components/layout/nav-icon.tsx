@@ -85,6 +85,7 @@ import {
   ArchiveRestore,
   CircleDot,
   Wrench,
+  Hammer,
   type LucideIcon,
 } from "lucide-react";
 
@@ -96,6 +97,7 @@ import {
  * it explicit means the bundle only contains icons NESTO actually uses.
  */
 const registry: Record<string, LucideIcon> = {
+  Hammer,
   Network,
   Presentation,
   Wrench,

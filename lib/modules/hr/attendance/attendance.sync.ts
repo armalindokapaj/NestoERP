@@ -32,7 +32,7 @@ export async function syncAttendanceForLeave(
   leave: {
     leaveRequestId: string;
     employeeProfileId: string;
-    companyMemberId: string;
+    companyMemberId: string | null;
     startDate: Date;
     endDate: Date;
   },
@@ -41,7 +41,7 @@ export async function syncAttendanceForLeave(
   if (days.length === 0) return 0;
 
   const existing = await tx.attendanceRecord.findMany({
-    where: { companyMemberId: leave.companyMemberId, date: { in: days } },
+    where: { employeeProfileId: leave.employeeProfileId, companyId: context.companyId, date: { in: days } },
     select: { date: true, status: true },
   });
 

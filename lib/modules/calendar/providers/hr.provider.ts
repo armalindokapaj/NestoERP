@@ -98,7 +98,7 @@ export const hrProvider: CalendarProvider = {
                 category: "HR",
                 status: "APPROVED",
                 href: `/hr/leave/${row.id}`,
-                participants: [{ memberId: row.companyMemberId, name }],
+                participants: row.companyMemberId ? [{ memberId: row.companyMemberId, name }] : [],
                 privacyMode: "FULL",
                 metadata: { sourceLabel: "Leave", moduleKey: "hr" },
               },

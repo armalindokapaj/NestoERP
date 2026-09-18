@@ -26,12 +26,12 @@ import type { HrProgressStatus } from "@prisma/client";
 const CHOICES: HrProgressStatus[] = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "NOT_REQUIRED"];
 
 export function ProgressActions({
-  memberId,
+  employeeId,
   kind,
   current,
   name,
 }: {
-  memberId: string;
+  employeeId: string;
   kind: "onboarding" | "offboarding";
   current: HrProgressStatus;
   name: string;
@@ -42,7 +42,7 @@ export function ProgressActions({
 
   function set(status: HrProgressStatus) {
     startTransition(async () => {
-      const result = await progressAction(memberId, kind, status);
+      const result = await progressAction(employeeId, kind, status);
       if (result.ok) {
         toast({
           title: `${kind === "onboarding" ? "Onboarding" : "Offboarding"} ${progressStatusLabels[
