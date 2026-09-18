@@ -17,6 +17,7 @@ import { syncEmploymentHistory } from "../employment-history";
 import { syncMemberPlaces } from "../organization-helpers";
 import { seedDocumentVersions, seedStorageQuotas } from "../storage";
 import { seedArmaarPeople } from "./access";
+import { seedArmaarCredentials } from "./credentials";
 import { seedArmaarOperations } from "./operations";
 import { seedArmaarOrganization } from "./organization";
 import { seedArmaarProjects } from "./projects";
@@ -65,6 +66,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const operations = await seedArmaarOperations(prisma);
   // Where the workers work, with whom, and their days on site (E-04).
   const workforce = await seedArmaarWorkforce(prisma);
+  // Employee files and qualifications: contracts, licences, what waits for HR and what runs out (E-02).
+  const credentials = await seedArmaarCredentials(prisma);
 
   // Every document has its first version, every company its storage quota and usage (PRD #29).
   if (shared) {
@@ -80,6 +83,7 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
     people: people.people,
     workers: workers.workers,
     workforce,
+    credentials,
     companies: await prisma.company.count({ where: { parentGroupId: ARMAAR_GROUP_ID } }),
     suspended: await prisma.company.count({ where: { parentGroupId: ARMAAR_GROUP_ID, status: "SUSPENDED" } }),
     branches: await prisma.department.count({ where: { company: { parentGroupId: ARMAAR_GROUP_ID } } }),
@@ -97,6 +101,7 @@ export function describeArmaar(counts: Awaited<ReturnType<typeof seedArmaar>>): 
     `✓ ARMAAR GROUP: ${counts.companies} companies (${counts.suspended} suspended), ${counts.branches} company departments, ${counts.people} people with ${counts.logins} company logins`,
     `✓ ARMAAR projects: ${counts.projects}; ${counts.units} units — ${counts.sales.sold} sold under ${counts.sales.contracts} sale contracts, ${counts.sales.reserved} reserved, ${counts.sales.onHold} on hold, ${counts.sales.forSale} for sale`,
     `✓ ARMAAR workforce: ${counts.workers} site workers without a login, ${counts.workforce.trades} trades, ${counts.workforce.sites} sites, ${counts.workforce.crews} active crews, ${counts.workforce.onSite} on a project now, ${counts.workforce.attendance} days marked on site, ${counts.workforce.inductions} inductions`,
+    `✓ ARMAAR employee files: ${counts.credentials.documents} documents filed on employments, ${counts.credentials.qualifications} qualifications — verified, waiting, sent back, running out and renewed`,
     `✓ ARMAAR operations: ${counts.operations.suppliers} supplier records, ${counts.operations.contractors} contractors, ${counts.operations.tasks} tasks, ${counts.operations.meetings} meetings, ${counts.operations.documents} project documents`,
     `✓ ARMAAR provenance: ${counts.records} demo records; public facts match the source`,
   ];

@@ -12,6 +12,7 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
+import { employeeDocumentReport, hasCredentialReports, qualificationReport, type DocumentCategoryRow, type QualificationCoverageRow, type QualificationTitleRow } from "@/lib/modules/hr/credentials/credential.reports";
 import { employmentTypeLabels, leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import { isDay } from "@/lib/modules/hr/employment/employment.dates";
 import { getOrganizationReport } from "@/lib/modules/hr/employment/employment.report";
@@ -37,6 +38,9 @@ const REPORTS = [
   { key: "ending-soon", label: "Employment ending" },
   { key: "compensation", label: "Compensation" },
   { key: "organization", label: "Organization" },
+  // What the people HR looks after hold, and what is on their files (E-02 §157).
+  { key: "qualifications", label: "Qualifications" },
+  { key: "employee-documents", label: "Employee documents" },
 ] as const;
 
 type ReportKey = (typeof REPORTS)[number]["key"];
@@ -55,7 +59,11 @@ export default async function HrReportsPage({
 
   const allowed = reports.availableReports(context);
   const available = REPORTS.filter((entry) =>
-    entry.key === "ending-soon" ? allowed.endingSoon : allowed[entry.key],
+    entry.key === "ending-soon"
+      ? allowed.endingSoon
+      : entry.key === "qualifications" || entry.key === "employee-documents"
+        ? hasCredentialReports(context)
+        : allowed[entry.key],
   );
 
   if (available.length === 0) {
@@ -103,6 +111,8 @@ export default async function HrReportsPage({
         {active === "ending-soon" ? <EndingSoonReport context={context} /> : null}
         {active === "compensation" ? <CompensationReport context={context} /> : null}
         {active === "organization" ? <OrganizationReport context={context} query={{ asOf, from, to }} /> : null}
+        {active === "qualifications" ? <QualificationsReport context={context} /> : null}
+        {active === "employee-documents" ? <EmployeeDocumentsReport context={context} /> : null}
       </div>
     </ModulePage>
   );
@@ -338,6 +348,66 @@ async function EndingSoonReport({ context }: { context: UserContext }) {
           rowKey={(row) => row.employeeId}
           rowHref={(row) => `/hr/employees/${row.employeeId}`}
         />
+      )}
+    </ReportShell>
+  );
+}
+
+const count = (value: number, tone?: string) => <span className={cn("tabular-nums", value === 0 ? "text-fg-subtle" : tone)}>{value}</span>;
+
+async function QualificationsReport({ context }: { context: UserContext }) {
+  const report = await qualificationReport(context);
+
+  const coverage: TableColumn<QualificationCoverageRow>[] = [
+    { key: "type", label: "Qualification", primary: true, render: (row) => <span>{row.label}</span> },
+    { key: "holders", label: "People holding", align: "right", render: (row) => count(row.holders) },
+    { key: "coverage", label: "Coverage", align: "right", render: (row) => <span className="tabular-nums text-fg-muted">{Math.round(row.coverage * 100)}%</span> },
+    { key: "unverified", label: "To verify", align: "right", render: (row) => count(row.unverified, "text-info-strong") },
+    { key: "expiring", label: "Expiring in 30 days", align: "right", hideBelow: "md", render: (row) => count(row.expiring, "text-warning-strong") },
+    { key: "expired", label: "Expired", align: "right", hideBelow: "md", render: (row) => count(row.expired, "text-danger-strong") },
+  ];
+  const titles: TableColumn<QualificationTitleRow>[] = [
+    { key: "title", label: "Qualification", primary: true, render: (row) => <span>{row.title}</span> },
+    { key: "type", label: "Kind", render: (row) => <span className="text-fg-muted">{row.typeLabel}</span> },
+    { key: "holders", label: "People", align: "right", render: (row) => count(row.holders) },
+  ];
+
+  return (
+    <ReportShell
+      title="Qualifications"
+      description={`Verified, current qualifications of the ${report.people} ${report.people === 1 ? "person" : "people"} working here in your view — what people keep private is not counted. The lists of what to verify or renew are under Documents.`}
+    >
+      {report.coverage.length === 0 ? (
+        <EmptyState icon={<ChartColumn />} title="No qualifications in your view." />
+      ) : (
+        <div className="space-y-5">
+          <DataTable caption="Coverage by kind of qualification" columns={coverage} records={report.coverage} rowKey={(row) => row.type} />
+          {report.titles.length > 0 ? <DataTable caption="Most held" columns={titles} records={report.titles} rowKey={(row) => `${row.type}:${row.title}`} /> : null}
+        </div>
+      )}
+    </ReportShell>
+  );
+}
+
+async function EmployeeDocumentsReport({ context }: { context: UserContext }) {
+  const rows = await employeeDocumentReport(context);
+  const columns: TableColumn<DocumentCategoryRow>[] = [
+    { key: "category", label: "Category", primary: true, render: (row) => <span>{row.label}</span> },
+    { key: "group", label: "Group", hideBelow: "md", render: (row) => <span className="text-fg-muted">{row.groupLabel}</span> },
+    { key: "current", label: "On file", align: "right", render: (row) => count(row.current) },
+    { key: "unverified", label: "To verify", align: "right", render: (row) => count(row.unverified, "text-info-strong") },
+    { key: "expiring", label: "Expiring in 30 days", align: "right", hideBelow: "md", render: (row) => count(row.expiring, "text-warning-strong") },
+    { key: "expired", label: "Expired", align: "right", hideBelow: "md", render: (row) => count(row.expired, "text-danger-strong") },
+  ];
+  return (
+    <ReportShell
+      title="Employee documents"
+      description="Current documents on the files of people working here in your view, by category. Only the categories you may open are counted; nothing is shown of what they say."
+    >
+      {rows.length === 0 ? (
+        <EmptyState icon={<ChartColumn />} title="No employee documents in your view." />
+      ) : (
+        <DataTable caption="Employee documents by category" columns={columns} records={rows} rowKey={(row) => row.category} />
       )}
     </ReportShell>
   );

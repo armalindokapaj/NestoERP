@@ -2153,3 +2153,140 @@ On freshly built databases, on the final tree:
   the owner's consent: `migrate deploy`, `access:sync`, then switch Workforce on
   per company (Settings → Modules) — a company without the row has the module
   off — and `seed:armaar` for the demo tenant.
+
+## 29. Enhancement E-02 — employee documents and qualifications
+
+E-02 gives every employee a file and every person their qualifications:
+contracts, amendments, salary documents, diplomas, licences, certificates,
+permits and a CV, each with a category, dates, a visibility and a
+verification, reminded before it runs out, and one canonical file however many
+places show it. It is reconciled onto the person and the employment rather than
+the PRD's employee entity and `/team/[memberId]`:
+[ADR 0007](adr/0007-e02-employee-documents-qualifications.md) classifies every
+section and records thirteen decisions; `docs/employee-documents.md` and
+`docs/employee-qualifications.md` are the contracts,
+`docs/document-reference-model.md` and `docs/document-provider-integration.md`
+the rules for referencing a file and for a later OneDrive. Built as the owner
+decided before it started: qualifications to the person; contracts, amendments
+and salary documents to the employment; HR's permissions plus a few; demo data
+in ARMAAR only. Three stages: the model, its doors and API (188a2d6), the
+screens (e6f4e8b), and the job's surfaces, search, reports, integrity and the
+ARMAAR seed.
+
+### 29.1 What changed
+
+| Before | Now |
+|---|---|
+| An employee file was a document on the employment, nothing more: no category, dates or verification, and any HR reader in scope opened every file on it | **A link says what the file is** (`EmployeeDocumentLink`): one of 23 categories in seven groups, a business title, issuer, number, issue, expiry and in-effect dates, a visibility, a verification, current or not, what it renews or amends. One link per document; nothing is copied |
+| — | **Four doors, by what the file is**: HR by class (professional files with `hr.document.view`; employment and identity papers also `hr.document.private.view`; pay evidence also `hr.compensation.view`), never onto their own file; the employee, every visibility but HR's own; Finance for pay documents shared with it; management for restricted ones. Colleagues see a verified, current summary the employee shares — never the file or its number |
+| The Documents module read a record's files with the record's door | **The record registry's `documents.policy`** answers file by file for lists, opening, download, rename, archive and new versions, so the Documents module is no side door onto a contract |
+| No skill or qualification anywhere | **`PersonQualification`**, the person's across the group: 13 types in six sections, a level for a skill or a language, five visibilities, its evidence an employee document filed in the company that recorded it |
+| — | **Verification** as two state machines: verify or reject with a reason, resubmit, renew (the old one kept, superseded), supersede, archive with a reason; nobody verifies their own; every change names the version it was made against |
+| — | **`hr.credential-expiry`**, daily per company in the company's day: reminders at 90, 60, 30 and 7 days and when the date passes, claimed in the idempotency ledger with their notice; a verified one becomes EXPIRED. Attention items for expiring, expired and unverified end on renewal or decision |
+| — | **Screens**: the profile's *Documents* and *Skills & qualifications* tabs; the same list on HR's employee record; HR → Documents' worklists *To verify*, *Expiring in 30 days*, *Expired*; HR → Reports → *Qualifications* and *Employee documents* |
+| Global search listed an employee's files by name to whoever could open them | **Employee files are out of global search**; a person is found by a qualification they share once verified ("Ethan Cole — AutoCAD · Skill · Advanced") |
+| — | **Calendar** ("Driving licence expires"; with the person's name for HR; an HR-private kind is "HR document"), **profile activity** for shared qualifications verified, **nine permission keys**, 10 document and 8 qualification **audit actions** without sensitive values |
+| — | **Provider identity on `Document`** for a later OneDrive or SharePoint: provider, drive, item, version, parent, path, web URL, etag, last sync, unique per company and item. Nothing writes it yet |
+| `verify:employee-integrity` checked employments, logins and leave | It also checks **the file and qualifications**: a file on somebody else's record, self-checked evidence, a verification naming nobody, a superseded row still current, an amendment of a non-contract, a visibility the category forbids, evidence on another person's record |
+| The ARMAAR tenant had no employee files | **18 files on seven employments** of ARLIS - NDERTIM and BUILDING CONSTRUCTION INVEST and **17 qualifications of seven people**: contracts and an amendment, a salary review shared with Finance, degrees, licences running out and one past its date, a renewed safety certificate, one waiting for HR, one sent back, a language kept private, two site workers without a login |
+
+**Migration `20260919120000_employee_documents_e02`** is additive: six enums,
+two tables (`employee_document_links`, `person_qualifications`) with composite
+keys to their company, employment, person and group, checks on dates and
+self-reference, nine provider-identity columns on `documents` with their unique
+key and a both-or-neither check, and `externalVersionId` on
+`document_versions`. It then files every employee document already there: a
+link with a deterministic id, `POSITION_CHANGE` where E-03's history cites the
+file, else `OTHER_HR`, visible to the employee and HR as before, archived where
+the file was. A rerun adds nothing.
+
+**Rollback:** the old code reads an employee's files with the record's door —
+every HR reader in scope and the employee — so first archive the files whose
+link is narrower than `EMPLOYEE_AND_HR` (`HR_ONLY`, `RESTRICTED_MANAGEMENT`,
+`PRIVATE_EMPLOYEE`) or accept that they widen. Delete notifications and
+attention items of the `EMPLOYEE_DOCUMENT_*` and `QUALIFICATION_*` kinds and
+the job's ledger rows; remove the nine permission keys from roles. Then drop
+the two tables, the documents' unique key, check and nine columns,
+`document_versions.externalVersionId` and the six enums, and delete the
+migration's `_prisma_migrations` row. The files themselves are ordinary
+documents on the employment and stay.
+
+### 29.2 The evidence
+
+On freshly built databases, on the final tree:
+
+- **vitest: 3 797 passed, 0 failed**, 11 skipped — 89 more than E-04: employee
+  documents (18 — every door and class, unfiled files, the Documents module as
+  no side door, verification and self-checking, renewal and amendment, stale
+  pages, isolation), qualifications (10), HR's worklists (4), the surfaces (8 —
+  calendar, search, activity, reports, integrity) and the expiry job's
+  contract (9), and 40 cases of the state architecture test for the two new
+  machines and their guarded writes.
+- **E2E on the production build: 469 of 469**, none flaky. New (5): HR files
+  a driving licence on the employee's record and verifies it; the employee
+  adds a qualification, shares it with the group and sees their own licence; a
+  colleague sees neither the file nor the unverified qualification; HR finds
+  the qualification waiting, verifies it, and the colleague then sees its
+  summary; on a phone the file, the qualifications and HR's worklist stay
+  inside the viewport.
+- **verify:roles 1 715 of 1 715** against the same production build.
+- **verify:authorization** (647 routes, 316 server actions), **ownership** (238
+  models, 57 domains, no cycle), **state** (47 machines, 246 transitions),
+  **workers** (24 jobs) and **production-guards** pass; company-integrity,
+  organization, employment, employee-integrity and demo are clean before and
+  after the full suite; **security:matrix 1 056 endpoints**, none unguarded.
+  Typecheck clean; lint 0 errors, 14 warnings (none new).
+- The ARMAAR seed run twice leaves every count unchanged.
+- **The migration** applied to an empty database and to a copy of
+  `nesto_erp`'s data with every earlier migration; on that copy `access:sync`
+  then `seed:armaar` added ARMAAR's employee files, and employment,
+  employee-integrity, demo, company-integrity and organization stayed clean.
+  `nesto_erp` holds no employee file, so the backfill was proven on a second
+  copy brought to E-04 with four planted: a plain file became `OTHER_HR`, an
+  archived one an archived link with its reason, one cited by E-03 history
+  `POSITION_CHANGE`, each `EMPLOYEE_AND_HR` and unverified under its
+  deterministic id; the fourth, naming another company's employment, got no
+  link and employee-integrity reported it. Rerunning the backfill inserted
+  nothing.
+
+### 29.3 Defects found
+
+- **E-04 broke the employee's own files in the Documents module.** Its
+  self-service branch matched a file's record id against the reader's
+  membership, and E-04 had re-keyed employee files to the employment, so an
+  employee's own HR files never listed there. The branch now belongs to the
+  employee record's policy, which matches the employment.
+- **Global search listed employee files by name** to anybody who could open
+  them — a contract's or a pay letter's title in ordinary search, which E-02
+  §138-§140 keep to the employee's record. Excluded; a test holds it.
+- **The Documents module would have been a side door**: it gave a reader every
+  file on a record they reached, so an HR reader of professional files could
+  have opened a contract there. Closed by the registry policy before any
+  category existed to leak.
+- **The favourites page reached server code from the browser.** It imported
+  record types from the navigable registry, whose imports lead to the
+  notification service and `node:async_hooks`; a webpack build failed on it
+  (the turbopack build did not). The types moved to a client-safe module.
+- The ownership gate caught a new **hr ↔ calendar import cycle** from the
+  credentials' calendar provider; it lives with the calendar's other providers
+  now. Screenshot review at 1 440 and 390 pixels found a flush table inside a
+  padded card, a phone filter row too narrow for the search, and a skill form
+  asking for an issuer and dates; all fixed.
+
+### 29.4 Limits
+
+- **Required documents** per role and `REQUIRED_DOCUMENT_MISSING` (§151-§152):
+  no company policy configuration says what a role requires.
+- **No profile photo** — E-01 deferred it here, but E-02's text does not ask
+  for one.
+- **No dashboard widgets** (§155-§156, optional).
+- **The Finance and management doors are empty** until an owner grants
+  `hr.document.finance.view` or `hr.document.restricted.view`; only the Owner
+  holds them by default.
+- **No OneDrive or SharePoint**: the identity columns and the rules an
+  integration must honour, nothing that talks to Microsoft.
+- **Demo files and qualifications are ARMAAR's only**; the five-company demo
+  has none.
+- **`nesto_erp` lacks the E-01, E-13, E-03, D-01, E-04 and E-02 migrations.**
+  With the owner's consent: `migrate deploy`, `access:sync`, then `seed:armaar`
+  for the demo tenant.

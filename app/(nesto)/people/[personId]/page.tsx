@@ -278,7 +278,7 @@ function Projects({ profile }: { profile: WorkProfileDTO }) {
 }
 
 function Activity({ profile }: { profile: WorkProfileDTO }) {
-  if (profile.activity.length === 0) return <EmptyState title="No recent activity" description="Project assignments and appointments appear here." />;
+  if (profile.activity.length === 0) return <EmptyState title="No recent activity" description="Project assignments, appointments and verified qualifications appear here." />;
   return (
     <ol className="nesto-card divide-y divide-line p-0" aria-label="Activity">
       {profile.activity.map((entry, index) => (

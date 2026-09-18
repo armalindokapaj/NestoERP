@@ -38,6 +38,7 @@ module data ──► CalendarProvider (module's own permission + scope, range-b
 | `qaqc` | inspections, corrective actions, NCRs | inspection date, due dates | `(companyId, status)`, `(projectId)` |
 | `hse` | inspections, toolbox talks, permits, risk assessments, actions | scheduled, talk date, valid until, review date, due | `(companyId, status)`, `(projectId)` |
 | `documents` | pending reviews with a due date | review due | `document_reviews(companyId, status, dueAt)` |
+| `hr-credentials` | employee documents and qualifications that run out (E-02 §92, §93): the reader's own, and HR's people | expiry date; named by kind, never by title | `employee_document_links(companyId, expiryDate)`, `person_qualifications(parentGroupId, personProfileId)`, `(companyId, expiryDate)` |
 | `meetings` | meetings the reader can open (not cancelled) | start–end | `meetings(companyId, startsAt)`, `(companyId, projectId, startsAt)` |
 
 Business dates are stored at midday UTC; providers query a range widened by a day

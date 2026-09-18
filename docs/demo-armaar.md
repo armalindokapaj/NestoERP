@@ -92,8 +92,18 @@ people sign in to BUILDING CONSTRUCTION INVEST first, where Tirana Lake is.
     Dervishi moved from Tower B to Tower A a few weeks ago — both kept in their
     history. ARLIS - NDERTIM's ten are on The Courtyard (as `arlis.hr`), one
     with an induction voided for the wrong date and given again.
-12. **Activity**: the dashboard's feed and every record's own history.
-13. **Platform Admin** as `armaar.platform-admin`: the group among the
+12. **Employee files and qualifications** (E-02) as `arlis.hr`: HR →
+    Documents → *To verify* has Taulant Ymeri's crane signaller card and
+    Eduart Vrioni's ETABS; *Expiring in 30 days* has Marsela Toska's licence to
+    practise and Nertila Gjini's first aid; *Expired*, Taulant's truck licence.
+    Marsela's profile shows her documents by group and her shared degree and
+    Civil 3D; as `arlis.structural` the Italian certificate he keeps private is
+    his alone. Denis Kote's technician card was sent back with a reason. As
+    `bci.hr`, Ergys Lamaj's contract has its site-allowance amendment and a
+    salary review shared with Finance; the crane operator Ylli Berisha, who
+    never signs in, has an operator's licence running out in a week.
+13. **Activity**: the dashboard's feed and every record's own history.
+14. **Platform Admin** as `armaar.platform-admin`: the group among the
     platform's parent groups.
 
 ## What is where
@@ -101,7 +111,7 @@ people sign in to BUILDING CONSTRUCTION INVEST first, where Tirana Lake is.
 | | Location |
 | --- | --- |
 | Public facts, with their source | `prisma/seed/armaar/public-facts.ts` |
-| The seed, stage by stage | `prisma/seed/armaar/` — `organization`, `people`/`access`, `workforce`, `projects`, `units`, `sales`, `operations`, `seed.ts` |
+| The seed, stage by stage | `prisma/seed/armaar/` — `organization`, `people`/`access`, `workforce`, `credentials`, `projects`, `units`, `sales`, `operations`, `seed.ts` |
 | D-01's checks | `prisma/seed/armaar/verify.ts`, `pnpm verify:demo` |
 | Where each fact comes from | the `demo_records` table: one row per group, company, department, person (with a login or without) and project, PUBLIC / SYNTHETIC / INFERRED, per field where mixed |
 | The executive view | `lib/modules/dashboard/dashboard.group.ts`, `GET /api/dashboard/group` |
@@ -114,7 +124,10 @@ then holds the database to it.
 
 - **Workers are counted with everybody employed**: the dashboard's employees
   figure includes the 34 site workers; there is no separate Workers figure.
-  Their timesheets, overtime and pay are E-09's, their qualifications E-02's.
+  Their timesheets, overtime and pay are E-09's.
+- **Employee files are a presenter's handful**, not a whole company's: eighteen
+  files and seventeen qualifications of seven people. Expiry dates are relative
+  to the day of the seed; the reminder job moves them on from there.
 - **Site attendance is written once**, on the first seed, for the working days
   before it; a rerun does not move it forward.
 - **External companies are counted across the registers** (suppliers,

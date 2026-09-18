@@ -48,7 +48,7 @@ export type PersonProjectDTO = {
   href: string | null;
 };
 
-export type PersonActivityDTO = { at: string; kind: "PROJECT_JOINED" | "PROJECT_LEFT" | "POSITION_STARTED" | "POSITION_ENDED"; text: string };
+export type PersonActivityDTO = { at: string; kind: "PROJECT_JOINED" | "PROJECT_LEFT" | "POSITION_STARTED" | "POSITION_ENDED" | "QUALIFICATION_VERIFIED"; text: string };
 
 import type { PersonDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
 
