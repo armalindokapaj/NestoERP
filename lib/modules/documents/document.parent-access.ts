@@ -180,6 +180,14 @@ function recordDocumentReadHeld(context: UserContext, definition: RecordDefiniti
   return moduleAndPermissions(context, definition.moduleKey, [...definition.viewPermissions, ...documents.view]);
 }
 
+/** The self-service upload door: adding to one's own record, where the record type offers it (E-02 §47). */
+async function selfUploadOpen(context: UserContext, definition: RecordDefinition, id: string): Promise<boolean> {
+  const self = definition.documents?.self;
+  if (!self?.upload || !can(context, self.upload)) return false;
+  if (!context.moduleAccess[definition.moduleKey]?.enabled) return false;
+  return self.isSelf(context, id);
+}
+
 /** The self-service door: somebody's own record, reached without a grant over anybody else. */
 async function selfDoorOpen(context: UserContext, definition: RecordDefinition, id: string): Promise<boolean> {
   const self = definition.documents?.self;
@@ -289,6 +297,10 @@ export async function canAttachToDocumentParent(
       const upload = parent.definition.documents?.upload;
       // A record type that takes no uploads takes none, whoever is asking.
       if (upload === null || upload === undefined) return false;
+      // Somebody adding to their own record through its self door (E-02 §47):
+      // which of their files they may then file, and as what, is the record's
+      // own rule, applied when the file is filed.
+      if (await selfUploadOpen(context, parent.definition, parent.id)) return true;
       if (!upload.every((permission) => can(context, permission))) return false;
       if (!recordDocumentReadHeld(context, parent.definition)) return false;
       const record = await parent.definition.find(context, parent.id);
@@ -336,7 +348,38 @@ export async function findReadableDocument(context: UserContext, documentId: str
     select: READABLE_SELECT,
   });
   if (!document) return null;
+  const parent = classifyDocumentParent(document);
+  if (parent.kind === "record" && parent.definition.documents?.policy) {
+    // The record's own policy decides file by file (E-02 §7, §120).
+    if (!filingModuleAllowed(context, document, parent)) return null;
+    return (await policyAdmits(context, parent.definition, document.id)) ? document : null;
+  }
   return (await canReachDocumentParent(context, document)) ? document : null;
+}
+
+/** Whether a record's document policy lets this reader open one of its files — the same clause its lists apply. */
+async function policyAdmits(context: UserContext, definition: RecordDefinition, documentId: string): Promise<boolean> {
+  const clause = await definition.documents?.policy?.readable(context);
+  if (!clause) return false;
+  return (await prisma.document.count({ where: { AND: [clause, { companyId: context.companyId, id: documentId }] } })) > 0;
+}
+
+/**
+ * May this reader change a document itself — its name, its archive state — on
+ * top of whatever `document.update` or `document.archive` they hold? A record
+ * with a document policy answers for its own files: an employee cannot rename
+ * or archive the contract HR filed on them (E-02 §63, §67). Every other file
+ * answers yes, and the caller's own checks stand.
+ */
+export async function documentChangeAllowed(context: UserContext, document: DocumentParentRef & { id: string }): Promise<boolean> {
+  const parent = classifyDocumentParent(document);
+  if (parent.kind === "record" && parent.definition.documents?.policy) return parent.definition.documents.policy.changeable(context, document.id);
+  return true;
+}
+
+/** May this reader put a new version of this document's file on its record: the parent takes files from them, and the file is theirs to change. */
+export async function canChangeDocumentFile(context: UserContext, document: DocumentParentRef & { id: string }): Promise<boolean> {
+  return (await canAttachToDocumentParent(context, document)) && (await documentChangeAllowed(context, document));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -392,7 +435,18 @@ export async function buildDocumentAccessWhere(context: UserContext): Promise<Pr
   const recordDefinitionsWithDocuments = recordDefinitions().filter(
     (definition) => definition.documents && definition.type !== "project" && definition.type !== "client",
   );
-  const readableTypes = recordDefinitionsWithDocuments.filter((definition) => recordDocumentReadHeld(context, definition));
+
+  // A record type with its own document policy answers for its files itself,
+  // file by file, in one clause (E-02 §204-§206) — the branches below would
+  // hand a reader every file on a record they can reach.
+  for (const definition of recordDefinitionsWithDocuments) {
+    const policy = definition.documents?.policy;
+    if (!policy || !reachable.includes(definition.moduleKey)) continue;
+    const clause = await policy.readable(context);
+    if (clause) branches.push({ AND: [{ entityType: definition.type }, clause, moduleGate(definition.moduleKey)] });
+  }
+
+  const readableTypes = recordDefinitionsWithDocuments.filter((definition) => !definition.documents?.policy && recordDocumentReadHeld(context, definition));
 
   if (readableTypes.length > 0) {
     const candidates = await prisma.document.groupBy({
@@ -423,14 +477,9 @@ export async function buildDocumentAccessWhere(context: UserContext): Promise<Pr
     }
   }
 
-  // Self-service: a record whose id is the reader's own membership, reached
-  // without any grant over anybody else (PRD #16 §135).
-  for (const definition of recordDefinitionsWithDocuments) {
-    const self = definition.documents?.self;
-    if (!self || !can(context, self.permission) || !self.isSelf(context, context.membershipId)) continue;
-    if (!context.moduleAccess[definition.moduleKey]?.enabled) continue;
-    branches.push({ AND: [{ entityType: definition.type, entityId: context.membershipId }, moduleGate(definition.moduleKey)] });
-  }
+  // Self-service (PRD #16 §135) is part of the policy of the one record type
+  // that has it — an employee's own file is read with the employee's rules
+  // (E-02 §105), not as "everything on my record".
 
   // A company document needs company-level access to its filing module and
   // that module's document grant, or the dedicated company-document grant when

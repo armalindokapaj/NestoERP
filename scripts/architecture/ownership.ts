@@ -93,7 +93,9 @@ const OWNED: Record<string, string[]> = {
   ],
   // HR owns the person and the candidate as well as the employment (E-06 §82).
   // …and the employment's history: where the employee sat, their status over time, and changes scheduled (E-03, ADR 0004).
-  hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord", "personProfile", "candidateProfile", "employmentAssignment", "employmentStatusHistory", "employmentChange"],
+  // …and what HR files on an employment and a person's qualifications (E-02): the files themselves stay
+  // the documents domain's, reached only through its services (§200, ADR 0007).
+  hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord", "personProfile", "candidateProfile", "employmentAssignment", "employmentStatusHistory", "employmentChange", "employeeDocumentLink", "personQualification"],
   // Where employees work and with whom: trades, crews and project assignments (E-04 §28-§42). The
   // employment stays HR's; ending one closes these through the door HR is handed (ADR 0006).
   // …and a bulk import's batch: it places people on projects and in crews as it goes, and each

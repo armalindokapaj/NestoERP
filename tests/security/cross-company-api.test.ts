@@ -9,6 +9,7 @@ import { cleanupSessions, createRawSession, DEMO_EMAIL, loginAsEmail, prisma } f
 import { actAs } from "./harness/actor";
 import { COMPANY_A, COMPANY_TENANT, COMPANY_WORKS, withAllModulesEnabled } from "./harness/companies";
 import { companyIdentifiers, companySnapshot, snapshotDifferences } from "./harness/company-data";
+import { seedEmployeeFiles } from "./harness/employee-files";
 import { sweepRoutes } from "./harness/sweep";
 
 vi.mock("@/lib/context/resolve-user-context", () => import("./harness/actor"));
@@ -40,18 +41,22 @@ let ownerA: UserContext;
 let ownerB: UserContext;
 const report: Record<string, unknown> = {};
 let restoreModules: (() => Promise<void>) | null = null;
+const removeFixtures: Array<() => Promise<void>> = [];
 
 beforeAll(async () => {
   // The fixture tenant runs with modules switched off on purpose (PRD #9 §13);
   // here they are switched on, so a refusal comes from the company boundary
   // rather than from the module guard.
   restoreModules = await withAllModulesEnabled(COMPANY_TENANT);
+  // Employee documents and qualifications exist only where a test makes them (E-02 §241).
+  removeFixtures.push(await seedEmployeeFiles(COMPANY_A), await seedEmployeeFiles(COMPANY_TENANT));
   ownerA = await loginAsEmail("owner@nesto.test");
   ownerB = await loginAsEmail(DEMO_EMAIL.tenantOwner);
 }, 120_000);
 
 afterAll(async () => {
   actAs(null);
+  for (const remove of removeFixtures) await remove();
   await restoreModules?.();
   if (process.env.SECURITY_REPORT) writeFileSync(process.env.SECURITY_REPORT, JSON.stringify(report, null, 2));
   await cleanupSessions();

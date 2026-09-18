@@ -56,6 +56,10 @@ const RULES: Rule[] = [
   // An employment's history rows and scheduled changes (E-03): the employee segment is filled from the row's employment.
   { when: /\/employment-history\/\[rowId\]/, param: "rowId", source: { model: "EmploymentAssignment", fill: { employeeId: "employeeProfileId" } } },
   { when: /\/scheduled-changes\/\[changeId\]/, param: "changeId", source: { model: "EmploymentChange", fill: { employeeId: "employeeProfileId" } } },
+  // What HR filed on an employment (E-02 §116): the employee segment is filled from the link.
+  { when: /\/hr\/employees\/\[employeeId\]\/documents\/\[linkId\]/, param: "linkId", source: { model: "EmployeeDocumentLink", fill: { employeeId: "employeeProfileId" } } },
+  // A person's qualification (E-02 §118): the person segment is filled from the row.
+  { when: /\/qualifications\/\[qualificationId\]/, param: "qualificationId", source: { model: "PersonQualification", fill: { personId: "personProfileId" } } },
   // An employee is addressed by the employment, login or not (E-04 §14).
   { when: /\/hr\/employees\//, param: "employeeId", source: { model: "EmployeeProfile" } },
   // A worker's crew memberships and project assignments (E-04 §159, §160): the employee segment is filled from the row.

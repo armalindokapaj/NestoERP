@@ -15,6 +15,8 @@ import { commitmentMachine } from "@/lib/modules/finance/commitments/commitment.
 import { expenseMachine } from "@/lib/modules/finance/expenses/expense.machine";
 import { invoiceMachine } from "@/lib/modules/finance/invoices/invoice.machine";
 import { paymentMachine } from "@/lib/modules/finance/payments/payment.machine";
+import { employeeDocumentVerificationMachine } from "@/lib/modules/hr/documents/employee-document.machine";
+import { qualificationVerificationMachine } from "@/lib/modules/hr/qualifications/qualification.machine";
 import { hseInspectionMachine } from "@/lib/modules/hse/inspections/inspection.machine";
 import { hseActionMachine } from "@/lib/modules/hse/actions/action.machine";
 import { hseHazardMachine } from "@/lib/modules/hse/hazards/hazard.machine";
@@ -70,6 +72,9 @@ export const STATE_MACHINES: ReadonlyArray<StateMachine<any, any>> = [
   hseHazardMachine,
   qualityInspectionMachine,
   correctiveActionMachine,
+  // HR: employee documents and qualifications, checked by a verifier (E-02 §29-§31)
+  employeeDocumentVerificationMachine,
+  qualificationVerificationMachine,
   // Projects (E-05A §12)
   provisioningRequestMachine,
   projectMachine,

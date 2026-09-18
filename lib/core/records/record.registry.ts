@@ -16,6 +16,7 @@ import {
   buildInvoiceScopeWhere,
   buildPaymentScopeWhere,
 } from "@/lib/modules/finance/finance.scope";
+import { canChangeEmployeeDocument, readableEmployeeDocumentWhere } from "@/lib/modules/hr/documents/employee-document.access";
 import { personName, PERSON_NAME_SELECT } from "@/lib/modules/hr/hr.person";
 import { buildEmployeeScopeWhere, buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
 import {
@@ -407,13 +408,54 @@ const DEFINITIONS: RecordDefinition[] = [
       view: ["hr.document.view"],
       upload: ["hr.document.create"],
       tabHref: recordDocumentsTab,
-      self: { permission: "hr.self.documents", isSelf: ownEmployment },
+      self: { permission: "hr.self.documents", upload: "hr.self.documents.upload", isSelf: ownEmployment },
+      // A contract and a diploma on the same record have different readers (E-02 §38-§46, ADR 0007).
+      policy: { readable: readableEmployeeDocumentWhere, changeable: canChangeEmployeeDocument },
       reviewable: false,
     },
     // An HR discussion about somebody is more confidential than their record:
     // only those who manage employee records take part, never the employee
     // through self-service (PRD #38 §28 "where confidentiality permits").
     collaboration: { requires: ["hr.employee.update"] },
+  },
+  {
+    // A document HR filed on an employment (E-02 §11). Its readers are the
+    // employee-file policy's, file by file — reading the employee record is not
+    // reading this. Lives on the person's profile.
+    type: "employee_document",
+    moduleKey: "hr",
+    noun: "Employee document",
+    activityEntityType: "EmployeeDocumentLink",
+    viewPermissions: ["hr.self.documents"],
+    async find(context, id) {
+      const { findEmployeeDocumentRecord } = await import("@/lib/modules/hr/documents/employee-document.service");
+      return findEmployeeDocumentRecord(context, id);
+    },
+    async reachable(context, ids) {
+      const { reachableEmployeeDocuments } = await import("@/lib/modules/hr/documents/employee-document.service");
+      return reachableEmployeeDocuments(context, ids);
+    },
+    documents: null,
+    collaboration: null,
+  },
+  {
+    // A person's qualification (E-02 §14), read in full by the person and by HR
+    // that employs them; colleagues see a summary, which is not the record.
+    type: "person_qualification",
+    moduleKey: "people",
+    noun: "Qualification",
+    activityEntityType: "PersonQualification",
+    viewPermissions: ["people.profile.view"],
+    async find(context, id) {
+      const { findQualificationRecord } = await import("@/lib/modules/hr/qualifications/qualification.service");
+      return findQualificationRecord(context, id);
+    },
+    async reachable(context, ids) {
+      const { reachableQualifications } = await import("@/lib/modules/hr/qualifications/qualification.service");
+      return reachableQualifications(context, ids);
+    },
+    documents: null,
+    collaboration: null,
   },
   {
     type: "leave_request",

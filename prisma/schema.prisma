@@ -639,6 +639,96 @@ enum EmployeeImportStatus {
   DISCARDED
 }
 
+/// What an employee document is (E-02 §16). A system key, never free text:
+/// who may read, upload and be reminded about a document follows from it
+/// (§26). Companies may later add their own labels under these, not new keys.
+enum EmployeeDocumentCategory {
+  EMPLOYMENT_CONTRACT
+  CONTRACT_AMENDMENT
+  EMPLOYMENT_LETTER
+  POSITION_CHANGE
+  SALARY_CHANGE_DOCUMENT
+  SALARY_HISTORY_DOCUMENT
+  COMPENSATION_STATEMENT
+  DIPLOMA
+  DEGREE
+  TRANSCRIPT
+  PROFESSIONAL_CERTIFICATE
+  SKILLS_CERTIFICATE
+  PROFESSIONAL_LICENSE
+  SAFETY_CERTIFICATE
+  TRAINING_CERTIFICATE
+  LANGUAGE_CERTIFICATE
+  DRIVING_LICENSE
+  EQUIPMENT_LICENSE
+  WORK_PERMIT
+  CV
+  IDENTITY_DOCUMENT
+  OTHER_HR
+  OTHER_PROFESSIONAL
+}
+
+/// Who an employee document is for (E-02 §33). Always narrowed further by the
+/// category: a salary document is never read with HR access alone (§40).
+enum EmployeeDocumentVisibility {
+  /// The employee alone — their own upload, kept from HR as well.
+  PRIVATE_EMPLOYEE
+  EMPLOYEE_AND_HR
+  HR_ONLY
+  /// As EMPLOYEE_AND_HR, and Finance where Finance has been given access explicitly.
+  EMPLOYEE_HR_FINANCE
+  /// HR, and management or Legal given access explicitly. Not the employee.
+  RESTRICTED_MANAGEMENT
+  /// As EMPLOYEE_AND_HR, and — once verified — a summary to colleagues. Never the file (§34).
+  GROUP_SUMMARY
+}
+
+/// Where a document or qualification stands with its verifier (E-02 §29, §30).
+enum CredentialVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+
+/// What a qualification is (E-02 §15).
+enum QualificationType {
+  SKILL
+  DIPLOMA
+  DEGREE
+  PROFESSIONAL_CERTIFICATE
+  SKILLS_CERTIFICATE
+  PROFESSIONAL_LICENSE
+  SAFETY_CERTIFICATE
+  TRAINING_CERTIFICATE
+  LANGUAGE_CERTIFICATE
+  DRIVING_LICENSE
+  EQUIPMENT_LICENSE
+  WORK_PERMIT
+  OTHER
+}
+
+enum SkillProficiency {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+/// Who a qualification is shown to (E-02 §32). The supporting file keeps its
+/// own document's rules whatever this says (§35).
+enum QualificationVisibility {
+  /// The person alone.
+  PRIVATE
+  EMPLOYEE_AND_HR
+  HR_ONLY
+  /// As EMPLOYEE_AND_HR, and — once verified — to everybody in the group.
+  GROUP_SUMMARY
+  /// HR with access to HR-private records. Not the person.
+  RESTRICTED
+}
+
 /// Why an employment's organizational state changed (E-03 §29). "Role change"
 /// there means the job, never the NESTO security role (§107-§109), so it is
 /// TITLE_CHANGE here.
@@ -1276,6 +1366,9 @@ model Company {
   projectSites               ProjectSite[]
   hseInductions              HseInduction[]
   employeeImportBatches      EmployeeImportBatch[]
+  // E-02: employee documents as HR files them, and the qualifications recorded here.
+  employeeDocumentLinks      EmployeeDocumentLink[]
+  personQualifications       PersonQualification[]
   leads                      Lead[]
   opportunities              Opportunity[]
   proposals                  Proposal[]
@@ -1732,6 +1825,7 @@ model ParentGroup {
   auditEvents           AuditEvent[]
   companyHoldings       CompanyOwner[]
   demoRecords           DemoRecord[]
+  qualifications        PersonQualification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1981,6 +2075,8 @@ model PersonProfile {
   candidacies          CandidateProfile[]
   employments          EmployeeProfile[]
   provisioningRequests UserProvisioningRequest[]
+  /// Skills, diplomas, licences and certificates — the person's, across the group (E-02).
+  qualifications       PersonQualification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3083,6 +3179,24 @@ model Document {
   /// the company in V0.1, whatever this says (PRD #46 §128-§132, §255).
   sharingClassification DocumentSharingClassification @default(INTERNAL_ONLY)
 
+  /// Where the file lives when a provider other than NESTO's own storage holds
+  /// it — OneDrive or SharePoint, later (E-02 §3-§5, §161-§168). The provider's
+  /// item id is the identity, never its path: a moved or renamed file keeps its
+  /// Document and every reference to it. Nothing writes these in V0.1; the
+  /// unique key below is what makes linking the same external item twice
+  /// impossible once something does (§58, §188).
+  externalProvider   String?
+  externalDriveId    String?
+  externalItemId     String?
+  externalVersionId  String?
+  externalParentId   String?
+  /// Display only, never a key: paths change (§162).
+  providerPath       String?
+  /// Never handed to a browser: a provider link can bypass NESTO's checks (§175).
+  webUrl             String?
+  etag               String?
+  lastProviderSyncAt DateTime?
+
   /// Who uploaded it. Records authorship, not ownership: access is decided by
   /// company, parent and permissions (PRD #13 §281).
   uploadedByMemberId String?
@@ -3119,6 +3233,10 @@ model Document {
   employmentStatusHistory EmploymentStatusHistory[] @relation("EmploymentStatusDocument")
   employmentChanges       EmploymentChange[]        @relation("EmploymentChangeDocument")
 
+  // E-02: what HR files it as, when its parent is an employment, and the qualifications it supports.
+  employeeDocumentLink    EmployeeDocumentLink? @relation("EmployeeDocumentLinkDocument")
+  supportedQualifications PersonQualification[] @relation("PersonQualificationDocument")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3127,6 +3245,8 @@ model Document {
   @@unique([storageKey])
   /// The target of composite keys that must name a document of their own company (E-03 §202).
   @@unique([id, companyId])
+  /// One external item, one canonical Document, per company and provider (E-02 §58, §188).
+  @@unique([companyId, externalProvider, externalDriveId, externalItemId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, updatedAt])
@@ -3241,6 +3361,9 @@ model DocumentVersion {
   reviewState  DocumentReviewState @default(DRAFT)
   changeNote   String?
   supersededAt DateTime?
+
+  /// The provider's own version of the item, when one holds the file (E-02 §167).
+  externalVersionId String?
 
   uploadedByMemberId String
 
@@ -4111,6 +4234,9 @@ model EmployeeProfile {
   hseIncidentInvolvements  HseIncidentPerson[]
   hseWorkPermitAssignments HseWorkPermitWorker[]
 
+  // E-02: what HR keeps on file for this employment — contracts, letters, pay evidence, certificates.
+  documentLinks EmployeeDocumentLink[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -4441,6 +4567,137 @@ model EmployeeImportBatch {
 
   @@index([companyId, createdAt])
   @@map("employee_import_batches")
+}
+
+/// What a document filed on an employment is to HR (E-02 §11, §27, §28): its
+/// category, business title, dates, who may see it and whether it has been
+/// checked. The file is the canonical Document — this row holds no bytes and
+/// no copy (§12), and there is exactly one per document: the document's parent
+/// is this employment, so the two can never disagree about whose file it is.
+///
+/// Legal and employment history is never overwritten (§63): a renewal or a
+/// replacement is a new row, the old one marked not current and pointing at it.
+model EmployeeDocumentLink {
+  id                 String                       @id @default(cuid())
+  companyId          String
+  employeeProfileId  String
+  documentId         String
+  category           EmployeeDocumentCategory
+  /// What HR calls it — "Professional Engineer Licence" — whatever the file is named (§226-§228).
+  title              String
+  visibility         EmployeeDocumentVisibility
+  verificationStatus CredentialVerificationStatus @default(UNVERIFIED)
+
+  issuer         String?
+  documentNumber String?
+  issueDate      DateTime? @db.Date
+  expiryDate     DateTime? @db.Date
+  effectiveFrom  DateTime? @db.Date
+  effectiveTo    DateTime? @db.Date
+
+  /// False once a later document took its place, or HR said it no longer applies (§64, §65).
+  isCurrent      Boolean @default(true)
+  /// The document that replaced this one, by renewal or supersession (§66, §91).
+  supersededById String?
+  /// For an amendment: the contract it amends. Never a new version of it (§13, §62).
+  amendsId       String?
+
+  verifiedByMemberId        String?
+  /// When it was verified or rejected — the decision is the status (§76).
+  verifiedAt                DateTime?
+  verificationNote          String?
+  /// The file version the verifier looked at. A later upload is not verified by that decision.
+  verifiedDocumentVersionId String?
+
+  createdByMemberId  String?
+  archivedAt         DateTime?
+  archivedByMemberId String?
+  archiveReason      String?
+  version            Int       @default(1)
+
+  company         Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employeeProfile EmployeeProfile        @relation(fields: [employeeProfileId, companyId], references: [id, companyId], onDelete: Restrict)
+  document        Document               @relation("EmployeeDocumentLinkDocument", fields: [documentId, companyId], references: [id, companyId], onDelete: Restrict)
+  supersededBy    EmployeeDocumentLink?  @relation("EmployeeDocumentSupersession", fields: [supersededById, employeeProfileId], references: [id, employeeProfileId], onDelete: Restrict)
+  supersedes      EmployeeDocumentLink?  @relation("EmployeeDocumentSupersession")
+  amends          EmployeeDocumentLink?  @relation("EmployeeDocumentAmendment", fields: [amendsId, employeeProfileId], references: [id, employeeProfileId], onDelete: Restrict)
+  amendments      EmployeeDocumentLink[] @relation("EmployeeDocumentAmendment")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, companyId])
+  /// One link per document: the document's parent is this employment (§12).
+  @@unique([documentId, companyId])
+  /// A replacement or an amended contract is always the same employment's: the
+  /// history chains below cannot cross from one employee to another.
+  @@unique([id, employeeProfileId])
+  @@unique([supersededById, employeeProfileId])
+  @@index([companyId, employeeProfileId, category])
+  @@index([companyId, verificationStatus])
+  @@index([companyId, expiryDate])
+  @@index([amendsId])
+  @@map("employee_document_links")
+}
+
+/// A skill, diploma, licence or certificate a person holds (E-02 §14, §15).
+///
+/// The person's, not an employment's: it stays with them through a transfer or
+/// a rehire, across the group's companies (ADR 0007). `companyId` is where it
+/// was recorded, and where its supporting file — a canonical Document, never a
+/// copy — is filed. Whether colleagues see it is the qualification's
+/// visibility; whether they may open the file is the file's own (§35).
+model PersonQualification {
+  id              String @id @default(cuid())
+  parentGroupId   String
+  personProfileId String
+  companyId       String
+
+  type               QualificationType
+  title              String
+  issuer             String?
+  documentNumber     String?
+  issueDate          DateTime?                    @db.Date
+  expiryDate         DateTime?                    @db.Date
+  proficiency        SkillProficiency?
+  verificationStatus CredentialVerificationStatus @default(UNVERIFIED)
+  visibility         QualificationVisibility      @default(EMPLOYEE_AND_HR)
+
+  supportingDocumentId String?
+
+  isCurrent      Boolean @default(true)
+  supersededById String?
+
+  verifiedByMemberId        String?
+  verifiedAt                DateTime?
+  verificationNote          String?
+  verifiedDocumentVersionId String?
+
+  createdByMemberId  String?
+  archivedAt         DateTime?
+  archivedByMemberId String?
+  archiveReason      String?
+  version            Int       @default(1)
+
+  parentGroup        ParentGroup          @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+  person             PersonProfile        @relation(fields: [personProfileId, parentGroupId], references: [id, parentGroupId], onDelete: Restrict)
+  company            Company              @relation(fields: [companyId, parentGroupId], references: [id, parentGroupId], onDelete: Restrict)
+  supportingDocument Document?            @relation("PersonQualificationDocument", fields: [supportingDocumentId, companyId], references: [id, companyId], onDelete: Restrict)
+  supersededBy       PersonQualification? @relation("PersonQualificationSupersession", fields: [supersededById, personProfileId], references: [id, personProfileId], onDelete: Restrict)
+  supersedes         PersonQualification? @relation("PersonQualificationSupersession")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// A renewal is always the same person's (§91).
+  @@unique([id, personProfileId])
+  @@unique([supersededById, personProfileId])
+  @@index([parentGroupId, personProfileId])
+  @@index([companyId, verificationStatus])
+  @@index([companyId, expiryDate])
+  @@index([supportingDocumentId])
+  @@index([parentGroupId, type, verificationStatus])
+  @@map("person_qualifications")
 }
 
 /// Pay, behind its own permission (PRD #16 §17, §58).

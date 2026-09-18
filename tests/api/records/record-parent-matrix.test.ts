@@ -35,6 +35,8 @@ const SOURCE: Record<RecordType, { model: string; idField?: string; where?: Reco
   budget: { model: "projectBudget" },
   commitment: { model: "commitment" },
   employee: { model: "employeeProfile" },
+  employee_document: { model: "employeeDocumentLink" },
+  person_qualification: { model: "personQualification" },
   leave_request: { model: "leaveRequest" },
   lead: { model: "lead" },
   opportunity: { model: "opportunity" },
@@ -89,8 +91,36 @@ let viewer: UserContext;
 /** A live (not archived) record per type, as the Owner reads it. */
 const sample = new Map<RecordType, string>();
 
+/**
+ * The demo seeds no employee documents or qualifications outside ARMAAR, so the
+ * matrix brings one of each for an Aurelia engineer and takes them away again.
+ */
+const FIXTURE = { document: "rpm_employee_document", link: "rpm_employee_document_link", qualification: "rpm_person_qualification" };
+
+async function seedFixtures() {
+  const employment = await prisma.employeeProfile.findFirstOrThrow({ where: { companyId: COMPANY_A, companyMember: { is: { role: { key: "ENGINEER" } } } }, select: { id: true, personProfileId: true } });
+  const person = await prisma.personProfile.findUniqueOrThrow({ where: { id: employment.personProfileId }, select: { parentGroupId: true } });
+  await prisma.document.create({
+    data: { id: FIXTURE.document, companyId: COMPANY_A, name: "Matrix diploma.pdf", module: "hr", entityType: "employee", entityId: employment.id, status: "ACTIVE", storageStatus: "AVAILABLE", createdBy: owner.userId },
+  });
+  await prisma.employeeDocumentLink.create({
+    data: { id: FIXTURE.link, companyId: COMPANY_A, employeeProfileId: employment.id, documentId: FIXTURE.document, category: "DIPLOMA", title: "Matrix diploma", visibility: "EMPLOYEE_AND_HR" },
+  });
+  await prisma.personQualification.create({
+    data: { id: FIXTURE.qualification, parentGroupId: person.parentGroupId, personProfileId: employment.personProfileId, companyId: COMPANY_A, type: "SKILL", title: "Matrix skill" },
+  });
+}
+
+async function removeFixtures() {
+  await prisma.personQualification.deleteMany({ where: { id: FIXTURE.qualification } });
+  await prisma.employeeDocumentLink.deleteMany({ where: { id: FIXTURE.link } });
+  await prisma.document.deleteMany({ where: { id: FIXTURE.document } });
+}
+
 beforeAll(async () => {
   [owner, ownerB, viewer] = await Promise.all([loginAs("OWNER"), loginAsEmail(DEMO_EMAIL.tenantOwner), loginAs("VIEWER")]);
+  await removeFixtures();
+  await seedFixtures();
 
   for (const definition of recordDefinitions()) {
     const source = SOURCE[definition.type];
@@ -108,6 +138,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await removeFixtures();
   await cleanupSessions();
   await prisma.$disconnect();
 });

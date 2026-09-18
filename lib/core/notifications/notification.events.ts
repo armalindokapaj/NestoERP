@@ -178,6 +178,16 @@ export const NotificationEvent = {
   // Employment history (E-03 §151, §152, §226)
   EMPLOYMENT_CHANGE_EFFECTIVE: "EMPLOYMENT_CHANGE_EFFECTIVE",
   EMPLOYMENT_CHANGE_FAILED: "EMPLOYMENT_CHANGE_FAILED",
+  // Employee documents and qualifications (E-02 §147, §148)
+  EMPLOYEE_DOCUMENT_ADDED: "EMPLOYEE_DOCUMENT_ADDED",
+  EMPLOYEE_DOCUMENT_VERIFIED: "EMPLOYEE_DOCUMENT_VERIFIED",
+  EMPLOYEE_DOCUMENT_REJECTED: "EMPLOYEE_DOCUMENT_REJECTED",
+  QUALIFICATION_VERIFIED: "QUALIFICATION_VERIFIED",
+  QUALIFICATION_REJECTED: "QUALIFICATION_REJECTED",
+  EMPLOYEE_DOCUMENT_EXPIRING: "EMPLOYEE_DOCUMENT_EXPIRING",
+  EMPLOYEE_DOCUMENT_EXPIRED: "EMPLOYEE_DOCUMENT_EXPIRED",
+  QUALIFICATION_EXPIRING: "QUALIFICATION_EXPIRING",
+  QUALIFICATION_EXPIRED: "QUALIFICATION_EXPIRED",
   CALENDAR_EVENT_CREATED: "CALENDAR_EVENT_CREATED",
   CALENDAR_EVENT_UPDATED: "CALENDAR_EVENT_UPDATED",
   CALENDAR_EVENT_CANCELLED: "CALENDAR_EVENT_CANCELLED",
@@ -1250,6 +1260,114 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     title: (payload) => `A scheduled change could not be applied: ${text(payload, "change", "employment change")}`,
     body: (payload) => text(payload, "reason") || null,
     dedupe: perEvent,
+  },
+
+  /*
+   * Employee documents and qualifications (E-02 §147, §148). To the person
+   * themselves; what kind of document, never its name, number or amount — a
+   * pay letter is announced as "a document", not as what it says.
+   */
+  {
+    eventType: NotificationEvent.EMPLOYEE_DOCUMENT_ADDED,
+    category: "hr",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => (payload.categoryLabel ? `HR added a ${text(payload, "categoryLabel").toLowerCase()} to your file` : "HR added a document to your file"),
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.EMPLOYEE_DOCUMENT_VERIFIED,
+    category: "hr",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `Your ${text(payload, "categoryLabel", "document").toLowerCase()} was verified`,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.EMPLOYEE_DOCUMENT_REJECTED,
+    category: "hr",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `Your ${text(payload, "categoryLabel", "document").toLowerCase()} was not accepted`,
+    body: () => "Open it to see why, and resubmit it with a corrected file.",
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.QUALIFICATION_VERIFIED,
+    category: "hr",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `Your qualification “${text(payload, "title", "qualification")}” was verified`,
+    dedupe: perEvent,
+  },
+  {
+    eventType: NotificationEvent.QUALIFICATION_REJECTED,
+    category: "hr",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `Your qualification “${text(payload, "title", "qualification")}” was not accepted`,
+    body: () => "Open it to see why, and resubmit it once it is corrected.",
+    dedupe: perEvent,
+  },
+
+  /*
+   * Expiry reminders (E-02 §85-§88, §93): at 90, 60, 30 and 7 days and once
+   * past the date — one per record, window and expiry date, whoever else
+   * hears. Named by kind and person; a private paper only as "HR document".
+   */
+  {
+    eventType: NotificationEvent.EMPLOYEE_DOCUMENT_EXPIRING,
+    category: "hr",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `${text(payload, "label", "HR document")} of ${text(payload, "personName", "an employee")} expires ${text(payload, "dateLabel", "soon")}`,
+    body: (payload) => (payload.days !== undefined ? `In ${String(payload.days)} days.` : null),
+    dedupe: (event, memberId, payload) => `EMPLOYEE_DOCUMENT_EXPIRING:${event.entityId}:${text(payload, "window")}:${text(payload, "expiresAt", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.EMPLOYEE_DOCUMENT_EXPIRED,
+    category: "hr",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `${text(payload, "label", "HR document")} of ${text(payload, "personName", "an employee")} has expired`,
+    body: (payload) => (payload.dateLabel ? `Expired ${text(payload, "dateLabel")}. Renew it to keep the file current.` : null),
+    dedupe: (event, memberId, payload) => `EMPLOYEE_DOCUMENT_EXPIRED:${event.entityId}:${text(payload, "expiresAt", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.QUALIFICATION_EXPIRING,
+    category: "hr",
+    priority: "NORMAL",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `${text(payload, "typeLabel", "Qualification")} “${text(payload, "title")}” of ${text(payload, "personName", "a colleague")} expires ${text(payload, "dateLabel", "soon")}`,
+    body: (payload) => (payload.days !== undefined ? `In ${String(payload.days)} days.` : null),
+    dedupe: (event, memberId, payload) => `QUALIFICATION_EXPIRING:${event.entityId}:${text(payload, "window")}:${text(payload, "expiresAt", event.id)}:${memberId}`,
+  },
+  {
+    eventType: NotificationEvent.QUALIFICATION_EXPIRED,
+    category: "hr",
+    priority: "HIGH",
+    async recipients(_tx, _event, payload) {
+      return ids(payload, "memberIds");
+    },
+    title: (payload) => `${text(payload, "typeLabel", "Qualification")} “${text(payload, "title")}” of ${text(payload, "personName", "a colleague")} has expired`,
+    body: (payload) => (payload.dateLabel ? `Expired ${text(payload, "dateLabel")}. Renew it to keep it on the profile.` : null),
+    dedupe: (event, memberId, payload) => `QUALIFICATION_EXPIRED:${event.entityId}:${text(payload, "expiresAt", event.id)}:${memberId}`,
   },
 
   /* Calendar (PRD #39 §108) ----------------------------------------------- */
