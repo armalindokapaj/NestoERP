@@ -38,6 +38,7 @@
     "verify:company-integrity": "tsx scripts/verify-company-integrity.ts",
     "verify:organization": "tsx scripts/verify-organization.ts",
     "verify:employment": "tsx scripts/verify-employment.ts",
+    "verify:employee-integrity": "tsx scripts/verify-employee-integrity.ts",
     "verify:demo": "tsx scripts/verify-demo.ts",
     "repair:employment": "tsx scripts/repair-employment.ts",
     "security:matrix": "tsx scripts/security/api-matrix.ts",

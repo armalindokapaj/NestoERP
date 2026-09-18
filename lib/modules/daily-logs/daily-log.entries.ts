@@ -47,6 +47,13 @@ async function assertMember(context: UserContext, memberId: string | null, field
   if (!found) throw fail("DAILY_LOG_MEMBER_INVALID", "Choose an active member of your company.", "VALIDATION_ERROR", { field });
 }
 
+/** One of the company's crews, on this log's project or on none (E-04 §43). */
+async function assertCrew(context: UserContext, log: ReadableLog, crewId: string | null) {
+  if (!crewId) return;
+  const found = await prisma.workforceCrew.count({ where: { id: crewId, companyId: context.companyId, OR: [{ projectId: log.projectId }, { projectId: null }] } });
+  if (!found) throw fail("DAILY_LOG_CREW_INVALID", "Choose one of this project's crews.", "VALIDATION_ERROR", { field: "crewId" });
+}
+
 /** A task on this log's project that the writer can open (§38, §191). */
 export async function assertTask(context: UserContext, log: ReadableLog, taskId: string | null) {
   if (!taskId) return;
@@ -137,8 +144,9 @@ async function toData(context: UserContext, log: ReadableLog, section: SectionKe
     case "workforce": {
       const value = input as SectionInput<"workforce">;
       await assertSupplier(context, value.supplierId);
+      await assertCrew(context, log, value.crewId);
       const scope = await contractorContext(context, log, value);
-      return { organizationName: value.organizationName, supplierId: value.supplierId, ...scope, trade: value.trade, crewName: value.crewName, headcount: value.headcount, notes: value.notes };
+      return { organizationName: value.organizationName, supplierId: value.supplierId, ...scope, trade: value.trade, crewName: value.crewName, crewId: value.crewId, headcount: value.headcount, notes: value.notes };
     }
     case "activities": {
       const value = input as SectionInput<"activities">;
@@ -217,7 +225,8 @@ function delegate(tx: Tx, section: SectionKey): Delegate {
   return models[section] as Delegate;
 }
 
-async function prepare(context: UserContext, dailyLogId: string, section: SectionKey) {
+/** The log, when this reader may write this section of it now. */
+export async function prepare(context: UserContext, dailyLogId: string, section: SectionKey) {
   const log = await findReadableLog(context, dailyLogId);
   if (!canEditSection(context, log.status, section)) {
     if (log.status !== "DRAFT" && log.status !== "CORRECTION_REQUIRED") throw lockedError(log.status);

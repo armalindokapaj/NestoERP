@@ -105,8 +105,10 @@ export default async function ToolboxTalkPage({ params }: Params) {
                     className="flex flex-wrap items-center justify-between gap-3 py-2.5"
                   >
                     <span className="text-table text-fg">
-                      {participant.member?.fullName ?? participant.externalName}
-                      {participant.member ? null : (
+                      {participant.member?.fullName ?? participant.worker?.name ?? participant.externalName}
+                      {participant.member ? null : participant.worker ? (
+                        <span className="ml-2 text-meta text-fg-subtle">No NESTO account</span>
+                      ) : (
                         <span className="ml-2 text-meta text-fg-subtle">External</span>
                       )}
                     </span>

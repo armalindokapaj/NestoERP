@@ -8,6 +8,7 @@ import { requireModule } from "@/lib/context/current-user";
 import { updatePpeCheckAction } from "@/lib/actions/hse";
 import { AccessError } from "@/lib/access/guards";
 import * as ppe from "@/lib/modules/hse/ppe/ppe.service";
+import { WORKER_PREFIX } from "@/lib/modules/hse/hse.schema";
 
 type Params = { params: Promise<{ checkId: string }> };
 
@@ -68,7 +69,7 @@ export default async function EditPpeCheckPage({ params }: Params) {
           projectId: check.project?.id ?? "",
           checkDate: check.checkDate.slice(0, 10),
           locationText: check.locationText ?? "",
-          subjectMemberId: check.subject?.memberId ?? "",
+          subjectMemberId: check.subject?.memberId ?? (check.subjectWorker ? `${WORKER_PREFIX}${check.subjectWorker.employeeId}` : ""),
           externalSubjectName: check.externalSubjectName ?? "",
           // The DTO carries only the equipment the check actually spoke to, and
           // the form's third state — "not looked at" — is the absence of a key.
@@ -87,6 +88,7 @@ export default async function EditPpeCheckPage({ params }: Params) {
           value: member.id,
           label: `${member.user.firstName} ${member.user.lastName}`,
         }))}
+        workers={options.workers.map((worker) => ({ value: `${WORKER_PREFIX}${worker.id}`, label: worker.name }))}
       />
     </div>
   );

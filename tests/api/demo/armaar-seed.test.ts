@@ -38,6 +38,11 @@ describe("the ARMAAR demo tenant", () => {
       tasks: await prisma.task.count({ where: { company: { parentGroupId: ARMAAR } } }),
       documents: await prisma.document.count({ where: { company: { parentGroupId: ARMAAR } } }),
       history: await prisma.employmentAssignment.count({ where: { company: { parentGroupId: ARMAAR } } }),
+      persons: await prisma.personProfile.count({ where: { parentGroupId: ARMAAR } }),
+      crewMembers: await prisma.workforceCrewMember.count({ where: { company: { parentGroupId: ARMAAR } } }),
+      assignments: await prisma.employeeProjectAssignment.count({ where: { company: { parentGroupId: ARMAAR } } }),
+      attendance: await prisma.attendanceRecord.count({ where: { company: { parentGroupId: ARMAAR } } }),
+      inductions: await prisma.hseInduction.count({ where: { company: { parentGroupId: ARMAAR } } }),
       records: await prisma.demoRecord.count({ where: { parentGroupId: ARMAAR } }),
     });
     const before = await count();
@@ -74,6 +79,36 @@ describe("the ARMAAR demo tenant", () => {
     const suppliers = await prisma.supplier.findMany({ where: { company: { parentGroupId: ARMAAR } }, select: { taxId: true } });
     // No Albanian NIPT begins with X: none of these can be a real company's.
     expect(suppliers.every((supplier) => supplier.taxId?.startsWith("X"))).toBe(true);
+  });
+
+  it("has a site workforce that never signs in: employed, in a crew, on a project (E-04 §4, §28-§42)", async () => {
+    const workers = await prisma.personProfile.findMany({
+      where: { parentGroupId: ARMAAR, user: null },
+      select: {
+        id: true,
+        employments: {
+          select: {
+            employmentStatus: true,
+            companyMemberId: true,
+            tradeId: true,
+            projectAssignments: { where: { endDate: null }, select: { isPrimary: true } },
+            crewMemberships: { where: { endDate: null }, select: { id: true } },
+          },
+        },
+      },
+    });
+    expect(workers.length).toBeGreaterThan(0);
+    for (const worker of workers) {
+      expect(worker.employments, worker.id).toHaveLength(1);
+      const [employment] = worker.employments;
+      expect(employment, worker.id).toMatchObject({ employmentStatus: "ACTIVE", companyMemberId: null, tradeId: expect.any(String) });
+      expect(employment!.projectAssignments, worker.id).toEqual([{ isPrimary: true }]);
+      expect(employment!.crewMemberships, worker.id).toHaveLength(1);
+    }
+    // Each crew is led by a foreman who has no login either (§31, §32).
+    const crews = await prisma.workforceCrew.findMany({ where: { company: { parentGroupId: ARMAAR }, status: "ACTIVE" }, select: { supervisor: { select: { companyMemberId: true } } } });
+    expect(crews.length).toBeGreaterThan(0);
+    expect(crews.every((crew) => crew.supervisor && crew.supervisor.companyMemberId === null)).toBe(true);
   });
 
   it("keeps suspended companies visible and free of new work (§5, §93)", async () => {

@@ -8,6 +8,8 @@ import { ActionTable } from "@/components/hse/hse-tables";
 import { PermitActions } from "@/components/hse/record-actions";
 import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
+import { PermitWorkers } from "@/components/hse/workforce-panels";
+import { hseEmploymentOptions, listPermitWorkers } from "@/lib/modules/hse/hse.workforce";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
@@ -42,6 +44,8 @@ export default async function PermitPage({ params }: Params) {
   }
 
   const may = permit.capabilities;
+  // Who it covers — people with or without a login, or whole crews (E-04 §74).
+  const [workers, options] = await Promise.all([listPermitWorkers(context, permit.id), may.canEdit ? hseEmploymentOptions(context) : Promise.resolve({ employees: [], crews: [] })]);
   const lapsed = permit.effectiveStatus === "EXPIRED" && permit.status !== "EXPIRED";
 
   return (
@@ -125,6 +129,8 @@ export default async function PermitPage({ params }: Params) {
               ]}
             />
           </section>
+
+          <PermitWorkers permitId={permit.id} workers={workers} canEdit={may.canEdit} employees={options.employees} crews={options.crews} />
 
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Hazards and controls</h2>

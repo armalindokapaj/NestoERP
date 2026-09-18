@@ -35,7 +35,8 @@ describe("the Owner's view of the group (§26-§36)", () => {
 
     const active = await prisma.project.count({ where: { company: { parentGroupId: ARMAAR }, status: "ACTIVE", archivedAt: null } });
     expect(view.figures.activeProjects?.value).toBe(String(active));
-    const employed = await prisma.employeeProfile.count({ where: { company: { parentGroupId: ARMAAR, status: "ACTIVE" }, companyMemberId: { not: null }, employmentStatus: { in: ["ACTIVE", "ON_LEAVE"] } } });
+    // Everybody employed, with a login or without one — most of a site workforce never signs in (E-04 §4).
+    const employed = await prisma.employeeProfile.count({ where: { company: { parentGroupId: ARMAAR, status: "ACTIVE" }, employmentStatus: { in: ["ACTIVE", "ON_LEAVE"] } } });
     expect(view.figures.employees?.value).toBe(String(employed));
     // The portfolio's value is its approved budgets, said to be synthetic in a demo tenant (§29).
     expect(view.figures.portfolioValue?.value).toMatch(/^€[\d.]+M$/);

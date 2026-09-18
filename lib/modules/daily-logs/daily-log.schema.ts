@@ -80,6 +80,8 @@ export const workforceSchema = z.object({
   workPackageId: optionalId,
   trade: optionalText(),
   crewName: optionalText(),
+  /** One of the company's own crews on this project, when the entry was taken from the workforce (E-04 §43, §182). */
+  crewId: optionalId,
   headcount: z.number().int("Headcount is a whole number.").min(1, "Headcount is at least 1.").max(10_000, "Headcount is at most 10,000."),
   notes: optionalText(1_000),
   ...expected,

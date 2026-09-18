@@ -93,11 +93,12 @@ const OWNED: Record<string, string[]> = {
   ],
   // HR owns the person and the candidate as well as the employment (E-06 §82).
   // …and the employment's history: where the employee sat, their status over time, and changes scheduled (E-03, ADR 0004).
-  // …and people added in bulk, who are employments before anything else (E-04 §93-§98).
-  hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord", "personProfile", "candidateProfile", "employmentAssignment", "employmentStatusHistory", "employmentChange", "employeeImportBatch"],
+  hr: ["employeeProfile", "compensation", "leaveRequest", "leaveBalance", "attendanceRecord", "personProfile", "candidateProfile", "employmentAssignment", "employmentStatusHistory", "employmentChange"],
   // Where employees work and with whom: trades, crews and project assignments (E-04 §28-§42). The
   // employment stays HR's; ending one closes these through the door HR is handed (ADR 0006).
-  workforce: ["workforceTrade", "workforceCrew", "workforceCrewMember", "employeeProjectAssignment"],
+  // …and a bulk import's batch: it places people on projects and in crews as it goes, and each
+  // employment itself is made through HR's door (E-04 §93-§98).
+  workforce: ["workforceTrade", "workforceCrew", "workforceCrewMember", "employeeProjectAssignment", "employeeImportBatch"],
   // A unit's commercial side — profile, prices, reservations, the units in a deal, the status trail
   // (E-05E) — keyed by the canonical unitId; the unit itself stays project-structure's.
   sales: ["lead", "opportunity", "proposal", "proposalLineItem", "salesApproval", "unitCommercialProfile", "unitPriceHistory", "unitReservation", "unitReservationExtension", "opportunityUnit", "unitCommercialStatusHistory", "unitSaleApproval"],

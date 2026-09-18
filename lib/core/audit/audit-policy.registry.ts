@@ -91,6 +91,7 @@ export const AuditAction = {
   WORKFORCE_PROJECT_ASSIGNMENT_ENDED: "WORKFORCE_PROJECT_ASSIGNMENT_ENDED",
   WORKFORCE_ENDED_WITH_EMPLOYMENT: "WORKFORCE_ENDED_WITH_EMPLOYMENT",
   WORKFORCE_ATTENDANCE_RECORDED: "WORKFORCE_ATTENDANCE_RECORDED",
+  WORKFORCE_IMPORT_COMMITTED: "WORKFORCE_IMPORT_COMMITTED",
   // Employment history (E-03 §134-§137)
   HR_EMPLOYMENT_ASSIGNMENT_CHANGED: "HR_EMPLOYMENT_ASSIGNMENT_CHANGED",
   HR_EMPLOYMENT_TERMINATED: "HR_EMPLOYMENT_TERMINATED",
@@ -537,6 +538,7 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.WORKFORCE_PROJECT_ASSIGNED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["projectId", "siteId", "tradeId", "employeeProfileId", "role", "isPrimary", "startDate", "transferredFromId"], required: true },
   { actionKey: AuditAction.WORKFORCE_PROJECT_ASSIGNMENT_ENDED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["projectId", "siteId", "employeeProfileId", "startDate", "endDate", "endReason"], required: true },
   { actionKey: AuditAction.WORKFORCE_ENDED_WITH_EMPLOYMENT, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["employeeProfileId", "lastDay", "reason", "crewMembershipsEnded", "crewMembershipsWithdrawn", "projectAssignmentsEnded", "projectAssignmentsWithdrawn"], required: true },
+  { actionKey: AuditAction.WORKFORCE_IMPORT_COMMITTED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["fileName", "rowCount", "createdCount", "failedCount", "skippedCount", "assignedCount", "crewedCount"], required: true },
   { actionKey: AuditAction.WORKFORCE_ATTENDANCE_RECORDED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["date", "projectId", "siteId", "crewId", "created", "updated", "unchanged"], required: true },
   /* Account provisioning (E-06 §114, §115): who asked, who approved, who created it, for whom, where. */
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_REQUESTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], required: true },

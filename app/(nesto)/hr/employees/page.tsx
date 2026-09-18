@@ -50,6 +50,11 @@ export default async function EmployeesPage({
       actions={
         <div className="flex items-center gap-2">
           {can(context, "hr.export") ? <HrExportLink type="employees" /> : null}
+          {can(context, "hr.employee.import") ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/hr/employees/import">Import</Link>
+            </Button>
+          ) : null}
           {can(context, "hr.employee.create_profile") ? (
             <Button asChild size="sm">
               <Link href="/hr/employees/new">Add employment record</Link>

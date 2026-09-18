@@ -55,6 +55,7 @@ import { CorrectedBadge, DailyLogStatusBadge, LateEntryBadge, Stat } from "./dai
 import { EntryDialog, type EntryOptions } from "./entry-dialog";
 import { entriesOf, payloadFromValues, valuesFromEntry } from "./entry-fields";
 import { EvidenceGallery } from "./evidence-gallery";
+import { WorkforceSuggestions } from "./workforce-suggestions";
 
 /**
  * The daily log workspace (PRD #43 §145-§160, §201, §214-§221).
@@ -167,7 +168,9 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
   async function saveEntry(values: Record<string, unknown>) {
     if (!dialog) return;
-    const body = { ...payloadFromValues(dialog.section, values), ...(dialogEntry ? { updatedAt: dialogEntry.updatedAt } : {}) };
+    // A crew's entry keeps its crew when edited: the form does not show it (E-04 §43).
+    const crew = dialog.section === "workforce" && dialogEntry ? { crewId: (dialogEntry as { crewId?: string | null }).crewId ?? null } : {};
+    const body = { ...payloadFromValues(dialog.section, values), ...crew, ...(dialogEntry ? { updatedAt: dialogEntry.updatedAt } : {}) };
     setSaving("saving");
     try {
       if (dialogEntry) await dailyLogApi(`${base}/${dialog.section}/${dialogEntry.id}`, { method: "PATCH", body });
@@ -547,7 +550,17 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
           {SECTION_KEYS.map((key) => {
             const Icon = SECTION_ICON[key];
-            return <React.Fragment key={key}>{sectionShell(key, SECTION_LABELS[key], <Icon className="size-4" />, sections[key], addButton(key), entriesOf(log, key).length)}</React.Fragment>;
+            // The workforce section also offers the project's own crews for that day (E-04 §182).
+            const actions =
+              key === "workforce" && caps.sections.workforce ? (
+                <>
+                  <WorkforceSuggestions base={base} onApplied={async (added) => void (await run("Adding", async () => null, added ? `${added} ${added === 1 ? "entry" : "entries"} added.` : undefined))} />
+                  {addButton(key)}
+                </>
+              ) : (
+                addButton(key)
+              );
+            return <React.Fragment key={key}>{sectionShell(key, SECTION_LABELS[key], <Icon className="size-4" />, sections[key], actions, entriesOf(log, key).length)}</React.Fragment>;
           })}
 
           {sectionShell(

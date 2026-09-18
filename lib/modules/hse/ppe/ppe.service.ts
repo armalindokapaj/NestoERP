@@ -14,6 +14,7 @@ import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import { loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import { buildHseMemberWhere, buildHseProjectWhere, buildPpeScopeWhere } from "../hse.scope";
+import { hseWorkerOptions, requireHseWorkers } from "../hse.workforce";
 import type { PpeCheckInput, PpeListQuery } from "../hse.schema";
 import { PPE_ITEMS, ppeResultFor, type PpeItemKey } from "../hse.status";
 import type { PpeCheckDTO } from "../hse.types";
@@ -45,6 +46,7 @@ const SELECT = {
   checkedByMemberId: true,
   subjectMemberId: true,
   externalSubjectName: true,
+  subjectEmployee: { select: { id: true, personProfileId: true, personProfile: { select: { firstName: true, lastName: true } } } },
   helmetOk: true,
   eyeProtectionOk: true,
   glovesOk: true,
@@ -182,7 +184,10 @@ export async function ppeFormOptions(context: UserContext) {
     }),
   ]);
 
-  return { projects, members };
+  // Whose PPE is checked is often somebody without a login (E-04 §72).
+  const workers = await hseWorkerOptions(context);
+
+  return { projects, members, workers };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -198,6 +203,7 @@ export async function createPpeCheck(
 
   if (input.projectId) await requireProject(context, input.projectId);
   if (input.subjectMemberId) await requireMember(context, input.subjectMemberId);
+  await requireHseWorkers(context.companyId, [input.subjectEmployeeProfileId], [], "subjectEmployeeProfileId");
 
   const flags = toFlags(input);
   const { result } = ppeResultFor(flags);
@@ -220,6 +226,7 @@ export async function createPpeCheck(
         locationText: input.locationText ?? null,
         checkedByMemberId: context.membershipId,
         subjectMemberId: input.subjectMemberId ?? null,
+        subjectEmployeeProfileId: input.subjectEmployeeProfileId ?? null,
         externalSubjectName: input.externalSubjectName ?? null,
         ...flags,
         otherPpeNote: input.otherPpeNote ?? null,
@@ -255,7 +262,7 @@ export async function updatePpeCheck(
   const existing = assertFound(
     await prisma.ppeCheck.findFirst({
       where: { AND: [buildPpeScopeWhere(context), { id: checkId }] },
-      select: { id: true, checkNumber: true, checkedByMemberId: true, subjectMemberId: true },
+      select: { id: true, checkNumber: true, checkedByMemberId: true, subjectMemberId: true, subjectEmployeeProfileId: true },
     }),
   );
 
@@ -280,6 +287,8 @@ export async function updatePpeCheck(
 
   if (input.projectId) await requireProject(context, input.projectId);
   if (input.subjectMemberId) await requireMember(context, input.subjectMemberId);
+  // A subject who has since left stays the subject of the check made on them.
+  await requireHseWorkers(context.companyId, [input.subjectEmployeeProfileId], existing.subjectEmployeeProfileId ? [existing.subjectEmployeeProfileId] : [], "subjectEmployeeProfileId");
 
   const flags = toFlags(input);
   const { result } = ppeResultFor(flags);
@@ -298,6 +307,7 @@ export async function updatePpeCheck(
         checkDate: input.checkDate,
         locationText: input.locationText ?? null,
         subjectMemberId: input.subjectMemberId ?? null,
+        subjectEmployeeProfileId: input.subjectEmployeeProfileId ?? null,
         externalSubjectName: input.externalSubjectName ?? null,
         ...flags,
         otherPpeNote: input.otherPpeNote ?? null,
@@ -389,6 +399,9 @@ function toDTO(
     locationText: row.locationText,
     checkedBy: members.get(row.checkedByMemberId) ?? null,
     subject: row.subjectMemberId ? (members.get(row.subjectMemberId) ?? null) : null,
+    subjectWorker: row.subjectEmployee
+      ? { employeeId: row.subjectEmployee.id, personId: row.subjectEmployee.personProfileId, name: `${row.subjectEmployee.personProfile.firstName} ${row.subjectEmployee.personProfile.lastName}` }
+      : null,
     externalSubjectName: row.externalSubjectName,
     result: row.result,
     items,

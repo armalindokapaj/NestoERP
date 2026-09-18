@@ -1,8 +1,9 @@
 /**
  * The ARMAAR demo tenant, stage by stage in D-01's seed order (§72): the group,
- * its companies and departments, its people and their access, its projects,
- * their buildings, units and sales — then the rules the rest of the product
- * holds, applied to what was written, and D-01's own checks.
+ * its companies and departments, its people and their access, its site
+ * workforce without logins (E-04), its projects, their buildings, units and
+ * sales — then the rules the rest of the product holds, applied to what was
+ * written, and D-01's own checks.
  *
  * Called by the main seed, so every database built for development and tests
  * has a second, realistic group beside the demo's, and by `pnpm seed:armaar`
@@ -23,6 +24,7 @@ import { ARMAAR_GROUP_ID } from "./records";
 import { seedArmaarSales } from "./sales";
 import { seedArmaarUnits } from "./units";
 import { verifyDemoTenant } from "./verify";
+import { seedArmaarWorkers, seedArmaarWorkforce } from "./workforce";
 
 const DAY = 86_400_000;
 
@@ -49,6 +51,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const activatedAt = new Date(Date.now() - 540 * DAY);
   const branches = await seedArmaarOrganization(prisma, activatedAt);
   const people = await seedArmaarPeople(prisma, branches, passwordHash, activatedAt);
+  // The site workforce, who have no login: employed before the history backfill (E-04).
+  const workers = await seedArmaarWorkers(prisma, branches);
   // A placed login is on its department's team (E-13); an employment has its history (E-03).
   if (shared) {
     await syncMemberPlaces(prisma);
@@ -59,6 +63,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const units = await seedArmaarUnits(prisma);
   const sales = await seedArmaarSales(prisma, units);
   const operations = await seedArmaarOperations(prisma);
+  // Where the workers work, with whom, and their days on site (E-04).
+  const workforce = await seedArmaarWorkforce(prisma);
 
   // Every document has its first version, every company its storage quota and usage (PRD #29).
   if (shared) {
@@ -72,6 +78,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
 
   return {
     people: people.people,
+    workers: workers.workers,
+    workforce,
     companies: await prisma.company.count({ where: { parentGroupId: ARMAAR_GROUP_ID } }),
     suspended: await prisma.company.count({ where: { parentGroupId: ARMAAR_GROUP_ID, status: "SUSPENDED" } }),
     branches: await prisma.department.count({ where: { company: { parentGroupId: ARMAAR_GROUP_ID } } }),
@@ -88,6 +96,7 @@ export function describeArmaar(counts: Awaited<ReturnType<typeof seedArmaar>>): 
   return [
     `✓ ARMAAR GROUP: ${counts.companies} companies (${counts.suspended} suspended), ${counts.branches} company departments, ${counts.people} people with ${counts.logins} company logins`,
     `✓ ARMAAR projects: ${counts.projects}; ${counts.units} units — ${counts.sales.sold} sold under ${counts.sales.contracts} sale contracts, ${counts.sales.reserved} reserved, ${counts.sales.onHold} on hold, ${counts.sales.forSale} for sale`,
+    `✓ ARMAAR workforce: ${counts.workers} site workers without a login, ${counts.workforce.trades} trades, ${counts.workforce.sites} sites, ${counts.workforce.crews} active crews, ${counts.workforce.onSite} on a project now, ${counts.workforce.attendance} days marked on site, ${counts.workforce.inductions} inductions`,
     `✓ ARMAAR operations: ${counts.operations.suppliers} supplier records, ${counts.operations.contractors} contractors, ${counts.operations.tasks} tasks, ${counts.operations.meetings} meetings, ${counts.operations.documents} project documents`,
     `✓ ARMAAR provenance: ${counts.records} demo records; public facts match the source`,
   ];

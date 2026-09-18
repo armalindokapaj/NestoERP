@@ -3,7 +3,9 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AssignCrewButton, AssignProjectButton, EndMembershipButton } from "@/components/workforce/workforce-actions";
+import { canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
+import { workerHseSummary, type WorkerHseSummary } from "@/lib/modules/hse/hse.workforce";
 import { accountStatusLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
 import { crewChoices } from "@/lib/modules/workforce/crew.service";
 import { tradeChoices } from "@/lib/modules/workforce/trade.service";
@@ -22,10 +24,12 @@ export async function WorkerWorkforce({ context, personId }: { context: UserCont
 
   const { canAssignCrew, canAssignProject } = worker.capabilities;
   const projects = canAssignProject ? await projectChoices(context) : [];
-  const [crews, sites, trades] = await Promise.all([
+  const [crews, sites, trades, safety] = await Promise.all([
     canAssignCrew ? crewChoices(context) : [],
     canAssignProject ? siteChoices(context, projects.map((project) => project.id)) : [],
     canAssignProject ? tradeChoices(context.companyId) : [],
+    // A compliance summary only; what happened in an incident stays with it (E-04 §84, §142).
+    isModuleEnabled(context, "hse") && canAccessModule(context, "hse") ? workerHseSummary(context, worker.employeeId) : null,
   ]);
   const moveFrom = worker.assignments.filter((row) => row.canManage).map((row) => ({ value: row.id, label: [row.project.name, row.site?.name].filter(Boolean).join(" · ") }));
 
@@ -60,6 +64,8 @@ export async function WorkerWorkforce({ context, personId }: { context: UserCont
         {worker.assignments.length === 0 ? <p className="px-5 py-5 text-table text-fg-muted">Not assigned to a project.</p> : <Assignments rows={worker.assignments} employeeId={worker.employeeId} name={worker.name} />}
       </section>
 
+      {safety ? <Safety summary={safety} /> : null}
+
       {worker.crewHistory.length || worker.assignmentHistory.length ? (
         <section className="nesto-card p-0" aria-labelledby="workforce-history-heading">
           <h2 id="workforce-history-heading" className="border-b border-line px-5 py-3.5 text-card font-semibold text-fg">
@@ -70,6 +76,24 @@ export async function WorkerWorkforce({ context, personId }: { context: UserCont
         </section>
       ) : null}
     </div>
+  );
+}
+
+function Safety({ summary }: { summary: WorkerHseSummary }) {
+  const valid = summary.inductions.filter((row) => row.valid);
+  return (
+    <section className="nesto-card p-0" aria-labelledby="worker-safety-heading" data-testid="worker-safety">
+      <h2 id="worker-safety-heading" className="border-b border-line px-5 py-3.5 text-card font-semibold text-fg">
+        Safety
+      </h2>
+      <dl className="grid gap-4 px-5 py-4 sm:grid-cols-4">
+        <Fact label="Valid inductions">{valid.length ? valid.map((row) => row.project.name).join(", ") : "None"}</Fact>
+        <Fact label="Toolbox talks attended">{summary.toolboxTalks}</Fact>
+        <Fact label="Last PPE check">{summary.lastPpeCheck ? `${summary.lastPpeCheck.date} · ${summary.lastPpeCheck.result.toLowerCase()}` : "None"}</Fact>
+        <Fact label="On open permits">{summary.openPermits}</Fact>
+      </dl>
+      {summary.incidents ? <p className="border-t border-line px-5 py-3 text-meta text-fg-subtle">Recorded on {summary.incidents} {summary.incidents === 1 ? "incident" : "incidents"}. The details stay with each incident.</p> : null}
+    </section>
   );
 }
 

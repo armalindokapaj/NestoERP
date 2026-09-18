@@ -51,10 +51,14 @@ export async function verifyDemoTenant(prisma: PrismaClient, groupId: string): P
   /* People (§11, §95): one person, one login each ---------------------------- */
   const users = await prisma.user.findMany({ where: { personProfile: { parentGroupId: groupId } }, select: { id: true, username: true, personProfileId: true } });
   if (users.length !== ARMAAR_PEOPLE.length) say(`${users.length} people have a login in the group; the demo has ${ARMAAR_PEOPLE.length}.`);
-  const persons = await prisma.personProfile.findMany({ where: { parentGroupId: groupId }, select: { id: true, workEmail: true } });
+  const persons = await prisma.personProfile.findMany({ where: { parentGroupId: groupId }, select: { id: true, workEmail: true, user: { select: { id: true } }, _count: { select: { employments: true } } } });
   const emails = persons.map((person) => person.workEmail?.toLowerCase()).filter(Boolean);
   if (new Set(emails).size !== emails.length) say("Two people of the group share a work email: a person is duplicated.");
-  if (persons.length !== users.length) say(`${persons.length} people for ${users.length} logins: somebody is a person twice or not at all.`);
+  const withLogin = persons.filter((person) => person.user);
+  if (withLogin.length !== users.length) say(`${withLogin.length} people for ${users.length} logins: somebody is a person twice or not at all.`);
+  // Most of a site workforce never signs in (E-04 §4): a person without a login is there because they are employed.
+  const loose = persons.filter((person) => !person.user && person._count.employments === 0).length;
+  if (loose) say(`${loose} people have neither a login nor an employment.`);
 
   const unemployed = await prisma.companyMember.count({
     where: { company: { parentGroupId: groupId }, status: "ACTIVE", user: { personProfile: { employments: { none: {} } } } },
@@ -95,6 +99,8 @@ export async function verifyDemoTenant(prisma: PrismaClient, groupId: string): P
   for (const company of companies) if (!recorded.has(company.id)) say(`${company.name} has no provenance record.`);
   for (const project of projects) if (!recorded.has(project.id)) say(`${project.name} has no provenance record.`);
   for (const user of users) if (!recorded.has(user.id)) say(`${user.username} has no provenance record.`);
+  const unrecorded = persons.filter((person) => !person.user && !recorded.has(person.id)).length;
+  if (unrecorded) say(`${unrecorded} people without a login have no provenance record.`);
   if (!recorded.has(groupId)) say("The group has no provenance record.");
 
   return findings;

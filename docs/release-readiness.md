@@ -2032,3 +2032,124 @@ On freshly built databases holding both groups, on the final tree:
 - **Covers are generated illustrations**, not the projects' own renders.
 - **`nesto_erp` lacks the E-01, E-13, E-03 and D-01 migrations**; they are
   applied, and ARMAAR seeded there, only with the owner's consent.
+
+## 28. Enhancement E-04 — workforce employees, with or without a login
+
+E-04 makes the whole workforce employees: masons, steel fixers, drivers and
+their foremen, who never sign in, have HR's record, leave, attendance and
+documents, a trade, a crew, a project and a site, and appear in HSE and the
+daily log. A login is added later to the same employee, never a second one. It
+is reconciled onto the employment (`EmployeeProfile`) rather than the parallel
+`Employee` root the PRD sketches: [ADR 0006](adr/0006-e04-workforce-employees.md)
+classifies every section and records seventeen decisions;
+`docs/workforce.md` is the contract. Built as the owner decided before it
+started: core only (timesheets entered by others, overtime and payroll are
+E-09's), with sites, and demo data in ARMAAR only. Three stages: HR by
+employment (7cb59c7), the workforce domain (ffd11c1), and HSE, daily logs,
+import, integrity and the ARMAAR seed.
+
+### 28.1 What changed
+
+| Before | Now |
+|---|---|
+| HR addressed an employee by their login: `/hr/employees/[memberId]`, and its lists, documents, activity, leave and attendance kept only employees with one | **HR is addressed by the employment**: `/hr/employees/[employeeId]`, old member links redirect; documents, activity, tasks, threads, notifications, attention items, favourites and recent items re-keyed in the migration. The list shows everybody employed, with an account filter |
+| Leave and attendance needed a login | **They belong to the employment**; a login linked later is stamped on them |
+| Employing somebody meant a login first | **Three ways**: an existing login, an existing person of the group, or a new person — a probable duplicate (same name, surname and birth date, or phone) is refused until HR confirms; "Request account" on the record uses E-06's provisioning |
+| — | **Category and trade** on the employment; each company's own trade list (Workforce → Trades) |
+| Only `ProjectMember`, which is access | **Project assignments** — a project, a site, a trade, a role, main or not, from–to — and **sites** on a project; **crews** under a foreman who needs no login; moves close one period and open the next; the database refuses overlaps, so of two racing moves one wins |
+| — | A **Workforce** module: Workers, Crews, the **site attendance sheet** (a crew's day at once, source SITE, never over HR's own entry), Trades; a project's Workforce tab; the person's Workforce tab with a Safety section |
+| HSE named logins only | **Toolbox participants, PPE subjects, incident people** (an employee or a named outsider), **permit workers** (a person or a crew, until submitted) and **site inductions** (voided with a reason, never deleted); the project lists who works there without a valid one |
+| The daily log's workforce was typed | It **suggests** the project's crews with the site sheet's headcount, and people assigned in no crew, by trade; each chosen becomes an ordinary entry keeping its crew |
+| — | **Bulk import** (HR → Employees → Import): a CSV of up to 2 000 people, previewed row by row with errors and warnings, committed once from the stored rows; pay columns ignored; no logins |
+| Ending an employment left the person in place | Ending or transferring it **ends their crew and project assignments** on the last day, and withdraws those not begun |
+| — | `verify:employee-integrity`, in CI after the suites: login, person and group agree; nothing outlives its employment; leave and attendance carry the right login; employee documents name an employment of their company |
+| The ARMAAR tenant had no workforce | **34 site workers** in BUILDING CONSTRUCTION INVEST and ARLIS - NDERTIM, nine trades, five sites, seven crews and an archived one, their history, the last working days marked on site, inductions with two missing and one voided |
+
+**Migration `20260919090000_workforce_e04`** adds five enums and the value
+`SITE` of `AttendanceSource`; nine tables; the category and trade of an
+employment, where an attendance day was worked, a daily-log entry's crew, and
+the employee of a toolbox participant and of a PPE check; checks, composite
+keys and `btree_gist` exclusion constraints. It makes `companyMemberId`
+optional on attendance, leave requests and leave balances, moves attendance's
+unique key from (login, day) to (employment, day) — the same rows, since an
+employment has at most one login — and re-keys the rows filed under an
+employee from the membership's id to the employment's, deterministically.
+
+**Rollback:** first remove what only the new schema can hold — rows filed under
+an employment that has no login (documents, activity, tasks, threads,
+notifications, attention items, favourites, recent items), and attendance,
+leave requests and leave balances without a login; set attendance `source`
+SITE to MANUAL. Then re-key the rows filed under an employee back from the
+employment's id to its login's membership id; drop the nine tables, the new
+columns, checks and enums (recreating `AttendanceSource` without SITE);
+restore `NOT NULL` on the three `companyMemberId` columns and the unique key
+`(companyMemberId, date)` on attendance; delete the migration's
+`_prisma_migrations` row. Employments without a login stay valid under the old
+schema — they were already allowed — but the old HR pages do not list them.
+
+### 28.2 The evidence
+
+On freshly built databases, on the final tree:
+
+- **vitest: 3 708 passed, 0 failed**, 11 skipped. New across the three stages:
+  employees without a login (11 — created, addressed by the employment,
+  duplicates, a second employment refused, another group's person or trade
+  refused, edits, scope, documents, leave and attendance, a login linked
+  later); the workforce (18 — trades, sites, assignments, crews, both races,
+  scope, the site sheet, ending); HSE, daily-log suggestions, import including
+  a thousand people, and the integrity check (8); the ARMAAR workforce (1) and
+  its rerun counts. The group dashboard's employees figure now counts
+  everybody employed.
+- **E2E on the production build: 463 of 464.** The one failure was a new
+  test assuming the day's suggestions start unticked — they start ticked; it
+  now unticks all but the crew, and both workforce specs then passed twice
+  each (14 of 14). New: the workforce (4 — a crew of people without a login,
+  the site sheet, a project assignment, the worker's profile; a project
+  manager's site; an engineer reading crews; a role turned away) and the
+  workforce on site (3 — an import, an induction from the project's missing
+  list, a daily log filled from the crew the site sheet marked present).
+- **verify:roles 1 715 of 1 715.** verify:authorization (632 routes, 316
+  server actions), ownership (236 models, 57 domains, no cycle), state (45
+  machines) pass; company-integrity, organization, employment, the new
+  **employee-integrity** and demo are clean before and after the full suite;
+  security:matrix 1 037 endpoints, 0 company-scoped without a check.
+  Typecheck clean; lint 0 errors, 14 warnings (none new).
+- **The migration** applied to an empty database and to a copy of
+  `nesto_erp`'s data with every earlier migration. On that copy `access:sync`
+  then `seed:armaar` added ARMAAR with its workforce, and every integrity
+  check stayed clean. Seeding twice leaves every count unchanged.
+
+### 28.3 Defects found
+
+- **The API security matrix was stale** from the first stage: it still listed
+  HR's member-addressed routes. Regenerated; CI would have caught it.
+- **`docs/employment-history.md` still gave HR's member-addressed paths.**
+  Corrected to the employment.
+- Gates held the new code to the rules: the site service first imported HR,
+  which closed an import cycle through Finance and Sales (now a local date
+  helper); by-id writes named the record before its company (now company
+  first); state writes spread their data and named no prior status (now
+  spelled out, with a stale write refused as a conflict).
+- **A reseed after the full vitest suite fails seed validation**
+  (`MEMBERSHIP_DRIFT` on the demo's planned employee `employee_emp_015`): a
+  department test moves that login and the planned employment follows it, and
+  the seed then restores the login alone. Found in a lane that the suite had
+  run in, not in a fresh one; it predates E-04 and is left for its owner.
+
+### 28.4 Limits
+
+- **Timesheets and work logs are still a login's**; entry by a foreman,
+  overtime, night work, pay bases and payroll are E-09's.
+- **Qualifications, employee contracts and salary documents** are E-02's —
+  qualifications to the person, contracts and salary documents to the
+  employment, as the owner decided.
+- **No merge** of two employees, no QA/QC, tools, driver or machine-operator
+  records, no workforce dashboard or Workers figure (the group's employees
+  figure counts everybody employed), no offline marking.
+- **Demo workforce is ARMAAR's only**; the five-company demo has none. Site
+  attendance is written on the first seed and does not move forward on a
+  rerun.
+- **`nesto_erp` lacks the E-01, E-13, E-03, D-01 and E-04 migrations.** With
+  the owner's consent: `migrate deploy`, `access:sync`, then switch Workforce on
+  per company (Settings → Modules) — a company without the row has the module
+  off — and `seed:armaar` for the demo tenant.

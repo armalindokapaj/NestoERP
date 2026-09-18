@@ -9,6 +9,8 @@ import { ActionTable, StopWorkTable } from "@/components/hse/hse-tables";
 import { IncidentActions } from "@/components/hse/record-actions";
 import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
+import { IncidentPeople } from "@/components/hse/workforce-panels";
+import { hseEmploymentOptions, listIncidentPeople } from "@/lib/modules/hse/hse.workforce";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
 import { RecordTasks } from "@/components/tasks/record-tasks";
@@ -45,6 +47,8 @@ export default async function IncidentPage({ params }: Params) {
   }
 
   const may = incident.capabilities;
+  // Who it involved — employees with or without a login, or a name (E-04 §73).
+  const [people, options] = await Promise.all([listIncidentPeople(context, incident.id), may.canEdit ? hseEmploymentOptions(context) : Promise.resolve({ employees: [], crews: [] })]);
 
   return (
     <div className="space-y-5">
@@ -131,6 +135,8 @@ export default async function IncidentPage({ params }: Params) {
               </p>
             </section>
           ) : null}
+
+          <IncidentPeople incidentId={incident.id} people={people} canEdit={may.canEdit} employees={options.employees} />
 
           {incident.immediateAction ? (
             <section className="nesto-card p-5">

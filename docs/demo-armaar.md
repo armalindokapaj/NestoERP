@@ -81,8 +81,19 @@ people sign in to BUILDING CONSTRUCTION INVEST first, where Tirana Lake is.
 10. **Finance / legal**: budgets (the portfolio's value), expenses waiting for
     approval; the construction contract with ARLIS - NDERTIM, a supply framework,
     five subcontracts and an amendment waiting for approval.
-11. **Activity**: the dashboard's feed and every record's own history.
-12. **Platform Admin** as `armaar.platform-admin`: the group among the
+11. **Site workforce** (E-04) as `bci.pm` or `bci.hr`: Workforce lists 24 of
+    BCI's people who never sign in — concrete, formwork, steel fixing, the yard
+    — in five crews, each under a foreman without a login. Tirana Lake's
+    Workforce tab shows its three sites, who works where, and two people
+    without a valid induction: Xhevdet Llani, a steel fixer new on site,
+    and Artan Sinani, whose yard induction lapsed. The attendance sheet
+    has the last working days, with somebody off sick. Square 21's frame crew
+    is archived; its people moved to Tirana Lake after the handover, and Olsi
+    Dervishi moved from Tower B to Tower A a few weeks ago — both kept in their
+    history. ARLIS - NDERTIM's ten are on The Courtyard (as `arlis.hr`), one
+    with an induction voided for the wrong date and given again.
+12. **Activity**: the dashboard's feed and every record's own history.
+13. **Platform Admin** as `armaar.platform-admin`: the group among the
     platform's parent groups.
 
 ## What is where
@@ -90,9 +101,9 @@ people sign in to BUILDING CONSTRUCTION INVEST first, where Tirana Lake is.
 | | Location |
 | --- | --- |
 | Public facts, with their source | `prisma/seed/armaar/public-facts.ts` |
-| The seed, stage by stage | `prisma/seed/armaar/` — `organization`, `people`/`access`, `projects`, `units`, `sales`, `operations`, `seed.ts` |
+| The seed, stage by stage | `prisma/seed/armaar/` — `organization`, `people`/`access`, `workforce`, `projects`, `units`, `sales`, `operations`, `seed.ts` |
 | D-01's checks | `prisma/seed/armaar/verify.ts`, `pnpm verify:demo` |
-| Where each fact comes from | the `demo_records` table: one row per group, company, department, person and project, PUBLIC / SYNTHETIC / INFERRED, per field where mixed |
+| Where each fact comes from | the `demo_records` table: one row per group, company, department, person (with a login or without) and project, PUBLIC / SYNTHETIC / INFERRED, per field where mixed |
 | The executive view | `lib/modules/dashboard/dashboard.group.ts`, `GET /api/dashboard/group` |
 
 **Adding a verified fact** — a company's NIPT, a project's location or built
@@ -101,7 +112,11 @@ then holds the database to it.
 
 ## Limits
 
-- **No non-login workers** and no Workers figure: they arrive with E-04.
+- **Workers are counted with everybody employed**: the dashboard's employees
+  figure includes the 34 site workers; there is no separate Workers figure.
+  Their timesheets, overtime and pay are E-09's, their qualifications E-02's.
+- **Site attendance is written once**, on the first seed, for the working days
+  before it; a rerun does not move it forward.
 - **External companies are counted across the registers** (suppliers,
   contractors, client companies, once each by tax number or name); the canonical
   register is E-11's. So is the contractor chain after the contract: progress,

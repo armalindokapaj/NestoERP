@@ -616,7 +616,8 @@ lib/modules/hr/
   hr.date.ts          the one place a day count becomes a stored Decimal
   hr.scope.ts         SELF / DEPARTMENT / COMPANY, with PROJECT folded into SELF
   hr.status.ts        employment, leave and attendance lifecycles
-  employees/          the employment record, and onboarding/offboarding readiness
+  employees/          the employment record — with a login or without one (E-04) —
+                      onboarding/offboarding readiness, and the import's door
   employment/         its history: dated changes, corrections, scheduled changes,
                       reads and reports as of a date (E-03, docs/employment-history.md)
   compensation/       effective-dated pay, behind its own permission
@@ -630,6 +631,11 @@ their membership, and deactivating a membership does not end their employment.
 They are different facts, owned by different modules, changed by different
 people: HR records that somebody left, and a Team manager removes their access
 deliberately. Neither ever happens as a side effect of the other.
+
+**An employee does not need a login.** Most of a site workforce never signs
+in, so HR is addressed by the employment, not the membership: leave,
+attendance and documents are the employment's, and a login provisioned later
+joins the same employee instead of making a second one (E-04, ADR 0006).
 
 **History is never overwritten.** Department, title, manager, location, type
 and status change only as dated changes: the old period closes, the new one
@@ -683,6 +689,19 @@ somebody else's record is scope, and it answers 404 rather than 403 so the
 response cannot confirm that person works here. PROJECT scope is deliberately
 folded into SELF: running a project tells you who is on it, which is Team's job,
 and must not become access to those people's employment files.
+
+
+### Workforce: where people work, and with whom
+
+The workforce module (E-04, `docs/workforce.md`) places employments — login or
+not — in crews under a foreman, on projects and their sites, and marks a crew's
+day on the site sheet. It owns trades, crews, crew periods, project
+assignments and import batches, and nothing of HR's: employments, site
+attendance and the end of someone's crews and assignments pass through doors
+(`createImportedEmployment`, `writeSiteAttendance`, `endWorkforce`). Where
+somebody works is not project access — no assignment ever makes a
+`ProjectMember` — and the database, not the service, refuses two overlapping
+crew periods or two main projects at once.
 
 
 ### Sales: the pipeline, not a second CRM

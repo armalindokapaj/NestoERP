@@ -61,6 +61,11 @@ const RULES: Rule[] = [
   // A worker's crew memberships and project assignments (E-04 §159, §160): the employee segment is filled from the row.
   { when: /\/crew-assignments\/\[assignmentId\]/, param: "assignmentId", source: { model: "WorkforceCrewMember", fill: { employeeId: "employeeProfileId" } } },
   { when: /\/project-assignments\/\[assignmentId\]/, param: "assignmentId", source: { model: "EmployeeProjectAssignment", fill: { employeeId: "employeeProfileId" } } },
+  // The people an incident involves and the workers a permit covers (E-04 §73, §74): the parent is filled from the row.
+  { when: /\/people\/\[personRowId\]/, param: "personRowId", source: { model: "HseIncidentPerson", fill: { incidentId: "incidentId" } } },
+  { when: /\/workers\/\[workerRowId\]/, param: "workerRowId", source: { model: "HseWorkPermitWorker", fill: { permitId: "permitId" } } },
+  // A bulk import's batch (E-04 §93-§98).
+  { when: /\/employees\/import\//, param: "batchId", source: { model: "EmployeeImportBatch" } },
   // A project's sites (E-04 §38): the project segment is filled from the site.
   { when: /\/sites\/\[siteId\]/, param: "siteId", source: { model: "ProjectSite", fill: { projectId: "projectId" } } },
   // An account request is the company's the person joins (E-06 §27); not a unit's contract request.
@@ -142,6 +147,9 @@ const BY_NAME: Record<string, string> = {
   workPackageId: "WorkPackage",
   siteId: "ProjectSite",
   tradeId: "WorkforceTrade",
+  incidentId: "HseIncident",
+  permitId: "HseWorkPermit",
+  inductionId: "HseInduction",
 };
 
 const SECTION_MODELS: Record<(typeof SECTION_KEYS)[number], string> = {
