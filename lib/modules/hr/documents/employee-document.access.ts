@@ -68,14 +68,19 @@ export function hrReachWhere(context: UserContext): Prisma.EmployeeProfileWhereI
   return { AND: [buildEmployeeScopeWhere(context), { OR: [{ companyMemberId: null }, { companyMemberId: { not: context.membershipId } }] }] };
 }
 
+/** The HR door alone, as a clause over the link — what HR's worklists read (§153, §154). Null for none. */
+export function hrLinkWhere(context: UserContext): Prisma.EmployeeDocumentLinkWhereInput | null {
+  const classes = hrReadableClasses(context);
+  if (classes.length === 0) return null;
+  return { companyId: context.companyId, employeeProfile: hrReachWhere(context), category: { in: categoriesOfClass(...classes) }, visibility: { in: HR_VISIBLE } };
+}
+
 /** The employee documents this reader may open, as a clause over the link — or null for none. */
 export function readableLinkWhere(context: UserContext): Prisma.EmployeeDocumentLinkWhereInput | null {
   const branches: Prisma.EmployeeDocumentLinkWhereInput[] = [];
 
-  const classes = hrReadableClasses(context);
-  if (classes.length > 0) {
-    branches.push({ employeeProfile: hrReachWhere(context), category: { in: categoriesOfClass(...classes) }, visibility: { in: HR_VISIBLE } });
-  }
+  const hr = hrLinkWhere(context);
+  if (hr) branches.push(hr);
   if (can(context, "hr.self.documents")) {
     branches.push({ employeeProfile: { companyMemberId: context.membershipId }, visibility: { in: SELF_VISIBLE }, archivedAt: null });
   }

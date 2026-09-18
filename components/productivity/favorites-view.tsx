@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import type { FavoriteItemDTO } from "@/lib/modules/productivity/favorites.service";
-import { NAVIGABLE_LABELS, NAVIGABLE_TYPES, type NavigableType } from "@/lib/modules/productivity/navigable.registry";
+import { NAVIGABLE_LABELS, NAVIGABLE_TYPES, type NavigableType } from "@/lib/modules/productivity/navigable.types";
 import type { RecentWorkItemDTO } from "@/lib/modules/productivity/recent-work.service";
 import { cn } from "@/lib/utils/cn";
 

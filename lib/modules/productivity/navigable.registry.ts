@@ -4,6 +4,7 @@ import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { buildClientScopeWhere, buildProjectScopeWhere, buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { NAVIGABLE_LABELS, NAVIGABLE_TYPES, isNavigableType, type NavigableType } from "./navigable.types";
 
 /**
  * Navigable records (PRD #45 §81, §111, §163, §185-§192).
@@ -16,6 +17,8 @@ import { prisma } from "@/lib/database/prisma";
  * keeps its own copy of any record's title, route or access rule.
  */
 
+export { NAVIGABLE_LABELS, NAVIGABLE_TYPES, isNavigableType, type NavigableType };
+
 export type NavigableEntityDTO = {
   entityType: NavigableType;
   entityId: string;
@@ -26,26 +29,6 @@ export type NavigableEntityDTO = {
   status?: string;
   project?: { id: string; name: string };
 };
-
-export const NAVIGABLE_TYPES = ["project", "project_milestone", "task", "meeting", "daily_log", "client", "document", "contract", "purchase_order", "invoice"] as const;
-export type NavigableType = (typeof NAVIGABLE_TYPES)[number];
-
-export const NAVIGABLE_LABELS: Record<NavigableType, { singular: string; plural: string }> = {
-  project: { singular: "Project", plural: "Projects" },
-  project_milestone: { singular: "Milestone", plural: "Milestones" },
-  task: { singular: "Task", plural: "Tasks" },
-  meeting: { singular: "Meeting", plural: "Meetings" },
-  daily_log: { singular: "Daily log", plural: "Daily logs" },
-  client: { singular: "Client", plural: "Clients" },
-  document: { singular: "Document", plural: "Documents" },
-  contract: { singular: "Contract", plural: "Contracts" },
-  purchase_order: { singular: "Purchase order", plural: "Purchase orders" },
-  invoice: { singular: "Invoice", plural: "Invoices" },
-};
-
-export function isNavigableType(value: string): value is NavigableType {
-  return (NAVIGABLE_TYPES as readonly string[]).includes(value);
-}
 
 type Provider = {
   key: NavigableType;

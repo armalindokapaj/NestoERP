@@ -42,17 +42,23 @@ function hrVisibilities(context: UserContext): QualificationVisibility[] {
   return ["EMPLOYEE_AND_HR", "HR_ONLY", "GROUP_SUMMARY", ...(can(context, "hr.document.private.view") ? (["RESTRICTED"] as const) : [])];
 }
 
+/** The HR reader alone, as a clause — what HR's worklists read (§153, §154). Null for none. */
+export function hrQualificationWhere(context: UserContext, ownPersonId: string | null): Prisma.PersonQualificationWhereInput | null {
+  if (!can(context, "hr.document.view")) return null;
+  return {
+    parentGroupId: context.parentGroupId,
+    person: hrPersonWhere(context),
+    visibility: { in: hrVisibilities(context) },
+    ...(ownPersonId ? { personProfileId: { not: ownPersonId } } : {}),
+  };
+}
+
 /** The full records this reader may see, as a clause — null for none (§105, §106). */
 export function fullQualificationWhere(context: UserContext, ownPersonId: string | null): Prisma.PersonQualificationWhereInput | null {
   const branches: Prisma.PersonQualificationWhereInput[] = [];
   if (ownPersonId) branches.push({ personProfileId: ownPersonId, visibility: { in: SELF_QUALIFICATION_VISIBLE } });
-  if (can(context, "hr.document.view")) {
-    branches.push({
-      person: hrPersonWhere(context),
-      visibility: { in: hrVisibilities(context) },
-      ...(ownPersonId ? { personProfileId: { not: ownPersonId } } : {}),
-    });
-  }
+  const hr = hrQualificationWhere(context, ownPersonId);
+  if (hr) branches.push(hr);
   if (branches.length === 0) return null;
   return { parentGroupId: context.parentGroupId, OR: branches };
 }

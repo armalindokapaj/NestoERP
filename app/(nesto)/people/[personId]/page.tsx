@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { EmployeeDocuments } from "@/components/hr/employee-documents";
 import { EmploymentTimeline } from "@/components/hr/employment-timeline";
+import { PersonQualifications } from "@/components/people/person-qualifications";
 import { EditOwnProfileButton, ManageProfileButton } from "@/components/people/work-profile-editor";
 import { WorkerWorkforce } from "@/components/workforce/worker-workforce";
 import { WORK_STATUS } from "@/components/people/work-status";
@@ -17,7 +19,7 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import { getPersonEmploymentHistory } from "@/lib/modules/hr/employment/employment.query";
-import { getEmploymentView, getPrivateProfile, getWorkProfile } from "@/lib/modules/people/people.service";
+import { getDocumentsTab, getEmploymentView, getPrivateProfile, getQualificationsTab, getWorkProfile } from "@/lib/modules/people/people.service";
 import type { WorkProfileDTO } from "@/lib/modules/people/people.types";
 import { personInWorkforce } from "@/lib/modules/workforce/workforce.directory";
 import { cn } from "@/lib/utils/cn";
@@ -26,8 +28,9 @@ import { statusLabel } from "@/lib/utils/status";
 
 type Props = { params: Promise<{ personId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-const TABS = ["overview", "projects", "workforce", "activity", "employment", "private"] as const;
+const TABS = ["overview", "projects", "qualifications", "documents", "workforce", "activity", "employment", "private"] as const;
 type Tab = (typeof TABS)[number];
+const TAB_LABELS: Partial<Record<Tab, string>> = { qualifications: "Skills & qualifications" };
 
 async function load(context: UserContext, personId: string): Promise<WorkProfileDTO> {
   try {
@@ -64,7 +67,11 @@ export default async function PersonPage({ params, searchParams }: Props) {
   const requested = (await searchParams).tab;
   // Where they work and with whom, for a reader who sees this company's workforce (E-04 §139, E-09 §7).
   const inWorkforce = await personInWorkforce(context, profile.personId);
-  const visible: Tab[] = TABS.filter((tab) => (tab === "employment" ? profile.capabilities.canViewEmployment : tab === "private" ? profile.capabilities.canViewPrivate : tab === "workforce" ? inWorkforce : true));
+  // Documents belong to an employment (E-02 §94, ADR 0007): somebody who has never been employed here has none.
+  const employed = profile.employingCompany !== null && context.moduleAccess.hr?.enabled === true;
+  const visible: Tab[] = TABS.filter((tab) =>
+    tab === "employment" ? profile.capabilities.canViewEmployment : tab === "private" ? profile.capabilities.canViewPrivate : tab === "workforce" ? inWorkforce : tab === "documents" ? employed : true,
+  );
   const tab: Tab = visible.find((candidate) => candidate === requested) ?? "overview";
   const status = WORK_STATUS[profile.status];
   const editable = {
@@ -125,7 +132,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
                   key === tab ? "border-accent text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
-                {key === "projects" ? `Projects (${profile.projects.filter((project) => project.status === "ACTIVE").length})` : key.charAt(0).toUpperCase() + key.slice(1)}
+                {key === "projects" ? `Projects (${profile.projects.filter((project) => project.status === "ACTIVE").length})` : (TAB_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1))}
               </Link>
             </li>
           ))}
@@ -134,6 +141,8 @@ export default async function PersonPage({ params, searchParams }: Props) {
 
       {tab === "overview" ? <Overview profile={profile} /> : null}
       {tab === "projects" ? <Projects profile={profile} /> : null}
+      {tab === "qualifications" ? <Qualifications context={context} personId={profile.personId} name={profile.name} /> : null}
+      {tab === "documents" ? <Documents context={context} personId={profile.personId} /> : null}
       {tab === "workforce" ? <WorkerWorkforce context={context} personId={profile.personId} /> : null}
       {tab === "activity" ? <Activity profile={profile} /> : null}
       {tab === "employment" ? <Employment context={context} personId={profile.personId} withHistory={profile.capabilities.canViewHistory} /> : null}
@@ -346,6 +355,30 @@ async function Employment({ context, personId, withHistory }: { context: UserCon
           ) : null}
         </section>
       ))}
+    </div>
+  );
+}
+
+/** Skills & qualifications (E-02 §100-§105): the person's across the group, as this reader may see them. */
+async function Qualifications({ context, personId, name }: { context: UserContext; personId: string; name: string }) {
+  return <PersonQualifications data={await getQualificationsTab(context, personId)} name={name} />;
+}
+
+/**
+ * Documents (E-02 §94-§99): the person's employment files in this company, as
+ * the employee-file rules let this reader see them. Files another company of
+ * the group keeps are read in that company.
+ */
+async function Documents({ context, personId }: { context: UserContext; personId: string }) {
+  const tab = await getDocumentsTab(context, personId);
+  return (
+    <div className="space-y-6">
+      {tab.employments.length === 0 ? (
+        <EmptyState title="No documents available to you" description={tab.elsewhere.length > 0 ? `Their documents are kept by ${tab.elsewhere.join(", ")}. Switch to that company to see what you may.` : "Documents filed for this person appear here."} />
+      ) : (
+        tab.employments.map((employment, index) => <EmployeeDocuments key={employment.employeeId} data={employment} heading={index === 0 || tab.employments.length > 1} />)
+      )}
+      {tab.employments.length > 0 && tab.elsewhere.length > 0 ? <p className="text-meta text-fg-subtle">Documents kept by {tab.elsewhere.join(", ")} are read in that company.</p> : null}
     </div>
   );
 }

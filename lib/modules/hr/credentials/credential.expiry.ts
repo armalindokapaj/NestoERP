@@ -301,7 +301,8 @@ export type CredentialAttentionRow = {
   episode: string;
 };
 
-function conditionWhere(condition: CredentialCondition, today: string): { verificationStatus: { in: CredentialVerificationStatus[] }; expiryDate?: Prisma.DateTimeNullableFilter } {
+/** A condition as a clause over either kind, in the company's own day: what the attention items and HR's worklists both read. */
+export function credentialConditionWhere(condition: CredentialCondition, today: string): { verificationStatus: { in: CredentialVerificationStatus[] }; expiryDate?: Prisma.DateTimeNullableFilter } {
   if (condition === "UNVERIFIED") return { verificationStatus: { in: ["UNVERIFIED"] } };
   if (condition === "EXPIRED") return { verificationStatus: { in: ["UNVERIFIED", "VERIFIED", "EXPIRED"] }, expiryDate: { lt: dbDay(today) } };
   return { verificationStatus: { in: LIVE }, expiryDate: { gte: dbDay(today), lte: dbDay(addDays(today, EXPIRING_SOON_DAYS)) } };
@@ -321,7 +322,7 @@ export async function documentsInCondition(companyId: string, condition: Credent
       isCurrent: true,
       archivedAt: null,
       employeeProfile: { employmentStatus: { not: "ENDED" } },
-      ...conditionWhere(condition, today),
+      ...credentialConditionWhere(condition, today),
       ...(condition === "UNVERIFIED" ? { category: { in: verifiable } } : {}),
       ...(id ? { id } : {}),
       ...(page?.after ? { id: { gt: page.after } } : {}),
@@ -350,7 +351,7 @@ export async function qualificationsInCondition(companyId: string, condition: Cr
     where: {
       AND: [
         employedHere(companyId),
-        { isCurrent: true, archivedAt: null, ...conditionWhere(condition, today) },
+        { isCurrent: true, archivedAt: null, ...credentialConditionWhere(condition, today) },
         id ? { id } : {},
         page?.after ? { id: { gt: page.after } } : {},
       ],

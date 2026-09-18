@@ -6,7 +6,7 @@ import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
-import type { NavigableType } from "@/lib/modules/productivity/navigable.registry";
+import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
 import { cn } from "@/lib/utils/cn";
 
 /**
