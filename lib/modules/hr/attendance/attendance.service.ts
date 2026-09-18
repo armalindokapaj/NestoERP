@@ -373,7 +373,7 @@ function assertDateAllowed(date: Date, status: AttendanceStatus): void {
  * ignored — an absent day with a check-in time is a contradiction
  * (PRD #16 §105, §107).
  */
-function resolveTimes(
+export function resolveTimes(
   date: Date,
   input: { status: AttendanceStatus; checkIn?: string; checkOut?: string },
 ) {

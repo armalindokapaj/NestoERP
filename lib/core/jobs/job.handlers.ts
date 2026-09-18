@@ -82,7 +82,9 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     // placement door keeps a department's team true to a transfer, as it does for a change made by hand.
     const { runScheduledEmploymentChanges } = await import("@/lib/modules/hr/employment/employment.schedule");
     const { placeMembership } = await import("@/lib/modules/organization/departments/placement.door");
-    const result = await runScheduledEmploymentChanges(now, { placement: placeMembership });
+    // …and the workforce's end door closes crews and project assignments with an employment that ends (E-04 §105).
+    const { endWorkforce } = await import("@/lib/modules/workforce/workforce.end");
+    const result = await runScheduledEmploymentChanges(now, { placement: placeMembership, workforce: endWorkforce });
     return { processed: result.applied + result.failed, detail: result };
   },
   "finance.unit-installments": async ({ now }) => {

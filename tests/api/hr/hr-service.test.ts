@@ -22,6 +22,7 @@ import { applyEmploymentChange } from "@/lib/modules/hr/employment/employment.ch
 import { addDays, todayDay } from "@/lib/modules/hr/employment/employment.dates";
 import { employmentChangeSchema } from "@/lib/modules/hr/employment/employment.schema";
 import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+import { endWorkforce } from "@/lib/modules/workforce/workforce.end";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { getHrOverview } from "@/lib/modules/hr/overview/overview.service";
 import * as reports from "@/lib/modules/hr/reports/reports.service";
@@ -222,7 +223,7 @@ function employmentUpdate(input: { weeklyHours?: string; employeeNumber?: string
 
 /** A dated employment change, through the one typed service (E-03 §36), to the employment a member holds. */
 async function change(context: Parameters<typeof applyEmploymentChange>[0], memberId: string, input: Record<string, unknown>) {
-  return applyEmploymentChange(context, await employmentOf(memberId), employmentChangeSchema.parse({ effectiveDate: todayDay(), ...input }), { placement: placeMembership });
+  return applyEmploymentChange(context, await employmentOf(memberId), employmentChangeSchema.parse({ effectiveDate: todayDay(), ...input }), { placement: placeMembership, workforce: endWorkforce });
 }
 
 function attendanceInput(input: {

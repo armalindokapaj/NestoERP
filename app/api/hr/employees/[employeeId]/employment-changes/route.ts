@@ -2,6 +2,7 @@ import { apiOk, readJson, withContext } from "@/lib/api/respond";
 import { applyEmploymentChange } from "@/lib/modules/hr/employment/employment.change.service";
 import { employmentChangeSchema } from "@/lib/modules/hr/employment/employment.schema";
 import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+import { endWorkforce } from "@/lib/modules/workforce/workforce.end";
 
 type Params = { params: Promise<{ employeeId: string }> };
 
@@ -16,7 +17,7 @@ export async function POST(request: Request, { params }: Params) {
   const { employeeId } = await params;
   return withContext(async (context) => {
     const input = employmentChangeSchema.parse(await readJson(request));
-    const result = await applyEmploymentChange(context, employeeId, input, { placement: placeMembership });
+    const result = await applyEmploymentChange(context, employeeId, input, { placement: placeMembership, workforce: endWorkforce });
     return apiOk({ data: result }, { status: result.outcome === "SCHEDULED" ? 202 : 200 });
   });
 }

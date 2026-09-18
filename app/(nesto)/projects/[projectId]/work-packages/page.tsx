@@ -45,6 +45,7 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
           calendar: actions.canViewCalendar,
           meetings: actions.canViewMeetings,
           dailyLogs: actions.canViewDailyLogs,
+          workforce: actions.canViewWorkforce,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
           unitFinance: actions.canViewUnitFinance,

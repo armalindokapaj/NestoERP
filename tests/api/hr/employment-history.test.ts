@@ -13,6 +13,7 @@ import { runScheduledEmploymentChanges } from "@/lib/modules/hr/employment/emplo
 import { correctionSchema, employmentChangeSchema } from "@/lib/modules/hr/employment/employment.schema";
 import * as employees from "@/lib/modules/hr/employees/employee.service";
 import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+import { endWorkforce } from "@/lib/modules/workforce/workforce.end";
 import { listPeople, updateManagedWorkProfile } from "@/lib/modules/people/people.service";
 import * as team from "@/lib/modules/team/team.service";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
@@ -30,7 +31,7 @@ let hr: UserContext;
 let ceo: UserContext;
 let owner: UserContext;
 
-const DOOR = { placement: placeMembership };
+const DOOR = { placement: placeMembership, workforce: endWorkforce };
 const today = () => todayDay();
 
 async function employmentOf(email: string, companyId: string = COMPANY.a) {

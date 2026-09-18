@@ -11,6 +11,7 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import type { PlacementDoor } from "@/lib/modules/team/team.placement";
+import type { WorkforceEndDoor } from "@/lib/modules/workforce/workforce.end";
 import * as repository from "../employees/employee.repository";
 import { canTransitionEmployment } from "../hr.status";
 import { addDays, dayOf, todayDay, type Day } from "./employment.dates";
@@ -66,7 +67,12 @@ import { documentStillThere, validateDepartment, validateDocument, validateManag
 const MODULE = "hr" as const;
 const ENTITY = "EmployeeProfile";
 
-export type ChangeOptions = { placement: PlacementDoor };
+/**
+ * The doors a change is handed (ADR 0004, ADR 0006): the organization keeps a
+ * department's team true to a move, and the workforce ends crews and project
+ * assignments with the employment. HR imports only their types.
+ */
+export type ChangeOptions = { placement: PlacementDoor; workforce: WorkforceEndDoor };
 
 export type Target = {
   id: string;
@@ -218,6 +224,7 @@ export async function applyEmploymentChange(
         effective: effectiveOf(input),
         source: "CHANGE",
         placement: options.placement,
+        workforce: options.workforce,
         targetContext: acting,
       });
     })
@@ -250,6 +257,7 @@ type PerformInput = {
   effective: Day;
   source: "CHANGE" | "SCHEDULED";
   placement: PlacementDoor;
+  workforce: WorkforceEndDoor;
   /** The actor in the company a transfer goes to; null for the worker. */
   targetContext: UserContext | null;
   scheduledChangeId?: string;
@@ -480,6 +488,8 @@ async function terminate(tx: Prisma.TransactionClient, run: PerformInput, lastWo
   } else {
     await closeAssignment(tx, target.id, target.companyId, lastWorkingDay);
   }
+  // Crews and project assignments end with the employment; any planned to begin later are withdrawn (E-04 §105).
+  await run.workforce(tx, { companyId: target.companyId, employmentId: target.id, lastDay: addDays(effective, -1), reason: "TERMINATION", actor: run.actor });
   await writeStatus(tx, { employmentId: target.id, companyId: target.companyId, status: "ENDED", effective, reason, privateReason, documentId: run.input.documentId ?? null, source: run.source, actorUserId: userId });
   // Nothing scheduled after the end can happen (E-03 §157).
   // (A scheduled change being applied now is already APPLIED, so it is not among them.)
@@ -617,6 +627,8 @@ async function transferToCompany(tx: Prisma.TransactionClient, run: PerformInput
   const source = await openAssignment(tx, target.id);
   if (!source) throw new AccessError("CONFLICT", "This employment has no current assignment.", { code: "NO_OPEN_ASSIGNMENT" });
   await closeAssignment(tx, target.id, target.companyId, lastDay);
+  // Crews and projects are this company's: they end here with the employment (E-04 §105, §111).
+  await run.workforce(tx, { companyId: target.companyId, employmentId: target.id, lastDay, reason: "LEGAL_ENTITY_TRANSFER", actor: run.actor });
   await writeStatus(tx, { employmentId: target.id, companyId: target.companyId, status: "ENDED", effective, reason: "LEGAL_ENTITY_TRANSFER", documentId: input.documentId ?? null, source: run.source, actorUserId: userId });
   await tx.employmentChange.updateMany({
     where: { employeeProfileId: target.id, companyId: target.companyId, status: "SCHEDULED" },

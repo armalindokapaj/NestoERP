@@ -63,6 +63,7 @@ export default async function ProjectContractorsPage({ params }: Params) {
           calendar: actions.canViewCalendar,
           meetings: actions.canViewMeetings,
           dailyLogs: actions.canViewDailyLogs,
+          workforce: actions.canViewWorkforce,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
           unitFinance: actions.canViewUnitFinance,

@@ -10,8 +10,7 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { prisma } from "@/lib/database/prisma";
-import type { PlacementDoor } from "@/lib/modules/team/team.placement";
-import { performChange } from "./employment.change.service";
+import { performChange, type ChangeOptions } from "./employment.change.service";
 import { dayOf, dbDay, todayDay } from "./employment.dates";
 import { lockEmployment } from "./employment.history";
 import { changeTypeLabels } from "./employment.labels";
@@ -36,7 +35,7 @@ const BATCH = 100;
 
 type Due = { id: string; employeeProfileId: string; type: string; effectiveDate: Date; payload: Prisma.JsonValue; requestedByUserId: string };
 
-export async function runScheduledEmploymentChanges(now: Date, options: { placement: PlacementDoor }): Promise<{ applied: number; failed: number }> {
+export async function runScheduledEmploymentChanges(now: Date, options: ChangeOptions): Promise<{ applied: number; failed: number }> {
   const counts = { applied: 0, failed: 0 };
   const today = todayDay(now);
   const run = await forEachCompany(
@@ -54,7 +53,7 @@ export async function runScheduledEmploymentChanges(now: Date, options: { placem
         rows.sort((a, b) => a.effectiveDate.getTime() - b.effectiveDate.getTime());
         for (const row of rows) {
           try {
-            const outcome = await applyOne(companyId, row, options.placement);
+            const outcome = await applyOne(companyId, row, options);
             if (outcome === "APPLIED") counts.applied += 1;
             if (outcome === "FAILED") counts.failed += 1;
           } catch (error) {
@@ -73,7 +72,7 @@ export async function runScheduledEmploymentChanges(now: Date, options: { placem
   return counts;
 }
 
-async function applyOne(companyId: string, row: Due, placement: PlacementDoor): Promise<"APPLIED" | "FAILED" | "SKIPPED"> {
+async function applyOne(companyId: string, row: Due, doors: ChangeOptions): Promise<"APPLIED" | "FAILED" | "SKIPPED"> {
   const parsed = employmentChangeSchema.safeParse(row.payload);
   if (!parsed.success) return fail(companyId, row, "The scheduled change could not be read.");
   try {
@@ -100,7 +99,8 @@ async function applyOne(companyId: string, row: Due, placement: PlacementDoor): 
         input: parsed.data,
         effective: dayOf(row.effectiveDate),
         source: "SCHEDULED",
-        placement,
+        placement: doors.placement,
+        workforce: doors.workforce,
         targetContext: null,
         scheduledChangeId: row.id,
       });

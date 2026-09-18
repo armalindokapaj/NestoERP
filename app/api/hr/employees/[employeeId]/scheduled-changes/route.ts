@@ -5,6 +5,7 @@ import { todayDay } from "@/lib/modules/hr/employment/employment.dates";
 import { getEmploymentHistory } from "@/lib/modules/hr/employment/employment.query";
 import { employmentChangeSchema } from "@/lib/modules/hr/employment/employment.schema";
 import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+import { endWorkforce } from "@/lib/modules/workforce/workforce.end";
 
 type Params = { params: Promise<{ employeeId: string }> };
 
@@ -27,7 +28,7 @@ export async function POST(request: Request, { params }: Params) {
     if (effective < todayDay() || (input.action !== "TERMINATE" && effective === todayDay())) {
       throw new AccessError("VALIDATION_ERROR", "A scheduled change takes effect after today.", { field: "effectiveDate" });
     }
-    const result = await applyEmploymentChange(context, employeeId, input, { placement: placeMembership });
+    const result = await applyEmploymentChange(context, employeeId, input, { placement: placeMembership, workforce: endWorkforce });
     if (result.outcome !== "SCHEDULED") throw new AccessError("VALIDATION_ERROR", "This change applies now; it was not scheduled.");
     return apiOk({ data: result }, { status: 202 });
   });

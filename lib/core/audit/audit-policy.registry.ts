@@ -78,6 +78,19 @@ export const AuditAction = {
   HR_EMPLOYEE_CREATED: "HR_EMPLOYEE_CREATED",
   // Workforce employees, with or without a login (E-04 §184-§188)
   HR_EMPLOYEE_UPDATED: "HR_EMPLOYEE_UPDATED",
+  // Where employees work and with whom: trades, crews, project assignments, site attendance (E-04 §184)
+  WORKFORCE_TRADE_CREATED: "WORKFORCE_TRADE_CREATED",
+  WORKFORCE_TRADE_UPDATED: "WORKFORCE_TRADE_UPDATED",
+  WORKFORCE_TRADE_DELETED: "WORKFORCE_TRADE_DELETED",
+  WORKFORCE_TRADES_REORDERED: "WORKFORCE_TRADES_REORDERED",
+  WORKFORCE_CREW_CREATED: "WORKFORCE_CREW_CREATED",
+  WORKFORCE_CREW_UPDATED: "WORKFORCE_CREW_UPDATED",
+  WORKFORCE_CREW_ASSIGNED: "WORKFORCE_CREW_ASSIGNED",
+  WORKFORCE_CREW_ASSIGNMENT_ENDED: "WORKFORCE_CREW_ASSIGNMENT_ENDED",
+  WORKFORCE_PROJECT_ASSIGNED: "WORKFORCE_PROJECT_ASSIGNED",
+  WORKFORCE_PROJECT_ASSIGNMENT_ENDED: "WORKFORCE_PROJECT_ASSIGNMENT_ENDED",
+  WORKFORCE_ENDED_WITH_EMPLOYMENT: "WORKFORCE_ENDED_WITH_EMPLOYMENT",
+  WORKFORCE_ATTENDANCE_RECORDED: "WORKFORCE_ATTENDANCE_RECORDED",
   // Employment history (E-03 §134-§137)
   HR_EMPLOYMENT_ASSIGNMENT_CHANGED: "HR_EMPLOYMENT_ASSIGNMENT_CHANGED",
   HR_EMPLOYMENT_TERMINATED: "HR_EMPLOYMENT_TERMINATED",
@@ -146,6 +159,9 @@ export const AuditAction = {
   PROJECT_BUILDING_CREATED: "PROJECT_BUILDING_CREATED",
   PROJECT_BUILDING_UPDATED: "PROJECT_BUILDING_UPDATED",
   PROJECT_BUILDING_DELETED: "PROJECT_BUILDING_DELETED",
+  /** Where a project's work happens on the ground (E-04 §38). */
+  PROJECT_SITE_CREATED: "PROJECT_SITE_CREATED",
+  PROJECT_SITE_UPDATED: "PROJECT_SITE_UPDATED",
   PROJECT_FLOOR_CREATED: "PROJECT_FLOOR_CREATED",
   PROJECT_FLOOR_UPDATED: "PROJECT_FLOOR_UPDATED",
   PROJECT_FLOOR_DELETED: "PROJECT_FLOOR_DELETED",
@@ -509,6 +525,19 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.HR_EMPLOYEE_CREATED, moduleKey: "hr", category: "HR", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["employmentStatus", "personProfileId", "departmentId", "roleKey"], required: true },
   /* E-04 §184-§188: the employee's workforce facts; never pay or an identifier beyond the employee number. */
   { actionKey: AuditAction.HR_EMPLOYEE_UPDATED, moduleKey: "hr", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["employeeNumber", "workerCategory", "tradeId"], required: true },
+  /* E-04 §184: who works where and with whom. Periods, never pay; a sheet of attendance is one event with its counts. */
+  { actionKey: AuditAction.WORKFORCE_TRADE_CREATED, moduleKey: "workforce", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "isActive"], required: true },
+  { actionKey: AuditAction.WORKFORCE_TRADE_UPDATED, moduleKey: "workforce", category: "CONFIGURATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "isActive"], required: true },
+  { actionKey: AuditAction.WORKFORCE_TRADE_DELETED, moduleKey: "workforce", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code"], required: true },
+  { actionKey: AuditAction.WORKFORCE_TRADES_REORDERED, moduleKey: "workforce", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["order"], required: false },
+  { actionKey: AuditAction.WORKFORCE_CREW_CREATED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "projectId", "siteId", "tradeId", "supervisorEmployeeId", "status"], required: true },
+  { actionKey: AuditAction.WORKFORCE_CREW_UPDATED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "projectId", "siteId", "tradeId", "supervisorEmployeeId", "status", "notes"], required: true },
+  { actionKey: AuditAction.WORKFORCE_CREW_ASSIGNED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["crewId", "employeeProfileId", "role", "startDate", "transferredFromCrewId"], required: true },
+  { actionKey: AuditAction.WORKFORCE_CREW_ASSIGNMENT_ENDED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["crewId", "employeeProfileId", "startDate", "endDate", "endReason"], required: true },
+  { actionKey: AuditAction.WORKFORCE_PROJECT_ASSIGNED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["projectId", "siteId", "tradeId", "employeeProfileId", "role", "isPrimary", "startDate", "transferredFromId"], required: true },
+  { actionKey: AuditAction.WORKFORCE_PROJECT_ASSIGNMENT_ENDED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["projectId", "siteId", "employeeProfileId", "startDate", "endDate", "endReason"], required: true },
+  { actionKey: AuditAction.WORKFORCE_ENDED_WITH_EMPLOYMENT, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["employeeProfileId", "lastDay", "reason", "crewMembershipsEnded", "crewMembershipsWithdrawn", "projectAssignmentsEnded", "projectAssignmentsWithdrawn"], required: true },
+  { actionKey: AuditAction.WORKFORCE_ATTENDANCE_RECORDED, moduleKey: "workforce", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["date", "projectId", "siteId", "crewId", "created", "updated", "unchanged"], required: true },
   /* Account provisioning (E-06 §114, §115): who asked, who approved, who created it, for whom, where. */
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_REQUESTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], required: true },
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONING_APPROVED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], required: true },
@@ -561,6 +590,8 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PROJECT_BUILDING_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["buildingId", "name", "code", "description"], required: true },
   { actionKey: AuditAction.PROJECT_BUILDING_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "description", "isActive"], required: true },
   { actionKey: AuditAction.PROJECT_BUILDING_DELETED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["buildingId", "name", "code"], required: true },
+  { actionKey: AuditAction.PROJECT_SITE_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["siteId", "name", "code", "address", "city", "status"], required: true },
+  { actionKey: AuditAction.PROJECT_SITE_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "address", "city", "notes", "status"], required: true },
   { actionKey: AuditAction.PROJECT_FLOOR_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["buildingId", "floorId", "number", "name", "levelType", "elevation"], required: true },
   { actionKey: AuditAction.PROJECT_FLOOR_UPDATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["number", "name", "levelType", "elevation", "description", "isActive"], required: true },
   { actionKey: AuditAction.PROJECT_FLOOR_DELETED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["buildingId", "floorId", "number", "name", "levelType"], required: true },

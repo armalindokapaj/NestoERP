@@ -58,6 +58,11 @@ const RULES: Rule[] = [
   { when: /\/scheduled-changes\/\[changeId\]/, param: "changeId", source: { model: "EmploymentChange", fill: { employeeId: "employeeProfileId" } } },
   // An employee is addressed by the employment, login or not (E-04 §14).
   { when: /\/hr\/employees\//, param: "employeeId", source: { model: "EmployeeProfile" } },
+  // A worker's crew memberships and project assignments (E-04 §159, §160): the employee segment is filled from the row.
+  { when: /\/crew-assignments\/\[assignmentId\]/, param: "assignmentId", source: { model: "WorkforceCrewMember", fill: { employeeId: "employeeProfileId" } } },
+  { when: /\/project-assignments\/\[assignmentId\]/, param: "assignmentId", source: { model: "EmployeeProjectAssignment", fill: { employeeId: "employeeProfileId" } } },
+  // A project's sites (E-04 §38): the project segment is filled from the site.
+  { when: /\/sites\/\[siteId\]/, param: "siteId", source: { model: "ProjectSite", fill: { projectId: "projectId" } } },
   // An account request is the company's the person joins (E-06 §27); not a unit's contract request.
   { when: /\/user-provisioning-requests\//, param: "requestId", source: { model: "UserProvisioningRequest" } },
   // The group's departments (E-13): reached through the target company's branch
@@ -92,6 +97,7 @@ const BY_NAME: Record<string, string> = {
   commitmentId: "Commitment",
   contractId: "Contract",
   contractorId: "ContractorProfile",
+  crewId: "WorkforceCrew",
   dailyLogId: "DailyLog",
   decisionId: "MeetingDecision",
   delegationId: "ApprovalDelegation",
@@ -134,6 +140,8 @@ const BY_NAME: Record<string, string> = {
   versionId: "DocumentVersion",
   workLogId: "WorkLog",
   workPackageId: "WorkPackage",
+  siteId: "ProjectSite",
+  tradeId: "WorkforceTrade",
 };
 
 const SECTION_MODELS: Record<(typeof SECTION_KEYS)[number], string> = {

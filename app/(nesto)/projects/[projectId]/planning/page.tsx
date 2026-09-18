@@ -53,6 +53,7 @@ export default async function ProjectPlanningPage({ params, searchParams }: Para
           calendar: actions.canViewCalendar,
           meetings: actions.canViewMeetings,
           dailyLogs: actions.canViewDailyLogs,
+          workforce: actions.canViewWorkforce,
           team: actions.canViewMembers,
           finance: actions.canViewFinance,
           unitFinance: actions.canViewUnitFinance,

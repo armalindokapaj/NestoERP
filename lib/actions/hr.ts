@@ -15,6 +15,7 @@ import { cancelScheduledChangeSchema, correctionSchema, employmentChangeSchema }
 import type { EmploymentChangeResultDTO } from "@/lib/modules/hr/employment/employment.types";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+import { endWorkforce } from "@/lib/modules/workforce/workforce.end";
 import {
   createAttendanceSchema,
   createCompensationSchema,
@@ -118,7 +119,9 @@ export async function updateEmployeeProfileAction(
 /**
  * One dated employment change — promotion, transfer, manager, location, type,
  * status, ending, rehire (E-03 §36, §74). The organization's placement door is
- * passed in, so a department's team follows the move (ADR 0004).
+ * passed in, so a department's team follows the move (ADR 0004), and the
+ * workforce's end door, so crews and project assignments end with the
+ * employment (E-04 §105, ADR 0006).
  */
 export async function employmentChangeAction(employeeId: string, input: unknown): Promise<HrActionResult & { outcome?: EmploymentChangeResultDTO }> {
   const context = await requireUserContext();
@@ -128,7 +131,7 @@ export async function employmentChangeAction(employeeId: string, input: unknown)
 
   let outcome: EmploymentChangeResultDTO;
   try {
-    outcome = await applyEmploymentChange(context, employeeId, parsed.data, { placement: placeMembership });
+    outcome = await applyEmploymentChange(context, employeeId, parsed.data, { placement: placeMembership, workforce: endWorkforce });
   } catch (error) {
     return toResult(error);
   }
