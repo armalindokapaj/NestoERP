@@ -181,6 +181,7 @@ export const siteSq: SiteCopy = {
     inventory: "Materialet, nivelet e stokut dhe lëvizjet ndërmjet magazinave dhe kantiereve.",
     qaqc: "Inspektimet, mospërputhjet, testet dhe listat e defekteve, të mbyllura në regjistër.",
     hse: "Incidentet, lejet e punës, inspektimet dhe veprimet korrigjuese.",
+    people: "Të gjithë në grup, me vendin ku punojnë, atë që punojnë dhe si t’i kontaktoni.",
     team: "Të gjithë në kompani, me departamentin dhe rolin nën të cilin punojnë.",
     organization: "Grupi mëmë mbi kompanitë tuaja: departamentet e tij, drejtuesit që i drejtojnë dhe njerëzit që sjell burimet njerëzore.",
     company: "Identiteti i kompanisë dhe të dhënat me të cilat lëshohet çdo dokument.",

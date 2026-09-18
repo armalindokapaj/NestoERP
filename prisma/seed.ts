@@ -21,6 +21,7 @@ import { seedContractRecords } from "./seed/contracts";
 import { seedFinanceRecords } from "./seed/finance";
 import { seedHrRecords } from "./seed/hr";
 import { seedRecruitmentRecords } from "./seed/recruitment";
+import { seedWorkProfiles } from "./seed/people";
 import { seedHseRecords } from "./seed/hse";
 import { COMPANY_A, DEMO_COMPANY_IDS, DEMO_GROUP, DEMO_PASSWORD, FIXTURE_TENANT } from "./seed/constants";
 import { seedMembers } from "./seed/members";
@@ -83,6 +84,7 @@ async function main() {
   const finance = await seedFinanceRecords(prisma, members);
   const hr = await seedHrRecords(prisma, members);
   const recruitment = await seedRecruitmentRecords(prisma);
+  await seedWorkProfiles(prisma);
   const sales = await seedSalesRecords(prisma, members);
   const legal = await seedContractRecords(prisma, members);
   const procurement = await seedProcurementRecords(prisma, members);

@@ -42,6 +42,8 @@ export const bootstrapCompanySchema = z.object({
     .toLowerCase()
     .regex(/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/, "slug must be lowercase letters, digits and hyphens"),
   legalName: z.string().trim().max(200).optional(),
+  registrationNumber: z.string().trim().max(60).optional(),
+  taxNumber: z.string().trim().max(60).optional(),
   country: z.string().trim().max(80).optional(),
   /**
    * The parent group the company belongs to (E-06 §8). An existing group is
@@ -160,6 +162,8 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
           slug: input.slug,
           name: input.name,
           legalName: input.legalName ?? null,
+          registrationNumber: input.registrationNumber ?? null,
+          taxNumber: input.taxNumber ?? null,
           country: input.country ?? null,
           industry: input.industry ?? null,
           address: input.address ?? null,

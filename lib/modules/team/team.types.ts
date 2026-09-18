@@ -28,6 +28,8 @@ export type TeamMemberSummaryDTO = {
 export type TeamMemberDetailDTO = {
   id: string;
   userId: string;
+  /** The person's group-wide profile (`/people/[personId]`); none before an invitation is accepted. */
+  personId: string | null;
   /** Optimistic-concurrency stamp carried by the edit form (PRD #14 §159). */
   updatedAt: string;
 

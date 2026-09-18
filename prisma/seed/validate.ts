@@ -70,6 +70,11 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "pending finance approvals", actual: await prisma.financeApproval.count({ where: { companyId: { in: DEMO_COMPANY_IDS }, status: "PENDING" } }), expected: 5, comparison: "gte" },
     { label: "decided finance approvals", actual: await prisma.financeApproval.count({ where: { companyId: { in: DEMO_COMPANY_IDS }, status: { not: "PENDING" } } }), expected: 5, comparison: "gte" },
     { label: "finance settings", actual: await prisma.financeSettings.count({ where: { companyId: { in: DEMO_COMPANY_IDS } } }), expected: 5, comparison: "eq" },
+    // Every login working in the group is a person of it, and has an employing company (E-01 §7, §219).
+    { label: "demo logins without a person", actual: await prisma.user.count({ where: { personProfileId: null, memberships: { some: { status: "ACTIVE", companyId: { in: DEMO_COMPANY_IDS } } } } }), expected: 0, comparison: "eq" },
+    { label: "demo logins without an employment", actual: await prisma.user.count({ where: { memberships: { some: { status: "ACTIVE", companyId: { in: DEMO_COMPANY_IDS } } }, personProfile: { is: { employments: { none: {} } } } } }), expected: 0, comparison: "eq" },
+    { label: "demo companies with registration and tax numbers", actual: await prisma.company.count({ where: { id: { in: DEMO_COMPANY_IDS }, registrationNumber: { not: null }, taxNumber: { not: null } } }), expected: 5, comparison: "eq" },
+    { label: "work profiles filled in", actual: await prisma.personProfile.count({ where: { professionalBio: { not: null } } }), expected: 6, comparison: "gte" },
     // Every HR state the module renders (PRD #16 §327–§334).
     { label: "employment records", actual: await prisma.employeeProfile.count({ where: { companyId: { in: DEMO_COMPANY_IDS } } }), expected: 16, comparison: "gte" },
     { label: "planned employment", actual: await prisma.employeeProfile.count({ where: { companyId: COMPANY_A, employmentStatus: "PLANNED" } }), expected: 1, comparison: "gte" },

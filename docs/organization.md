@@ -166,10 +166,11 @@ comes down to. It changes nothing and says nothing about another group.
 organization side by side: memberships holding a role no membership may hold,
 platform users with a membership, positions held with another department's role
 or pointing outside the group, managers without a branch, grants for
-undelegable modules or outside the group are **errors**; the group's Owner or
-Group IT missing from a company, missing branches, positions that widen nothing,
-branch managers nobody appointed, grants now above their grantor's authority
-and logins without a person record are **warnings**.
+undelegable modules or outside the group, and (since E-01) a login working in
+the group with no person record are **errors**; the group's Owner or Group IT
+missing from a company, missing branches, positions that widen nothing, branch
+managers nobody appointed and grants now above their grantor's authority are
+**warnings**.
 
 ## Project assignment
 
@@ -301,8 +302,8 @@ Construction and Other companies.
 
 ## Limits
 
-- **The Organization People page** (§127) is not built; Team lists a company's
-  people. The group-wide people directory belongs to E-08.
+- **The Organization People page** (§127) is the People module (`/people`,
+  E-01, `docs/people.md`): the group's directory and every person's profile.
 - **Grants widen a module, not a record.** DEPARTMENT, PROJECT and RECORD
   scopes are in the model and refused by the door.
 - **Department pages are English**; the section names are translated.

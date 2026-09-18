@@ -32,12 +32,14 @@ export async function upsertParentGroup(
 
 export async function upsertCompany(
   prisma: PrismaClient,
-  company: { id: string; parentGroupId: string; slug: string; name: string; legalName?: string | null; industry?: string | null; country?: string | null; address?: string | null; email?: string | null; phone?: string | null; website?: string | null; status: "ACTIVE" | "SUSPENDED" },
+  company: { id: string; parentGroupId: string; slug: string; name: string; legalName?: string | null; registrationNumber?: string | null; taxNumber?: string | null; industry?: string | null; country?: string | null; address?: string | null; email?: string | null; phone?: string | null; website?: string | null; status: "ACTIVE" | "SUSPENDED" },
 ) {
   const { id, ...rest } = company;
   const data = {
     ...rest,
     legalName: rest.legalName ?? null,
+    registrationNumber: rest.registrationNumber ?? null,
+    taxNumber: rest.taxNumber ?? null,
     industry: rest.industry ?? null,
     country: rest.country ?? null,
     address: rest.address ?? null,

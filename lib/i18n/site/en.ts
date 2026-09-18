@@ -229,6 +229,7 @@ export const siteEn = {
     inventory: "Materials, stock levels and movements across stores and sites.",
     qaqc: "Inspections, non-conformances, tests and punch lists, closed out on the record.",
     hse: "Incidents, permits, inspections and corrective actions.",
+    people: "Everyone in the group, with where they work, what they work on and how to reach them.",
     team: "Everyone in the company, with the department and role they work under.",
     organization: "The parent group above your companies: its departments, the heads who run them, and the people HR brings in.",
     company: "Company identity and the details every document is issued under.",

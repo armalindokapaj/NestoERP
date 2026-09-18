@@ -1,0 +1,319 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { DetailGrid } from "@/components/modules/record-header";
+import { StatusBadge } from "@/components/modules/status-badge";
+import { EditOwnProfileButton, ManageProfileButton } from "@/components/people/work-profile-editor";
+import { WORK_STATUS } from "@/components/people/work-status";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { AccessError } from "@/lib/access/guards";
+import { requireModule } from "@/lib/context/current-user";
+import type { UserContext } from "@/lib/context/types";
+import { getEmploymentView, getPrivateProfile, getWorkProfile } from "@/lib/modules/people/people.service";
+import type { WorkProfileDTO } from "@/lib/modules/people/people.types";
+import { cn } from "@/lib/utils/cn";
+import { formatDate, orDash } from "@/lib/utils/format";
+import { statusLabel } from "@/lib/utils/status";
+
+type Props = { params: Promise<{ personId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+const TABS = ["overview", "projects", "activity", "employment", "private"] as const;
+type Tab = (typeof TABS)[number];
+
+async function load(context: UserContext, personId: string): Promise<WorkProfileDTO> {
+  try {
+    return await getWorkProfile(context, personId);
+  } catch (error) {
+    // Another group's person, a candidate and a made-up id look the same (E-01 §170, §182).
+    if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
+    throw error;
+  }
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { personId } = await params;
+  try {
+    const context = await requireModule("people");
+    return { title: (await getWorkProfile(context, personId)).name };
+  } catch {
+    return { title: "Profile" };
+  }
+}
+
+/**
+ * A person's profile (E-01 §12-§13, §159-§171; ADR 0002).
+ *
+ * Everyone in the group reads the work profile: who they are, where they work,
+ * how to reach them, what they work on. The Employment and Private tabs exist
+ * only for a reader who may open them, and each is fetched only when opened —
+ * the work profile never carries what they hold (§121, §165).
+ */
+export default async function PersonPage({ params, searchParams }: Props) {
+  const { personId } = await params;
+  const context = await requireModule("people");
+  const profile = await load(context, personId);
+  const requested = (await searchParams).tab;
+  const visible: Tab[] = TABS.filter((tab) => (tab === "employment" ? profile.capabilities.canViewEmployment : tab === "private" ? profile.capabilities.canViewPrivate : true));
+  const tab: Tab = visible.find((candidate) => candidate === requested) ?? "overview";
+  const status = WORK_STATUS[profile.status];
+  const editable = {
+    personId: profile.personId,
+    preferredName: profile.preferredName,
+    jobTitle: profile.jobTitle,
+    workEmail: profile.workEmail,
+    workPhoneExtension: profile.workPhoneExtension,
+    officeLocation: profile.officeLocation,
+    professionalBio: profile.professionalBio,
+  };
+
+  return (
+    <div className="space-y-5">
+      <Breadcrumbs items={[{ label: "People", href: "/people" }, { label: profile.name }]} />
+
+      <header className="nesto-card flex flex-col gap-4 p-5 sm:flex-row sm:items-start">
+        <Avatar firstName={profile.initials.firstName} lastName={profile.initials.lastName} size="xl" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-page font-semibold text-fg">{profile.name}</h1>
+            <Badge tone={status.tone}>{status.label}</Badge>
+            {profile.capabilities.isSelf ? <Badge tone="info">You</Badge> : null}
+          </div>
+          {profile.preferredName ? <p className="text-meta text-fg-subtle">Goes by {profile.preferredName}</p> : null}
+          <p className="text-body text-fg">{profile.jobTitle ?? "—"}</p>
+          <p className="text-table text-fg-muted">{[profile.employingCompany?.name, profile.department?.name].filter(Boolean).join(" · ") || profile.parentGroup.name}</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-table" aria-label="Contact">
+            {profile.workEmail ? (
+              <a href={`mailto:${profile.workEmail}`} className="text-accent-strong hover:underline">
+                {profile.workEmail}
+              </a>
+            ) : null}
+            {profile.workPhone ? (
+              <a href={`tel:${profile.workPhone}`} className="text-accent-strong hover:underline">
+                {profile.workPhone}
+                {profile.workPhoneExtension ? ` ext. ${profile.workPhoneExtension}` : ""}
+              </a>
+            ) : null}
+            {profile.officeLocation ? <span className="text-fg-muted">{profile.officeLocation}</span> : null}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {profile.capabilities.canEditOwn ? <EditOwnProfileButton profile={editable} /> : null}
+          {profile.capabilities.canManage && !profile.capabilities.isSelf ? <ManageProfileButton profile={editable} name={profile.name} /> : null}
+        </div>
+      </header>
+
+      <nav aria-label="Profile sections" className="border-b border-line">
+        <ul className="-mb-px flex gap-1 overflow-x-auto">
+          {visible.map((key) => (
+            <li key={key}>
+              <Link
+                href={key === "overview" ? `/people/${profile.personId}` : `/people/${profile.personId}?tab=${key}`}
+                aria-current={key === tab ? "page" : undefined}
+                className={cn(
+                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",
+                  key === tab ? "border-accent text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
+                )}
+              >
+                {key === "projects" ? `Projects (${profile.projects.filter((project) => project.status === "ACTIVE").length})` : key.charAt(0).toUpperCase() + key.slice(1)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {tab === "overview" ? <Overview profile={profile} /> : null}
+      {tab === "projects" ? <Projects profile={profile} /> : null}
+      {tab === "activity" ? <Activity profile={profile} /> : null}
+      {tab === "employment" ? <Employment context={context} personId={profile.personId} /> : null}
+      {tab === "private" ? <Private context={context} personId={profile.personId} /> : null}
+    </div>
+  );
+}
+
+function Overview({ profile }: { profile: WorkProfileDTO }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <section className="nesto-card p-5 lg:col-span-2" aria-labelledby="about-heading">
+        <h2 id="about-heading" className="text-card font-semibold text-fg">
+          About
+        </h2>
+        <p className="mt-2 whitespace-pre-line text-table text-fg-muted">{profile.professionalBio ?? "Nothing written yet."}</p>
+
+        <h2 className="mt-6 text-card font-semibold text-fg">Organization</h2>
+        <DetailGrid
+          className="mt-3"
+          items={[
+            { label: "Group", value: profile.parentGroup.name },
+            { label: "Employing company", value: orDash(profile.employingCompany?.name) },
+            { label: "Department", value: orDash(profile.department?.name) },
+            { label: "NESTO role", value: orDash(profile.role?.label) },
+            {
+              label: "Reports to",
+              value: profile.manager ? (
+                profile.manager.personId ? (
+                  <Link href={`/people/${profile.manager.personId}`} className="text-accent-strong hover:underline">
+                    {profile.manager.name}
+                  </Link>
+                ) : (
+                  profile.manager.name
+                )
+              ) : (
+                "—"
+              ),
+            },
+            ...(profile.groupPositions.length > 0 ? [{ label: "Group positions", value: profile.groupPositions.join(", ") }] : []),
+          ]}
+        />
+      </section>
+
+      <section className="nesto-card p-5" aria-labelledby="companies-heading">
+        <h2 id="companies-heading" className="text-card font-semibold text-fg">
+          Where they work
+        </h2>
+        {profile.companies.length === 0 ? (
+          <p className="mt-2 text-table text-fg-subtle">No NESTO account yet.</p>
+        ) : (
+          <ul className="mt-3 space-y-3">
+            {profile.companies.map((placement) => (
+              <li key={placement.company.id} className="text-table">
+                <p className="font-medium text-fg">{placement.company.name}</p>
+                <p className="text-fg-muted">{[placement.jobTitle, placement.department].filter(Boolean).join(" · ") || "—"}</p>
+                <p className="text-meta text-fg-subtle">
+                  {placement.role.label}
+                  {placement.positions.length > 0 ? ` · ${placement.positions.join(", ")}` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function Projects({ profile }: { profile: WorkProfileDTO }) {
+  if (profile.projects.length === 0) return <EmptyState title="No projects assigned" description="Projects appear here when somebody is added to a project team." />;
+  return (
+    <div className="nesto-card p-0">
+      <Table flush aria-label="Projects">
+        <TableHead>
+          <TableRow>
+            <TableHeaderCell>Project</TableHeaderCell>
+            <TableHeaderCell>Company</TableHeaderCell>
+            <TableHeaderCell>Role on the project</TableHeaderCell>
+            <TableHeaderCell>Status</TableHeaderCell>
+            <TableHeaderCell>Since</TableHeaderCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {profile.projects.map((project) => (
+            <TableRow key={`${project.company.id}:${project.code}`} data-testid="person-project">
+              <TableCell className="font-medium">
+                {project.href ? (
+                  <Link href={project.href} className="text-fg hover:text-accent-strong hover:underline">
+                    {project.code} · {project.name}
+                  </Link>
+                ) : (
+                  <span>
+                    {project.code} · {project.name}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>{project.company.name}</TableCell>
+              <TableCell>{orDash(project.projectRole)}</TableCell>
+              <TableCell>
+                <StatusBadge status={project.status} />
+              </TableCell>
+              <TableCell>{project.joinedAt ? formatDate(project.joinedAt) : "—"}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function Activity({ profile }: { profile: WorkProfileDTO }) {
+  if (profile.activity.length === 0) return <EmptyState title="No recent activity" description="Project assignments and appointments appear here." />;
+  return (
+    <ol className="nesto-card divide-y divide-line p-0" aria-label="Activity">
+      {profile.activity.map((entry, index) => (
+        <li key={`${entry.at}-${index}`} className="flex items-baseline justify-between gap-3 px-5 py-3 text-table">
+          <span className="text-fg">{entry.text}</span>
+          <time dateTime={entry.at} className="shrink-0 text-meta text-fg-subtle">
+            {formatDate(entry.at)}
+          </time>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+async function Employment({ context, personId }: { context: UserContext; personId: string }) {
+  const employments = await getEmploymentView(context, personId);
+  return (
+    <div className="space-y-4">
+      {employments.map((employment) => (
+        <section key={employment.id} className="nesto-card p-5" data-testid="employment-record">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-card font-semibold text-fg">{employment.company.legalName ?? employment.company.name}</h2>
+            <StatusBadge status={employment.status} />
+          </div>
+          <DetailGrid
+            className="mt-3"
+            items={[
+              { label: "Registration number", value: orDash(employment.company.registrationNumber) },
+              { label: "Employee number", value: orDash(employment.employeeNumber) },
+              { label: "Employment type", value: statusLabel(employment.type) },
+              { label: "Started", value: employment.startDate ? formatDate(employment.startDate) : "—" },
+              { label: "Probation ends", value: employment.probationEndDate ? formatDate(employment.probationEndDate) : "—" },
+              { label: "Ends", value: employment.endDate ? formatDate(employment.endDate) : "—" },
+              { label: "Work location", value: orDash(employment.workLocation) },
+              { label: "Manager", value: orDash(employment.manager) },
+            ]}
+          />
+          {employment.hrHref || employment.compensationHref ? (
+            <p className="mt-4 flex gap-4 border-t border-line pt-3 text-table">
+              {employment.hrHref ? (
+                <Link href={employment.hrHref} className="font-medium text-accent-strong hover:underline">
+                  Open in HR
+                </Link>
+              ) : null}
+              {employment.compensationHref ? (
+                <Link href={employment.compensationHref} className="font-medium text-accent-strong hover:underline">
+                  Compensation
+                </Link>
+              ) : null}
+            </p>
+          ) : null}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+async function Private({ context, personId }: { context: UserContext; personId: string }) {
+  const details = await getPrivateProfile(context, personId);
+  return (
+    <section className="nesto-card p-5" aria-labelledby="private-heading">
+      <h2 id="private-heading" className="text-card font-semibold text-fg">
+        Private details
+      </h2>
+      <p className="mt-1 text-meta text-fg-subtle">Seen by the person and by HR only. Changed in HR.</p>
+      <DetailGrid
+        className="mt-3"
+        items={[
+          { label: "Personal email", value: orDash(details.personalEmail) },
+          { label: "Personal phone", value: orDash(details.personalPhone) },
+          { label: "Date of birth", value: details.dateOfBirth ? formatDate(details.dateOfBirth) : "—" },
+          { label: "Address", value: orDash([details.address, details.city, details.country].filter(Boolean).join(", ") || null) },
+        ]}
+      />
+    </section>
+  );
+}

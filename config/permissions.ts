@@ -1108,6 +1108,18 @@ export const PERMISSIONS = [
   "team.department.archive",
   "team.department.restore",
 
+  /* People (E-01, ADR 0002) ----------------------------------------------- */
+  /**
+   * The group's people as colleagues see them: the directory, a work profile,
+   * and the parts of your own profile that are yours to change. Everything
+   * restricted about a person is held elsewhere and checked there — the
+   * employment by HR, the private record by the person record's own
+   * permissions (`person_profile.*`).
+   */
+  "people.directory.view",
+  "people.profile.view",
+  "people.profile.edit_self",
+
   /* Organization (E-06) --------------------------------------------------- */
   /**
    * The parent group above the companies: its companies, its group departments
@@ -1260,6 +1272,7 @@ const PERMISSION_MODULE: Record<string, ModuleKey> = {
   team: "team",
   organization: "organization",
   department: "organization",
+  people: "people",
   person_profile: "organization",
   candidate: "organization",
   employment: "organization",
@@ -1351,6 +1364,7 @@ const MUTATING_ACTIONS = new Set([
   "investigate",
   // Collaboration and review verbs: each one writes (PRD #38 §38, §61).
   "edit_own",
+  "edit_self",
   "archive_own",
   "request",
   // Calendar (PRD #39 §43).

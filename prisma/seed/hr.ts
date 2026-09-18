@@ -92,6 +92,10 @@ const PROFILES: ProfileFixture[] = [
   // The two department heads (E-05D §19, E-05E §39).
   { user: "user_architecture_manager", number: "EMP-019", status: "ACTIVE", type: "FULL_TIME", start: -980, manager: "user_ceo", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
   { user: "user_sales_manager", number: "EMP-020", status: "ACTIVE", type: "FULL_TIME", start: -640, manager: "user_ceo", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
+  // Every demo login has an employing company (E-01 §7, §219): the head of Group
+  // Engineering and the architect who works in two companies are Aurelia's.
+  { user: "user_group_engineering", number: "EMP-021", status: "ACTIVE", type: "FULL_TIME", start: -760, manager: "user_owner", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
+  { user: "user_multicompany", number: "EMP-022", status: "ACTIVE", type: "FULL_TIME", start: -330, manager: "user_architecture_manager", location: "Tiranë HQ", weeklyHours: "40", onboarding: "COMPLETED", offboarding: "NOT_REQUIRED" },
   // Leaving next month: offboarding under way.
   { user: "user_viewer", number: "EMP-016", status: "ACTIVE", type: "INTERN", start: -120, end: 24, manager: "user_architect", location: "Tiranë HQ", weeklyHours: "20", onboarding: "COMPLETED", offboarding: "IN_PROGRESS" },
   // Suspended employment, which is not the same as a suspended membership.

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { clearOutbox, readOutbox } from "@/lib/mail";
 import { bootstrapCompany, validateModuleSelection } from "@/lib/modules/company/company-bootstrap.service";
+import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
 import { acceptInvite } from "@/lib/modules/team/invitations/invite.service";
 import { prisma } from "../../helpers";
 
@@ -152,7 +153,7 @@ describe("bootstrapCompany", () => {
       firstName: "First",
       lastName: "Owner",
       password: "a-long-enough-owner-password",
-    });
+    }, { personDoor: ensurePersonForUser });
 
     const membership = await prisma.companyMember.findUniqueOrThrow({
       where: { id: accepted.membershipId },

@@ -34,6 +34,7 @@ export const MODULE_KEYS = [
   "inventory",
   "qaqc",
   "hse",
+  "people",
   "team",
   "organization",
   "company",
@@ -48,7 +49,7 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
  * turn them off, and every company has them from the moment it exists — the
  * access sync creates the switch for companies that predate a new one.
  */
-export const CORE_MODULE_KEYS = ["dashboard", "calendar", "approvals", "announcements", "team", "organization", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
+export const CORE_MODULE_KEYS = ["dashboard", "calendar", "approvals", "announcements", "people", "team", "organization", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
 
 /** Sidebar groups, in render order (PRD #3 §8). */
 export const MODULE_GROUPS = ["primary", "work", "department", "company"] as const;
@@ -549,6 +550,21 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
       { key: "approvals", label: "Approvals", permission: "hse.approval.view" },
       { key: "reports", label: "Reports", permission: "hse.report.view" },
     ],
+  },
+  /**
+   * The group's people as colleagues know them (E-01, ADR 0002): who they are,
+   * where they work, how to reach them and what they work on. Every internal
+   * role opens it; nothing HR keeps private is in it.
+   */
+  people: {
+    key: "people",
+    label: "People",
+    description: "Everyone in your group: who they are, where they work and how to reach them.",
+    route: "/people",
+    icon: "IdCard",
+    group: "company",
+    permission: "people.directory.view",
+    sections: [],
   },
   team: {
     key: "team",

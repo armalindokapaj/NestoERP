@@ -1,4 +1,5 @@
 import type { UserContext } from "@/lib/context/types";
+import { prisma } from "@/lib/database/prisma";
 import { actAs } from "./actor";
 import { discoverServerActions, modelForArgument, type ServerAction } from "./actions";
 import { foreignIdentifiersIn, ownedRows } from "./company-data";
@@ -81,10 +82,22 @@ async function filterQuery(target: SweepTarget): Promise<{ query: string; suppli
   return { query: search.toString(), supplied };
 }
 
+/**
+ * Routes that name the companies of the reader's own group by design: the
+ * people directory and profiles show which company a colleague works for
+ * (E-01 §5, §7, §32; ADR 0002). There, and only for a target company of the
+ * attacker's own group, the company's own id is not a disclosure. Its records'
+ * ids still are, and a company of another group is never exempt.
+ */
+const GROUP_VISIBLE_COMPANY = /^\/api\/people(\/|$)/;
+
 export async function sweepRoutes(attacker: UserContext, target: SweepTarget, options: { only?: (pattern: string) => boolean } = {}): Promise<SweepResult> {
   const result: SweepResult = { violations: [], uncovered: [], calls: 0, statuses: {}, unvalidated: [] };
   const filters = await filterQuery(target);
   const idFor = await idsByFieldName(target.companyId);
+  const targetCompany = await prisma.company.findUnique({ where: { id: target.companyId }, select: { parentGroupId: true } });
+  const sibling = targetCompany?.parentGroupId === attacker.parentGroupId;
+  const withoutCompany = new Set([...target.foreign].filter((id) => id !== target.companyId));
   actAs(attacker);
 
   for (const route of discoverApiRoutes()) {
@@ -121,7 +134,8 @@ export async function sweepRoutes(attacker: UserContext, target: SweepTarget, op
           else if (outcome.status >= 500) record("server-error", JSON.stringify(outcome.body).slice(0, 300));
           else if (outcome.status === 409 && route.params.length > 0) record("disclosed-by-conflict", JSON.stringify(outcome.body).slice(0, 300));
           else if (outcome.status < 300) {
-            const leaked = foreignIdentifiersIn(outcome.body, target.foreign, supplied);
+            const foreign = sibling && GROUP_VISIBLE_COMPANY.test(route.pattern) ? withoutCompany : target.foreign;
+            const leaked = foreignIdentifiersIn(outcome.body, foreign, supplied);
             if (leaked.length > 0) record("leak", leaked.slice(0, 5).join(", "));
             else if (route.params.length > 0 && method !== "GET" && !reportsNoChange(outcome.body)) record("accepted-write", JSON.stringify(outcome.body).slice(0, 200));
           }

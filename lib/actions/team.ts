@@ -9,6 +9,7 @@ import { AccessError } from "@/lib/access/guards";
 import { requireUserContext } from "@/lib/context/current-user";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import { clientAddress, hitThrottle } from "@/lib/core/security/throttle";
+import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
 import * as departments from "@/lib/modules/team/departments/department.service";
 import * as invitations from "@/lib/modules/team/invitations/invite.service";
 import {
@@ -199,7 +200,7 @@ export async function acceptInviteAction(formData: FormData): Promise<TeamAction
   try {
     // The address comes back from the acceptance itself: by this point the
     // token is consumed, so it can no longer be read from the invitation.
-    ({ email } = await invitations.acceptInvite(parsed.data));
+    ({ email } = await invitations.acceptInvite(parsed.data, { personDoor: ensurePersonForUser }));
   } catch (error) {
     return toResult(error);
   }
@@ -242,7 +243,7 @@ export async function acceptInviteAsCurrentUserAction(token: string): Promise<Te
   if (refused) return refused;
 
   try {
-    await invitations.acceptInvite({ token }, { authenticatedUserId: userId });
+    await invitations.acceptInvite({ token }, { authenticatedUserId: userId, personDoor: ensurePersonForUser });
   } catch (error) {
     return toResult(error);
   }

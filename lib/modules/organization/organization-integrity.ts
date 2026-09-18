@@ -183,7 +183,8 @@ export async function findOrganizationFindings(prisma: PrismaClient): Promise<Or
     for (const membership of activeMemberships) {
       if (seen.has(membership.userId)) continue;
       seen.add(membership.userId);
-      if (!membership.user.personProfileId) add("warning", "LOGIN_WITHOUT_PERSON", `${membership.user.username} works in the group with no person record behind the login.`);
+      // Since E-01 every door into a company gives the login its person (ADR 0002).
+      if (!membership.user.personProfileId) add("error", "LOGIN_WITHOUT_PERSON", `${membership.user.username} works in the group with no person record behind the login.`);
       else if (!personIds.has(membership.user.personProfileId)) add("warning", "PERSON_OTHER_GROUP", `${membership.user.username}'s person record belongs to another group.`);
     }
   }

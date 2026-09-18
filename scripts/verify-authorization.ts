@@ -153,6 +153,7 @@ const ROLE_CHECK_EXCEPTIONS: Record<string, string> = {
   "lib/modules/company/company-bootstrap.service.ts": "creating a company's first Owner (PRD #38 §10)",
   "lib/modules/platform/platform-implementation.service.ts": "the implementation checklist asks whether a group has an Owner and Group IT yet (E-06 §39, §40, §71); it grants nothing",
   "lib/modules/timesheets/timesheet.reports.ts": "the role set is derived from who holds timesheet.submit_own, not named",
+  "lib/modules/organization/organization-integrity.ts": "a read-only consistency check that a position is held with the role its holder works as (E-06 §6.5); it grants nothing",
 };
 
 for (const file of walk("lib", (candidate) => /\.tsx?$/.test(candidate)).concat(walk("app", (candidate) => /\.tsx?$/.test(candidate)))) {

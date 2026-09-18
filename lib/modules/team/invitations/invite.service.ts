@@ -557,10 +557,21 @@ export type AcceptResult = {
  * consume the token. Two people opening the same link race each other into the
  * same transaction and exactly one wins, because the second finds the invite no
  * longer PENDING (PRD #14 §328).
+ *
+ * Joining a company makes the account a person of its group (E-01 §219, ADR
+ * 0002), and the person record is HR's. So the caller hands in HR's door
+ * (`ensurePersonForUser`) and it runs in this transaction: Team does not import
+ * HR, which would close a circle through Finance, Sales and Projects back to
+ * Team (docs/domain-dependencies.md), and no caller can accept without it.
  */
+export type PersonDoor = (
+  tx: Prisma.TransactionClient,
+  input: { userId: string; parentGroupId: string; jobTitle?: string | null },
+) => Promise<string>;
+
 export async function acceptInvite(
   input: AcceptInviteRequest,
-  options: { authenticatedUserId?: string } = {},
+  options: { authenticatedUserId?: string; personDoor: PersonDoor },
 ): Promise<AcceptResult> {
   const tokenHash = hashInviteToken(input.token);
 
@@ -683,6 +694,12 @@ export async function acceptInvite(
         select: { id: true },
       });
     }
+
+    // A member of a company is a person of its group (E-01 §219, ADR 0002):
+    // an invited account gets its person here, through HR's door, unless it
+    // already has one.
+    const company = await tx.company.findUniqueOrThrow({ where: { id: invite.companyId }, select: { parentGroupId: true } });
+    await options.personDoor(tx, { userId: user.id, parentGroupId: company.parentGroupId, jobTitle: invite.jobTitle });
 
     // Consuming the token is what makes the link single-use (PRD #14 §239).
     const consumed = await tx.companyInvite.updateMany({

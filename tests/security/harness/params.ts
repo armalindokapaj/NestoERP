@@ -59,6 +59,8 @@ const RULES: Rule[] = [
   // A department appointment, not a contractor's project assignment (E-06 §90).
   { when: /\/department-assignments\//, param: "assignmentId", source: { model: "DepartmentAssignment" } },
   { when: /\/projects\/\[projectId\]\/members\//, param: "projectMemberId", source: { model: "ProjectMember" } },
+  // A person of the target company: somebody it employs (E-01). The person is the group's, the employment the company's.
+  { when: /\/people\/\[personId\]/, param: "personId", source: { model: "EmployeeProfile", column: "personProfileId" } },
 ];
 
 /** The default meaning of a segment name. */

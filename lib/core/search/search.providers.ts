@@ -20,6 +20,8 @@ import {
   buildPermitScopeWhere,
 } from "@/lib/modules/hse/hse.scope";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
+import { directoryQuerySchema } from "@/lib/modules/people/people.schema";
+import { listPeople } from "@/lib/modules/people/people.service";
 import { buildTeamScopeWhere } from "@/lib/modules/team/team.scope";
 import { SCORE, scoreMatch, type GlobalSearchProvider, type GlobalSearchQuery, type GlobalSearchResultDTO } from "./search.types";
 
@@ -193,6 +195,29 @@ const documentProvider: GlobalSearchProvider = {
       subtitle: row.fileName,
       href: `/documents/${row.id}`,
       score: scoreMatch(query.text, row.name),
+    }));
+  },
+};
+
+/**
+ * The group's people (E-01 §144-§147). The directory's own reach and its own
+ * fields — name, title, company, department — so search can never find a
+ * person the directory would not list, or match on anything HR keeps private.
+ */
+const peopleProvider: GlobalSearchProvider = {
+  moduleKey: "people",
+  entityTypes: ["person"],
+  async search(context, query) {
+    if (!available(context, "people", "people.directory.view")) return [];
+    const { data } = await listPeople(context, directoryQuerySchema.parse({ q: query.text, limit: query.limitPerProvider }));
+    return data.map((person) => ({
+      moduleKey: "people",
+      entityType: "person",
+      entityId: person.personId,
+      title: person.name,
+      subtitle: [person.jobTitle, person.employingCompany?.name, person.department?.name].filter(Boolean).join(" · ") || null,
+      href: `/people/${person.personId}`,
+      score: scoreMatch(query.text, person.name),
     }));
   },
 };
@@ -967,6 +992,7 @@ export const searchProviders: GlobalSearchProvider[] = [
   taskProvider,
   clientProvider,
   documentProvider,
+  peopleProvider,
   teamProvider,
   invoiceProvider,
   opportunityProvider,
