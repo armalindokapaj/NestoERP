@@ -28,7 +28,8 @@ PLATFORM ADMIN ──implements──→ PARENT GROUP (IMPLEMENTING → READY_FO
 
 | Concern | Code |
 | --- | --- |
-| Group, departments, positions, grants, account requests | `lib/modules/organization/` (`organization.service`, `department.service`, `appointment.service`, `access-grant.service`, `access-diagnostics.service`, `access-portfolio.service`, `company-context.service`, `organization-integrity`, `provisioning/`) |
+| Group, grants, account requests | `lib/modules/organization/` (`organization.service`, `access-grant.service`, `access-diagnostics.service`, `access-portfolio.service`, `company-context.service`, `organization-integrity`, `provisioning/`) |
+| Departments, their branches and every place in them (E-13) | `lib/modules/organization/departments/` (`department.actor`, `.config.service`, `.assignment.service`, `.query`, `.lookup`, `.schema`, `.types`, `placement.door`); Team's branch doors `lib/modules/team/departments/branch.doors.ts` |
 | Candidates and the person behind an employment | `lib/modules/hr/recruitment/`, `lib/modules/hr/hr.person.ts` |
 | A person's positions in a context | `lib/context/organization-access.ts` (`positionFor`, `assignmentsInCompany`), `lib/context/member-context.ts` (`contextInCompany`) |
 | Role × position permissions | `config/role-defaults.ts` (`permissionsForRole(role, position)`, `POSITION_ORGANIZATION`, `HEAD_EXTRAS`, `HEAD_OVERRIDES`) |
@@ -41,13 +42,15 @@ PLATFORM ADMIN ──implements──→ PARENT GROUP (IMPLEMENTING → READY_FO
 ## Data
 
 - `ParentGroup` (slug, identity, status, `isTestFixture`), `ParentGroupMember`
-  (the group-level people: Owner, Group IT), `GroupDepartment` (key, name).
+  (the group-level people: Owner, Group IT), `GroupDepartment` (key, code, name,
+  description, status; code and name unique in the group).
 - `Company.parentGroupId`, never changed. `Department.groupDepartmentId` makes a
-  company department a branch.
+  company department a branch — one per department and company.
 - `DepartmentAssignment` (user, group department, company and branch or none,
-  `functionalRoleKey`, `positionLevel`, access level, status, dates). A group
-  head's assignment has no company. Composite keys hold every reference inside
-  the group.
+  `functionalRoleKey`, `positionLevel`, access level, status, dates): a head
+  (no company), a branch's manager, or a member's place in a branch. One active
+  head per department and one active manager per branch, by partial unique
+  index. Composite keys hold every reference inside the group.
 - `AccessGrant` (delegated access, group or company scope): made and revoked
   through Organization → Access & roles (below).
 - `PlatformAccess` (role `PLATFORM_ADMIN`), never a `CompanyMember`.
@@ -57,7 +60,8 @@ PLATFORM ADMIN ──implements──→ PARENT GROUP (IMPLEMENTING → READY_FO
 - `AuditEvent.parentGroupId` and a nullable `companyId`, for group-level events.
 
 Migrations: `20260918120000_parent_group_organization_e06` (not additive: see
-`docs/release-readiness.md` §21) and `20260918130000_provisioning_rejection_reason_e06`.
+`docs/release-readiness.md` §21), `20260918130000_provisioning_rejection_reason_e06`
+and `20260918160000_department_management_e13` (§25).
 
 ## Roles and positions
 
@@ -102,25 +106,66 @@ Group dashboard rows (`groupCompanies` for the Owner, `groupFinance`,
 `groupPipeline`) are computed one company at a time, each with that company's
 scope builders.
 
-## Departments and appointments
+## Departments (E-13, ADR 0003)
 
-Organization → Departments lists each group department with its head and each
-company's branch with its manager. A department page shows its team and their
-projects to the department's managers and head, and to those who keep the
-group's people (Owner, Group IT, HR). A head of another function does not see
-it.
+A department is defined **once for the group** and **activated per company**:
+activating it gives the company a branch of it, deactivating closes that branch
+and keeps it, reactivating reopens the same branch. The chart's thirteen
+functions exist in every group from the start, bound to the roles that may hold
+their positions; a group adds its own departments (name, code, description),
+which bind no role.
 
-| Appointment | Who decides |
+| Who | Does |
 | --- | --- |
-| Group department head | Owner (`organization.department_head.assign`) |
-| Company department manager | Owner (`organization.department_manager.assign`), or that function's group head (`department.company_manager.manage`), acting in the company |
-| Ending either | The same people |
+| Owner, Group IT (`organization.department.manage`) | create, edit, deactivate and reactivate departments; activate and deactivate them in companies |
+| Owner (`organization.department_head.assign`) | appoints and replaces a department's head |
+| Owner (`organization.department_manager.assign`), or the function's head (`department.company_manager.manage`) acting in that company | appoints and replaces a branch's manager |
+| Owner (`organization.department.member.manage`), or the branch's manager or the function's head (`department.member.assign/remove`) acting in that company | adds existing people to a branch, moves and removes them |
+| Platform Admin, while the group is implementing | all of the above, audited as the platform |
 
-The appointee must already work as a role of that department
-(`config/group-departments.ts`). A manager is named on the branch
-(`Department.managerMemberId`) through Team's door. `POST
-/api/organization/department-assignments` (`branchCompanyId` for a manager),
-`POST …/:assignmentId/end`. Group IT and local managers appoint nobody.
+- **One head per department, one manager per branch.** Appointing over
+  somebody in office has to say `replace`; the old appointment ends as history.
+  A head or manager works as one of the function's roles (`assertWorksAs`).
+- **Members are places, not accounts.** A member is a `MEMBER` assignment in
+  one branch; covering several companies is several places. Only somebody who
+  works in that company, or for the whole group, can be added, and they need a
+  login until E-04. Nothing else is created: no person, login, employment,
+  membership, project place or access (§59, §60).
+- **Home branch.** A membership's department (`CompanyMember.departmentId`,
+  read by Team, the DEPARTMENT data scope and routing) is its home, and always
+  has its member place: E-13's services move the home with the place, and Team
+  hands its own moves and invitations to the organization's `placeMembership`
+  door.
+- **Inactive means closed.** An inactive department or branch takes nobody new,
+  and its positions widen nothing until it reopens; its people and history stay.
+- **Reading.** Every member of the group reads the chart. A department's team,
+  activity and access are for its head and managers and for those who keep the
+  group's people (Owner, Group IT, HR); a head of another function reads none of
+  it. A group-wide reader sees every company, a manager their branches and their
+  own company, everybody else their own company.
+
+Pages: Organization → **Departments** (the list, and a department's Overview,
+Companies, Team, Access and Activity), Organization → **Companies** (each
+company's setup, and its Departments page), a **Departments** section on a
+person's profile, Team → Departments (read only), and the Platform Admin's
+**Group → Departments**. The organization overview counts departments,
+active company departments, and those without a head or a manager.
+
+API: `GET/POST /api/organization/departments`, `GET/PATCH …/:id`,
+`POST …/:id/deactivate|reactivate`, `POST …/:id/companies` (activate in
+several), `POST …/:id/companies/:companyId/activate|deactivate|reactivate`,
+`POST …/:id/group-head`, `GET …/:id/team|activity|candidates`,
+`POST /api/organization/company-departments/:id/manager`,
+`GET/POST …/company-departments/:id/members`,
+`PATCH/DELETE /api/organization/department-assignments/:id` and
+`POST …/:id/end`, `GET /api/organization/companies/:companyId/departments`;
+the Platform Admin's mirrors under `/api/platform/parent-groups/:groupId/`.
+
+**Company setup.** A new company runs the departments chosen for it — every
+active one if none are named (`bootstrapCompany({ departmentKeys })`, the
+Platform Admin's New company dialog, `--departments=` on the bootstrap
+script). The group's Owner and Group IT join it placed in their function's
+branch when it runs one.
 
 ## Delegated access
 
@@ -226,17 +271,20 @@ Admin:
 
 1. creates a group (IMPLEMENTING, with all group departments);
 2. adds companies through the company bootstrap (settings, modules, numbering,
-   a branch per group department); the group's Owner and Group IT join each new
-   company;
-3. records the approved initial roster, one person at a time (person, login,
+   a branch of each department chosen for it); the group's Owner and Group IT
+   join each new company;
+3. sets up the departments (Group → Departments, E-13 §50): adds the group's
+   own, activates them in companies, appoints initial heads and managers and
+   adds first members — the same services and records as Organization;
+4. records the approved initial roster, one person at a time (person, login,
    memberships — every company for the Owner and Group IT — and position),
    and first project assignments;
-4. sends it for validation and activates it once the checklist's blocking
-   items are met: companies, group departments, linked branches, an Owner,
-   Group IT. Heads and a project with a manager in every company are
-   recommended.
+5. sends it for validation and activates it once the checklist's blocking
+   items are met: companies, group departments, activated branches, an Owner,
+   Group IT. A head for every department that runs somewhere, a manager for
+   every branch and a project with a manager in every company are recommended.
 
-From ACTIVE, the initial roster tools refuse (§138). Platform actions are
+From ACTIVE, the initial roster and department tools refuse (§138; E-13 §94). Platform actions are
 audited at group level (`recordPlatformAction`, `PLATFORM_*`). The Platform
 Admin approves nothing and becomes a member of nothing.
 
@@ -248,7 +296,12 @@ Admin approves nothing and becomes a member of nothing.
 whom, where, which role and manager), `ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED`,
 `ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED`,
 `ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED`,
-`ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED`; `PROJECT_MEMBER_ASSIGNED`,
+`ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED`; since E-13
+`ORGANIZATION_GROUP_DEPARTMENT_{CREATED,UPDATED,DEACTIVATED,REACTIVATED,HEAD_CHANGED}`,
+`ORGANIZATION_COMPANY_DEPARTMENT_{ACTIVATED,DEACTIVATED,REACTIVATED,MANAGER_CHANGED}`,
+`ORGANIZATION_DEPARTMENT_MEMBER_{ASSIGNED,UPDATED,REMOVED}`, all recorded
+against the group department with its company, branch, person and position;
+`PROJECT_MEMBER_ASSIGNED`,
 `PROJECT_MEMBER_REMOVED`; `AUTH_COMPANY_CONTEXT_SWITCHED`;
 `PLATFORM_PARENT_GROUP_{CREATED,UPDATED,READY_FOR_VALIDATION,ACTIVATED}`,
 `PLATFORM_COMPANY_ADDED_TO_GROUP`, `PLATFORM_INITIAL_USER_PROVISIONED`,
@@ -292,13 +345,14 @@ Construction and Other companies.
 | `tests/api/organization/access-grants.test.ts` | the Owner's and a head's doors, the ceiling (no re-delegation, company-wide only), refusals, one live grant, expiry, who reads and revokes, the access check |
 | `tests/api/organization/organization-integrity.test.ts` | `verify:organization` is clean on the seed and names manufactured faults |
 | `tests/api/organization/provisioning.test.ts` | HR → approval → Group IT, separation of duties, HR cannot provision, one person/one login, return/reject/cancel, attribution |
-| `tests/api/organization/appointments.test.ts` | heads by the Owner, managers by the Owner or the function's head, refusals, positions taking effect |
+| `tests/api/organization/departments.test.ts` | E-13 §107-§122: create/edit, codes, activation idempotent and the same branch back, cross-group refusals, inactive departments and branches, one head and one manager (replace, race), members (nothing else created, coverage, home, Team moves), who reads a team, activity, candidates, direct ids from elsewhere, stacked positions, departments the group added |
+| `tests/api/platform/platform-departments.test.ts` | a company with only the departments chosen, the Platform Admin's department tools audited as the platform and closed at go-live, the setup checklist |
 | `tests/api/organization/group-views.test.ts` | access portfolio (stacked roles, two-company architect), departments by reach, group dashboard rows |
 | `tests/api/projects/project-assignment.test.ts` | company manager and group head doors, sibling refusals, active login, Adrian on East Gate (§58) |
 | `tests/api/platform/platform-implementation.test.ts` | §137, §138: group, companies, roster, checklist, activation, closed roster |
 | `tests/security/sibling-companies.test.ts` | Meridian's CEO against every route with Aurelia's ids; Meridian's accountant against Terra's Finance (§144) |
 | `tests/security/cross-company-api.test.ts` | Aurelia against the fixture tenant in another group, both ways |
-| `tests/e2e/modules/{recruitment-provisioning,organization-group,organization-access,platform-admin,projects-multi-company}.spec.ts` | the flows in a browser |
+| `tests/e2e/modules/{recruitment-provisioning,organization-group,organization-access,organization-departments,platform-admin,projects-multi-company}.spec.ts` | the flows in a browser |
 
 ## Limits
 
@@ -307,4 +361,9 @@ Construction and Other companies.
 - **Grants widen a module, not a record.** DEPARTMENT, PROJECT and RECORD
   scopes are in the model and refused by the door.
 - **Department pages are English**; the section names are translated.
+- **A department the group adds widens nothing.** Its head and managers are
+  recorded and notified; their positions grant no permission until a role can
+  be bound to it (ADR 0003 decision 3).
+- **A department place needs a login** until E-04; history is the ended rows
+  and the audit trail until E-03 adds effective dating.
 - **Forced password change** after a temporary password is not enforced (above).

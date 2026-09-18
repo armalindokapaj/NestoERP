@@ -66,6 +66,7 @@ at all (E-01 §121); a tab a reader may not open is absent, not locked (§165).
 | Department | the membership's branch in the employing company |
 | Manager | the current employment's manager |
 | Companies | each active membership: company, role, in-company title, department, manager position |
+| Departments | every live place in an open department — department, company or the whole group, head, manager or member (E-13 §87) |
 | Projects | `ProjectMember` rows of the person's memberships in the group, linked only where the reader can open the project |
 | Activity | project joins and departures, appointments and their ends — from those records, not from the audit log |
 

@@ -15,27 +15,29 @@ import * as departments from "@/lib/modules/team/departments/department.service"
 export const metadata: Metadata = { title: "Departments" };
 
 /**
- * Departments (PRD #14 §34, §112).
+ * The company's departments (PRD #14 §34, §112; E-13 §39).
  *
- * A static route rather than a `[section]` segment: Team also has
- * `/team/[memberId]`, and Next.js will not accept two different slug names at
- * the same position.
+ * Read here; activated, deactivated and staffed from Organization, where the
+ * group's departments live (ADR 0003). A static route rather than a
+ * `[section]` segment: Team also has `/team/[memberId]`, and Next.js will not
+ * accept two different slug names at the same position.
  */
 export default async function TeamDepartmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ archived?: string }>;
+  searchParams: Promise<{ inactive?: string }>;
 }) {
   const context = await requireModule("team");
 
   if (!can(context, "team.department.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "team");
-  const { archived } = await searchParams;
-  const includeArchived = archived === "1";
+  const { inactive } = await searchParams;
+  const includeInactive = inactive === "1";
 
-  const rows = await departments.listDepartments(context, { includeArchived });
-  const canCreate = can(context, "team.department.create");
+  const rows = await departments.listDepartments(context, { includeInactive });
+  const organization = can(context, "organization.department.view");
+  const manageHref = `/organization/companies/${encodeURIComponent(context.companyId)}`;
 
   return (
     <ModulePage
@@ -44,13 +46,13 @@ export default async function TeamDepartmentsPage({
       actions={
         <div className="flex items-center gap-2">
           <Button asChild variant="secondary" size="sm">
-            <Link href={includeArchived ? "/team/departments" : "/team/departments?archived=1"}>
-              {includeArchived ? "Hide archived" : "Show archived"}
+            <Link href={includeInactive ? "/team/departments" : "/team/departments?inactive=1"}>
+              {includeInactive ? "Hide inactive" : "Show inactive"}
             </Link>
           </Button>
-          {canCreate ? (
+          {organization ? (
             <Button asChild size="sm">
-              <Link href="/team/departments/new">New department</Link>
+              <Link href={manageHref}>Manage in Organization</Link>
             </Button>
           ) : null}
         </div>
@@ -59,19 +61,12 @@ export default async function TeamDepartmentsPage({
       {rows.length === 0 ? (
         <EmptyState
           icon={<Building2 />}
-          title={includeArchived ? "No departments." : "No departments yet."}
-          description="Departments group people for reporting and for department-scoped access."
-          action={
-            canCreate ? { label: "New department", href: "/team/departments/new" } : undefined
-          }
+          title="No departments are active here."
+          description="A company runs the group's departments it needs. They are activated from Organization."
+          action={organization ? { label: "Open Organization", href: manageHref } : undefined}
         />
       ) : (
-        <DepartmentTable
-          departments={rows}
-          canUpdate={can(context, "team.department.update")}
-          canArchive={can(context, "team.department.archive")}
-          canRestore={can(context, "team.department.restore")}
-        />
+        <DepartmentTable departments={rows} linkToOrganization={organization} />
       )}
     </ModulePage>
   );

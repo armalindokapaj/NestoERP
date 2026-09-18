@@ -10,6 +10,10 @@ import { teamListQuerySchema, updateMemberSchema } from "@/lib/modules/team/team
 import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
 import * as team from "@/lib/modules/team/team.service";
 import { cleanupSessions, loginAsEmail, prisma } from "../../helpers";
+import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+
+/** Team hands a department move to the organization (ADR 0003). */
+const PLACE = { placement: placeMembership };
 
 /**
  * Owner protection and the invitation lifecycle (PRD #47 §57-§59).
@@ -158,7 +162,7 @@ describe("an Owner's role and access are the Owner grant's to change (PRD #47 §
   it("refuses Group IT demoting an Owner even while another active Owner remains", async () => {
     const context = await groupIt();
     await expectCode(
-      team.updateMember(context, members.owner1, updateMemberSchema.parse({ roleId: roles.VIEWER })),
+      team.updateMember(context, members.owner1, updateMemberSchema.parse({ roleId: roles.VIEWER }), PLACE),
       "FORBIDDEN",
     );
     const row = await prisma.companyMember.findUniqueOrThrow({ where: { id: members.owner1 } });
@@ -185,15 +189,15 @@ describe("an Owner's role and access are the Owner grant's to change (PRD #47 §
 
   it("lets an Owner demote another Owner", async () => {
     const context = await owner1();
-    const updated = await team.updateMember(context, members.owner2, updateMemberSchema.parse({ roleId: roles.VIEWER }));
+    const updated = await team.updateMember(context, members.owner2, updateMemberSchema.parse({ roleId: roles.VIEWER }), PLACE);
     expect(updated.membership.role.key).toBe("VIEWER");
   });
 
   it("never lets two simultaneous demotions leave the company without an active Owner", async () => {
     const [first, second] = await Promise.all([owner1(), loginAsEmail(EMAIL("owner2"))]);
     const outcomes = await Promise.allSettled([
-      team.updateMember(first, members.owner2, updateMemberSchema.parse({ roleId: roles.VIEWER })),
-      team.updateMember(second, members.owner1, updateMemberSchema.parse({ roleId: roles.VIEWER })),
+      team.updateMember(first, members.owner2, updateMemberSchema.parse({ roleId: roles.VIEWER }), PLACE),
+      team.updateMember(second, members.owner1, updateMemberSchema.parse({ roleId: roles.VIEWER }), PLACE),
     ]);
 
     expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
@@ -254,7 +258,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
     // Even a link that somehow stayed live does not reactivate the membership.
     await prisma.companyInvite.update({ where: { id: sent.inviteId }, data: { status: "PENDING", cancelledAt: null } });
     await expectCode(
-      invitations.acceptInvite({ token: tokenOf(sent) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser }),
+      invitations.acceptInvite({ token: tokenOf(sent) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser, placement: placeMembership }),
       "NOT_FOUND",
     );
     expect((await membershipOf("dormant")).status).toBe("INACTIVE");
@@ -270,7 +274,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
     // The pending membership already describes the new terms.
     expect((await membershipOf("relisted")).roleId).toBe(roles.ENGINEER);
 
-    const accepted = await invitations.acceptInvite({ token: tokenOf(second) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser });
+    const accepted = await invitations.acceptInvite({ token: tokenOf(second) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser, placement: placeMembership });
     const joined = await prisma.companyMember.findUniqueOrThrow({ where: { id: accepted.membershipId } });
     expect(joined).toMatchObject({ status: "ACTIVE", roleId: roles.ENGINEER });
   });
@@ -282,7 +286,7 @@ describe("only the invited person activates an invitation (PRD #47 §58)", () =>
     const membership = await membershipOf("promoted");
     await prisma.companyMember.update({ where: { id: membership.id }, data: { roleId: roles.VIEWER } });
 
-    await invitations.acceptInvite({ token: tokenOf(sent) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser });
+    await invitations.acceptInvite({ token: tokenOf(sent) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser, placement: placeMembership });
     expect((await membershipOf("promoted")).roleId).toBe(roles.ENGINEER);
   });
 
@@ -370,6 +374,6 @@ describe("an invitee is an address until they accept (PRD #47 §59)", () => {
     expect(result.deliveryStatus).toBe(unknown.deliveryStatus);
 
     // Acceptance still refuses the disabled account.
-    await expectCode(invitations.acceptInvite({ token: tokenOf(result) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser }), "CONFLICT");
+    await expectCode(invitations.acceptInvite({ token: tokenOf(result) }, { authenticatedUserId: user.id, personDoor: ensurePersonForUser, placement: placeMembership }), "CONFLICT");
   });
 });

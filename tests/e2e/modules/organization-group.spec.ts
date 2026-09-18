@@ -42,26 +42,30 @@ test("somebody in one company is offered no switch", async ({ page }) => {
   await expect(page.getByTestId("company-switcher")).toHaveCount(0);
 });
 
-test("a company department manager assigns one of their people to a project, and takes them off (§65, §94)", async ({ page }) => {
+test("a company department manager assigns one of their people to a project, and takes them off (§65, §94; E-13 §88)", async ({ page }) => {
   await signIn(page, "FINANCE_MANAGER_D", { to: "/organization/departments" });
-  await mainRegion(page).getByTestId("department-row").getByRole("link", { name: "Finance", exact: true }).click();
+  await mainRegion(page).getByRole("table", { name: "Group departments" }).getByRole("link", { name: "Finance", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
-  // Forma's branch only: a local manager does not see the other companies' teams.
-  await expect(mainRegion(page).getByTestId("branch-row")).toHaveCount(1);
+  const sections = page.getByRole("navigation", { name: "Department sections" });
 
-  const fiona = mainRegion(page).getByTestId("department-member").filter({ hasText: "Fiona Blake" });
-  await fiona.getByRole("button", { name: "Assign Fiona Blake to a project" }).click();
+  // Forma's branch only: a local manager does not see the other companies.
+  await sections.getByRole("link", { name: "Companies" }).click();
+  await expect(mainRegion(page).getByRole("table", { name: "Finance by company" }).getByRole("row")).toHaveCount(2);
+
+  await sections.getByRole("link", { name: "Team" }).click();
+  const fiona = () => mainRegion(page).getByRole("table", { name: "Finance team" }).getByRole("row", { name: /Fiona Blake/ });
+  await fiona().getByRole("button", { name: "Assign Fiona Blake to a project" }).click();
   const dialog = page.getByTestId("assign-project-dialog");
   await dialog.getByRole("combobox", { name: /^Project/ }).selectOption({ label: "D-PRJ-001 · Marina Apartments" });
   await dialog.getByRole("button", { name: "Assign" }).click();
-  await expect(fiona.getByTestId("member-project")).toContainText("Marina Apartments");
+  await expect(fiona().getByTestId("member-project")).toContainText("Marina Apartments");
 
   await page.goto("/projects/project_d/team");
   await expect(mainRegion(page).getByText("Fiona Blake").first()).toBeVisible();
 
   await page.goBack();
-  await mainRegion(page).getByTestId("department-member").filter({ hasText: "Fiona Blake" }).getByRole("button", { name: "Take Fiona Blake off Marina Apartments" }).click();
-  await expect(mainRegion(page).getByTestId("department-member").filter({ hasText: "Fiona Blake" }).getByTestId("member-project")).toHaveCount(0);
+  await fiona().getByRole("button", { name: "Take Fiona Blake off Marina Apartments" }).click();
+  await expect(fiona().getByTestId("member-project")).toHaveCount(0);
 });
 
 test("the Owner's dashboard shows the group's five companies (§108)", async ({ page }) => {

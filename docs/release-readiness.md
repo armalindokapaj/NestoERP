@@ -1696,3 +1696,109 @@ On three freshly built databases:
   the directory has none in the demo until E-04 brings the workforce.
 - **Company identity cannot be edited after creation**; Settings shows it
   read-only.
+
+## 25. Enhancement E-13 — group and company department management
+
+E-13 makes E-06's departments a complete feature: defined once for the group,
+activated per company, one head per department and one manager per company
+branch, members who can cover several companies, and the same records managed
+from Organization and from the Platform Admin's group setup. It says to extend
+E-06 and build nothing parallel. [ADR 0003](adr/0003-e13-department-management-reconciliation.md)
+classifies every requirement and records eleven decisions; `docs/organization.md`
+§Departments is the contract. It was not in the reconciliation audit's order;
+it was asked for directly after E-01, so it comes before E-03.
+
+### 25.1 What changed
+
+| Before | Now |
+|---|---|
+| Thirteen fixed functions, no way to add, rename or retire one | Organization → **Departments**: the Owner and Group IT create a department (name, code unique in the group, description), edit it — a rename reaches every branch — and deactivate or reactivate it; history stays |
+| Every company had a branch of every function | A department is **activated** in the companies that need it (one or several at once) and deactivated and reactivated there as the same branch; a new company runs the departments chosen for it (Platform Admin's New company, `bootstrapCompany({ departmentKeys })`, `--departments=`) |
+| Two heads, or two managers, could hold one department | **One head per department, one manager per branch**, enforced by partial unique indexes; replacing one is explicit, ends the old appointment as history and is refused to a racing second request |
+| Department membership was `CompanyMember.departmentId`: one department, one company | A **member place** (`DepartmentAssignment` MEMBER) per branch; somebody working for the whole group covers several companies as one person. The membership's department stays as its **home**, and always has its place (ADR 0003 decision 5) |
+| Branch managers could be named from Team, bypassing appointments | Heads by the Owner; managers by the Owner or the function's head; members by the Owner or the branch's manager or head — each in the company acted in, audited there |
+| — | A department's page: **Overview** (head, activate in companies), **Companies** (manager, people, status, activate/deactivate), **Team** (filters; position, companies covered, projects, status; add, remove), **Access** (delegations in its modules), **Activity** |
+| — | Organization → **Companies**, and each company's **Departments** page; overview cards for departments, active company departments, and those without a head or a manager |
+| Team created, edited and archived company departments | Team → Departments is read only and links to Organization; its four write permissions are retired |
+| — | The Platform Admin's **Group → Departments** (the same services, audited as the platform, closed at go-live); the setup checklist counts heads and managers |
+| — | A person's profile lists their departments: department, company, position |
+| — | Notifications when somebody is appointed head or manager, added to a department, or their place changes |
+| Positions of an inactive branch still elevated | An inactive department or branch takes nobody new and its positions widen nothing until it reopens; positions in a department the group added never widen anything (ADR 0003 decisions 3, 6) |
+
+**Migration `20260918160000_department_management_e13`** is additive: `code`
+and `createdByUserId` on group departments (the chart's codes; any other key
+upper-cased), unique code and name per group, one branch per department and
+company, the two partial unique indexes, a check that a manager has a branch,
+and a backfill of one member place per active membership placed in a branch.
+It checks first and changes nothing if a company has two branches of one
+department, a group uses a name twice, a department has two heads, a branch
+two managers, or a manager has no branch. Tested on an empty database; on a
+copy of the E-01 verify lane (94 places backfilled, a rerun added none); and
+with a second head manufactured, where it stopped before adding a column.
+
+**Rollback:** drop the two partial indexes, the check constraint and the three
+unique indexes; drop `group_departments.code` and `createdByUserId`; delete
+`department_assignments` whose id starts `dam_e13_`; delete the migration's
+`_prisma_migrations` row. The Team write surfaces come back with the previous
+commit.
+
+### 25.2 The evidence
+
+On freshly built databases (one per suite), on the final tree:
+
+- **vitest: 3 631 passed, 0 failed**, 11 skipped. New: departments (29 — the
+  PRD's functional and security tests §107-§122, the race, the home rule,
+  Team's moves, departments the group added), platform departments (4 —
+  company setup §121, the platform actor §111, go-live); the integrity gate
+  names a home without its place; E-06's appointments suite folded into the
+  departments suite; Team's department tests now read only.
+- **E2E on the production build: 444 of 444** (new: organization-departments,
+  4 — the Owner's, a head's, a local manager's and the Platform Admin's flows,
+  §124-§127). The last four changes (moving a member's place, provisioning
+  keeping an existing place, the overview's active branches, searching
+  candidates by title) came after that run; the Organization, Team, Platform,
+  People, Access and Provisioning specs were run again on a build of the final
+  tree: 35 of 35.
+- **Security sweeps** attack every new route with the target company's real
+  department, branch, company and assignment ids: sibling companies 27 calls
+  and a sibling's accountant 69, another group 27 each way — 0 violations,
+  nothing uncovered.
+- **verify:roles 1 675 of 1 675.** verify:authorization (602 routes),
+  ownership (56 domains, no new circle), state, workers, company-integrity,
+  production-guards pass; **verify:organization** clean before and after both
+  suites; security:matrix 993 endpoints, 0 company-scoped without a check.
+  Typecheck clean; lint 0 errors, 14 warnings (none new); no drift.
+
+### 25.3 Defects found
+
+- **Raw SQL `now()` wrote local time.** The local server runs in
+  Europe/Tirane, and a timestamp-without-zone column stores `now()` as local
+  time while Prisma stores UTC. A test's cleanup of "rows made after the test
+  started" deleted the 94 backfilled member places, whose `createdAt` was two
+  hours ahead. The backfill and the seed now write `now() AT TIME ZONE 'UTC'`,
+  and so does **E-01's migration** (`20260918150000`), which had the same
+  `now()` for the persons it creates — corrected before it was applied to any
+  database but the throwaway ones.
+- **The access portfolio started listing member places** beside positions once
+  every placed membership had one; it lists positions only, as before, and the
+  profile lists places.
+- **Accepting an invitation briefly looked a role up by id alone**, which
+  `verify:authorization`'s ratchet refused. The organization's placement door
+  now reads the role from the membership it places, inside the company.
+- **The production build type-checked the dev server's stale route list**
+  (`.next/types`, from 2026-09-17), which named the removed Team pages. No dev
+  server was running; the stale folder was moved aside, not deleted, and
+  `next dev` writes a fresh one when it next starts.
+
+### 25.4 Limits
+
+- **A department the group adds widens nothing**: its head and managers are
+  recorded and notified, and gain no permission (ADR 0003 decision 3).
+- **A place needs a NESTO account** until E-04; **history** is the ended rows
+  and the audit trail until E-03's effective dating.
+- **The demo keeps its thirteen functions active in every company.** Selective
+  activation is shown by the platform flow; ARMAAR, and a seeded department
+  set, come after E-13 is stable, as the PRD says (§128, §129).
+- **Selectors are plain lists** of the group's eligible people, not a search
+  box; enough for groups of tens, not hundreds.
+- **Department pages are English**; the section names are translated.

@@ -602,7 +602,9 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     defaultSection: "overview",
     sections: [
       { key: "overview", label: "Overview" },
-      // Group departments, their company branches and the people and projects in them (E-06 §65-§68, §127).
+      // The group's companies and the departments each runs (E-13 §7, §39).
+      { key: "companies", label: "Companies", permission: "organization.department.view" },
+      // Group departments, their company branches and the people and projects in them (E-06 §65-§68, §127; E-13).
       { key: "departments", label: "Departments", permission: "organization.department.view" },
       // Account requests between HR and Group IT (E-06 §61, §64, §127).
       { key: "provisioning", label: "User provisioning", permission: "organization.provisioning_request.view" },

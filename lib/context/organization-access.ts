@@ -1,5 +1,6 @@
 import type { AccessLevel, AccessScopeType, DepartmentPositionLevel } from "@prisma/client";
 
+import { rolesOfFunction } from "@/config/group-departments";
 import { isModuleKey, type ModuleKey } from "@/config/modules";
 import type { PositionLevel, RoleKey } from "@/config/roles";
 import { prisma } from "@/lib/database/prisma";
@@ -44,7 +45,8 @@ const EMPTY: OrganizationAccess = { assignments: [], grants: [] };
 /**
  * Live assignments and grants for these users inside one parent group. "Live"
  * is decided in the query: an ended, future or suspended position grants
- * nothing, and neither does a revoked or expired grant.
+ * nothing, nor does one in an inactive group department or an inactive branch
+ * (E-13 §89, §90), and neither does a revoked or expired grant.
  */
 export async function loadOrganizationAccess(
   parentGroupId: string,
@@ -62,7 +64,10 @@ export async function loadOrganizationAccess(
         userId: { in: unique },
         status: "ACTIVE",
         OR: [{ startsAt: null }, { startsAt: { lte: now } }],
-        AND: [{ OR: [{ endsAt: null }, { endsAt: { gt: now } }] }],
+        AND: [
+          { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+          { OR: [{ companyDepartmentId: null }, { companyDepartment: { status: "ACTIVE" } }] },
+        ],
         groupDepartment: { status: "ACTIVE" },
       },
       select: {
@@ -134,15 +139,20 @@ export function assignmentsInCompany(assignments: readonly ContextAssignment[], 
  *
  * Only an assignment held with the membership's own role counts: heading Group
  * Finance makes somebody a manager where they work as Finance, not wherever
- * they happen to be a Viewer. A group head outranks a company manager; the
- * union of what both hold is the head's profile, which contains the manager's.
+ * they happen to be a Viewer. And only in a function that role belongs to: a
+ * department the group added itself binds no role, so heading or managing it
+ * is organizational and widens nothing (E-13 §59, ADR 0003). A group head
+ * outranks a company manager; the union of what both hold is the head's
+ * profile, which contains the manager's.
  */
 export function positionFor(
   role: RoleKey,
   companyId: string,
   assignments: readonly ContextAssignment[],
 ): PositionLevel {
-  const ownRole = assignments.filter((assignment) => assignment.functionalRoleKey === role);
+  const ownRole = assignments.filter(
+    (assignment) => assignment.functionalRoleKey === role && rolesOfFunction(assignment.groupDepartmentKey).includes(role),
+  );
   if (ownRole.some((assignment) => assignment.positionLevel === "GROUP_HEAD" && assignment.companyId === null)) {
     return "GROUP_HEAD";
   }

@@ -22,6 +22,7 @@ import type {
   TeamMemberSummaryDTO,
   TeamOverviewStats,
 } from "./team.types";
+import type { PlacementDoor } from "./team.placement";
 
 /**
  * Team service (PRD #14 §144, §157).
@@ -175,10 +176,16 @@ export async function listMemberActivity(
 /* Membership writes                                                           */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * A membership's role, department and title (PRD #14). Moving somebody's
+ * department is also moving their place in that department's team, which the
+ * organization keeps: the caller hands in its door (`placeMembership`, ADR 0003).
+ */
 export async function updateMember(
   context: UserContext,
   memberId: string,
   input: UpdateMemberInput,
+  options: { placement: PlacementDoor },
 ): Promise<TeamMemberDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "team.member.update");
@@ -224,6 +231,15 @@ export async function updateMember(
         departmentId: nextDepartment?.id ?? null,
       },
     });
+    if (departmentChanged) {
+      await options.placement(tx, {
+        companyId: context.companyId,
+        userId: existing.user.id,
+        fromDepartmentId: existing.department?.id ?? null,
+        toDepartmentId: nextDepartment?.id ?? null,
+        actor: context,
+      });
+    }
 
     // Specific events rather than one opaque update, because "their role
     // changed" is the entry somebody will be looking for later (PRD #14 §326).
@@ -535,11 +551,12 @@ async function validateDepartment(context: UserContext, departmentId: string | u
 
   const department = await prisma.department.findFirst({
     where: { id: departmentId, companyId: context.companyId },
-    select: { id: true, name: true, status: true, archivedAt: true },
+    select: { id: true, name: true, status: true, archivedAt: true, groupDepartment: { select: { status: true } } },
   });
   if (!department) throw new AccessError("VALIDATION_ERROR", "That department does not exist.");
-  if (department.status === "ARCHIVED" || department.archivedAt !== null) {
-    throw new AccessError("VALIDATION_ERROR", "That department is archived.");
+  // An inactive department takes nobody new (E-13 §89, §90).
+  if (department.status !== "ACTIVE" || department.archivedAt !== null || (department.groupDepartment && department.groupDepartment.status !== "ACTIVE")) {
+    throw new AccessError("VALIDATION_ERROR", "That department is not active.");
   }
   return { id: department.id, name: department.name };
 }

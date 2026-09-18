@@ -87,6 +87,19 @@ export const AuditAction = {
   ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED: "ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED",
   ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED: "ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED",
   ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED: "ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED",
+  // The group's departments, their company branches and who holds a place in them (E-13 §91).
+  ORGANIZATION_GROUP_DEPARTMENT_CREATED: "ORGANIZATION_GROUP_DEPARTMENT_CREATED",
+  ORGANIZATION_GROUP_DEPARTMENT_UPDATED: "ORGANIZATION_GROUP_DEPARTMENT_UPDATED",
+  ORGANIZATION_GROUP_DEPARTMENT_DEACTIVATED: "ORGANIZATION_GROUP_DEPARTMENT_DEACTIVATED",
+  ORGANIZATION_GROUP_DEPARTMENT_REACTIVATED: "ORGANIZATION_GROUP_DEPARTMENT_REACTIVATED",
+  ORGANIZATION_GROUP_DEPARTMENT_HEAD_CHANGED: "ORGANIZATION_GROUP_DEPARTMENT_HEAD_CHANGED",
+  ORGANIZATION_COMPANY_DEPARTMENT_ACTIVATED: "ORGANIZATION_COMPANY_DEPARTMENT_ACTIVATED",
+  ORGANIZATION_COMPANY_DEPARTMENT_DEACTIVATED: "ORGANIZATION_COMPANY_DEPARTMENT_DEACTIVATED",
+  ORGANIZATION_COMPANY_DEPARTMENT_REACTIVATED: "ORGANIZATION_COMPANY_DEPARTMENT_REACTIVATED",
+  ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_CHANGED: "ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_CHANGED",
+  ORGANIZATION_DEPARTMENT_MEMBER_ASSIGNED: "ORGANIZATION_DEPARTMENT_MEMBER_ASSIGNED",
+  ORGANIZATION_DEPARTMENT_MEMBER_UPDATED: "ORGANIZATION_DEPARTMENT_MEMBER_UPDATED",
+  ORGANIZATION_DEPARTMENT_MEMBER_REMOVED: "ORGANIZATION_DEPARTMENT_MEMBER_REMOVED",
   // Delegated access (E-06 §18): the grant, and its end.
   ORGANIZATION_ACCESS_GRANTED: "ORGANIZATION_ACCESS_GRANTED",
   ORGANIZATION_ACCESS_GRANT_REVOKED: "ORGANIZATION_ACCESS_GRANT_REVOKED",
@@ -352,6 +365,29 @@ export const AuditAction = {
 
 export type AuditActionKey = (typeof AuditAction)[keyof typeof AuditAction];
 
+/**
+ * What a department event may record (E-13 §92): the department, company,
+ * branch, assignment and person it is about, by id and by the name it had, and
+ * the position. The previous holder of a replaced position is the `before`.
+ */
+const DEPARTMENT_AUDIT_FIELDS = [
+  "groupDepartmentId",
+  "companyId",
+  "companyDepartmentId",
+  "assignmentId",
+  "userId",
+  "personId",
+  "personName",
+  "companyName",
+  "code",
+  "name",
+  "description",
+  "status",
+  "positionLevel",
+  "functionalRoleKey",
+  "memberCount",
+];
+
 const POLICIES: AuditPolicy[] = [
   /* Authentication ------------------------------------------------------- */
   { actionKey: AuditAction.AUTH_LOGIN_SUCCEEDED, moduleKey: "settings", category: "AUTHENTICATION", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },
@@ -440,9 +476,22 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["companyId", "slug", "name", "groupLevelMembers"], required: true },
   { actionKey: AuditAction.PLATFORM_INITIAL_USER_PROVISIONED, moduleKey: "platform", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "username", "personProfileId", "roleKey", "position", "companies"], required: true },
   { actionKey: AuditAction.PLATFORM_INITIAL_PROJECT_MEMBER_ASSIGNED, moduleKey: "platform", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["projectId", "userId", "companyMemberId"], required: true },
-  { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
-  { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "companyId", "companyDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
-  { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "groupDepartmentId", "companyId", "positionLevel"], required: true },
+  { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_HEAD_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_ASSIGNED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_ENDED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  // E-13 §91, §92: every event names the department, and the company, branch and person where there is one.
+  { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_CREATED, moduleKey: "organization", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_UPDATED, moduleKey: "organization", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_DEACTIVATED, moduleKey: "organization", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_REACTIVATED, moduleKey: "organization", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_GROUP_DEPARTMENT_HEAD_CHANGED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_ACTIVATED, moduleKey: "organization", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_DEACTIVATED, moduleKey: "organization", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_REACTIVATED, moduleKey: "organization", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_COMPANY_DEPARTMENT_MANAGER_CHANGED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_MEMBER_ASSIGNED, moduleKey: "organization", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_MEMBER_UPDATED, moduleKey: "organization", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
+  { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_MEMBER_REMOVED, moduleKey: "organization", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
   { actionKey: AuditAction.ORGANIZATION_ACCESS_GRANTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "moduleKey", "scopeType", "scopeId", "accessLevel", "startsAt", "expiresAt"], required: true },
   { actionKey: AuditAction.PERSON_WORK_PROFILE_UPDATED, moduleKey: "people", category: "HR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["preferredName", "jobTitle", "workEmail", "workPhoneExtension", "officeLocation", "professionalBio", "via"], required: true },
   { actionKey: AuditAction.ORGANIZATION_ACCESS_GRANT_REVOKED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "moduleKey", "scopeType", "scopeId", "accessLevel"], required: true },

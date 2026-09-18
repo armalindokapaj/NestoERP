@@ -2,12 +2,17 @@ import type { ModuleKey } from "@/config/modules";
 import type { RoleKey } from "@/config/roles";
 
 /**
- * The master departments of a parent group (E-06 §11).
+ * The master departments of a parent group (E-06 §11, E-13 §8-§10).
  *
- * Every group starts with the same thirteen functions; a company's own
- * departments are branches of them (`Department.groupDepartmentId`). A role
- * belongs to one function, which is what a department assignment is checked
- * against: heading Group Finance is something a Finance user can do.
+ * Every group starts with the same thirteen functions and may add its own
+ * (E-13 §40); a company's departments are branches of them
+ * (`Department.groupDepartmentId`), made by activating a function in the company.
+ * A role belongs to one function, which is what a department position is
+ * checked against: heading Group Finance is something a Finance user can do.
+ * A department the group adds binds no role, so its positions widen nothing
+ * (ADR 0003).
+ *
+ * `code` is the short name a new group's departments start with (E-13 §10).
  *
  * `modules` are the business modules a function owns: what its head may
  * delegate to the function's people through an access grant (E-06 §18, §78).
@@ -20,20 +25,20 @@ import type { RoleKey } from "@/config/roles";
  * Client-safe: no database imports.
  */
 export const GROUP_DEPARTMENTS = [
-  { key: "executive", name: "Executive", roles: ["OWNER", "CEO"], modules: [] },
-  { key: "it", name: "IT", roles: ["GROUP_IT"], modules: [] },
-  { key: "hr", name: "HR", roles: ["HR"], modules: ["hr"] },
-  { key: "projects", name: "Projects", roles: ["PROJECT_MANAGER"], modules: ["projects", "tasks", "dailyLogs"] },
-  { key: "architecture", name: "Architecture", roles: ["ARCHITECT"], modules: ["engineering"] },
-  { key: "engineering", name: "Engineering", roles: ["ENGINEER"], modules: ["engineering"] },
-  { key: "finance", name: "Finance", roles: ["FINANCE"], modules: ["finance"] },
-  { key: "legal", name: "Legal", roles: ["LEGAL"], modules: ["contracts"] },
-  { key: "sales", name: "Sales", roles: ["SALES"], modules: ["sales", "clients"] },
-  { key: "procurement", name: "Procurement", roles: ["PROCUREMENT"], modules: ["procurement", "contractors"] },
-  { key: "inventory", name: "Inventory", roles: ["INVENTORY"], modules: ["inventory"] },
-  { key: "qaqc", name: "QA/QC", roles: ["QAQC"], modules: ["qaqc"] },
-  { key: "hse", name: "HSE", roles: ["HSE"], modules: ["hse"] },
-] as const satisfies ReadonlyArray<{ key: string; name: string; roles: readonly RoleKey[]; modules: readonly ModuleKey[] }>;
+  { key: "executive", code: "EXEC", name: "Executive", roles: ["OWNER", "CEO"], modules: [] },
+  { key: "it", code: "IT", name: "IT", roles: ["GROUP_IT"], modules: [] },
+  { key: "hr", code: "HR", name: "HR", roles: ["HR"], modules: ["hr"] },
+  { key: "projects", code: "PROJ", name: "Projects", roles: ["PROJECT_MANAGER"], modules: ["projects", "tasks", "dailyLogs"] },
+  { key: "architecture", code: "ARCH", name: "Architecture", roles: ["ARCHITECT"], modules: ["engineering"] },
+  { key: "engineering", code: "ENG", name: "Engineering", roles: ["ENGINEER"], modules: ["engineering"] },
+  { key: "finance", code: "FIN", name: "Finance", roles: ["FINANCE"], modules: ["finance"] },
+  { key: "legal", code: "LEGAL", name: "Legal", roles: ["LEGAL"], modules: ["contracts"] },
+  { key: "sales", code: "SALES", name: "Sales", roles: ["SALES"], modules: ["sales", "clients"] },
+  { key: "procurement", code: "PROC", name: "Procurement", roles: ["PROCUREMENT"], modules: ["procurement", "contractors"] },
+  { key: "inventory", code: "INV", name: "Inventory", roles: ["INVENTORY"], modules: ["inventory"] },
+  { key: "qaqc", code: "QAQC", name: "QA/QC", roles: ["QAQC"], modules: ["qaqc"] },
+  { key: "hse", code: "HSE", name: "HSE", roles: ["HSE"], modules: ["hse"] },
+] as const satisfies ReadonlyArray<{ key: string; code: string; name: string; roles: readonly RoleKey[]; modules: readonly ModuleKey[] }>;
 
 export type GroupDepartmentKey = (typeof GROUP_DEPARTMENTS)[number]["key"];
 
@@ -53,8 +58,17 @@ export function groupDepartmentRows(parentGroupId: string) {
     id: groupDepartmentId(parentGroupId, department.key),
     parentGroupId,
     key: department.key,
+    code: department.code,
     name: department.name,
   }));
+}
+
+/** The key of a department the group adds itself: never one of the chart's, so it binds no role (ADR 0003). */
+export const CUSTOM_DEPARTMENT_KEY_PREFIX = "custom-";
+
+/** Whether a group department key is one of the chart's functions, with roles bound to it. */
+export function isChartFunction(key: string): boolean {
+  return GROUP_DEPARTMENTS.some((department) => department.key === key);
 }
 
 /**

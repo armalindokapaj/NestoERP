@@ -50,6 +50,8 @@ export type PersonProjectDTO = {
 
 export type PersonActivityDTO = { at: string; kind: "PROJECT_JOINED" | "PROJECT_LEFT" | "POSITION_STARTED" | "POSITION_ENDED"; text: string };
 
+import type { PersonDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
+
 export type WorkProfileDTO = PersonCardDTO & {
   professionalBio: string | null;
   parentGroup: { name: string };
@@ -58,6 +60,8 @@ export type WorkProfileDTO = PersonCardDTO & {
   manager: { personId: string | null; name: string; jobTitle: string | null } | null;
   companies: PersonPlacementDTO[];
   groupPositions: string[];
+  /** Every department they hold a place in: department, company, position (E-13 §87). */
+  departments: PersonDepartmentDTO[];
   projects: PersonProjectDTO[];
   activity: PersonActivityDTO[];
   /** Which restricted views this reader may open; each is re-checked on its own endpoint. */

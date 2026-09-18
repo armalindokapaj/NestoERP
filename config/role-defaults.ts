@@ -935,10 +935,6 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "team.invitation.view",
       "team.invitation.resend",
       "team.invitation.cancel",
-      "team.department.create",
-      "team.department.update",
-      "team.department.archive",
-      "team.department.restore",
     ],
   },
   company: {
@@ -973,7 +969,8 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
   /**
    * The organization above the company (E-06 §67, §68, §77, §78). VIEW reads the
    * group, its companies and departments; CONTRIBUTE is a manager's team and its
-   * workload; APPROVE puts that team on projects and takes it off them; MANAGE
+   * workload; APPROVE staffs that team (E-13) and puts it on projects and takes
+   * it off them; MANAGE
    * keeps the group's department structure and sees the people and access
    * behind it. Appointing, delegating and provisioning are never a rung — each
    * is held by the role or position E-06 gives it.
@@ -981,7 +978,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
   organization: {
     VIEW: ["organization.view", "organization.company.view", "organization.department.view"],
     CONTRIBUTE: ["department.team.view", "department.workload.view"],
-    APPROVE: ["department.project.assign", "department.project.unassign"],
+    APPROVE: ["department.project.assign", "department.project.unassign", "department.member.assign", "department.member.remove"],
     MANAGE: ["organization.department.manage", "organization.people.view", "organization.access.view", "organization.role_template.view"],
   },
   /**
@@ -1220,6 +1217,7 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "organization.module_configuration.manage",
         "organization.department_head.assign",
         "organization.department_manager.assign",
+        "organization.department.member.manage",
         "organization.access.grant",
         "organization.audit.view",
         "organization.provisioning_request.view",
@@ -1597,6 +1595,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "organization.provisioning_request.process",
         "organization.company.configuration.manage",
         "organization.module_configuration.manage",
+        // The departments' configuration, never who holds a position in them (E-13 §53, E-06 §37).
+        "organization.department.manage",
         "organization.role_template.view",
         "organization.people.view",
         "organization.access.view",

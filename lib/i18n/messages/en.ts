@@ -238,6 +238,7 @@ export const en = {
         engineering: { label: "Engineering", description: "RFIs and submittals assigned to you, reviews due and overdue, decisions and issued transmittals." },
         sales: { label: "Sales", description: "Unit reservations about to expire, expired or released, and units marked Sold." },
         finance: { label: "Finance", description: "Unit installments coming due or overdue, payments received and sales paid in full." },
+        organization: { label: "Departments", description: "Appointments as a department head or manager, and your places in the group's departments." },
       },
     },
 

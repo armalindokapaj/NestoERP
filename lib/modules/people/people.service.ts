@@ -11,6 +11,7 @@ import { employmentsVisibleTo } from "@/lib/modules/hr/employees/employment.view
 import { personInRecordReach, updatePersonWorkProfile, type WorkProfileChange } from "@/lib/modules/hr/person.doors";
 import { portfolioProjectWhere, resolveProjectPortfolio } from "@/lib/modules/projects/project.portfolio";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
+import type { PersonDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
 import type { DirectoryQuery, ManagedWorkProfileInput, OwnWorkProfileInput } from "./people.schema";
 import type {
   DirectoryDTO,
@@ -300,8 +301,18 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
     prisma.personProfile.findFirstOrThrow({ where: { id: row.id, parentGroupId: context.parentGroupId }, select: { professionalBio: true, parentGroup: { select: { name: true } } } }),
     userId
       ? prisma.departmentAssignment.findMany({
-          where: { userId, parentGroupId: context.parentGroupId, positionLevel: { not: "MEMBER" } },
-          select: { positionLevel: true, status: true, startsAt: true, endsAt: true, companyId: true, createdAt: true, groupDepartment: { select: { name: true } }, company: { select: { name: true } } },
+          where: { userId, parentGroupId: context.parentGroupId },
+          select: {
+            positionLevel: true,
+            status: true,
+            startsAt: true,
+            endsAt: true,
+            companyId: true,
+            createdAt: true,
+            groupDepartment: { select: { id: true, code: true, name: true, status: true } },
+            companyDepartment: { select: { status: true } },
+            company: { select: { id: true, name: true } },
+          },
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve([]),
@@ -311,7 +322,14 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
   ]);
 
   const now = new Date();
-  const live = assignments.filter((row) => row.status === "ACTIVE" && (!row.endsAt || row.endsAt > now) && (!row.startsAt || row.startsAt <= now));
+  const current = assignments.filter((row) => row.status === "ACTIVE" && (!row.endsAt || row.endsAt > now) && (!row.startsAt || row.startsAt <= now));
+  // Positions — head or manager — are what the profile has always named; member places are listed with them below (E-13 §87).
+  const live = current.filter((row) => row.positionLevel !== "MEMBER");
+  const RANK = { GROUP_HEAD: 3, COMPANY_MANAGER: 2, MEMBER: 1 } as const;
+  const departments: PersonDepartmentDTO[] = current
+    .filter((row) => row.groupDepartment.status === "ACTIVE" && (!row.companyDepartment || row.companyDepartment.status === "ACTIVE"))
+    .map((row) => ({ department: { id: row.groupDepartment.id, code: row.groupDepartment.code, name: row.groupDepartment.name }, company: row.company, position: row.positionLevel }))
+    .sort((a, b) => a.department.name.localeCompare(b.department.name) || RANK[b.position] - RANK[a.position] || (a.company?.name ?? "").localeCompare(b.company?.name ?? ""));
   const positionText = (position: (typeof assignments)[number]) =>
     position.positionLevel === "GROUP_HEAD" ? `Head of Group ${position.groupDepartment.name}` : `${position.groupDepartment.name} manager, ${position.company?.name ?? ""}`.trim();
 
@@ -338,7 +356,7 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
       ...(project.joinedAt ? [{ at: project.joinedAt, kind: "PROJECT_JOINED" as const, text: `Joined ${project.name}` }] : []),
       ...(project.leftAt ? [{ at: project.leftAt, kind: "PROJECT_LEFT" as const, text: `Left ${project.name}` }] : []),
     ]),
-    ...assignments.flatMap((position) => {
+    ...assignments.filter((position) => position.positionLevel !== "MEMBER").flatMap((position) => {
       const text = positionText(position);
       const started = position.startsAt ?? position.createdAt;
       return [
@@ -358,6 +376,7 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
     manager,
     companies,
     groupPositions: live.filter((position) => position.positionLevel === "GROUP_HEAD").map(positionText),
+    departments,
     projects,
     activity,
     capabilities: {

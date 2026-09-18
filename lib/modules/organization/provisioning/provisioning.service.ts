@@ -571,22 +571,28 @@ export async function provisionAccount(context: UserContext, requestId: string, 
       departmentId: row.companyDepartment.id,
       jobTitle: row.jobTitle,
     });
-    const assignment = await tx.departmentAssignment.create({
-      data: {
-        parentGroupId: row.parentGroupId,
-        userId: user.id,
-        groupDepartmentId: row.companyDepartment.groupDepartmentId!,
-        companyId: row.companyId,
-        companyDepartmentId: row.companyDepartment.id,
-        functionalRoleKey: row.functionalRoleKey,
-        positionLevel: "MEMBER",
-        accessLevel: "CONTRIBUTE",
-        status: "ACTIVE",
-        startsAt: new Date(),
-        createdByUserId: context.userId,
-      },
-      select: { id: true },
-    });
+    // Somebody who already covered this branch for the group keeps that place (E-13 §27).
+    const assignment =
+      (await tx.departmentAssignment.findFirst({
+        where: { userId: user.id, companyDepartmentId: row.companyDepartment.id, positionLevel: "MEMBER", status: "ACTIVE" },
+        select: { id: true },
+      })) ??
+      (await tx.departmentAssignment.create({
+        data: {
+          parentGroupId: row.parentGroupId,
+          userId: user.id,
+          groupDepartmentId: row.companyDepartment.groupDepartmentId!,
+          companyId: row.companyId,
+          companyDepartmentId: row.companyDepartment.id,
+          functionalRoleKey: row.functionalRoleKey,
+          positionLevel: "MEMBER",
+          accessLevel: "CONTRIBUTE",
+          status: "ACTIVE",
+          startsAt: new Date(),
+          createdByUserId: context.userId,
+        },
+        select: { id: true },
+      }));
     await linkEmploymentToLogin(tx, {
       employeeProfileId: row.employeeProfile?.id ?? null,
       personProfileId: row.personProfileId,

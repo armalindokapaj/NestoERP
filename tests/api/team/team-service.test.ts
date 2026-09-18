@@ -9,6 +9,10 @@ import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
 import * as team from "@/lib/modules/team/team.service";
 import { clearOutbox, readOutbox, setMailProvider } from "@/lib/mail";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+
+/** Team hands a department move to the organization (ADR 0003). */
+const PLACE = { placement: placeMembership };
 
 /**
  * Team authorisation and lifecycle tests (PRD #14 §256–§280).
@@ -167,7 +171,7 @@ describe("membership updates (PRD #14 §85–§96)", () => {
       team.updateMember(
         context,
         context.membershipId,
-        updateMemberSchema.parse({ roleId: role.id, jobTitle: "Nope" }),
+        updateMemberSchema.parse({ roleId: role.id, jobTitle: "Nope" }), PLACE,
       ),
       "FORBIDDEN",
     );
@@ -186,7 +190,7 @@ describe("membership updates (PRD #14 §85–§96)", () => {
         roleId: before.membership.role.id,
         departmentId: before.membership.department?.id,
         jobTitle: "Observer (test)",
-      }),
+      }), PLACE,
     );
     expect(updated.membership.jobTitle).toBe("Observer (test)");
 
@@ -198,7 +202,7 @@ describe("membership updates (PRD #14 §85–§96)", () => {
         roleId: before.membership.role.id,
         departmentId: before.membership.department?.id,
         jobTitle: before.membership.jobTitle ?? undefined,
-      }),
+      }), PLACE,
     );
   });
 
@@ -216,7 +220,7 @@ describe("membership updates (PRD #14 §85–§96)", () => {
           roleId: before.membership.role.id,
           jobTitle: "Conflicting",
           versionUpdatedAt: new Date("2020-01-01T00:00:00.000Z").toISOString(),
-        }),
+        }), PLACE,
       ),
       "CONFLICT",
     );
@@ -230,7 +234,7 @@ describe("membership updates (PRD #14 §85–§96)", () => {
       team.updateMember(
         owner,
         owner.membershipId,
-        updateMemberSchema.parse({ roleId: viewerRole!.id }),
+        updateMemberSchema.parse({ roleId: viewerRole!.id }), PLACE,
       ),
       "CONFLICT",
     );
@@ -245,7 +249,7 @@ describe("membership updates (PRD #14 §85–§96)", () => {
     const target = all.data.find((member) => member.email === "viewer@nesto.test")!;
 
     await expectError(
-      team.updateMember(it_, target.id, updateMemberSchema.parse({ roleId: ownerRole!.id })),
+      team.updateMember(it_, target.id, updateMemberSchema.parse({ roleId: ownerRole!.id }), PLACE),
       "FORBIDDEN",
     );
   });
@@ -526,7 +530,7 @@ describe("invitations (PRD #14 §61–§80)", () => {
         firstName: "Someone",
         lastName: "Else",
         password: "a-brand-new-password",
-      }, { personDoor: ensurePersonForUser }),
+      }, { personDoor: ensurePersonForUser, placement: placeMembership }),
       "UNAUTHENTICATED",
     );
   });
@@ -537,7 +541,7 @@ describe("invitations (PRD #14 §61–§80)", () => {
     await expectError(
       invitations.acceptInvite(
         { token: "nesto-demo-existing-account-invite-token" },
-        { authenticatedUserId: owner.userId, personDoor: ensurePersonForUser },
+        { authenticatedUserId: owner.userId, personDoor: ensurePersonForUser, placement: placeMembership },
       ),
       "FORBIDDEN",
     );
@@ -637,7 +641,7 @@ describe("invitation delivery (PRD #38 §14, §15, §21)", () => {
         firstName: "Accepted",
         lastName: "Person",
         password: "a-long-enough-password",
-      }, { personDoor: ensurePersonForUser });
+      }, { personDoor: ensurePersonForUser, placement: placeMembership });
       createdMembers.push(accepted.membershipId);
 
       const membership = await prisma.companyMember.findUniqueOrThrow({ where: { id: accepted.membershipId } });
@@ -654,7 +658,7 @@ describe("invitation delivery (PRD #38 §14, §15, §21)", () => {
       expect(audit).not.toBeNull();
 
       await expectError(
-        invitations.acceptInvite({ token, firstName: "Again", lastName: "Person", password: "a-long-enough-password" }, { personDoor: ensurePersonForUser }),
+        invitations.acceptInvite({ token, firstName: "Again", lastName: "Person", password: "a-long-enough-password" }, { personDoor: ensurePersonForUser, placement: placeMembership }),
         "NOT_FOUND",
       );
     } finally {
@@ -676,54 +680,16 @@ describe("invitation delivery (PRD #38 §14, §15, §21)", () => {
 /* Departments                                                                 */
 /* -------------------------------------------------------------------------- */
 
-describe("departments (PRD #14 §112–§129)", () => {
-  it("refuses creation without the grant", async () => {
-    const engineer = await loginAs("ENGINEER");
-    await expectError(
-      departments.createDepartment(engineer, {
-        name: "Should Not Exist",
-        key: undefined,
-        description: undefined,
-        managerMemberId: undefined,
-        status: "ACTIVE",
-      }),
-      "FORBIDDEN",
-    );
-  });
-
-  it("creates, lists and archives an empty department", async () => {
+describe("departments (PRD #14 §112–§129; read only since E-13)", () => {
+  it("lists the company's branches of the group's departments, with their codes", async () => {
     const owner = await loginAs("OWNER");
-
-    const id = await departments.createDepartment(owner, {
-      name: "Temporary Test Department",
-      key: "temp-test",
-      description: "Created by the test suite.",
-      managerMemberId: undefined,
-      status: "ACTIVE",
-    });
-    createdDepartments.push(id);
-
     const listed = await departments.listDepartments(owner);
-    expect(listed.some((department) => department.id === id)).toBe(true);
-
-    await departments.archiveDepartment(owner, id);
-    const afterArchive = await departments.listDepartments(owner);
-    expect(afterArchive.some((department) => department.id === id)).toBe(false);
-
-    // Restore returns it to the status it held before archiving.
-    await departments.restoreDepartment(owner, id);
-    const restored = await departments.getDepartment(owner, id);
-    expect(restored.status).toBe("ACTIVE");
-  });
-
-  it("refuses to archive a department that still has active members (PRD #14 §127)", async () => {
-    const owner = await loginAs("OWNER");
-    const engineering = await prisma.department.findFirstOrThrow({
-      where: { companyId: owner.companyId, key: "engineering" },
-      select: { id: true },
-    });
-
-    await expectError(departments.archiveDepartment(owner, engineering.id), "CONFLICT");
+    const finance = listed.find((department) => department.key === "finance");
+    expect(finance).toMatchObject({ code: "FIN", status: "ACTIVE" });
+    expect(finance!.groupDepartmentId).toBeTruthy();
+    // Creating, editing and archiving went to Organization (E-13 §39, ADR 0003).
+    expect("createDepartment" in departments).toBe(false);
+    expect("archiveDepartment" in departments).toBe(false);
   });
 
   it("answers NOT_FOUND for another company's department (PRD #14 §160)", async () => {

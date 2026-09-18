@@ -229,6 +229,7 @@ export const sq: Messages = {
         engineering: { label: "Inxhinieria", description: "RFI dhe dorëzime teknike të caktuara për ju, shqyrtime në afat dhe me vonesë, vendime dhe transmetime të lëshuara." },
         sales: { label: "Shitjet", description: "Rezervime njësish që po skadojnë, kanë skaduar ose janë liruar, dhe njësi të shënuara si të shitura." },
         finance: { label: "Financa", description: "Këste njësish që po afrohen ose janë me vonesë, pagesa të marra dhe shitje të paguara plotësisht." },
+        organization: { label: "Departamentet", description: "Emërimet si drejtues ose menaxher departamenti, dhe vendet tuaja në departamentet e grupit." },
       },
     },
 

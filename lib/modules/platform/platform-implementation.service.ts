@@ -1,4 +1,4 @@
-import type { ParentGroupStatus } from "@prisma/client";
+import type { ParentGroupStatus, Prisma } from "@prisma/client";
 
 import { GROUP_DEPARTMENTS, groupDepartmentRows } from "@/config/group-departments";
 import { isMembershipRoleKey, roleLabel, type RoleKey } from "@/config/roles";
@@ -51,6 +51,17 @@ async function groupOrNotFound(groupId: string) {
       select: { id: true, slug: true, name: true, legalName: true, country: true, timezone: true, currency: true, status: true, activatedAt: true },
     }),
   );
+}
+
+/** A member's place in the branch they are placed in (E-13 §24-§29, ADR 0003). */
+async function memberPlace(
+  tx: Prisma.TransactionClient,
+  input: { parentGroupId: string; userId: string; companyId: string; branch: { id: string; groupDepartmentId: string | null }; roleKey: string; actorUserId: string },
+): Promise<void> {
+  if (!input.branch.groupDepartmentId) return;
+  await tx.departmentAssignment.create({
+    data: { parentGroupId: input.parentGroupId, userId: input.userId, groupDepartmentId: input.branch.groupDepartmentId, companyId: input.companyId, companyDepartmentId: input.branch.id, functionalRoleKey: input.roleKey, positionLevel: "MEMBER", accessLevel: "CONTRIBUTE", status: "ACTIVE", startsAt: new Date(), createdByUserId: input.actorUserId },
+  });
 }
 
 /** The department a role works in (§47): Owner and CEO in Executive, Finance in Finance. */
@@ -106,7 +117,11 @@ export type ChecklistItemDTO = { key: string; label: string; done: boolean; bloc
 
 export type GroupImplementationDTO = {
   group: { id: string; slug: string; name: string; legalName: string | null; country: string | null; timezone: string | null; currency: string | null; status: ParentGroupStatus; activatedAt: string | null };
-  companies: Array<{ id: string; slug: string; name: string; status: string; members: number; branches: number; projects: Array<{ id: string; code: string; name: string }> }>;
+  companies: Array<{ id: string; slug: string; name: string; status: string; members: number; branches: number; managers: number; projects: Array<{ id: string; code: string; name: string }> }>;
+  /** How far the group's departments are set up (E-13 §95). */
+  departments: { active: number; branches: number; withHead: number; needingHead: number; branchesWithManager: number };
+  /** The active departments a new company may run (E-13 §48, §49). */
+  departmentOptions: Array<{ id: string; code: string; name: string }>;
   people: Array<{ userId: string; name: string; username: string; placements: string[]; mustChangePassword: boolean }>;
   checklist: ChecklistItemDTO[];
   actions: { canConfigure: boolean; canAddCompany: boolean; canProvision: boolean; canMarkReady: boolean; canActivate: boolean };
@@ -116,7 +131,7 @@ export async function getGroupImplementation(context: PlatformContext, groupId: 
   assertPlatform(context, "platform.group.view");
   const group = await groupOrNotFound(groupId);
 
-  const [companies, memberships, departments, heads] = await Promise.all([
+  const [companies, memberships, departments] = await Promise.all([
     prisma.company.findMany({
       where: { parentGroupId: group.id },
       select: {
@@ -134,8 +149,20 @@ export async function getGroupImplementation(context: PlatformContext, groupId: 
       select: { companyId: true, role: { select: { key: true, name: true } }, company: { select: { name: true } }, user: { select: { id: true, firstName: true, lastName: true, username: true, mustChangePassword: true } } },
       orderBy: [{ user: { lastName: "asc" } }, { company: { name: "asc" } }],
     }),
-    prisma.groupDepartment.count({ where: { parentGroupId: group.id, status: "ACTIVE" } }),
-    prisma.departmentAssignment.count({ where: { parentGroupId: group.id, status: "ACTIVE", positionLevel: "GROUP_HEAD" } }),
+    prisma.groupDepartment.findMany({
+      where: { parentGroupId: group.id, status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        branches: {
+          where: { status: "ACTIVE", company: { status: "ACTIVE" } },
+          select: { companyId: true, assignments: { where: { status: "ACTIVE", positionLevel: "COMPANY_MANAGER" }, select: { id: true } } },
+        },
+        assignments: { where: { status: "ACTIVE", positionLevel: "GROUP_HEAD" }, select: { id: true } },
+      },
+    }),
   ]);
 
   const active = companies.filter((company) => company.status === "ACTIVE");
@@ -147,20 +174,35 @@ export async function getGroupImplementation(context: PlatformContext, groupId: 
     people.set(person.userId, person);
   }
 
+  // A department that runs somewhere needs a head; a branch that runs needs a manager (E-13 §95).
+  const running = departments.filter((department) => department.branches.length > 0);
+  const openBranches = departments.flatMap((department) => department.branches);
+  const setup = {
+    active: departments.length,
+    branches: openBranches.length,
+    withHead: running.filter((department) => department.assignments.length > 0).length,
+    needingHead: running.length,
+    branchesWithManager: openBranches.filter((branch) => branch.assignments.length > 0).length,
+  };
+  const managersIn = (companyId: string) => openBranches.filter((branch) => branch.companyId === companyId && branch.assignments.length > 0).length;
+
   const checklist: ChecklistItemDTO[] = [
     { key: "companies", label: "Companies configured", done: active.length > 0, blocking: true },
-    { key: "departments", label: "Group departments created", done: departments > 0, blocking: true },
-    { key: "branches", label: "Company department branches linked", done: active.length > 0 && active.every((company) => company._count.departments > 0), blocking: true },
+    { key: "departments", label: "Group departments created", done: departments.length > 0, blocking: true },
+    { key: "branches", label: "Company branches activated", done: active.length > 0 && active.every((company) => company._count.departments > 0), blocking: true },
     { key: "owner", label: "At least one active Group Owner", done: roleHeld("OWNER"), blocking: true },
     { key: "groupIt", label: "Group IT appointed", done: roleHeld("GROUP_IT"), blocking: true },
-    { key: "heads", label: "Initial department heads set", done: heads > 0, blocking: false },
+    { key: "heads", label: "Group heads assigned", done: setup.needingHead > 0 && setup.withHead === setup.needingHead, blocking: false },
+    { key: "managers", label: "Company managers assigned", done: setup.branches > 0 && setup.branchesWithManager === setup.branches, blocking: false },
     { key: "projects", label: "Every company has a project with a project manager", done: active.length > 0 && active.every((company) => company.projects.some((project) => project.projectManagerMemberId)), blocking: false },
   ];
   const implementing = IMPLEMENTING.includes(group.status);
 
   return {
     group: { ...group, activatedAt: group.activatedAt?.toISOString() ?? null },
-    companies: companies.map((company) => ({ id: company.id, slug: company.slug, name: company.name, status: company.status, members: company._count.memberships, branches: company._count.departments, projects: company.projects.map(({ id, code, name }) => ({ id, code, name })) })),
+    companies: companies.map((company) => ({ id: company.id, slug: company.slug, name: company.name, status: company.status, members: company._count.memberships, branches: company._count.departments, managers: managersIn(company.id), projects: company.projects.map(({ id, code, name }) => ({ id, code, name })) })),
+    departments: setup,
+    departmentOptions: departments.map(({ id, code, name }) => ({ id, code, name })),
     people: [...people.values()],
     checklist,
     actions: {
@@ -218,6 +260,14 @@ export async function createGroupCompany(context: PlatformContext, groupId: stri
   if (group.status === "ARCHIVED" || group.status === "SUSPENDED") throw new AccessError("CONFLICT", "Companies are not added to a suspended or archived group.", { code: "GROUP_CLOSED" });
   if ((await prisma.company.count({ where: { slug: input.slug } })) > 0) throw new AccessError("CONFLICT", "Another company already uses that slug.", { field: "slug" });
 
+  // The departments it runs, chosen among the group's active ones (E-13 §48, §49).
+  let departmentKeys: string[] | undefined;
+  if (input.departmentIds) {
+    const chosen = await prisma.groupDepartment.findMany({ where: { parentGroupId: group.id, status: "ACTIVE", id: { in: input.departmentIds } }, select: { key: true } });
+    if (chosen.length !== new Set(input.departmentIds).size) throw new AccessError("VALIDATION_ERROR", "Choose among the group's active departments.", { field: "departmentIds" });
+    departmentKeys = chosen.map((department) => department.key);
+  }
+
   const result = await bootstrapCompany({
     name: input.name,
     slug: input.slug,
@@ -234,18 +284,22 @@ export async function createGroupCompany(context: PlatformContext, groupId: stri
     disabledModules: input.disabledModules,
     timezone: group.timezone ?? undefined,
     baseCurrency: group.currency ?? undefined,
+    departmentKeys,
   });
 
   await prisma.$transaction(async (tx) => {
     const groupLevel = await tx.parentGroupMember.findMany({ where: { parentGroupId: group.id, status: "ACTIVE", user: { status: "ACTIVE" } }, select: { userId: true } });
-    const branches = new Map((await tx.department.findMany({ where: { companyId: result.companyId }, select: { id: true, key: true } })).map((row) => [row.key, row.id]));
+    const branches = new Map((await tx.department.findMany({ where: { companyId: result.companyId, status: "ACTIVE", groupDepartmentId: { not: null } }, select: { id: true, key: true, groupDepartmentId: true } })).map((row) => [row.key, row]));
     for (const { userId } of groupLevel) {
       const held = await tx.companyMember.findFirst({ where: { userId, status: "ACTIVE", company: { parentGroupId: group.id }, companyId: { not: result.companyId } }, select: { roleId: true, jobTitle: true, role: { select: { key: true } } }, orderBy: { createdAt: "asc" } });
       if (!held) continue;
-      await tx.companyMember.createMany({
-        data: [{ companyId: result.companyId, userId, roleId: held.roleId, departmentId: branches.get(departmentKeyFor(held.role.key)) ?? null, jobTitle: held.jobTitle, status: "ACTIVE", joinedAt: new Date() }],
+      // Placed in their function's branch when the company runs it, and on its team (ADR 0003).
+      const branch = branches.get(departmentKeyFor(held.role.key)) ?? null;
+      const joined = await tx.companyMember.createMany({
+        data: [{ companyId: result.companyId, userId, roleId: held.roleId, departmentId: branch?.id ?? null, jobTitle: held.jobTitle, status: "ACTIVE", joinedAt: new Date() }],
         skipDuplicates: true,
       });
+      if (joined.count > 0 && branch) await memberPlace(tx, { parentGroupId: group.id, userId, companyId: result.companyId, branch, roleKey: held.role.key, actorUserId: context.userId });
     }
     await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP, entity: { type: "Company", id: result.companyId, label: input.name }, after: { companyId: result.companyId, slug: input.slug, name: input.name, groupLevelMembers: groupLevel.length } }, { tx });
   });
@@ -318,19 +372,32 @@ export async function provisionInitialUser(context: PlatformContext, groupId: st
     if (groupLevel) await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId: account.id, status: "ACTIVE", joinedAt: new Date() } });
 
     for (const company of companies) {
-      const branch = await tx.department.findFirst({ where: { companyId: company.id, groupDepartmentId: groupDepartment.id, status: "ACTIVE" }, select: { id: true } });
+      const branch = await tx.department.findFirst({ where: { companyId: company.id, groupDepartmentId: groupDepartment.id, status: "ACTIVE" }, select: { id: true, groupDepartmentId: true } });
+      // One manager per branch, and a branch to manage (E-13 §66).
+      if (input.position === "COMPANY_MANAGER") {
+        if (!branch) throw new AccessError("VALIDATION_ERROR", "That department is not active in one of the chosen companies. Activate it there first.", { field: "companyIds", code: "BRANCH_INACTIVE" });
+        if ((await tx.departmentAssignment.count({ where: { companyDepartmentId: branch.id, positionLevel: "COMPANY_MANAGER", status: "ACTIVE" } })) > 0) {
+          throw new AccessError("CONFLICT", "That department already has a manager in one of the chosen companies. Replace them from the group's departments.", { field: "position", code: "MANAGER_EXISTS" });
+        }
+      }
       const member = await tx.companyMember.create({
         data: { companyId: company.id, userId: account.id, roleId: roleRow.id, departmentId: branch?.id ?? null, jobTitle: input.jobTitle ?? null, status: "ACTIVE", joinedAt: new Date() },
         select: { id: true },
       });
-      if (input.position !== "GROUP_HEAD") {
+      // A home branch has its member place (ADR 0003); a manager's appointment is on top of it.
+      if (branch) await memberPlace(tx, { parentGroupId: group.id, userId: account.id, companyId: company.id, branch, roleKey: role, actorUserId: context.userId });
+      if (input.position === "COMPANY_MANAGER" && branch) {
         await tx.departmentAssignment.create({
-          data: { parentGroupId: group.id, userId: account.id, groupDepartmentId: groupDepartment.id, companyId: company.id, companyDepartmentId: branch?.id ?? null, functionalRoleKey: role, positionLevel: input.position, accessLevel: input.position === "COMPANY_MANAGER" ? "APPROVE" : "CONTRIBUTE", status: "ACTIVE", startsAt: new Date(), createdByUserId: context.userId },
+          data: { parentGroupId: group.id, userId: account.id, groupDepartmentId: groupDepartment.id, companyId: company.id, companyDepartmentId: branch.id, functionalRoleKey: role, positionLevel: "COMPANY_MANAGER", accessLevel: "APPROVE", status: "ACTIVE", startsAt: new Date(), createdByUserId: context.userId },
         });
-        if (input.position === "COMPANY_MANAGER" && branch) await tx.department.updateMany({ where: { id: branch.id, companyId: company.id }, data: { managerMemberId: member.id } });
+        await tx.department.updateMany({ where: { id: branch.id, companyId: company.id }, data: { managerMemberId: member.id } });
       }
     }
     if (input.position === "GROUP_HEAD") {
+      // One head per department (E-13 §66).
+      if ((await tx.departmentAssignment.count({ where: { groupDepartmentId: groupDepartment.id, positionLevel: "GROUP_HEAD", status: "ACTIVE" } })) > 0) {
+        throw new AccessError("CONFLICT", "That department already has a head. Replace them from the group's departments.", { field: "position", code: "HEAD_EXISTS" });
+      }
       await tx.departmentAssignment.create({
         data: { parentGroupId: group.id, userId: account.id, groupDepartmentId: groupDepartment.id, companyId: null, companyDepartmentId: null, functionalRoleKey: role, positionLevel: "GROUP_HEAD", accessLevel: "MANAGE", status: "ACTIVE", startsAt: new Date(), createdByUserId: context.userId },
       });

@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { optionalDate, optionalId, optionalText } from "@/lib/modules/shared/fields";
-import { EDITABLE_DEPARTMENT_STATUSES } from "./membership.status";
 
 /**
  * Team validation (PRD #14 §61, §154, §155, §156).
@@ -87,35 +86,3 @@ export const teamListQuerySchema = z.object({
 
 export type TeamListQuery = z.infer<typeof teamListQuerySchema>;
 
-/* -------------------------------------------------------------------------- */
-/* Departments                                                                 */
-/* -------------------------------------------------------------------------- */
-
-export const departmentFields = {
-  name: z
-    .string()
-    .trim()
-    .min(2, "Department name must be at least 2 characters")
-    .max(120, "Department name must be 120 characters or fewer"),
-  key: z
-    .string()
-    .trim()
-    .max(60)
-    .optional()
-    .transform((value) => (value === "" ? undefined : value?.toLowerCase()))
-    .refine((value) => !value || /^[a-z0-9][a-z0-9_-]*$/.test(value), {
-      message: "Use lowercase letters, numbers, hyphens and underscores.",
-    }),
-  description: optionalText(2000),
-  managerMemberId: optionalId,
-  status: z.enum(EDITABLE_DEPARTMENT_STATUSES as [string, ...string[]]).default("ACTIVE"),
-};
-
-export const createDepartmentSchema = z.object(departmentFields);
-export const updateDepartmentSchema = z.object({
-  ...departmentFields,
-  versionUpdatedAt: optionalDate,
-});
-
-export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
-export type UpdateDepartmentInput = z.infer<typeof updateDepartmentSchema>;

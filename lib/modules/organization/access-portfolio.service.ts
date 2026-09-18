@@ -68,8 +68,9 @@ export async function getAccessPortfolio(session: UserContext): Promise<AccessPo
     groupDepartments: organization.assignments
       .filter((assignment) => assignment.companyId === null)
       .map((assignment) => ({ id: assignment.groupDepartmentId, key: assignment.groupDepartmentKey, name: assignment.groupDepartmentName, position: position(assignment.positionLevel) })),
+    // Positions only: a member place widens nothing, and the person's profile lists those (E-13 §87).
     companyDepartments: organization.assignments
-      .filter((assignment) => assignment.companyId !== null && assignment.companyDepartmentId !== null && companyName.has(assignment.companyId))
+      .filter((assignment) => assignment.positionLevel !== "MEMBER" && assignment.companyId !== null && assignment.companyDepartmentId !== null && companyName.has(assignment.companyId))
       .map((assignment) => ({
         id: assignment.companyDepartmentId!,
         name: branchName.get(assignment.companyDepartmentId!) ?? assignment.groupDepartmentName,

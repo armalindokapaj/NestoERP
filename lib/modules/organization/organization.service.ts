@@ -85,7 +85,8 @@ async function departmentOverview(context: UserContext): Promise<NonNullable<Org
         orderBy: { createdAt: "asc" },
       },
       branches: {
-        where: { companyId: context.companyId, archivedAt: null, status: { not: "ARCHIVED" } },
+        // Only a branch the company runs (E-13 §18).
+        where: { companyId: context.companyId, archivedAt: null, status: "ACTIVE" },
         select: { id: true, name: true },
         take: 1,
       },

@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { accessAtLeast, scopeAtLeast } from "@/config/access";
-import { GROUP_DEPARTMENTS, isGrantableModule, rolesOfFunction } from "@/config/group-departments";
+import { CUSTOM_DEPARTMENT_KEY_PREFIX, GROUP_DEPARTMENTS, isGrantableModule, rolesOfFunction } from "@/config/group-departments";
 import { defaultAccessFor } from "@/config/role-defaults";
 import { isMembershipRoleKey, type RoleKey } from "@/config/roles";
 import { positionFor, type ContextAssignment } from "@/lib/context/organization-access";
@@ -10,8 +10,9 @@ import { positionFor, type ContextAssignment } from "@/lib/context/organization-
  * The organization's own consistency (E-06 §11-§18, §73): the data every
  * group and company authorization decision is computed from.
  *
- * Positions, branches, branch managers, grants and memberships are written by
- * different doors — appointments, Team, the platform roster, provisioning —
+ * Positions, branches, branch managers, member places, grants and memberships
+ * are written by different doors — appointments, Team, the platform roster,
+ * provisioning, E-13's department services —
  * and each keeps its own rule. This reads them side by side and names what
  * disagrees, so a position that elevates nothing, a branch manager nobody
  * appointed or a grant pointing outside its group is found by a gate rather
@@ -50,7 +51,7 @@ export async function findOrganizationFindings(prisma: PrismaClient): Promise<Or
     const [memberships, assignments, branches, grants, people] = await Promise.all([
       prisma.companyMember.findMany({
         where: { companyId: { in: companyIds } },
-        select: { id: true, userId: true, companyId: true, status: true, role: { select: { key: true } }, user: { select: { username: true, status: true, personProfileId: true, personProfile: { select: { parentGroupId: true } } } } },
+        select: { id: true, userId: true, companyId: true, departmentId: true, status: true, role: { select: { key: true } }, user: { select: { username: true, status: true, personProfileId: true, personProfile: { select: { parentGroupId: true } } } } },
       }),
       prisma.departmentAssignment.findMany({
         where: { parentGroupId: group.id, status: "ACTIVE", OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
@@ -86,25 +87,40 @@ export async function findOrganizationFindings(prisma: PrismaClient): Promise<Or
 
     /* Departments and branches ------------------------------------------ */
     const departmentById = new Map(group.departments.map((department) => [department.id, department]));
+    // A department the group adds has a `custom-` key and binds no role (E-13, ADR 0003); any other unknown key is a mistake.
     for (const department of group.departments) {
-      if (!DEPARTMENT_KEYS.has(department.key)) add("warning", "UNKNOWN_FUNCTION", `Group department "${department.key}" is not in the chart NESTO knows; nobody can be appointed to it.`);
+      if (!DEPARTMENT_KEYS.has(department.key) && !department.key.startsWith(CUSTOM_DEPARTMENT_KEY_PREFIX)) {
+        add("warning", "UNKNOWN_FUNCTION", `Group department "${department.key}" is neither in the chart NESTO knows nor one the group added.`);
+      }
     }
     for (const branch of branches) {
       if (branch.groupDepartmentId && branch.groupDepartment && branch.groupDepartment.parentGroupId !== group.id) {
         add("error", "BRANCH_OTHER_GROUP", `${branch.name} in ${companyName.get(branch.companyId)} is a branch of another group's department.`);
       }
     }
-    for (const company of activeCompanies) {
-      for (const department of group.departments.filter((row) => row.status === "ACTIVE")) {
-        if (!branches.some((branch) => branch.companyId === company.id && branch.groupDepartmentId === department.id && branch.status === "ACTIVE")) {
-          add("warning", "BRANCH_MISSING", `${company.name} has no active branch of ${department.key}.`);
-        }
+    // A company runs only the departments it activates (E-13 §2, §49): a missing branch is a choice, not a fault.
+    for (const branch of branches.filter((row) => !row.groupDepartmentId && row.status === "ACTIVE")) {
+      add("warning", "DEPARTMENT_UNLINKED", `${branch.name} in ${companyName.get(branch.companyId)} is not a branch of any group department; it has no team and no manager position.`);
+    }
+
+    // A membership's department is a place on that department's team (E-13 §24-§29, ADR 0003).
+    for (const membership of activeMemberships) {
+      const branch = membership.departmentId ? branches.find((row) => row.id === membership.departmentId) : null;
+      if (!branch?.groupDepartmentId) continue;
+      if (!assignments.some((row) => row.userId === membership.userId && row.companyDepartmentId === branch.id && row.positionLevel === "MEMBER")) {
+        add("error", "HOME_WITHOUT_PLACE", `${membership.user.username} is placed in ${branch.name} in ${companyName.get(membership.companyId)} with no place on its team.`);
       }
+    }
+    for (const assignment of assignments.filter((row) => row.positionLevel === "MEMBER" && row.companyId)) {
+      if (!assignment.companyDepartmentId) add("warning", "PLACE_WITHOUT_BRANCH", `${assignment.user.username} is a member of ${assignment.groupDepartment.key} in ${companyName.get(assignment.companyId!)} with no branch named.`);
     }
 
     /* Positions --------------------------------------------------------- */
     for (const assignment of assignments) {
       const label = `${assignment.user.username} (${assignment.positionLevel} ${assignment.groupDepartment.key})`;
+      if (!departmentById.has(assignment.groupDepartmentId)) add("error", "POSITION_OTHER_GROUP", `${label} points at a department outside the group.`);
+      // A member place widens nothing, and a position in a department the group added widens nothing by design (ADR 0003).
+      if (assignment.positionLevel === "MEMBER" || !DEPARTMENT_KEYS.has(assignment.groupDepartment.key)) continue;
       const roles = rolesOfFunction(assignment.groupDepartment.key) as readonly string[];
       if (roles.length > 0 && !roles.includes(assignment.functionalRoleKey)) {
         add("error", "POSITION_ROLE", `${label} is held as ${assignment.functionalRoleKey}, which is not a role of that department.`);
@@ -126,7 +142,6 @@ export async function findOrganizationFindings(prisma: PrismaClient): Promise<Or
         if (!membership) add("warning", "POSITION_INERT", `${label}: no active membership in ${companyName.get(assignment.companyId)}.`);
         else if (membership.role.key !== assignment.functionalRoleKey) add("warning", "POSITION_INERT", `${label}: works as ${membership.role.key} in ${companyName.get(assignment.companyId)}, so the position widens nothing.`);
       }
-      if (!departmentById.has(assignment.groupDepartmentId)) add("error", "POSITION_OTHER_GROUP", `${label} points at a department outside the group.`);
     }
 
     // A branch names its manager; a live manager position says the same (§37).

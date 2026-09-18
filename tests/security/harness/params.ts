@@ -56,6 +56,13 @@ const RULES: Rule[] = [
   { when: /\/hr\/employees\//, param: "memberId", source: { model: "EmployeeProfile", column: "companyMemberId" } },
   // An account request is the company's the person joins (E-06 §27); not a unit's contract request.
   { when: /\/user-provisioning-requests\//, param: "requestId", source: { model: "UserProvisioningRequest" } },
+  // The group's departments (E-13): reached through the target company's branch
+  // of one, so the id is a department the target company runs, and a company
+  // segment is the target company itself.
+  { when: /\/departments\/\[departmentId\]\/companies\/\[companyId\]/, param: "companyId", source: { model: "Department", column: "companyId", fill: { departmentId: "groupDepartmentId" } } },
+  { when: /\/organization\/departments\/\[departmentId\]/, param: "departmentId", source: { model: "Department", column: "groupDepartmentId" } },
+  { when: /\/company-departments\/\[companyDepartmentId\]/, param: "companyDepartmentId", source: { model: "Department" } },
+  { when: /\/organization\/companies\/\[companyId\]/, param: "companyId", source: { model: "Department", column: "companyId" } },
   // A department appointment, not a contractor's project assignment (E-06 §90).
   { when: /\/department-assignments\//, param: "assignmentId", source: { model: "DepartmentAssignment" } },
   { when: /\/projects\/\[projectId\]\/members\//, param: "projectMemberId", source: { model: "ProjectMember" } },

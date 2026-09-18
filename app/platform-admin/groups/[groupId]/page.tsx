@@ -67,6 +67,21 @@ export default async function GroupImplementationPage({ params }: Props) {
         </ul>
       </section>
 
+      <section className="nesto-card flex flex-wrap items-center justify-between gap-3 p-5" aria-labelledby="group-departments">
+        <div>
+          <h2 id="group-departments" className="text-card font-semibold text-fg">
+            Departments
+          </h2>
+          <p className="mt-1 text-table text-fg-muted" data-testid="department-setup">
+            {implementation.departments.active} departments, {implementation.departments.branches} active in companies · heads for {implementation.departments.withHead} of {implementation.departments.needingHead} ·
+            managers for {implementation.departments.branchesWithManager} of {implementation.departments.branches} company departments
+          </p>
+        </div>
+        <Link href={`/platform-admin/groups/${group.id}/departments`} className="text-table font-medium text-accent-strong hover:underline">
+          Set up departments
+        </Link>
+      </section>
+
       <section className="nesto-card p-5" aria-labelledby="group-companies">
         <h2 id="group-companies" className="text-card font-semibold text-fg">
           Companies
@@ -79,7 +94,8 @@ export default async function GroupImplementationPage({ params }: Props) {
               <TableRow>
                 <TableHeaderCell>Company</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Department branches</TableHeaderCell>
+                <TableHeaderCell>Departments</TableHeaderCell>
+                <TableHeaderCell>With a manager</TableHeaderCell>
                 <TableHeaderCell>People</TableHeaderCell>
                 <TableHeaderCell>Projects</TableHeaderCell>
               </TableRow>
@@ -95,6 +111,7 @@ export default async function GroupImplementationPage({ params }: Props) {
                     <StatusBadge status={company.status} />
                   </TableCell>
                   <TableCell className="tabular-nums">{company.branches}</TableCell>
+                  <TableCell className="tabular-nums">{company.branches === 0 ? "—" : `${company.managers} of ${company.branches}`}</TableCell>
                   <TableCell className="tabular-nums">{company.members}</TableCell>
                   <TableCell>{company.projects.length === 0 ? "—" : company.projects.map((project) => project.name).join(", ")}</TableCell>
                 </TableRow>

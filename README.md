@@ -484,8 +484,13 @@ lib/modules/team/
   team.service.ts               the three rules below
   invitations/invite.token.ts   32 random bytes; only the SHA-256 is stored
   invitations/invite.service.ts invite, resend, cancel, preview, accept
-  departments/department.service.ts
+  departments/department.service.ts   the company's departments, read only (E-13)
+  departments/branch.doors.ts         the organization's door onto a branch row
+  team.placement.ts                   the door type Team hands a department move to
 ```
+
+A company's departments are branches of its group's departments, activated,
+staffed and given managers from Organization (E-13, ADR 0003); Team reads them.
 
 1. **The company never loses its last active Owner.** Demoting, deactivating or
    suspending the only active Owner is refused, and the reason is stated in the

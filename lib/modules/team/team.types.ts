@@ -109,6 +109,9 @@ export type DepartmentSummaryDTO = {
   id: string;
   name: string;
   key: string | null;
+  /** The group department's code, and the department itself, for a branch of one (E-13). */
+  code: string | null;
+  groupDepartmentId: string | null;
   description: string | null;
   manager: { memberId: string; fullName: string; active: boolean } | null;
   activeMembers: number;

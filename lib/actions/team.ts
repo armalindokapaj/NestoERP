@@ -10,15 +10,9 @@ import { requireUserContext } from "@/lib/context/current-user";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import { clientAddress, hitThrottle } from "@/lib/core/security/throttle";
 import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
-import * as departments from "@/lib/modules/team/departments/department.service";
+import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
 import * as invitations from "@/lib/modules/team/invitations/invite.service";
-import {
-  acceptInviteSchema,
-  createDepartmentSchema,
-  inviteMemberSchema,
-  updateDepartmentSchema,
-  updateMemberSchema,
-} from "@/lib/modules/team/team.schema";
+import { acceptInviteSchema, inviteMemberSchema, updateMemberSchema } from "@/lib/modules/team/team.schema";
 import * as team from "@/lib/modules/team/team.service";
 
 /**
@@ -86,7 +80,7 @@ export async function updateMemberAction(
   }
 
   try {
-    await team.updateMember(context, memberId, parsed.data);
+    await team.updateMember(context, memberId, parsed.data, { placement: placeMembership });
   } catch (error) {
     return toResult(error);
   }
@@ -200,7 +194,7 @@ export async function acceptInviteAction(formData: FormData): Promise<TeamAction
   try {
     // The address comes back from the acceptance itself: by this point the
     // token is consumed, so it can no longer be read from the invitation.
-    ({ email } = await invitations.acceptInvite(parsed.data, { personDoor: ensurePersonForUser }));
+    ({ email } = await invitations.acceptInvite(parsed.data, { personDoor: ensurePersonForUser, placement: placeMembership }));
   } catch (error) {
     return toResult(error);
   }
@@ -243,7 +237,7 @@ export async function acceptInviteAsCurrentUserAction(token: string): Promise<Te
   if (refused) return refused;
 
   try {
-    await invitations.acceptInvite({ token }, { authenticatedUserId: userId, personDoor: ensurePersonForUser });
+    await invitations.acceptInvite({ token }, { authenticatedUserId: userId, personDoor: ensurePersonForUser, placement: placeMembership });
   } catch (error) {
     return toResult(error);
   }
@@ -252,68 +246,3 @@ export async function acceptInviteAsCurrentUserAction(token: string): Promise<Te
   return { ok: true };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Departments                                                                 */
-/* -------------------------------------------------------------------------- */
-
-export async function createDepartmentAction(formData: FormData): Promise<TeamActionResult> {
-  const context = await requireUserContext();
-
-  const parsed = createDepartmentSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
-
-  try {
-    await departments.createDepartment(context, parsed.data);
-  } catch (error) {
-    return toResult(error);
-  }
-
-  revalidateTeam();
-  redirect("/team/departments");
-}
-
-export async function updateDepartmentAction(
-  departmentId: string,
-  formData: FormData,
-): Promise<TeamActionResult> {
-  const context = await requireUserContext();
-
-  const parsed = updateDepartmentSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
-
-  try {
-    await departments.updateDepartment(context, departmentId, parsed.data);
-  } catch (error) {
-    return toResult(error);
-  }
-
-  revalidateTeam();
-  redirect("/team/departments");
-}
-
-export async function departmentLifecycleAction(
-  departmentId: string,
-  action: "archive" | "restore",
-): Promise<TeamActionResult> {
-  const context = await requireUserContext();
-  try {
-    if (action === "archive") await departments.archiveDepartment(context, departmentId);
-    else await departments.restoreDepartment(context, departmentId);
-  } catch (error) {
-    return toResult(error);
-  }
-  revalidateTeam();
-  return { ok: true };
-}
