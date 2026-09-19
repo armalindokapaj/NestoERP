@@ -2364,5 +2364,6 @@ product's series shape, no invoice over-allocated, every task link resolving.
 - **Not seeded, because the feature is another PRD's (§4)**: E-08's directory,
   E-09's worker profile and overtime, E-10's recruitment, E-11's contractor
   invoice chain and external-company register, E-12, co-ownership, E-05C.
-- **`nesto_erp` does not have D-02's data**; `pnpm seed:armaar` adds it, with
-  the owner's consent.
+- **`nesto_erp` has D-02's data since 2026-09-19** (`pnpm seed:armaar`, with the
+  owner's consent, after a backup; every data gate clean). Its five-company
+  demo keeps the three-digit purchase numbers it was seeded with.
