@@ -60,6 +60,15 @@ const OWNED: Record<string, string[]> = {
     "threeDProjectConfiguration",
     "threeDModelVersion",
   ],
+  "project-3d": [
+    "project3DEntitlement",
+    "project3DConfig",
+    "project3DModelSlot",
+    "project3DModelVersion",
+    "project3DUnitMeshBinding",
+    "project3DRelease",
+    "platform3DEnvironmentPreset",
+  ],
 
   /* Shared foundation ------------------------------------------------------ */
   shared: ["activity"],
