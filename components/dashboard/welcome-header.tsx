@@ -10,8 +10,8 @@ import { greeting } from "@/lib/utils/format";
  * the brand line. The title is set in the display serif: §7 pairs the serif
  * with the wordmark and the dashboard heading, and nothing else.
  *
- * The role sits beside the title rather than in a corner, because switching
- * roles is the main thing anyone does with this screen in V0.1 (§96).
+ * The role sits beside the title rather than in a corner: the signed-in
+ * account's own, from its membership (C-01 §34).
  */
 export function WelcomeHeader({ context, focus }: { context: UserContext; focus: string }) {
   const today = new Intl.DateTimeFormat("en-GB", {
@@ -30,9 +30,7 @@ export function WelcomeHeader({ context, focus }: { context: UserContext; focus:
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="font-serif text-display text-fg">Dashboard</h1>
-          <Badge tone={context.roleIsOverridden ? "warning" : "neutral"}>
-            {context.roleIsOverridden ? `Viewing as ${context.roleLabel}` : context.roleLabel}
-          </Badge>
+          <Badge tone="neutral">{context.roleLabel}</Badge>
         </div>
 
         <p className="mt-2 text-body text-fg-muted">{focus}</p>

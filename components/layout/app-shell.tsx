@@ -10,7 +10,8 @@ import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MODULE_KEYS, modules } from "@/config/modules";
 import { resolveNavigation } from "@/config/navigation";
-import { isDevMode } from "@/lib/auth/dev-role";
+import { isDevMode } from "@/lib/auth/dev-mode";
+import { grantsInCompany, loadOrganizationAccessFor } from "@/lib/context/organization-access";
 import { announcementShellState } from "@/lib/modules/announcements/announcement.service";
 import type { UserContext } from "@/lib/context/types";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
@@ -44,7 +45,11 @@ export async function AppShell({
   });
 
   // Unread count and the one critical banner, read in this member's audience (PRD #45 §67, §122).
-  const announcements = await announcementShellState(context).catch(() => ({ unread: 0, banner: null }));
+  // The access debugger's grants are read only where it is shown.
+  const [announcements, organization] = await Promise.all([
+    announcementShellState(context).catch(() => ({ unread: 0, banner: null })),
+    isDevMode ? loadOrganizationAccessFor(context.parentGroupId, context.userId).catch(() => null) : null,
+  ]);
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -68,11 +73,24 @@ export async function AppShell({
           {isDevMode ? (
             <DevAccessPanel
               snapshot={{
+                user: context.fullName,
+                userId: context.userId,
+                sessionId: context.sessionId,
+                membershipId: context.membershipId,
                 company: context.company.name,
-                user: `${context.fullName} · ${context.email}`,
-                role: context.roleLabel,
-                actualRole: context.actualRole,
-                roleIsOverridden: context.roleIsOverridden,
+                role: `${context.roleLabel} (${context.role})`,
+                position: context.position,
+                department: context.department?.name ?? "—",
+                assignments: context.assignments.map(
+                  (assignment) =>
+                    `${assignment.positionLevel} · ${assignment.groupDepartmentName}${assignment.companyId ? "" : " (group)"} · ${assignment.functionalRoleKey}`,
+                ),
+                grants: organization
+                  ? grantsInCompany(organization.grants, context.parentGroupId, context.companyId).map(
+                      (grant) => `${grant.moduleKey} ${grant.accessLevel} · ${grant.scopeType}`,
+                    )
+                  : [],
+                permissionCount: context.permissions.length,
                 modules: Object.fromEntries(
                   MODULE_KEYS.map((key) => [
                     key,

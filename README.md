@@ -159,16 +159,21 @@ own specific way, and each has a test that says so.
 
 ### Signing in quickly
 
-In development the login page shows a **demo account picker**, grouped as
-Platform, Group, Aurelia Construction and Other companies — one click signs you
-in as that persona, no typing. Once inside, the **role switcher** in the top bar re-renders the
-workspace as any of the company roles without signing out.
+In development the login page shows a **demo account picker** — each demo
+tenant's people, then the curated personas grouped as Platform, Group, Aurelia
+Construction and Other companies — and one click signs you in as that person, no
+typing. Once inside, **Switch user** in the top bar offers the same people:
+choosing one signs you out and in as them, and you land on their own dashboard
+with their own access, company and data, exactly as if they had used the form
+(C-01, [ADR 0010](docs/adr/0010-c01-demo-user-switch.md)). A role is never laid
+over the person signed in: to see what Finance sees, become a Finance person.
 
-Both are gated on `NODE_ENV`. In a production build the picker is not rendered,
-the switcher is not rendered, and the demo sign-in action refuses. The picker
-sends only a curated username to the server — the demo password is resolved in
-[`lib/actions/demo.ts`](lib/actions/demo.ts) and never enters the browser
-bundle, so no credential ships to the client in any build.
+Both are gated on `isDevMode` ([`lib/auth/dev-mode.ts`](lib/auth/dev-mode.ts):
+`APP_ENV`, then `NODE_ENV`). In a production or staging build neither is
+rendered, and both demo actions refuse. Each sends only a username to the
+server — the demo password is resolved in [`lib/actions/demo.ts`](lib/actions/demo.ts)
+and never enters the browser bundle, so no credential ships to the client in
+any build.
 
 ### Adding a role
 
@@ -185,8 +190,7 @@ bundle, so no credential ships to the client in any build.
    role, so typecheck names what is missing.
 6. `pnpm db:seed`.
 
-It then appears in the sidebar, the login picker, the role switcher, the Roles
-settings page, `pnpm verify:roles` and the test matrix — without touching a
+It then appears in the sidebar, the login picker, the Roles settings page, `pnpm verify:roles` and the test matrix — without touching a
 component. Roles are database rows rather than an enum, so a custom role later
 needs no migration.
 
@@ -840,7 +844,7 @@ app/
 components/
   ui/                 primitives and composites (Button … Toast)
   data/               DataTable, ListToolbar, Pagination
-  layout/             AppShell, Sidebar, Topbar, drawers, dev role switcher
+  layout/             AppShell, Sidebar, Topbar, drawers, dev user switcher
   charts/             Sparkline, MiniBars, BarChart, Donut, ProgressBar
   dashboard/          the dashboard engine
   modules/            ModulePage, RecordHeader, the generic section/record pages
@@ -1076,7 +1080,7 @@ CRM webhook, and add rate limiting by IP at the same time.
 - Protected routes at edge, page and service level; access denied, module
   unavailable, workspace unavailable, 404
 - The app shell, role navigation, active state, collapse, mobile drawer, top
-  bar, user menu, development role switcher
+  bar, user menu, development demo user switcher
 - All 18 role dashboards — real KPIs, widgets, attention items, approvals and
   activity, every one of them scoped
 - **Projects**: overview, list, search, filters, sort, pagination, detail,

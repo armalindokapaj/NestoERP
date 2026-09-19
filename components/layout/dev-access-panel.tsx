@@ -9,20 +9,31 @@ import { cn } from "@/lib/utils/cn";
 /**
  * The development access debugger (PRD #5 §68, PRD #7 §123, PRD #9 §212).
  *
- * Shows exactly what the resolver decided for the page you are looking at:
- * company, user, role, module, access level, data scope and the permissions in
- * play. During implementation and manual QA this turns "why can't I see this?"
- * from a guess into a reading.
+ * Shows exactly what the resolver decided for the signed-in account and the
+ * page you are looking at: who, which session and membership, the role and
+ * position held, the assignments and grants behind them, then the module,
+ * access level, data scope and the permissions in play. During implementation
+ * and manual QA this turns "why can't I see this?" from a guess into a reading.
+ * Every value is the account's own: nothing overrides a role (C-01 §37).
  *
  * Rendered only when the caller has already checked `isDevMode`, and never
  * mounted in a production build (PRD #9 §211).
  */
 export type DevAccessSnapshot = {
-  company: string;
   user: string;
+  userId: string;
+  sessionId: string;
+  membershipId: string;
+  company: string;
+  /** The membership's role, label and key. */
   role: string;
-  actualRole: string;
-  roleIsOverridden: boolean;
+  position: string;
+  department: string;
+  /** Live department assignments that concern this company, one line each. */
+  assignments: string[];
+  /** Delegated access in this company, one line each. */
+  grants: string[];
+  permissionCount: number;
   /** module key → resolved access. */
   modules: Record<string, { label: string; accessLevel: string; scope: string; permissions: string[] }>;
 };
@@ -69,23 +80,24 @@ export function DevAccessPanel({ snapshot }: { snapshot: DevAccessSnapshot }) {
 
         {open ? (
           <dl className="space-y-1.5 border-t border-line px-3 py-2.5 text-meta">
-            <Row label="Company" value={snapshot.company} />
             <Row label="User" value={snapshot.user} />
-            <Row
-              label="Role"
-              value={
-                snapshot.roleIsOverridden
-                  ? `${snapshot.role} (override — actually ${snapshot.actualRole})`
-                  : snapshot.role
-              }
-            />
+            <Row label="User ID" value={snapshot.userId} mono />
+            <Row label="Session ID" value={snapshot.sessionId} mono />
+            <Row label="Membership ID" value={snapshot.membershipId} mono />
+            <Row label="Company" value={snapshot.company} />
+            <Row label="Role" value={snapshot.role} />
+            <Row label="Position" value={snapshot.position} />
+            <Row label="Department" value={snapshot.department} />
+            <Lines label="Assignments" values={snapshot.assignments} />
+            <Lines label="Grants" values={snapshot.grants} />
+            <Row label="Permissions" value={`${snapshot.permissionCount} effective`} />
             <Row label="Module" value={access?.label ?? moduleKey} />
             <Row label="Access" value={access?.accessLevel ?? "NONE"} />
             <Row label="Scope" value={access?.scope ?? "—"} />
 
             {access && access.permissions.length > 0 ? (
               <div className="pt-1">
-                <dt className="text-fg-subtle">Permissions</dt>
+                <dt className="text-fg-subtle">Module permissions</dt>
                 <dd className="mt-1 max-h-40 overflow-y-auto font-mono text-micro leading-relaxed text-fg-muted">
                   {access.permissions.map((permission) => (
                     <div key={permission}>{permission}</div>
@@ -100,11 +112,25 @@ export function DevAccessPanel({ snapshot }: { snapshot: DevAccessSnapshot }) {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <dt className="shrink-0 text-fg-subtle">{label}</dt>
-      <dd className="min-w-0 truncate text-right text-fg">{value}</dd>
+      <dd title={value} className={cn("min-w-0 truncate text-right text-fg", mono && "font-mono text-micro")}>{value}</dd>
+    </div>
+  );
+}
+
+function Lines({ label, values }: { label: string; values: string[] }) {
+  if (values.length === 0) return <Row label={label} value="—" />;
+  return (
+    <div>
+      <dt className="text-fg-subtle">{label}</dt>
+      <dd className="mt-0.5 max-h-24 overflow-y-auto font-mono text-micro leading-relaxed text-fg-muted">
+        {values.map((value, index) => (
+          <div key={`${index}:${value}`}>{value}</div>
+        ))}
+      </dd>
     </div>
   );
 }

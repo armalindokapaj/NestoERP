@@ -207,7 +207,7 @@ for (const file of actionFiles) {
   for (const statement of source.statements) {
     if (!ts.isFunctionDeclaration(statement) || !statement.name || !statement.body) continue;
     if (!ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) continue;
-    const publicAction = /lib\/actions\/(auth|contact|demo|dev)\.ts$/.test(file);
+    const publicAction = /lib\/actions\/(auth|contact|demo)\.ts$/.test(file);
     const endpoint = `${file}#${statement.name.text}`;
     const cls = ACTION_CLASSES[endpoint] ?? ACTION_CLASSES[file] ?? (publicAction ? "PUBLIC" : "COMPANY_SCOPED");
     rows.push({ method: "ACTION", endpoint, kind: "action", cls, evidence: analyse(statement.body, 0) });

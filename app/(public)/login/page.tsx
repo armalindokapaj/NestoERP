@@ -3,12 +3,11 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
-import { DEMO_ACCOUNT_SECTIONS, DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS, type DemoAccountSection } from "@/config/demo-accounts";
-import { roles, type RoleKey } from "@/config/roles";
-import { listDemoTenants, type DemoTenant } from "@/lib/auth/demo-tenants";
-import { isDevMode } from "@/lib/auth/dev-role";
+import { DEMO_PASSWORD } from "@/config/demo-accounts";
+import { demoRosters } from "@/lib/auth/demo-tenants";
+import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
-import { DemoAccounts, type DemoAccountOption, type DemoRosterOption } from "./demo-accounts";
+import { DemoAccounts } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,47 +24,12 @@ export async function generateMetadata(): Promise<Metadata> {
 const SIGN_IN_NOTICES = {
   "session-expired": "login.sessionExpired",
   "account-unavailable": "login.accountUnavailable",
+  // Development only: a demo user switch ended the old session and could not start the new one (C-01 §46).
+  "demo-switch-failed": "login.demoSwitchFailed",
 } as const;
 
 function isSignInNotice(reason: string | undefined): reason is keyof typeof SIGN_IN_NOTICES {
   return reason !== undefined && Object.hasOwn(SIGN_IN_NOTICES, reason);
-}
-
-function option(role: RoleKey, username: string, assignment: string): DemoAccountOption {
-  return { code: roles[role].code, label: roles[role].label, assignment, username };
-}
-
-/**
- * The picker's rosters: each demo tenant's people as its data has them, its
- * busiest company open (D-01 §87), then the curated five-company demo, folded.
- */
-async function demoRosters(): Promise<DemoRosterOption[]> {
-  // The picker is a convenience: a database it cannot read leaves the curated personas.
-  const tenants: DemoTenant[] = await listDemoTenants().catch(() => []);
-  const sections = new Map<DemoAccountSection, DemoAccountOption[]>();
-  for (const account of PRIMARY_DEMO_ACCOUNTS) {
-    sections.set(account.section, [...(sections.get(account.section) ?? []), option(account.role, account.username, account.assignment)]);
-  }
-  return [
-    ...tenants.map((tenant) => ({
-      name: tenant.name,
-      summary: `${tenant.heads.length} group heads, ${tenant.companies.length} companies`,
-      sections: [
-        { name: tenant.name, accounts: tenant.heads.map((head) => option(head.role, head.username, head.title)) },
-        ...tenant.companies.map((company, index) => ({
-          name: company.name,
-          accounts: company.personas.map((persona) => option(persona.role, persona.username, persona.title)),
-          folded: index > 0,
-        })),
-      ],
-    })),
-    {
-      name: "Five-company demo",
-      summary: "Aurelia Construction and four other companies",
-      sections: [...sections].map(([section, accounts]) => ({ name: DEMO_ACCOUNT_SECTIONS[section], accounts })),
-      folded: tenants.length > 0,
-    },
-  ];
 }
 
 /**

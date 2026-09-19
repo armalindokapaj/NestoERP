@@ -1,14 +1,16 @@
+import { Suspense } from "react";
+
 import { AnnouncementsIndicator } from "@/components/announcements/shell";
 import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
 import { CompanySwitcher } from "@/components/layout/company-switcher";
-import { DevRoleSwitcher } from "@/components/layout/dev-role-switcher";
+import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import type { NavigationGroup } from "@/config/navigation";
-import { isDevMode } from "@/lib/auth/dev-role";
+import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import { listCompanyContexts } from "@/lib/modules/organization/company-context.service";
@@ -59,12 +61,12 @@ export async function Topbar({
       </div>
 
       <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
+        {/* Development only: signs in as another demo user (C-01 §15). Streamed,
+            so reading the roster never holds up the page. */}
         {isDevMode ? (
-          <DevRoleSwitcher
-            role={context.role}
-            actualRole={context.actualRole}
-            isOverridden={context.roleIsOverridden}
-          />
+          <Suspense fallback={null}>
+            <DevUserSwitcher />
+          </Suspense>
         ) : null}
         {/* A demonstration tenant says so on every page (D-01 §68, §69). */}
         {context.parentGroup.isDemo ? (

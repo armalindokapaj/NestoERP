@@ -82,6 +82,21 @@ export async function revokeSession(sessionId: string): Promise<void> {
   await revokeSessions(prisma, { sessionId });
 }
 
+/**
+ * Ends a session the way signing out does, for a caller that holds only the
+ * cookie's claims: the row must still be this user's, or nothing is ended.
+ * Answers the company it was in, for the sign-out record (C-01 §21, §23).
+ */
+export async function endOwnSession(input: { sessionId: string; userId: string }): Promise<{ ended: boolean; companyId: string | null }> {
+  const session = await prisma.session.findFirst({
+    where: { id: input.sessionId, userId: input.userId },
+    select: { currentCompanyId: true },
+  });
+  if (!session) return { ended: false, companyId: null };
+  const count = await revokeSessions(prisma, { sessionId: input.sessionId, userId: input.userId });
+  return { ended: count === 1, companyId: session.currentCompanyId };
+}
+
 /** Used when a password is reset: every other session for that user is dropped. */
 export async function revokeSessionsForUser(
   userId: string,

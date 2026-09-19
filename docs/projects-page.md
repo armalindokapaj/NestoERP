@@ -49,8 +49,7 @@ second access model:
 1. `resolveProjectPortfolio(session)` takes the person's other active
    memberships in active companies and builds each into a `UserContext` through
    `buildMemberContexts` — the same `assembleContext` the session resolver uses.
-   The session's own context is used for its own company, so the development
-   role switcher still applies there.
+   The session's own context is used for its own company.
 2. A membership joins the portfolio only where Projects is switched on, the role
    reaches the module and holds `project.view`.
 3. The list's `where` is the **union of each membership's own

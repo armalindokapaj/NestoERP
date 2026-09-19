@@ -4,31 +4,8 @@ import { useState, useTransition, type ReactNode } from "react";
 import { ChevronDown, LogIn, TriangleAlert } from "lucide-react";
 
 import { signInAsDemoAccountAction } from "@/lib/actions/demo";
+import type { DemoAccountOption, DemoRosterOption } from "@/lib/auth/demo-tenants";
 import { cn } from "@/lib/utils/cn";
-
-export type DemoAccountOption = {
-  code: string;
-  label: string;
-  assignment: string;
-  username: string;
-};
-
-/** A heading and its personas: the level they work at (E-06 §59), or one company of a demo tenant. */
-export type DemoSectionOption = {
-  name: string;
-  accounts: DemoAccountOption[];
-  /** Folded under its heading until opened. */
-  folded?: boolean;
-};
-
-/** One demo's personas: a demo tenant read from its data (D-01 §87), or the curated five-company demo. */
-export type DemoRosterOption = {
-  name: string;
-  /** What is inside while it is folded. */
-  summary: string;
-  sections: DemoSectionOption[];
-  folded?: boolean;
-};
 
 /**
  * Development-only account picker (spec §65, §66).
@@ -38,7 +15,8 @@ export type DemoRosterOption = {
  * its busiest company open and the others folded, then the curated five-company
  * demo, folded. The password lives on the server: the button sends only a
  * username to signInAsDemoAccountAction, which accepts nothing but a curated
- * persona or a demo tenant's login.
+ * persona or a demo tenant's login. Once inside, the top bar's demo user
+ * switcher offers the same roster (C-01 §41).
  *
  * The login page renders this solely when the app is built in development.
  */

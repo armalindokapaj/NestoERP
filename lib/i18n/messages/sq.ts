@@ -254,7 +254,6 @@ export const sq: Messages = {
       position: "Pozicioni",
       department: "Departamenti",
       company: "Kompania",
-      devOverride: "Rol zhvillimi — roli i vërtetë {role}",
       phone: "Telefoni",
       username: "Emri i përdoruesit",
       usernameHint: "Me këtë hyni në sistem. Administratori juaj mund ta ndryshojë.",
@@ -508,6 +507,8 @@ export const sq: Messages = {
       sessionExpired: "Seanca juaj skadoi. Ju lutemi hyni përsëri.",
       accountUnavailable:
         "Llogaria juaj nuk është e disponueshme për momentin. Kontaktoni administratorin tuaj.",
+      demoSwitchFailed:
+        "Ndërrimi i përdoruesit demo ju nxori nga llogaria, por nuk ju futi si personi që zgjodhët. Hyni përsëri.",
       password: "Fjalëkalimi",
       submit: "Hyr",
       submitting: "Duke hyrë…",

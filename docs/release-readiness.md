@@ -2558,3 +2558,89 @@ without it. PostgreSQL cannot drop an enum value in place.
   were applied at the owner's request, after a backup and a rehearsal on a copy
   of it. Seven personas were renamed, Tedi Gogu was added, and every data gate
   is clean.
+
+## 33. Correction C-01 — a demo user switch replaces the session
+
+Correction PRD C-01 removes the development role override and puts a demo
+user switch in its place. Choosing another demo user now signs out and signs in
+as them. [ADR 0010](adr/0010-c01-demo-user-switch.md) records the decisions.
+No migration and no data change: only code.
+
+### 33.1 What changed
+
+| Before | Now |
+| --- | --- |
+| The top bar's flask chip picked a **role**. A cookie (`nesto.dev-role`) replaced the membership's role in the context, while user, session, membership and company stayed the signed-in person's. So a page could read "Armand Lilo" and "Viewing as QA/QC" together | The chip is **Switch user**, and it picks a **person**. The current session row is deleted and its sign-out recorded. The target is signed in through the credentials provider, as the form would sign them in, and the browser loads their landing page from scratch |
+| The context carried `actualRole` and `roleIsOverridden`. An override dropped the person's position and grants | `context.role` is always the membership's role (§6). The override option, `resolveRole`, both fields, the profile badge and "Viewing as" are gone |
+| — | The switcher lists the sign-in page's roster, by name: each demo tenant's people read from its data, then the curated personas. It searches by name, username, title, role or company, marks the account signed in, shows the chosen row as busy, and reports errors in place. It appears in the business top bar and in the Platform Admin's header |
+| The sign-in picker and any in-app control each decided who counted as a demo account | One rule, `resolveDemoAccountTarget`, for both. It accepts a curated persona or an active login of a demo tenant. It checks the account is active, has somewhere to sign in to (`signInWorkspace`, shared with the credentials check), and uses the demo password. Anything else is "unknown", whether or not it exists |
+| The access debugger showed "role (override — actually X)" | It shows user, session and membership ids, role, position, department, assignments, grants and the effective permission count |
+| `isDevMode` lived in `lib/auth/dev-role.ts` | `lib/auth/dev-mode.ts`. `dev-role.ts`, `lib/actions/dev.ts` and the role switcher component are deleted |
+
+### 33.2 The evidence
+
+- **vitest on the D-03 test database: 3 937 passed, 0 failed**, 11 skipped.
+  That includes C-01's own tests:
+  - The switch, 18 tests:
+    - Owner → Finance head (Edvin Gace): a new user and a new session; the
+      old session is gone and resolves to "expired". Finance permissions are
+      present, the Owner's `audit.view` is absent, and the Finance head's
+      dashboard is shown.
+    - The switched session starts in the membership and company the form
+      would choose.
+    - Owner → Architecture head (Besar Zifla) and Owner → HSE head (Arted
+      Ballaj).
+    - Owner → Tedi Gogu, who lists Eyes of Tirana only and cannot open Tirana
+      Lake.
+    - Finance → Owner gives a context equal to a fresh sign-in's.
+    - To the Platform Admin and back: the platform session has no membership
+      and no company.
+    - The `LOGOUT` record carries `DEMO_USER_SWITCH` and the target. The
+      `LOGIN_SUCCESS` record is the new session's.
+    - A stale `nesto.dev-role=QAQC` cookie is deleted and changes nothing.
+    - Choosing the account already signed in is a no-op.
+    - Company switching keeps the same person and session. A switch away
+      and back starts in the default company again.
+    - Refusals that touch nothing: an unknown username, a customer login
+      outside every demo, a fixture's owner, an inactive login, a login whose
+      only company is suspended, a login with a password of its own, and any
+      call outside development.
+    - A sign-in that fails after the old session ended sends the browser to
+      sign in.
+  - `demo-sign-in`: every demo account's context role equals its membership's
+    role, under its own name (§71). The switcher's roster is the sign-in
+    page's, with names.
+  - `no-role-override`: no retired name or "Viewing as" anywhere in the
+    product, and the old cookie named only where it is deleted.
+- **E2E on the production build.**
+  - Started with `APP_ENV=development`: `demo-user-switch` passes 5 of 5,
+    in a browser:
+    - Owner → Edvin Gace from the profile page lands on his dashboard, not
+      the profile. The Owner's saved cookie then opens nothing.
+    - Owner → Tedi Gogu, who sees only his project.
+    - To the Platform Admin and back.
+    - The signed-in account is marked, and choosing it keeps the session.
+    - Switching company keeps the user and the session ids.
+  - As an ordinary production build: auth, the four role specs (every role's
+    dashboard and navigation), platform admin, multi-company projects,
+    organization group and access, the ARMAAR dashboard and people links pass
+    71 of 71. The switcher spec skips itself there, as intended.
+- **verify:roles** against the production build: 1 715 of 1 715.
+- **Gates:**
+  - `verify:production-guards`: new checks that the switcher is rendered only
+    behind `isDevMode`, and that every demo action begins with an `isDevMode`
+    refusal.
+  - `verify:authorization`, `security:matrix --check` (`switchDemoUserAction`
+    in place of `setDevRoleAction`) and ownership all pass.
+  - The demo, organization, employment, employee-integrity and
+    company-integrity data gates are clean.
+  - Typecheck and lint are clean.
+
+### 33.3 Limits
+
+- **A role that no demo person holds cannot be viewed.** That is the point of
+  the correction: to see a Finance head's product, become one.
+- **The switch E2E needs a server in development mode.** An ordinary
+  production run skips it, as the sign-in picker's panel always has.
+- **Every switch writes a sign-out and a sign-in** to the authentication log.
+  A developer's afternoon of switching shows there.
