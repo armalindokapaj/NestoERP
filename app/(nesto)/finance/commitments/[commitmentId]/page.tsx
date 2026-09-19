@@ -6,6 +6,7 @@ import { ApprovalHistory } from "@/components/finance/approval-history";
 import { CommitmentActions } from "@/components/finance/commitment-actions";
 import { Money } from "@/components/finance/money";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import { formatDate, orDash } from "@/lib/utils/format";
@@ -117,7 +118,7 @@ export default async function CommitmentDetailPage({ params }: Params) {
                 label: "Expected",
                 value: commitment.expectedDate ? formatDate(commitment.expectedDate) : "—",
               },
-              { label: "Raised by", value: orDash(commitment.createdBy?.fullName) },
+              { label: "Raised by", value: commitment.createdBy ? <PersonLink memberId={commitment.createdBy.memberId} name={commitment.createdBy.fullName} /> : "—" },
             ]}
           />
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { ProjectInductions } from "@/components/workforce/project-inductions";
 import { SitesManager } from "@/components/workforce/sites-manager";
@@ -117,9 +118,7 @@ export default async function ProjectWorkforcePage({ params }: Params) {
               {assigned.map((row) => (
                 <TableRow key={row.id} data-testid="project-worker" data-worker-name={row.worker.name}>
                   <TableCell className="font-medium">
-                    <Link className="hover:underline" href={`/people/${row.worker.personId}?tab=workforce`}>
-                      {row.worker.name}
-                    </Link>
+                    <PersonLink personId={row.worker.personId} name={row.worker.name} tab="workforce" />
                     {row.isPrimary ? <span className="ml-2 text-meta text-fg-subtle">main project</span> : null}
                   </TableCell>
                   <TableCell>{orDash(row.tradeName)}</TableCell>

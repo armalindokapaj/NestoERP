@@ -6,6 +6,7 @@ import { Check, CheckCheck, Loader2, RotateCcw } from "lucide-react";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { relativeTime } from "@/components/layout/notifications-menu";
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import type { NotificationPage } from "@/lib/core/notifications/notification.service";
 import { cn } from "@/lib/utils/cn";
@@ -109,6 +110,7 @@ export function NotificationCenter({ initial, readState }: { initial: Notificati
                     content
                   )}
                   <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-fg-subtle">
+                    {item.actorMemberId ? <PersonLink memberId={item.actorMemberId} name={item.actorName} variant="compact" /> : null}
                     <time dateTime={item.createdAt}>{relativeTime(item.createdAt, locale)}</time>
                     {item.priority === "CRITICAL" ? <span className="font-semibold text-danger-strong">{t("critical")}</span> : null}
                     {item.priority === "HIGH" ? <span className="font-medium text-warning-strong">{t("high")}</span> : null}

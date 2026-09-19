@@ -1344,6 +1344,9 @@ describe("export (PRD #16 §146, §147)", () => {
 
     expect(file.csv).not.toContain("Reason");
     expect(file.csv).not.toContain("Flu");
+    // Who decided, by name — never a membership id (E-08).
+    expect(file.csv).not.toContain("member_hr");
+    expect(file.csv).toContain("Hannah Reed");
   });
 
   it("refuses an export to a role without the grant", async () => {

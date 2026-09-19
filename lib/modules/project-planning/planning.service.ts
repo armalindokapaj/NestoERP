@@ -539,12 +539,12 @@ export async function getMilestone(context: UserContext, milestoneId: string): P
   let documents: MilestoneDetailDTO["documents"] = null;
   if (capabilities.canViewDocuments) {
     const { data } = await listDocuments(context, documentListQuerySchema.parse({ entityType: RECORD, entityId: row.id, limit: 100 })).catch(() => ({ data: [] }));
-    documents = data.map((document) => ({ documentId: document.id, name: document.name, fileName: document.originalFileName, extension: document.extension, uploadedAt: document.createdAt, uploadedBy: document.uploadedBy?.fullName ?? null, href: `/documents/${document.id}` }));
+    documents = data.map((document) => ({ documentId: document.id, name: document.name, fileName: document.originalFileName, extension: document.extension, uploadedAt: document.createdAt, uploadedBy: document.uploadedBy?.fullName ?? null, uploadedByMemberId: document.uploadedBy?.memberId ?? null, href: `/documents/${document.id}` }));
   }
 
   const history: PlanningHistoryEntry[] = activities
     .filter((entry) => HISTORY[entry.action])
-    .map((entry) => ({ id: entry.id, action: HISTORY[entry.action], actorName: person(entry.actorMemberId)?.name ?? null, occurredAt: entry.createdAt.toISOString(), note: (entry.metadata as { note?: string } | null)?.note ?? null }));
+    .map((entry) => ({ id: entry.id, action: HISTORY[entry.action], actorName: person(entry.actorMemberId)?.name ?? null, actorMemberId: person(entry.actorMemberId)?.memberId ?? null, occurredAt: entry.createdAt.toISOString(), note: (entry.metadata as { note?: string } | null)?.note ?? null }));
 
   const date = dated(row);
   const earliest = earliestAfter(predecessorEdges.map((edge) => relatedById.get(edge.predecessorMilestoneId)).map((other, index) => (other ? { ...dated(other), lagDays: predecessorEdges[index].lagDays } : null)).filter((value): value is DatedMilestone & { lagDays: number } => Boolean(value)));

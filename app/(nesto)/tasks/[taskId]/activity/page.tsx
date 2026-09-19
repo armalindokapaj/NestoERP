@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Pagination } from "@/components/data/pagination";
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { History } from "lucide-react";
 
@@ -57,7 +58,7 @@ export default async function TaskActivityPage({ params, searchParams }: Params)
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
-                  <span className="font-medium">{entry.actor ?? "Someone"}</span>{" "}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">

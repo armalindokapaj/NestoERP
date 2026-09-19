@@ -137,8 +137,9 @@ export async function listLeave(context: UserContext, query: LeaveListQuery) {
     prisma.leaveRequest.count({ where }),
   ]);
 
+  const deciders = await deciderNames(context.companyId, rows);
   return {
-    data: rows.map((row) => toDTO(context, row)),
+    data: rows.map((row) => toDTO(context, row, deciders)),
     pagination: paginationMeta(total, query.page, query.limit),
   };
 }
@@ -162,7 +163,7 @@ export async function getLeave(
     throw new AccessError("NOT_FOUND");
   }
 
-  return toDTO(context, row);
+  return toDTO(context, row, await deciderNames(context.companyId, [row]));
 }
 
 /** An employee's balances for a year (PRD #16 §79). */
@@ -729,7 +730,18 @@ async function assertSufficientBalance(
 /* DTO                                                                         */
 /* -------------------------------------------------------------------------- */
 
-function toDTO(context: UserContext, row: LeaveRow): LeaveRequestDTO {
+/** Who decided each request, by name, read inside the reader's company (E-08 §82). */
+async function deciderNames(companyId: string, rows: LeaveRow[]): Promise<Map<string, string>> {
+  const ids = [...new Set(rows.map((row) => row.approvedByMemberId ?? row.rejectedByMemberId).filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return new Map();
+  const members = await prisma.companyMember.findMany({
+    where: { companyId, id: { in: ids } },
+    select: { id: true, user: { select: { firstName: true, lastName: true } } },
+  });
+  return new Map(members.map((member) => [member.id, `${member.user.firstName} ${member.user.lastName}`]));
+}
+
+function toDTO(context: UserContext, row: LeaveRow, deciders: Map<string, string>): LeaveRequestDTO {
   const own = isSelf(context, row.employeeProfile.companyMemberId);
   const person = row.employeeProfile.personProfile;
   const user = row.employeeProfile.companyMember?.user ?? null;
@@ -760,6 +772,8 @@ function toDTO(context: UserContext, row: LeaveRow): LeaveRequestDTO {
     status: row.status,
     submittedAt: row.submittedAt?.toISOString() ?? null,
     decidedBy,
+    decidedByMemberId: decidedBy,
+    decidedByName: decidedBy ? (deciders.get(decidedBy) ?? null) : null,
     decidedAt: decidedAt?.toISOString() ?? null,
     decisionNote: row.decisionNote,
     updatedAt: row.updatedAt.toISOString(),

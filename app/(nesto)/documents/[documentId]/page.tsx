@@ -3,6 +3,7 @@ import Link from "next/link";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { DocumentActions } from "@/components/documents/document-actions";
 import { DocumentFilePanel } from "@/components/documents/document-file-panel";
 import { DocumentVersions } from "@/components/documents/document-versions";
@@ -64,7 +65,10 @@ export default async function DocumentDetailPage({ params }: Params) {
                 document.context.label
               ),
           },
-          { label: "Uploaded by", value: document.uploadedBy?.fullName ?? "—" },
+          {
+            label: "Uploaded by",
+            value: document.uploadedBy ? <PersonLink memberId={document.uploadedBy.memberId} name={document.uploadedBy.fullName} /> : "—",
+          },
           {
             label: "Size",
             value: formatFileSize(
@@ -168,7 +172,7 @@ export default async function DocumentDetailPage({ params }: Params) {
                   {activity.data.map((entry) => (
                     <li key={entry.id} className="text-table">
                       <p className="text-fg">
-                        <span className="font-medium">{entry.actor ?? "Someone"}</span>{" "}
+                        {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
                         {entry.message ?? entry.action}
                       </p>
                       <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>

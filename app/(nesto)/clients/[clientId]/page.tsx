@@ -5,6 +5,7 @@ import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { ClientActions } from "@/components/clients/client-actions";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { clientTypeLabels } from "@/lib/modules/clients/client.status";
 import * as clients from "@/lib/modules/clients/client.service";
@@ -241,7 +242,7 @@ export default async function ClientOverviewPage({ params }: Params) {
                   {activity.data.map((entry) => (
                     <li key={entry.id} className="text-table">
                       <p className="text-fg">
-                        <span className="font-medium">{entry.actor ?? "Someone"}</span>{" "}
+                        {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
                         {entry.message ?? entry.action}
                       </p>
                       <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>

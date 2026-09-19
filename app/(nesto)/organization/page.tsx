@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Fragment, type ReactNode } from "react";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { can } from "@/lib/access/can";
@@ -12,8 +14,15 @@ import { getOrganizationOverview, type PersonRefDTO } from "@/lib/modules/organi
 
 export const metadata: Metadata = { title: "Organization" };
 
-function names(people: PersonRefDTO[]): string {
-  return people.length === 0 ? "—" : people.map((person) => person.name).join(", ");
+function names(people: PersonRefDTO[]): ReactNode {
+  return people.length === 0
+    ? "—"
+    : people.map((person, index) => (
+        <Fragment key={person.userId}>
+          {index > 0 ? ", " : null}
+          <PersonLink userId={person.userId} name={person.name} />
+        </Fragment>
+      ));
 }
 
 export default async function OrganizationPage() {

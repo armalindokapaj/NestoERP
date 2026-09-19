@@ -117,7 +117,7 @@ export type UnitPublishingCapabilities = {
 export type UnitPublishingDTO = {
   status: UnitPublicationStatus;
   statusChangedAt: string | null;
-  currentPublication: { id: string; versionNumber: number; publishedAt: string; publishedBy: string | null } | null;
+  currentPublication: { id: string; versionNumber: number; publishedAt: string; publishedBy: string | null; publishedByMemberId: string } | null;
   hasUnpublishedChanges: boolean;
   revisionReason: string | null;
   pendingRequest: PublicationRequestDTO | null;
@@ -130,6 +130,7 @@ export type PublicationSummaryDTO = {
   versionNumber: number;
   publishedAt: string;
   publishedBy: string | null;
+  publishedByMemberId: string;
   isCurrent: boolean;
   salesPlanVersionNumber: number | null;
 };

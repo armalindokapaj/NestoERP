@@ -10,6 +10,7 @@ import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
@@ -67,7 +68,14 @@ export default async function InspectionPage({ params }: Params) {
         }
         meta={[
           { label: "Project", value: inspection.project?.code ?? "Company-wide" },
-          { label: "Inspector", value: inspection.assignedInspector?.fullName ?? "—" },
+          {
+            label: "Inspector",
+            value: inspection.assignedInspector ? (
+              <PersonLink memberId={inspection.assignedInspector.memberId} name={inspection.assignedInspector.fullName} />
+            ) : (
+              "—"
+            ),
+          },
           {
             label: "Scheduled",
             value: inspection.scheduledDate ? formatDate(inspection.scheduledDate) : "—",
@@ -169,16 +177,33 @@ export default async function InspectionPage({ params }: Params) {
                     ? formatDate(inspection.inspectionDate)
                     : "—",
                 },
-                { label: "Carried out by", value: inspection.executedBy?.fullName ?? "—" },
+                {
+                  label: "Carried out by",
+                  value: inspection.executedBy ? (
+                    <PersonLink memberId={inspection.executedBy.memberId} name={inspection.executedBy.fullName} />
+                  ) : (
+                    "—"
+                  ),
+                },
                 {
                   label: "Submitted",
                   value: inspection.submittedAt ? formatDateTime(inspection.submittedAt) : "—",
                 },
                 {
                   label: "Approved",
-                  value: inspection.approvedAt
-                    ? `${formatDate(inspection.approvedAt)}${inspection.approvedBy ? ` by ${inspection.approvedBy.fullName}` : ""}`
-                    : "—",
+                  value: inspection.approvedAt ? (
+                    <>
+                      {formatDate(inspection.approvedAt)}
+                      {inspection.approvedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={inspection.approvedBy.memberId} name={inspection.approvedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    "—"
+                  ),
                 },
                 {
                   label: "Closed",

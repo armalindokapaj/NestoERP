@@ -90,6 +90,7 @@ export type ClientActivityDTO = {
   action: string;
   message: string | null;
   actor: string | null;
+  actorMemberId: string | null;
   createdAt: string;
 };
 

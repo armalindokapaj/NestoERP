@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, Check, CornerUpRight, GripVertical, Loader2, Pencil, Plus, SkipForward, Trash2 } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -240,7 +241,11 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                         {done ? <span className="ml-2 text-meta font-normal text-fg-subtle">{AGENDA_STATUS_LABELS[item.status]}</span> : null}
                         {isCurrent ? <span className="ml-2 text-meta font-medium text-accent-strong">Now</span> : null}
                       </p>
-                      <p className="mt-0.5 text-meta text-fg-subtle">{[item.presenter?.fullName, item.plannedMinutes ? `${item.plannedMinutes} min` : null].filter(Boolean).join(" · ")}</p>
+                      <p className="mt-0.5 text-meta text-fg-subtle">
+                        {item.presenter ? <PersonLink memberId={item.presenter.memberId} name={item.presenter.fullName} /> : null}
+                        {item.presenter && item.plannedMinutes ? " · " : null}
+                        {item.plannedMinutes ? `${item.plannedMinutes} min` : null}
+                      </p>
                       {item.description ? <PlainText text={item.description} className="mt-1.5 text-table text-fg-muted" /> : null}
 
                       {editable && (live || meeting.status === "COMPLETED") ? (

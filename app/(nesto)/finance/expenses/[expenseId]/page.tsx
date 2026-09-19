@@ -7,6 +7,7 @@ import { ExpenseActions } from "@/components/finance/expense-actions";
 import { Money } from "@/components/finance/money";
 import { PaymentTable } from "@/components/finance/payment-table";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
@@ -100,7 +101,7 @@ export default async function ExpenseDetailPage({ params }: Params) {
               { label: "Payee", value: orDash(expense.payeeName) },
               { label: "Reference", value: orDash(expense.expenseNumber) },
               { label: "Currency", value: expense.currency },
-              { label: "Raised by", value: orDash(expense.createdBy?.fullName) },
+              { label: "Raised by", value: expense.createdBy ? <PersonLink memberId={expense.createdBy.memberId} name={expense.createdBy.fullName} /> : "—" },
             ]}
           />
 

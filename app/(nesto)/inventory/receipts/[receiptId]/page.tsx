@@ -8,10 +8,11 @@ import { SourceLink } from "@/components/inventory/document-tables";
 import { InventoryActivityFeed } from "@/components/inventory/record-activity";
 import { InventoryRecordDocuments } from "@/components/inventory/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as receipts from "@/lib/modules/inventory/documents/receipt.service";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ receiptId: string }> };
 
@@ -117,9 +118,9 @@ export default async function ReceiptPage({ params }: Params) {
               className="mt-4"
               items={[
                 { label: "Warehouse", value: receipt.warehouse.name },
-                { label: "Drafted by", value: orDash(receipt.createdBy?.fullName ?? null) },
+                { label: "Drafted by", value: receipt.createdBy ? <PersonLink memberId={receipt.createdBy.memberId} name={receipt.createdBy.fullName} /> : "—" },
                 { label: "Drafted", value: formatDateTime(receipt.createdAt) },
-                { label: "Posted by", value: orDash(receipt.postedBy?.fullName ?? null) },
+                { label: "Posted by", value: receipt.postedBy ? <PersonLink memberId={receipt.postedBy.memberId} name={receipt.postedBy.fullName} /> : "—" },
                 {
                   label: "Posted",
                   value: receipt.postedAt ? formatDateTime(receipt.postedAt) : "—",

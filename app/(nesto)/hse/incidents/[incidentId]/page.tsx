@@ -14,6 +14,7 @@ import { hseEmploymentOptions, listIncidentPeople } from "@/lib/modules/hse/hse.
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
 import { RecordTasks } from "@/components/tasks/record-tasks";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as incidents from "@/lib/modules/hse/incidents/incident.service";
@@ -70,10 +71,21 @@ export default async function IncidentPage({ params }: Params) {
         meta={[
           { label: "Project", value: incident.project?.code ?? "Company-wide" },
           { label: "Occurred", value: formatDateTime(incident.occurredAt) },
-          { label: "Reported by", value: incident.reportedBy?.fullName ?? "—" },
+          {
+            label: "Reported by",
+            value: incident.reportedBy ? (
+              <PersonLink memberId={incident.reportedBy.memberId} name={incident.reportedBy.fullName} />
+            ) : (
+              "—"
+            ),
+          },
           {
             label: "Investigator",
-            value: incident.investigator?.fullName ?? "Not assigned",
+            value: incident.investigator ? (
+              <PersonLink memberId={incident.investigator.memberId} name={incident.investigator.fullName} />
+            ) : (
+              "Not assigned"
+            ),
           },
         ]}
         actions={
@@ -201,7 +213,16 @@ export default async function IncidentPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Reported by" value={orDash(incident.reportedBy?.fullName ?? null)} />
+              <Meta
+                label="Reported by"
+                value={
+                  incident.reportedBy ? (
+                    <PersonLink memberId={incident.reportedBy.memberId} name={incident.reportedBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Raised" value={formatDateTime(incident.createdAt)} />
               {incident.dueDate ? (
                 <Meta label="Due" value={formatDate(incident.dueDate)} />
@@ -215,7 +236,17 @@ export default async function IncidentPage({ params }: Params) {
               {incident.closedAt ? (
                 <Meta
                   label="Closed"
-                  value={`${formatDateTime(incident.closedAt)}${incident.closedBy ? ` by ${incident.closedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(incident.closedAt)}
+                      {incident.closedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={incident.closedBy.memberId} name={incident.closedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {incident.closureNote ? (

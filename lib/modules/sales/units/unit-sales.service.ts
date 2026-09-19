@@ -168,8 +168,9 @@ export async function getUnitSales(context: UserContext, unitId: string): Promis
     currency: row.currency,
     notes: row.notes,
     salesperson: names.get(row.createdByMemberId) ?? null,
+    salespersonMemberId: row.createdByMemberId,
     version: row.version,
-    extensions: row.extensions.map((extension) => ({ oldExpiresAt: extension.oldExpiresAt.toISOString(), newExpiresAt: extension.newExpiresAt.toISOString(), reason: extension.reason, extendedBy: names.get(extension.extendedByMemberId) ?? null, extendedAt: extension.extendedAt.toISOString() })),
+    extensions: row.extensions.map((extension) => ({ oldExpiresAt: extension.oldExpiresAt.toISOString(), newExpiresAt: extension.newExpiresAt.toISOString(), reason: extension.reason, extendedBy: names.get(extension.extendedByMemberId) ?? null, extendedByMemberId: extension.extendedByMemberId, extendedAt: extension.extendedAt.toISOString() })),
   });
   const active = reservations.find((row) => row.status === "ACTIVE") ?? null;
   const status = profile?.status ?? "NOT_FOR_SALE";
@@ -192,14 +193,15 @@ export async function getUnitSales(context: UserContext, unitId: string): Promis
     holdReason: profile?.holdReason ?? null,
     holdUntil: profile?.holdUntil?.toISOString() ?? null,
     heldBy: profile?.heldByMemberId ? (names.get(profile.heldByMemberId) ?? null) : null,
+    heldByMemberId: profile?.heldByMemberId ?? null,
     salesNotes: profile?.salesNotes ?? null,
     version: profile?.version ?? 0,
     sellable: verdict.sellable,
     sellableReason: verdict.reason,
     activeReservation: active ? toReservation(active) : null,
     reservations: reservations.map(toReservation),
-    priceHistory: prices.map((row) => ({ id: row.id, oldPrice: moneyText(row.oldPrice), newPrice: moneyText(row.newPrice), oldCurrency: row.oldCurrency, currency: row.currency, priceBasis: row.priceBasis, reason: row.reason, changedBy: names.get(row.changedByMemberId) ?? null, changedAt: row.changedAt.toISOString() })),
-    statusHistory: trail.map((row) => ({ id: row.id, fromStatus: row.fromStatus, toStatus: row.toStatus, reason: row.reason, source: row.source, actor: row.actorMemberId ? (names.get(row.actorMemberId) ?? null) : null, changedAt: row.changedAt.toISOString() })),
+    priceHistory: prices.map((row) => ({ id: row.id, oldPrice: moneyText(row.oldPrice), newPrice: moneyText(row.newPrice), oldCurrency: row.oldCurrency, currency: row.currency, priceBasis: row.priceBasis, reason: row.reason, changedBy: names.get(row.changedByMemberId) ?? null, changedByMemberId: row.changedByMemberId, changedAt: row.changedAt.toISOString() })),
+    statusHistory: trail.map((row) => ({ id: row.id, fromStatus: row.fromStatus, toStatus: row.toStatus, reason: row.reason, source: row.source, actor: row.actorMemberId ? (names.get(row.actorMemberId) ?? null) : null, actorMemberId: row.actorMemberId, changedAt: row.changedAt.toISOString() })),
     deals: caps.canSeeDeals ? links.map((link) => ({ id: link.opportunityId, name: link.opportunity.name, agreedPrice: moneyText(link.agreedPrice), currency: link.currency })) : [],
     soldCheck: canMarkUnitSold({
       status,

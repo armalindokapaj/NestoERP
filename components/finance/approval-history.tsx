@@ -1,4 +1,5 @@
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { FinanceApprovalDTO } from "@/lib/modules/finance/finance.types";
 import { formatDateTime } from "@/lib/utils/format";
 
@@ -25,7 +26,7 @@ export function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[]
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={approval.status} />
             <span className="text-table text-fg">
-              Submitted by {approval.submittedBy.fullName}
+              Submitted by <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} />
             </span>
           </div>
           <p className="mt-0.5 text-meta text-fg-subtle">
@@ -36,7 +37,7 @@ export function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[]
             <div className="mt-2 border-l-2 border-line pl-3">
               <p className="text-table text-fg">
                 {approval.status === "APPROVED" ? "Approved" : "Rejected"} by{" "}
-                {approval.decision.fullName}
+                <PersonLink memberId={approval.decision.memberId} name={approval.decision.fullName} />
               </p>
               <p className="mt-0.5 text-meta text-fg-subtle">
                 {formatDateTime(approval.decision.decidedAt)}

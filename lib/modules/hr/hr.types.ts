@@ -108,6 +108,7 @@ export type CompensationDTO = {
   isCurrent: boolean;
   notes: string | null;
   recordedBy: string | null;
+  recordedByMemberId: string | null;
   createdAt: string;
 };
 
@@ -125,7 +126,10 @@ export type LeaveRequestDTO = {
   reason?: string | null;
   status: LeaveRequestStatus;
   submittedAt: string | null;
+  /** The deciding member's id (kept as it was); `decidedByMemberId` repeats it beside the name. */
   decidedBy: string | null;
+  decidedByMemberId: string | null;
+  decidedByName: string | null;
   decidedAt: string | null;
   decisionNote: string | null;
   updatedAt: string;
@@ -195,6 +199,7 @@ export type HrActivityDTO = {
   action: string;
   message: string | null;
   actor: string | null;
+  actorMemberId: string | null;
   createdAt: string;
 };
 

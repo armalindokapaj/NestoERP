@@ -1,5 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { leadSourceLabels } from "@/lib/modules/sales/leads/lead.status";
 import type { LeadSummaryDTO } from "@/lib/modules/sales/sales.types";
 import { formatDate } from "@/lib/utils/format";
@@ -39,7 +40,7 @@ export function LeadTable({ leads }: { leads: LeadSummaryDTO[] }) {
       render: (lead) =>
         lead.owner ? (
           <span className={lead.owner.active ? undefined : "text-fg-subtle"}>
-            {lead.owner.fullName}
+            <PersonLink memberId={lead.owner.memberId} name={lead.owner.fullName} />
             {lead.owner.active ? "" : " (inactive)"}
           </span>
         ) : (

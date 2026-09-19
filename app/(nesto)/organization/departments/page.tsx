@@ -7,6 +7,7 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { ModulePage } from "@/components/modules/module-page";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { NewDepartmentButton } from "@/components/organization/department-actions";
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
@@ -47,7 +48,7 @@ export default async function DepartmentsPage({ searchParams }: Props) {
       ),
     },
     { key: "code", label: "Code", render: (department) => <span className="font-mono text-meta text-fg-muted">{department.code}</span> },
-    { key: "head", label: "Group head", render: (department) => department.groupHead?.name ?? <span className="text-fg-subtle">No head</span> },
+    { key: "head", label: "Group head", render: (department) => (department.groupHead ? <PersonLink personId={department.groupHead.personId} name={department.groupHead.name} /> : <span className="text-fg-subtle">No head</span>) },
     { key: "companies", label: "Active companies", align: "right", render: (department) => <span className="tabular-nums">{department.activeCompanyCount}</span> },
     { key: "members", label: "People", align: "right", hideBelow: "lg", render: (department) => <span className="tabular-nums">{department.memberCount}</span> },
     { key: "status", label: "Status", render: (department) => <StatusBadge status={department.status} /> },

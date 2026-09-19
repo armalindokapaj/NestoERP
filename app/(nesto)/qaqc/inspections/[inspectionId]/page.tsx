@@ -11,6 +11,7 @@ import {
 } from "@/components/qaqc/qaqc-tables";
 import { DetailGrid } from "@/components/modules/record-header";
 import { Button } from "@/components/ui/button";
+import { PersonLink } from "@/components/people/person-link";
 import { requireModule } from "@/lib/context/current-user";
 import * as inspectionService from "@/lib/modules/qaqc/inspections/inspection.service";
 import * as materials from "@/lib/modules/qaqc/materials/material.service";
@@ -210,22 +211,60 @@ export default async function InspectionPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Created by" value={orDash(inspection.createdBy?.fullName ?? null)} />
+              <Meta
+                label="Created by"
+                value={
+                  inspection.createdBy ? (
+                    <PersonLink memberId={inspection.createdBy.memberId} name={inspection.createdBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Created" value={formatDateTime(inspection.createdAt)} />
-              <Meta label="Carried out by" value={orDash(inspection.executedBy?.fullName ?? null)} />
+              <Meta
+                label="Carried out by"
+                value={
+                  inspection.executedBy ? (
+                    <PersonLink memberId={inspection.executedBy.memberId} name={inspection.executedBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               {inspection.submittedAt ? (
                 <Meta label="Submitted" value={formatDateTime(inspection.submittedAt)} />
               ) : null}
               {inspection.approvedAt ? (
                 <Meta
                   label="Approved"
-                  value={`${formatDateTime(inspection.approvedAt)}${inspection.approvedBy ? ` by ${inspection.approvedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(inspection.approvedAt)}
+                      {inspection.approvedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={inspection.approvedBy.memberId} name={inspection.approvedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {inspection.rejectedAt ? (
                 <Meta
                   label="Rejected"
-                  value={`${formatDateTime(inspection.rejectedAt)}${inspection.rejectedBy ? ` by ${inspection.rejectedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(inspection.rejectedAt)}
+                      {inspection.rejectedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={inspection.rejectedBy.memberId} name={inspection.rejectedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {inspection.closedAt ? (

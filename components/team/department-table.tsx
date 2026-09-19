@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { DepartmentSummaryDTO } from "@/lib/modules/team/team.types";
 import { orDash } from "@/lib/utils/format";
 
@@ -41,7 +42,7 @@ export function DepartmentTable({ departments, linkToOrganization }: { departmen
       render: (department) =>
         department.manager ? (
           <span className="text-fg-muted">
-            {department.manager.fullName}
+            <PersonLink memberId={department.manager.memberId} name={department.manager.fullName} />
             {/* A manager who has lost access is shown, not hidden: a stale org
                 chart is worse than an awkward one (PRD #14 §248). */}
             {department.manager.active ? "" : " (no longer active)"}

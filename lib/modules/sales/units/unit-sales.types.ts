@@ -98,8 +98,9 @@ export type ReservationDTO = {
   currency: string | null;
   notes: string | null;
   salesperson: string | null;
+  salespersonMemberId: string | null;
   version: number;
-  extensions: Array<{ oldExpiresAt: string; newExpiresAt: string; reason: string; extendedBy: string | null; extendedAt: string }>;
+  extensions: Array<{ oldExpiresAt: string; newExpiresAt: string; reason: string; extendedBy: string | null; extendedByMemberId: string | null; extendedAt: string }>;
 };
 
 export type SoldCheck = { allowed: boolean; missing: string[]; rule: UnitSoldRule };
@@ -128,6 +129,7 @@ export type UnitSalesDTO = {
   holdReason: string | null;
   holdUntil: string | null;
   heldBy: string | null;
+  heldByMemberId: string | null;
   salesNotes: string | null;
   version: number;
   /** Whether the unit may be put on sale or reserved now (§6): active and Published. */
@@ -135,8 +137,8 @@ export type UnitSalesDTO = {
   sellableReason: string | null;
   activeReservation: ReservationDTO | null;
   reservations: ReservationDTO[];
-  priceHistory: Array<{ id: string; oldPrice: string | null; newPrice: string | null; oldCurrency: string | null; currency: string | null; priceBasis: UnitPriceBasis; reason: string | null; changedBy: string | null; changedAt: string }>;
-  statusHistory: Array<{ id: string; fromStatus: UnitCommercialStatus | null; toStatus: UnitCommercialStatus; reason: string | null; source: keyof typeof COMMERCIAL_SOURCE_LABELS; actor: string | null; changedAt: string }>;
+  priceHistory: Array<{ id: string; oldPrice: string | null; newPrice: string | null; oldCurrency: string | null; currency: string | null; priceBasis: UnitPriceBasis; reason: string | null; changedBy: string | null; changedByMemberId: string | null; changedAt: string }>;
+  statusHistory: Array<{ id: string; fromStatus: UnitCommercialStatus | null; toStatus: UnitCommercialStatus; reason: string | null; source: keyof typeof COMMERCIAL_SOURCE_LABELS; actor: string | null; actorMemberId: string | null; changedAt: string }>;
   deals: Array<{ id: string; name: string | null; agreedPrice: string | null; currency: string | null }>;
   soldCheck: SoldCheck;
   /** The latest sale approval of the active reservation, when the rule asks for one. */

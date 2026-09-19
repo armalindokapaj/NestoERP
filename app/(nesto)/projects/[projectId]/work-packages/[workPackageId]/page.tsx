@@ -11,6 +11,7 @@ import { LinksPanel } from "@/components/engineering/links-panel";
 import { orNotFound } from "@/components/engineering/page-helpers";
 import { CommandBar } from "@/components/engineering/record-dialogs";
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { requireModule } from "@/lib/context/current-user";
 import { loadRecord } from "@/lib/core/records/record.registry";
 import { WORK_PACKAGE_STATUS_LABELS } from "@/lib/modules/contractors/contractor.types";
@@ -57,7 +58,7 @@ export default async function WorkPackagePage({ params }: Params) {
       <div className="flex flex-wrap items-center gap-2">
         <ReviewBadge status={wp.status} label={WORK_PACKAGE_STATUS_LABELS[wp.status]} testId="work-package-status" />
         {wp.discipline ? <span className="text-table text-fg-muted">{DISCIPLINE_LABELS[wp.discipline]}</span> : null}
-        {wp.completedAt ? <span className="text-table text-fg-muted">Completed{wp.completedBy ? ` by ${wp.completedBy.name}` : ""}</span> : null}
+        {wp.completedAt ? <span className="text-table text-fg-muted">Completed{wp.completedBy ? <> by <PersonLink memberId={wp.completedBy.id} name={wp.completedBy.name} /></> : null}</span> : null}
       </div>
       <MetricStrip className="xl:grid-cols-6">
         <Metric label="Open tasks" value={wp.counts.openTasks} />

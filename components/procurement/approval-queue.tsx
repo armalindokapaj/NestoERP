@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -81,7 +82,7 @@ export function ProcurementApprovalQueue({
               <p className="truncate text-table text-fg">{approval.recordTitle}</p>
 
               <p className="text-meta text-fg-subtle">
-                {approval.submittedBy?.fullName ?? "Somebody"} · submitted{" "}
+                {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : "Somebody"} · submitted{" "}
                 {formatDate(approval.submittedAt)}
                 {approval.project ? ` · ${approval.project.code}` : ""}
                 {showValue && approval.value ? ` · ${moneyLabel(approval.value)}` : ""}

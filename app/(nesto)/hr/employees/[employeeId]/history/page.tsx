@@ -6,6 +6,7 @@ import { CancelScheduledChange, CorrectHistoryRow } from "@/components/hr/employ
 import { EmploymentTimeline } from "@/components/hr/employment-timeline";
 import { EmployeeTabs } from "@/components/hr/employee-tabs";
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { assignmentReasonLabels, changeStatusLabels, changeTypeLabels, historySourceLabels, statusReasonLabels, workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
@@ -67,7 +68,11 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                   </p>
                   <p className="text-meta text-fg-muted">{change.summary}</p>
                   {change.failureReason ? <p className="text-meta text-danger-strong">{change.failureReason}</p> : null}
-                  {change.requestedBy ? <p className="text-meta text-fg-subtle">Scheduled by {change.requestedBy}</p> : null}
+                  {change.requestedBy ? (
+                    <p className="text-meta text-fg-subtle">
+                      Scheduled by <PersonLink userId={change.requestedByUserId} name={change.requestedBy} />
+                    </p>
+                  ) : null}
                 </div>
                 {change.canCancel ? <CancelScheduledChange employeeId={employeeId} changeId={change.id} label={`The ${changeTypeLabels[change.type].toLowerCase()} on ${formatDate(change.effectiveDate)}`} /> : null}
               </li>
@@ -109,7 +114,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                 <td className="py-2 pr-3 whitespace-nowrap">{period(row.startDate, row.endDate)}</td>
                 <td className="py-2 pr-3">{orDash(row.jobTitle)}</td>
                 <td className="py-2 pr-3">{orDash(row.department?.name)}</td>
-                <td className="py-2 pr-3">{orDash(row.manager?.name)}</td>
+                <td className="py-2 pr-3">{row.manager ? <PersonLink memberId={row.manager.memberId} name={row.manager.name} /> : "—"}</td>
                 <td className="py-2 pr-3">{orDash([row.workLocationType ? workLocationTypeLabels[row.workLocationType] : null, row.workLocation].filter(Boolean).join(", "))}</td>
                 <td className="py-2 pr-3">{employmentTypeLabels[row.employmentType]}</td>
                 <td className="py-2 pr-3">
@@ -125,7 +130,14 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                 </td>
                 {hr ? (
                   <td className="py-2 align-top text-meta">
-                    <span className="block no-underline">{historySourceLabels[row.source]}{row.createdBy ? ` · ${row.createdBy}` : ""}</span>
+                    <span className="block no-underline">{historySourceLabels[row.source]}
+                      {row.createdBy ? (
+                        <>
+                          {" · "}
+                          <PersonLink userId={row.createdByUserId} name={row.createdBy} />
+                        </>
+                      ) : null}
+                    </span>
                     {row.supersededAt ? <Badge tone="warning">Corrected</Badge> : null}
                     {row.correctionReason ? <span className="block text-fg-muted no-underline">Correction: {row.correctionReason}</span> : null}
                     {row.note ? <span className="block text-fg-muted no-underline">Note: {row.note}</span> : null}
@@ -161,7 +173,14 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                 {caps.canViewPrivateReason ? <td className="py-2 pr-3">{orDash(row.privateReason)}</td> : null}
                 {hr ? (
                   <td className="py-2 align-top text-meta">
-                    <span className="block no-underline">{historySourceLabels[row.source]}{row.createdBy ? ` · ${row.createdBy}` : ""}</span>
+                    <span className="block no-underline">{historySourceLabels[row.source]}
+                      {row.createdBy ? (
+                        <>
+                          {" · "}
+                          <PersonLink userId={row.createdByUserId} name={row.createdBy} />
+                        </>
+                      ) : null}
+                    </span>
                     {row.correctionReason ? <span className="block text-fg-muted no-underline">Correction: {row.correctionReason}</span> : null}
                     {!row.supersededAt && options ? <CorrectHistoryRow employeeId={employeeId} kind="STATUS" row={row} options={options} /> : null}
                   </td>

@@ -781,13 +781,14 @@ export async function listMeetingActivity(context: UserContext, meetingId: strin
     where: { companyId: context.companyId, entityType: ENTITY, entityId: meetingId },
     orderBy: { createdAt: "desc" },
     take: Math.min(limit, 100),
-    select: { id: true, action: true, message: true, createdAt: true, actorMember: { select: { user: { select: { firstName: true, lastName: true } } } } },
+    select: { id: true, action: true, message: true, createdAt: true, actorMemberId: true, actorMember: { select: { user: { select: { firstName: true, lastName: true } } } } },
   });
   return rows.map((row) => ({
     id: row.id,
     action: row.action,
     message: row.message,
     actor: row.actorMember ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}` : null,
+    actorMemberId: row.actorMemberId,
     createdAt: row.createdAt.toISOString(),
   }));
 }

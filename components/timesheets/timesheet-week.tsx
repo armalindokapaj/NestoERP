@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
+import { PersonLink } from "@/components/people/person-link";
 import { addLocalDays, dayLabel, formatMinutes, weekLabel } from "@/lib/modules/timesheets/timesheet.time";
 import { WORK_LOG_TYPE_LABELS, type TimesheetFormOptions, type TimesheetWeekDTO, type WorkLogDTO } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
@@ -414,13 +415,14 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
 }
 
 function StatusBanner({ week }: { week: TimesheetWeekDTO }) {
-  const decided = week.decidedBy?.name;
+  const decided = week.decidedBy ? <PersonLink memberId={week.decidedBy.memberId} name={week.decidedBy.name} /> : null;
+  const approver = week.approver ? <PersonLink memberId={week.approver.memberId} name={week.approver.name} /> : null;
   if (week.status === "SUBMITTED") {
     return (
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-table text-fg" role="status" data-testid="timesheet-banner">
         <Send className="size-4 text-info-strong" aria-hidden="true" />
         <span className="flex-1">
-          {week.capabilities.isOwn ? `Submitted${week.approver ? ` to ${week.approver.name}` : ""}. Its entries are locked until it is decided.` : `Waiting for ${week.approver?.name ?? "its approver"}.`}
+          {week.capabilities.isOwn ? <>Submitted{approver ? <> to {approver}</> : null}. Its entries are locked until it is decided.</> : <>Waiting for {approver ?? "its approver"}.</>}
         </span>
         {week.capabilities.approvalHref ? (
           <Button asChild size="sm">
@@ -437,7 +439,7 @@ function StatusBanner({ week }: { week: TimesheetWeekDTO }) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-table text-fg" role="status" data-testid="timesheet-banner">
         <Check className="size-4 text-success-strong" aria-hidden="true" />
-        <span>Approved{decided ? ` by ${decided}` : ""}. The week is locked.</span>
+        <span>Approved{decided ? <> by {decided}</> : null}. The week is locked.</span>
       </div>
     );
   }
@@ -446,7 +448,7 @@ function StatusBanner({ week }: { week: TimesheetWeekDTO }) {
       <div className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-table text-fg" role="status" data-testid="timesheet-banner">
         <p className="font-medium">
           {week.status === "RETURNED" ? "Returned for correction" : "Rejected"}
-          {decided ? ` by ${decided}` : ""}
+          {decided ? <> by {decided}</> : null}
         </p>
         {week.decisionNote ? <p className="mt-1 whitespace-pre-line text-fg-muted">“{week.decisionNote}”</p> : null}
         {week.capabilities.isOwn ? <p className="mt-1 text-fg-muted">Correct the week and submit it again.</p> : null}

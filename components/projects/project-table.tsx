@@ -2,15 +2,17 @@ import Link from "next/link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { ProjectSummaryDTO } from "@/lib/modules/projects/project.types";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
 
 /**
  * The Projects list (PRD #10 §17, §144).
  *
  * Professional ERP density on desktop; record cards below the tablet
  * breakpoint. Clicking a row opens the project — individual cells are not
- * separately clickable (PRD #10 §18).
+ * separately clickable (PRD #10 §18), except the manager's name, which leads to
+ * their profile as every name does (E-08 §5).
  */
 export function ProjectTable({ projects }: { projects: ProjectSummaryDTO[] }) {
   const columns: TableColumn<ProjectSummaryDTO>[] = [
@@ -40,9 +42,12 @@ export function ProjectTable({ projects }: { projects: ProjectSummaryDTO[] }) {
       key: "manager",
       label: "Project Manager",
       hideBelow: "xl",
-      render: (project) => (
-        <span className="text-fg-muted">{orDash(project.projectManager?.fullName)}</span>
-      ),
+      render: (project) =>
+        project.projectManager ? (
+          <PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />
+        ) : (
+          <span className="text-fg-muted">—</span>
+        ),
     },
     {
       key: "status",

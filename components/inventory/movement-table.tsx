@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import type { MovementDTO } from "@/lib/modules/inventory/inventory.types";
 import { movementTypeLabels } from "@/lib/modules/inventory/inventory.status";
@@ -115,7 +116,12 @@ export function MovementTable({
       key: "postedBy",
       label: "Posted by",
       hideBelow: "xl",
-      render: (row) => row.postedBy?.fullName ?? <span className="text-fg-subtle">—</span>,
+      render: (row) =>
+        row.postedBy ? (
+          <PersonLink memberId={row.postedBy.memberId} name={row.postedBy.fullName} />
+        ) : (
+          <span className="text-fg-subtle">—</span>
+        ),
     },
   );
 

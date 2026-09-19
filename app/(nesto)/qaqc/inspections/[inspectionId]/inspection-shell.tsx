@@ -5,6 +5,7 @@ import { InspectionActions } from "@/components/qaqc/inspection-actions";
 import { ResultBadge } from "@/components/qaqc/qaqc-format";
 import { RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
@@ -95,7 +96,11 @@ export function InspectionPageShell({
         meta={[
           {
             label: "Inspector",
-            value: inspection.assignedInspector?.fullName ?? "Not assigned",
+            value: inspection.assignedInspector ? (
+              <PersonLink memberId={inspection.assignedInspector.memberId} name={inspection.assignedInspector.fullName} />
+            ) : (
+              "Not assigned"
+            ),
           },
           {
             label: "Inspected",

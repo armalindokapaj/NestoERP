@@ -9,6 +9,7 @@ import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as environment from "@/lib/modules/hse/environment/environment.service";
@@ -63,7 +64,14 @@ export default async function ObservationPage({ params }: Params) {
         meta={[
           { label: "Project", value: observation.project?.code ?? "Company-wide" },
           { label: "Observed", value: formatDate(observation.observedAt) },
-          { label: "Assigned to", value: observation.assignedTo?.fullName ?? "Not assigned" },
+          {
+            label: "Assigned to",
+            value: observation.assignedTo ? (
+              <PersonLink memberId={observation.assignedTo.memberId} name={observation.assignedTo.fullName} />
+            ) : (
+              "Not assigned"
+            ),
+          },
         ]}
         actions={<ObservationActions observation={observation} />}
       />
@@ -131,13 +139,29 @@ export default async function ObservationPage({ params }: Params) {
             <dl className="mt-4 space-y-3">
               <Meta
                 label="Reported by"
-                value={orDash(observation.reportedBy?.fullName ?? null)}
+                value={
+                  observation.reportedBy ? (
+                    <PersonLink memberId={observation.reportedBy.memberId} name={observation.reportedBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
               />
               <Meta label="Reported" value={formatDateTime(observation.createdAt)} />
               {observation.closedAt ? (
                 <Meta
                   label="Closed"
-                  value={`${formatDateTime(observation.closedAt)}${observation.closedBy ? ` by ${observation.closedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(observation.closedAt)}
+                      {observation.closedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={observation.closedBy.memberId} name={observation.closedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {observation.closureNote ? (

@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { AppointButton, BranchStatusButton, EndAssignmentButton, type CandidateOption } from "@/components/organization/department-actions";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
@@ -67,13 +68,7 @@ export default async function CompanyDepartmentsPage({ params }: Props) {
         return (
           <div className="flex flex-wrap items-center gap-2">
             {manager ? (
-              manager.personId ? (
-                <Link href={`/people/${manager.personId}`} className="text-fg hover:text-accent-strong hover:underline">
-                  {manager.name}
-                </Link>
-              ) : (
-                manager.name
-              )
+              <PersonLink personId={manager.personId} name={manager.name} />
             ) : (
               <span className="text-fg-subtle">No Department Manager assigned.</span>
             )}

@@ -8,6 +8,7 @@ import { CollaborationPanel } from "@/components/collaboration/collaboration-pan
 import { FavoriteButton } from "@/components/productivity/favorite-button";
 import { useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
@@ -485,7 +486,7 @@ export function MilestoneDrawer({
               {detail.description ? <p className="mt-3 whitespace-pre-wrap text-table text-fg-muted">{detail.description}</p> : null}
               {detail.completionNote && detail.status === "COMPLETED" ? (
                 <p className="mt-3 text-table text-fg-muted">
-                  <span className="font-medium text-fg">Completed{detail.completedBy ? ` by ${detail.completedBy.name}` : ""}:</span> {detail.completionNote}
+                  <span className="font-medium text-fg">Completed{detail.completedBy ? <> by <PersonLink memberId={detail.completedBy.memberId} name={detail.completedBy.name} /></> : null}:</span> {detail.completionNote}
                 </p>
               ) : null}
             </Section>
@@ -713,10 +714,10 @@ export function MilestoneDrawer({
                           <span className={cn("block text-table font-medium", blocker.resolvedAt ? "text-fg-muted line-through decoration-fg-subtle/50" : "text-fg")}>{blocker.title}</span>
                           <span className="text-meta text-fg-muted">
                             {SEVERITY_LABELS[blocker.severity]}
-                            {blocker.owner ? ` · ${blocker.owner.name}` : ""}
+                            {blocker.owner ? <> · <PersonLink memberId={blocker.owner.memberId} name={blocker.owner.name} /></> : null}
                             {blocker.dueDate ? ` · due ${dateLabel(blocker.dueDate)}` : ""}
                             {blocker.overdue ? <span className="text-danger-strong"> · overdue</span> : null}
-                            {blocker.resolvedAt ? ` · resolved${blocker.resolvedBy ? ` by ${blocker.resolvedBy.name}` : ""}` : ""}
+                            {blocker.resolvedAt ? <> · resolved{blocker.resolvedBy ? <> by <PersonLink memberId={blocker.resolvedBy.memberId} name={blocker.resolvedBy.name} /></> : null}</> : null}
                           </span>
                           {blocker.linkedTask ? (
                             <span className="block text-meta">
@@ -778,7 +779,7 @@ export function MilestoneDrawer({
                         <Link href={document.href} className="min-w-0 flex-1 truncate text-fg hover:text-accent-strong">
                           {document.name}
                         </Link>
-                        <span className="shrink-0 text-meta text-fg-muted">{document.uploadedBy ?? ""}</span>
+                        <span className="shrink-0 text-meta text-fg-muted">{document.uploadedBy ? <PersonLink memberId={document.uploadedByMemberId} name={document.uploadedBy} /> : null}</span>
                       </li>
                     ))}
                   </ul>
@@ -851,7 +852,7 @@ export function MilestoneDrawer({
                       <span className="font-medium text-fg">{entry.action}</span>
                       <span className="text-meta text-fg-muted">
                         {" "}
-                        · {entry.actorName ?? "NESTO"} · {dateLabel(entry.occurredAt.slice(0, 10))}
+                        · {entry.actorName ? <PersonLink memberId={entry.actorMemberId} name={entry.actorName} /> : "NESTO"} · {dateLabel(entry.occurredAt.slice(0, 10))}
                       </span>
                       {entry.note ? <span className="block text-meta text-fg-muted">{entry.note}</span> : null}
                     </li>
@@ -867,7 +868,7 @@ export function MilestoneDrawer({
 
             <p className="px-5 pb-6 pt-2 text-meta text-fg-subtle">
               {varianceLabel(detail.varianceDays)} · created {dateLabel(detail.createdAt.slice(0, 10))}
-              {detail.createdBy ? ` by ${detail.createdBy.name}` : ""}
+              {detail.createdBy ? <> by <PersonLink memberId={detail.createdBy.memberId} name={detail.createdBy.name} /></> : null}
             </p>
 
             <MilestoneFormDialog

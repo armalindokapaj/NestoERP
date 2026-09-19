@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, FileText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { TimelineEventDTO } from "@/lib/modules/hr/employment/employment.types";
 import { formatDate } from "@/lib/utils/format";
 
@@ -49,7 +50,11 @@ export function EmploymentTimeline({ events, showCompany = false, emptyText = "N
                   {event.document.name}
                 </Link>
               ) : null}
-              {event.createdBy ? <span>Recorded by {event.createdBy}</span> : null}
+              {event.createdBy ? (
+                <span>
+                  Recorded by <PersonLink userId={event.createdByUserId} name={event.createdBy} />
+                </span>
+              ) : null}
             </p>
           ) : null}
         </li>

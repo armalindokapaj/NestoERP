@@ -45,7 +45,7 @@ function weekFacts(week: TimesheetWeekDTO, showDescriptions: boolean): RecordFac
     href: `/timesheets/${week.id}`,
     priority: "NORMAL",
     summary: [
-      { label: "Employee", value: week.member.name },
+      { label: "Employee", value: week.member.name, person: { memberId: week.member.memberId } },
       { label: "Week", value: label },
       { label: "Total", value: formatMinutes(week.totals.totalMinutes), emphasis: "strong" },
       { label: "Billable", value: formatMinutes(week.totals.billableMinutes) },
@@ -115,7 +115,7 @@ export const timesheetApprovalProvider = createCycleProvider({
         const [rows, settings] = await Promise.all([
           prisma.timesheet.findMany({
             where: { AND: [await readableTimesheetWhere(context), { id: { in: ids } }] },
-            select: { id: true, periodStart: true, member: { select: { user: { select: { firstName: true, lastName: true } }, department: { select: { name: true } } } } },
+            select: { id: true, periodStart: true, memberId: true, member: { select: { user: { select: { firstName: true, lastName: true } }, department: { select: { name: true } } } } },
           }),
           resolveTimesheetSettings(context.companyId),
         ]);
@@ -147,7 +147,7 @@ export const timesheetApprovalProvider = createCycleProvider({
                 href: `/timesheets/${row.id}`,
                 priority: "NORMAL",
                 summary: [
-                  { label: "Employee", value: name },
+                  { label: "Employee", value: name, person: { memberId: row.memberId } },
                   { label: "Week", value: label },
                   { label: "Total", value: formatMinutes(sum.total), emphasis: "strong" },
                   { label: "Billable", value: formatMinutes(sum.billable) },

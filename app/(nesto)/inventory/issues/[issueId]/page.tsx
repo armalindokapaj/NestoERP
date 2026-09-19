@@ -8,11 +8,12 @@ import { DocumentLinesTable } from "@/components/inventory/document-lines-table"
 import { InventoryActivityFeed } from "@/components/inventory/record-activity";
 import { InventoryRecordDocuments } from "@/components/inventory/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as issues from "@/lib/modules/inventory/documents/issue.service";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ issueId: string }> };
 
@@ -61,7 +62,7 @@ export default async function IssuePage({ params }: Params) {
         meta={[
           { label: "Issued", value: formatDate(issue.issueDate) },
           { label: "Lines", value: String(issue.lineCount) },
-          { label: "Issued to", value: orDash(issue.issuedTo?.fullName ?? null) },
+          { label: "Issued to", value: issue.issuedTo ? <PersonLink memberId={issue.issuedTo.memberId} name={issue.issuedTo.fullName} /> : "—" },
         ]}
         actions={
           <DocumentActions
@@ -132,10 +133,10 @@ export default async function IssuePage({ params }: Params) {
                   ),
                 },
                 { label: "Warehouse", value: issue.warehouse.name },
-                { label: "Requested by", value: orDash(issue.requestedBy?.fullName ?? null) },
-                { label: "Drafted by", value: orDash(issue.createdBy?.fullName ?? null) },
+                { label: "Requested by", value: issue.requestedBy ? <PersonLink memberId={issue.requestedBy.memberId} name={issue.requestedBy.fullName} /> : "—" },
+                { label: "Drafted by", value: issue.createdBy ? <PersonLink memberId={issue.createdBy.memberId} name={issue.createdBy.fullName} /> : "—" },
                 { label: "Drafted", value: formatDateTime(issue.createdAt) },
-                { label: "Posted by", value: orDash(issue.postedBy?.fullName ?? null) },
+                { label: "Posted by", value: issue.postedBy ? <PersonLink memberId={issue.postedBy.memberId} name={issue.postedBy.fullName} /> : "—" },
               ]}
             />
           </section>

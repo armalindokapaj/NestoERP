@@ -91,7 +91,7 @@ export async function exportHr(
           row.endDate,
           row.days,
           leaveStatusLabels[row.status],
-          row.decidedBy ?? "",
+          row.decidedByName ?? "",
         ]),
       ),
     };

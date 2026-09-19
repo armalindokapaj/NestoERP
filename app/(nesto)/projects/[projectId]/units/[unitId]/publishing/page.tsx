@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DetailGrid } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { PublicationBadge, ReadinessPanel, UnpublishedChangesBadge } from "@/components/project-structure/unit-page/publication-badge";
 import { listUnitPublications } from "@/lib/modules/project-structure/unit-publishing.service";
 import { formatDateTime } from "@/lib/utils/format";
@@ -39,11 +40,21 @@ export default async function UnitPublishingPage({ params }: Params) {
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Current version", value: current ? `v${current.versionNumber} · ${formatDateTime(current.publishedAt)}${current.publishedBy ? ` · ${current.publishedBy}` : ""}` : "Never published" },
+                {
+                  label: "Current version",
+                  value: current ? (
+                    <>
+                      v{current.versionNumber} · {formatDateTime(current.publishedAt)}
+                      {current.publishedBy ? <> · <PersonLink memberId={current.publishedByMemberId} name={current.publishedBy} /></> : null}
+                    </>
+                  ) : (
+                    "Never published"
+                  ),
+                },
                 { label: "Status since", value: publishing.statusChangedAt ? formatDateTime(publishing.statusChangedAt) : "—" },
                 ...(publishing.pendingRequest
                   ? [
-                      { label: "Submitted by", value: publishing.pendingRequest.submittedBy ?? "—" },
+                      { label: "Submitted by", value: publishing.pendingRequest.submittedBy ? <PersonLink memberId={publishing.pendingRequest.submittedByMemberId} name={publishing.pendingRequest.submittedBy} /> : "—" },
                       { label: "Submitted", value: formatDateTime(publishing.pendingRequest.submittedAt) },
                     ]
                   : []),
@@ -79,7 +90,7 @@ export default async function UnitPublishingPage({ params }: Params) {
                         </Link>
                         {row.isCurrent ? <span className="text-meta font-medium text-success-strong">Current</span> : null}
                         <span className="text-fg-muted">{formatDateTime(row.publishedAt)}</span>
-                        {row.publishedBy ? <span className="text-fg-muted">by {row.publishedBy}</span> : null}
+                        {row.publishedBy ? <span className="text-fg-muted">by <PersonLink memberId={row.publishedByMemberId} name={row.publishedBy} /></span> : null}
                       </span>
                       {row.salesPlanVersionNumber ? <span className="text-meta text-fg-subtle">Sales Plan v{row.salesPlanVersionNumber}</span> : null}
                     </li>

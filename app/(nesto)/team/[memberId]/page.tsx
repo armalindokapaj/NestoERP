@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { MemberActions } from "@/components/team/member-actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -85,11 +86,7 @@ export default async function MemberOverviewPage({ params }: Params) {
             ? [
                 {
                   label: "Profile",
-                  value: (
-                    <Link href={`/people/${member.personId}`} className="text-fg transition-colors hover:text-accent">
-                      Group profile
-                    </Link>
-                  ),
+                  value: <PersonLink personId={member.personId} name={member.profile.fullName} />,
                 },
               ]
             : []),
@@ -226,7 +223,7 @@ export default async function MemberOverviewPage({ params }: Params) {
               {activity.data.map((entry) => (
                 <li key={entry.id} className="py-2.5 first:pt-0">
                   <p className="text-table text-fg">
-                    <span className="font-medium">{entry.actor ?? "Someone"}</span>{" "}
+                    {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
                     {entry.message ?? entry.action}
                   </p>
                   <p className="mt-0.5 text-meta text-fg-subtle">

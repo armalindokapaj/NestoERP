@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { ProvisioningActions } from "@/components/organization/provisioning-actions";
+import { PersonLink } from "@/components/people/person-link";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
@@ -81,7 +82,7 @@ export default async function ProvisioningRequestPage({ params }: Props) {
             <Row label="Department" value={request.department.name} />
             <Row label="Role" value={request.role.label} />
             <Row label="Job title" value={request.jobTitle} />
-            <Row label="Manager" value={request.hrTruth.manager?.name} />
+            <Row label="Manager" value={request.hrTruth.manager ? <PersonLink userId={request.hrTruth.manager.userId} name={request.hrTruth.manager.name} /> : null} />
             <Row label="Employee number" value={request.hrTruth.employeeNumber} />
             <Row label="Employment" value={request.hrTruth.employmentStatus ? statusLabel(request.hrTruth.employmentStatus) : null} />
           </dl>
@@ -109,10 +110,38 @@ export default async function ProvisioningRequestPage({ params }: Props) {
             History
           </h2>
           <dl className="mt-3" data-testid="request-history">
-            <Row label="Requested by" value={request.requestedBy ? `${request.requestedBy.name}${request.submittedAt ? `, ${when(request.submittedAt)}` : ""}` : null} />
-            <Row label="Approved by" value={request.approvedBy ? `${request.approvedBy.name}, ${when(request.approvedAt)}` : null} />
+            <Row
+              label="Requested by"
+              value={
+                request.requestedBy ? (
+                  <>
+                    <PersonLink userId={request.requestedBy.userId} name={request.requestedBy.name} />
+                    {request.submittedAt ? `, ${when(request.submittedAt)}` : ""}
+                  </>
+                ) : null
+              }
+            />
+            <Row
+              label="Approved by"
+              value={
+                request.approvedBy ? (
+                  <>
+                    <PersonLink userId={request.approvedBy.userId} name={request.approvedBy.name} />, {when(request.approvedAt)}
+                  </>
+                ) : null
+              }
+            />
             {request.returnedAt ? <Row label="Returned" value={when(request.returnedAt)} /> : null}
-            <Row label="Created by" value={request.provisionedBy ? `${request.provisionedBy.name}, ${when(request.provisionedAt)}` : null} />
+            <Row
+              label="Created by"
+              value={
+                request.provisionedBy ? (
+                  <>
+                    <PersonLink userId={request.provisionedBy.userId} name={request.provisionedBy.name} />, {when(request.provisionedAt)}
+                  </>
+                ) : null
+              }
+            />
           </dl>
         </section>
       </div>

@@ -8,11 +8,12 @@ import { CollaborationPanel } from "@/components/collaboration/collaboration-pan
 import { OrderActions } from "@/components/procurement/order-actions";
 import { ProcurementApprovalHistory } from "@/components/procurement/approval-history";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { dueLabel, formatAmount, receivedLabel } from "@/components/procurement/procurement-format";
 import { RecordTasks } from "@/components/tasks/record-tasks";
 
@@ -245,9 +246,17 @@ export default async function OrderDetailPage({ params }: Params) {
               {order.dates.approvedAt ? (
                 <Meta
                   label="Approved"
-                  value={`${formatDateTime(order.dates.approvedAt)}${
-                    order.approvedBy ? ` · ${order.approvedBy.fullName}` : ""
-                  }`}
+                  value={
+                    <>
+                      {formatDateTime(order.dates.approvedAt)}
+                      {order.approvedBy ? (
+                        <>
+                          {" · "}
+                          <PersonLink memberId={order.approvedBy.memberId} name={order.approvedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {order.dates.issuedAt ? (
@@ -256,7 +265,10 @@ export default async function OrderDetailPage({ params }: Params) {
               {order.dates.closedAt ? (
                 <Meta label="Closed" value={formatDateTime(order.dates.closedAt)} />
               ) : null}
-              <Meta label="Raised by" value={orDash(order.createdBy?.fullName ?? null)} />
+              <Meta
+                label="Raised by"
+                value={order.createdBy ? <PersonLink memberId={order.createdBy.memberId} name={order.createdBy.fullName} /> : "—"}
+              />
             </dl>
           </section>
         </div>

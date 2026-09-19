@@ -6,6 +6,7 @@ import { EmploymentChanges } from "@/components/hr/employment-changes";
 import { EmployeeTabs } from "@/components/hr/employee-tabs";
 import { RequestAccountButton } from "@/components/hr/request-account";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink, membershipHref, personHref } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { todayDay } from "@/lib/modules/hr/employment/employment.dates";
 import { workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
@@ -55,15 +56,10 @@ export default async function EmployeeDetailPage({ params }: Params) {
           { label: "Department", value: orDash(employee.department?.name) },
           {
             label: "Manager",
-            value: employee.manager?.employmentId ? (
-              <Link
-                href={`/hr/employees/${employee.manager.employmentId}`}
-                className="hover:text-accent"
-              >
-                {employee.manager.fullName}
-              </Link>
+            value: employee.manager ? (
+              <PersonLink memberId={employee.manager.memberId} name={employee.manager.fullName} />
             ) : (
-              orDash(employee.manager?.fullName)
+              "—"
             ),
           },
           {
@@ -94,7 +90,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
             Employment ended{employee.endDate ? ` on ${formatDate(employee.endDate)}` : ""}, but
             this person still has active company access. Deactivating it is a{" "}
             <Link
-              href={`/team/${employee.memberId}`}
+              href={membershipHref(employee.memberId)}
               className="font-medium underline underline-offset-2"
             >
               Team action
@@ -105,7 +101,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
           <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
             Employment ended{employee.endDate ? ` on ${formatDate(employee.endDate)}` : ""}. Company
             access is separate and is managed in{" "}
-            <Link href={`/team/${employee.memberId}`} className="text-accent-strong hover:underline">
+            <Link href={membershipHref(employee.memberId)} className="text-accent-strong hover:underline">
               Team
             </Link>
             .
@@ -168,7 +164,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
             />
             <p className="mt-4 border-t border-line pt-3 text-meta text-fg-subtle">
               Contact details live on the{" "}
-              <Link href={`/people/${employee.personId}`} className="text-accent-strong hover:underline">
+              <Link href={personHref({ personId: employee.personId })!} className="text-accent-strong hover:underline">
                 person profile
               </Link>
               , not on the employment record.
@@ -190,7 +186,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
               {employee.memberId ? (
                 <>
                   Company access is managed on the{" "}
-                  <Link href={`/team/${employee.memberId}`} className="text-accent-strong hover:underline">
+                  <Link href={membershipHref(employee.memberId)} className="text-accent-strong hover:underline">
                     team membership
                   </Link>
                   . Ending employment never removes it on its own.

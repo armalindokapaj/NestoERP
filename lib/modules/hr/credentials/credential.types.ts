@@ -21,6 +21,9 @@ export type CredentialWorkItemDTO = {
   kindLabel: string;
   title: string;
   personName: string;
+  /** The person the row names, and their employment when it is an employee document. */
+  personId: string;
+  employeeId: string | null;
   issuer: string | null;
   expiryDate: string | null;
   daysToExpiry: number | null;

@@ -7,12 +7,13 @@ import { AdjustmentLinesTable } from "@/components/inventory/document-lines-tabl
 import { InventoryActivityFeed } from "@/components/inventory/record-activity";
 import { InventoryRecordDocuments } from "@/components/inventory/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as adjustments from "@/lib/modules/inventory/documents/adjustment.service";
 import { adjustmentReasonLabels } from "@/lib/modules/inventory/inventory.status";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ adjustmentId: string }> };
 
@@ -123,9 +124,9 @@ export default async function AdjustmentPage({ params }: Params) {
               items={[
                 { label: "Warehouse", value: adjustment.warehouse.name },
                 { label: "Reason", value: adjustmentReasonLabels[adjustment.reason] },
-                { label: "Drafted by", value: orDash(adjustment.createdBy?.fullName ?? null) },
+                { label: "Drafted by", value: adjustment.createdBy ? <PersonLink memberId={adjustment.createdBy.memberId} name={adjustment.createdBy.fullName} /> : "—" },
                 { label: "Drafted", value: formatDateTime(adjustment.createdAt) },
-                { label: "Posted by", value: orDash(adjustment.postedBy?.fullName ?? null) },
+                { label: "Posted by", value: adjustment.postedBy ? <PersonLink memberId={adjustment.postedBy.memberId} name={adjustment.postedBy.fullName} /> : "—" },
               ]}
             />
           </section>

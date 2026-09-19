@@ -10,6 +10,7 @@ import { QaqcActivityFeed } from "@/components/qaqc/record-activity";
 import { QaqcRecordDocuments } from "@/components/qaqc/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as defects from "@/lib/modules/qaqc/defects/defect.service";
@@ -60,7 +61,14 @@ export default async function DefectPage({ params }: Params) {
         }
         meta={[
           { label: "Project", value: defect.project.code },
-          { label: "Assigned to", value: defect.assignedTo?.fullName ?? "Not assigned" },
+          {
+            label: "Assigned to",
+            value: defect.assignedTo ? (
+              <PersonLink memberId={defect.assignedTo.memberId} name={defect.assignedTo.fullName} />
+            ) : (
+              "Not assigned"
+            ),
+          },
           { label: "Due", value: defect.dueDate ? formatDate(defect.dueDate) : "No date" },
         ]}
         actions={<DefectActions defect={defect} />}
@@ -121,7 +129,12 @@ export default async function DefectPage({ params }: Params) {
                 {defect.resolutionNote}
               </p>
               <p className="mt-3 text-meta text-fg-subtle">
-                Recorded by {defect.resolvedBy?.fullName ?? "somebody"}
+                Recorded by{" "}
+                {defect.resolvedBy ? (
+                  <PersonLink memberId={defect.resolvedBy.memberId} name={defect.resolvedBy.fullName} />
+                ) : (
+                  "somebody"
+                )}
                 {defect.resolvedAt ? ` on ${formatDate(defect.resolvedAt)}` : ""}.
               </p>
             </section>
@@ -167,12 +180,31 @@ export default async function DefectPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Raised by" value={orDash(defect.createdBy?.fullName ?? null)} />
+              <Meta
+                label="Raised by"
+                value={
+                  defect.createdBy ? (
+                    <PersonLink memberId={defect.createdBy.memberId} name={defect.createdBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Raised" value={formatDateTime(defect.createdAt)} />
               {defect.closedAt ? (
                 <Meta
                   label="Closed"
-                  value={`${formatDateTime(defect.closedAt)}${defect.closedBy ? ` by ${defect.closedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(defect.closedAt)}
+                      {defect.closedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={defect.closedBy.memberId} name={defect.closedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {defect.cancelledAt ? (

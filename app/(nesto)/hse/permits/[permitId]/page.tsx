@@ -11,11 +11,12 @@ import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { PermitWorkers } from "@/components/hse/workforce-panels";
 import { hseEmploymentOptions, listPermitWorkers } from "@/lib/modules/hse/hse.workforce";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as permits from "@/lib/modules/hse/permits/permit.service";
 import { permitTypeLabels } from "@/lib/modules/hse/hse.status";
-import { formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ permitId: string }> };
 
@@ -67,7 +68,14 @@ export default async function PermitPage({ params }: Params) {
         meta={[
           { label: "Project", value: permit.project.code },
           { label: "Location", value: permit.locationText },
-          { label: "Responsible", value: permit.responsible?.fullName ?? "—" },
+          {
+            label: "Responsible",
+            value: permit.responsible ? (
+              <PersonLink memberId={permit.responsible.memberId} name={permit.responsible.fullName} />
+            ) : (
+              "—"
+            ),
+          },
           { label: "Window", value: <PermitClock hoursRemaining={permit.hoursRemaining} /> },
         ]}
         actions={<PermitActions permit={permit} />}
@@ -110,8 +118,22 @@ export default async function PermitPage({ params }: Params) {
                 { label: "Location", value: permit.locationText },
                 { label: "Valid from", value: formatDateTime(permit.validFrom) },
                 { label: "Valid until", value: formatDateTime(permit.validUntil) },
-                { label: "Requested by", value: orDash(permit.requestedBy?.fullName ?? null) },
-                { label: "Responsible", value: orDash(permit.responsible?.fullName ?? null) },
+                {
+                  label: "Requested by",
+                  value: permit.requestedBy ? (
+                    <PersonLink memberId={permit.requestedBy.memberId} name={permit.requestedBy.fullName} />
+                  ) : (
+                    "—"
+                  ),
+                },
+                {
+                  label: "Responsible",
+                  value: permit.responsible ? (
+                    <PersonLink memberId={permit.responsible.memberId} name={permit.responsible.fullName} />
+                  ) : (
+                    "—"
+                  ),
+                },
                 {
                   label: "Risk assessment",
                   value: permit.riskAssessment ? (
@@ -176,7 +198,17 @@ export default async function PermitPage({ params }: Params) {
               {permit.approvedAt ? (
                 <Meta
                   label="Approved"
-                  value={`${formatDateTime(permit.approvedAt)}${permit.approvedBy ? ` by ${permit.approvedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(permit.approvedAt)}
+                      {permit.approvedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={permit.approvedBy.memberId} name={permit.approvedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {permit.activatedAt ? (

@@ -282,6 +282,7 @@ export type MeetingDecisionDTO = {
   description: string | null;
   decidedAt: string;
   recordedBy: string;
+  recordedByMemberId: string | null;
 };
 
 export type MeetingActionItemDTO = {
@@ -331,6 +332,7 @@ export type MeetingDetailDTO = {
   minutesStatus: MinutesStatus;
   minutesFinalizedAt: string | null;
   minutesFinalizedBy: string | null;
+  minutesFinalizedByMemberId: string | null;
   startsAt: string;
   endsAt: string;
   timezone: string;

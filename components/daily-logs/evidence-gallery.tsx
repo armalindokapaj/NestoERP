@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { PersonLink } from "@/components/people/person-link";
 import { stripJpegMetadata } from "@/lib/modules/daily-logs/daily-log.exif";
 import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABELS, type DocumentCategory, type EvidenceDTO } from "@/lib/modules/daily-logs/daily-log.types";
 import { cn } from "@/lib/utils/cn";
@@ -201,7 +202,10 @@ export function EvidenceGallery({
                 <Link href={item.href} className="block truncate text-table font-medium text-fg hover:text-accent-strong">
                   {item.caption ?? item.name}
                 </Link>
-                <span className="block text-meta text-fg-muted">{[DOCUMENT_CATEGORY_LABELS[item.category], item.uploadedBy].filter(Boolean).join(" · ")}</span>
+                <span className="block text-meta text-fg-muted">
+                  {DOCUMENT_CATEGORY_LABELS[item.category]}
+                  {item.uploadedBy ? <> · <PersonLink memberId={item.uploadedByMemberId} name={item.uploadedBy} /></> : null}
+                </span>
               </span>
               {canEdit ? (
                 <Button type="button" variant="ghost" size="icon-sm" aria-label={`Describe ${item.name}`} onClick={() => { setEditing(item); setMeta({ category: item.category, caption: item.caption ?? "", takenTime: time(item.takenAt) ?? "" }); }}>

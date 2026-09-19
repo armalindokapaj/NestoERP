@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { AttendanceForm } from "@/components/hr/attendance-form";
 import { formatTimeOfDay, formatWorkedMinutes } from "@/components/hr/hr-format";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
@@ -86,7 +87,7 @@ export default async function AttendanceDetailPage({ params }: Params) {
                     {record.employee.fullName}
                   </Link>
                 ) : (
-                  record.employee.fullName
+                  <PersonLink employeeId={record.employee.employeeId} name={record.employee.fullName} />
                 ),
               },
               { label: "Source", value: attendanceSourceLabels[record.source] },

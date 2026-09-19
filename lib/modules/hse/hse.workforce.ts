@@ -214,6 +214,7 @@ export type InductionDTO = {
   inductedOn: string;
   validUntil: string | null;
   conductedBy: string;
+  conductedByMemberId: string;
   notes: string | null;
   valid: boolean;
   voided: boolean;
@@ -231,7 +232,7 @@ const INDUCTION_SELECT = {
   employeeProfile: { select: { id: true, personProfileId: true, personProfile: { select: { firstName: true, lastName: true } } } },
   project: { select: { id: true, name: true } },
   site: { select: { id: true, name: true } },
-  conductedBy: { select: { user: { select: { firstName: true, lastName: true } } } },
+  conductedBy: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
 } satisfies Prisma.HseInductionSelect;
 
 function toInduction(context: UserContext, row: Prisma.HseInductionGetPayload<{ select: typeof INDUCTION_SELECT }>): InductionDTO {
@@ -244,6 +245,7 @@ function toInduction(context: UserContext, row: Prisma.HseInductionGetPayload<{ 
     inductedOn: day(row.inductedOn),
     validUntil: row.validUntil ? day(row.validUntil) : null,
     conductedBy: name(row.conductedBy.user),
+    conductedByMemberId: row.conductedBy.id,
     notes: row.notes,
     valid,
     voided: Boolean(row.voidedAt),

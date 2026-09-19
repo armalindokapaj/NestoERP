@@ -1343,7 +1343,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         select: {
           id: true,
           jobTitle: true,
-          user: { select: { id: true, firstName: true, lastName: true } },
+          user: { select: { firstName: true, lastName: true } },
           department: { select: { name: true } },
         },
       });
@@ -1355,7 +1355,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           title: `${row.user.firstName} ${row.user.lastName}`,
           subtitle: row.jobTitle ?? undefined,
           meta: row.department?.name ?? undefined,
-          href: `/team/${row.user.id}`,
+          person: { memberId: row.id },
         })),
       };
     }

@@ -3,6 +3,7 @@ import { ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PersonLink } from "@/components/people/person-link";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import type { CredentialWorkItemDTO, CredentialWorklistDTO } from "@/lib/modules/hr/credentials/credential.types";
 import { VERIFICATION_LABELS } from "@/lib/modules/hr/documents/employee-document.types";
@@ -53,7 +54,9 @@ export function CredentialWorklist({ data }: { data: CredentialWorklistDTO }) {
           <TableBody>
             {data.items.map((item) => (
               <TableRow key={`${item.kind}:${item.id}`} data-testid="worklist-item" data-kind={item.kind}>
-                <TableCell className="font-medium text-fg">{item.personName}</TableCell>
+                <TableCell className="font-medium text-fg">
+                  <PersonLink personId={item.personId} name={item.personName} />
+                </TableCell>
                 <TableCell className="max-w-[22rem]">
                   <Link href={item.href} className="font-medium text-fg hover:text-accent-strong hover:underline">
                     {item.title}

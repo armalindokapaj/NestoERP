@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -76,7 +77,12 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
                 </p>
                 <p className="mt-0.5 text-table text-fg-muted">{approval.recordTitle}</p>
                 <p className="mt-1 text-meta text-fg-subtle">
-                  Submitted by {approval.submittedBy?.fullName ?? "somebody"}{" "}
+                  Submitted by{" "}
+                  {approval.submittedBy ? (
+                    <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} />
+                  ) : (
+                    "somebody"
+                  )}{" "}
                   {formatRelativeTime(approval.submittedAt)}
                 </p>
               </div>

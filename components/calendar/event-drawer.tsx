@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Archive, ArrowUpRight, Bell, Clock, FolderKanban, Loader2, MapPin, Pencil, Users, X } from "lucide-react";
 
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -161,12 +162,12 @@ export function EventDrawer({
                   </h3>
                   <ul className="space-y-1">
                     <li className="flex justify-between gap-3 text-fg">
-                      {detail.createdBy.fullName}
+                      <PersonLink memberId={detail.createdBy.memberId} name={detail.createdBy.fullName} />
                       <span className="text-fg-subtle">Organiser</span>
                     </li>
                     {detail.participants.map((person) => (
                       <li key={person.memberId} className="flex justify-between gap-3 text-fg">
-                        {person.fullName}
+                        <PersonLink memberId={person.memberId} name={person.fullName} />
                         <span className="text-fg-subtle">{person.status === "INVITED" ? "Invited" : person.status === "ACCEPTED" ? "Going" : person.status === "TENTATIVE" ? "Maybe" : "Declined"}</span>
                       </li>
                     ))}
@@ -175,7 +176,14 @@ export function EventDrawer({
               ) : event.participants?.length ? (
                 <p className="flex items-center gap-2 text-fg">
                   <Users aria-hidden="true" className="size-4 text-fg-subtle" />
-                  {event.participants.map((person) => person.name).join(", ")}
+                  <span>
+                    {event.participants.map((person, index) => (
+                      <React.Fragment key={person.memberId}>
+                        {index > 0 ? ", " : null}
+                        <PersonLink memberId={person.memberId} name={person.name} />
+                      </React.Fragment>
+                    ))}
+                  </span>
                 </p>
               ) : null}
 

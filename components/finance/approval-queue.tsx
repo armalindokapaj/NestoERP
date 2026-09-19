@@ -8,6 +8,7 @@ import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { Money } from "@/components/finance/money";
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -97,12 +98,12 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
                     : ""}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  Submitted by {approval.submittedBy.fullName} ·{" "}
+                  Submitted by <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> ·{" "}
                   {formatDateTime(approval.submittedAt)}
                 </p>
                 {approval.decision ? (
                   <p className="mt-0.5 text-meta text-fg-subtle">
-                    Decided by {approval.decision.fullName} ·{" "}
+                    Decided by <PersonLink memberId={approval.decision.memberId} name={approval.decision.fullName} /> ·{" "}
                     {formatDateTime(approval.decision.decidedAt)}
                     {approval.decision.note ? ` · ${approval.decision.note}` : ""}
                   </p>

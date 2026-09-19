@@ -1,3 +1,4 @@
+import { PersonLink } from "@/components/people/person-link";
 import { localDate, localTime } from "@/lib/modules/calendar/calendar.time";
 import { dayLabel } from "@/lib/modules/timesheets/timesheet.time";
 import type { TimesheetHistoryEntry } from "@/lib/modules/timesheets/timesheet.types";
@@ -34,7 +35,12 @@ export function TimesheetHistory({ history, zone, className }: { history: Timesh
             <div className="min-w-0 flex-1">
               <p className="text-table text-fg">
                 <span className="font-medium">{entry.action}</span>
-                {entry.actorName ? <span className="text-fg-muted"> · {entry.actorName}</span> : null}
+                {entry.actorName ? (
+                  <span className="text-fg-muted">
+                    {" · "}
+                    <PersonLink memberId={entry.actorMemberId} name={entry.actorName} />
+                  </span>
+                ) : null}
               </p>
               <p className="text-meta text-fg-subtle">
                 <time dateTime={entry.occurredAt}>{when(entry.occurredAt)}</time>

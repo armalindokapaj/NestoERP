@@ -152,6 +152,7 @@ export async function listActivity(
     actor: row.actorMember
       ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}`
       : null,
+    actorMemberId: row.actorMemberId,
     createdAt: row.createdAt.toISOString(),
   }));
 

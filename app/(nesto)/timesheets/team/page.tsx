@@ -7,6 +7,7 @@ import { ModulePage } from "@/components/modules/module-page";
 import { TimesheetStatusBadge } from "@/components/timesheets/timesheet-ui";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PersonLink } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -113,7 +114,7 @@ export default async function TeamTimesheetsPage({ searchParams }: { searchParam
                           {row.member.name}
                         </Link>
                       ) : (
-                        <span className="font-medium text-fg">{row.member.name}</span>
+                        <PersonLink memberId={row.member.memberId} name={row.member.name} />
                       )}
                       <span className="block text-meta text-fg-muted">{[row.member.jobTitle, row.member.department].filter(Boolean).join(" · ") || "—"}</span>
                     </th>
@@ -124,7 +125,7 @@ export default async function TeamTimesheetsPage({ searchParams }: { searchParam
                     <td className="px-3 py-2.5 text-right tabular-nums text-fg-muted">{row.billableMinutes ? formatMinutes(row.billableMinutes) : "–"}</td>
                     <td className={cn("px-3 py-2.5 text-right tabular-nums", row.overtimeMinutes ? "text-warning-strong" : "text-fg-muted")}>{row.overtimeMinutes ? formatMinutes(row.overtimeMinutes) : "–"}</td>
                     <td className="px-3 py-2.5 text-fg-muted">{row.status === "SUBMITTED" ? age(row.submittedAt) : "—"}</td>
-                    <td className="px-4 py-2.5 text-fg-muted">{row.approver?.name ?? "Not set"}</td>
+                    <td className="px-4 py-2.5 text-fg-muted">{row.approver ? <PersonLink memberId={row.approver.memberId} name={row.approver.name} /> : "Not set"}</td>
                   </tr>
                 ))}
               </tbody>

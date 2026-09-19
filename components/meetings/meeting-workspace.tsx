@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ import { ParticipantsPanel } from "./participants-panel";
  * to use it.
  */
 
-export type ActivityEntry = { id: string; action: string; message: string | null; actor: string | null; createdAt: string };
+export type ActivityEntry = { id: string; action: string; message: string | null; actor: string | null; actorMemberId: string | null; createdAt: string };
 
 const TABS = ["overview", "agenda", "minutes", "actions", "documents", "activity"] as const;
 type Tab = (typeof TABS)[number];
@@ -426,7 +427,7 @@ export function MeetingWorkspace({
                         <li key={entry.id} className="relative text-table">
                           <span aria-hidden="true" className="absolute -left-[21px] top-1.5 size-2 rounded-full bg-line-strong" />
                           <p className="text-fg">
-                            <span className="font-medium">{entry.actor ?? "Someone"}</span> {entry.message ?? entry.action}
+                            {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>} {entry.message ?? entry.action}
                           </p>
                           <p className="text-meta text-fg-subtle">{new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(new Date(entry.createdAt))}</p>
                         </li>
@@ -443,7 +444,7 @@ export function MeetingWorkspace({
             <section className="nesto-card p-5">
               <h2 className="text-card font-semibold text-fg">Details</h2>
               <dl className="mt-3 space-y-3 text-table">
-                <Detail label="Organizer" value={meeting.organizer.fullName} />
+                <Detail label="Organizer" value={<PersonLink memberId={meeting.organizer.memberId} name={meeting.organizer.fullName} />} />
                 {meeting.project ? (
                   <Detail
                     label="Project"

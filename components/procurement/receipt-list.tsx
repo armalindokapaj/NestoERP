@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { ProcurementHandoff } from "@/components/inventory/procurement-handoff";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -72,7 +73,12 @@ export function ReceiptList({
                 </p>
                 <p className="text-meta text-fg-subtle">
                   {formatDate(receipt.receiptDate)}
-                  {receipt.receivedBy ? ` · received by ${receipt.receivedBy.fullName}` : ""}
+                  {receipt.receivedBy ? (
+                    <>
+                      {" · received by "}
+                      <PersonLink memberId={receipt.receivedBy.memberId} name={receipt.receivedBy.fullName} />
+                    </>
+                  ) : null}
                 </p>
               </div>
 

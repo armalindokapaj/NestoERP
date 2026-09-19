@@ -7,6 +7,7 @@ import { FileText, History, Upload } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
 import { useUploadQueue } from "@/components/documents/upload-queue";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -135,14 +136,33 @@ export function RevisionPanel({
                   <dl className="mt-2 grid gap-x-6 gap-y-1 text-table sm:grid-cols-2">
                     <div className="flex gap-1.5">
                       <dt className="text-fg-subtle">Submitted</dt>
-                      <dd className="text-fg">{revision.submittedAt ? `${formatDateTime(revision.submittedAt, zone)}${revision.submittedBy ? ` · ${revision.submittedBy.name}` : ""}` : "Not yet"}</dd>
+                      <dd className="text-fg">
+                        {revision.submittedAt ? (
+                          <>
+                            {formatDateTime(revision.submittedAt, zone)}
+                            {revision.submittedBy ? (
+                              <>
+                                {" · "}
+                                <PersonLink memberId={revision.submittedBy.id} name={revision.submittedBy.name} />
+                              </>
+                            ) : null}
+                          </>
+                        ) : (
+                          "Not yet"
+                        )}
+                      </dd>
                     </div>
                     {revision.reviewedAt ? (
                       <div className="flex gap-1.5">
                         <dt className="text-fg-subtle">Reviewed</dt>
                         <dd className="text-fg">
                           {formatDateTime(revision.reviewedAt, zone)}
-                          {revision.reviewedBy ? ` · ${revision.reviewedBy.name}` : ""}
+                          {revision.reviewedBy ? (
+                            <>
+                              {" · "}
+                              <PersonLink memberId={revision.reviewedBy.id} name={revision.reviewedBy.name} />
+                            </>
+                          ) : null}
                         </dd>
                       </div>
                     ) : revision.reviewStartedAt ? (

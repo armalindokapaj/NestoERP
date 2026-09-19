@@ -10,6 +10,7 @@ import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as risk from "@/lib/modules/hse/risk-assessments/risk.service";
@@ -75,7 +76,14 @@ export default async function RiskAssessmentPage({ params }: Params) {
         }
         meta={[
           { label: "Project", value: assessment.project?.code ?? "Company-wide" },
-          { label: "Owner", value: assessment.owner?.fullName ?? "—" },
+          {
+            label: "Owner",
+            value: assessment.owner ? (
+              <PersonLink memberId={assessment.owner.memberId} name={assessment.owner.fullName} />
+            ) : (
+              "—"
+            ),
+          },
           { label: "Assessed", value: formatDate(assessment.assessmentDate) },
           {
             label: "Review",
@@ -163,7 +171,11 @@ export default async function RiskAssessmentPage({ params }: Params) {
                       { label: "Further controls", value: orDash(item.additionalControls) },
                       {
                         label: "Responsible",
-                        value: orDash(item.responsible?.fullName ?? null),
+                        value: item.responsible ? (
+                          <PersonLink memberId={item.responsible.memberId} name={item.responsible.fullName} />
+                        ) : (
+                          "—"
+                        ),
                       },
                       {
                         label: "By when",
@@ -203,7 +215,16 @@ export default async function RiskAssessmentPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Created by" value={orDash(assessment.createdBy?.fullName ?? null)} />
+              <Meta
+                label="Created by"
+                value={
+                  assessment.createdBy ? (
+                    <PersonLink memberId={assessment.createdBy.memberId} name={assessment.createdBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Created" value={formatDateTime(assessment.createdAt)} />
               {assessment.submittedAt ? (
                 <Meta label="Submitted" value={formatDateTime(assessment.submittedAt)} />
@@ -211,7 +232,17 @@ export default async function RiskAssessmentPage({ params }: Params) {
               {assessment.approvedAt ? (
                 <Meta
                   label="Approved"
-                  value={`${formatDateTime(assessment.approvedAt)}${assessment.approvedBy ? ` by ${assessment.approvedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(assessment.approvedAt)}
+                      {assessment.approvedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={assessment.approvedBy.memberId} name={assessment.approvedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {assessment.archivedAt ? (

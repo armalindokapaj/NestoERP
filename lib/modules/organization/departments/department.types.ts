@@ -125,6 +125,7 @@ export type DepartmentActivityDTO = {
   actionKey: string;
   text: string;
   actor: string | null;
+  actorUserId: string | null;
 };
 
 export type CompanyDepartmentsDTO = {

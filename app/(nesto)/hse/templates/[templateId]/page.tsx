@@ -6,6 +6,7 @@ import { TemplateLifecycle } from "@/components/hse/template-actions";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as templates from "@/lib/modules/hse/templates/template.service";
@@ -95,7 +96,14 @@ export default async function TemplatePage({ params }: Params) {
           className="mt-4"
           items={[
             { label: "Description", value: orDash(template.description) },
-            { label: "Created by", value: orDash(template.createdBy?.fullName ?? null) },
+            {
+              label: "Created by",
+              value: template.createdBy ? (
+                <PersonLink memberId={template.createdBy.memberId} name={template.createdBy.fullName} />
+              ) : (
+                "—"
+              ),
+            },
             { label: "Created", value: formatDateTime(template.createdAt) },
           ]}
         />

@@ -31,6 +31,9 @@ export type NotificationListItemDTO = {
   category: string | null;
   /** The re-authorising open route, never the record URL itself. */
   href: string | null;
+  /** Who caused it, when somebody did: a membership of this company (E-08 §71). */
+  actorMemberId: string | null;
+  actorName: string | null;
 };
 
 export type UnreadCountDTO = {
@@ -119,6 +122,14 @@ export async function listNotifications(
   });
 
   const page = rows.slice(0, limit);
+  const actorIds = [...new Set(page.map((row) => row.actorMemberId).filter((id): id is string => Boolean(id)))];
+  const actors = actorIds.length
+    ? await prisma.companyMember.findMany({
+        where: { id: { in: actorIds }, companyId: context.companyId },
+        select: { id: true, user: { select: { firstName: true, lastName: true } } },
+      })
+    : [];
+  const actorNames = new Map(actors.map((member) => [member.id, `${member.user.firstName} ${member.user.lastName}`.trim()]));
   return {
     data: page.map(
       (row): NotificationListItemDTO => ({
@@ -133,6 +144,8 @@ export async function listNotifications(
         createdAt: row.createdAt.toISOString(),
         readAt: row.readAt?.toISOString() ?? null,
         href: row.entityType && row.entityId ? `/notifications/${row.id}/open` : null,
+        actorMemberId: row.actorMemberId && actorNames.has(row.actorMemberId) ? row.actorMemberId : null,
+        actorName: (row.actorMemberId && actorNames.get(row.actorMemberId)) || null,
       }),
     ),
     nextBefore: rows.length > limit ? (page.at(-1)?.id ?? null) : null,

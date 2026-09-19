@@ -7,6 +7,7 @@ import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as toolbox from "@/lib/modules/hse/toolbox/toolbox.service";
@@ -60,7 +61,14 @@ export default async function ToolboxTalkPage({ params }: Params) {
         meta={[
           { label: "Project", value: talk.project?.code ?? "Company-wide" },
           { label: "Date", value: formatDate(talk.talkDate) },
-          { label: "Conducted by", value: talk.conductedBy?.fullName ?? "—" },
+          {
+            label: "Conducted by",
+            value: talk.conductedBy ? (
+              <PersonLink memberId={talk.conductedBy.memberId} name={talk.conductedBy.fullName} />
+            ) : (
+              "—"
+            ),
+          },
         ]}
         actions={<ToolboxActions talk={talk} />}
       />
@@ -105,7 +113,13 @@ export default async function ToolboxTalkPage({ params }: Params) {
                     className="flex flex-wrap items-center justify-between gap-3 py-2.5"
                   >
                     <span className="text-table text-fg">
-                      {participant.member?.fullName ?? participant.worker?.name ?? participant.externalName}
+                      {participant.member ? (
+                        <PersonLink memberId={participant.member.memberId} name={participant.member.fullName} />
+                      ) : participant.worker ? (
+                        <PersonLink personId={participant.worker.personId} name={participant.worker.name} />
+                      ) : (
+                        participant.externalName
+                      )}
                       {participant.member ? null : participant.worker ? (
                         <span className="ml-2 text-meta text-fg-subtle">No NESTO account</span>
                       ) : (
@@ -151,7 +165,16 @@ export default async function ToolboxTalkPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Recorded by" value={orDash(talk.createdBy?.fullName ?? null)} />
+              <Meta
+                label="Recorded by"
+                value={
+                  talk.createdBy ? (
+                    <PersonLink memberId={talk.createdBy.memberId} name={talk.createdBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Recorded" value={formatDateTime(talk.createdAt)} />
               {talk.completedAt ? (
                 <Meta label="Completed" value={formatDateTime(talk.completedAt)} />

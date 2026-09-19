@@ -1,5 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { RequestSummaryDTO } from "@/lib/modules/procurement/procurement.types";
 import { priorityLabels } from "@/lib/modules/procurement/procurement.status";
 import { formatDate } from "@/lib/utils/format";
@@ -50,7 +51,7 @@ export function RequestTable({
       hideBelow: "xl",
       render: (row) => (
         <span className={row.requestedBy.active ? undefined : "text-fg-subtle"}>
-          {row.requestedBy.fullName}
+          <PersonLink memberId={row.requestedBy.memberId} name={row.requestedBy.fullName} />
           {row.requestedBy.active ? "" : " (inactive)"}
         </span>
       ),

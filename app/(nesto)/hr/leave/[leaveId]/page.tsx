@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LeaveActions } from "@/components/hr/leave-actions";
 import { HrRecordDocuments } from "@/components/hr/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
@@ -89,7 +90,7 @@ export default async function LeaveDetailPage({ params }: Params) {
                     {request.employee.fullName}
                   </Link>
                 ) : (
-                  request.employee.fullName
+                  <PersonLink employeeId={request.employee.employeeId} name={request.employee.fullName} />
                 ),
               },
               { label: "Type", value: leaveTypeLabels[request.leaveType] },
@@ -97,7 +98,10 @@ export default async function LeaveDetailPage({ params }: Params) {
                 label: "Submitted",
                 value: request.submittedAt ? formatDateTime(request.submittedAt) : "Not yet",
               },
-              { label: "Decided by", value: request.decidedBy ?? "—" },
+              {
+                label: "Decided by",
+                value: request.decidedByMemberId ? <PersonLink memberId={request.decidedByMemberId} name={request.decidedByName} /> : "—",
+              },
               {
                 label: "Decided",
                 value: request.decidedAt ? formatDateTime(request.decidedAt) : "—",

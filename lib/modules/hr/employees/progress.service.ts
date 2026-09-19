@@ -19,6 +19,7 @@ export type ProgressRow = {
   fullName: string;
   department: string | null;
   manager: string | null;
+  managerMemberId: string | null;
   /** The start date when onboarding, the end date when offboarding. */
   date: string | null;
   employmentStatus: EmploymentStatus;
@@ -60,7 +61,7 @@ export async function listProgress(
       offboardingStatus: true,
       personProfile: { select: { firstName: true, lastName: true } },
       department: { select: { name: true } },
-      managerMember: { select: { user: { select: { firstName: true, lastName: true } } } },
+      managerMember: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
     },
   });
 
@@ -74,6 +75,7 @@ export async function listProgress(
       manager: record.managerMember
         ? `${record.managerMember.user.firstName} ${record.managerMember.user.lastName}`
         : null,
+      managerMemberId: record.managerMember?.id ?? null,
       date: date ? businessDateString(date) : null,
       employmentStatus: record.employmentStatus,
       progress: kind === "onboarding" ? record.onboardingStatus : record.offboardingStatus,

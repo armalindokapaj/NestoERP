@@ -7,6 +7,7 @@ import { QaqcActivityFeed } from "@/components/qaqc/record-activity";
 import { RequestActions } from "@/components/qaqc/request-actions";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as requests from "@/lib/modules/qaqc/requests/request.service";
@@ -67,7 +68,11 @@ export default async function RequestPage({ params }: Params) {
         meta={[
           {
             label: "Inspector",
-            value: request.assignedInspector?.fullName ?? "Not assigned",
+            value: request.assignedInspector ? (
+              <PersonLink memberId={request.assignedInspector.memberId} name={request.assignedInspector.fullName} />
+            ) : (
+              "Not assigned"
+            ),
           },
           {
             label: "Needed by",
@@ -151,7 +156,16 @@ export default async function RequestPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Raised by" value={orDash(request.requestedBy?.fullName ?? null)} />
+              <Meta
+                label="Raised by"
+                value={
+                  request.requestedBy ? (
+                    <PersonLink memberId={request.requestedBy.memberId} name={request.requestedBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Raised" value={formatDateTime(request.createdAt)} />
               <Meta label="Updated" value={formatDateTime(request.updatedAt)} />
               {request.cancelledAt ? (

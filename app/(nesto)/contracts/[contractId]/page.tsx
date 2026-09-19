@@ -7,6 +7,7 @@ import { ContractActions } from "@/components/contracts/contract-actions";
 import { ContractApprovalHistory } from "@/components/contracts/approval-history";
 import { commercialLabel, expiryLabel } from "@/components/contracts/contract-format";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { RecordTasks } from "@/components/tasks/record-tasks";
 import {
@@ -82,7 +83,7 @@ export default async function ContractOverviewPage({ params }: Params) {
             label: "Owner",
             value: (
               <span className="flex items-center gap-2">
-                {contract.owner.fullName}
+                <PersonLink memberId={contract.owner.memberId} name={contract.owner.fullName} />
                 {/* An inactive owner is a real operational problem, not cosmetic (PRD #18 §323). */}
                 {contract.attention.ownerInactive ? <Badge tone="warning">Inactive</Badge> : null}
               </span>
@@ -361,7 +362,7 @@ export default async function ContractOverviewPage({ params }: Params) {
               <Meta label="Created" value={formatDateTime(contract.createdAt)} />
               <Meta label="Updated" value={formatDateTime(contract.updatedAt)} />
               {contract.createdBy ? (
-                <Meta label="Drafted by" value={contract.createdBy.fullName} />
+                <Meta label="Drafted by" value={<PersonLink memberId={contract.createdBy.memberId} name={contract.createdBy.fullName} />} />
               ) : null}
               {contract.archivedAt ? (
                 <Meta label="Archived" value={formatDateTime(contract.archivedAt)} />

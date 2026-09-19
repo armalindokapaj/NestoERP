@@ -261,7 +261,7 @@ export async function getUnitDetail(context: UserContext, unitId: string, routeP
 
 /* Activity (E-05D §48, §49) --------------------------------------------------- */
 
-export type UnitActivityDTO = { id: string; action: string; message: string | null; actor: string | null; createdAt: string };
+export type UnitActivityDTO = { id: string; action: string; message: string | null; actor: string | null; actorMemberId: string | null; createdAt: string };
 
 /**
  * One unit's history, newest first (E-05D §48): created, edited, moved, its
@@ -283,11 +283,11 @@ export async function listUnitActivity(context: UserContext, unitId: string, opt
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * limit,
       take: limit,
-      select: { id: true, action: true, message: true, createdAt: true, actorMember: { select: { user: { select: { firstName: true, lastName: true } } } } },
+      select: { id: true, action: true, message: true, createdAt: true, actorMemberId: true, actorMember: { select: { user: { select: { firstName: true, lastName: true } } } } },
     }),
   ]);
   return {
-    items: rows.map((row) => ({ id: row.id, action: row.action, message: row.message, actor: row.actorMember ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}` : null, createdAt: row.createdAt.toISOString() })),
+    items: rows.map((row) => ({ id: row.id, action: row.action, message: row.message, actor: row.actorMember ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}` : null, actorMemberId: row.actorMemberId, createdAt: row.createdAt.toISOString() })),
     page,
     pageSize: limit,
     total,

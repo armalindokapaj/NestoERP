@@ -1,5 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink, personHref } from "@/components/people/person-link";
 import { accountStatusLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
 import type { CrewSummaryDTO, WorkerSummaryDTO } from "@/lib/modules/workforce/workforce.types";
 import { orDash } from "@/lib/utils/format";
@@ -36,7 +37,11 @@ export function WorkerTable({ workers }: { workers: WorkerSummaryDTO[] }) {
       render: (worker) => (
         <span className="min-w-0 text-fg-muted">
           <span className="block truncate">{orDash(worker.crew?.name)}</span>
-          {worker.supervisor ? <span className="block truncate text-meta text-fg-subtle">Foreman {worker.supervisor}</span> : null}
+          {worker.supervisor ? (
+            <span className="block truncate text-meta text-fg-subtle">
+              Foreman <PersonLink personId={worker.supervisorPersonId} name={worker.supervisor} tab="workforce" />
+            </span>
+          ) : null}
         </span>
       ),
     },
@@ -54,14 +59,14 @@ export function WorkerTable({ workers }: { workers: WorkerSummaryDTO[] }) {
       render: (worker) => <span className={worker.accountStatus === "HAS_ACCOUNT" ? "text-fg-muted" : "text-fg-subtle"}>{worker.accountStatus === "HAS_ACCOUNT" ? "Yes" : accountStatusLabels[worker.accountStatus]}</span>,
     },
   ];
-  return <DataTable caption="Workers" columns={columns} records={workers} rowKey={(worker) => worker.employeeId} rowHref={(worker) => `/people/${worker.personId}?tab=workforce`} />;
+  return <DataTable caption="Workers" columns={columns} records={workers} rowKey={(worker) => worker.employeeId} rowHref={(worker) => personHref({ personId: worker.personId }, "workforce")!} />;
 }
 
 export function CrewTable({ crews }: { crews: CrewSummaryDTO[] }) {
   const columns: TableColumn<CrewSummaryDTO>[] = [
     { key: "name", label: "Crew", primary: true, render: (crew) => <span className="truncate">{crew.name}</span> },
     { key: "project", label: "Project · site", render: (crew) => <span className="text-fg-muted">{[crew.project?.name, crew.site?.name].filter(Boolean).join(" · ") || "Company crew"}</span> },
-    { key: "supervisor", label: "Foreman", hideBelow: "md", render: (crew) => <span className="text-fg-muted">{orDash(crew.supervisor?.name)}</span> },
+    { key: "supervisor", label: "Foreman", hideBelow: "md", render: (crew) => <span className="text-fg-muted">{crew.supervisor ? <PersonLink personId={crew.supervisor.personId} name={crew.supervisor.name} tab="workforce" /> : "—"}</span> },
     { key: "trade", label: "Trade", hideBelow: "lg", render: (crew) => <span className="text-fg-muted">{crew.trade?.name ?? "Mixed"}</span> },
     { key: "members", label: "People", align: "right", render: (crew) => <span className="tabular-nums text-fg-muted">{crew.memberCount}</span> },
   ];

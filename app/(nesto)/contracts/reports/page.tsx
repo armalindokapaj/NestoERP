@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ContractExportLink } from "@/components/contracts/export-link";
 import { ContractTable } from "@/components/contracts/contract-table";
 import { ModulePage } from "@/components/modules/module-page";
+import { PersonLink } from "@/components/people/person-link";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
@@ -104,7 +105,7 @@ export default async function ContractReportsPage() {
                     className="flex items-center justify-between gap-3 py-2.5 first:pt-0"
                   >
                     <span className={row.owner.active ? "text-table text-fg" : "text-table text-fg-subtle"}>
-                      {row.owner.fullName}
+                      <PersonLink memberId={row.owner.memberId} name={row.owner.fullName} />
                       {row.owner.active ? "" : " (inactive)"}
                     </span>
                     <span className="flex items-center gap-3">
@@ -176,7 +177,8 @@ export default async function ContractReportsPage() {
                   <span className="min-w-0">
                     <span className="block truncate text-table text-fg">{row.title}</span>
                     <span className="block truncate text-meta text-fg-subtle">
-                      {obligationTypeLabels[row.type]} · {row.responsible?.fullName ?? "Unassigned"}
+                      {obligationTypeLabels[row.type]} ·{" "}
+                      {row.responsible ? <PersonLink memberId={row.responsible.memberId} name={row.responsible.fullName} /> : "Unassigned"}
                     </span>
                   </span>
                   <span

@@ -6,6 +6,7 @@ import { Pagination } from "@/components/data/pagination";
 import { ActionStatusToggle } from "@/components/meetings/action-status-toggle";
 import { PersonAvatar } from "@/components/meetings/meeting-ui";
 import { ModulePage } from "@/components/modules/module-page";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -120,7 +121,9 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
                   {action.owner && !query.mine ? (
                     <span className="flex items-center gap-1.5 text-meta text-fg-muted" title={action.owner.fullName}>
                       <PersonAvatar person={action.owner} />
-                      <span className="hidden md:inline">{action.owner.fullName}</span>
+                      <span className="hidden md:inline">
+                        <PersonLink memberId={action.owner.memberId} name={action.owner.fullName} />
+                      </span>
                     </span>
                   ) : null}
                 </span>

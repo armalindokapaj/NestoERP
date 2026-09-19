@@ -6,11 +6,12 @@ import { DocumentActions } from "@/components/inventory/document-actions";
 import { DocumentLinesTable } from "@/components/inventory/document-lines-table";
 import { InventoryActivityFeed } from "@/components/inventory/record-activity";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as returns from "@/lib/modules/inventory/documents/return.service";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ returnId: string }> };
 
@@ -53,7 +54,7 @@ export default async function ReturnPage({ params }: Params) {
         meta={[
           { label: "Returned", value: formatDate(record.returnDate) },
           { label: "Lines", value: String(record.lineCount) },
-          { label: "Returned by", value: orDash(record.returnedBy?.fullName ?? null) },
+          { label: "Returned by", value: record.returnedBy ? <PersonLink memberId={record.returnedBy.memberId} name={record.returnedBy.fullName} /> : "—" },
         ]}
         actions={
           <DocumentActions
@@ -106,9 +107,9 @@ export default async function ReturnPage({ params }: Params) {
                   ),
                 },
                 { label: "Back into", value: record.warehouse.name },
-                { label: "Drafted by", value: orDash(record.createdBy?.fullName ?? null) },
+                { label: "Drafted by", value: record.createdBy ? <PersonLink memberId={record.createdBy.memberId} name={record.createdBy.fullName} /> : "—" },
                 { label: "Drafted", value: formatDateTime(record.createdAt) },
-                { label: "Posted by", value: orDash(record.postedBy?.fullName ?? null) },
+                { label: "Posted by", value: record.postedBy ? <PersonLink memberId={record.postedBy.memberId} name={record.postedBy.fullName} /> : "—" },
               ]}
             />
           </section>

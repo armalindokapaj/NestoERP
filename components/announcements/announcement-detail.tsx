@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, CheckCircle2, Copy, FileText, Pencil, Pin, PinOff, Send, Upload } from "lucide-react";
 
 import { useUploadQueue } from "@/components/documents/upload-queue";
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -106,7 +107,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
           {item.title}
         </h1>
         <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-fg-muted">
-          {item.author ? <span className="font-medium text-fg">{item.author.name}</span> : null}
+          {item.author ? <PersonLink memberId={item.author.memberId} name={item.author.name} /> : null}
           <span>{item.publishedAt ? formatDay(item.publishedAt, zone) : item.status === "SCHEDULED" ? `Publishes ${formatDayTime(item.publishAt, zone)}` : "Not published"}</span>
           {item.edited ? <span title="Corrected after publishing">Updated</span> : null}
           {item.expiresAt ? <span>{item.status === "EXPIRED" ? "Expired" : "Until"} {formatDay(item.expiresAt, zone)}</span> : null}
@@ -281,7 +282,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
                   <ul className="mt-2 max-h-72 divide-y divide-line overflow-y-auto">
                     {people.filter((row) => Boolean(row.acknowledgedAt) !== showPending).map((row) => (
                       <li key={row.memberId} className="flex items-center justify-between gap-2 py-1.5 text-table">
-                        <span className="truncate text-fg">{row.name}</span>
+                        <PersonLink memberId={row.memberId} name={row.name} className="truncate" />
                         <span className="shrink-0 text-meta text-fg-muted">{row.acknowledgedAt ? formatDay(row.acknowledgedAt, zone) : row.readAt ? "Read" : "Not read"}</span>
                       </li>
                     ))}

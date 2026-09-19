@@ -8,6 +8,7 @@ import { StopWorkActions } from "@/components/hse/record-actions";
 import { HseActivityFeed } from "@/components/hse/record-activity";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as stopWork from "@/lib/modules/hse/stop-work/stop-work.service";
@@ -63,7 +64,14 @@ export default async function StopWorkPage({ params }: Params) {
         meta={[
           { label: "Project", value: record.project.code },
           { label: "Issued", value: formatDateTime(record.issuedAt) },
-          { label: "Issued by", value: record.issuedBy?.fullName ?? "—" },
+          {
+            label: "Issued by",
+            value: record.issuedBy ? (
+              <PersonLink memberId={record.issuedBy.memberId} name={record.issuedBy.fullName} />
+            ) : (
+              "—"
+            ),
+          },
         ]}
         actions={<StopWorkActions record={record} />}
       />
@@ -143,7 +151,12 @@ export default async function StopWorkPage({ params }: Params) {
                 {record.releaseReason}
               </p>
               <p className="mt-3 text-meta text-fg-subtle">
-                By {record.releasedBy?.fullName ?? "somebody"}
+                By{" "}
+                {record.releasedBy ? (
+                  <PersonLink memberId={record.releasedBy.memberId} name={record.releasedBy.fullName} />
+                ) : (
+                  "somebody"
+                )}
                 {record.releasedAt ? ` on ${formatDateTime(record.releasedAt)}` : ""}.
               </p>
             </section>
@@ -164,7 +177,16 @@ export default async function StopWorkPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Issued by" value={orDash(record.issuedBy?.fullName ?? null)} />
+              <Meta
+                label="Issued by"
+                value={
+                  record.issuedBy ? (
+                    <PersonLink memberId={record.issuedBy.memberId} name={record.issuedBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Issued" value={formatDateTime(record.issuedAt)} />
               {record.cancelledAt ? (
                 <Meta label="Cancelled" value={formatDateTime(record.cancelledAt)} />

@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { StockTable } from "@/components/inventory/stock-table";
 import { formatQuantity } from "@/components/inventory/inventory-format";
 import { requireModule } from "@/lib/context/current-user";
 import * as itemService from "@/lib/modules/inventory/items/item.service";
 import { itemCategoryLabels } from "@/lib/modules/inventory/inventory.status";
-import { formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDateTime } from "@/lib/utils/format";
 import { ItemPageShell, loadItemPage } from "./item-shell";
 
 type Params = { params: Promise<{ itemId: string }> };
@@ -99,7 +100,7 @@ export default async function ItemPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Added by" value={orDash(item.createdBy?.fullName ?? null)} />
+              <Meta label="Added by" value={item.createdBy ? <PersonLink memberId={item.createdBy.memberId} name={item.createdBy.fullName} /> : "—"} />
               <Meta label="Added" value={formatDateTime(item.createdAt)} />
               <Meta label="Updated" value={formatDateTime(item.updatedAt)} />
               {item.archivedAt ? (
