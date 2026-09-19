@@ -20,6 +20,7 @@ import { paginationMeta } from "@/lib/modules/shared/list-query";
 import type { PersonDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
 import type { DirectoryQuery, ManagedWorkProfileInput, OwnWorkProfileInput } from "./people.schema";
 import type {
+  AccessSummaryDTO,
   DirectoryDTO,
   EmploymentViewDTO,
   PersonActivityDTO,
@@ -102,6 +103,16 @@ function formerPeopleWhere(parentGroupId: string): Prisma.PersonProfileWhereInpu
 /** Whether "people who no longer work here" is this reader's to see (E-01 §40): those who keep person records. */
 function seesFormerPeople(context: UserContext): boolean {
   return can(context, "person_profile.view");
+}
+
+/**
+ * Opens the profile of anybody who has been in the group, working or not: those
+ * who keep person records, and the access administrators — Group IT creates a
+ * selected candidate's login from her profile and closes a leaver's (E-08 §46,
+ * §117). The directory still lists them only for the former (§54).
+ */
+function opensEveryone(context: UserContext): boolean {
+  return seesFormerPeople(context) || can(context, "organization.access.view");
 }
 
 async function ownPersonId(context: UserContext): Promise<string | null> {
@@ -309,6 +320,39 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
   if (query.location) {
     and.push({ OR: [{ officeLocation: contains(query.location) }, { employments: { some: { company: { parentGroupId: group }, workLocation: contains(query.location) } } }] });
   }
+  if (query.manager) {
+    // Reports to them: a running employment in the group whose manager is one of the manager's memberships (E-08 §20, §41).
+    and.push({ employments: { some: { company: { parentGroupId: group }, employmentStatus: { in: WORKING }, managerMember: { user: { personProfileId: query.manager } } } } });
+  }
+  if (query.role) {
+    and.push({ user: { is: { memberships: { some: { status: "ACTIVE", company: { parentGroupId: group }, role: { key: query.role } } } } } });
+  }
+  if (query.view === "company") {
+    and.push({
+      OR: [
+        { user: { is: { memberships: { some: { companyId: context.companyId, status: "ACTIVE" } } } } },
+        { employments: { some: { companyId: context.companyId, employmentStatus: { in: WORKING } } } },
+      ],
+    });
+  } else if (query.view === "department") {
+    // The reader's own group department, across the group's companies (E-08 §14).
+    const own = await prisma.companyMember.findFirst({ where: { id: context.membershipId, companyId: context.companyId }, select: { department: { select: { groupDepartment: { select: { key: true } } } } } });
+    const key = own?.department?.groupDepartment?.key;
+    and.push(
+      key
+        ? {
+            OR: [
+              { user: { is: { memberships: { some: { status: "ACTIVE", company: { parentGroupId: group }, department: { groupDepartment: { key } } } } } } },
+              { employments: { some: { company: { parentGroupId: group }, employmentStatus: { in: WORKING }, department: { groupDepartment: { key } } } } },
+            ],
+          }
+        : { id: { in: [] } },
+    );
+  } else if (query.view === "projects") {
+    // Colleagues on a project the reader is on (E-08 §15, §91).
+    const mine = await prisma.projectMember.findMany({ where: { companyMemberId: context.membershipId, status: "ACTIVE" }, select: { projectId: true } });
+    and.push({ user: { is: { memberships: { some: { company: { parentGroupId: group }, projectMemberships: { some: { status: "ACTIVE", projectId: { in: mine.map((row) => row.projectId) } } } } } } } });
+  }
 
   const where: Prisma.PersonProfileWhereInput = { AND: and };
   const [total, rows] = await Promise.all([
@@ -328,17 +372,20 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
 export type DirectoryFilterOptionsDTO = {
   companies: Array<{ id: string; name: string }>;
   departments: Array<{ key: string; name: string }>;
+  roles: Array<{ key: string; label: string }>;
 };
 
 /** What the directory can be narrowed by: the group's companies and departments (E-01 §38). */
 export async function directoryFilterOptions(context: UserContext): Promise<DirectoryFilterOptionsDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "people.directory.view");
-  const [companies, departments] = await Promise.all([
+  const [companies, departments, roles] = await Promise.all([
     prisma.company.findMany({ where: { parentGroupId: context.parentGroupId, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.groupDepartment.findMany({ where: { parentGroupId: context.parentGroupId, status: "ACTIVE" }, select: { key: true, name: true }, orderBy: { name: "asc" } }),
+    // The roles somebody in the group holds today (§41), not every role NESTO knows.
+    prisma.role.findMany({ where: { members: { some: { status: "ACTIVE", company: { parentGroupId: context.parentGroupId, status: "ACTIVE" } } } }, select: { key: true, name: true }, orderBy: { name: "asc" } }),
   ]);
-  return { companies, departments };
+  return { companies, departments, roles: roles.map((role) => ({ key: role.key, label: isMembershipRoleKey(role.key) ? roleLabel(role.key) : role.name })) };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -356,7 +403,7 @@ export async function directoryFilterOptions(context: UserContext): Promise<Dire
 async function visiblePerson(context: UserContext, personId: string): Promise<{ row: PersonRow; isSelf: boolean; former: boolean }> {
   const self = (await ownPersonId(context)) === personId;
   const group = context.parentGroupId;
-  const hr = seesFormerPeople(context);
+  const hr = opensEveryone(context);
   const scope = self ? { parentGroupId: group } : hr ? everWorkedWhere(group) : { OR: [workingPeopleWhere(group), formerPeopleWhere(group)] };
   const row = await prisma.personProfile.findFirst({ where: { AND: [{ id: personId }, scope] }, select: personSelect(group) });
   if (!row) throw new AccessError("NOT_FOUND");
@@ -372,7 +419,8 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
   if (former) return formerProfile(card);
   const userId = row.user?.id ?? null;
 
-  const [details, assignments, projects, employments, reach, verified, own] = await Promise.all([
+  const membershipIds = row.user?.memberships.map((membership) => membership.id) ?? [];
+  const [details, assignments, projects, employments, reach, verified, own, reports] = await Promise.all([
     prisma.personProfile.findFirstOrThrow({ where: { id: row.id, parentGroupId: context.parentGroupId }, select: { professionalBio: true, parentGroup: { select: { name: true } } } }),
     userId
       ? prisma.departmentAssignment.findMany({
@@ -402,6 +450,15 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
       take: 20,
     }),
     ownPersonId(context),
+    // The other side of "Reports to" (E-08 §21): running employments in the group that name one of their memberships as manager.
+    membershipIds.length
+      ? prisma.employeeProfile.findMany({
+          where: { managerMemberId: { in: membershipIds }, employmentStatus: { in: WORKING }, company: { parentGroupId: context.parentGroupId, status: "ACTIVE" } },
+          select: { jobTitle: true, company: { select: { name: true } }, personProfile: { select: { id: true, firstName: true, lastName: true } } },
+          orderBy: [{ personProfile: { lastName: "asc" } }, { personProfile: { firstName: "asc" } }],
+          take: 100,
+        })
+      : Promise.resolve([]),
   ]);
 
   const now = new Date();
@@ -459,6 +516,7 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
     parentGroup: { name: details.parentGroup.name },
     role: membership ? { key: membership.role.key, label: isMembershipRoleKey(membership.role.key) ? roleLabel(membership.role.key) : membership.role.name } : null,
     manager,
+    directReports: reports.map((report) => ({ personId: report.personProfile.id, name: `${report.personProfile.firstName} ${report.personProfile.lastName}`, jobTitle: report.jobTitle, company: report.company.name })),
     companies,
     groupPositions: live.filter((position) => position.positionLevel === "GROUP_HEAD").map(positionText),
     departments,
@@ -473,6 +531,7 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
       canViewEmployment: employments.length > 0,
       canViewHistory: employments.length > 0 && (await canViewPersonHistory(context, row.id)),
       canViewPrivate: isSelf || (can(context, "person_profile.view") && reach),
+      canViewAccess: can(context, "organization.access.view"),
     },
   };
 }
@@ -496,13 +555,14 @@ function formerProfile(card: PersonCardDTO): WorkProfileDTO {
     parentGroup: { name: "" },
     role: null,
     manager: null,
+    directReports: [],
     companies: [],
     groupPositions: [],
     departments: [],
     projects: [],
     activity: [],
     former: true,
-    capabilities: { isSelf: false, canEditOwn: false, canManage: false, canChangePhoto: false, canViewEmployment: false, canViewHistory: false, canViewPrivate: false },
+    capabilities: { isSelf: false, canEditOwn: false, canManage: false, canChangePhoto: false, canViewEmployment: false, canViewHistory: false, canViewPrivate: false, canViewAccess: false },
   };
 }
 
@@ -666,6 +726,104 @@ export async function getDocumentsTab(context: UserContext, personId: string): P
   }
   const elsewhere = [...new Set(row.employments.filter((employment) => employment.companyId !== context.companyId).map((employment) => employment.company.name))];
   return { employments, elsewhere };
+}
+
+/**
+ * The Access section (E-08 §29, §53, §66, §97): the person's account, their
+ * places and roles in the group, project access, delegated grants and how
+ * complete their record is — for the Owner, Group IT and access administrators
+ * (`organization.access.view`), never an ordinary colleague. Last login needs
+ * `team.member.security_metadata.view` as well (PRD #14 §49). The person
+ * themselves is not an access administrator of their own account.
+ */
+export async function getAccessSummary(context: UserContext, personId: string): Promise<AccessSummaryDTO> {
+  assertModule(context, MODULE);
+  assertPermission(context, "organization.access.view");
+  const { row } = await visiblePerson(context, personId);
+  const group = context.parentGroupId;
+  const showsLastLogin = can(context, "team.member.security_metadata.view");
+  const person = await prisma.personProfile.findFirstOrThrow({
+    where: { id: row.id, parentGroupId: group },
+    select: {
+      workEmail: true,
+      photoChecksum: true,
+      user: {
+        select: {
+          id: true,
+          username: true,
+          status: true,
+          createdAt: true,
+          lastLoginAt: true,
+          mustChangePassword: true,
+          memberships: {
+            where: { company: { parentGroupId: group } },
+            select: { id: true, status: true, createdAt: true, role: { select: { key: true, name: true } }, company: { select: { id: true, name: true } }, department: { select: { name: true } } },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      },
+      provisioningRequests: { where: { parentGroupId: group }, select: { id: true, status: true, submittedAt: true, company: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
+  });
+  const userId = person.user?.id ?? null;
+  const [positions, projects, grants] = await Promise.all([
+    userId
+      ? prisma.departmentAssignment.findMany({
+          where: { userId, parentGroupId: group, status: "ACTIVE" },
+          select: { positionLevel: true, groupDepartment: { select: { name: true } }, company: { select: { name: true } } },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
+    userId
+      ? prisma.projectMember.findMany({
+          where: { member: { userId, company: { parentGroupId: group } }, project: { archivedAt: null } },
+          select: { projectRole: true, status: true, project: { select: { code: true, name: true, company: { select: { name: true } } } } },
+          orderBy: [{ status: "asc" }, { joinedAt: { sort: "desc", nulls: "last" } }],
+          take: 100,
+        })
+      : Promise.resolve([]),
+    userId
+      ? prisma.accessGrant.findMany({ where: { userId, parentGroupId: group, revokedAt: null }, select: { functionKey: true, scopeType: true, accessLevel: true, expiresAt: true }, orderBy: { createdAt: "desc" } })
+      : Promise.resolve([]),
+  ]);
+  const card = toCard(row);
+  const employment = primaryEmployment(row);
+  const request = person.provisioningRequests[0];
+  return {
+    account: person.user
+      ? { username: person.user.username, status: person.user.status, createdAt: person.user.createdAt.toISOString(), lastLoginAt: showsLastLogin ? (person.user.lastLoginAt?.toISOString() ?? null) : null, mustChangePassword: person.user.mustChangePassword }
+      : null,
+    provisioning:
+      request && (!person.user || request.status !== "PROVISIONED")
+        ? {
+            status: request.status,
+            company: request.company.name,
+            submittedAt: request.submittedAt?.toISOString() ?? null,
+            // Where the account is created from (§117), for a reader who may open the request.
+            href: can(context, "organization.provisioning_request.view") ? `/organization/provisioning/${request.id}` : null,
+          }
+        : null,
+    memberships: (person.user?.memberships ?? []).map((membership) => ({
+      company: membership.company,
+      role: { key: membership.role.key, label: isMembershipRoleKey(membership.role.key) ? roleLabel(membership.role.key) : membership.role.name },
+      status: membership.status,
+      department: membership.department?.name ?? null,
+      since: membership.createdAt.toISOString(),
+    })),
+    positions: positions.map((position) => ({ department: position.groupDepartment.name, company: position.company?.name ?? null, position: position.positionLevel })),
+    projects: projects.map((project) => ({ code: project.project.code, name: project.project.name, company: project.project.company.name, role: project.projectRole, status: project.status })),
+    grants: grants.map((grant) => ({ functionKey: grant.functionKey, scopeType: grant.scopeType, accessLevel: grant.accessLevel, expiresAt: grant.expiresAt?.toISOString() ?? null })),
+    completeness: {
+      photo: person.photoChecksum !== null,
+      workEmail: Boolean(person.workEmail),
+      company: card.employingCompany !== null,
+      department: card.department !== null,
+      manager: Boolean(employment?.managerMember),
+      role: (person.user?.memberships ?? []).some((membership) => membership.status === "ACTIVE"),
+      account: person.user?.status === "ACTIVE",
+    },
+    showsLastLogin,
+  };
 }
 
 /**

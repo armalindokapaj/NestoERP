@@ -63,6 +63,27 @@ What was missing:
    within reach. Only JPEG, PNG or WebP, recognised by their bytes, up to 2 MB.
    The URL carries the checksum, so a new photo is a new URL. Initials remain
    the fallback. Audited as `PERSON_PROFILE_PHOTO_UPDATED`.
+5. **Access is shown to those who administer it, and changed where it always
+   was.** The profile's Access tab (`GET /api/people/:id/account`) is for
+   `organization.access.view` — the Owner and Group IT: the login, its
+   companies and roles, project access, department positions, delegated grants
+   and how complete the record is; last sign-in only with
+   `team.member.security_metadata.view`. It changes nothing: a login is still
+   deactivated on Team and created from the account request. So that Group IT
+   can act for somebody not (or not yet) working — a selected candidate waiting
+   for a login (§46, §117), a leaver whose login must close — an access
+   administrator opens the profile of anybody who has been in the group, as
+   those who keep person records do. The directory still lists former people
+   only for the latter.
+6. **Putting somebody on a project from their profile goes through the project's
+   door** (§49, §50, §64). The profile offers only the projects the reader may
+   staff with this person — in a company where the person has a login — and
+   `authorizeTeamChange` decides, exactly as on the project's Team tab: the
+   project's own team door, or a department manager's for their own people
+   (E-06 §94). The change is the projects domain's `addMember` / `removeMember`,
+   audited there as `PROJECT_MEMBER_ASSIGNED` / `PROJECT_MEMBER_REMOVED` with
+   `via` — the events E-08 §109 calls `PERSON_PROJECT_ASSIGNED` /
+   `PERSON_PROJECT_REMOVED`. Nothing is audited twice.
 
 ## Requirement classification
 
@@ -72,14 +93,15 @@ EXISTS = already there. EXTEND = there, widened. NEW = added by E-08.
 | --- | --- | --- | --- |
 | §2.1, §3, §4, §57, §60, §120 | One person, one profile, one route; login → person 1:0..1 | EXISTS | E-01, E-06 |
 | §5-§8, §69-§83, §112, §121 | `PersonLink`, reference resolver, every module | NEW | decision 3 |
-| §9-§15, §41, §61, §122 | Directory, search, filters, views | EXISTS + EXTEND | E-01; more filters |
+| §9-§15, §41, §61, §122 | Directory, search, filters, views | EXISTS + EXTEND | E-01; manager and NESTO role filters; views Everyone, My company, My department, My projects |
 | §16-§25, §62 | Header, overview, organization, projects, group and company roles | EXISTS | E-01, E-13 |
-| §20-§21 | Manager linked; direct reports | EXTEND | |
+| §20-§21 | Manager linked; direct reports | EXTEND | the overview lists the people whose current employment names this person as manager; the directory filters by manager |
 | §26-§27 | Skills, qualifications, documents | EXISTS | E-02 |
-| §29, §35, §66 | Access section, account summary | NEW | |
+| §29, §35, §66, §97 | Access section, account summary, record completeness | NEW | decision 5 |
 | §43, §93 | Photo | NEW | decision 4 |
 | §45-§48, §117, §119, §124 | Candidate → employee → login | EXISTS | E-06 |
-| §49-§51, §64 | A department manager assigns projects from the profile | NEW | |
+| §49-§51, §64 | A department manager assigns projects from the profile | NEW | decision 6 |
+| §109, §110 | Audit events | EXISTS + EXTEND | `PERSON_PROFILE_PHOTO_UPDATED` added; profile, employment (E-03), project (decision 6) and account (E-06, Team) changes keep the events they had |
 | §53-§56, §118 | Without login; former employee | EXISTS + EXTEND | decision 2 |
 | §90, §115 | Company-scoped directory | SUPERSEDE | decision 1 |
 
@@ -91,3 +113,15 @@ EXISTS = already there. EXTEND = there, widened. NEW = added by E-08.
   id added to their payload to link; the database already holds it.
 - The photo adds five nullable columns to `person_profiles` (migration
   `20260919150000_person_photo_e08`), set together or not at all.
+- Stage 2 put `PersonLink` on about 330 places across every module. Payloads
+  gained the ids beside the names they already carried (`actorMemberId`,
+  `recordedByMemberId`, …); nothing was re-keyed and no name moved. A name stays
+  plain text where it is inside another link (a row that opens its record), in a
+  form or picker, on a print page, or names somebody who is not a NESTO person
+  (a visitor, a contractor's contact).
+- HR's links to a membership's Team page — where a login's access is managed —
+  go through `membershipHref` beside `personHref`, so the test still holds every
+  hand-built `/people/…` and `/team/…` URL to one file.
+- A few services still build `/people/<id>?tab=…` strings for their own
+  worklists and calendar entries (`lib/`, which the test does not scan); they
+  lead to the same canonical profile.

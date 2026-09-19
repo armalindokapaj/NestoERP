@@ -24,9 +24,10 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 /**
  * The people directory (E-01 §35-§40): everybody who works in the group,
  * across its companies, with where they work and how to reach them. Searched
- * by name, title or work contact; narrowed by company, department, project,
- * title and place. Those who keep person records may include people who no
- * longer work here.
+ * by name, title or work contact; narrowed by company, department, NESTO role,
+ * title, place, project or manager, or seen as the reader's own company,
+ * department or project colleagues (E-08 §11, §41). Those who keep person
+ * records may include people who no longer work here.
  */
 export default async function PeoplePage({ searchParams }: Props) {
   const context = await requireModule("people");
@@ -38,20 +39,30 @@ export default async function PeoplePage({ searchParams }: Props) {
     title: one(params.title),
     project: one(params.project),
     location: one(params.location),
+    manager: one(params.manager),
+    role: one(params.role),
+    view: one(params.view),
     status: one(params.status),
     page: one(params.page),
   });
   const [directory, options] = await Promise.all([listPeople(context, query), directoryFilterOptions(context)]);
   const pageHref = (page: number) => {
     const next = new URLSearchParams();
-    for (const [key, value] of Object.entries({ q: query.q, company: query.company, department: query.department, title: query.title, location: query.location, project: query.project, status: query.status === "all" ? "all" : undefined })) {
+    for (const [key, value] of Object.entries({ q: query.q, company: query.company, department: query.department, title: query.title, location: query.location, project: query.project, manager: query.manager, role: query.role, view: query.view, status: query.status === "all" ? "all" : undefined })) {
       if (value) next.set(key, value);
     }
     if (page > 1) next.set("page", String(page));
     const text = next.toString();
     return text ? `/people?${text}` : "/people";
   };
-  const filtered = Boolean(query.q || query.company || query.department || query.title || query.location || query.project || query.status === "all");
+  const filtered = Boolean(query.q || query.company || query.department || query.title || query.location || query.project || query.manager || query.role || query.view || query.status === "all");
+  // The directory's views (E-08 §11): everybody, or the reader's own company, department or project colleagues.
+  const VIEWS = [
+    { key: undefined, label: "Everyone" },
+    { key: "company", label: "My company" },
+    { key: "department", label: "My department" },
+    { key: "projects", label: "My projects" },
+  ] as const;
 
   return (
     <ModulePage
@@ -66,7 +77,23 @@ export default async function PeoplePage({ searchParams }: Props) {
       }
     >
       <div className="space-y-4">
-        <form method="get" action="/people" className="nesto-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] lg:items-end" aria-label="Find people">
+        <nav aria-label="Directory views" className="flex flex-wrap gap-2" data-testid="directory-views">
+          {VIEWS.map((view) => (
+            <Link
+              key={view.label}
+              href={view.key ? `/people?view=${view.key}` : "/people"}
+              aria-current={query.view === view.key ? "page" : undefined}
+              className={
+                query.view === view.key
+                  ? "rounded-full border border-accent/40 bg-accent-soft px-3 py-1 text-table font-medium text-accent-strong"
+                  : "rounded-full border border-line px-3 py-1 text-table text-fg-muted hover:border-line-strong hover:text-fg"
+              }
+            >
+              {view.label}
+            </Link>
+          ))}
+        </nav>
+        <form method="get" action="/people" className="nesto-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] lg:items-end" aria-label="Find people">
           <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
             Search
             <Input name="q" type="search" defaultValue={query.q ?? ""} placeholder="Name, title, email or phone" />
@@ -94,6 +121,17 @@ export default async function PeoplePage({ searchParams }: Props) {
             </select>
           </label>
           <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
+            NESTO role
+            <select name="role" defaultValue={query.role ?? ""} className={selectClass}>
+              <option value="">Any role</option>
+              {options.roles.map((role) => (
+                <option key={role.key} value={role.key}>
+                  {role.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
             Job title
             <Input name="title" defaultValue={query.title ?? ""} placeholder="Any" />
           </label>
@@ -109,12 +147,15 @@ export default async function PeoplePage({ searchParams }: Props) {
               </label>
             ) : null}
             {query.project ? <input type="hidden" name="project" value={query.project} /> : null}
+            {query.manager ? <input type="hidden" name="manager" value={query.manager} /> : null}
+            {query.view ? <input type="hidden" name="view" value={query.view} /> : null}
             <Button type="submit">Search</Button>
           </div>
         </form>
 
         <p className="text-meta text-fg-subtle" aria-live="polite">
           {directory.pagination.total === 1 ? "1 person" : `${directory.pagination.total} people`}
+          {query.manager ? " reporting to the manager you chose" : ""}
           {filtered ? (
             <>
               {" · "}

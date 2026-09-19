@@ -27,6 +27,12 @@ export const directoryQuerySchema = z.object({
   title: z.string().trim().max(120).optional().catch(undefined),
   project: z.string().trim().max(64).optional().catch(undefined),
   location: z.string().trim().max(120).optional().catch(undefined),
+  /** Who reports to this person (E-08 §41): a person id. */
+  manager: z.string().trim().max(64).optional().catch(undefined),
+  /** The NESTO role held in the group (§41), by key. */
+  role: z.string().trim().max(40).optional().catch(undefined),
+  /** A directory view (§11): the reader's own company, department or project colleagues. */
+  view: z.enum(["company", "department", "projects"]).optional().catch(undefined),
   /** "all" includes people who no longer work here — for those who keep people's records. */
   status: z.enum(["active", "all"]).catch("active"),
   page: z.coerce.number().int().min(1).catch(1),
@@ -55,3 +61,9 @@ export const managedWorkProfileSchema = z.object({
   officeLocation: optionalText(120),
 });
 export type ManagedWorkProfileInput = z.infer<typeof managedWorkProfileSchema>;
+
+/** Putting a person on a project from their profile (E-08 §49, §64). */
+export const assignProjectSchema = z.object({
+  projectId: z.string().trim().min(1, "Choose a project").max(64),
+  projectRole: optionalText(120),
+});
