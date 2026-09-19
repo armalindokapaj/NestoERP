@@ -75,11 +75,14 @@ enum DataScope {
 
 /// A parent group's lifecycle (E-06 §8, §21). The Platform Admin implements a
 /// group while it is IMPLEMENTING; normal operation begins at ACTIVE.
-/// Where a demonstration tenant's fact comes from (D-01 §3).
+/// Where a demonstration tenant's fact comes from (D-01 §3): a public source,
+/// invented for the demo, inferred from public facts, or supplied by the owner
+/// of the configuration and not publicly verified (D-03 §3).
 enum DemoSourceType {
   PUBLIC
   SYNTHETIC
   INFERRED
+  USER_PROVIDED
 }
 
 enum ParentGroupStatus {
