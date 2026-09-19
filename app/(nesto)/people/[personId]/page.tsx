@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { EmployeeDocuments } from "@/components/hr/employee-documents";
 import { EmploymentTimeline } from "@/components/hr/employment-timeline";
 import { PersonLink } from "@/components/people/person-link";
+import { AssignProjectButton, RemoveFromProjectButton } from "@/components/people/person-project-actions";
 import { PersonQualifications } from "@/components/people/person-qualifications";
 import { ProfilePhotoButton } from "@/components/people/profile-photo";
 import { EditOwnProfileButton, ManageProfileButton } from "@/components/people/work-profile-editor";
@@ -21,8 +22,9 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import { getPersonEmploymentHistory } from "@/lib/modules/hr/employment/employment.query";
-import { getDocumentsTab, getEmploymentView, getPrivateProfile, getQualificationsTab, getWorkProfile } from "@/lib/modules/people/people.service";
+import { getAccessSummary, getDocumentsTab, getEmploymentView, getPrivateProfile, getQualificationsTab, getWorkProfile } from "@/lib/modules/people/people.service";
 import type { WorkProfileDTO } from "@/lib/modules/people/people.types";
+import { assignableProjects, removableProjectIds } from "@/lib/modules/people/person.projects";
 import { personInWorkforce } from "@/lib/modules/workforce/workforce.directory";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, orDash } from "@/lib/utils/format";
@@ -30,7 +32,7 @@ import { statusLabel } from "@/lib/utils/status";
 
 type Props = { params: Promise<{ personId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-const TABS = ["overview", "projects", "qualifications", "documents", "workforce", "activity", "employment", "private"] as const;
+const TABS = ["overview", "projects", "qualifications", "documents", "workforce", "activity", "employment", "private", "access"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Partial<Record<Tab, string>> = { qualifications: "Skills & qualifications" };
 
@@ -75,7 +77,17 @@ export default async function PersonPage({ params, searchParams }: Props) {
   const visible: Tab[] = profile.former
     ? ["overview"]
     : TABS.filter((tab) =>
-        tab === "employment" ? profile.capabilities.canViewEmployment : tab === "private" ? profile.capabilities.canViewPrivate : tab === "workforce" ? inWorkforce : tab === "documents" ? employed : true,
+        tab === "employment"
+          ? profile.capabilities.canViewEmployment
+          : tab === "private"
+            ? profile.capabilities.canViewPrivate
+            : tab === "workforce"
+              ? inWorkforce
+              : tab === "documents"
+                ? employed
+                : tab === "access"
+                  ? profile.capabilities.canViewAccess
+                  : true,
       );
   const tab: Tab = visible.find((candidate) => candidate === requested) ?? "overview";
   const status = WORK_STATUS[profile.status];
@@ -146,13 +158,14 @@ export default async function PersonPage({ params, searchParams }: Props) {
       </nav>
 
       {tab === "overview" ? profile.former ? <Former profile={profile} /> : <Overview profile={profile} /> : null}
-      {tab === "projects" ? <Projects profile={profile} /> : null}
+      {tab === "projects" ? <Projects context={context} profile={profile} /> : null}
       {tab === "qualifications" ? <Qualifications context={context} personId={profile.personId} name={profile.name} /> : null}
       {tab === "documents" ? <Documents context={context} personId={profile.personId} /> : null}
       {tab === "workforce" ? <WorkerWorkforce context={context} personId={profile.personId} /> : null}
       {tab === "activity" ? <Activity profile={profile} /> : null}
       {tab === "employment" ? <Employment context={context} personId={profile.personId} withHistory={profile.capabilities.canViewHistory} /> : null}
       {tab === "private" ? <Private context={context} personId={profile.personId} /> : null}
+      {tab === "access" ? <Access context={context} personId={profile.personId} /> : null}
     </div>
   );
 }
@@ -206,6 +219,27 @@ function Overview({ profile }: { profile: WorkProfileDTO }) {
         </section>
       ) : null}
 
+      {profile.directReports.length > 0 ? (
+        <section className="nesto-card p-5" aria-labelledby="reports-heading" data-testid="direct-reports">
+          <h2 id="reports-heading" className="text-card font-semibold text-fg">
+            Direct reports
+          </h2>
+          <ul className="mt-3 space-y-1.5">
+            {profile.directReports.slice(0, 8).map((report) => (
+              <li key={report.personId} className="text-table">
+                <PersonLink personId={report.personId} name={report.name} detail={report.jobTitle} />
+                <span className="text-fg-muted"> · {[report.jobTitle, report.company].filter(Boolean).join(" · ")}</span>
+              </li>
+            ))}
+          </ul>
+          {profile.directReports.length > 8 ? (
+            <Link href={`/people?manager=${encodeURIComponent(profile.personId)}`} className="mt-3 inline-block text-meta text-accent-strong hover:underline">
+              All {profile.directReports.length} in the directory
+            </Link>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="nesto-card p-5" aria-labelledby="companies-heading">
         <h2 id="companies-heading" className="text-card font-semibold text-fg">
           Where they work
@@ -246,44 +280,65 @@ function Former({ profile }: { profile: WorkProfileDTO }) {
   );
 }
 
-function Projects({ profile }: { profile: WorkProfileDTO }) {
-  if (profile.projects.length === 0) return <EmptyState title="No projects assigned" description="Projects appear here when somebody is added to a project team." />;
+/** The person's projects, and — for a department manager or a project's team lead — putting them on one or taking them off (§49, §64). */
+async function Projects({ context, profile }: { context: UserContext; profile: WorkProfileDTO }) {
+  const [assignable, removable] = profile.former ? [[], []] : await Promise.all([assignableProjects(context, profile.personId), removableProjectIds(context, profile.personId)]);
+  const canRemove = new Set(removable);
+  const assign = assignable.length > 0 ? <AssignProjectButton personId={profile.personId} name={profile.name} projects={assignable} /> : null;
+  if (profile.projects.length === 0)
+    return (
+      <div className="space-y-3">
+        {assign ? <div className="flex justify-end">{assign}</div> : null}
+        <EmptyState title="No projects assigned" description="Projects appear here when somebody is added to a project team." />
+      </div>
+    );
   return (
-    <div className="nesto-card p-0">
-      <Table flush aria-label="Projects">
-        <TableHead>
-          <TableRow>
-            <TableHeaderCell>Project</TableHeaderCell>
-            <TableHeaderCell>Company</TableHeaderCell>
-            <TableHeaderCell>Role on the project</TableHeaderCell>
-            <TableHeaderCell>Status</TableHeaderCell>
-            <TableHeaderCell>Since</TableHeaderCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {profile.projects.map((project) => (
-            <TableRow key={`${project.company.id}:${project.code}`} data-testid="person-project">
-              <TableCell className="font-medium">
-                {project.href ? (
-                  <Link href={project.href} className="text-fg hover:text-accent-strong hover:underline">
-                    {project.code} · {project.name}
-                  </Link>
-                ) : (
-                  <span>
-                    {project.code} · {project.name}
-                  </span>
-                )}
-              </TableCell>
-              <TableCell>{project.company.name}</TableCell>
-              <TableCell>{orDash(project.projectRole)}</TableCell>
-              <TableCell>
-                <StatusBadge status={project.status} />
-              </TableCell>
-              <TableCell>{project.joinedAt ? formatDate(project.joinedAt) : "—"}</TableCell>
+    <div className="space-y-3">
+      {assign ? <div className="flex justify-end">{assign}</div> : null}
+      <div className="nesto-card p-0">
+        <Table flush aria-label="Projects">
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Project</TableHeaderCell>
+              <TableHeaderCell>Company</TableHeaderCell>
+              <TableHeaderCell>Role on the project</TableHeaderCell>
+              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>Since</TableHeaderCell>
+              {canRemove.size > 0 ? <TableHeaderCell className="w-24" aria-label="Actions" /> : null}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {profile.projects.map((project) => (
+              <TableRow key={`${project.company.id}:${project.code}`} data-testid="person-project">
+                <TableCell className="font-medium">
+                  {project.href ? (
+                    <Link href={project.href} className="text-fg hover:text-accent-strong hover:underline">
+                      {project.code} · {project.name}
+                    </Link>
+                  ) : (
+                    <span>
+                      {project.code} · {project.name}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>{project.company.name}</TableCell>
+                <TableCell>{orDash(project.projectRole)}</TableCell>
+                <TableCell>
+                  <StatusBadge status={project.status} />
+                </TableCell>
+                <TableCell>{project.joinedAt ? formatDate(project.joinedAt) : "—"}</TableCell>
+                {canRemove.size > 0 ? (
+                  <TableCell>
+                    {project.projectId && project.status === "ACTIVE" && canRemove.has(project.projectId) ? (
+                      <RemoveFromProjectButton personId={profile.personId} name={profile.name} project={{ id: project.projectId, name: project.name }} />
+                    ) : null}
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -412,5 +467,149 @@ async function Private({ context, personId }: { context: UserContext; personId: 
         ]}
       />
     </section>
+  );
+}
+
+const POSITION_LABEL: Record<string, string> = { GROUP_HEAD: "Group head", COMPANY_MANAGER: "Manager", MEMBER: "Member" };
+
+/**
+ * Access (E-08 §29, §53, §66, §97): the person's NESTO account, their places and
+ * roles in the group, project access and delegated grants, and how complete
+ * their record is — for access administrators only.
+ */
+async function Access({ context, personId }: { context: UserContext; personId: string }) {
+  const access = await getAccessSummary(context, personId);
+  const checks: Array<[keyof typeof access.completeness, string]> = [
+    ["photo", "Photo"],
+    ["workEmail", "Work email"],
+    ["company", "Company"],
+    ["department", "Department"],
+    ["manager", "Manager"],
+    ["role", "NESTO role"],
+    ["account", "Active account"],
+  ];
+  return (
+    <div className="grid gap-4 lg:grid-cols-3" data-testid="person-access">
+      <section className="nesto-card p-5 lg:col-span-2" aria-labelledby="account-heading">
+        <h2 id="account-heading" className="text-card font-semibold text-fg">
+          NESTO account
+        </h2>
+        {access.account ? (
+          <DetailGrid
+            className="mt-3"
+            items={[
+              { label: "Username", value: access.account.username },
+              { label: "Status", value: <StatusBadge status={access.account.status} /> },
+              { label: "Created", value: formatDate(access.account.createdAt) },
+              ...(access.showsLastLogin ? [{ label: "Last sign-in", value: access.account.lastLoginAt ? formatDate(access.account.lastLoginAt) : "Never" }] : []),
+              ...(access.account.mustChangePassword ? [{ label: "Password", value: "Must be changed at the next sign-in" }] : []),
+            ]}
+          />
+        ) : (
+          <p className="mt-2 text-table text-fg-muted">
+            Not active — no NESTO account.
+            {access.provisioning ? ` An account request for ${access.provisioning.company} is ${statusLabel(access.provisioning.status).toLowerCase()}.` : ""}
+            {access.provisioning?.href ? (
+              <>
+                {" "}
+                <Link href={access.provisioning.href} className="text-accent-strong hover:underline">
+                  Open the request
+                </Link>
+              </>
+            ) : null}
+          </p>
+        )}
+
+        <h2 className="mt-6 text-card font-semibold text-fg">Companies and roles</h2>
+        {access.memberships.length === 0 ? (
+          <p className="mt-2 text-table text-fg-subtle">No company access.</p>
+        ) : (
+          <Table flush aria-label="Company access" className="mt-2">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Company</TableHeaderCell>
+                <TableHeaderCell>Role</TableHeaderCell>
+                <TableHeaderCell>Department</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell>Since</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {access.memberships.map((membership) => (
+                <TableRow key={membership.company.id}>
+                  <TableCell className="font-medium">{membership.company.name}</TableCell>
+                  <TableCell>{membership.role.label}</TableCell>
+                  <TableCell>{orDash(membership.department)}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={membership.status} />
+                  </TableCell>
+                  <TableCell>{formatDate(membership.since)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        <h2 className="mt-6 text-card font-semibold text-fg">Project access</h2>
+        {access.projects.length === 0 ? (
+          <p className="mt-2 text-table text-fg-subtle">On no project team.</p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-table">
+            {access.projects.map((project) => (
+              <li key={`${project.company}:${project.code}`}>
+                <span className="font-medium text-fg">
+                  {project.code} · {project.name}
+                </span>
+                <span className="text-fg-muted"> · {[project.company, project.role, statusLabel(project.status)].filter(Boolean).join(" · ")}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <div className="space-y-4">
+        <section className="nesto-card p-5" aria-labelledby="completeness-heading">
+          <h2 id="completeness-heading" className="text-card font-semibold text-fg">
+            Record
+          </h2>
+          <ul className="mt-3 space-y-1 text-table" data-testid="profile-completeness">
+            {checks.map(([key, label]) => (
+              <li key={key} className={access.completeness[key] ? "text-fg" : "text-fg-subtle"}>
+                {access.completeness[key] ? "✓" : "–"} {label}
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="nesto-card p-5" aria-labelledby="positions-heading">
+          <h2 id="positions-heading" className="text-card font-semibold text-fg">
+            Department positions
+          </h2>
+          {access.positions.length === 0 ? (
+            <p className="mt-2 text-table text-fg-subtle">None.</p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-table">
+              {access.positions.map((position, index) => (
+                <li key={index}>
+                  {position.department} · {position.company ?? "the whole group"} · {POSITION_LABEL[position.position] ?? position.position}
+                </li>
+              ))}
+            </ul>
+          )}
+          <h2 className="mt-5 text-card font-semibold text-fg">Delegated access</h2>
+          {access.grants.length === 0 ? (
+            <p className="mt-2 text-table text-fg-subtle">No grants.</p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-table">
+              {access.grants.map((grant, index) => (
+                <li key={index}>
+                  {[grant.functionKey ?? "Every function", statusLabel(grant.scopeType), statusLabel(grant.accessLevel)].join(" · ")}
+                  {grant.expiresAt ? <span className="text-fg-muted"> · until {formatDate(grant.expiresAt)}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </div>
   );
 }

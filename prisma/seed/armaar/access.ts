@@ -112,7 +112,8 @@ export async function seedArmaarPeople(prisma: PrismaClient, branches: ArmaarBra
   for (const person of GROUP_PEOPLE) {
     await upsertPosition(prisma, person, null, null, activatedAt);
   }
-  for (const person of COMPANY_PEOPLE.filter((candidate) => candidate.manages)) {
+  // A group head may also manage their function's branch in the company that employs them (E-08 §23, §52).
+  for (const person of [...GROUP_PEOPLE, ...COMPANY_PEOPLE].filter((candidate) => candidate.manages)) {
     const branch = branches.get(companyId(person.company))!.get(person.department);
     if (!branch) throw new Error(`ARMAAR seed: ${person.username} manages ${person.department}, which ${person.company} does not run.`);
     await upsertPosition(prisma, person, person.company, branch, activatedAt);

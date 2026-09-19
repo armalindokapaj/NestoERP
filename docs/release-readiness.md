@@ -2367,3 +2367,93 @@ product's series shape, no invoice over-allocated, every task link resolving.
 - **`nesto_erp` has D-02's data since 2026-09-19** (`pnpm seed:armaar`, with the
   owner's consent, after a backup; every data gate clean). Its five-company
   demo keeps the three-digit purchase numbers it was seeded with.
+
+## 31. Enhancement E-08 — one link to a person, and the profile around it
+
+E-08 puts every person NESTO shows one click from one canonical profile, and
+fills in what that profile lacked: a photo, who reports to somebody, the access
+somebody holds, putting them on a project, and a place for people before and
+after a login. It is reconciled onto E-01's person rather than a new profile
+model: [ADR 0008](adr/0008-e08-people-directory-person-links.md) classifies
+every section and records six decisions; `docs/people.md` is the contract.
+Built as the owner decided before it started: the directory stays group-wide;
+former employees are linkable, not listed; photos are added. Three stages: the
+link, its reference routes, former employees and the photo (790f5ac); the
+link in every module (9da1915); and the profile's Access section, direct
+reports, directory filters and views, project assignment, and ARMAAR's
+lifecycle people.
+
+### 31.1 What changed
+
+| Before | Now |
+|---|---|
+| A handful of names linked, each building its own URL: a membership's Team page, HR's employee page, and in the dashboard a login id where a membership was meant | **`<PersonLink>` in about 330 places across every module.** It takes whatever id the record has and leads through `/people/member\|user\|employee/[id]`, which finds the person inside the reader's group and redirects to `/people/[personId]`. A link grants nothing; the profile decides. A test refuses a hand-built `/people/…` or `/team/…` URL outside one file |
+| A former employee's name led nowhere; only HR could see them | **Linkable, not listed.** A colleague opens who they were — name, last title and company, "Former employee" — and nothing that described them at work. HR sees the whole profile and lists them with "Include former" |
+| No photo | **A photo on the person**, not a company document: JPEG, PNG or WebP recognised by its bytes, up to 2 MB, set by the person or by those who keep person records within reach, read by whoever may read the full profile, its URL carrying its checksum. Shown on the profile and in the directory; initials otherwise |
+| Nobody could see a person's access in one place | **The Access tab** for the Owner and Group IT: the login, its companies and roles, project access, department positions, delegated grants, and whether the record has a photo, work email, company, department, manager, role and an active login. Last sign-in only with the security-metadata grant. For somebody without a login, the latest account request and a link to it. Access administrators open the profile of anybody who has been in the group — a selected candidate, a leaver — to act on their account |
+| Directory filters: company, department, title, project, place, status | Also **manager** and **NESTO role**, and four views: Everyone, My company, My department, My projects. The overview lists **direct reports** |
+| People were put on a project from the project's Team tab only | Also **from the person's profile**, through the same door (the project's team lead, or a department manager for their own people) and the same audit, `PROJECT_MEMBER_ASSIGNED` / `PROJECT_MEMBER_REMOVED` with `via` |
+| ARMAAR had nobody before or after a login | **Kejsi Braho**, a selected Sales Agent whose account request is approved, and **Bujar Kelmendi**, a finisher who left Tirana Lake with his crew place ended. Erion Kasa, Head of Group IT, also manages IT in ARLIS ADMINISTRIM |
+
+**Migration `20260919150000_person_photo_e08`** is additive: five nullable
+columns on `person_profiles` (storage key, content type, checksum, size, when)
+and a check that they are set together or not at all. No data changes.
+
+**Rollback:** the old code never reads the columns, so it runs against them as
+they are. To remove them, drop the check and the five columns and delete the
+migration's `_prisma_migrations` row; the stored photos under `people/` in the
+document storage can then be deleted.
+
+### 31.2 The evidence
+
+On freshly built databases, on the final tree:
+
+- **vitest: 3 817 passed, 0 failed**, 11 skipped — 17 more than D-02: E-08's
+  own suite (16 — a former employee for a colleague and for HR, the reference
+  routes inside the group only, the photo's types, size, readers and writers,
+  the Access section and a selected candidate's request, direct reports, the
+  manager, role and view filters, assigning and removing projects from the
+  profile and who may not) and the link gate.
+- **E2E on the production build: 478 of 478**, none flaky. New (9): a project
+  team, a task, a comment, the audit log and search each lead to the profile
+  (§101-§105); the architect sets and removes her photo while a colleague in
+  another company sees it; Group IT reads the Access tab a project manager is
+  not shown; the Head of Group Architecture puts the architect on a project
+  from her profile and takes her off; in ARMAAR, the former finisher from his
+  crew's former members, and the selected candidate hidden from a project
+  manager and opened by Group IT down to her account request.
+- **verify:roles 1 715 of 1 715** against the same production build.
+- **verify:authorization** (652 routes, 316 server actions), **ownership** (238
+  models, 57 domains, no cycle), **state** (47 machines, 246 transitions),
+  **workers** (24 jobs) and **production-guards** pass; employment,
+  employee-integrity, demo, company-integrity and organization are clean after
+  both full suites; **security:matrix 1 065 endpoints**, none unguarded.
+  Typecheck clean; lint 0 errors, 14 warnings (none new).
+- **The migration** applied to a copy of `nesto_erp` restored from a dump;
+  `seed:armaar` then added Kejsi and Bujar, every data gate stayed clean, and
+  a second `seed:armaar` left every count unchanged.
+
+### 31.3 Defects found
+
+- **Leave showed a membership id as its decider.** The leave page, HR's leave
+  table and the leave CSV printed `member_…` under "Decided by". They show the
+  name now; a test holds the export to it.
+- **The dashboard's people widget linked to `/team/<login id>`**, a route keyed
+  by membership, so every link in it led to a not-found page. It is a
+  `PersonLink` now.
+- The authorization gate caught a new lookup by id alone in the directory's
+  My department view; it is scoped to the reader's company.
+
+### 31.4 Limits
+
+- **Photos show on the profile and in the directory** and wherever a payload
+  carries `photoUrl`; comment avatars and most tables still show initials.
+- **No hover card** (§42): a link's title names the person and their title.
+- **The Access tab reads; it does not change.** A login is still deactivated on
+  Team and created from its account request.
+- **A few services build `/people/<id>?tab=…` strings** for their worklists and
+  calendar entries (in `lib/`, which the link gate does not scan); they lead to
+  the same profile.
+- **Demo people are ARMAAR's only**; the five-company demo is unchanged.
+- **`nesto_erp` lacks E-08's migration**, pending the owner's consent; the
+  rehearsal above is the path.

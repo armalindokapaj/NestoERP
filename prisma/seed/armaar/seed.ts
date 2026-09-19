@@ -21,6 +21,7 @@ import { seedArmaarCredentials } from "./credentials";
 import { seedArmaarEngineering } from "./engineering";
 import { seedArmaarFinance } from "./finance";
 import { seedArmaarInventory } from "./inventory";
+import { seedArmaarLifecycle, seedArmaarLifecycleWorkforce } from "./lifecycle";
 import { seedArmaarLegal } from "./legal";
 import { seedArmaarOperations } from "./operations";
 import { seedArmaarOrganization } from "./organization";
@@ -65,6 +66,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const people = await seedArmaarPeople(prisma, branches, passwordHash, activatedAt);
   // The site workforce, who have no login: employed before the history backfill (E-04).
   const workers = await seedArmaarWorkers(prisma, branches);
+  // A selected candidate waiting for her login and a former site worker (E-08 §46, §118).
+  await seedArmaarLifecycle(prisma);
   // A placed login is on its department's team (E-13); an employment has its history (E-03).
   if (shared) {
     await syncMemberPlaces(prisma);
@@ -77,6 +80,7 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const operations = await seedArmaarOperations(prisma);
   // Where the workers work, with whom, and their days on site (E-04).
   const workforce = await seedArmaarWorkforce(prisma);
+  await seedArmaarLifecycleWorkforce(prisma);
   // Employee files and qualifications: contracts, licences, what waits for HR and what runs out (E-02).
   const credentials = await seedArmaarCredentials(prisma);
 

@@ -60,6 +60,8 @@ export type WorkProfileDTO = PersonCardDTO & {
   /** The NESTO role, kept apart from the job title (E-01 §24, E-08 §25). */
   role: { key: string; label: string } | null;
   manager: { personId: string | null; name: string; jobTitle: string | null } | null;
+  /** Who reports to them: the running employments that name them as manager — the other side of "Reports to" (E-08 §21). */
+  directReports: Array<{ personId: string; name: string; jobTitle: string | null; company: string }>;
   companies: PersonPlacementDTO[];
   groupPositions: string[];
   /** Every department they hold a place in: department, company, position (E-13 §87). */
@@ -82,7 +84,26 @@ export type WorkProfileDTO = PersonCardDTO & {
     /** The employment history of E-03: the person's own, or HR's in scope — never a colleague's (E-03 §56). */
     canViewHistory: boolean;
     canViewPrivate: boolean;
+    /** The Access section: account, roles and access, for access administrators (E-08 §29). */
+    canViewAccess: boolean;
   };
+};
+
+/**
+ * What NESTO access a person has (E-08 §29, §53, §66, §97): for the Owner,
+ * Group IT and access administrators (`organization.access.view`). Last login
+ * is security metadata and needs its own grant (PRD #14 §49).
+ */
+export type AccessSummaryDTO = {
+  account: { username: string; status: string; createdAt: string; lastLoginAt: string | null; mustChangePassword: boolean } | null;
+  /** The latest account request HR raised for them, when there is no account yet or it is in progress. */
+  provisioning: { status: string; company: string; submittedAt: string | null; href: string | null } | null;
+  memberships: Array<{ company: { id: string; name: string }; role: { key: string; label: string }; status: string; department: string | null; since: string }>;
+  positions: Array<{ department: string; company: string | null; position: string }>;
+  projects: Array<{ code: string; name: string; company: string; role: string | null; status: string }>;
+  grants: Array<{ functionKey: string | null; scopeType: string; accessLevel: string; expiresAt: string | null }>;
+  completeness: { photo: boolean; workEmail: boolean; company: boolean; department: boolean; manager: boolean; role: boolean; account: boolean };
+  showsLastLogin: boolean;
 };
 
 export type DirectoryDTO = {

@@ -2,8 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { UserContext } from "@/lib/context/types";
 import { directoryQuerySchema } from "@/lib/modules/people/people.schema";
-import { getDocumentsTab, getQualificationsTab, getWorkProfile, listPeople } from "@/lib/modules/people/people.service";
+import { directoryFilterOptions, getAccessSummary, getDocumentsTab, getQualificationsTab, getWorkProfile, listPeople } from "@/lib/modules/people/people.service";
 import { readPhoto, removePhoto, setPhoto } from "@/lib/modules/people/person.photo";
+import { assignableProjects, assignPersonToProject, removableProjectIds, unassignPersonFromProject } from "@/lib/modules/people/person.projects";
 import { personIdFor } from "@/lib/modules/people/person.refs";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
 
@@ -15,6 +16,7 @@ import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } f
 
 const GROUP = "group_demo_nesto";
 const FORMER = { person: "test_e08_person_former", employment: "test_e08_employment_former" };
+const PAVILION = { id: "test_e08_project_pavilion", code: "T-E08-PAV", name: "E-08 Pavilion" };
 // A 1×1 PNG: an image by its bytes, not by its name.
 const PNG = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
 const startedAt = new Date();
@@ -32,6 +34,8 @@ beforeAll(async () => {
   // Somebody who worked in Aurelia and left, without a login.
   await prisma.personProfile.create({ data: { id: FORMER.person, parentGroupId: GROUP, firstName: "Doruntina", lastName: "Former", jobTitle: "Site engineer", workEmail: "doruntina.former@nesto.test", lifecycleStatus: "FORMER_EMPLOYEE" } });
   await prisma.employeeProfile.create({ data: { id: FORMER.employment, companyId: COMPANY.a, personProfileId: FORMER.person, employmentStatus: "ENDED", jobTitle: "Site engineer", startDate: new Date("2023-01-09T12:00:00Z"), endDate: new Date("2025-06-30T12:00:00Z") } });
+  // A project in Aurelia nobody is on yet.
+  await prisma.project.create({ data: { id: PAVILION.id, companyId: COMPANY.a, code: PAVILION.code, name: PAVILION.name, status: "ACTIVE", createdBy: "test" } });
 });
 
 afterAll(async () => {
@@ -39,6 +43,10 @@ afterAll(async () => {
   await prisma.employeeProfile.deleteMany({ where: { id: FORMER.employment } });
   await prisma.personProfile.deleteMany({ where: { id: FORMER.person } });
   await prisma.auditEvent.deleteMany({ where: { actionKey: "PERSON_PROFILE_PHOTO_UPDATED", occurredAt: { gte: startedAt } } });
+  await prisma.auditEvent.deleteMany({ where: { projectId: PAVILION.id } });
+  await prisma.activity.deleteMany({ where: { entityType: "Project", entityId: PAVILION.id } });
+  await prisma.projectMember.deleteMany({ where: { projectId: PAVILION.id } });
+  await prisma.project.deleteMany({ where: { id: PAVILION.id } });
   await cleanupSessions();
 });
 
@@ -114,5 +122,94 @@ describe("the profile photo (E-08 §43, §93)", () => {
   it("is removed, and the profile shows initials again", async () => {
     expect((await removePhoto(pm, "me")).photoUrl).toBeNull();
     await expect(readPhoto(architect, pmPerson)).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("the Access section (E-08 §29, §53, §66, §97)", () => {
+  it("is the access administrators' — the Owner and Group IT — and nobody else's", async () => {
+    const it = await loginAs("GROUP_IT");
+    const access = await getAccessSummary(it, pmPerson);
+    expect(access.account).toMatchObject({ username: "pm-a", status: "ACTIVE" });
+    expect(access.memberships.map((row) => row.company.id)).toContain(COMPANY.a);
+    expect(access.completeness.account).toBe(true);
+    expect((await getWorkProfile(it, pmPerson)).capabilities.canViewAccess).toBe(true);
+    for (const reader of [pm, hr, architect]) {
+      await expect(getAccessSummary(reader, pmPerson)).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect((await getWorkProfile(reader, pmPerson)).capabilities.canViewAccess).toBe(false);
+    }
+  });
+
+  it("opens a selected candidate's profile for Group IT, with the request her account is created from (§46, §117)", async () => {
+    const it = await loginAs("GROUP_IT");
+    expect((await getWorkProfile(it, "person_adrian_kola")).former).toBe(false);
+    expect(await getAccessSummary(it, "person_adrian_kola")).toMatchObject({ account: null, provisioning: { status: "APPROVED", href: "/organization/provisioning/provisioning_adrian_kola" } });
+    // Opened, not listed: the directory is still the working people's.
+    expect((await listPeople(it, directoryQuerySchema.parse({ q: "Adrian", status: "all" }))).data).toEqual([]);
+  });
+
+  it("says when somebody has no account, and shows last sign-in only with the security grant", async () => {
+    const owner = await loginAs("OWNER");
+    expect((await getAccessSummary(owner, FORMER.person)).account).toBeNull();
+    const it = await loginAs("GROUP_IT");
+    expect((await getAccessSummary(it, pmPerson)).showsLastLogin).toBe(true);
+  });
+});
+
+describe("direct reports and the directory's views (E-08 §11, §21, §41)", () => {
+  it("shows who reports to somebody, and the directory filters by that manager", async () => {
+    const ceo = (await prisma.user.findUniqueOrThrow({ where: { username: "ceo-a" }, select: { personProfileId: true } })).personProfileId!;
+    const profile = await getWorkProfile(architect, ceo);
+    expect(profile.directReports.length).toBeGreaterThan(0);
+    const listed = await listPeople(architect, directoryQuerySchema.parse({ manager: ceo, limit: 50 }));
+    expect(listed.data.map((row) => row.personId).sort()).toEqual(profile.directReports.map((row) => row.personId).sort());
+  });
+
+  it("narrows by NESTO role, and shows the reader's own company or project colleagues", async () => {
+    const options = await directoryFilterOptions(pm);
+    expect(options.roles.map((role) => role.key)).toContain("ARCHITECT");
+    const architects = await listPeople(pm, directoryQuerySchema.parse({ role: "ARCHITECT", limit: 50 }));
+    expect(architects.data.length).toBeGreaterThan(0);
+    expect(architects.data.every((row) => row.personId !== pmPerson)).toBe(true);
+
+    const company = await listPeople(pm, directoryQuerySchema.parse({ view: "company", limit: 100 }));
+    const everyone = await listPeople(pm, directoryQuerySchema.parse({ limit: 100 }));
+    expect(company.pagination.total).toBeLessThan(everyone.pagination.total);
+    expect(company.data.map((row) => row.personId)).toContain(pmPerson);
+
+    const projects = await listPeople(pm, directoryQuerySchema.parse({ view: "projects", limit: 100 }));
+    expect(projects.data.map((row) => row.personId)).toContain(pmPerson);
+    expect(projects.pagination.total).toBeLessThanOrEqual(everyone.pagination.total);
+  });
+});
+
+describe("putting somebody on a project from their profile (E-08 §49, §50, §64)", () => {
+  it("the head of Group Architecture puts an architect on a project of her company, through the project's own door, and takes her off", async () => {
+    const head = await loginAsEmail(DEMO_EMAIL.architectureHead);
+    const options = (await assignableProjects(head, "person_architect")).map((row) => row.projectId);
+    expect(options).toContain(PAVILION.id);
+    // Already on it: not offered again.
+    expect(options).not.toContain("project_a");
+
+    await assignPersonToProject(head, "person_architect", { projectId: PAVILION.id, projectRole: "Facade architect" });
+    const profile = await getWorkProfile(head, "person_architect");
+    expect(profile.projects.find((row) => row.code === PAVILION.code)).toMatchObject({ projectRole: "Facade architect", status: "ACTIVE" });
+    const audit = await prisma.auditEvent.findFirstOrThrow({ where: { actionKey: "PROJECT_MEMBER_ASSIGNED", projectId: PAVILION.id } });
+    expect(audit).toMatchObject({ companyId: COMPANY.a, actorUserId: head.userId, afterJson: { via: "DEPARTMENT", projectRole: "Facade architect" } });
+
+    expect(await removableProjectIds(head, "person_architect")).toContain(PAVILION.id);
+    await unassignPersonFromProject(head, "person_architect", PAVILION.id);
+    expect(await removableProjectIds(head, "person_architect")).not.toContain(PAVILION.id);
+    expect(await prisma.auditEvent.count({ where: { actionKey: "PROJECT_MEMBER_REMOVED", projectId: PAVILION.id } })).toBe(1);
+  });
+
+  it("offers nothing outside the manager's function, to a reader with neither door, or for a former employee", async () => {
+    const head = await loginAsEmail(DEMO_EMAIL.architectureHead);
+    expect(await assignableProjects(head, pmPerson)).toEqual([]);
+    await expect(assignPersonToProject(head, pmPerson, { projectId: PAVILION.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await assignableProjects(architect, pmPerson)).toEqual([]);
+    expect(await removableProjectIds(architect, pmPerson)).toEqual([]);
+    expect(await assignableProjects(hr, FORMER.person)).toEqual([]);
+    // No login in the project's company: nothing to put on its team.
+    await expect(assignPersonToProject(hr, FORMER.person, { projectId: PAVILION.id })).rejects.toMatchObject({ details: { code: "NO_MEMBERSHIP" } });
   });
 });

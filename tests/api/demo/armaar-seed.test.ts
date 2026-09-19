@@ -157,8 +157,9 @@ describe("the ARMAAR demo tenant", () => {
   });
 
   it("has a site workforce that never signs in: employed, in a crew, on a project (E-04 §4, §28-§42)", async () => {
+    // The site workforce: people without a login who are employed today — not a candidate still to start, nor somebody who has left (E-08 §46, §54).
     const workers = await prisma.personProfile.findMany({
-      where: { parentGroupId: ARMAAR, user: null },
+      where: { parentGroupId: ARMAAR, user: null, employments: { some: { employmentStatus: "ACTIVE" } } },
       select: {
         id: true,
         employments: {

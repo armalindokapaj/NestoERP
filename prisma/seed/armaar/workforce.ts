@@ -61,7 +61,7 @@ const TRADES: Record<Employer, Array<{ key: string; name: string; code: string }
     { key: "plumbing", name: "Plumbing", code: "PLB" },
   ],
 };
-const tradeId = (code: Employer, key: string) => `armaar_trade_${code === BCI ? "bci" : "aln"}_${key}`;
+export const tradeId = (code: Employer, key: string) => `armaar_trade_${code === BCI ? "bci" : "aln"}_${key}`;
 
 type SiteKey = "tower_a" | "tower_b" | "yard" | "sq21_plot" | "cty_blocks";
 const SITES: Array<{ key: SiteKey; company: Employer; project: ProjectCode; name: string; code: string; address: string; closedDaysAgo?: number }> = [
@@ -169,7 +169,7 @@ const CREWS: Crew[] = [
   { key: "cty_finishing", company: ALN, name: "Courtyard finishing crew", project: "THE_COURTYARD", site: "cty_blocks", trade: "finishing", members: ["aln_01", "aln_02", "aln_03", "aln_04", "aln_05", "aln_06"], manager: "arlis.site-supervisor", recorder: "arlis.site-supervisor" },
   { key: "cty_mep", company: ALN, name: "Courtyard MEP crew", project: "THE_COURTYARD", site: "cty_blocks", trade: "electrical", members: ["aln_07", "aln_08", "aln_09", "aln_10"], manager: "arlis.site-supervisor", recorder: "arlis.site-supervisor" },
 ];
-const crewId = (key: string) => `armaar_crew_${key}`;
+export const crewId = (key: string) => `armaar_crew_${key}`;
 const crewOf = (key: string) => CREWS.find((crew) => crew.key === key)!;
 
 /** Olsi Dervishi went from Tower B's formwork to Tower A's pour a few weeks ago (§29, §41). */

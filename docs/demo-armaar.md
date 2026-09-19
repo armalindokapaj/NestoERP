@@ -148,7 +148,7 @@ D-02 is data only: no migration, API, screen, state, permission or product
 change (§1, §57-§61). Every module it names was audited first (§3, §82) and
 exists; nothing it needed was missing, so nothing was faked or skipped as
 unsupported. What it deliberately does not seed, because the feature is
-another PRD's (§4): E-08's people directory, E-09's worker profile and
+another PRD's (§4): E-08's people directory (since built — see below), E-09's worker profile and
 overtime, E-10's recruitment, E-11's contractor invoice → verification →
 payment and the external-company register, E-12's activity centre,
 co-ownership, E-05C's 3D explorer. Company fields the schema has no column for
@@ -176,6 +176,23 @@ commitment approving them opens, its requests their approval, its order lines
 the request line they order; a request whose order waits for approval is
 ORDERED, as the product derives it; the sales seed's counters count units
 already sold, so a unit added later never re-issues contract 001.
+
+## E-08: people before and after a login
+
+Two people the rest of ARMAAR did not have (`prisma/seed/armaar/lifecycle.ts`),
+so the profile can show both ends of a working life (E-08 §45-§47, §54, §117,
+§118). And Erion Kasa (`armaar.it`), Head of Group IT, now also manages IT in
+ARLIS ADMINISTRIM, which employs him: the group head who is a company manager
+too (§52), both places on his profile.
+
+| Person | Where to show them |
+| --- | --- |
+| **Kejsi Braho**, a Sales Agent selected for BUILDING CONSTRUCTION INVEST; her employment (BCI-0950) starts in ten days and HR's account request is approved | `armaar.it` → People → her profile (`/people/person_armaar_selected_kejsi?tab=access`): "no NESTO account", the approved request, **Open the request** to create her login from what HR already typed. `bci.pm` cannot open her profile yet (§119) |
+| **Bujar Kelmendi**, a concrete finisher who left Tirana Lake two months ago; his employment (BCI-1090) and his place in the Tower A concrete crew ended together | `bci.pm` → Workforce → Crews → Tower A concrete crew → Former members → his name: "Former employee", nothing more. He is not in the directory for `bci.pm`; `bci.hr` sees his whole profile and lists him with "Include former" |
+
+Every other name in the demo — a project team, a task, a comment, an invoice's
+approver, a daily log's author, the audit log — now opens that person's
+profile.
 
 ## Limits
 

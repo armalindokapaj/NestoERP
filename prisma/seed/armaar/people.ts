@@ -58,7 +58,8 @@ const LAKE = "Tirana Lake — site office";
 /** Employed by ARLIS ADMINISTRIM; a login in every active company; heads of the group's functions (§12). */
 export const GROUP_PEOPLE: ArmaarPerson[] = [
   { username: "armaar.owner", firstName: "Ilir", lastName: "Dervishaj", role: "OWNER", department: "executive", jobTitle: "Group Owner", company: "ARLIS_ADMINISTRIM", startedDaysAgo: 4200, location: HQ, workLocationType: "OFFICE" },
-  { username: "armaar.it", firstName: "Erion", lastName: "Kasa", role: "GROUP_IT", department: "it", jobTitle: "Group IT Manager", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 1900, location: HQ, workLocationType: "OFFICE" },
+  // Head of Group IT, and also the manager of IT in ARLIS ADMINISTRIM, which employs him: a group and a company position (E-08 §52).
+  { username: "armaar.it", firstName: "Erion", lastName: "Kasa", role: "GROUP_IT", department: "it", jobTitle: "Group IT Manager", company: "ARLIS_ADMINISTRIM", manages: true, reportsTo: "armaar.owner", startedDaysAgo: 1900, location: HQ, workLocationType: "OFFICE" },
   { username: "armaar.finance", firstName: "Elira", lastName: "Shkurti", role: "FINANCE", department: "finance", jobTitle: "Group Finance Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 3100, location: HQ, workLocationType: "OFFICE" },
   { username: "armaar.legal", firstName: "Anisa", lastName: "Qosja", role: "LEGAL", department: "legal", jobTitle: "Group Legal Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2600, location: HQ, workLocationType: "OFFICE" },
   { username: "armaar.procurement", firstName: "Gentian", lastName: "Bardhi", role: "PROCUREMENT", department: "procurement", jobTitle: "Group Procurement Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2300, location: HQ, workLocationType: "OFFICE" },
