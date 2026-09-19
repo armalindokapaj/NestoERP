@@ -70,7 +70,6 @@ export async function buildMemberContexts(
         membership: member,
         sessionId: "",
         role: member.role.key,
-        actualRole: member.role.key,
         enabledModules,
         assignments: access?.assignments ?? [],
         grants: access?.grants ?? [],

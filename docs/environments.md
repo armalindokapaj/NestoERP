@@ -14,7 +14,7 @@ cache namespace and no secret.
 | CSP | Relaxed (`unsafe-eval` for HMR) | Production-like | Strict |
 | Rate limiting | Relaxed | Enabled | Enabled |
 | Demo seed | Yes | Synthetic only | **Never** |
-| DEV role switcher | Yes | **No** | **No** |
+| Demo sign-in and demo user switcher | Yes | **No** | **No** |
 | Debug logging | Yes | Limited | No |
 | Backups | Optional | Short retention | Full policy |
 
@@ -25,8 +25,10 @@ cache namespace and no secret.
 refuses to boot a production process that is missing a required secret
 (PRD #34 §55).
 
-`isDevMode` in `lib/auth/dev-role.ts` reads `APP_ENV` first, so a staging
-deployment built with `NODE_ENV=development` still refuses the role switcher.
+`isDevMode` in `lib/auth/dev-mode.ts` reads `APP_ENV` first, so a staging
+deployment built with `NODE_ENV=development` still refuses the demo sign-in and
+the demo user switcher. A production build started with `APP_ENV=development`
+has them, which is how `tests/e2e/auth/demo-user-switch.spec.ts` runs.
 
 ## Required variables
 

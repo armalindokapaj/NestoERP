@@ -5,7 +5,6 @@ import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import { isMutatingPermission, type Permission } from "@/config/permissions";
 import { defaultAccessFor, grantPermissions } from "@/config/role-defaults";
 import { isMembershipRoleKey, roleLabel, roles, type PositionLevel, type RoleKey } from "@/config/roles";
-import { isDevMode, resolveRole } from "@/lib/auth/dev-role";
 import { USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
 import { prisma } from "@/lib/database/prisma";
 import {
@@ -28,7 +27,7 @@ import type { ContextResult, ModuleAccess, UserContext } from "./types";
  */
 export async function resolveContextForSession(
   sessionId: string,
-  options: { expectedUserId?: string; roleOverride?: string | null } = {},
+  options: { expectedUserId?: string } = {},
 ): Promise<ContextResult> {
   // The signed cookie carries only a session id. Validity, membership and
   // company are re-read from the database on every request, so revoking a
@@ -86,16 +85,14 @@ export async function resolveContextForSession(
     return { ok: false, reason: "COMPANY_UNAVAILABLE" };
   }
 
-  const storedRoleKey = record.membership.role.key;
-  if (!isMembershipRoleKey(storedRoleKey)) {
+  // The role stored on the membership, and nothing else (C-01 §6, §31).
+  const role = record.membership.role.key;
+  if (!isMembershipRoleKey(role)) {
     // A membership pointing at a role the application does not know — or at the
     // Platform Admin's, which no membership may hold — is a configuration
     // fault, not an access grant.
     return { ok: false, reason: "CONFIGURATION_ERROR" };
   }
-
-  const actualRole: RoleKey = storedRoleKey;
-  const role = isDevMode ? resolveRole(actualRole, options.roleOverride) : actualRole;
 
   const [enabledModules, organization] = await Promise.all([
     resolveEnabledModules(record.membership.companyId),
@@ -107,7 +104,6 @@ export async function resolveContextForSession(
     membership: record.membership,
     sessionId: record.id,
     role,
-    actualRole,
     enabledModules,
     assignments: organization.assignments,
     grants: organization.grants,
@@ -137,19 +133,16 @@ export function assembleContext(input: {
   membership: MembershipForContext;
   sessionId: string;
   role: RoleKey;
-  actualRole: RoleKey;
   enabledModules: ModuleKey[];
   assignments: readonly ContextAssignment[];
   grants: readonly ContextGrant[];
 }): UserContext {
-  const { user, membership, role, actualRole, enabledModules } = input;
+  const { user, membership, role, enabledModules } = input;
   const company = membership.company;
   const assignments = assignmentsInCompany(input.assignments, company.id);
-  // A development role override is somebody else's role: it carries no position
-  // and no delegated access of the real holder.
-  const overridden = role !== actualRole;
-  const position: PositionLevel = overridden ? "MEMBER" : positionFor(role, company.id, assignments);
-  const grants = overridden ? [] : grantsInCompany(input.grants, company.parentGroupId, company.id);
+  // Position and delegated access are always this member's own (C-01 §33).
+  const position: PositionLevel = positionFor(role, company.id, assignments);
+  const grants = grantsInCompany(input.grants, company.parentGroupId, company.id);
   const moduleAccess = buildModuleAccess(role, enabledModules, position, grants);
 
   // A permission for a module the company has switched off is not held at all,
@@ -206,9 +199,6 @@ export function assembleContext(input: {
     permissions,
     moduleAccess,
     enabledModules,
-
-    actualRole,
-    roleIsOverridden: role !== actualRole,
   };
 }
 

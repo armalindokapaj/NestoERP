@@ -71,6 +71,7 @@ export type UserContext = {
   parentGroupId: string;
   parentGroup: ParentGroupContext;
 
+  /** The role stored on the session's membership, always (C-01 §6, §32). */
   role: RoleKey;
   roleLabel: string;
   /**
@@ -86,11 +87,6 @@ export type UserContext = {
   moduleAccess: Record<ModuleKey, ModuleAccess>;
   /** Modules switched on for this company, regardless of the user's role. */
   enabledModules: ModuleKey[];
-
-  /** The role stored on the membership, before any development override. */
-  actualRole: RoleKey;
-  /** True when the role above is a development switcher override. */
-  roleIsOverridden: boolean;
 };
 
 /**

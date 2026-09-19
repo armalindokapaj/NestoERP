@@ -14,7 +14,7 @@ export type ActionParameter = { name: string; type: string; optional: boolean; l
 export type ServerAction = { file: string; name: string; parameters: ActionParameter[] };
 
 /** Files whose actions have no workspace context by design (verify:authorization lists why). */
-const NON_SESSION_FILES = new Set(["lib/actions/auth.ts", "lib/actions/contact.ts", "lib/actions/demo.ts", "lib/actions/dev.ts"]);
+const NON_SESSION_FILES = new Set(["lib/actions/auth.ts", "lib/actions/contact.ts", "lib/actions/demo.ts"]);
 
 function literalsOf(typeNode: ts.TypeNode | undefined, source: ts.SourceFile): string[] {
   if (!typeNode) return [];

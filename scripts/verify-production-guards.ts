@@ -1,39 +1,58 @@
 /**
  * Production guard checks (PRD #34 §52, §53, §225, PRD #30 §261, §264).
  *
- * A CI gate rather than a convention: the DEV role switcher and the demo seed
- * must be *impossible* in production, not merely hidden (PRD #30 §261). This
- * asserts the guards exist in source, so removing one breaks the build rather
- * than quietly shipping.
+ * A CI gate rather than a convention: the demo user switcher, the demo sign-in
+ * and the demo seed must be *impossible* in production, not merely hidden
+ * (PRD #30 §261, C-01 §12, §59). This asserts the guards exist in source, so
+ * removing one breaks the build rather than quietly shipping.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+
+import ts from "typescript";
 
 type Check = { name: string; run: () => string | null };
 
 const checks: Check[] = [
   {
-    name: "DEV role switcher is environment-guarded",
+    // C-01 §12, §73: only ever rendered behind isDevMode.
+    name: "the demo user switcher is rendered in development only",
     run: () => {
-      const path = "components/layout/dev-role-switcher.tsx";
-      if (!existsSync(path)) return null;
-      const source = readFileSync(path, "utf8");
-      // The switcher is rendered behind isDevMode by AppShell and Topbar; the
-      // component itself only needs to route through the guarded action.
-      const guarded = /setDevRoleAction/.test(source);
-      return guarded ? null : `${path} does not use the guarded server action`;
+      if (!/switchDemoUserAction/.test(readFileSync("components/layout/dev-user-switcher-dialog.tsx", "utf8"))) {
+        return "components/layout/dev-user-switcher-dialog.tsx does not go through the guarded server action";
+      }
+      const renderers: string[] = [];
+      const walk = (dir: string) => {
+        for (const name of readdirSync(dir)) {
+          const path = `${dir}/${name}`;
+          if (statSync(path).isDirectory()) walk(path);
+          else if (/\.tsx?$/.test(path) && /<DevUserSwitcher\s*\/>/.test(readFileSync(path, "utf8"))) renderers.push(path);
+        }
+      };
+      ["app", "components"].forEach(walk);
+      // Each rendering sits in the branch of an isDevMode test, a Suspense boundary at most between them.
+      const unguarded = renderers.filter((path) => {
+        const source = readFileSync(path, "utf8");
+        const renderings = source.match(/<DevUserSwitcher\s*\/>/g)?.length ?? 0;
+        const guarded = source.match(/isDevMode \? \(\s*(?:<Suspense[^>]*>\s*)?<DevUserSwitcher\s*\/>/g)?.length ?? 0;
+        return guarded < renderings;
+      });
+      if (renderers.length === 0) return "nothing renders the demo user switcher";
+      return unguarded.length > 0 ? `rendered without isDevMode: ${unguarded.join(", ")}` : null;
     },
   },
   {
-    name: "the server action behind the switcher is guarded",
+    // C-01 §59: every demo action refuses before it does anything, outside development.
+    name: "the demo sign-in and user switch actions are guarded",
     run: () => {
-      const candidates = ["lib/actions/dev.ts", "lib/actions/session.ts", "lib/auth/dev-session.ts"];
-      const found = candidates.filter((path) => existsSync(path));
-      if (found.length === 0) return null;
-      const unguarded = found.filter((path) => {
-        const source = readFileSync(path, "utf8");
-        return !/isDevMode|devFeaturesEnabled|appEnvironment|NODE_ENV/.test(source);
-      });
-      return unguarded.length > 0 ? `unguarded dev action: ${unguarded.join(", ")}` : null;
+      const path = "lib/actions/demo.ts";
+      const source = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true);
+      const actions = source.statements.filter(
+        (statement): statement is ts.FunctionDeclaration =>
+          ts.isFunctionDeclaration(statement) && Boolean(statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)),
+      );
+      if (actions.length === 0) return `${path} exports no action`;
+      const unguarded = actions.filter((action) => !/^if \(!isDevMode\)/.test(action.body?.statements[0]?.getText(source) ?? ""));
+      return unguarded.length > 0 ? `does not begin with an isDevMode refusal: ${unguarded.map((action) => action.name?.text).join(", ")}` : null;
     },
   },
   {
@@ -54,7 +73,7 @@ const checks: Check[] = [
   {
     name: "the dev-mode guard honours APP_ENV, not just NODE_ENV",
     run: () => {
-      const source = readFileSync("lib/auth/dev-role.ts", "utf8");
+      const source = readFileSync("lib/auth/dev-mode.ts", "utf8");
       const honoursAppEnv = /APP_ENV/.test(source);
       const refusesStaging = /staging/.test(source);
       if (!honoursAppEnv) return "isDevMode ignores APP_ENV";

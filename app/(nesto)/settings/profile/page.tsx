@@ -57,11 +57,6 @@ export default async function ProfileSettingsPage() {
             <p className="mt-0.5 text-body text-fg-muted">{user.email}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Badge tone="info">{tRoles(`${user.role}.label`)}</Badge>
-              {user.roleIsOverridden ? (
-                <Badge tone="warning">
-                  {t("profile.devOverride", { role: tRoles(`${user.actualRole}.label`) })}
-                </Badge>
-              ) : null}
             </div>
           </div>
         </div>

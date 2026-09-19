@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/database/prisma";
 import {
   clearThrottle,
@@ -15,6 +17,41 @@ import { createSession, USABLE_GROUP_STATUSES } from "./session-store";
 import { recordSignIn } from "./identity";
 
 export type AuthenticatedUser = { id: string; username: string; sessionId: string; mustChangePassword: boolean };
+
+/** What a sign-in reads of an account to decide where it starts. */
+export const SIGN_IN_ACCOUNT = {
+  memberships: {
+    where: { status: "ACTIVE" },
+    include: { company: { select: { status: true, parentGroup: { select: { status: true } } } } },
+    orderBy: { createdAt: "asc" },
+  },
+  platformAccess: { select: { status: true } },
+} satisfies Prisma.UserInclude;
+
+type SignInAccount = Prisma.UserGetPayload<{ include: typeof SIGN_IN_ACCOUNT }>;
+
+/**
+ * Where a sign-in starts, or null when there is nowhere to start (PRD #6 §48,
+ * E-06 §19, §21).
+ *
+ * The Platform Admin signs in to the platform, never into a company: their
+ * session names no membership, whatever else the account holds. Anybody else
+ * starts in their oldest active membership of a usable company and group.
+ *
+ * The one rule for it: the credentials check below, and the demo user switch
+ * validating its target before it ends the current session (C-01 §11, §25).
+ */
+export function signInWorkspace(
+  account: SignInAccount,
+): { platform: true; membership: null } | { platform: false; membership: SignInAccount["memberships"][number] } | null {
+  if (account.platformAccess?.status === "ACTIVE") return { platform: true, membership: null };
+  const membership = account.memberships.find(
+    (candidate) =>
+      candidate.company.status === "ACTIVE" &&
+      USABLE_GROUP_STATUSES.includes(candidate.company.parentGroup.status),
+  );
+  return membership ? { platform: false, membership } : null;
+}
 
 /**
  * The credentials check behind every way into NESTO (PRD #6 §6-§10,
@@ -56,17 +93,7 @@ export async function authenticateCredentials(
   // the lockout itself cannot be used to discover accounts.
   const failed = () => hitThrottle("AUTH_LOGIN", throttleSubjects);
 
-  const user = await prisma.user.findUnique({
-    where: { username },
-    include: {
-      memberships: {
-        where: { status: "ACTIVE" },
-        include: { company: { select: { status: true, parentGroup: { select: { status: true } } } } },
-        orderBy: { createdAt: "asc" },
-      },
-      platformAccess: { select: { status: true } },
-    },
-  });
+  const user = await prisma.user.findUnique({ where: { username }, include: SIGN_IN_ACCOUNT });
 
   // One generic failure for every cause, so the form never reveals
   // whether an account exists (PRD #6 §8).
@@ -100,25 +127,14 @@ export async function authenticateCredentials(
     return null;
   }
 
-  // The Platform Admin signs in to the platform, never into a company: their
-  // session names no membership, whatever else the account holds (E-06 §19,
-  // §116).
-  const platform = user.platformAccess?.status === "ACTIVE";
-
-  // Otherwise no active membership in a usable company and group means no
-  // workspace to enter (PRD #6 §48, E-06 §21).
-  const membership = platform
-    ? null
-    : user.memberships.find(
-        (candidate) =>
-          candidate.company.status === "ACTIVE" &&
-          USABLE_GROUP_STATUSES.includes(candidate.company.parentGroup.status),
-      );
-
-  if (!platform && !membership) {
+  // The platform, or the oldest usable membership; no workspace to enter is
+  // a refusal (PRD #6 §48, E-06 §19, §21, §116).
+  const workspace = signInWorkspace(user);
+  if (!workspace) {
     await recordAuthEvent({ type: "MEMBERSHIP_DENIED", userId: user.id });
     return null;
   }
+  const membership = workspace.membership;
 
   const session = await createSession({
     userId: user.id,

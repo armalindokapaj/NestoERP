@@ -1189,12 +1189,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
 | ACTION | `signInAsDemoAccountAction` | PUBLIC | — | — | — | — | — | security |
-
-## Server actions — dev
-
-| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
-|---|---|---|---|---|---|---|---|---|
-| ACTION | `setDevRoleAction` | PUBLIC | — | — | — | — | — | security |
+| ACTION | `switchDemoUserAction` | PUBLIC | — | — | — | — | — | security |
 
 ## Server actions — documents
 

@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 
+import { Suspense } from "react";
+
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { isDevMode } from "@/lib/auth/dev-mode";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 
 export const metadata: Metadata = {
@@ -33,6 +37,12 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {/* Development only: back into a demo company as one of its people (C-01 §78). */}
+            {isDevMode ? (
+              <Suspense fallback={null}>
+                <DevUserSwitcher />
+              </Suspense>
+            ) : null}
             <span className="text-table text-fg-muted">{context.fullName}</span>
             <SignOutButton />
           </div>
