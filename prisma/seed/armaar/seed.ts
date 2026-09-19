@@ -18,11 +18,14 @@ import { syncMemberPlaces } from "../organization-helpers";
 import { seedDocumentVersions, seedStorageQuotas } from "../storage";
 import { seedArmaarPeople } from "./access";
 import { seedArmaarCredentials } from "./credentials";
+import { seedArmaarEngineering } from "./engineering";
 import { seedArmaarOperations } from "./operations";
 import { seedArmaarOrganization } from "./organization";
 import { seedArmaarProjects } from "./projects";
 import { ARMAAR_GROUP_ID } from "./records";
 import { seedArmaarSales } from "./sales";
+import { seedArmaarSupply } from "./supply";
+import { seedArmaarTasks } from "./tasks";
 import { seedArmaarUnits } from "./units";
 import { verifyDemoTenant } from "./verify";
 import { seedArmaarWorkers, seedArmaarWorkforce } from "./workforce";
@@ -64,6 +67,10 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const units = await seedArmaarUnits(prisma);
   const sales = await seedArmaarSales(prisma, units);
   const operations = await seedArmaarOperations(prisma);
+  // D-02: the rest of the supply chain, and the engineering record of Tirana Lake.
+  const supply = await seedArmaarSupply(prisma);
+  const engineering = await seedArmaarEngineering(prisma);
+  const tasks = await seedArmaarTasks(prisma);
   // Where the workers work, with whom, and their days on site (E-04).
   const workforce = await seedArmaarWorkforce(prisma);
   // Employee files and qualifications: contracts, licences, what waits for HR and what runs out (E-02).
@@ -92,6 +99,9 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
     units: units.length,
     sales,
     operations,
+    supply,
+    engineering,
+    tasks,
     records: await prisma.demoRecord.count({ where: { parentGroupId: ARMAAR_GROUP_ID } }),
   };
 }
@@ -103,6 +113,9 @@ export function describeArmaar(counts: Awaited<ReturnType<typeof seedArmaar>>): 
     `✓ ARMAAR workforce: ${counts.workers} site workers without a login, ${counts.workforce.trades} trades, ${counts.workforce.sites} sites, ${counts.workforce.crews} active crews, ${counts.workforce.onSite} on a project now, ${counts.workforce.attendance} days marked on site, ${counts.workforce.inductions} inductions`,
     `✓ ARMAAR employee files: ${counts.credentials.documents} documents filed on employments, ${counts.credentials.qualifications} qualifications — verified, waiting, sent back, running out and renewed`,
     `✓ ARMAAR operations: ${counts.operations.suppliers} supplier records, ${counts.operations.contractors} contractors, ${counts.operations.tasks} tasks, ${counts.operations.meetings} meetings, ${counts.operations.documents} project documents`,
+    `✓ ARMAAR supply chain: ${counts.supply.suppliers} supplier records, ${counts.supply.requests} purchase requests, ${counts.supply.orders} orders, ${counts.supply.receipts} deliveries, ${counts.supply.commitments} commitments from approved orders`,
+    `✓ ARMAAR tasks: ${counts.tasks.tasks} across the working companies`,
+    `✓ ARMAAR engineering: ${counts.engineering.contractors} contractors, ${counts.engineering.workPackages} work packages, ${counts.engineering.documents} drawings and documents, ${counts.engineering.rfis} RFIs, ${counts.engineering.submittals} submittals, ${counts.engineering.transmittals} transmittals`,
     `✓ ARMAAR provenance: ${counts.records} demo records; public facts match the source`,
   ];
 }
