@@ -2366,7 +2366,10 @@ product's series shape, no invoice over-allocated, every task link resolving.
   invoice chain and external-company register, E-12, co-ownership, E-05C.
 - **`nesto_erp` has D-02's data since 2026-09-19** (`pnpm seed:armaar`, with the
   owner's consent, after a backup; every data gate clean). Its five-company
-  demo keeps the three-digit purchase numbers it was seeded with.
+  demo's 69 purchase numbers were padded to the product's shape the same day
+  (requests, orders, receipts and RFQs; `PR-2026-020` → `PR-2026-0020`, as a
+  fresh seed writes them), at the owner's request, after a backup. On a copy
+  first, the regression test failed before the renumbering and passed after it.
 
 ## 31. Enhancement E-08 — one link to a person, and the profile around it
 
