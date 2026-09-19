@@ -14,7 +14,7 @@ import { db } from "./db";
 const COMPANY = "company_demo_a";
 /** The amended contract is Nova's, so the amendment and its approval are Nova's too (E-06 §45). */
 export const AMENDMENT_COMPANY = "company_demo_e";
-export const CHAIN = { order: "order_approval_chain", approval: "procurement_approval_chain", poNumber: "PO-2026-142" } as const;
+export const CHAIN = { order: "order_approval_chain", approval: "procurement_approval_chain", poNumber: "PO-2026-0142" } as const;
 
 export async function memberId(email: string, companyId = COMPANY): Promise<string> {
   const member = await db.companyMember.findFirstOrThrow({ where: { companyId, user: { email } }, select: { id: true } });

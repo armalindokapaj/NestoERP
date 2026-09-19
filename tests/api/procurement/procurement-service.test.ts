@@ -368,6 +368,17 @@ describe("purchase requests (PRD #19 §309–§311)", () => {
     expect(request.requestNumber).toMatch(/^PR-\d{4}-\d{4}$/);
   });
 
+  it("numbers one request after another in a company the seed filled (PRD #19 §44)", async () => {
+    // The series is read as text: a seeded number in any other shape (PR-2026-020) would sort above the
+    // product's own (PR-2026-0021) and the second new request would be given the first one's number again.
+    const context = await loginAs("PROCUREMENT");
+    const first = await draft(context);
+    const second = await draft(context);
+    const sequence = (number: string) => Number(number.slice(-4));
+    expect(second.requestNumber).not.toBe(first.requestNumber);
+    expect(sequence(second.requestNumber)).toBeGreaterThan(sequence(first.requestNumber));
+  });
+
   it("computes the estimate from the lines, never from the client (PRD #19 §49)", async () => {
     const context = await loginAs("PROCUREMENT");
     const request = await draft(context, {
@@ -980,9 +991,9 @@ describe("company isolation (PRD #19 §307, §334)", () => {
   });
 
   it("allows the same order number in another company (PRD #19 §99)", async () => {
-    // Company B's fixture carries PO-2026-001 too: uniqueness is per company,
+    // Company B's fixture carries PO-2026-0001 too: uniqueness is per company,
     // and a global constraint would leak the other company's numbering.
-    const both = await prisma.purchaseOrder.count({ where: { poNumber: "PO-2026-001" } });
+    const both = await prisma.purchaseOrder.count({ where: { poNumber: "PO-2026-0001" } });
     expect(both).toBe(2);
   });
 
