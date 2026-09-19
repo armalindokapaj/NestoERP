@@ -31,7 +31,7 @@ import { syncMemberPlaces } from "./seed/organization-helpers";
 import { seedEmploymentHistoryStories, syncEmploymentHistory } from "./seed/employment-history";
 import { seedFixtureOrganization } from "./seed/fixtures/organization";
 import { armaarPassword, describeArmaar, seedArmaar } from "./seed/armaar/seed";
-import { PRIMARY_DEMO_ACCOUNTS } from "../config/demo-accounts";
+import { ARMAAR_DEMO_ACCOUNTS, ARMAAR_DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS } from "../config/demo-accounts";
 import { hashPassword } from "../lib/auth/password";
 import { seedModuleRecords } from "./seed/module-records";
 import { seedInventoryRecords } from "./seed/inventory";
@@ -209,10 +209,17 @@ async function main() {
   for (const line of describeArmaar(armaar)) console.log(line);
   console.log("✓ Seed validation passed");
   console.log(
-    `\nSign in as any of the ${PRIMARY_DEMO_ACCOUNTS.length} demo personas, password: ${DEMO_PASSWORD}`,
+    `\nARMAAR Group — sign in as any of its ${ARMAAR_DEMO_ACCOUNTS.length} personas, password: ` +
+      (ARMAAR_DEMO_PASSWORD === DEMO_PASSWORD ? DEMO_PASSWORD : "ARMAAR_DEMO_PASSWORD"),
+  );
+  for (const account of ARMAAR_DEMO_ACCOUNTS) {
+    console.log(`  ${account.username.padEnd(24)} ${account.assignment}`);
+  }
+  console.log(
+    `\nFive-company demo — sign in as any of its ${PRIMARY_DEMO_ACCOUNTS.length} personas, password: ${DEMO_PASSWORD}`,
   );
   for (const account of PRIMARY_DEMO_ACCOUNTS) {
-    console.log(`  ${account.username.padEnd(22)} ${account.assignment}`);
+    console.log(`  ${account.username.padEnd(24)} ${account.assignment}`);
   }
 }
 

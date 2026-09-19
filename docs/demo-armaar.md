@@ -56,6 +56,10 @@ Every company's people follow the same pattern: `<company>.<role>` — `bci`,
 `arlis`, `ideal`, `unico`, `arsol`, `smi`, `arlisadm`, `klais`, `kfp`. Group
 people sign in to BUILDING CONSTRUCTION INVEST first, where Tirana Lake is.
 
+In development the sign-in screen lists these personas first, one click each
+(`config/demo-accounts.ts`), and folds the five-company demo's below them. The
+one-click sign-in uses `ARMAAR_DEMO_PASSWORD` when it is set.
+
 ## Presenting (D-01 §88, §89)
 
 1. **Group dashboard** as `armaar.owner`: the group's banner (NIPT, nine active

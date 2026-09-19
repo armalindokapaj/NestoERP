@@ -2455,5 +2455,12 @@ On freshly built databases, on the final tree:
   calendar entries (in `lib/`, which the link gate does not scan); they lead to
   the same profile.
 - **Demo people are ARMAAR's only**; the five-company demo is unchanged.
-- **`nesto_erp` lacks E-08's migration**, pending the owner's consent; the
-  rehearsal above is the path.
+- **`nesto_erp` has E-08's migration and ARMAAR's E-08 people since
+  2026-09-19** (`migrate deploy` + `pnpm seed:armaar`, at the owner's request,
+  after a backup and a rehearsal on a copy of it; every data gate clean).
+- **The development sign-in screen offers ARMAAR's personas first** — 35 of
+  them: the group heads, BUILDING CONSTRUCTION INVEST, ARLIS - NDERTIM (Tirana
+  Lake's builder) and four other companies' directors — with the five-company
+  demo folded below. The one-click action signs ARMAAR's in with
+  `ARMAAR_DEMO_PASSWORD` where it is set; a test signs in as each and holds the
+  list to what the ARMAAR seed creates.

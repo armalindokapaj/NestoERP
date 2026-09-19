@@ -3,11 +3,20 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
-import { DEMO_ACCOUNT_SECTIONS, DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS } from "@/config/demo-accounts";
+import {
+  ARMAAR_ACCOUNT_SECTIONS,
+  ARMAAR_DEMO_ACCOUNTS,
+  ARMAAR_DEMO_PASSWORD,
+  DEMO_ACCOUNT_SECTIONS,
+  DEMO_PASSWORD,
+  PRIMARY_DEMO_ACCOUNTS,
+  type DemoAccount,
+  type DemoAccountSection,
+} from "@/config/demo-accounts";
 import { roles } from "@/config/roles";
 import { isDevMode } from "@/lib/auth/dev-role";
 import { getTranslations } from "@/lib/i18n/server";
-import { DemoAccounts } from "./demo-accounts";
+import { DemoAccounts, type DemoAccountOption } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,6 +37,16 @@ const SIGN_IN_NOTICES = {
 
 function isSignInNotice(reason: string | undefined): reason is keyof typeof SIGN_IN_NOTICES {
   return reason !== undefined && Object.hasOwn(SIGN_IN_NOTICES, reason);
+}
+
+function demoOptions(accounts: DemoAccount[], sections: Record<DemoAccountSection, string>): DemoAccountOption[] {
+  return accounts.map((account) => ({
+    code: roles[account.role].code,
+    label: roles[account.role].label,
+    assignment: account.assignment,
+    username: account.username,
+    section: sections[account.section],
+  }));
 }
 
 /**
@@ -87,14 +106,21 @@ export default async function LoginPage({
 
             {isDevMode ? (
               <DemoAccounts
-                accounts={PRIMARY_DEMO_ACCOUNTS.map((account) => ({
-                  code: roles[account.role].code,
-                  label: roles[account.role].label,
-                  assignment: account.assignment,
-                  username: account.username,
-                  section: DEMO_ACCOUNT_SECTIONS[account.section],
-                }))}
+                rosters={[
+                  {
+                    name: "ARMAAR Group",
+                    summary: "The group, BUILDING CONSTRUCTION INVEST and its other companies",
+                    accounts: demoOptions(ARMAAR_DEMO_ACCOUNTS, ARMAAR_ACCOUNT_SECTIONS),
+                  },
+                  {
+                    name: "Five-company demo",
+                    summary: "Aurelia Construction and four other companies",
+                    accounts: demoOptions(PRIMARY_DEMO_ACCOUNTS, DEMO_ACCOUNT_SECTIONS),
+                    folded: true,
+                  },
+                ]}
                 password={DEMO_PASSWORD}
+                armaarHasOwnPassword={ARMAAR_DEMO_PASSWORD !== DEMO_PASSWORD}
               />
             ) : null}
           </div>
