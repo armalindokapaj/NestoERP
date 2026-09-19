@@ -20,7 +20,7 @@ import { seedStoredDocument } from "../document-objects";
 import { svgFor, type Scene } from "../project-covers";
 import { memberId } from "./access";
 import { companyId } from "./organization";
-import { userId } from "./people";
+import { personOf, userId } from "./people";
 import { PROJECT_FACTS, type CompanyCode, type ProjectCode } from "./public-facts";
 import { demoKey, recordDemo, slugOf } from "./records";
 
@@ -44,6 +44,8 @@ type ProjectPlan = {
   key?: true;
   description: string;
   manager: string;
+  /** Who the seed made its manager before (D-03 §25): replacing them is intended; anybody else is not. */
+  replaces?: string[];
   team: TeamMember[];
   milestones: { total: number; completed: number; theme: "tower" | "residential" | "hotel" | "marina" | "commercial" };
   scene: Scene;
@@ -216,8 +218,11 @@ export const PROJECTS: ProjectPlan[] = [
     type: "Residential",
     city: "Tirana",
     description: "A residential landmark in design: concept approved, permits in preparation.",
-    manager: "unico.coordinator",
+    // Named by D-03 (§11); D-01 had the technical coordinator run it, who stays on the team.
+    manager: "unico.pm",
+    replaces: ["unico.coordinator"],
     team: [
+      { username: "unico.coordinator", role: "Technical Coordinator" },
       { username: "unico.architecture", role: "Head of Architecture" },
       { username: "unico.architect", role: "Architect" },
       { username: "unico.designer", role: "Interior Designer" },
@@ -427,6 +432,7 @@ const PHASES = ["Design & Permits", "Structure", "Envelope & Services", "Complet
 /* Seeding ------------------------------------------------------------------------ */
 
 export async function seedArmaarProjects(prisma: PrismaClient) {
+  const conflicts: string[] = [];
   const today = localDate(new Date(), ZONE);
   const day = (offset: number) => new Date(`${addLocalDays(today, offset)}T12:00:00.000Z`);
 
@@ -445,7 +451,19 @@ export async function seedArmaarProjects(prisma: PrismaClient) {
     if (fact.company && fact.company !== plan.company) throw new Error(`ARMAAR seed: ${fact.name} is public as ${fact.company}'s.`);
     const id = projectId(plan.code);
     const company = companyId(plan.company);
-    const managerMember = memberId(plan.manager, plan.company);
+    // A manager the product appointed since is kept, and said so (D-03 §25): never two managers.
+    const known = [plan.manager, ...(plan.replaces ?? [])].map((username) => memberId(username, plan.company));
+    const current = await prisma.project.findUnique({
+      where: { id },
+      select: { projectManagerMemberId: true, projectManager: { select: { user: { select: { username: true, firstName: true, lastName: true } } } } },
+    });
+    const kept = current?.projectManagerMemberId && !known.includes(current.projectManagerMemberId) ? current.projectManagerMemberId : null;
+    if (kept) {
+      const holder = current!.projectManager!.user;
+      const planned = personOf(plan.manager)!;
+      conflicts.push(`${fact.name}'s manager is ${holder.firstName} ${holder.lastName} (${holder.username}), appointed in the product: ${planned.firstName} ${planned.lastName} (${plan.manager}) not made its manager`);
+    }
+    const managerMember = kept ?? memberId(plan.manager, plan.company);
     const data = {
       name: fact.name,
       description: plan.description,
@@ -488,16 +506,16 @@ export async function seedArmaarProjects(prisma: PrismaClient) {
       const joined = day(Math.min(plan.start, 0) + index * 7);
       await prisma.projectMember.upsert({
         where: { projectId_companyMemberId: { projectId: id, companyMemberId: member_ } },
-        update: { projectRole: member.role, isPrimary: index === 0, status: "ACTIVE" },
-        create: { companyId: company, projectId: id, companyMemberId: member_, projectRole: member.role, isPrimary: index === 0, status: "ACTIVE", joinedAt: joined },
+        update: { projectRole: member.role, isPrimary: index === 0 && !kept, status: "ACTIVE" },
+        create: { companyId: company, projectId: id, companyMemberId: member_, projectRole: member.role, isPrimary: index === 0 && !kept, status: "ACTIVE", joinedAt: joined },
       });
     }
 
     await seedCover(prisma, plan);
-    await seedPlan(prisma, plan, day);
+    await seedPlan(prisma, plan, managerMember, day);
   }
 
-  return { projects: PROJECTS.length };
+  return { projects: PROJECTS.length, conflicts };
 }
 
 async function seedCover(prisma: PrismaClient, plan: ProjectPlan) {
@@ -520,11 +538,10 @@ async function seedCover(prisma: PrismaClient, plan: ProjectPlan) {
   await prisma.project.update({ where: { id: projectId(plan.code) }, data: { coverImageDocumentId: id } });
 }
 
-/** Phases and milestones; completed ones in the past, the rest ahead (PRD #44). */
-async function seedPlan(prisma: PrismaClient, plan: ProjectPlan, day: (offset: number) => Date) {
+/** Phases and milestones, the project manager's (`owner`); completed ones in the past, the rest ahead (PRD #44). */
+async function seedPlan(prisma: PrismaClient, plan: ProjectPlan, owner: string, day: (offset: number) => Date) {
   const company = companyId(plan.company);
   const project = projectId(plan.code);
-  const owner = memberId(plan.manager, plan.company);
   await prisma.projectPlanningSettings.upsert({ where: { companyId: company }, update: {}, create: { companyId: company } });
 
   const names = THEMES[plan.milestones.theme].slice(0, plan.milestones.total);

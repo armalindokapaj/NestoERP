@@ -2471,3 +2471,88 @@ On freshly built databases, on the final tree:
   tenant login, with the demo password; a tenant seeded with its own
   (`ARMAAR_DEMO_PASSWORD`) signs in through the form. A test signs in as each
   of ARMAAR's 81 people and holds the list to the seed's.
+
+## 32. Demo D-03 — ARMAAR's named people
+
+Demo PRD D-03 names real people in the ARMAAR tenant and puts each in a
+relationship NESTO already has, or skips it and says so. It adds each company's
+NIPT. [ADR 0009](adr/0009-d03-armaar-named-people.md) classifies every
+relationship and records the decisions. The guide is
+[docs/demo-armaar.md](demo-armaar.md#what-d-03-added).
+
+### 32.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Every ARMAAR person a synthetic persona (D-01 §40) | Eight named: the group's Owner **Armand Lilo** (public); the heads of Procurement **Adela Dervishaj**, Finance **Edvin Gace**, Architecture & Design **Besar Zifla**, HSE **Arted Ballaj**, Legal **Migena Bajro** and HR **Xhejsi Lilo**, and Eyes of Tirana's manager **Tedi Gogu** (supplied by NESTO's owner) |
+| The Owner and six heads were D-01's invented personas | The same logins and positions under D-03's names. This is §24's "stale demo data, intentionally replaced": no second head, and the recorded work stays with the place |
+| Eyes of Tirana managed by UNICO's technical coordinator | Tedi Gogu, a new UNICO login (`unico.pm`), manages it and is its one primary team member; Anxhela Rusi stays on the team as Technical Coordinator. 82 people with a login (was 81) |
+| No company NIPT (none in D-01's source set) | All thirteen, from D-03's table, cited to D-03 in each company's provenance |
+| Provenance PUBLIC, SYNTHETIC, INFERRED | Also **USER_PROVIDED**, with no verification date; D-03's keys (`ARMAAR:PERSON:EDVIN_GACE`, `ARMAAR:DEPT_HEAD:FINANCE:EDVIN_GACE`, …) on the named people and their places |
+| A seed rerun overwrote whatever held a position; a second active head crashed it | A position or a project's management the product gave to somebody else is left to them, and reported. `verify:demo` then fails with the conflict named. A named person already in the group under another record stops the seed before it writes anything |
+| — | The seed reports what it did for D-03: created, reused, replaced, conflict, skipped |
+
+**Not held: legal administrators** (§7, §13, NOT_SUPPORTED). NESTO has no
+relationship between a company, or a group, and the people who represent it in
+law, and D-03 adds none (§41). The fourteen relationships are kept as facts in
+`public-facts.ts` and reported as skipped on every run. Klaisi Çela, Kopi
+Gusho, Xhensila Pupa and Gentiana Lilo appear only there, so they are not people
+in the demo yet. That needs a generic NESTO feature, with its own PRD, first.
+
+**Migration `20260919200000_demo_source_user_provided_d03`** is additive: one
+value on the `DemoSourceType` enum. No row changes. Only the seed and
+`verify:demo` read it.
+
+**Rollback:** the old code never writes the value. To remove it, reset the
+provenance records that use it to another source, then recreate the enum
+without it. PostgreSQL cannot drop an enum value in place.
+
+### 32.2 The evidence
+
+- **vitest on a freshly built database: 3 913 passed, 0 failed**, 11 skipped.
+  That includes D-03's own suite of 12 tests:
+  - each named person is one person, with nothing private made up;
+  - the four administrator-only people have no person and no login;
+  - one Owner, with nothing on the platform;
+  - each head is in NESTO's own head position;
+  - no head gains anything in another function's modules, against the same
+    role without the position;
+  - Eyes of Tirana's manager is its one primary team member, and reads Eyes of
+    Tirana and no other project;
+  - D-03's provenance keys and sources, and the NIPTs;
+  - a rerun keeps the same people and places;
+  - a head or manager appointed in the product is left and reported;
+  - a named person twice stops the seed.
+- **E2E on the production build: ARMAAR's specs 13 of 13**, the group dashboard
+  and people links. D-03 changes no product code, so the rest of the E2E suite
+  and verify:roles were not rerun.
+- **The data gates** are clean after the full suite: demo, organization,
+  employment, employee-integrity and company-integrity. **Ownership** passes.
+  **No drift** between the migrations and the schema. Typecheck and lint are
+  clean on the changed files.
+- **On the product's own pages** (production build): the group's Departments
+  list shows Armand Lilo and the six heads by name, and Eyes of Tirana's team
+  shows Tedi Gogu as Project manager and Anxhela Rusi as Technical Coordinator.
+- **On a copy of `nesto_erp`**, restored from a dump:
+  - the migration applied, and `seed:armaar` replaced the seven personas,
+    created Tedi Gogu, made him Eyes of Tirana's manager in place of Anxhela
+    Rusi, and reported the fourteen administrator relationships as skipped;
+  - a second run reported only "reused" and "skipped", with every count and
+    identity unchanged;
+  - forcing a head appointed in the product, a manager appointed in the product,
+    and a second "Edvin Gace" each left the place as it was and failed, naming
+    the conflict.
+
+### 32.3 Limits
+
+- **Legal administrators are not in NESTO** (above). That needs a generic
+  feature with its own PRD.
+- **The seed writes no audit events.** ARMAAR's seed never has (§30: "where seed
+  conventions permit"). Its report is the log it prints.
+- **Seven logins' recorded work now carries real names.** It stays synthetic,
+  and each login's provenance says so.
+- **Only eight of ARMAAR's people are real.** Group IT, the Engineering, Project
+  Management, Sales, QA/QC and Inventory heads, and every company's people remain
+  D-01's personas.
+- **`nesto_erp` does not have D-03 yet.** Applying it takes the migration and
+  `pnpm seed:armaar`, after a backup: the owner's call.

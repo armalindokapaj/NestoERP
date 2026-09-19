@@ -1,19 +1,29 @@
 # The ARMAAR Group demo tenant
 
 Demo PRD D-01, reconciled in [ADR 0005](adr/0005-d01-armaar-demo-tenant.md),
-deepened by Demo PRD D-02 (data only — see [What D-02 added](#what-d-02-added)).
+deepened by Demo PRD D-02 (data only — see [What D-02 added](#what-d-02-added))
+and D-03 (its named people — see [What D-03 added](#what-d-03-added),
+[ADR 0009](adr/0009-d03-armaar-named-people.md)).
 A second parent group beside the five-company demo: ARMAAR GROUP sh.p.k., its
 thirteen companies, departments, people and public project portfolio, with a
 month of operations in every module and the group's executive dashboard.
 
-**Public facts are kept apart from synthetic data.** Only what D-01's source
-set gives is public: the group's legal name, NIPT (M01517007J), country and city;
-the thirteen companies and which are suspended; the eleven project names; Tirana
-Lake's city, built area (233,000 m²), type and components (residential,
-commercial, office), and its company, BUILDING CONSTRUCTION INVEST. Everything
-else — people, which company runs the other projects, statuses, progress,
-budgets, prices, sales, payments, suppliers, contracts, documents, tasks — is
-synthetic, and every page of the tenant says so.
+**Public facts are kept apart from synthetic data.** Only what D-01's and
+D-03's source sets give is public:
+- the group's legal name, NIPT (M01517007J), country and city, and its owner,
+  Armand Lilo;
+- the thirteen companies, which are suspended, each one's NIPT and its
+  administrator in the registry;
+- the eleven project names;
+- Tirana Lake's city, built area (233,000 m²), type and components
+  (residential, commercial, office), and its company, BUILDING CONSTRUCTION
+  INVEST.
+
+NESTO's owner supplied six heads of the group's functions and Eyes of Tirana's
+manager, by name. Everything else is synthetic, and every page of the tenant
+says so: the other people, which company runs the other projects, statuses,
+progress, budgets, prices, sales, payments, suppliers, contracts, documents
+and tasks.
 
 ## Building it
 
@@ -21,7 +31,7 @@ synthetic, and every page of the tenant says so.
 | --- | --- |
 | A fresh database | `pnpm db:seed` builds the demo and ARMAAR |
 | A database that already exists | `pnpm seed:armaar` adds ARMAAR, or brings it up to date |
-| Checking it | `pnpm verify:demo` — public facts unchanged, companies, people, projects, provenance |
+| Checking it | `pnpm verify:demo` — public facts unchanged, companies, people, projects, provenance, D-02's operational rules, D-03's named people in their places |
 | Starting again | rebuild the database (`pnpm db:reset:demo`, development only) |
 
 Running either seed again adds nothing and changes nothing: every record has a
@@ -37,13 +47,15 @@ demo's password. Whoever runs the demo manages it (D-01 §87).
 | Persona | Username | Lands in |
 | --- | --- | --- |
 | Platform Admin (outside the group) | `armaar.platform-admin` | Platform → Parent groups |
-| Group Owner | `armaar.owner` | the group's dashboard |
+| Group Owner — Armand Lilo | `armaar.owner` | the group's dashboard |
 | Group IT | `armaar.it` | |
-| Group Finance Head | `armaar.finance` | |
-| Group Procurement Head | `armaar.procurement` | |
-| Group HR, Legal, Engineering, Architecture, Project Management, Sales, HSE, QA/QC, Inventory heads | `armaar.hr`, `armaar.legal`, `armaar.engineering`, `armaar.architecture`, `armaar.projects`, `armaar.sales`, `armaar.hse`, `armaar.qaqc`, `armaar.inventory` | |
+| Group Finance Head — Edvin Gace | `armaar.finance` | |
+| Group Procurement Head — Adela Dervishaj | `armaar.procurement` | |
+| Group HR, Legal, Architecture, HSE heads — Xhejsi Lilo, Migena Bajro, Besar Zifla, Arted Ballaj | `armaar.hr`, `armaar.legal`, `armaar.architecture`, `armaar.hse` | |
+| Group Engineering, Project Management, Sales, QA/QC, Inventory heads | `armaar.engineering`, `armaar.projects`, `armaar.sales`, `armaar.qaqc`, `armaar.inventory` | |
 | Company Director (BCI) | `bci.director` | BUILDING CONSTRUCTION INVEST |
 | Project Manager, Tirana Lake | `bci.pm` | |
+| Project Manager, Eyes of Tirana — Tedi Gogu | `unico.pm` | UNICO CONSTRUCTION; sees Eyes of Tirana only |
 | Architect | `bci.architect` | |
 | Engineer (ARLIS - NDERTIM, on site at Tirana Lake) | `arlis.civil` | ARLIS - NDERTIM; a login in BCI too |
 | Finance user | `bci.finance-specialist` | |
@@ -140,14 +152,16 @@ sign in through the form.
 | | Location |
 | --- | --- |
 | Public facts, with their source | `prisma/seed/armaar/public-facts.ts` |
+| What NESTO's owner supplied (D-03) | `prisma/seed/armaar/provided-facts.ts` |
+| D-03's named people: survey, provenance, report | `prisma/seed/armaar/named-people.ts` |
 | The seed, stage by stage | `prisma/seed/armaar/` — D-01: `organization`, `people`/`access`, `workforce`, `credentials`, `projects`, `units`, `sales`, `operations`; D-02: `supply`, `engineering`, `tasks`, `legal`, `finance`, `schedule`, `safety`, `quality`, `inventory`, `site`, `timesheets`; `seed.ts` runs them in order |
 | The checks | `prisma/seed/armaar/verify.ts`, `pnpm verify:demo` — D-01's, and D-02's (every approved order committed, stock equal to its ledger, numbers in the product's series shape, invoices not over-allocated, task links resolving) |
-| Where each fact comes from | the `demo_records` table: one row per group, company, department, person (with a login or without) and project, PUBLIC / SYNTHETIC / INFERRED, per field where mixed |
+| Where each fact comes from | the `demo_records` table: one row per group, company, department, person (with a login or without) and project, and per D-03 relationship: PUBLIC, SYNTHETIC, INFERRED or USER_PROVIDED, per field where mixed |
 | The executive view | `lib/modules/dashboard/dashboard.group.ts`, `GET /api/dashboard/group` |
 
-**Adding a verified fact** — a company's NIPT, a project's location or built
-area: add it to `public-facts.ts` with its source and reseed. `verify:demo`
-then holds the database to it.
+**Adding a verified fact**, such as a project's location or built area: add it
+to `public-facts.ts` with its source and reseed. `verify:demo` then holds the
+database to it. A fact NESTO's owner supplies goes in `provided-facts.ts`.
 
 ## What D-02 added
 
@@ -183,6 +197,48 @@ commitment approving them opens, its requests their approval, its order lines
 the request line they order; a request whose order waits for approval is
 ORDERED, as the product derives it; the sales seed's counters count units
 already sold, so a unit added later never re-issues contract 001.
+
+## What D-03 added
+
+D-03 names real people. Each one goes through a relationship NESTO already has,
+or is skipped and reported ([ADR 0009](adr/0009-d03-armaar-named-people.md)
+classifies each one). `pnpm seed:armaar` prints what it did for each: created,
+reused, replaced, conflict, skipped.
+
+| Named | Source | How NESTO holds it |
+| --- | --- | --- |
+| **Armand Lilo**, Group Owner | public | the group's Owner (`armaar.owner`): one person, nothing on the platform |
+| **Adela Dervishaj** (Procurement), **Edvin Gace** (Finance), **Besar Zifla** (Architecture & Design), **Arted Ballaj** (HSE), **Migena Bajro** (Legal), **Xhejsi Lilo** (HR) | supplied by NESTO's owner | each function's head position (`armaar.procurement` … `armaar.hr`) |
+| **Tedi Gogu**, Eyes of Tirana's project manager | supplied by NESTO's owner | the project's manager and its one primary team member (`unico.pm`, UNICO CONSTRUCTION) |
+| All thirteen companies' NIPTs | public | each company's registration number |
+
+- **The personas are replaced, not duplicated.** D-01's invented Owner and six
+  heads carry D-03's names now:
+  - Ilir Dervishaj is Armand Lilo;
+  - Elira Shkurti is Edvin Gace;
+  - Anisa Qosja is Migena Bajro;
+  - Gentian Bardhi is Adela Dervishaj;
+  - Mirela Kodra is Xhejsi Lilo;
+  - Arta Lleshaj is Besar Zifla;
+  - Fatmir Zeqiri is Arted Ballaj.
+
+  They keep the same logins and the same recorded work, which stays synthetic
+  and is recorded as such. Anxhela Rusi, who managed Eyes of Tirana, stays on its
+  team as Technical Coordinator.
+- **Nothing private is made up for them.** They have no phone and no home city
+  or country. Their work email is on the reserved `.test` domain.
+- **Legal administrators are not held.** NESTO has no relationship between a
+  company, or a group, and the people who represent it in law, and D-03 adds
+  none (§13, §41). The seed keeps the fourteen administrator relationships in
+  `public-facts.ts` and reports them as skipped. Klaisi Çela, Kopi Gusho,
+  Xhensila Pupa and Gentiana Lilo have no other relationship, so they are not
+  people in the demo yet. That needs a generic NESTO feature, with its own PRD,
+  first.
+- **A place the product gave to somebody else is left to them.** This covers a
+  head, a branch manager, or a project's manager appointed in NESTO since the
+  last seed. The seed says so, and `verify:demo` fails naming the conflict. A
+  named person who already exists in the group under another record stops the
+  seed before it writes anything.
 
 ## E-08: people before and after a login
 
@@ -226,4 +282,6 @@ profile.
   published in BUILDING CONSTRUCTION INVEST.
 - **Covers are illustrations** generated for the demo, not the projects' own
   renders; they say so in their description.
+- **Nobody in the demo is the legal administrator of a company**: the
+  relationship is not in NESTO yet (D-03 §41; see above).
 - ARMAAR's pages are English, like the rest of the modules.

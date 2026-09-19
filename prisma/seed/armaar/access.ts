@@ -13,9 +13,9 @@ import type { PrismaClient } from "@prisma/client";
 
 import { groupDepartmentId, type GroupDepartmentKey } from "../../../config/group-departments";
 import { roleIds, upsertAccount, upsertMembership } from "../organization-helpers";
-import { companyId, type ArmaarBranches } from "./organization";
-import { ARMAAR_PEOPLE, COMPANY_PEOPLE, GROUP_PEOPLE, PLATFORM_ADMIN, emailOf, personOf, phoneOf, userId, type ArmaarPerson } from "./people";
-import { COMPANY_FACTS, type CompanyCode } from "./public-facts";
+import { companyId, departmentName, type ArmaarBranches } from "./organization";
+import { ARMAAR_PEOPLE, COMPANY_PEOPLE, GROUP_PEOPLE, PLATFORM_ADMIN, emailOf, personId, personOf, phoneOf, userId, type ArmaarPerson } from "./people";
+import { COMPANY_FACTS, D03_SOURCE, type CompanyCode } from "./public-facts";
 import { ARMAAR_GROUP_ID, demoKey, recordDemo, slugOf } from "./records";
 
 const DAY = 86_400_000;
@@ -73,13 +73,28 @@ export async function seedArmaarPeople(prisma: PrismaClient, branches: ArmaarBra
   /* Accounts and the people behind them ------------------------------------- */
   for (const [index, person] of ARMAAR_PEOPLE.entries()) {
     const id = userId(person.username);
+    // A real person named by D-03 gets no made-up phone or home city (§14): the persona's are cleared.
     const personId = await upsertAccount(
       prisma,
-      { id, username: person.username, email: emailOf(person.username), firstName: person.firstName, lastName: person.lastName, phone: phoneOf(index), jobTitle: person.jobTitle },
+      { id, username: person.username, email: emailOf(person.username), firstName: person.firstName, lastName: person.lastName, phone: person.named ? null : phoneOf(index), jobTitle: person.jobTitle },
       { passwordHash, parentGroupId: ARMAAR_GROUP_ID },
     );
-    await prisma.personProfile.update({ where: { id: personId! }, data: { officeLocation: person.location, city: person.location.split(" — ")[0], country: "Albania" } });
-    await recordDemo(prisma, { key: demoKey("PERSON", person.username), entityType: "User", entityId: id, source: "SYNTHETIC", note: "A demo persona; not a member of ARMAAR's staff." });
+    const home = person.named ? { city: null, country: null } : { city: person.location.split(" — ")[0], country: "Albania" };
+    await prisma.personProfile.update({ where: { id: personId! }, data: { officeLocation: person.location, ...home } });
+    await recordDemo(
+      prisma,
+      person.named
+        ? {
+            key: demoKey("PERSON", person.username),
+            entityType: "User",
+            entityId: id,
+            source: person.named,
+            fields: { name: person.named, login: "SYNTHETIC", contact: "SYNTHETIC", employment: "SYNTHETIC", activity: "SYNTHETIC" },
+            cites: [D03_SOURCE],
+            note: "A named person's demo login (D-03): the name is theirs; the login, the employment and the work recorded under it are synthetic.",
+          }
+        : { key: demoKey("PERSON", person.username), entityType: "User", entityId: id, source: "SYNTHETIC", note: "A demo persona; not a member of ARMAAR's staff." },
+    );
   }
 
   for (const person of GROUP_PEOPLE) {
@@ -109,15 +124,18 @@ export async function seedArmaarPeople(prisma: PrismaClient, branches: ArmaarBra
   }
 
   /* Positions (§12, §13; E-06, E-13) ----------------------------------------- */
+  const conflicts: string[] = [];
   for (const person of GROUP_PEOPLE) {
-    await upsertPosition(prisma, person, null, null, activatedAt);
+    const conflict = await upsertPosition(prisma, person, null, null, activatedAt);
+    if (conflict) conflicts.push(conflict);
   }
   // A group head may also manage their function's branch in the company that employs them (E-08 §23, §52).
   for (const person of [...GROUP_PEOPLE, ...COMPANY_PEOPLE].filter((candidate) => candidate.manages)) {
     const branch = branches.get(companyId(person.company))!.get(person.department);
     if (!branch) throw new Error(`ARMAAR seed: ${person.username} manages ${person.department}, which ${person.company} does not run.`);
-    await upsertPosition(prisma, person, person.company, branch, activatedAt);
-    await prisma.department.update({ where: { id: branch }, data: { managerMemberId: memberId(person.username, person.company) } });
+    const conflict = await upsertPosition(prisma, person, person.company, branch, activatedAt);
+    if (conflict) conflicts.push(conflict);
+    else await prisma.department.update({ where: { id: branch }, data: { managerMemberId: memberId(person.username, person.company) } });
   }
 
   /* Employments (HR; E-03 gives them their history) ------------------------- */
@@ -148,7 +166,7 @@ export async function seedArmaarPeople(prisma: PrismaClient, branches: ArmaarBra
       create: {
         id,
         companyId: companyId(code),
-        personProfileId: `person_${userId(person.username).replace(/^user_/, "")}`,
+        personProfileId: personId(person.username),
         companyMemberId: memberId(person.username, code),
         employeeNumber: `${EMPLOYEE_PREFIX[code]}-${String(next).padStart(4, "0")}`,
         // Recorded by the Head of Group HR, who has a login in every active company.
@@ -158,12 +176,20 @@ export async function seedArmaarPeople(prisma: PrismaClient, branches: ArmaarBra
     });
   }
 
-  return { people: ARMAAR_PEOPLE.length };
+  return { people: ARMAAR_PEOPLE.length, conflicts };
 }
 
-async function upsertPosition(prisma: PrismaClient, person: ArmaarPerson, code: CompanyCode | null, branch: string | null, activatedAt: Date) {
-  const scope = code ? slugOf(code) : "group";
-  const id = `armaar_pos_${userId(person.username).replace(/^user_armaar_/, "")}_${person.department}_${scope}`;
+export const positionId = (username: string, department: GroupDepartmentKey, code: CompanyCode | null) =>
+  `armaar_pos_${userId(username).replace(/^user_armaar_/, "")}_${department}_${code ? slugOf(code) : "group"}`;
+
+/**
+ * The seed's position for one of its people — unless the product has since given
+ * it to somebody else. A function has one head and a branch one manager, and the
+ * seed never takes a position from whoever holds it (D-03 §24): it says so
+ * instead, and leaves it. Somebody already holding it is kept as they are.
+ */
+async function upsertPosition(prisma: PrismaClient, person: ArmaarPerson, code: CompanyCode | null, branch: string | null, activatedAt: Date): Promise<string | null> {
+  const id = positionId(person.username, person.department, code);
   const level = code ? ("COMPANY_MANAGER" as const) : ("GROUP_HEAD" as const);
   const data = {
     parentGroupId: ARMAAR_GROUP_ID,
@@ -177,5 +203,15 @@ async function upsertPosition(prisma: PrismaClient, person: ArmaarPerson, code: 
     status: "ACTIVE" as const,
     startsAt: activatedAt,
   };
+  const held = await prisma.departmentAssignment.findFirst({
+    where: { id: { not: id }, status: "ACTIVE", positionLevel: level, ...(branch ? { companyDepartmentId: branch } : { groupDepartmentId: data.groupDepartmentId }) },
+    select: { userId: true, user: { select: { username: true, firstName: true, lastName: true } } },
+  });
+  if (held?.userId === data.userId) return null;
+  if (held) {
+    const what = code ? `${departmentName(person.department)}'s manager in ${code}` : `the head of ${departmentName(person.department)}`;
+    return `${what} is ${held.user.firstName} ${held.user.lastName} (${held.user.username}), appointed in the product: ${person.firstName} ${person.lastName} (${person.username}) not appointed`;
+  }
   await prisma.departmentAssignment.upsert({ where: { id }, update: data, create: { id, ...data } });
+  return null;
 }

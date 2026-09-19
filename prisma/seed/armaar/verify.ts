@@ -1,5 +1,6 @@
 /**
  * Is the ARMAAR demo what D-01 says it is? (§93-§99, §107, §108, §110, §111)
+ * And D-02's operational rules, and D-03's named people.
  *
  * Run at the end of every `seed:armaar` and by `pnpm verify:demo`. Each finding
  * is a sentence; none means consistent. The public facts are compared with
@@ -8,9 +9,13 @@
  */
 import type { PrismaClient } from "@prisma/client";
 
-import { companyId } from "./organization";
+import { groupDepartmentId } from "../../../config/group-departments";
+import { companyId, departmentName } from "./organization";
 import { ARMAAR_PEOPLE } from "./people";
-import { COMPANY_FACTS, GROUP_FACTS, PROJECT_FACTS } from "./public-facts";
+import { projectId } from "./projects";
+import { DEPARTMENT_HEADS, PROJECT_MANAGERS } from "./provided-facts";
+import { COMPANY_FACTS, GROUP_FACTS, GROUP_OWNER, PROJECT_FACTS } from "./public-facts";
+import { normalName } from "./records";
 
 /** What D-01 fixes about a project's synthetic state (§19, §21): status and progress. */
 const PROMISED: Record<string, { status: string; progress: number }> = {
@@ -103,7 +108,71 @@ export async function verifyDemoTenant(prisma: PrismaClient, groupId: string): P
   if (unrecorded) say(`${unrecorded} people without a login have no provenance record.`);
   if (!recorded.has(groupId)) say("The group has no provenance record.");
 
+  findings.push(...(await verifyNamedPeople(prisma, groupId)));
   findings.push(...(await verifyOperations(prisma, groupId)));
+  return findings;
+}
+
+/**
+ * The people D-03 names (§35-§40): each one person of the group, the person
+ * behind their login, nothing private made up for them, and in the place D-03
+ * gives them — one Owner, one head per function, one manager per project.
+ */
+async function verifyNamedPeople(prisma: PrismaClient, groupId: string): Promise<string[]> {
+  const findings: string[] = [];
+  const say = (finding: string) => findings.push(finding);
+  const name = (person: { firstName: string; lastName: string }) => `${person.firstName} ${person.lastName}`;
+  const same = (a: { firstName: string; lastName: string }, b: { firstName: string; lastName: string }) => normalName(a.firstName, a.lastName) === normalName(b.firstName, b.lastName);
+
+  const everyone = await prisma.personProfile.findMany({
+    where: { parentGroupId: groupId },
+    select: { firstName: true, lastName: true, workPhone: true, personalEmail: true, personalPhone: true, dateOfBirth: true, address: true, city: true, country: true, user: { select: { username: true, phone: true } } },
+  });
+  for (const person of ARMAAR_PEOPLE.filter((candidate) => candidate.named)) {
+    const matches = everyone.filter((candidate) => same(candidate, person));
+    if (matches.length !== 1) {
+      say(`${name(person)} is ${matches.length} people of the group, not one.`);
+      continue;
+    }
+    const [record] = matches;
+    if (record!.user?.username !== person.username) say(`${name(person)} is not the person behind ${person.username}.`);
+    const invented: string[] = (["workPhone", "personalEmail", "personalPhone", "dateOfBirth", "address", "city", "country"] as const).filter((field) => record![field] !== null);
+    if (record!.user?.phone) invented.push("phone");
+    if (invented.length) say(`${name(person)} has private details the demo made up: ${invented.join(", ")} (D-03 §14).`);
+  }
+
+  const owners = await prisma.departmentAssignment.findMany({
+    where: { parentGroupId: groupId, status: "ACTIVE", positionLevel: "GROUP_HEAD", functionalRoleKey: "OWNER" },
+    select: { user: { select: { firstName: true, lastName: true } } },
+  });
+  if (owners.length !== 1) say(`The group has ${owners.length} Owners, not one.`);
+  else if (!same(owners[0]!.user, GROUP_OWNER)) say(`The group's Owner is ${name(owners[0]!.user)}, not the public ${name(GROUP_OWNER)}.`);
+
+  for (const head of DEPARTMENT_HEADS) {
+    const held = await prisma.departmentAssignment.findFirst({
+      where: { groupDepartmentId: groupDepartmentId(groupId, head.department), status: "ACTIVE", positionLevel: "GROUP_HEAD" },
+      select: { user: { select: { firstName: true, lastName: true } } },
+    });
+    if (!held) say(`${departmentName(head.department)} has no head; D-03 names ${name(head)}.`);
+    else if (!same(held.user, head)) say(`${departmentName(head.department)}'s head is ${name(held.user)}; D-03 names ${name(head)}.`);
+  }
+
+  for (const manager of PROJECT_MANAGERS) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId(manager.project) },
+      select: {
+        name: true,
+        projectManager: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
+        members: { where: { isPrimary: true, status: "ACTIVE" }, select: { companyMemberId: true } },
+      },
+    });
+    if (!project) continue;
+    if (!project.projectManager || !same(project.projectManager.user, manager)) {
+      say(`${project.name}'s manager is ${project.projectManager ? name(project.projectManager.user) : "nobody"}; D-03 names ${name(manager)}.`);
+    } else if (project.members.length !== 1 || project.members[0]!.companyMemberId !== project.projectManager.id) {
+      say(`${project.name} has ${project.members.length} primary members; its manager should be the one.`);
+    }
+  }
   return findings;
 }
 

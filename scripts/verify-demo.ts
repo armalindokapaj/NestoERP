@@ -1,7 +1,8 @@
 /**
  * Fails when a seeded demonstration tenant is not what its PRD says it is: a
  * public fact replaced, a company missing or duplicated, a person twice, work
- * in a suspended company, a record without provenance (D-01 §93-§111).
+ * in a suspended company, a record without provenance (D-01 §93-§111), a named
+ * person out of the place D-03 gives them.
  *
  * Passes, saying so, on a database with no demo tenant seeded: the five-company
  * demo and the test fixtures are held by `verify:organization` and the seed's
@@ -27,7 +28,7 @@ async function main() {
       process.exitCode = 1;
       return;
     }
-    console.log("✓ demo: ARMAAR's public facts, companies, people and provenance agree with D-01");
+    console.log("✓ demo: ARMAAR's public facts, companies, people and provenance agree with D-01, D-02 and D-03");
   } finally {
     await prisma.$disconnect();
   }

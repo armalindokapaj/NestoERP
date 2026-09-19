@@ -1,10 +1,13 @@
 /**
- * ARMAAR's people (D-01 §11-§14, §41, §64, §86, §87).
+ * ARMAAR's people (D-01 §11-§14, §41, §64, §86, §87; D-03).
  *
- * Synthetic people only: realistic Albanian names that belong to nobody on
- * purpose (§76), addresses on the reserved `.test` domain so nothing can ever
- * reach a real mailbox, and phone numbers in an unassigned block. The group's
- * public legal representatives are not people here (§40).
+ * Synthetic people — realistic Albanian names that belong to nobody on purpose
+ * (§76), addresses on the reserved `.test` domain so nothing can ever reach a
+ * real mailbox, and phone numbers in an unassigned block — except the eight D-03
+ * names: the group's Owner (public), six heads of its functions and Eyes of
+ * Tirana's manager (supplied by NESTO's owner). A named person keeps the persona's
+ * login, employment and the work recorded under it, all synthetic; nothing
+ * private is made up for them — no phone, no home city (D-03 §14).
  *
  * Three kinds, as the five-company demo has them (E-06):
  *   the Platform Admin   outside the group (§86)
@@ -19,7 +22,8 @@
  */
 import type { RoleKey } from "../../../config/roles";
 import type { GroupDepartmentKey } from "../../../config/group-departments";
-import type { CompanyCode } from "./public-facts";
+import { DEPARTMENT_HEADS, PROJECT_MANAGERS } from "./provided-facts";
+import { GROUP_OWNER, type CompanyCode, type ProjectCode } from "./public-facts";
 
 export type ArmaarPerson = {
   username: string;
@@ -40,7 +44,24 @@ export type ArmaarPerson = {
   startedDaysAgo: number;
   location: string;
   workLocationType: "OFFICE" | "SITE" | "HYBRID";
+  /** A real person D-03 names, and where the name comes from; everybody else is synthetic. */
+  named?: "PUBLIC" | "USER_PROVIDED";
 };
+
+/** The Owner's name from the public facts (D-03 §6). */
+const owner = { firstName: GROUP_OWNER.firstName, lastName: GROUP_OWNER.lastName, named: "PUBLIC" as const };
+
+/** A function's head as NESTO's owner named them (D-03 §8). */
+function headOf(department: GroupDepartmentKey) {
+  const head = DEPARTMENT_HEADS.find((candidate) => candidate.department === department)!;
+  return { firstName: head.firstName, lastName: head.lastName, named: "USER_PROVIDED" as const };
+}
+
+/** A project's manager as NESTO's owner named them (D-03 §11). */
+function managerOf(project: ProjectCode) {
+  const manager = PROJECT_MANAGERS.find((candidate) => candidate.project === project)!;
+  return { firstName: manager.firstName, lastName: manager.lastName, named: "USER_PROVIDED" as const };
+}
 
 export const PLATFORM_ADMIN = {
   id: "user_armaar_platform_admin",
@@ -55,20 +76,25 @@ export const PLATFORM_ADMIN = {
 const HQ = "Tirana — head office";
 const LAKE = "Tirana Lake — site office";
 
-/** Employed by ARLIS ADMINISTRIM; a login in every active company; heads of the group's functions (§12). */
+/**
+ * Employed by ARLIS ADMINISTRIM; a login in every active company; heads of the
+ * group's functions (§12). The Owner and six heads carry D-03's names in place of
+ * the personas D-01 invented for them (D-03 §24: stale demo data, intentionally
+ * replaced): the same logins, so the work already recorded under them stays theirs.
+ */
 export const GROUP_PEOPLE: ArmaarPerson[] = [
-  { username: "armaar.owner", firstName: "Ilir", lastName: "Dervishaj", role: "OWNER", department: "executive", jobTitle: "Group Owner", company: "ARLIS_ADMINISTRIM", startedDaysAgo: 4200, location: HQ, workLocationType: "OFFICE" },
+  { username: "armaar.owner", ...owner, role: "OWNER", department: "executive", jobTitle: "Group Owner", company: "ARLIS_ADMINISTRIM", startedDaysAgo: 4200, location: HQ, workLocationType: "OFFICE" },
   // Head of Group IT, and also the manager of IT in ARLIS ADMINISTRIM, which employs him: a group and a company position (E-08 §52).
   { username: "armaar.it", firstName: "Erion", lastName: "Kasa", role: "GROUP_IT", department: "it", jobTitle: "Group IT Manager", company: "ARLIS_ADMINISTRIM", manages: true, reportsTo: "armaar.owner", startedDaysAgo: 1900, location: HQ, workLocationType: "OFFICE" },
-  { username: "armaar.finance", firstName: "Elira", lastName: "Shkurti", role: "FINANCE", department: "finance", jobTitle: "Group Finance Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 3100, location: HQ, workLocationType: "OFFICE" },
-  { username: "armaar.legal", firstName: "Anisa", lastName: "Qosja", role: "LEGAL", department: "legal", jobTitle: "Group Legal Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2600, location: HQ, workLocationType: "OFFICE" },
-  { username: "armaar.procurement", firstName: "Gentian", lastName: "Bardhi", role: "PROCUREMENT", department: "procurement", jobTitle: "Group Procurement Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2300, location: HQ, workLocationType: "OFFICE" },
-  { username: "armaar.hr", firstName: "Mirela", lastName: "Kodra", role: "HR", department: "hr", jobTitle: "Group HR Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2800, location: HQ, workLocationType: "OFFICE" },
+  { username: "armaar.finance", ...headOf("finance"), role: "FINANCE", department: "finance", jobTitle: "Group Finance Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 3100, location: HQ, workLocationType: "OFFICE" },
+  { username: "armaar.legal", ...headOf("legal"), role: "LEGAL", department: "legal", jobTitle: "Group Legal Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2600, location: HQ, workLocationType: "OFFICE" },
+  { username: "armaar.procurement", ...headOf("procurement"), role: "PROCUREMENT", department: "procurement", jobTitle: "Group Procurement Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2300, location: HQ, workLocationType: "OFFICE" },
+  { username: "armaar.hr", ...headOf("hr"), role: "HR", department: "hr", jobTitle: "Group HR Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2800, location: HQ, workLocationType: "OFFICE" },
   { username: "armaar.engineering", firstName: "Besnik", lastName: "Hasani", role: "ENGINEER", department: "engineering", jobTitle: "Group Engineering Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 3400, location: HQ, workLocationType: "HYBRID" },
-  { username: "armaar.architecture", firstName: "Arta", lastName: "Lleshaj", role: "ARCHITECT", department: "architecture", jobTitle: "Group Architecture Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 3000, location: HQ, workLocationType: "HYBRID" },
+  { username: "armaar.architecture", ...headOf("architecture"), role: "ARCHITECT", department: "architecture", jobTitle: "Group Architecture Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 3000, location: HQ, workLocationType: "HYBRID" },
   { username: "armaar.projects", firstName: "Kreshnik", lastName: "Duka", role: "PROJECT_MANAGER", department: "projects", jobTitle: "Group Project Management Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2500, location: HQ, workLocationType: "HYBRID" },
   { username: "armaar.sales", firstName: "Jonida", lastName: "Rrapaj", role: "SALES", department: "sales", jobTitle: "Group Sales Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 1700, location: HQ, workLocationType: "OFFICE" },
-  { username: "armaar.hse", firstName: "Fatmir", lastName: "Zeqiri", role: "HSE", department: "hse", jobTitle: "Group HSE Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2100, location: LAKE, workLocationType: "SITE" },
+  { username: "armaar.hse", ...headOf("hse"), role: "HSE", department: "hse", jobTitle: "Group HSE Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 2100, location: LAKE, workLocationType: "SITE" },
   { username: "armaar.qaqc", firstName: "Valbona", lastName: "Hoxha", role: "QAQC", department: "qaqc", jobTitle: "Group QA/QC Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 1600, location: HQ, workLocationType: "HYBRID" },
   { username: "armaar.inventory", firstName: "Sokol", lastName: "Marku", role: "INVENTORY", department: "inventory", jobTitle: "Group Inventory & Logistics Head", company: "ARLIS_ADMINISTRIM", reportsTo: "armaar.owner", startedDaysAgo: 1400, location: HQ, workLocationType: "OFFICE" },
 ];
@@ -156,6 +182,10 @@ export const COMPANY_PEOPLE: ArmaarPerson[] = [
   { username: "klais.finance", firstName: "Adela", lastName: "Kapllani", role: "FINANCE", department: "finance", jobTitle: "Accountant", company: "KLAIS", reportsTo: "klais.director", startedDaysAgo: 1200, location: HQ, workLocationType: "OFFICE" },
   { username: "kfp.director", firstName: "Andi", lastName: "Zaimi", role: "CEO", department: "executive", jobTitle: "Company Director", company: "KF_POGRADECI", manages: true, reportsTo: "armaar.owner", startedDaysAgo: 2200, location: "Pogradec — office", workLocationType: "OFFICE" },
   { username: "kfp.pm", firstName: "Lorena", lastName: "Cani", role: "PROJECT_MANAGER", department: "projects", jobTitle: "Project Manager · Pogradec Marina", company: "KF_POGRADECI", manages: true, reportsTo: "kfp.director", startedDaysAgo: 780, location: "Pogradec — office", workLocationType: "SITE" },
+
+  /* Named by D-03 (§11). Last, so nobody else's employee number or phone moves. */
+  // Eyes of Tirana's manager: a UNICO login, because NESTO's project manager is a member of the project's company (§12).
+  { username: "unico.pm", ...managerOf("EYES_OF_TIRANA"), role: "PROJECT_MANAGER", department: "projects", jobTitle: "Project Manager · Eyes of Tirana", company: "UNICO_CONSTRUCTION", reportsTo: "unico.coordinator", startedDaysAgo: 640, location: HQ, workLocationType: "HYBRID" },
 ];
 
 export const ARMAAR_PEOPLE: ArmaarPerson[] = [...GROUP_PEOPLE, ...COMPANY_PEOPLE];
@@ -165,6 +195,9 @@ export function userId(username: string): string {
   const base = username.replace(/^armaar\./, "").replace(/[.-]/g, "_");
   return `user_armaar_${base}`;
 }
+
+/** The person behind a login: `armaar.owner` → `person_armaar_owner`. */
+export const personId = (username: string) => `person_${userId(username).replace(/^user_/, "")}`;
 
 export const personOf = (username: string) => ARMAAR_PEOPLE.find((person) => person.username === username);
 

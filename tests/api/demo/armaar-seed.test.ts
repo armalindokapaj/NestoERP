@@ -136,7 +136,8 @@ describe("the ARMAAR demo tenant", () => {
     expect(square.fieldSources).toMatchObject({ name: "PUBLIC", company: "SYNTHETIC" });
     expect(square.note).toMatch(/not in the source set/);
 
-    const person = await prisma.demoRecord.findUniqueOrThrow({ where: { key: "ARMAAR:PERSON:armaar.owner" } });
+    // A persona is synthetic; the people D-03 names are held by their own test.
+    const person = await prisma.demoRecord.findUniqueOrThrow({ where: { key: "ARMAAR:PERSON:bci.director" } });
     expect(person.sourceType).toBe("SYNTHETIC");
     // Nothing is public that the source set does not say.
     const projects = await prisma.project.findMany({ where: { company: { parentGroupId: ARMAAR } }, select: { name: true, builtArea: true } });

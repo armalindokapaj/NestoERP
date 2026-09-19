@@ -3,7 +3,8 @@
  * its companies and departments, its people and their access, its site
  * workforce without logins (E-04), its projects, their buildings, units and
  * sales — then the rules the rest of the product holds, applied to what was
- * written, and D-01's own checks.
+ * written, and D-01's own checks. The people D-03 names are surveyed before
+ * anything is written and recorded once they hold their places.
  *
  * Called by the main seed, so every database built for development and tests
  * has a second, realistic group beside the demo's, and by `pnpm seed:armaar`
@@ -23,6 +24,7 @@ import { seedArmaarFinance } from "./finance";
 import { seedArmaarInventory } from "./inventory";
 import { seedArmaarLifecycle, seedArmaarLifecycleWorkforce } from "./lifecycle";
 import { seedArmaarLegal } from "./legal";
+import { describeNamedPeople, recordNamedPeople, surveyNamedPeople } from "./named-people";
 import { seedArmaarOperations } from "./operations";
 import { seedArmaarOrganization } from "./organization";
 import { seedArmaarQuality } from "./quality";
@@ -62,6 +64,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const shared = options.shared ?? true;
   // NESTO went live for the group eighteen months ago; its people were employed long before.
   const activatedAt = new Date(Date.now() - 540 * DAY);
+  // D-03: what the named people's records and places hold before anything is written (§23-§25).
+  const survey = await surveyNamedPeople(prisma);
   const branches = await seedArmaarOrganization(prisma, activatedAt);
   const people = await seedArmaarPeople(prisma, branches, passwordHash, activatedAt);
   // The site workforce, who have no login: employed before the history backfill (E-04).
@@ -75,6 +79,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   }
 
   const projects = await seedArmaarProjects(prisma);
+  // The Owner, the heads and Eyes of Tirana's manager D-03 names: their provenance, and what was done (§21, §30).
+  const named = await recordNamedPeople(prisma, survey, [...people.conflicts, ...projects.conflicts]);
   const units = await seedArmaarUnits(prisma);
   const sales = await seedArmaarSales(prisma, units);
   const operations = await seedArmaarOperations(prisma);
@@ -110,10 +116,15 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const reviews = await seedArmaarDocumentReviews(prisma);
 
   const findings = await verifyDemoTenant(prisma, ARMAAR_GROUP_ID);
-  if (findings.length) throw new Error(`The ARMAAR demo is inconsistent:\n  ${findings.join("\n  ")}`);
+  if (findings.length) {
+    // A conflict the seed left as it found it (D-03 §24, §25) is why a named place is not as D-03 says.
+    const conflicts = named.filter((event) => event.kind === "conflict").map((event) => `conflict, left as it is: ${event.subject}`);
+    throw new Error(`The ARMAAR demo is inconsistent:\n  ${[...findings, ...conflicts].join("\n  ")}`);
+  }
 
   return {
     people: people.people,
+    named,
     workers: workers.workers,
     workforce,
     credentials,
@@ -156,6 +167,7 @@ export function describeArmaar(counts: Awaited<ReturnType<typeof seedArmaar>>): 
     `✓ ARMAAR diary: ${counts.schedule.meetings} meetings, ${counts.schedule.events} calendar events, ${counts.reviews} document reviews`,
     `✓ ARMAAR site: ${counts.site.logs} daily logs on Tirana Lake; HSE ${counts.safety.inspections} inspections, ${counts.safety.hazards} hazards, ${counts.safety.actions} actions, ${counts.safety.talks} toolbox talks, ${counts.safety.incidents} incidents, ${counts.safety.permits} permits; QA/QC ${counts.quality.inspections} inspections, ${counts.quality.ncrs} NCRs, ${counts.quality.actions} corrective actions, ${counts.quality.defects} defects`,
     `✓ ARMAAR stock and time: ${counts.inventory.items} items in ${counts.inventory.warehouses} stores, ${counts.inventory.movements} stock movements; ${counts.timesheets.weeks} timesheets, ${counts.timesheets.hours} hours logged`,
+    ...describeNamedPeople(counts.named),
     `✓ ARMAAR provenance: ${counts.records} demo records; public facts match the source`,
   ];
 }

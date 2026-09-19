@@ -11,7 +11,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import { groupDepartmentId, type GroupDepartmentKey } from "../../../config/group-departments";
 import { seedCompanyModules, upsertCompany, upsertParentGroup } from "../organization-helpers";
-import { COMPANY_FACTS, GROUP_FACTS, type CompanyCode } from "./public-facts";
+import { COMPANY_FACTS, D01_SOURCE, D03_SOURCE, GROUP_FACTS, type CompanyCode } from "./public-facts";
 import { ARMAAR_GROUP_ID, demoKey, recordDemo, slugOf } from "./records";
 
 export const companyId = (code: CompanyCode) => `armaar_co_${slugOf(code)}`;
@@ -127,7 +127,9 @@ export async function seedArmaarOrganization(prisma: PrismaClient, activatedAt: 
       entityId: id,
       source: "PUBLIC",
       fields: { name: "PUBLIC", status: "PUBLIC", ...(fact.registrationNumber ? { registrationNumber: "PUBLIC" as const } : {}), industry: "INFERRED", address: "INFERRED", country: "INFERRED", ownership: "INFERRED", departments: "INFERRED" },
-      note: fact.registrationNumber ? undefined : "NIPT not in the source set: left empty. Ownership: ARMAAR GROUP 100% (D-01 §6), no registry extract per company.",
+      // Name and status are D-01's; the NIPT is D-03's (§13).
+      cites: fact.registrationNumber ? [D01_SOURCE, D03_SOURCE] : [D01_SOURCE],
+      note: `${fact.registrationNumber ? "" : "NIPT not in the source set: left empty. "}Ownership: ARMAAR GROUP 100% (D-01 §6), no registry extract per company.`,
     });
 
     const map = new Map<GroupDepartmentKey, string>();
