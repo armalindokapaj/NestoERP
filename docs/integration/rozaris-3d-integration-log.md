@@ -67,6 +67,15 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Added utility coverage for loader/server node-name parity, section scope, solar interpolation, and normalized sun vectors.
 - `pnpm typecheck`, focused ESLint, 4 runtime utility tests, all 1,019 architecture assertions, and `pnpm build` passed; all 410 routes were generated.
 
+### Phase 4 — NESTO persistence and entitlement
+
+- Added NESTO-owned entitlement, typed authoring configuration, model slot, model version, canonical unit binding, immutable release, and Platform environment-preset models through an additive migration.
+- Enforced Company and Project identity with composite foreign keys. A mesh binding can reference only a model version and `ProjectUnit` from the same Project and Company.
+- Kept source and runtime object keys separate and made the active release a pointer on the Project configuration.
+- Added one entitlement predicate covering status, viewer switch, activation, and expiry boundaries.
+- Replayed all 68 migrations from zero in a disposable PostgreSQL database, applied the migration locally, and verified no schema drift.
+- `pnpm typecheck`, 5 entitlement assertions, and all 1,019 architecture assertions passed.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.
