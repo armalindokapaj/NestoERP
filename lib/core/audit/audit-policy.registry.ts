@@ -151,6 +151,8 @@ export const AuditAction = {
   ORGANIZATION_ACCESS_GRANT_REVOKED: "ORGANIZATION_ACCESS_GRANT_REVOKED",
   // A person's work profile, by themselves or by those who keep person records (E-01 §142).
   PERSON_WORK_PROFILE_UPDATED: "PERSON_WORK_PROFILE_UPDATED",
+  // A person's profile photo, set or removed (E-08 §43, §109).
+  PERSON_PROFILE_PHOTO_UPDATED: "PERSON_PROFILE_PHOTO_UPDATED",
   // Implementing a group, on the platform (E-06 §114, §116)
   PLATFORM_PARENT_GROUP_CREATED: "PLATFORM_PARENT_GROUP_CREATED",
   PLATFORM_PARENT_GROUP_UPDATED: "PLATFORM_PARENT_GROUP_UPDATED",
@@ -628,6 +630,7 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_MEMBER_REMOVED, moduleKey: "organization", category: "HR", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: DEPARTMENT_AUDIT_FIELDS, required: true },
   { actionKey: AuditAction.ORGANIZATION_ACCESS_GRANTED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "moduleKey", "scopeType", "scopeId", "accessLevel", "startsAt", "expiresAt"], required: true },
   { actionKey: AuditAction.PERSON_WORK_PROFILE_UPDATED, moduleKey: "people", category: "HR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["preferredName", "jobTitle", "workEmail", "workPhoneExtension", "officeLocation", "professionalBio", "via"], required: true },
+  { actionKey: AuditAction.PERSON_PROFILE_PHOTO_UPDATED, moduleKey: "people", category: "HR", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["photo", "contentType", "sizeBytes", "via"], required: true },
   { actionKey: AuditAction.ORGANIZATION_ACCESS_GRANT_REVOKED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "moduleKey", "scopeType", "scopeId", "accessLevel"], required: true },
   { actionKey: AuditAction.ORGANIZATION_DEPARTMENT_ASSIGNMENT_CREATED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "companyId", "companyDepartmentId", "groupDepartmentId", "functionalRoleKey", "positionLevel"], required: true },
 

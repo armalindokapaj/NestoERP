@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**799 route handlers, 257 server actions.** AUTHENTICATED 31 · COMPANY_SCOPED 994 · PLATFORM 19 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**804 route handlers, 257 server actions.** AUTHENTICATED 31 · COMPANY_SCOPED 999 · PLATFORM 19 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -605,6 +605,9 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 |---|---|---|---|---|---|---|---|---|
 | GET | `/api/people/[personId]/employment-history` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | — | `findReadableDocument` | — | sweep |
 | GET | `/api/people/[personId]/employment` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| GET | `/api/people/[personId]/photo` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +720 | — | — | — | sweep |
+| PUT | `/api/people/[personId]/photo` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | `buildProjectScopeWhere` | `findReadableDocument` | — | sweep |
+| DELETE | `/api/people/[personId]/photo` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | `buildProjectScopeWhere` | `findReadableDocument` | — | sweep |
 | GET | `/api/people/[personId]/private` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +720 | — | — | — | sweep |
 | POST | `/api/people/[personId]/qualifications/[qualificationId]/archive` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildEmployeeScopeWhere`, `readableEmployeeDocumentWhere` +1 | `findReadable` | `stateDenied` | sweep |
 | POST | `/api/people/[personId]/qualifications/[qualificationId]/reject` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +723 | `buildEmployeeScopeWhere`, `readableEmployeeDocumentWhere` +1 | `findReadable`, `findReadableDocument` | `assertTransitionAllowed` | sweep |
@@ -617,6 +620,8 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | POST | `/api/people/[personId]/qualifications` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +723 | `buildEmployeeScopeWhere`, `readableEmployeeDocumentWhere` +1 | `findReadable`, `findReadableDocument` | `assertTransitionAllowed`, `stateDenied` | sweep |
 | GET | `/api/people/[personId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | `buildProjectScopeWhere` | `findReadableDocument` | — | sweep |
 | PATCH | `/api/people/[personId]/work-profile` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | `buildProjectScopeWhere` | `findReadableDocument` | — | sweep |
+| PUT | `/api/people/me/photo` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | `buildProjectScopeWhere` | `findReadableDocument` | — | sweep |
+| DELETE | `/api/people/me/photo` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | `buildProjectScopeWhere` | `findReadableDocument` | — | sweep |
 | GET | `/api/people/me` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | `buildProjectScopeWhere` | `findReadableDocument` | — | sweep |
 | PATCH | `/api/people/me/work-profile` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | `buildProjectScopeWhere` | `findReadableDocument` | — | sweep |
 | GET | `/api/people` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +720 | — | — | — | sweep |

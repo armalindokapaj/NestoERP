@@ -77,6 +77,28 @@ function everWorkedWhere(parentGroupId: string): Prisma.PersonProfileWhereInput 
   };
 }
 
+/**
+ * People who worked in the group and no longer do (E-08 §54): an ended
+ * employment, or a login whose place in the group was closed. Not a candidate
+ * or somebody whose employment has not started (§119), and not somebody
+ * suspended — they are away, not gone.
+ */
+function formerPeopleWhere(parentGroupId: string): Prisma.PersonProfileWhereInput {
+  return {
+    AND: [
+      { parentGroupId },
+      { NOT: workingPeopleWhere(parentGroupId) },
+      {
+        OR: [
+          { employments: { some: { company: { parentGroupId }, employmentStatus: "ENDED" } } },
+          { user: { is: { memberships: { some: { company: { parentGroupId }, status: "INACTIVE" } } } } },
+          { user: { is: { status: "INACTIVE", memberships: { some: { company: { parentGroupId } } } } } },
+        ],
+      },
+    ],
+  };
+}
+
 /** Whether "people who no longer work here" is this reader's to see (E-01 §40): those who keep person records. */
 function seesFormerPeople(context: UserContext): boolean {
   return can(context, "person_profile.view");
@@ -102,6 +124,7 @@ function personSelect(parentGroupId: string) {
     workPhone: true,
     workPhoneExtension: true,
     officeLocation: true,
+    photoChecksum: true,
     user: {
       select: {
         id: true,
@@ -206,7 +229,13 @@ function toCard(row: PersonRow): PersonCardDTO {
     officeLocation: row.officeLocation,
     status: workStatus(row),
     activeProjectCount: activeMemberships(row).reduce((sum, row) => sum + row._count.projectMemberships, 0),
+    photoUrl: photoUrlOf(row.id, row.photoChecksum),
   };
+}
+
+/** A photo's URL carries its checksum, so a new photo is a new URL and an old one may be cached (E-08 §43, §108). */
+export function photoUrlOf(personId: string, checksum: string | null): string | null {
+  return checksum ? `/api/people/${personId}/photo?v=${checksum.slice(0, 16)}` : null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -317,26 +346,33 @@ export async function directoryFilterOptions(context: UserContext): Promise<Dire
 /* -------------------------------------------------------------------------- */
 
 /**
- * The person, if this reader may see them at all: somebody who works in the
- * group; somebody who has, for those who keep person records; and yourself.
- * Anything else — another group's person, a candidate — is not found.
+ * The person, if this reader may see them at all: somebody who works or has
+ * worked in the group, and yourself. Anything else — another group's person, a
+ * candidate — is not found. `former` is somebody who no longer works here, seen
+ * by a colleague rather than by those who keep person records: their name and
+ * where they were still resolve from the records they left behind, as E-08
+ * §54-§55 asks, but nothing that reached them at work (§118).
  */
-async function visiblePerson(context: UserContext, personId: string): Promise<{ row: PersonRow; isSelf: boolean }> {
+async function visiblePerson(context: UserContext, personId: string): Promise<{ row: PersonRow; isSelf: boolean; former: boolean }> {
   const self = (await ownPersonId(context)) === personId;
-  const scope = self ? { parentGroupId: context.parentGroupId } : seesFormerPeople(context) ? everWorkedWhere(context.parentGroupId) : workingPeopleWhere(context.parentGroupId);
-  const row = await prisma.personProfile.findFirst({ where: { AND: [{ id: personId }, scope] }, select: personSelect(context.parentGroupId) });
+  const group = context.parentGroupId;
+  const hr = seesFormerPeople(context);
+  const scope = self ? { parentGroupId: group } : hr ? everWorkedWhere(group) : { OR: [workingPeopleWhere(group), formerPeopleWhere(group)] };
+  const row = await prisma.personProfile.findFirst({ where: { AND: [{ id: personId }, scope] }, select: personSelect(group) });
   if (!row) throw new AccessError("NOT_FOUND");
-  return { row, isSelf: self };
+  const former = !self && !hr && (await prisma.personProfile.count({ where: { AND: [{ id: personId }, workingPeopleWhere(group)] } })) === 0;
+  return { row, isSelf: self, former };
 }
 
 export async function getWorkProfile(context: UserContext, personId: string): Promise<WorkProfileDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "people.profile.view");
-  const { row, isSelf } = await visiblePerson(context, personId);
+  const { row, isSelf, former } = await visiblePerson(context, personId);
   const card = toCard(row);
+  if (former) return formerProfile(card);
   const userId = row.user?.id ?? null;
 
-  const [details, assignments, projects, employments, reach, verified] = await Promise.all([
+  const [details, assignments, projects, employments, reach, verified, own] = await Promise.all([
     prisma.personProfile.findFirstOrThrow({ where: { id: row.id, parentGroupId: context.parentGroupId }, select: { professionalBio: true, parentGroup: { select: { name: true } } } }),
     userId
       ? prisma.departmentAssignment.findMany({
@@ -365,6 +401,7 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
       orderBy: { verifiedAt: "desc" },
       take: 20,
     }),
+    ownPersonId(context),
   ]);
 
   const now = new Date();
@@ -427,14 +464,45 @@ export async function getWorkProfile(context: UserContext, personId: string): Pr
     departments,
     projects,
     activity,
+    former: false,
     capabilities: {
       isSelf,
       canEditOwn: isSelf && can(context, "people.profile.edit_self"),
       canManage: can(context, "person_profile.update") && reach,
+      canChangePhoto: (own === row.id && can(context, "people.profile.edit_self")) || (can(context, "person_profile.update") && reach),
       canViewEmployment: employments.length > 0,
       canViewHistory: employments.length > 0 && (await canViewPersonHistory(context, row.id)),
       canViewPrivate: isSelf || (can(context, "person_profile.view") && reach),
     },
+  };
+}
+
+/**
+ * A former employee as a colleague sees them (E-08 §54, §55, §118): the name,
+ * the last title and company, and that they no longer work here. No work
+ * contact, photo, projects, places or activity — those described somebody at
+ * work, and they are no longer at work.
+ */
+function formerProfile(card: PersonCardDTO): WorkProfileDTO {
+  return {
+    ...card,
+    workEmail: null,
+    workPhone: null,
+    workPhoneExtension: null,
+    officeLocation: null,
+    photoUrl: null,
+    activeProjectCount: 0,
+    professionalBio: null,
+    parentGroup: { name: "" },
+    role: null,
+    manager: null,
+    companies: [],
+    groupPositions: [],
+    departments: [],
+    projects: [],
+    activity: [],
+    former: true,
+    capabilities: { isSelf: false, canEditOwn: false, canManage: false, canChangePhoto: false, canViewEmployment: false, canViewHistory: false, canViewPrivate: false },
   };
 }
 
@@ -563,7 +631,9 @@ export async function updateManagedWorkProfile(context: UserContext, personId: s
 export async function getQualificationsTab(context: UserContext, personId: string): Promise<PersonQualificationsDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "people.profile.view");
-  const { row } = await visiblePerson(context, personId);
+  const { row, former } = await visiblePerson(context, personId);
+  // A former employee's professional record is not a colleague's to read any more (E-08 §118).
+  if (former) throw new AccessError("FORBIDDEN");
   return getPersonQualifications(context, row.id);
 }
 
@@ -582,7 +652,8 @@ export type DocumentsTabDTO = {
 export async function getDocumentsTab(context: UserContext, personId: string): Promise<DocumentsTabDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "people.profile.view");
-  const { row } = await visiblePerson(context, personId);
+  const { row, former } = await visiblePerson(context, personId);
+  if (former) throw new AccessError("FORBIDDEN");
   const here = [...row.employments.filter((employment) => employment.companyId === context.companyId)].sort(
     (a, b) => EMPLOYMENT_RANK[a.employmentStatus] - EMPLOYMENT_RANK[b.employmentStatus] || b.createdAt.getTime() - a.createdAt.getTime(),
   );
@@ -595,6 +666,37 @@ export async function getDocumentsTab(context: UserContext, personId: string): P
   }
   const elsewhere = [...new Set(row.employments.filter((employment) => employment.companyId !== context.companyId).map((employment) => employment.company.name))];
   return { employments, elsewhere };
+}
+
+/**
+ * The person's photo, if this reader may see it: whoever may read their full
+ * work profile — a colleague of somebody who works here, the person, and those
+ * who keep person records. A former employee's photo is not a colleague's
+ * (E-08 §118). Null when there is none.
+ */
+export async function readablePhoto(context: UserContext, personId: string): Promise<{ storageKey: string; contentType: string; checksum: string } | null> {
+  assertModule(context, MODULE);
+  assertPermission(context, "people.profile.view");
+  const { former } = await visiblePerson(context, personId);
+  if (former) throw new AccessError("NOT_FOUND");
+  const photo = await prisma.personProfile.findFirst({ where: { id: personId, parentGroupId: context.parentGroupId }, select: { photoStorageKey: true, photoContentType: true, photoChecksum: true } });
+  if (!photo?.photoStorageKey || !photo.photoContentType || !photo.photoChecksum) return null;
+  return { storageKey: photo.photoStorageKey, contentType: photo.photoContentType, checksum: photo.photoChecksum };
+}
+
+/** Who may change this person's photo, and whether it is their own (E-08 §93). */
+export async function photoAuthority(context: UserContext, personId: string | "me"): Promise<{ personId: string; via: "SELF" | "MANAGED" }> {
+  assertModule(context, MODULE);
+  const own = await ownPersonId(context);
+  if (personId === "me" || personId === own) {
+    assertPermission(context, "people.profile.edit_self");
+    if (!own) throw new AccessError("NOT_FOUND");
+    return { personId: own, via: "SELF" };
+  }
+  assertPermission(context, "person_profile.update");
+  await visiblePerson(context, personId);
+  if (!(await personInRecordReach(context, personId))) throw new AccessError("NOT_FOUND");
+  return { personId, via: "MANAGED" };
 }
 
 /** The signed-in person's own profile id, for `/people/me`. */

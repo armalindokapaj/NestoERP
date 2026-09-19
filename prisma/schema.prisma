@@ -2069,6 +2069,14 @@ model PersonProfile {
   country            String?
   lifecycleStatus    PersonLifecycleStatus @default(CANDIDATE)
   createdByUserId    String?
+  /// The profile photo (E-08 §43, §93): the person's, across the group, so it is
+  /// not a company document. The object sits under `people/<group>/<person>/`;
+  /// the checksum names the version, so a changed photo is a new URL.
+  photoStorageKey    String?
+  photoContentType   String?
+  photoChecksum      String?
+  photoSizeBytes     Int?
+  photoUpdatedAt     DateTime?
 
   parentGroup          ParentGroup               @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
   user                 User?

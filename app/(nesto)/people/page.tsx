@@ -165,7 +165,7 @@ function PersonCard({ person }: { person: PersonCardDTO }) {
   const status = WORK_STATUS[person.status];
   return (
     <li className="nesto-card flex gap-3 p-4" data-testid="person-card">
-      <Avatar firstName={person.initials.firstName} lastName={person.initials.lastName} size="lg" />
+      <Avatar firstName={person.initials.firstName} lastName={person.initials.lastName} src={person.photoUrl} size="lg" />
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-baseline gap-2">
           <Link href={`/people/${person.personId}`} className="truncate text-card font-semibold text-fg hover:text-accent-strong hover:underline">
