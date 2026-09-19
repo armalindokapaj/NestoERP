@@ -2554,5 +2554,7 @@ without it. PostgreSQL cannot drop an enum value in place.
 - **Only eight of ARMAAR's people are real.** Group IT, the Engineering, Project
   Management, Sales, QA/QC and Inventory heads, and every company's people remain
   D-01's personas.
-- **`nesto_erp` does not have D-03 yet.** Applying it takes the migration and
-  `pnpm seed:armaar`, after a backup: the owner's call.
+- **`nesto_erp` has D-03 since 2026-09-19.** The migration and `pnpm seed:armaar`
+  were applied at the owner's request, after a backup and a rehearsal on a copy
+  of it. Seven personas were renamed, Tedi Gogu was added, and every data gate
+  is clean.
