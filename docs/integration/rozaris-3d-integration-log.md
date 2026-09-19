@@ -52,6 +52,13 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Confirmed that NESTO's durable job runner can host GLB processing without keeping expensive work in a request lifecycle.
 - Kept NESTO on Next.js 15.5.25, React 19.1.0, and its existing Prisma strategy.
 
+### Phase 2 — Runtime dependency preparation
+
+- Added the audited renderer dependencies `three` and `mapbox-gl`, the server processing dependencies `@gltf-transform/core`, `@gltf-transform/extensions`, and `@gltf-transform/functions`, and matching Three.js types.
+- Added browser-safe shared release types, the Company bootstrap validation contract, allow-listed runtime asset paths, and explicit Platform/client and server-domain boundaries.
+- Kept editor components and server processors out of the Company boundary.
+- `pnpm typecheck`, focused ESLint, and `pnpm build` passed; the build generated all 410 existing routes.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.
