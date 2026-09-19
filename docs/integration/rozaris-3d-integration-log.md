@@ -76,6 +76,14 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Replayed all 68 migrations from zero in a disposable PostgreSQL database, applied the migration locally, and verified no schema drift.
 - `pnpm typecheck`, 5 entitlement assertions, and all 1,019 architecture assertions passed.
 
+### Phase 5 — Platform authorization and workspace services
+
+- Added the five exact `platform.3d.*` permissions for viewing, configuration, model management, binding management, and publishing while leaving them outside Company permissions.
+- Added Project 3D-owned permission, validation, workspace query, and entitlement mutation services with required audit evidence.
+- Added `/api/platform/3d/projects` workspace routes; every route executes through `withPlatformContext` and every service checks its exact permission.
+- Verified that a live Company Owner session resolves as `NOT_PLATFORM`, all Platform 3D routes use the Platform guard, entitlement provisioning creates the authoring workspace atomically, and a read-only Platform context cannot mutate entitlement.
+- `pnpm typecheck`, focused ESLint, audit/ownership coverage, and 4 Platform authorization/service assertions passed.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.
