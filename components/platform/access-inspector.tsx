@@ -1,0 +1,21 @@
+"use client";
+
+import * as React from "react";
+import { CheckCircle2, XCircle } from "lucide-react";
+
+import { engineeringApi } from "@/components/engineering/engineering-api";
+import { Button } from "@/components/ui/button";
+import { selectClass } from "@/components/forms/record-form";
+
+type Option = { value: string; label: string };
+type Result = { result: "ALLOW" | "DENY"; reason: string; permission: string; moduleKey: string | null; traces: Array<{ label: string; value: string; pass: boolean }> };
+
+export function AccessInspector({ users, companies, projects, permissions }: { users: Option[]; companies: Option[]; projects: Array<Option & { companyId: string }>; permissions: Option[] }) {
+  const [userId, setUserId] = React.useState(users[0]?.value ?? ""); const [companyId, setCompanyId] = React.useState(companies[0]?.value ?? ""); const [projectId, setProjectId] = React.useState(""); const [permission, setPermission] = React.useState(permissions[0]?.value ?? ""); const [result, setResult] = React.useState<Result | null>(null); const [pending, setPending] = React.useState(false); const [error, setError] = React.useState<string | null>(null);
+  const visibleProjects = projects.filter((project) => project.companyId === companyId);
+  async function inspect(event: React.FormEvent) { event.preventDefault(); setPending(true); setError(null); try { const response = await engineeringApi<Result>("/api/platform-admin/command", { body: { action: "access.inspect", userId, companyId, ...(projectId ? { projectId } : {}), permission } }); setResult(response); } catch (failure) { setError(failure instanceof Error ? failure.message : "Could not inspect access."); } finally { setPending(false); } }
+  return <div className="grid gap-5 xl:grid-cols-[420px_1fr]"><form onSubmit={inspect} className="nesto-card space-y-4 p-5"><h2 className="text-card font-semibold text-fg">Decision input</h2>{[["User", userId, setUserId, users], ["Company", companyId, (value: string) => { setCompanyId(value); setProjectId(""); }, companies], ["Project (optional)", projectId, setProjectId, visibleProjects], ["Permission", permission, setPermission, permissions]].map(([label, value, set, options]) => <label key={label as string} className="block text-meta font-medium text-fg-muted">{label as string}<select className={`${selectClass} mt-1 w-full`} value={value as string} onChange={(event) => (set as (value: string) => void)(event.target.value)}>{(label as string).includes("optional") ? <option value="">No project target</option> : null}{(options as Option[]).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>)}{error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}<Button type="submit" disabled={pending || !userId || !companyId || !permission} className="w-full">{pending ? "Resolving…" : "Inspect effective access"}</Button></form>
+    <section className="nesto-card p-5">{result ? <><div className="flex items-center gap-3 border-b border-line pb-4">{result.result === "ALLOW" ? <CheckCircle2 className="size-8 text-success-strong" /> : <XCircle className="size-8 text-danger-strong" />}<div><p className={`text-xl font-semibold ${result.result === "ALLOW" ? "text-success-strong" : "text-danger-strong"}`}>{result.result}</p><p className="text-table text-fg-muted">{result.reason}</p></div></div><dl className="mt-4 divide-y divide-line">{result.traces.map((trace) => <div key={trace.label} className="grid grid-cols-[160px_1fr_auto] gap-4 py-3 text-table"><dt className="font-medium text-fg-muted">{trace.label}</dt><dd className="text-fg">{trace.value}</dd><dd className={trace.pass ? "text-success-strong" : "text-danger-strong"}>{trace.pass ? "PASS" : "FAIL"}</dd></div>)}</dl></> : <div className="grid min-h-64 place-items-center text-center"><div><SearchIcon /><h2 className="mt-3 text-card font-semibold text-fg">Effective access explanation</h2><p className="mt-1 text-table text-fg-muted">Choose a user, target and permission to see every contributing rule.</p></div></div>}</section></div>;
+}
+
+function SearchIcon() { return <span className="mx-auto grid size-12 place-items-center rounded-xl bg-accent-soft text-xl text-accent-strong">?</span>; }

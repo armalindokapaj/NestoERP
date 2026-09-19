@@ -8,6 +8,8 @@ import { resolvePlatformContext, type PlatformContext } from "@/lib/context/plat
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import type { UserContext } from "@/lib/context/types";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
+import { headers } from "next/headers";
+import { getMaintenanceState } from "@/lib/platform/maintenance";
 import {
   CORRELATION_ID_HEADER,
   REQUEST_ID_HEADER,
@@ -103,6 +105,14 @@ async function handleRequest(
     companyId: result.context.companyId,
     memberId: result.context.membershipId,
   });
+
+  const maintenance = await getMaintenanceState();
+  const requestHeaders = await headers();
+  const method = requestHeaders.get("x-nesto-request-method") ?? "GET";
+  const requestPath = requestHeaders.get("x-nesto-request-path") ?? "";
+  if (maintenance.enabled) return apiError("COMPANY_INACTIVE", "NESTO is temporarily unavailable for maintenance.");
+  if (maintenance.readOnly && !["GET", "HEAD", "OPTIONS"].includes(method)) return apiError("CONFLICT", "NESTO is currently in read-only mode.");
+  if (maintenance.disableUploads && !["GET", "HEAD", "OPTIONS"].includes(method) && /upload|document-version/.test(requestPath)) return apiError("CONFLICT", "Uploads are temporarily disabled.");
 
   try {
     return await handler(result.context);

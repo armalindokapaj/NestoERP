@@ -1,0 +1,23 @@
+import Link from "next/link";
+
+import { PlatformCommandButton } from "@/components/platform/platform-command";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { requirePlatformContext } from "@/lib/context/platform-context";
+import { listPlatformCompanies } from "@/lib/modules/platform/platform-control.query";
+import { listParentGroups } from "@/lib/modules/platform/platform.service";
+import { formatDate } from "@/lib/utils/format";
+
+export const metadata = { title: "Companies" };
+const statusTone = (status: string) => status === "ACTIVE" ? "success" as const : "danger" as const;
+
+export default async function CompaniesPage() {
+  const context = await requirePlatformContext();
+  const [companies, groups] = await Promise.all([listPlatformCompanies(context), listParentGroups(context)]);
+  const groupOptions = groups.filter((group) => !["SUSPENDED", "ARCHIVED"].includes(group.status)).map((group) => ({ value: group.id, label: group.name }));
+  return <div className="space-y-5"><PageHeader title="Companies" description="Canonical legal entities across every tenant group." actions={<PlatformCommandButton label="Create company" title="Create company" description="Creates the canonical tenant company and bootstraps its settings, modules and department branches." action="company.create" fields={[
+    { name: "groupId", label: "Parent group", type: "select", required: true, options: groupOptions }, { name: "name", label: "Company name", type: "text", required: true }, { name: "slug", label: "Company code", type: "text", required: true }, { name: "legalName", label: "Legal name", type: "text" }, { name: "registrationNumber", label: "Registration number", type: "text" }, { name: "taxNumber", label: "Tax ID / NIPT", type: "text" }, { name: "industry", label: "Industry", type: "text" }, { name: "country", label: "Country", type: "text" }, { name: "address", label: "Address", type: "text", wide: true }, { name: "email", label: "Email", type: "email" }, { name: "phone", label: "Phone", type: "text" },
+  ]} variant="primary" success="Company created." />} />
+  <section className="nesto-card p-5"><Table flush aria-label="Companies"><TableHead><TableRow><TableHeaderCell>Company</TableHeaderCell><TableHeaderCell>Parent Group</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell>Users</TableHeaderCell><TableHeaderCell>Projects</TableHeaderCell><TableHeaderCell>Modules</TableHeaderCell><TableHeaderCell>Created</TableHeaderCell><TableHeaderCell /></TableRow></TableHead><TableBody>{companies.map((company) => <TableRow key={company.id}><TableCell><span className="font-medium text-fg">{company.name}</span><p className="font-mono text-micro text-fg-subtle">{company.slug}</p></TableCell><TableCell><Link href={`/platform-admin/groups/${company.parentGroup.id}`} className="text-accent-strong hover:underline">{company.parentGroup.name}</Link></TableCell><TableCell><Badge tone={statusTone(company.status)}>{company.status}</Badge></TableCell><TableCell>{company.users}</TableCell><TableCell>{company.projects}</TableCell><TableCell>{company.modules}</TableCell><TableCell>{formatDate(company.createdAt)}</TableCell><TableCell><div className="flex gap-2"><PlatformCommandButton label="Edit" title={`Edit ${company.name}`} action="company.update" fixed={{ companyId: company.id }} fields={[{ name: "name", label: "Company name", type: "text", required: true }, { name: "legalName", label: "Legal name", type: "text" }, { name: "registrationNumber", label: "Registration number", type: "text" }, { name: "taxNumber", label: "Tax ID / NIPT", type: "text" }, { name: "industry", label: "Industry", type: "text" }, { name: "country", label: "Country", type: "text" }, { name: "address", label: "Address", type: "text", wide: true }, { name: "email", label: "Email", type: "email" }, { name: "phone", label: "Phone", type: "text" }, { name: "website", label: "Website", type: "text" }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={company} success="Company updated." /><PlatformCommandButton label="Change status" title={`Change ${company.name} status`} action="company.status" fixed={{ companyId: company.id }} fields={[{ name: "status", label: "Status", type: "select", required: true, options: ["ACTIVE", "INACTIVE", "SUSPENDED"].map((value) => ({ value, label: value })) }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={{ status: company.status }} success="Company status changed." /></div></TableCell></TableRow>)}</TableBody></Table></section></div>;
+}
