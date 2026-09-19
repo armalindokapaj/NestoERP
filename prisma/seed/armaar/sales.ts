@@ -7,7 +7,7 @@
  * installments by the one allocation engine's rules (§57, §103).
  *
  * - Square 21, completed: nearly sold out. Most sales long paid off (contract
- *   and schedule COMPLETED); four still paying; two reserved; two shops left.
+ *   and schedule COMPLETED); eight still paying; four reserved; four shops left.
  * - Tirana Lake, on site: a third sold, contracts ACTIVE and paying — one
  *   installment in every five missed and now overdue; reservations waiting,
  *   two of them with a contract asked of Legal; two units held; the rest on
@@ -94,7 +94,19 @@ export async function seedArmaarSales(prisma: PrismaClient, units: SeededUnit[])
   for (const [index, unit] of units.entries()) {
     const outcome = outcomeOf(unit, index);
     if (outcome === "NOT_FOR_SALE") continue;
-    if (await prisma.unitCommercialProfile.findUnique({ where: { unitId: unit.id }, select: { id: true } })) continue;
+    const sold = outcome === "SOLD_PAID" || outcome === "SOLD_PAYING";
+    const reserved = outcome === "RESERVED" || outcome === "RESERVED_REQUESTED";
+    const corporate = unit.type === "OFFICE" || unit.type === "SHOP";
+    // A unit already on sale keeps its buyer and contract. The counters still count it, so a unit added
+    // to the layout later gets the next buyer and the next contract number rather than the first again.
+    if (await prisma.unitCommercialProfile.findUnique({ where: { unitId: unit.id }, select: { id: true } })) {
+      if (sold || reserved) {
+        if (corporate) companyBuyer += 1;
+        else buyer += 1;
+      }
+      if (sold) contractSequence += 1;
+      continue;
+    }
 
     const project = projectId(unit.project);
     const lake = unit.project === "TIRANA_LAKE";
@@ -107,8 +119,6 @@ export async function seedArmaarSales(prisma: PrismaClient, units: SeededUnit[])
     // When it sold: Square 21 over its three selling years, Tirana Lake over the last eighteen months.
     // Square 21's last few sold after completion and are still paying.
     const soldAt = lake ? -520 + ((index * 23) % 500) : outcome === "SOLD_PAYING" ? -150 - (index % 60) : -1480 + ((index * 37) % 1050);
-    const sold = outcome === "SOLD_PAID" || outcome === "SOLD_PAYING";
-    const reserved = outcome === "RESERVED" || outcome === "RESERVED_REQUESTED";
     const reservedAt = sold ? soldAt - 10 : -2 - (index % 9);
 
     /* The buyer and the deal ------------------------------------------------ */
@@ -117,7 +127,6 @@ export async function seedArmaarSales(prisma: PrismaClient, units: SeededUnit[])
     let opportunityId: string | null = null;
     let agreed = asking;
     if (sold || reserved) {
-      const corporate = unit.type === "OFFICE" || unit.type === "SHOP";
       clientName = corporate ? COMPANY_BUYERS[companyBuyer++ % COMPANY_BUYERS.length]! : `${FIRST[buyer % FIRST.length]} ${LAST[(buyer * 7) % LAST.length]}`;
       if (!corporate) buyer += 1;
       // A company that buys twice is one client (PRD #12 §55); each person buys once.

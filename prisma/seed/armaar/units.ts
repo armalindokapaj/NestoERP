@@ -3,8 +3,9 @@
  * §55; E-05B, E-05D).
  *
  * A demonstration subset, not the built area: Tirana Lake's first phase — a
- * residential tower, an office tower and a commercial podium, 77 units — and
- * Square 21's two blocks, 52 units. Apartments are sold by typology (1+1 to
+ * residential tower, an office tower, a commercial podium and two basement
+ * levels of parking, 101 units — and Square 21's four blocks, 104 units (D-02
+ * §13-§15 added the car park and blocks 3 and 4). Apartments are sold by typology (1+1 to
  * 5+1, §55); areas, layouts and every price are synthetic.
  *
  * Every unit a buyer can see is published the way the product publishes one: a
@@ -90,7 +91,13 @@ function podium(): Building {
   };
 }
 
-function squareBlock(block: 1 | 2): Building {
+/** The car park under the promenade (D-02 §13, §14): two basement levels, not for sale on their own. */
+function parking(): Building {
+  const level = (number: -1 | -2): Level => ({ key: `b${-number}`, name: `Basement ${-number}`, levelType: "BASEMENT", number, units: Array.from({ length: 12 }, (_, n) => ({ code: `PK-${-number}${String(n + 1).padStart(2, "0")}`, type: "PARKING" as const, area: 13 })) });
+  return { key: "pk", name: "Parking", code: "PK", description: "Two basement levels of parking under the promenade.", levels: [level(-2), level(-1)] };
+}
+
+function squareBlock(block: number): Building {
   const levels: Level[] = [{ key: "0", name: "Ground Floor", levelType: "GROUND", number: 0, units: [1, 2].map((n) => ({ code: `SH-${block}0${n}`, type: "SHOP" as const, area: n === 1 ? 82 : 68, position: "FRONT" as const, orientation: "E" as const })) }];
   for (let floor = 1; floor <= 6; floor += 1) {
     levels.push({ key: String(floor), name: `Floor ${floor}`, levelType: "STANDARD", number: floor, units: SQUARE_FLOOR.map((plan, slot) => ({ code: `${block}-${floor}0${slot + 1}`, ...plan })) });
@@ -99,8 +106,9 @@ function squareBlock(block: 1 | 2): Building {
 }
 
 const LAYOUT: Record<"TIRANA_LAKE" | "SQUARE_21", Building[]> = {
-  TIRANA_LAKE: [towerA(), towerB(), podium()],
-  SQUARE_21: [squareBlock(1), squareBlock(2)],
+  // D-02 added the car park and Square 21's blocks 3 and 4 after D-01's buildings, so no unit before them moves.
+  TIRANA_LAKE: [towerA(), towerB(), podium(), parking()],
+  SQUARE_21: [squareBlock(1), squareBlock(2), squareBlock(3), squareBlock(4)],
 };
 
 const HUES = ["#3b6ea0", "#a0583b", "#5b8a3b", "#7a4f8a", "#8a7a3b"];

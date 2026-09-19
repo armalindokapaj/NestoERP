@@ -19,11 +19,14 @@ import { seedDocumentVersions, seedStorageQuotas } from "../storage";
 import { seedArmaarPeople } from "./access";
 import { seedArmaarCredentials } from "./credentials";
 import { seedArmaarEngineering } from "./engineering";
+import { seedArmaarFinance } from "./finance";
+import { seedArmaarLegal } from "./legal";
 import { seedArmaarOperations } from "./operations";
 import { seedArmaarOrganization } from "./organization";
 import { seedArmaarProjects } from "./projects";
 import { ARMAAR_GROUP_ID } from "./records";
 import { seedArmaarSales } from "./sales";
+import { seedArmaarDocumentReviews, seedArmaarSchedule } from "./schedule";
 import { seedArmaarSupply } from "./supply";
 import { seedArmaarTasks } from "./tasks";
 import { seedArmaarUnits } from "./units";
@@ -71,6 +74,10 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const supply = await seedArmaarSupply(prisma);
   const engineering = await seedArmaarEngineering(prisma);
   const tasks = await seedArmaarTasks(prisma);
+  // D-02: Legal's parties, obligations and contracts; invoices, expenses and what paid them; the diary.
+  const legal = await seedArmaarLegal(prisma);
+  const finance = await seedArmaarFinance(prisma);
+  const schedule = await seedArmaarSchedule(prisma);
   // Where the workers work, with whom, and their days on site (E-04).
   const workforce = await seedArmaarWorkforce(prisma);
   // Employee files and qualifications: contracts, licences, what waits for HR and what runs out (E-02).
@@ -82,6 +89,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
     await seedStorageQuotas(prisma);
     await reconcileStorageUsage();
   }
+  // Reviews sit on a document's version, which the storage step above writes (D-02 §32).
+  const reviews = await seedArmaarDocumentReviews(prisma);
 
   const findings = await verifyDemoTenant(prisma, ARMAAR_GROUP_ID);
   if (findings.length) throw new Error(`The ARMAAR demo is inconsistent:\n  ${findings.join("\n  ")}`);
@@ -102,6 +111,10 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
     supply,
     engineering,
     tasks,
+    legal,
+    finance,
+    schedule,
+    reviews,
     records: await prisma.demoRecord.count({ where: { parentGroupId: ARMAAR_GROUP_ID } }),
   };
 }
@@ -114,8 +127,11 @@ export function describeArmaar(counts: Awaited<ReturnType<typeof seedArmaar>>): 
     `✓ ARMAAR employee files: ${counts.credentials.documents} documents filed on employments, ${counts.credentials.qualifications} qualifications — verified, waiting, sent back, running out and renewed`,
     `✓ ARMAAR operations: ${counts.operations.suppliers} supplier records, ${counts.operations.contractors} contractors, ${counts.operations.tasks} tasks, ${counts.operations.meetings} meetings, ${counts.operations.documents} project documents`,
     `✓ ARMAAR supply chain: ${counts.supply.suppliers} supplier records, ${counts.supply.requests} purchase requests, ${counts.supply.orders} orders, ${counts.supply.receipts} deliveries, ${counts.supply.commitments} commitments from approved orders`,
-    `✓ ARMAAR tasks: ${counts.tasks.tasks} across the working companies`,
     `✓ ARMAAR engineering: ${counts.engineering.contractors} contractors, ${counts.engineering.workPackages} work packages, ${counts.engineering.documents} drawings and documents, ${counts.engineering.rfis} RFIs, ${counts.engineering.submittals} submittals, ${counts.engineering.transmittals} transmittals`,
+    `✓ ARMAAR tasks: ${counts.tasks.tasks} across the working companies`,
+    `✓ ARMAAR legal: ${counts.legal.contracts} contracts besides the sales, ${counts.legal.parties} parties, ${counts.legal.obligations} obligations, ${counts.legal.amendments} amendments`,
+    `✓ ARMAAR finance: ${counts.finance.invoices} invoices on installments, ${counts.finance.expenses} expenses, ${counts.finance.disbursements} disbursements, ${counts.finance.commitments} commitments`,
+    `✓ ARMAAR diary: ${counts.schedule.meetings} meetings, ${counts.schedule.events} calendar events, ${counts.reviews} document reviews`,
     `✓ ARMAAR provenance: ${counts.records} demo records; public facts match the source`,
   ];
 }
