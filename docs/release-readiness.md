@@ -2461,9 +2461,13 @@ On freshly built databases, on the final tree:
 - **`nesto_erp` has E-08's migration and ARVELA's E-08 people since
   2026-09-19** (`migrate deploy` + `pnpm seed:arvela`, at the owner's request,
   after a backup and a rehearsal on a copy of it; every data gate clean).
-- **The development sign-in screen offers ARVELA's personas first** — 35 of
-  them: the group heads, ARVELA INFRASTRUKTURA, VELAR - NDERTIM (Tirana
-  Lake's builder) and four other companies' directors — with the five-company
-  demo folded below. The one-click action signs ARVELA's in with
-  `ARVELA_DEMO_PASSWORD` where it is set; a test signs in as each and holds the
-  list to what the ARVELA seed creates.
+- **The development sign-in screen offers each demo tenant's people first**,
+  read from its data (`lib/auth/demo-tenants.ts`: any group seeded `isDemo`,
+  never a fixture): the group's heads, then every active company's employees
+  with a login, the company with the most projects open — for ARVELA, BUILDING
+  CONSTRUCTION INVEST — and the others folded; the curated five-company demo is
+  folded below. No product code names ARVELA (D-01 §92; the ARVELA seed test
+  holds it). One-click sign-in accepts a curated persona or an active demo
+  tenant login, with the demo password; a tenant seeded with its own
+  (`ARVELA_DEMO_PASSWORD`) signs in through the form. A test signs in as each
+  of ARVELA's 81 people and holds the list to the seed's.

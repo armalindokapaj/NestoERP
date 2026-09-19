@@ -30,8 +30,9 @@ import { seedDemoOrganization } from "./seed/demo/organization";
 import { syncMemberPlaces } from "./seed/organization-helpers";
 import { seedEmploymentHistoryStories, syncEmploymentHistory } from "./seed/employment-history";
 import { seedFixtureOrganization } from "./seed/fixtures/organization";
+import { GROUP_PEOPLE } from "./seed/arvela/people";
 import { arvelaPassword, describeArvela, seedArvela } from "./seed/arvela/seed";
-import { ARVELA_DEMO_ACCOUNTS, ARVELA_DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS } from "../config/demo-accounts";
+import { PRIMARY_DEMO_ACCOUNTS } from "../config/demo-accounts";
 import { hashPassword } from "../lib/auth/password";
 import { seedModuleRecords } from "./seed/module-records";
 import { seedInventoryRecords } from "./seed/inventory";
@@ -209,17 +210,17 @@ async function main() {
   for (const line of describeArvela(arvela)) console.log(line);
   console.log("✓ Seed validation passed");
   console.log(
-    `\nARVELA Group — sign in as any of its ${ARVELA_DEMO_ACCOUNTS.length} personas, password: ` +
-      (ARVELA_DEMO_PASSWORD === DEMO_PASSWORD ? DEMO_PASSWORD : "ARVELA_DEMO_PASSWORD"),
-  );
-  for (const account of ARVELA_DEMO_ACCOUNTS) {
-    console.log(`  ${account.username.padEnd(24)} ${account.assignment}`);
-  }
-  console.log(
-    `\nFive-company demo — sign in as any of its ${PRIMARY_DEMO_ACCOUNTS.length} personas, password: ${DEMO_PASSWORD}`,
+    `\nSign in as any of the ${PRIMARY_DEMO_ACCOUNTS.length} demo personas, password: ${DEMO_PASSWORD}`,
   );
   for (const account of PRIMARY_DEMO_ACCOUNTS) {
-    console.log(`  ${account.username.padEnd(24)} ${account.assignment}`);
+    console.log(`  ${account.username.padEnd(22)} ${account.assignment}`);
+  }
+  console.log(
+    `\nARVELA GROUP — its heads below, everybody else as <company>.<role> (docs/demo-arvela.md), password: ` +
+      (process.env.ARVELA_DEMO_PASSWORD ? "ARVELA_DEMO_PASSWORD" : DEMO_PASSWORD),
+  );
+  for (const person of GROUP_PEOPLE) {
+    console.log(`  ${person.username.padEnd(22)} ${person.jobTitle}`);
   }
 }
 
