@@ -36,8 +36,9 @@ PERSON (PersonProfile, group-scoped)          one per human per group
 | Reader | Sees |
 | --- | --- |
 | Anybody who works in the group | Everybody who works in it today: an active login in an active company, or a current employment (active, on leave, suspended). Across every company of the group |
-| Those who keep person records (`person_profile.view`) | Also those who no longer work here ("Include former") |
-| Anybody else | Nothing: a person of another group, a candidate who never joined and a made-up id are all "not found" |
+| Those who keep person records (`person_profile.view`) | Also those who no longer work here ("Include former"), in full |
+| Anybody who works in the group, opening a former employee (E-08, ADR 0008) | Who they were: name, last title and company, "Former employee" — no contact, photo, projects, places, activity, qualifications or files. Not listed in the directory or search |
+| Anybody else | Nothing: a person of another group, a candidate who never joined (or is selected but not started) and a made-up id are all "not found" |
 
 A candidate is recruitment's, in HR, until they are hired.
 
@@ -48,6 +49,7 @@ A candidate is recruitment's, in HR, until they are hired.
 | Work profile | `GET /api/people/:id` | everybody who may see the person (`people.profile.view`) | name, preferred name, job title, employing company, department, work email, phone and extension, office, bio, group and company positions, NESTO role, manager, projects, activity, a status without its reason |
 | Employment | `GET /api/people/:id/employment` | per employment, in that employment's company: `hr.employee.view` within HR's scope, or your own through `hr.self.employment` | company and its legal identity, employee number, status, type, dates, work location, manager, links to HR's own pages; never pay |
 | Private | `GET /api/people/:id/private` | yourself, or `person_profile.view` within reach | personal email and phone, date of birth, address |
+| Photo | `GET /api/people/:id/photo` | whoever may read the full work profile | the image; its URL carries its checksum (E-08, ADR 0008) |
 | Skills & qualifications | `GET /api/people/:id/qualifications` | the person and HR in full; everybody who may see the person, the verified summaries the person shares with the group | see [employee-qualifications.md](employee-qualifications.md) (E-02) |
 | Documents | `GET /api/hr/employees/:employeeId/documents` | per employment in the reader's company, by the employee-file rules; colleagues the verified summaries shared with the group | see [employee-documents.md](employee-documents.md) (E-02) |
 
@@ -83,8 +85,9 @@ shows the organization history to the person and to HR.
 | --- | --- | --- |
 | The person (`people.profile.edit_self`) | `PATCH /api/people/me/work-profile` | preferred name, extension, office, bio. Name and phone stay the account's (Settings → Profile) |
 | Those who keep person records (`person_profile.update`), within reach | `PATCH /api/people/:id/work-profile` | preferred name, job title, work email (one per person in the group), extension, office |
+| The person, or those who keep person records within reach | `PUT` / `DELETE /api/people/me/photo`, `/api/people/:id/photo` | the photo: JPEG, PNG or WebP by its bytes, up to 2 MB, audited as `PERSON_PROFILE_PHOTO_UPDATED` |
 
-A field left out is left alone; an empty one is cleared. Every change is
+A field left out is left alone; an empty one is cleared. Every work-profile change is
 audited as `PERSON_WORK_PROFILE_UPDATED`, with the fields before and after and
 whether the person or HR made it. A read-only role edits nothing.
 
@@ -110,13 +113,13 @@ demo.
 
 ## Limits
 
-- **No photo.** The avatar is initials. A profile photo is a person-owned
-  document, which is E-02's (ADR 0002 decision 6).
 - **No skills, qualifications or employee documents** — E-02's.
 - **No history.** Department, title and manager are current values; E-03 adds
   effective-dated history.
-- **Names are not linked everywhere.** A person's name in a task, a comment or
-  an audit row does not yet lead to their profile; that is E-08's `PersonLink`.
+- **A link is `<PersonLink>`** (E-08, ADR 0008): the person's id where the
+  record has it, else a membership, login or employment id through
+  `/people/member|user|employee/[id]`, which finds the person in the reader's
+  group and redirects to the profile.
 - **Company identity is set when a company is created.** Settings shows the
   legal name, registration and tax numbers read-only; there is no door to
   change them afterwards yet.

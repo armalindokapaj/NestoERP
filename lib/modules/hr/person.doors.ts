@@ -124,6 +124,33 @@ export async function updatePersonWorkProfile(
   if (updated.count === 0) throw new AccessError("NOT_FOUND");
 }
 
+export type PersonPhoto = { storageKey: string; contentType: string; checksum: string; sizeBytes: number };
+
+/**
+ * The person record's door for the profile photo (E-08 §43, §93). Only the
+ * photo columns, only inside the group; who may change it is the caller's
+ * rule. Answers the object it replaced, which the caller removes once the
+ * change has committed.
+ */
+export async function setPersonPhoto(
+  tx: Prisma.TransactionClient,
+  input: { personProfileId: string; parentGroupId: string; photo: PersonPhoto | null },
+): Promise<{ previousKey: string | null }> {
+  const before = await tx.personProfile.findFirst({ where: { id: input.personProfileId, parentGroupId: input.parentGroupId }, select: { photoStorageKey: true } });
+  if (!before) throw new AccessError("NOT_FOUND");
+  await tx.personProfile.updateMany({
+    where: { id: input.personProfileId, parentGroupId: input.parentGroupId },
+    data: {
+      photoStorageKey: input.photo?.storageKey ?? null,
+      photoContentType: input.photo?.contentType ?? null,
+      photoChecksum: input.photo?.checksum ?? null,
+      photoSizeBytes: input.photo?.sizeBytes ?? null,
+      photoUpdatedAt: input.photo ? new Date() : null,
+    },
+  });
+  return { previousKey: before.photoStorageKey };
+}
+
 /**
  * HR's door for account provisioning (E-06 §25, §28, §93).
  *

@@ -6,7 +6,9 @@ import { DetailGrid } from "@/components/modules/record-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { EmployeeDocuments } from "@/components/hr/employee-documents";
 import { EmploymentTimeline } from "@/components/hr/employment-timeline";
+import { PersonLink } from "@/components/people/person-link";
 import { PersonQualifications } from "@/components/people/person-qualifications";
+import { ProfilePhotoButton } from "@/components/people/profile-photo";
 import { EditOwnProfileButton, ManageProfileButton } from "@/components/people/work-profile-editor";
 import { WorkerWorkforce } from "@/components/workforce/worker-workforce";
 import { WORK_STATUS } from "@/components/people/work-status";
@@ -69,9 +71,12 @@ export default async function PersonPage({ params, searchParams }: Props) {
   const inWorkforce = await personInWorkforce(context, profile.personId);
   // Documents belong to an employment (E-02 §94, ADR 0007): somebody who has never been employed here has none.
   const employed = profile.employingCompany !== null && context.moduleAccess.hr?.enabled === true;
-  const visible: Tab[] = TABS.filter((tab) =>
-    tab === "employment" ? profile.capabilities.canViewEmployment : tab === "private" ? profile.capabilities.canViewPrivate : tab === "workforce" ? inWorkforce : tab === "documents" ? employed : true,
-  );
+  // A former employee, to a colleague, is who they were and nothing more (E-08 §54, §118).
+  const visible: Tab[] = profile.former
+    ? ["overview"]
+    : TABS.filter((tab) =>
+        tab === "employment" ? profile.capabilities.canViewEmployment : tab === "private" ? profile.capabilities.canViewPrivate : tab === "workforce" ? inWorkforce : tab === "documents" ? employed : true,
+      );
   const tab: Tab = visible.find((candidate) => candidate === requested) ?? "overview";
   const status = WORK_STATUS[profile.status];
   const editable = {
@@ -89,7 +94,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
       <Breadcrumbs items={[{ label: "People", href: "/people" }, { label: profile.name }]} />
 
       <header className="nesto-card flex flex-col gap-4 p-5 sm:flex-row sm:items-start">
-        <Avatar firstName={profile.initials.firstName} lastName={profile.initials.lastName} size="xl" />
+        <Avatar firstName={profile.initials.firstName} lastName={profile.initials.lastName} src={profile.photoUrl} size="xl" />
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-page font-semibold text-fg">{profile.name}</h1>
@@ -115,6 +120,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          {profile.capabilities.canChangePhoto ? <ProfilePhotoButton personId={profile.personId} self={profile.capabilities.isSelf} hasPhoto={profile.photoUrl !== null} /> : null}
           {profile.capabilities.canEditOwn ? <EditOwnProfileButton profile={editable} /> : null}
           {profile.capabilities.canManage && !profile.capabilities.isSelf ? <ManageProfileButton profile={editable} name={profile.name} /> : null}
         </div>
@@ -139,7 +145,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
         </ul>
       </nav>
 
-      {tab === "overview" ? <Overview profile={profile} /> : null}
+      {tab === "overview" ? profile.former ? <Former profile={profile} /> : <Overview profile={profile} /> : null}
       {tab === "projects" ? <Projects profile={profile} /> : null}
       {tab === "qualifications" ? <Qualifications context={context} personId={profile.personId} name={profile.name} /> : null}
       {tab === "documents" ? <Documents context={context} personId={profile.personId} /> : null}
@@ -170,17 +176,7 @@ function Overview({ profile }: { profile: WorkProfileDTO }) {
             { label: "NESTO role", value: orDash(profile.role?.label) },
             {
               label: "Reports to",
-              value: profile.manager ? (
-                profile.manager.personId ? (
-                  <Link href={`/people/${profile.manager.personId}`} className="text-accent-strong hover:underline">
-                    {profile.manager.name}
-                  </Link>
-                ) : (
-                  profile.manager.name
-                )
-              ) : (
-                "—"
-              ),
+              value: profile.manager ? <PersonLink personId={profile.manager.personId} name={profile.manager.name} detail={profile.manager.jobTitle} /> : "—",
             },
             ...(profile.groupPositions.length > 0 ? [{ label: "Group positions", value: profile.groupPositions.join(", ") }] : []),
           ]}
@@ -232,6 +228,21 @@ function Overview({ profile }: { profile: WorkProfileDTO }) {
         )}
       </section>
     </div>
+  );
+}
+
+/** A former employee as a colleague sees them (E-08 §54, §55, §118): the records they left still lead here. */
+function Former({ profile }: { profile: WorkProfileDTO }) {
+  return (
+    <section className="nesto-card p-5" aria-labelledby="former-heading" data-testid="former-profile">
+      <h2 id="former-heading" className="text-card font-semibold text-fg">
+        No longer with the group
+      </h2>
+      <p className="mt-2 text-table text-fg-muted">
+        {profile.name} no longer works here{profile.employingCompany ? `; they were with ${profile.employingCompany.name}` : ""}
+        {profile.jobTitle ? ` as ${profile.jobTitle}` : ""}. Tasks, comments and documents they worked on still lead to this page.
+      </p>
+    </section>
   );
 }
 

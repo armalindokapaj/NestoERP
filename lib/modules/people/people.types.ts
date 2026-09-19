@@ -24,6 +24,8 @@ export type PersonCardDTO = {
   officeLocation: string | null;
   status: WorkStatus;
   activeProjectCount: number;
+  /** The profile photo's own URL, versioned by its content; null shows initials (E-08 §43). */
+  photoUrl: string | null;
 };
 
 export type PersonPlacementDTO = {
@@ -65,10 +67,17 @@ export type WorkProfileDTO = PersonCardDTO & {
   projects: PersonProjectDTO[];
   activity: PersonActivityDTO[];
   /** Which restricted views this reader may open; each is re-checked on its own endpoint. */
+  /**
+   * A former employee seen by a colleague (E-08 §54, §55, §118): who they were and where, and nothing that reached
+   * them at work — no contact, projects, places or activity. HR and the person see the whole profile.
+   */
+  former: boolean;
   capabilities: {
     isSelf: boolean;
     canEditOwn: boolean;
     canManage: boolean;
+    /** Who may set or remove the photo: the person, or those who keep person records within reach (E-08 §93). */
+    canChangePhoto: boolean;
     canViewEmployment: boolean;
     /** The employment history of E-03: the person's own, or HR's in scope — never a colleague's (E-03 §56). */
     canViewHistory: boolean;

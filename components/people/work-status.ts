@@ -5,5 +5,6 @@ export const WORK_STATUS: Record<WorkStatus, { label: string; tone: "success" | 
   ACTIVE: { label: "Active", tone: "success" },
   ON_LEAVE: { label: "On leave", tone: "info" },
   SUSPENDED: { label: "Suspended", tone: "warning" },
-  INACTIVE: { label: "No longer here", tone: "default" },
+  // E-08 §54: somebody whose employment has ended keeps their profile, marked as such.
+  INACTIVE: { label: "Former employee", tone: "default" },
 };
