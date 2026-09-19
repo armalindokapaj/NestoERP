@@ -2376,6 +2376,11 @@ model Project3DModelVersion {
   validationStatus      Project3DValidationStatus   @default(PENDING)
   validationIssues      Json?
   processingDiagnostics Json?
+  triangleCount         Int?
+  meshCount             Int?
+  materialCount         Int?
+  textureCount          Int?
+  unitNodeNames         Json?
   sceneManifest         Json?
   nodeOverrides         Json?
   experienceSnapshot    Json?

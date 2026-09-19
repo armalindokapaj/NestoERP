@@ -471,6 +471,26 @@ export const JOBS: JobDefinition[] = [
 
   /* Documents -------------------------------------------------------------- */
   {
+    key: "project-3d.process-models",
+    owner: "project-3d",
+    purpose: "Validates queued private GLB source objects and writes separate optimized runtime objects for ready model versions.",
+    group: "documents",
+    trigger: "OUTBOX",
+    intervalSeconds: 10,
+    leaseSeconds: 15 * MINUTE,
+    timeoutSeconds: 30 * MINUTE,
+    staleAfterSeconds: 30 * MINUTE,
+    retry: FAST_RETRY,
+    concurrency: "SINGLETON",
+    companyScope: "RECORD",
+    suspendedCompanies: "INCLUDED",
+    idempotencyKey: "model version id; PROCESSING is the durable queue and the runtime key is deterministic",
+    catchUp: "Every version left in PROCESSING is retried from its immutable source object.",
+    criticality: "HIGH",
+    enabled: true,
+    dryRun: false,
+  },
+  {
     key: "documents.scan",
     owner: "documents",
     purpose: "Scans files waiting on the malware scanner, recovers scans a crashed worker abandoned, promotes clean versions (never over a newer one), and fails a file the scanner cannot give a verdict on after its attempts.",

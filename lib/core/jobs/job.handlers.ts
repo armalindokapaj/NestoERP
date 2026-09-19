@@ -25,6 +25,11 @@ export function batchSize(env: NodeJS.ProcessEnv, name: string, fallback: number
 }
 
 export const JOB_HANDLERS: Record<string, JobHandler> = {
+  "project-3d.process-models": async ({ env, signal }) => {
+    const { processPendingProject3DModels } = await import("@/lib/modules/project-3d/project-3d.ingestion");
+    const result = await processPendingProject3DModels({ limit: batchSize(env, "PROJECT_3D_PROCESSING_BATCH_SIZE", 2), signal });
+    return { processed: result.processed, detail: result };
+  },
   "notifications.dispatch": async ({ env, workerId, signal }) => {
     const result = await dispatchNotifications(batchSize(env, "NOTIFICATION_BATCH_SIZE", 100), workerId, { signal });
     return { processed: result.processed, detail: { ...result } };
