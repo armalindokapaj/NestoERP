@@ -15,6 +15,7 @@ import { credentialsSchema } from "./schema";
 import { normaliseUsername } from "./username";
 import { createSession, USABLE_GROUP_STATUSES } from "./session-store";
 import { recordSignIn } from "./identity";
+import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 
 export type AuthenticatedUser = { id: string; username: string; sessionId: string; mustChangePassword: boolean };
 
@@ -133,6 +134,13 @@ export async function authenticateCredentials(
   if (!workspace) {
     await recordAuthEvent({ type: "MEMBERSHIP_DENIED", userId: user.id });
     return null;
+  }
+  if (!workspace.platform) {
+    const maintenance = await getMaintenanceState();
+    if (maintenance.enabled || maintenance.disableNewLogins) {
+      await recordAuthEvent({ type: "MEMBERSHIP_DENIED", userId: user.id, metadata: { reason: maintenance.enabled ? "MAINTENANCE" : "NEW_LOGINS_DISABLED" } });
+      return null;
+    }
   }
   const membership = workspace.membership;
 

@@ -119,16 +119,25 @@ export async function revokeSessionsForUser(
  */
 export async function revokeSessions(
   client: Pick<typeof prisma, "session">,
-  target: { userId?: string; membershipId?: string; exceptSessionId?: string; sessionId?: string },
+  target: {
+    userId?: string;
+    membershipId?: string;
+    companyId?: string;
+    parentGroupId?: string;
+    exceptSessionId?: string;
+    sessionId?: string;
+  },
 ): Promise<number> {
-  if (!target.userId && !target.membershipId && !target.sessionId) {
-    throw new Error("revokeSessions needs a user, a membership or a session");
+  if (!target.userId && !target.membershipId && !target.companyId && !target.parentGroupId && !target.sessionId) {
+    throw new Error("revokeSessions needs a user, membership, company, parent group or session");
   }
   const { count } = await client.session.deleteMany({
     where: {
       ...(target.sessionId ? { id: target.sessionId } : {}),
       ...(target.userId ? { userId: target.userId } : {}),
       ...(target.membershipId ? { membershipId: target.membershipId } : {}),
+      ...(target.companyId ? { currentCompanyId: target.companyId } : {}),
+      ...(target.parentGroupId ? { company: { parentGroupId: target.parentGroupId } } : {}),
       ...(target.exceptSessionId ? { id: { not: target.exceptSessionId } } : {}),
     },
   });

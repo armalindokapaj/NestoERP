@@ -52,6 +52,36 @@ enum ModuleStatus {
   INACTIVE
 }
 
+enum FeatureFlagState {
+  OFF
+  ON
+  BETA
+}
+
+enum FeatureFlagScopeType {
+  PLATFORM
+  GROUP
+  COMPANY
+  USER
+}
+
+enum ThreeDProjectStatus {
+  DRAFT
+  PROCESSING
+  READY
+  PUBLISHED
+  ERROR
+}
+
+enum ThreeDModelStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+  PUBLISHED
+  RETIRED
+}
+
 enum AccessLevel {
   NONE
   VIEW
@@ -2044,6 +2074,134 @@ model PlatformAccess {
   @@map("platform_access")
 }
 
+/// A named capability whose effective state can be narrowed at platform,
+/// group, company or user level. Tenant code resolves this registry; it never
+/// reads a client-provided switch (Platform Admin PRD §39-§40, §94).
+model FeatureFlag {
+  id              String           @id @default(cuid())
+  key             String           @unique
+  name            String
+  description     String?
+  defaultState    FeatureFlagState @default(OFF)
+  archivedAt      DateTime?
+  createdByUserId String
+  updatedByUserId String
+
+  overrides FeatureFlagOverride[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([archivedAt])
+  @@map("feature_flags")
+}
+
+/// `scopeId` is `platform` for PLATFORM and the canonical record id for every
+/// other level. The service verifies the target before writing the override.
+model FeatureFlagOverride {
+  id              String               @id @default(cuid())
+  featureFlagId   String
+  scopeType       FeatureFlagScopeType
+  scopeId         String
+  state           FeatureFlagState
+  reason          String?
+  updatedByUserId String
+
+  featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([featureFlagId, scopeType, scopeId])
+  @@index([scopeType, scopeId])
+  @@map("feature_flag_overrides")
+}
+
+/// Platform-wide configuration. Values are typed and validated by the service
+/// for their category; JSON keeps the registry extensible without tenant copy
+/// tables (Platform Admin PRD §74-§80, §90).
+model PlatformSetting {
+  key             String  @id
+  category        String
+  value           Json
+  updatedByUserId String
+  reason          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("platform_settings")
+}
+
+/// Explicit, expiring permission to inspect sensitive tenant data for a stated
+/// support reason. It is separate from ordinary platform authority (§5, §67).
+model SupportAccessSession {
+  id              String    @id @default(cuid())
+  actorUserId     String
+  parentGroupId   String?
+  companyId       String?
+  projectId       String?
+  targetUserId    String?
+  reason          String
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([actorUserId, expiresAt])
+  @@index([parentGroupId])
+  @@index([companyId])
+  @@map("support_access_sessions")
+}
+
+/// Platform-owned authoring configuration bound to the one canonical Project.
+/// Tenant users receive only the published projection, never this record.
+model ThreeDProjectConfiguration {
+  id                 String              @id @default(cuid())
+  projectId          String              @unique
+  status             ThreeDProjectStatus @default(DRAFT)
+  sceneConfiguration Json?
+  publishedVersionId String?
+  createdByUserId    String
+  updatedByUserId    String
+  publishedAt        DateTime?
+
+  project  Project              @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  versions ThreeDModelVersion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("three_d_project_configurations")
+}
+
+model ThreeDModelVersion {
+  id              String            @id @default(cuid())
+  configurationId String
+  version         Int
+  name            String
+  sourceFileName  String?
+  storageKey      String?
+  checksum        String?
+  status          ThreeDModelStatus @default(UPLOADED)
+  diagnostics     Json?
+  createdByUserId String
+  publishedAt     DateTime?
+
+  configuration ThreeDProjectConfiguration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([configurationId, version])
+  @@index([status])
+  @@map("three_d_model_versions")
+}
+
 /// The person, before and apart from any login (E-06 §22, E-08 §3, §57). HR's
 /// record of a human being in the group: a candidate is one, an employee is one,
 /// and so is someone who never signs in. A login links to exactly one.
@@ -2290,6 +2448,7 @@ model Project {
   meetingSeries        MeetingSeries[]
   workLogs             WorkLog[]
   dailyLogs            DailyLog[]
+  threeDConfiguration  ThreeDProjectConfiguration?
   dailyLogSettings     ProjectDailyLogSettings?
   phases               ProjectPhase[]
   milestones           ProjectMilestone[]

@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { requirePlatformContext } from "@/lib/context/platform-context";
+import { listThreeDProjects } from "@/lib/modules/platform/platform-control.query";
+import { formatDate } from "@/lib/utils/format";
+export const metadata = { title: "3D Publishing" };
+export default async function PublishingPage() { const context = await requirePlatformContext(); const rows = await listThreeDProjects(context); return <div className="space-y-5"><PageHeader title="3D publishing" description="Published tenant viewer state and version history." /><section className="nesto-card p-5"><Table flush aria-label="3D publishing"><TableHead><TableRow><TableHeaderCell>Project</TableHeaderCell><TableHeaderCell>Company</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell>Published Version</TableHeaderCell><TableHeaderCell>Published</TableHeaderCell><TableHeaderCell /></TableRow></TableHead><TableBody>{rows.map((row) => { const version = row.versions.find((item) => item.id === row.publishedVersionId); return <TableRow key={row.id}><TableCell>{row.project.name}<p className="font-mono text-micro text-fg-subtle">{row.project.code}</p></TableCell><TableCell>{row.project.company.name}</TableCell><TableCell><Badge tone={row.status === "PUBLISHED" ? "success" : "warning"}>{row.status}</Badge></TableCell><TableCell>{version ? `v${version.version} · ${version.name}` : "—"}</TableCell><TableCell>{row.publishedAt ? formatDate(row.publishedAt) : "—"}</TableCell><TableCell><Link href="/platform-admin/3d" className="text-accent-strong hover:underline">Manage</Link></TableCell></TableRow>; })}</TableBody></Table></section></div>; }

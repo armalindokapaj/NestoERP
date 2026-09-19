@@ -5,6 +5,7 @@ import { CheckCircle2, Circle } from "lucide-react";
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { GroupImplementationActions } from "@/components/platform/platform-actions";
+import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AccessError } from "@/lib/access/guards";
 import { requirePlatformContext } from "@/lib/context/platform-context";
@@ -46,7 +47,9 @@ export default async function GroupImplementationPage({ params }: Props) {
             {group.activatedAt ? <span>Active since {formatDate(group.activatedAt)}</span> : null}
           </div>
         </div>
-        <GroupImplementationActions implementation={implementation} />
+        <div className="flex flex-wrap items-center gap-2"><GroupImplementationActions implementation={implementation} />
+          <PlatformCommandButton label="Lifecycle" title={`Change ${group.name} lifecycle`} description="Suspension immediately ends tenant sessions. Archiving preserves the tenant as read-only history." action="group.status" fixed={{ groupId: group.id }} fields={[{ name: "status", label: "Status", type: "select", required: true, options: (group.status === "SUSPENDED" ? ["ACTIVE", "ARCHIVED"] : ["SUSPENDED", "ARCHIVED"]).map((value) => ({ value, label: value })) }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={{ status: group.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED" }} destructive success="Group lifecycle changed." />
+        </div>
       </div>
 
       <section className="nesto-card p-5" aria-labelledby="implementation-checklist">

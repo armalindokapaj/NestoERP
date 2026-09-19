@@ -55,6 +55,7 @@
   },
   "dependencies": {
     "@date-fns/tz": "^1",
+    "@google/model-viewer": "^4.3.1",
     "@hookform/resolvers": "^5.9.1",
     "@prisma/client": "^6",
     "@radix-ui/react-avatar": "^1.2.6",
