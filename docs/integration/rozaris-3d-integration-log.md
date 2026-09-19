@@ -84,6 +84,15 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Verified that a live Company Owner session resolves as `NOT_PLATFORM`, all Platform 3D routes use the Platform guard, entitlement provisioning creates the authoring workspace atomically, and a read-only Platform context cannot mutate entitlement.
 - `pnpm typecheck`, focused ESLint, audit/ownership coverage, and 4 Platform authorization/service assertions passed.
 
+### Phase 6 — Private model ingestion and versioning
+
+- Added Project- and Company-prefixed opaque storage keys for separate immutable source and processed runtime objects.
+- Added signed Platform upload intents, server-side size/header verification, model slots and version creation, and a durable `PROCESSING` queue.
+- Ported GLB manifest/complexity validation and glTF Transform optimization to server services that read and write only through NESTO's `StorageProvider`.
+- Registered the singleton `project-3d.process-models` worker and regenerated the worker matrix. Processing resumes from the source object and writes to a deterministic runtime key.
+- Added typed geometry metrics and unit-node names through an additive migration, replayed all 69 migrations from zero, and verified no drift.
+- Verified processing success, source/runtime separation, idempotency, blocked models, Project isolation, suspended-Company queue completion, worker contracts, Platform route guards, typecheck, ESLint, and all 1,019 architecture assertions.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.

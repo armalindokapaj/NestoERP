@@ -18,3 +18,31 @@ export const project3DEntitlementUpdateSchema = z
 
 export type Project3DEntitlementUpdate = z.infer<typeof project3DEntitlementUpdateSchema>;
 
+export const project3DSlotCreateSchema = z.object({
+  kind: z.enum(["MAP", "DETAIL"]).default("DETAIL"),
+  role: z.enum(["BUILDING", "UNITS", "SURROUNDINGS", "CONTEXT", "CUSTOM"]),
+  slotKey: z.string().trim().toLowerCase().regex(/^[a-z][a-z0-9_-]{1,63}$/, "Use a stable lowercase slot key."),
+  displayName: z.string().trim().min(2).max(120),
+  sortOrder: z.number().int().min(0).max(1000).default(0),
+  transformParentSlotId: z.string().trim().min(1).max(128).nullable().optional(),
+  reason,
+});
+
+export const project3DUploadCreateSchema = z.object({
+  fileName: z.string().trim().min(1).max(240).refine((value) => value.toLowerCase().endsWith(".glb"), "Upload a binary GLB file."),
+  sizeBytes: z.number().int().positive().max(200 * 1024 * 1024),
+  scale: z.number().positive().max(1000).default(1),
+  rotationDeg: z.number().min(-36000).max(36000).default(0),
+  altitudeOffset: z.number().min(-100000).max(100000).default(0),
+  positionX: z.number().min(-100000).max(100000).default(0),
+  positionZ: z.number().min(-100000).max(100000).default(0),
+  rotationXDeg: z.number().min(-36000).max(36000).default(0),
+  rotationZDeg: z.number().min(-36000).max(36000).default(0),
+  reason,
+});
+
+export const project3DUploadCompleteSchema = z.object({ reason });
+
+export type Project3DSlotCreate = z.infer<typeof project3DSlotCreateSchema>;
+export type Project3DUploadCreate = z.infer<typeof project3DUploadCreateSchema>;
+

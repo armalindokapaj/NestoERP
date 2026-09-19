@@ -96,7 +96,8 @@ export async function updateProject3DEntitlement(context: PlatformContext, proje
     },
   }));
 
-  const activatedAt = input.status === "ACTIVE" ? input.activatedAt ?? project.project3DEntitlement?.activatedAt ?? new Date() : input.activatedAt ?? project.project3DEntitlement?.activatedAt ?? null;
+  const existingEntitlement = project.project3DEntitlement;
+  const activatedAt = input.status === "ACTIVE" ? input.activatedAt ?? existingEntitlement?.activatedAt ?? new Date() : input.activatedAt ?? existingEntitlement?.activatedAt ?? null;
   const after = {
     status: input.status,
     planKey: input.planKey?.trim() || null,
@@ -106,11 +107,18 @@ export async function updateProject3DEntitlement(context: PlatformContext, proje
   };
 
   return prisma.$transaction(async (tx) => {
-    const entitlement = await tx.project3DEntitlement.upsert({
-      where: { projectId: project.id },
-      update: after,
-      create: { companyId: project.companyId, projectId: project.id, provisionedByUserId: context.userId, ...after },
-    });
+    const entitlement = existingEntitlement
+      ? await (async () => {
+          const changed = await tx.project3DEntitlement.updateMany({
+            where: { id: existingEntitlement.id, status: existingEntitlement.status },
+            data: { status: after.status, planKey: after.planKey, viewerEnabled: after.viewerEnabled, activatedAt: after.activatedAt, expiresAt: after.expiresAt },
+          });
+          if (changed.count !== 1) throw new AccessError("CONFLICT", "The 3D entitlement changed while you were editing it.");
+          return tx.project3DEntitlement.findUniqueOrThrow({ where: { id: existingEntitlement.id } });
+        })()
+      : await tx.project3DEntitlement.create({
+          data: { companyId: project.companyId, projectId: project.id, provisionedByUserId: context.userId, status: after.status, planKey: after.planKey, viewerEnabled: after.viewerEnabled, activatedAt: after.activatedAt, expiresAt: after.expiresAt },
+        });
     await tx.project3DConfig.upsert({
       where: { projectId: project.id },
       update: { updatedByUserId: context.userId },
@@ -120,7 +128,7 @@ export async function updateProject3DEntitlement(context: PlatformContext, proje
       actionKey: AuditAction.PLATFORM_THREE_D_ENTITLEMENT_CHANGED,
       entity: { type: "Project3DEntitlement", id: entitlement.id, label: project.name },
       projectId: project.id,
-      before: project.project3DEntitlement ? { projectId: project.id, ...entitlementSnapshot(project.project3DEntitlement) } : null,
+      before: existingEntitlement ? { projectId: project.id, ...entitlementSnapshot(existingEntitlement) } : null,
       after: { projectId: project.id, ...entitlementSnapshot(entitlement) },
       reason: input.reason,
     }, { tx });
@@ -134,4 +142,3 @@ export async function requireProject3DWorkspace(context: PlatformContext, projec
   if (!workspace) throw new AccessError("NOT_FOUND");
   return workspace;
 }
-
