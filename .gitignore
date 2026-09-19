@@ -50,3 +50,6 @@ next-env.d.ts
 
 # Locally stored document objects (PRD #13 §14). Never committed.
 .storage/
+
+# Working notes and PRD attachments stay out of the repository.
+/prds/
