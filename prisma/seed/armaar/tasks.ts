@@ -137,6 +137,13 @@ export async function seedArmaarTasks(prisma: PrismaClient) {
     const delegate = prisma[correction.model] as unknown as { updateMany(args: { where: unknown; data: unknown }): Promise<unknown> };
     await delegate.updateMany({ where, data });
   }
+  // A database seeded before D-02 stored that purchase order's file as version 1 under its old name.
+  for (const field of ["originalFileName", "fileName"] as const) {
+    await prisma.documentVersion.updateMany({
+      where: { documentId: "armaar_doc_tl_14", [field]: "Purchase order PO-2026-031.pdf" },
+      data: { [field]: "Purchase order PO-2026-0031.pdf" },
+    });
+  }
 
   return { tasks: await prisma.task.count({ where: { company: { parentGroupId: ARMAAR_GROUP_ID } } }) };
 }
