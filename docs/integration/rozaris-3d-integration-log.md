@@ -59,6 +59,14 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Kept editor components and server processors out of the Company boundary.
 - `pnpm typecheck`, focused ESLint, and `pnpm build` passed; the build generated all 410 existing routes.
 
+### Phase 3 — Shared render engine
+
+- Ported the audited RenderEngine closure, Three.js viewer host, sun/GLTF/node/status utilities, presets, and explicit runtime types.
+- Removed all source business-domain import paths. The runtime has no Prisma, auth, storage, Platform service, or database-fetch dependency.
+- Moved required water, caustic, and LUT files into NESTO's `/public/3d` namespace and retained the source bytes unchanged.
+- Added utility coverage for loader/server node-name parity, section scope, solar interpolation, and normalized sun vectors.
+- `pnpm typecheck`, focused ESLint, 4 runtime utility tests, all 1,019 architecture assertions, and `pnpm build` passed; all 410 routes were generated.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.
