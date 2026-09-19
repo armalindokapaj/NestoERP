@@ -1,10 +1,12 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 
-import { ARMAAR_DEMO_ACCOUNTS, PRIMARY_DEMO_ACCOUNTS } from "@/config/demo-accounts";
+import { PRIMARY_DEMO_ACCOUNTS } from "@/config/demo-accounts";
 import { signInAsDemoAccountAction } from "@/lib/actions/demo";
+import { listDemoTenants } from "@/lib/auth/demo-tenants";
 import { authenticateCredentials, type AuthenticatedUser } from "@/lib/auth/credentials";
 import { prisma } from "../../helpers";
-import { ARMAAR_PEOPLE, PLATFORM_ADMIN } from "../../../prisma/seed/armaar/people";
+import { ARMAAR_PEOPLE, COMPANY_PEOPLE, GROUP_PEOPLE } from "../../../prisma/seed/armaar/people";
+import { COMPANY_FACTS } from "../../../prisma/seed/armaar/public-facts";
 
 /**
  * One-click demo sign-in (spec §65, PRD #50 §6).
@@ -40,34 +42,42 @@ describe("demo account sign-in", () => {
     },
   );
 
-  it.each(ARMAAR_DEMO_ACCOUNTS.map((account) => [account.username, account.role] as const))(
-    "signs in as ARMAAR's %s (%s), with ARMAAR's password",
+  it("lists a demo tenant's people from its data: the group's heads, then its companies, the busiest first (D-01 §87, §92)", async () => {
+    const tenants = await listDemoTenants();
+    expect(tenants.map((tenant) => tenant.name)).toEqual(["ARMAAR GROUP"]);
+    const [armaar] = tenants;
+    expect(armaar.heads[0]).toMatchObject({ username: "armaar.owner", role: "OWNER", title: "Group Owner" });
+    expect(armaar.heads.map((head) => head.username).sort()).toEqual(GROUP_PEOPLE.map((person) => person.username).sort());
+    expect(armaar.companies[0].name).toBe("BUILDING CONSTRUCTION INVEST");
+    expect(armaar.companies[0].personas[0]).toEqual({ username: "bci.director", role: "CEO", title: "Company Director" });
+    expect(armaar.companies[0].personas).toContainEqual({ username: "bci.pm", role: "PROJECT_MANAGER", title: "Project Manager · Tirana Lake" });
+    const nameOf = new Map(COMPANY_FACTS.map((fact) => [fact.code, fact.name]));
+    const expected = new Map<string, string[]>();
+    for (const person of COMPANY_PEOPLE) {
+      const name = nameOf.get(person.company)!;
+      expected.set(name, [...(expected.get(name) ?? []), person.username].sort());
+    }
+    expect(new Map(armaar.companies.map((company) => [company.name, company.personas.map((persona) => persona.username).sort()]))).toEqual(expected);
+  });
+
+  it.each(ARMAAR_PEOPLE.map((person) => [person.username, person.role] as const))(
+    "signs in as the demo tenant's %s (%s) by its username",
     async (username) => {
       await expect(signInAsDemoAccountAction(username)).resolves.toBeUndefined();
       expect(signedIn.at(-1)?.username).toBe(username);
     },
   );
 
-  it("offers ARMAAR's people as the ARMAAR seed makes them: role, position, and the company they are listed under", () => {
-    const [platform, ...people] = ARMAAR_DEMO_ACCOUNTS;
-    expect(platform).toMatchObject({ username: PLATFORM_ADMIN.username, role: "PLATFORM_ADMIN", section: "platform" });
-    for (const account of people) {
-      const person = ARMAAR_PEOPLE.find((candidate) => candidate.username === account.username);
-      expect(person, account.username).toBeDefined();
-      const position = account.section === "group" ? "GROUP_HEAD" : person!.manages ? "COMPANY_MANAGER" : "MEMBER";
-      expect({ username: account.username, role: account.role, position: account.position }).toEqual({
-        username: account.username,
-        role: person!.role,
-        position,
-      });
-      if (account.section === "group") expect(person!.company, account.username).toBe("ARLIS_ADMINISTRIM");
-      if (account.section === "company") expect(person!.company, account.username).toBe("BUILDING_CONSTRUCTION_INVEST");
-      if (account.section === "contractor") expect(person!.company, account.username).toBe("ARLIS_NDERTIM");
+  it("refuses a demo tenant's login that is no longer active", async () => {
+    const before = signedIn.length;
+    await prisma.user.update({ where: { username: "bci.viewer" }, data: { status: "INACTIVE" } });
+    try {
+      await expect(signInAsDemoAccountAction("bci.viewer")).resolves.toEqual({ error: "Unknown demo account." });
+      expect((await listDemoTenants())[0].companies.flatMap((company) => company.personas).map((persona) => persona.username)).not.toContain("bci.viewer");
+    } finally {
+      await prisma.user.update({ where: { username: "bci.viewer" }, data: { status: "ACTIVE" } });
     }
-    const usernames = ARMAAR_DEMO_ACCOUNTS.map((account) => account.username);
-    expect(new Set([...usernames, ...PRIMARY_DEMO_ACCOUNTS.map((account) => account.username)]).size).toBe(
-      usernames.length + PRIMARY_DEMO_ACCOUNTS.length,
-    );
+    expect(signedIn).toHaveLength(before);
   });
 
   it("refuses an account that is not a curated persona (E-06 §150)", async () => {

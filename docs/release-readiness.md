@@ -2461,9 +2461,13 @@ On freshly built databases, on the final tree:
 - **`nesto_erp` has E-08's migration and ARMAAR's E-08 people since
   2026-09-19** (`migrate deploy` + `pnpm seed:armaar`, at the owner's request,
   after a backup and a rehearsal on a copy of it; every data gate clean).
-- **The development sign-in screen offers ARMAAR's personas first** — 35 of
-  them: the group heads, BUILDING CONSTRUCTION INVEST, ARLIS - NDERTIM (Tirana
-  Lake's builder) and four other companies' directors — with the five-company
-  demo folded below. The one-click action signs ARMAAR's in with
-  `ARMAAR_DEMO_PASSWORD` where it is set; a test signs in as each and holds the
-  list to what the ARMAAR seed creates.
+- **The development sign-in screen offers each demo tenant's people first**,
+  read from its data (`lib/auth/demo-tenants.ts`: any group seeded `isDemo`,
+  never a fixture): the group's heads, then every active company's employees
+  with a login, the company with the most projects open — for ARMAAR, BUILDING
+  CONSTRUCTION INVEST — and the others folded; the curated five-company demo is
+  folded below. No product code names ARMAAR (D-01 §92; the ARMAAR seed test
+  holds it). One-click sign-in accepts a curated persona or an active demo
+  tenant login, with the demo password; a tenant seeded with its own
+  (`ARMAAR_DEMO_PASSWORD`) signs in through the form. A test signs in as each
+  of ARMAAR's 81 people and holds the list to the seed's.

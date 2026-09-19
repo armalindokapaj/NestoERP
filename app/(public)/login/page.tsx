@@ -3,20 +3,12 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
-import {
-  ARMAAR_ACCOUNT_SECTIONS,
-  ARMAAR_DEMO_ACCOUNTS,
-  ARMAAR_DEMO_PASSWORD,
-  DEMO_ACCOUNT_SECTIONS,
-  DEMO_PASSWORD,
-  PRIMARY_DEMO_ACCOUNTS,
-  type DemoAccount,
-  type DemoAccountSection,
-} from "@/config/demo-accounts";
-import { roles } from "@/config/roles";
+import { DEMO_ACCOUNT_SECTIONS, DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS, type DemoAccountSection } from "@/config/demo-accounts";
+import { roles, type RoleKey } from "@/config/roles";
+import { listDemoTenants, type DemoTenant } from "@/lib/auth/demo-tenants";
 import { isDevMode } from "@/lib/auth/dev-role";
 import { getTranslations } from "@/lib/i18n/server";
-import { DemoAccounts, type DemoAccountOption } from "./demo-accounts";
+import { DemoAccounts, type DemoAccountOption, type DemoRosterOption } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,14 +31,41 @@ function isSignInNotice(reason: string | undefined): reason is keyof typeof SIGN
   return reason !== undefined && Object.hasOwn(SIGN_IN_NOTICES, reason);
 }
 
-function demoOptions(accounts: DemoAccount[], sections: Record<DemoAccountSection, string>): DemoAccountOption[] {
-  return accounts.map((account) => ({
-    code: roles[account.role].code,
-    label: roles[account.role].label,
-    assignment: account.assignment,
-    username: account.username,
-    section: sections[account.section],
-  }));
+function option(role: RoleKey, username: string, assignment: string): DemoAccountOption {
+  return { code: roles[role].code, label: roles[role].label, assignment, username };
+}
+
+/**
+ * The picker's rosters: each demo tenant's people as its data has them, its
+ * busiest company open (D-01 §87), then the curated five-company demo, folded.
+ */
+async function demoRosters(): Promise<DemoRosterOption[]> {
+  // The picker is a convenience: a database it cannot read leaves the curated personas.
+  const tenants: DemoTenant[] = await listDemoTenants().catch(() => []);
+  const sections = new Map<DemoAccountSection, DemoAccountOption[]>();
+  for (const account of PRIMARY_DEMO_ACCOUNTS) {
+    sections.set(account.section, [...(sections.get(account.section) ?? []), option(account.role, account.username, account.assignment)]);
+  }
+  return [
+    ...tenants.map((tenant) => ({
+      name: tenant.name,
+      summary: `${tenant.heads.length} group heads, ${tenant.companies.length} companies`,
+      sections: [
+        { name: tenant.name, accounts: tenant.heads.map((head) => option(head.role, head.username, head.title)) },
+        ...tenant.companies.map((company, index) => ({
+          name: company.name,
+          accounts: company.personas.map((persona) => option(persona.role, persona.username, persona.title)),
+          folded: index > 0,
+        })),
+      ],
+    })),
+    {
+      name: "Five-company demo",
+      summary: "Aurelia Construction and four other companies",
+      sections: [...sections].map(([section, accounts]) => ({ name: DEMO_ACCOUNT_SECTIONS[section], accounts })),
+      folded: tenants.length > 0,
+    },
+  ];
 }
 
 /**
@@ -105,23 +124,7 @@ export default async function LoginPage({
             </div>
 
             {isDevMode ? (
-              <DemoAccounts
-                rosters={[
-                  {
-                    name: "ARMAAR Group",
-                    summary: "The group, BUILDING CONSTRUCTION INVEST and its other companies",
-                    accounts: demoOptions(ARMAAR_DEMO_ACCOUNTS, ARMAAR_ACCOUNT_SECTIONS),
-                  },
-                  {
-                    name: "Five-company demo",
-                    summary: "Aurelia Construction and four other companies",
-                    accounts: demoOptions(PRIMARY_DEMO_ACCOUNTS, DEMO_ACCOUNT_SECTIONS),
-                    folded: true,
-                  },
-                ]}
-                password={DEMO_PASSWORD}
-                armaarHasOwnPassword={ARMAAR_DEMO_PASSWORD !== DEMO_PASSWORD}
-              />
+              <DemoAccounts rosters={await demoRosters()} password={DEMO_PASSWORD} />
             ) : null}
           </div>
         </main>

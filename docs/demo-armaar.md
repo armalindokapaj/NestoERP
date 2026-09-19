@@ -56,9 +56,12 @@ Every company's people follow the same pattern: `<company>.<role>` — `bci`,
 `arlis`, `ideal`, `unico`, `arsol`, `smi`, `arlisadm`, `klais`, `kfp`. Group
 people sign in to BUILDING CONSTRUCTION INVEST first, where Tirana Lake is.
 
-In development the sign-in screen lists these personas first, one click each
-(`config/demo-accounts.ts`), and folds the five-company demo's below them. The
-one-click sign-in uses `ARMAAR_DEMO_PASSWORD` when it is set.
+In development the sign-in screen lists these people first, one click each,
+read from the database as any demo tenant's are (`lib/auth/demo-tenants.ts` —
+product code never names ARMAAR, §92): the group heads, then each active
+company's people, BUILDING CONSTRUCTION INVEST open and the others folded. The
+one-click sign-in uses the demo's password; with `ARMAAR_DEMO_PASSWORD` set,
+sign in through the form.
 
 ## Presenting (D-01 §88, §89)
 
