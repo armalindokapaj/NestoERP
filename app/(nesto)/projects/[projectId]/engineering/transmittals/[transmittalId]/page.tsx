@@ -8,6 +8,7 @@ import { Facts, Panel, Ref, ReviewBadge, dateLabel } from "@/components/engineer
 import { orNotFound } from "@/components/engineering/page-helpers";
 import { CommandBar, type CommandSpec } from "@/components/engineering/record-dialogs";
 import { EditTransmittalButton } from "@/components/engineering/transmittal-editor";
+import { PersonLink } from "@/components/people/person-link";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { requireModule } from "@/lib/context/current-user";
 import { getTransmittal } from "@/lib/modules/engineering/engineering.transmittals";
@@ -120,7 +121,7 @@ export default async function TransmittalPage({ params }: Params) {
                 { label: "Contractor", value: <Ref value={item.contractor} /> },
                 { label: "Work package", value: <Ref value={item.workPackage} /> },
                 { label: "Issued", value: item.issuedAt ? dateLabel(item.issuedAt) : "Not issued" },
-                { label: "Issued by", value: item.issuedBy?.name },
+                { label: "Issued by", value: item.issuedBy ? <PersonLink memberId={item.issuedBy.id} name={item.issuedBy.name} /> : null },
               ]}
             />
             {item.notes ? <p className="mt-4 whitespace-pre-wrap border-t border-line pt-4 text-table text-fg-muted">{item.notes}</p> : null}

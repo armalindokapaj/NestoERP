@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand } from "@/components/engineering/form-kit";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { HseWorkerRef, InductionDTO } from "@/lib/modules/hse/hse.workforce";
@@ -64,7 +65,9 @@ export function ProjectInductions({
                     Induct {worker.name}
                   </Button>
                 ) : (
-                  <span className="text-table text-fg">{worker.name}</span>
+                  <span className="text-table text-fg">
+                    <PersonLink personId={worker.personId} name={worker.name} tab="workforce" />
+                  </span>
                 )}
               </li>
             ))}
@@ -79,11 +82,13 @@ export function ProjectInductions({
           {inductions.map((row) => (
             <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3" data-testid="induction" data-worker-name={row.worker.name}>
               <div className="min-w-0">
-                <p className="text-body font-medium text-fg">{row.worker.name}</p>
+                <p className="text-body font-medium text-fg">
+                  <PersonLink personId={row.worker.personId} name={row.worker.name} tab="workforce" />
+                </p>
                 <p className="text-meta text-fg-subtle">
                   {row.inductedOn}
                   {row.validUntil ? ` · valid until ${row.validUntil}` : ""}
-                  {row.site ? ` · ${row.site.name}` : ""} · by {row.conductedBy}
+                  {row.site ? ` · ${row.site.name}` : ""} · by <PersonLink memberId={row.conductedByMemberId} name={row.conductedBy} />
                   {row.voidReason ? ` · void: ${row.voidReason}` : ""}
                 </p>
               </div>

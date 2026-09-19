@@ -7,6 +7,7 @@ import { CollaborationPanel } from "@/components/collaboration/collaboration-pan
 import { RequestActions } from "@/components/procurement/request-actions";
 import { ProcurementApprovalHistory } from "@/components/procurement/approval-history";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
@@ -75,7 +76,7 @@ export default async function RequestDetailPage({ params }: Params) {
           </>
         }
         meta={[
-          { label: "Raised by", value: request.requestedBy.fullName },
+          { label: "Raised by", value: <PersonLink memberId={request.requestedBy.memberId} name={request.requestedBy.fullName} /> },
           {
             label: "Estimated",
             value: currency ? money(request.estimatedTotal) : "Not priced",
@@ -195,7 +196,7 @@ export default async function RequestDetailPage({ params }: Params) {
                   ),
                 },
                 { label: "Department", value: orDash(request.department?.name ?? null) },
-                { label: "Buyer", value: orDash(request.owner?.fullName ?? null) },
+                { label: "Buyer", value: request.owner ? <PersonLink memberId={request.owner.memberId} name={request.owner.fullName} /> : "—" },
                 { label: "Priority", value: priorityLabels[request.priority] },
               ]}
             />
@@ -223,9 +224,17 @@ export default async function RequestDetailPage({ params }: Params) {
               {request.dates.approvedAt ? (
                 <Meta
                   label="Approved"
-                  value={`${formatDateTime(request.dates.approvedAt)}${
-                    request.approvedBy ? ` · ${request.approvedBy.fullName}` : ""
-                  }`}
+                  value={
+                    <>
+                      {formatDateTime(request.dates.approvedAt)}
+                      {request.approvedBy ? (
+                        <>
+                          {" · "}
+                          <PersonLink memberId={request.approvedBy.memberId} name={request.approvedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
             </dl>

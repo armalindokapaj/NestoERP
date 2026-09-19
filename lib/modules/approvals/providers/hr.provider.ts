@@ -245,8 +245,8 @@ export const hrApprovalProvider: ApprovalProvider = {
     const names = await memberNames(context.companyId, activity.map((entry) => entry.actorMemberId));
     let submissions = 0;
     const history: UnifiedApprovalHistoryEntry[] = activity.map((entry) => {
-      const actor = entry.actorMemberId ? personOrUnknown(names, entry.actorMemberId).name : null;
-      const base = { id: entry.id, actorName: actor, actorRole: null, occurredAt: entry.createdAt.toISOString(), note: null, step: null };
+      const actor = entry.actorMemberId ? personOrUnknown(names, entry.actorMemberId) : null;
+      const base = { id: entry.id, actorName: actor?.name ?? null, actorRole: null, actor, onBehalfOf: null, occurredAt: entry.createdAt.toISOString(), note: null, step: null };
       if (entry.action === "HR_LEAVE_SUBMITTED") {
         submissions += 1;
         return { ...base, action: submissions === 1 ? "Requested" : "Resubmitted", tone: "info" as const };
@@ -256,7 +256,7 @@ export const hrApprovalProvider: ApprovalProvider = {
       return { ...base, action: "Withdrawn", tone: "neutral" as const };
     });
     if (row.status === "PENDING") {
-      history.push({ id: `${row.id}:pending`, action: "Awaiting decision", actorName: null, actorRole: null, occurredAt: row.submittedAt!.toISOString(), note: null, step: null, tone: "neutral" });
+      history.push({ id: `${row.id}:pending`, action: "Awaiting decision", actorName: null, actorRole: null, actor: null, onBehalfOf: null, occurredAt: row.submittedAt!.toISOString(), note: null, step: null, tone: "neutral" });
     }
 
     const warnings = [];
@@ -273,7 +273,7 @@ export const hrApprovalProvider: ApprovalProvider = {
       item,
       reason: "Leave is approved before it starts, so the team and the attendance record agree on who is in.",
       summary: [
-        { label: "Employee", value: item.requester.name },
+        { label: "Employee", value: item.requester.name, person: row.companyMemberId ? { memberId: row.companyMemberId } : { employeeId: row.employeeProfileId } },
         { label: "Leave type", value: leaveTypeLabels[row.leaveType] },
         { label: "From", value: formatDate(row.startDate) },
         { label: "To", value: formatDate(row.endDate) },

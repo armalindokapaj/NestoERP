@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { useToast } from "@/components/ui/toast";
 import { changeStageAction } from "@/lib/actions/sales";
 import {
@@ -192,7 +193,9 @@ function PipelineCard({
       <dl className="mt-2 space-y-0.5 text-meta text-fg-subtle">
         <div className="flex justify-between gap-2">
           <dt>Owner</dt>
-          <dd className="truncate">{opportunity.owner.fullName}</dd>
+          <dd className="truncate">
+            <PersonLink memberId={opportunity.owner.memberId} name={opportunity.owner.fullName} />
+          </dd>
         </div>
         <div className="flex justify-between gap-2">
           <dt>Expected</dt>

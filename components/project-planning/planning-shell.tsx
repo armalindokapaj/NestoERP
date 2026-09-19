@@ -457,7 +457,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-table font-medium text-fg">{milestone.name}</span>
                               <span className="block truncate text-meta text-fg-muted">
-                                <OwnerName owner={milestone.owner} />
+                                <OwnerName owner={milestone.owner} plain />
                               </span>
                             </span>
                             {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium uppercase text-fg-muted">Critical</span> : null}
@@ -487,7 +487,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-table font-medium text-fg">{milestone.name}</span>
                               <span className="block truncate text-meta text-fg-muted">
-                                <OwnerName owner={milestone.owner} />
+                                <OwnerName owner={milestone.owner} plain />
                                 {milestone.delayed ? ` · ${milestone.overdueDays} ${milestone.overdueDays === 1 ? "day" : "days"} past ${dateLabel(milestone.forecastDate ?? milestone.plannedDate)}` : ""}
                               </span>
                             </span>

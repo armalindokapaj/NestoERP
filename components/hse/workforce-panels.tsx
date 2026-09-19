@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand } from "@/components/engineering/form-kit";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { IncidentPersonDTO, PermitWorkerDTO } from "@/lib/modules/hse/hse.workforce";
@@ -41,7 +42,7 @@ export function IncidentPeople({ incidentId, people, canEdit, employees }: { inc
           {people.map((person) => (
             <li key={person.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5" data-testid="incident-person">
               <span className="text-table text-fg">
-                {person.worker?.name ?? person.externalName}
+                {person.worker ? <PersonLink personId={person.worker.personId} name={person.worker.name} /> : person.externalName}
                 {person.worker ? null : <span className="ml-2 text-meta text-fg-subtle">Not an employee</span>}
                 {person.notes ? <span className="block text-meta text-fg-subtle">{person.notes}</span> : null}
               </span>
@@ -102,7 +103,7 @@ export function PermitWorkers({ permitId, workers, canEdit, employees, crews }: 
           {workers.map((row) => (
             <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5" data-testid="permit-worker">
               <span className="text-table text-fg">
-                {row.worker?.name ?? row.crew?.name}
+                {row.worker ? <PersonLink personId={row.worker.personId} name={row.worker.name} /> : row.crew?.name}
                 {row.crew ? <span className="ml-2 text-meta text-fg-subtle">Crew · {row.crew.size} {row.crew.size === 1 ? "person" : "people"} today</span> : null}
               </span>
               {canEdit ? (

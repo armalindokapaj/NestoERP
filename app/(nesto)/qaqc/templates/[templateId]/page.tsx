@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { TemplateActions } from "@/components/qaqc/template-actions";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as templates from "@/lib/modules/qaqc/templates/template.service";
@@ -11,7 +12,7 @@ import {
   inspectionTypeLabels,
   responseTypeLabels,
 } from "@/lib/modules/qaqc/qaqc.status";
-import { formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ templateId: string }> };
 
@@ -123,7 +124,14 @@ export default async function TemplatePage({ params }: Params) {
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Created by", value: orDash(template.createdBy?.fullName ?? null) },
+                {
+                  label: "Created by",
+                  value: template.createdBy ? (
+                    <PersonLink memberId={template.createdBy.memberId} name={template.createdBy.fullName} />
+                  ) : (
+                    "—"
+                  ),
+                },
                 { label: "Created", value: formatDateTime(template.createdAt) },
                 { label: "Updated", value: formatDateTime(template.updatedAt) },
                 ...(template.archivedAt

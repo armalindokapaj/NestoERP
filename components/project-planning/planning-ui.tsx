@@ -1,8 +1,9 @@
 import * as React from "react";
 
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { shortVariance, varianceLabel } from "@/lib/modules/project-planning/planning.dates";
-import { STATUS_LABELS, type MilestoneStatus } from "@/lib/modules/project-planning/planning.types";
+import { STATUS_LABELS, type MilestoneStatus, type PlanningPerson } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -96,7 +97,9 @@ export function Kpi({ label, value, hint, tone, testId, children }: { label: str
   );
 }
 
-export function OwnerName({ owner }: { owner: { name: string; active: boolean } | null }) {
+/** `plain` where the name sits inside a button, which a link cannot. */
+export function OwnerName({ owner, plain = false }: { owner: PlanningPerson | null; plain?: boolean }) {
   if (!owner) return <span className="text-fg-subtle">Unassigned</span>;
-  return owner.active ? <span>{owner.name}</span> : <span className="text-fg-muted" title="This person is no longer an active member">{owner.name} · Former member</span>;
+  const name = plain ? owner.name : <PersonLink memberId={owner.memberId} name={owner.name} />;
+  return owner.active ? <span>{name}</span> : <span className="text-fg-muted" title="This person is no longer an active member">{name} · Former member</span>;
 }

@@ -205,15 +205,15 @@ async function buildWeek(context: UserContext, input: { memberId: string; period
 
   const history: TimesheetHistoryEntry[] = [];
   cycles.forEach((cycle, index) => {
-    history.push({ id: `${cycle.id}:submitted`, action: index === 0 ? "Submitted" : "Resubmitted", actorName: people.get(cycle.submittedByMemberId)?.name ?? null, occurredAt: cycle.submittedAt.toISOString(), note: null, tone: "info" });
+    history.push({ id: `${cycle.id}:submitted`, action: index === 0 ? "Submitted" : "Resubmitted", actorName: people.get(cycle.submittedByMemberId)?.name ?? null, actorMemberId: people.has(cycle.submittedByMemberId) ? cycle.submittedByMemberId : null, occurredAt: cycle.submittedAt.toISOString(), note: null, tone: "info" });
     if (cycle.status !== "PENDING" && cycle.decidedAt) {
       const action = cycle.status === "APPROVED" ? "Approved" : cycle.status === "RETURNED" ? "Returned" : cycle.status === "REJECTED" ? "Rejected" : "Withdrawn";
       const tone = cycle.status === "APPROVED" ? "success" : cycle.status === "REJECTED" ? "danger" : cycle.status === "RETURNED" ? "warning" : "neutral";
-      history.push({ id: `${cycle.id}:decided`, action, actorName: cycle.decidedByMemberId ? (people.get(cycle.decidedByMemberId)?.name ?? null) : null, occurredAt: cycle.decidedAt.toISOString(), note: cycle.decisionNote, tone });
+      history.push({ id: `${cycle.id}:decided`, action, actorName: cycle.decidedByMemberId ? (people.get(cycle.decidedByMemberId)?.name ?? null) : null, actorMemberId: cycle.decidedByMemberId && people.has(cycle.decidedByMemberId) ? cycle.decidedByMemberId : null, occurredAt: cycle.decidedAt.toISOString(), note: cycle.decisionNote, tone });
     }
   });
   for (const reopen of reopens) {
-    history.push({ id: reopen.id, action: "Reopened", actorName: reopen.actorMemberId ? (people.get(reopen.actorMemberId)?.name ?? null) : null, occurredAt: reopen.createdAt.toISOString(), note: (reopen.metadata as { note?: string } | null)?.note ?? null, tone: "warning" });
+    history.push({ id: reopen.id, action: "Reopened", actorName: reopen.actorMemberId ? (people.get(reopen.actorMemberId)?.name ?? null) : null, actorMemberId: reopen.actorMemberId && people.has(reopen.actorMemberId) ? reopen.actorMemberId : null, occurredAt: reopen.createdAt.toISOString(), note: (reopen.metadata as { note?: string } | null)?.note ?? null, tone: "warning" });
   }
   history.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
 

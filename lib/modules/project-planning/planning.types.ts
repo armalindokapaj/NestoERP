@@ -217,10 +217,11 @@ export type MilestoneDocumentDTO = {
   extension: string | null;
   uploadedAt: string;
   uploadedBy: string | null;
+  uploadedByMemberId: string | null;
   href: string;
 };
 
-export type PlanningHistoryEntry = { id: string; action: string; actorName: string | null; occurredAt: string; note: string | null };
+export type PlanningHistoryEntry = { id: string; action: string; actorName: string | null; actorMemberId: string | null; occurredAt: string; note: string | null };
 
 export type MilestoneCapabilities = {
   canEdit: boolean;

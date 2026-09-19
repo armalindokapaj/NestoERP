@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -111,6 +112,12 @@ function EntryLine({ primary, secondary, meta, onEdit, testId }: { primary: Reac
 }
 
 const joined = (...parts: Array<string | number | null | undefined | false>) => parts.filter((part) => part !== null && part !== undefined && part !== false && part !== "").join(" · ");
+
+/** `joined` for a line that names a person as a link; null when nothing is left. */
+const joinedNodes = (...parts: React.ReactNode[]) => {
+  const kept = parts.filter((part) => part !== null && part !== undefined && part !== false && part !== "");
+  return kept.length ? kept.map((part, index) => <React.Fragment key={index}>{index ? " · " : null}{part}</React.Fragment>) : null;
+};
 
 export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { initial: DailyLogDetailDTO; discussion: React.ReactNode; zone: string; favorite?: React.ReactNode }) {
   const router = useRouter();
@@ -321,7 +328,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     visitors: log.visitors.length ? (
       <ul className="divide-y divide-line">
         {log.visitors.map((entry) => (
-          <EntryLine key={entry.id} testId="visitor-entry" primary={joined(entry.name, entry.organization)} secondary={joined(entry.purpose, entry.escortedBy && `escorted by ${entry.escortedBy.name}`, entry.notes)} meta={entry.arrivedAt ? `${entry.arrivedAt}${entry.departedAt ? `–${entry.departedAt}` : ""}` : undefined} onEdit={caps.sections.visitors ? () => void openEntry("visitors", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="visitor-entry" primary={joined(entry.name, entry.organization)} secondary={joinedNodes(entry.purpose, entry.escortedBy && <>escorted by <PersonLink memberId={entry.escortedBy.memberId} name={entry.escortedBy.name} /></>, entry.notes)} meta={entry.arrivedAt ? `${entry.arrivedAt}${entry.departedAt ? `–${entry.departedAt}` : ""}` : undefined} onEdit={caps.sections.visitors ? () => void openEntry("visitors", entry.id) : undefined} />
         ))}
       </ul>
     ) : empty("No visitors recorded."),
@@ -335,7 +342,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     instructions: log.instructions.length ? (
       <ul className="divide-y divide-line">
         {log.instructions.map((entry) => (
-          <EntryLine key={entry.id} testId="instruction-entry" primary={entry.title} secondary={joined(entry.issuedByText ?? entry.issuedBy?.name, entry.recipientText && `to ${entry.recipientText}`, entry.issuedAt, entry.requiresAction && "Requires action", entry.task ? `Task: ${entry.task.label}` : null, entry.description)} onEdit={caps.sections.instructions ? () => void openEntry("instructions", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="instruction-entry" primary={entry.title} secondary={joinedNodes(entry.issuedByText ?? (entry.issuedBy && <PersonLink memberId={entry.issuedBy.memberId} name={entry.issuedBy.name} />), entry.recipientText && `to ${entry.recipientText}`, entry.issuedAt, entry.requiresAction && "Requires action", entry.task ? `Task: ${entry.task.label}` : null, entry.description)} onEdit={caps.sections.instructions ? () => void openEntry("instructions", entry.id) : undefined} />
         ))}
       </ul>
     ) : empty("No instructions recorded."),
@@ -353,7 +360,8 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     if (log.status === "SUBMITTED") {
       return (
         <div className="rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-table text-fg" role="status" data-testid="daily-log-banner">
-          Submitted{log.submittedBy ? ` by ${log.submittedBy.name}` : ""}{log.reviewer ? `, waiting for ${log.reviewer.name}'s review` : ""}. The log cannot change until it is reviewed or returned.
+          Submitted{log.submittedBy ? <> by <PersonLink memberId={log.submittedBy.memberId} name={log.submittedBy.name} /></> : null}
+          {log.reviewer ? <>, waiting for <PersonLink memberId={log.reviewer.memberId} name={log.reviewer.name} />&apos;s review</> : null}. The log cannot change until it is reviewed or returned.
         </div>
       );
     }
@@ -361,11 +369,11 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
       return (
         <div className="rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-table text-fg" role="status" data-testid="daily-log-banner">
           <p className="flex items-center gap-2 font-medium">
-            <Lock className="size-4 text-success-strong" aria-hidden="true" /> The official record{log.lockedBy ? `, locked by ${log.lockedBy.name}` : ""}.
+            <Lock className="size-4 text-success-strong" aria-hidden="true" /> The official record{log.lockedBy ? <>, locked by <PersonLink memberId={log.lockedBy.memberId} name={log.lockedBy.name} /></> : null}.
           </p>
           {log.corrections.map((correction) => (
             <div key={correction.id} className="mt-2 border-t border-success/20 pt-2" data-testid="daily-log-correction">
-              <p className="font-medium">Official correction added {dateLabel(correction.createdAt.slice(0, 10))}{correction.createdBy ? ` by ${correction.createdBy.name}` : ""}</p>
+              <p className="font-medium">Official correction added {dateLabel(correction.createdAt.slice(0, 10))}{correction.createdBy ? <> by <PersonLink memberId={correction.createdBy.memberId} name={correction.createdBy.name} /></> : null}</p>
               <p className="whitespace-pre-line text-fg">{correction.correctionSummary}</p>
               <p className="text-meta text-fg-muted">Reason: {correction.reason}</p>
             </div>
@@ -384,7 +392,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     if (log.status === "REVIEWED") {
       return (
         <div className="rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-table text-fg" role="status" data-testid="daily-log-banner">
-          Reviewed{log.reviewedBy ? ` by ${log.reviewedBy.name}` : ""}. Lock it to make it the official record.
+          Reviewed{log.reviewedBy ? <> by <PersonLink memberId={log.reviewedBy.memberId} name={log.reviewedBy.name} /></> : null}. Lock it to make it the official record.
         </div>
       );
     }
@@ -544,7 +552,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
               <OverviewField label="Delays in brief" value={log.delaySummary} editable={editable} onSave={(value) => void saveOverview("delaySummary", value)} />
               <OverviewField label="Instructions in brief" value={log.instructionSummary} editable={editable} onSave={(value) => void saveOverview("instructionSummary", value)} />
               <OverviewField label="General notes" value={log.generalNotes} editable={editable} wide onSave={(value) => void saveOverview("generalNotes", value)} />
-              <p className="text-meta text-fg-muted sm:col-span-2">{joined(log.createdBy && `Started by ${log.createdBy.name}`, log.reviewer && `Reviewer ${log.reviewer.name}`)}</p>
+              <p className="text-meta text-fg-muted sm:col-span-2">{joinedNodes(log.createdBy && <>Started by <PersonLink memberId={log.createdBy.memberId} name={log.createdBy.name} /></>, log.reviewer && <>Reviewer <PersonLink memberId={log.reviewer.memberId} name={log.reviewer.name} /></>)}</p>
             </div>,
           )}
 
@@ -667,7 +675,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                 {log.history.map((entry) => (
                   <li key={entry.id} className="text-table">
                     <span className="font-medium text-fg">{entry.action}</span>
-                    <span className="text-fg-muted"> · {joined(entry.actorName, new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zone }).format(new Date(entry.occurredAt)), dateLabel(entry.occurredAt.slice(0, 10)))}</span>
+                    <span className="text-fg-muted"> · {joinedNodes(entry.actorName && <PersonLink memberId={entry.actorMemberId} name={entry.actorName} />, new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zone }).format(new Date(entry.occurredAt)), dateLabel(entry.occurredAt.slice(0, 10)))}</span>
                     {entry.note ? <span className="block text-fg-muted">“{entry.note}”</span> : null}
                   </li>
                 ))}

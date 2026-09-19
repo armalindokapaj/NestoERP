@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, UserPlus } from "lucide-react";
 
+import { PersonLink } from "@/components/people/person-link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,7 +127,7 @@ export function ProjectTeam({
               />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-table font-medium text-fg">
-                  {member.fullName}
+                  <PersonLink memberId={member.companyMemberId} name={member.fullName} />
                   {member.companyMemberId === managerMemberId ? (
                     <Badge tone="info">Project manager</Badge>
                   ) : null}
@@ -185,7 +186,9 @@ export function ProjectTeam({
           <ul className="mt-2 nesto-card divide-y divide-line">
             {past.map((member) => (
               <li key={member.id} className="flex items-center justify-between gap-3 p-4">
-                <span className="text-table text-fg-muted">{member.fullName}</span>
+                <span className="text-table text-fg-muted">
+                  <PersonLink memberId={member.companyMemberId} name={member.fullName} />
+                </span>
                 <Badge>Left the project</Badge>
               </li>
             ))}

@@ -7,6 +7,7 @@ import { FilePen } from "lucide-react";
 
 import { amountLabel } from "@/components/finance/unit-finance/finance-status";
 import { FieldsDialog, type Submit } from "@/components/finance/unit-finance/fields-dialog";
+import { PersonLink } from "@/components/people/person-link";
 import { structureApi } from "@/components/project-structure/structure-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,7 +70,12 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
                   </p>
                   <p className="mt-0.5 text-meta text-fg-subtle">
                     Requested {formatRelativeTime(row.requestedAt)}
-                    {row.requestedBy ? ` by ${row.requestedBy}` : ""}
+                    {row.requestedBy ? (
+                      <>
+                        {" by "}
+                        <PersonLink memberId={row.requestedByMemberId} name={row.requestedBy} />
+                      </>
+                    ) : null}
                     {row.status === "OPEN" && row.reservation.status === "ACTIVE" ? ` · reserved until ${formatDate(row.reservation.expiresAt)}` : ""}
                     {row.contract ? ` · ${row.contract.number}` : ""}
                   </p>

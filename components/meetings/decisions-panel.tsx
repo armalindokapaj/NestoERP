@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Gavel, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -122,7 +123,7 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
                 <div className="min-w-0 flex-1">
                   <p className="text-body font-medium text-fg">{decision.title}</p>
                   {decision.description ? <PlainText text={decision.description} className="mt-1 text-table text-fg-muted" /> : null}
-                  <p className="mt-1 text-meta text-fg-subtle">Recorded by {decision.recordedBy}</p>
+                  <p className="mt-1 text-meta text-fg-subtle">Recorded by {decision.recordedByMemberId ? <PersonLink memberId={decision.recordedByMemberId} name={decision.recordedBy} /> : decision.recordedBy}</p>
                 </div>
               )}
               {canRecord && editing !== decision.id ? (

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { FileCheck2, Loader2, LockOpen, Plus, Printer, Trash2 } from "lucide-react";
 
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -70,9 +71,12 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
             )}
           </h2>
           <p className="mt-1 text-meta text-fg-subtle">
-            {final && meeting.minutesFinalizedAt
-              ? `Finalized ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: meeting.timezone }).format(new Date(meeting.minutesFinalizedAt))}${meeting.minutesFinalizedBy ? ` by ${meeting.minutesFinalizedBy}` : ""}`
-              : caps.canEditMinutes
+            {final && meeting.minutesFinalizedAt ? (
+              <>
+                Finalized {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: meeting.timezone }).format(new Date(meeting.minutesFinalizedAt))}
+                {meeting.minutesFinalizedBy ? <> by <PersonLink memberId={meeting.minutesFinalizedByMemberId} name={meeting.minutesFinalizedBy} /></> : null}
+              </>
+            ) : caps.canEditMinutes
                 ? meeting.status === "COMPLETED"
                   ? "The formal record of the meeting. Finalize it when it is complete."
                   : "The formal record of the meeting. It can be finalized once the meeting is completed."

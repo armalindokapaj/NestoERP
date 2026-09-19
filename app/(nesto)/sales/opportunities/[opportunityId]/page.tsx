@@ -9,6 +9,7 @@ import { SalesContractHandoff } from "@/components/contracts/sales-handoff";
 import { SalesRecordDocuments } from "@/components/sales/record-documents";
 import { SalesActivityFeed } from "@/components/sales/sales-activity";
 import { DealUnits } from "@/components/sales/unit-sales/deal-units";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
@@ -65,7 +66,7 @@ export default async function OpportunityPage({ params }: Params) {
             label: "Weighted",
             value: formatAmount(opportunity.weightedValue, opportunity.currency),
           },
-          { label: "Owner", value: opportunity.owner.fullName },
+          { label: "Owner", value: <PersonLink memberId={opportunity.owner.memberId} name={opportunity.owner.fullName} /> },
           {
             label: opportunity.actualCloseDate ? "Closed" : "Expected close",
             value: opportunity.actualCloseDate

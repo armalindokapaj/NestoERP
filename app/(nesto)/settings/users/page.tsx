@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
-import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import {
   Table,
   TableBody,
@@ -48,20 +47,13 @@ export default async function UsersSettingsPage() {
             {members.map((member) => (
               <TableRow key={member.id}>
                 <TableCell>
-                  <Link
-                    href={`/team/${member.id}`}
-                    className="flex items-center gap-2.5 transition-colors hover:text-accent"
-                  >
-                    <Avatar
-                      firstName={member.firstName}
-                      lastName={member.lastName}
-                      src={member.avatarUrl}
-                      size="sm"
-                    />
-                    <span className="truncate font-medium">
-                      {fullName(member.firstName, member.lastName)}
-                    </span>
-                  </Link>
+                  <PersonLink
+                    memberId={member.id}
+                    name={fullName(member.firstName, member.lastName)}
+                    photoUrl={member.avatarUrl}
+                    variant="name-avatar"
+                    className="gap-2.5"
+                  />
                 </TableCell>
                 <TableCell className="hidden text-fg-muted md:table-cell">{member.email}</TableCell>
                 <TableCell className="text-fg-muted">{member.roleName}</TableCell>

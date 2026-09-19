@@ -1,5 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { ContractSummaryDTO } from "@/lib/modules/contracts/contract.types";
 import { contractTypeLabels } from "@/lib/modules/contracts/contracts/contract.schema";
 import { formatDate } from "@/lib/utils/format";
@@ -75,7 +76,7 @@ export function ContractTable({
       hideBelow: "xl",
       render: (row) => (
         <span className={row.owner.active ? undefined : "text-fg-subtle"}>
-          {row.owner.fullName}
+          <PersonLink memberId={row.owner.memberId} name={row.owner.fullName} />
           {row.owner.active ? "" : " (inactive)"}
         </span>
       ),

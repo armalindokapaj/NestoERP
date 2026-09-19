@@ -4,6 +4,7 @@ import * as React from "react";
 import { Loader2, UserRoundCog } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -127,8 +128,8 @@ export function DelegationDialog({ open, onOpenChange, providers }: { open: bool
           </p>
         ) : listing ? (
           <div className="mt-5 space-y-6">
-            <DelegationList title="You delegated" empty="You have not delegated any approvals." rows={listing.given} pending={pending} onRevoke={revoke} who={(row) => `To ${row.to.name}`} />
-            <DelegationList title="Delegated to you" empty="Nobody has delegated approvals to you." rows={listing.received} pending={pending} onRevoke={revoke} who={(row) => `From ${row.from.name}`} />
+            <DelegationList title="You delegated" empty="You have not delegated any approvals." rows={listing.given} pending={pending} onRevoke={revoke} who={(row) => <>To <PersonLink memberId={row.to.memberId} name={row.to.name} /></>} />
+            <DelegationList title="Delegated to you" empty="Nobody has delegated approvals to you." rows={listing.received} pending={pending} onRevoke={revoke} who={(row) => <>From <PersonLink memberId={row.from.memberId} name={row.from.name} /></>} />
 
             {listing.canManage ? (
               <form onSubmit={create} className="space-y-4 rounded-xl border border-line bg-surface-muted/50 p-4" aria-labelledby="new-delegation-heading">
@@ -223,7 +224,7 @@ function DelegationList({
   rows: ApprovalDelegationDTO[];
   pending: string | null;
   onRevoke: (row: ApprovalDelegationDTO) => void;
-  who: (row: ApprovalDelegationDTO) => string;
+  who: (row: ApprovalDelegationDTO) => React.ReactNode;
 }) {
   return (
     <section>

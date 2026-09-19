@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, ListPlus, Loader2, Plus, SquareCheckBig } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,7 +182,7 @@ function ActionRow({
           {action.owner ? (
             <span className="flex items-center gap-1.5">
               <PersonAvatar person={action.owner} className="size-5 text-[9px]" />
-              {action.owner.fullName}
+              <PersonLink memberId={action.owner.memberId} name={action.owner.fullName} />
             </span>
           ) : (
             <span className="text-fg-subtle">Unassigned</span>

@@ -6,6 +6,7 @@ import { ReservationRowActions } from "@/components/inventory/reservation-action
 import { MovementTable } from "@/components/inventory/movement-table";
 import { formatQuantity } from "@/components/inventory/inventory-format";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
@@ -13,7 +14,7 @@ import { requireModule } from "@/lib/context/current-user";
 import * as movements from "@/lib/modules/inventory/movements/movement.service";
 import * as reservations from "@/lib/modules/inventory/reservations/reservation.service";
 import { movementListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ reservationId: string }> };
 
@@ -169,7 +170,7 @@ export default async function ReservationPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Reserved by" value={orDash(reservation.createdBy?.fullName ?? null)} />
+              <Meta label="Reserved by" value={reservation.createdBy ? <PersonLink memberId={reservation.createdBy.memberId} name={reservation.createdBy.fullName} /> : "—"} />
               <Meta label="Created" value={formatDateTime(reservation.createdAt)} />
             </dl>
           </section>

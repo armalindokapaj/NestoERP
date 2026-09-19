@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import {
   inspectionTypeLabels,
@@ -64,7 +65,7 @@ export function RequestTable({
       hideBelow: "xl",
       render: (row) =>
         row.assignedInspector ? (
-          row.assignedInspector.fullName
+          <PersonLink memberId={row.assignedInspector.memberId} name={row.assignedInspector.fullName} />
         ) : (
           <span className="text-warning-strong">Unassigned</span>
         ),
@@ -143,7 +144,12 @@ export function InspectionTable({
       key: "assignedInspector",
       label: "Inspector",
       hideBelow: "xl",
-      render: (row) => row.assignedInspector?.fullName ?? <span className="text-fg-subtle">—</span>,
+      render: (row) =>
+        row.assignedInspector ? (
+          <PersonLink memberId={row.assignedInspector.memberId} name={row.assignedInspector.fullName} />
+        ) : (
+          <span className="text-fg-subtle">—</span>
+        ),
     },
     {
       key: "inspectionDate",
@@ -271,7 +277,12 @@ export function DefectTable({
       key: "assignedTo",
       label: "Assigned to",
       hideBelow: "xl",
-      render: (row) => row.assignedTo?.fullName ?? <span className="text-fg-subtle">—</span>,
+      render: (row) =>
+        row.assignedTo ? (
+          <PersonLink memberId={row.assignedTo.memberId} name={row.assignedTo.fullName} />
+        ) : (
+          <span className="text-fg-subtle">—</span>
+        ),
     },
     {
       key: "dueDate",
@@ -443,7 +454,12 @@ export function CorrectiveActionTable({
       key: "assignedTo",
       label: "Assigned to",
       hideBelow: "lg",
-      render: (row) => row.assignedTo?.fullName ?? <span className="text-fg-subtle">—</span>,
+      render: (row) =>
+        row.assignedTo ? (
+          <PersonLink memberId={row.assignedTo.memberId} name={row.assignedTo.fullName} />
+        ) : (
+          <span className="text-fg-subtle">—</span>
+        ),
     },
     {
       key: "dueDate",

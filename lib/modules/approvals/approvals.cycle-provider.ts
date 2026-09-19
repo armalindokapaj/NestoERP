@@ -499,6 +499,9 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
       decidedBy: step.decidedByMemberId ? personOrUnknown(names, step.decidedByMemberId).name : null,
       decidedAt: step.decidedAt?.toISOString() ?? null,
       onBehalfOf: step.onBehalfOfMemberId ? personOrUnknown(names, step.onBehalfOfMemberId).name : null,
+      decidedByMemberId: step.decidedByMemberId,
+      onBehalfOfMemberId: step.onBehalfOfMemberId,
+      labelMemberId: null,
     }));
 
     const warnings = [...(fact.warnings ?? [])];
@@ -628,6 +631,8 @@ function cycleHistory(cycles: CycleRow[], chains: Map<string, StepRow[]>, names:
       action: index === 0 ? "Requested" : "Resubmitted",
       actorName: personOrUnknown(names, cycle.submittedByMemberId).name,
       actorRole: null,
+      actor: personOrUnknown(names, cycle.submittedByMemberId),
+      onBehalfOf: null,
       occurredAt: cycle.submittedAt.toISOString(),
       note: null,
       step: null,
@@ -640,13 +645,16 @@ function cycleHistory(cycles: CycleRow[], chains: Map<string, StepRow[]>, names:
     for (const step of steps) {
       if (step.status === "PENDING" || step.status === "CANCELLED" || step.status === "SKIPPED" || !step.decidedAt) continue;
       const verb = step.status === "APPROVED" ? "approved" : step.status === "REJECTED" ? "rejected" : "returned";
-      const actor = personOrUnknown(names, step.decidedByMemberId).name;
+      const decider = personOrUnknown(names, step.decidedByMemberId);
+      const lender = step.onBehalfOfMemberId ? personOrUnknown(names, step.onBehalfOfMemberId) : null;
       decidedByStep = true;
       entries.push({
         id: `${step.id}:decided`,
         action: single ? (step.status === "APPROVED" ? "Approved" : step.status === "REJECTED" ? "Rejected" : "Returned for revision") : `${step.label} ${verb}`,
-        actorName: step.onBehalfOfMemberId ? `${actor}, for ${personOrUnknown(names, step.onBehalfOfMemberId).name}` : actor,
+        actorName: lender ? `${decider.name}, for ${lender.name}` : decider.name,
         actorRole: null,
+        actor: decider,
+        onBehalfOf: lender,
         occurredAt: step.decidedAt.toISOString(),
         note: step.decisionNote,
         step: single ? null : step.stepNumber,
@@ -660,6 +668,8 @@ function cycleHistory(cycles: CycleRow[], chains: Map<string, StepRow[]>, names:
         action: current && !single ? `${current.label} pending` : "Awaiting decision",
         actorName: null,
         actorRole: null,
+        actor: null,
+        onBehalfOf: null,
         occurredAt: (steps.filter((step) => step.decidedAt).at(-1)?.decidedAt ?? cycle.submittedAt).toISOString(),
         note: null,
         step: single ? null : (current?.stepNumber ?? null),
@@ -680,6 +690,8 @@ function cycleHistory(cycles: CycleRow[], chains: Map<string, StepRow[]>, names:
       action: final[cycle.status].action,
       actorName: cycle.decidedByMemberId ? personOrUnknown(names, cycle.decidedByMemberId).name : null,
       actorRole: null,
+      actor: cycle.decidedByMemberId ? personOrUnknown(names, cycle.decidedByMemberId) : null,
+      onBehalfOf: null,
       occurredAt: (cycle.decidedAt ?? cycle.submittedAt).toISOString(),
       note: steps.length > 0 ? null : cycle.decisionNote,
       step: null,

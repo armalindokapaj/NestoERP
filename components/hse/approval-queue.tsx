@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -108,12 +109,17 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                 ) : null}
                 <p className="mt-1 text-meta text-fg-subtle">
                   {item.project ? `${item.project.code} · ` : ""}
-                  Submitted by {item.submittedBy?.fullName ?? "somebody"}{" "}
+                  Submitted by{" "}
+                  {item.submittedBy ? (
+                    <PersonLink memberId={item.submittedBy.memberId} name={item.submittedBy.fullName} />
+                  ) : (
+                    "somebody"
+                  )}{" "}
                   {formatRelativeTime(item.submittedAt)}
                 </p>
                 {item.decidedBy ? (
                   <p className="mt-1 text-meta text-fg-subtle">
-                    Decided by {item.decidedBy.fullName}
+                    Decided by <PersonLink memberId={item.decidedBy.memberId} name={item.decidedBy.fullName} />
                     {item.decidedAt ? ` ${formatRelativeTime(item.decidedAt)}` : ""}
                     {item.decisionNote ? ` — ${item.decisionNote}` : ""}
                   </p>

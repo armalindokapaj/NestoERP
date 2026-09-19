@@ -258,6 +258,7 @@ export type EvidenceDTO = {
   takenAt: string | null;
   uploadedAt: string;
   uploadedBy: string | null;
+  uploadedByMemberId: string | null;
   href: string;
   previewHref: string | null;
   isImage: boolean;
@@ -265,7 +266,7 @@ export type EvidenceDTO = {
 
 export type CorrectionDTO = { id: string; reason: string; correctionSummary: string; createdBy: DailyLogPerson | null; createdAt: string };
 
-export type DailyLogHistoryEntry = { id: string; action: string; actorName: string | null; occurredAt: string; note: string | null; tone: "neutral" | "info" | "success" | "warning" | "danger" };
+export type DailyLogHistoryEntry = { id: string; action: string; actorName: string | null; actorMemberId: string | null; occurredAt: string; note: string | null; tone: "neutral" | "info" | "success" | "warning" | "danger" };
 
 export type DailyLogCounts = {
   workforce: number;

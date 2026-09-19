@@ -8,6 +8,7 @@ import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -19,7 +20,7 @@ import { cn } from "@/lib/utils/cn";
 
 export const metadata: Metadata = { title: "Project time" };
 
-function Bars({ items, total, testId }: { items: Array<{ key: string; label: string; minutes: number; sub?: string }>; total: number; testId: string }) {
+function Bars({ items, total, testId }: { items: Array<{ key: string; label: React.ReactNode; minutes: number; sub?: string }>; total: number; testId: string }) {
   return (
     <ul className="space-y-2.5" data-testid={testId}>
       {items.map((item) => (
@@ -174,7 +175,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
               <section className="nesto-card px-5 py-4" aria-labelledby="by-member">
                 <h2 id="by-member" className="text-card font-semibold text-fg">By person</h2>
                 <div className="mt-3">
-                  <Bars testId="by-member" total={totals.totalMinutes} items={summary.byMember.map((row) => ({ key: row.memberId, label: row.name, minutes: row.minutes, sub: row.billableMinutes ? `${formatMinutes(row.billableMinutes)} billable` : undefined }))} />
+                  <Bars testId="by-member" total={totals.totalMinutes} items={summary.byMember.map((row) => ({ key: row.memberId, label: <PersonLink memberId={row.memberId} name={row.name} />, minutes: row.minutes, sub: row.billableMinutes ? `${formatMinutes(row.billableMinutes)} billable` : undefined }))} />
                 </div>
               </section>
               <section className="nesto-card px-5 py-4" aria-labelledby="by-task">
@@ -213,7 +214,9 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
                       <td className="whitespace-nowrap px-5 py-2 tabular-nums text-fg-muted">
                         {dayLabel(entry.workDate).weekday} {dayLabel(entry.workDate).day}
                       </td>
-                      <td className="px-3 py-2 text-fg">{entry.member.name}</td>
+                      <td className="px-3 py-2 text-fg">
+                        <PersonLink memberId={entry.member.memberId} name={entry.member.name} />
+                      </td>
                       <td className="px-3 py-2">
                         <span className="block text-fg">{entry.project?.name ?? WORK_LOG_TYPE_LABELS[entry.workType]}</span>
                         {entry.task ? <span className="block text-meta text-fg-muted">{entry.task.title}</span> : null}

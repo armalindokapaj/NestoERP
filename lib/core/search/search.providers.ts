@@ -310,7 +310,8 @@ const teamProvider: GlobalSearchProvider = {
         entityId: row.id,
         title: name,
         subtitle: [row.jobTitle, row.department?.name].filter(Boolean).join(" · ") || null,
-        href: `/team/${row.id}`,
+        // The person's profile, through the membership's resolver (E-08 §71).
+        href: `/people/member/${row.id}`,
         score: scoreMatch(query.text, name),
       };
     });

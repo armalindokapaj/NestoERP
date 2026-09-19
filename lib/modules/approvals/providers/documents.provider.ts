@@ -241,6 +241,9 @@ export const documentReviewProvider: ApprovalProvider = {
       decidedBy: review.decidedByMemberId ? personOrUnknown(names, review.decidedByMemberId).name : null,
       decidedAt: review.decidedAt?.toISOString() ?? null,
       onBehalfOf: review.decidedByMemberId && review.decidedByMemberId !== review.reviewerMemberId ? personOrUnknown(names, review.reviewerMemberId).name : null,
+      decidedByMemberId: review.decidedByMemberId,
+      onBehalfOfMemberId: review.decidedByMemberId && review.decidedByMemberId !== review.reviewerMemberId ? review.reviewerMemberId : null,
+      labelMemberId: review.reviewerMemberId,
     }));
 
     const history: UnifiedApprovalHistoryEntry[] = [];
@@ -250,6 +253,8 @@ export const documentReviewProvider: ApprovalProvider = {
         action: `Review of v${review.version.versionNumber} requested from ${personOrUnknown(names, review.reviewerMemberId).name}`,
         actorName: personOrUnknown(names, review.requestedByMemberId).name,
         actorRole: null,
+        actor: personOrUnknown(names, review.requestedByMemberId),
+        onBehalfOf: null,
         occurredAt: review.requestedAt.toISOString(),
         note: review.requestNote,
         step: null,
@@ -261,6 +266,8 @@ export const documentReviewProvider: ApprovalProvider = {
           action: review.status === "APPROVED" ? `v${review.version.versionNumber} approved` : review.status === "REJECTED" ? `v${review.version.versionNumber} rejected` : "Review withdrawn",
           actorName: review.decidedByMemberId ? personOrUnknown(names, review.decidedByMemberId).name : null,
           actorRole: null,
+          actor: review.decidedByMemberId ? personOrUnknown(names, review.decidedByMemberId) : null,
+          onBehalfOf: null,
           occurredAt: review.decidedAt.toISOString(),
           note: review.decisionNote,
           step: null,

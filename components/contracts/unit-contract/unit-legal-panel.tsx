@@ -8,6 +8,7 @@ import { FilePen, FileSignature, Scale, Send, Undo2 } from "lucide-react";
 import { amountLabel, UnitContractStatusBadge } from "@/components/finance/unit-finance/finance-status";
 import { FieldsDialog, today, type Submit } from "@/components/finance/unit-finance/fields-dialog";
 import { DetailGrid } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Field, structureApi } from "@/components/project-structure/structure-ui";
 import { FormDialog, useDialogRequest } from "@/components/sales/unit-sales/unit-sales-dialogs";
 import { Badge } from "@/components/ui/badge";
@@ -86,7 +87,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
             {request ? (
               <div className="mt-3 space-y-2 text-table" data-testid="contract-request">
                 <p className="text-fg">
-                  {request.requestedBy ?? "Sales"} asked Legal for this unit&apos;s contract on {formatDate(request.requestedAt)}
+                  {request.requestedBy ? <PersonLink memberId={request.requestedByMemberId} name={request.requestedBy} /> : "Sales"} asked Legal for this unit&apos;s contract on {formatDate(request.requestedAt)}
                   {request.agreedPrice ? `, at the agreed ${amountLabel(request.agreedPrice, request.currency)}` : ""}.
                 </p>
                 {request.client ? <p className="text-fg-muted">Client: {request.client.name}{request.deal ? ` · Deal: ${request.deal.name}` : ""}</p> : null}
@@ -171,7 +172,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
                     <span className="text-meta text-fg-subtle">{formatDateTime(row.requestedAt)}</span>
                   </div>
                   <p className="mt-0.5 text-meta text-fg-muted">
-                    {row.requestedBy ?? "Sales"}
+                    {row.requestedBy ? <PersonLink memberId={row.requestedByMemberId} name={row.requestedBy} /> : "Sales"}
                     {row.contract ? ` · ${row.contract.number}` : ""}
                   </p>
                   {row.closeReason ? <p className="text-meta text-fg-muted">{row.closeReason}</p> : null}
@@ -259,7 +260,7 @@ function ContractCard({ contract, legal, onAction, onValue }: { contract: UnitCo
           ...(caps.canSeeValue ? [{ label: "Contract value", value: <span className="tabular-nums" data-testid="contract-value">{amountLabel(contract.value, contract.currency)}</span> }] : []),
           { label: "Signed", value: contract.signedDate ? formatDate(contract.signedDate) : "Not yet" },
           { label: "Effective", value: contract.effectiveDate ? formatDate(contract.effectiveDate) : "—" },
-          { label: "Owner", value: contract.owner ?? "—" },
+          { label: "Owner", value: contract.owner ? <PersonLink memberId={contract.ownerMemberId} name={contract.owner} /> : "—" },
           ...(contract.completedAt ? [{ label: "Completed", value: formatDate(contract.completedAt) }] : []),
         ]}
       />

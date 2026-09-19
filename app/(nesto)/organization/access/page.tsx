@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { GrantAccessButton, RevokeGrantButton } from "@/components/organization/access-grants";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -131,7 +132,9 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
             <TableBody>
               {grants.map((grant) => (
                 <TableRow key={grant.id} data-testid="grant-row">
-                  <TableCell className="font-medium">{grant.holder.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <PersonLink userId={grant.holder.userId} name={grant.holder.name} />
+                  </TableCell>
                   <TableCell>{grant.module.label}</TableCell>
                   <TableCell>{LEVEL_LABELS[grant.accessLevel]}</TableCell>
                   <TableCell>{grant.scope.type === "GROUP" ? "Every company" : (grant.scope.company?.name ?? "—")}</TableCell>
@@ -139,7 +142,9 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
                     <Badge tone={STATUS_TONES[grant.status]}>{grant.status === "LIVE" ? "In force" : grant.status.charAt(0) + grant.status.slice(1).toLowerCase()}</Badge>
                   </TableCell>
                   <TableCell>
-                    <span className="block">{grant.grantedBy.name}</span>
+                    <span className="block">
+                      <PersonLink userId={grant.grantedBy.userId} name={grant.grantedBy.name} />
+                    </span>
                     {grant.reason ? <span className="block text-meta text-fg-subtle">{grant.reason}</span> : null}
                   </TableCell>
                   <TableCell>{grant.revokedAt ? `Revoked ${formatDate(grant.revokedAt)}` : grant.expiresAt ? formatDate(grant.expiresAt) : "Until revoked"}</TableCell>
@@ -268,7 +273,7 @@ function Diagnosis({ diagnosis }: { diagnosis: AccessDiagnosisDTO }) {
       <div className="nesto-card space-y-3 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-card font-semibold text-fg">
-            {diagnosis.person.name} in {diagnosis.company.name}
+            <PersonLink userId={diagnosis.person.userId} name={diagnosis.person.name} /> in {diagnosis.company.name}
           </h2>
           <span className="text-meta text-fg-subtle">
             {diagnosis.membership ? `${diagnosis.membership.role.label} · ${diagnosis.position.label}` : "No membership"}

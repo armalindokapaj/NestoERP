@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { selectClass } from "@/components/forms/record-form";
@@ -119,9 +120,14 @@ export function ContractObligationList({
                 <div className="flex gap-2">
                   <dt className="text-fg-subtle">Responsible</dt>
                   <dd className={obligation.responsible?.active === false ? "text-warning-strong" : "text-fg"}>
-                    {obligation.responsible
-                      ? `${obligation.responsible.fullName}${obligation.responsible.active ? "" : " — no longer active"}`
-                      : "Unassigned"}
+                    {obligation.responsible ? (
+                      <>
+                        <PersonLink memberId={obligation.responsible.memberId} name={obligation.responsible.fullName} />
+                        {obligation.responsible.active ? "" : " — no longer active"}
+                      </>
+                    ) : (
+                      "Unassigned"
+                    )}
                   </dd>
                 </div>
                 {obligation.sourceAmendmentId ? (

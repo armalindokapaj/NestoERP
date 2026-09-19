@@ -3,6 +3,7 @@ import { ScrollText } from "lucide-react";
 
 import { Pagination } from "@/components/data/pagination";
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
+import { PersonLink } from "@/components/people/person-link";
 import { AuditExportLink } from "@/components/settings/audit-export-link";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -95,7 +96,11 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
                       {formatDateTime(event.occurredAt)}
                     </td>
                     <td className="px-5 py-3 text-table text-fg">
-                      <span className="font-medium">{event.actor.displayName}</span>
+                      {event.actor.memberId ? (
+                        <PersonLink memberId={event.actor.memberId} name={event.actor.displayName} />
+                      ) : (
+                        <span className="font-medium">{event.actor.displayName}</span>
+                      )}
                       {event.actor.roleSnapshot ? (
                         <span className="ml-1.5 text-meta text-fg-subtle">{event.actor.roleSnapshot}</span>
                       ) : null}

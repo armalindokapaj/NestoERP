@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DetailGrid } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { UNIT_TYPE_CATEGORY_LABELS } from "@/config/unit-types";
 import { AccessError } from "@/lib/access/guards";
 import { AREA_FIELDS, AREA_LABELS, FLOOR_LEVEL_LABELS, ORIENTATION_LABELS, POSITION_LABELS, UNIT_ATTRIBUTES, type UnitAttributeKey } from "@/lib/modules/project-structure/structure.types";
@@ -47,7 +48,7 @@ export default async function PublicationDetailPage({ params }: Params) {
         </div>
         <p className="mt-1 text-table text-fg-muted">
           Published {formatDateTime(publication.publishedAt)}
-          {publication.publishedBy ? ` by ${publication.publishedBy}` : ""}
+          {publication.publishedBy ? <> by <PersonLink memberId={publication.publishedByMemberId} name={publication.publishedBy} /></> : null}
         </p>
         <DetailGrid
           className="mt-5"

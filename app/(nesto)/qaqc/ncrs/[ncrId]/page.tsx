@@ -11,11 +11,12 @@ import { QaqcRecordDocuments } from "@/components/qaqc/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
 import { RecordTasks } from "@/components/tasks/record-tasks";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 import { ncrCategoryLabels } from "@/lib/modules/qaqc/qaqc.status";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ ncrId: string }> };
 
@@ -71,7 +72,14 @@ export default async function NcrPage({ params }: Params) {
         }
         meta={[
           { label: "Project", value: ncr.project ? ncr.project.code : "Company-wide" },
-          { label: "Assigned to", value: ncr.assignedTo?.fullName ?? "Not assigned" },
+          {
+            label: "Assigned to",
+            value: ncr.assignedTo ? (
+              <PersonLink memberId={ncr.assignedTo.memberId} name={ncr.assignedTo.fullName} />
+            ) : (
+              "Not assigned"
+            ),
+          },
           { label: "Due", value: ncr.dueDate ? formatDate(ncr.dueDate) : "No date" },
         ]}
         actions={<NcrActions ncr={ncr} />}
@@ -139,7 +147,10 @@ export default async function NcrPage({ params }: Params) {
                     "—"
                   ),
                 },
-                { label: "Quality owner", value: orDash(ncr.owner?.fullName ?? null) },
+                {
+                  label: "Quality owner",
+                  value: ncr.owner ? <PersonLink memberId={ncr.owner.memberId} name={ncr.owner.fullName} /> : "—",
+                },
               ]}
             />
           </section>
@@ -196,7 +207,16 @@ export default async function NcrPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Raised by" value={orDash(ncr.createdBy?.fullName ?? null)} />
+              <Meta
+                label="Raised by"
+                value={
+                  ncr.createdBy ? (
+                    <PersonLink memberId={ncr.createdBy.memberId} name={ncr.createdBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Raised" value={formatDateTime(ncr.createdAt)} />
               {ncr.submittedAt ? (
                 <Meta label="Submitted" value={formatDateTime(ncr.submittedAt)} />
@@ -204,13 +224,33 @@ export default async function NcrPage({ params }: Params) {
               {ncr.approvedAt ? (
                 <Meta
                   label="Closure approved"
-                  value={`${formatDateTime(ncr.approvedAt)}${ncr.approvedBy ? ` by ${ncr.approvedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(ncr.approvedAt)}
+                      {ncr.approvedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={ncr.approvedBy.memberId} name={ncr.approvedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {ncr.rejectedAt ? (
                 <Meta
                   label="Closure rejected"
-                  value={`${formatDateTime(ncr.rejectedAt)}${ncr.rejectedBy ? ` by ${ncr.rejectedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(ncr.rejectedAt)}
+                      {ncr.rejectedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={ncr.rejectedBy.memberId} name={ncr.rejectedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {ncr.closedAt ? (

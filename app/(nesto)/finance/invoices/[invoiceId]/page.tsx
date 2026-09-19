@@ -8,10 +8,11 @@ import { ApprovalHistory } from "@/components/finance/approval-history";
 import { InvoiceActions } from "@/components/finance/invoice-actions";
 import { PaymentTable } from "@/components/finance/payment-table";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { settlementLabels } from "@/lib/modules/finance/invoices/invoice.status";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { invoiceBreadcrumbs, loadInvoice } from "./invoice-context";
 import { FinanceRecordTabs } from "./record-tabs";
 
@@ -212,7 +213,7 @@ export default async function InvoiceDetailPage({ params }: Params) {
                   label: "Sent",
                   value: invoice.sentAt ? formatDateTime(invoice.sentAt) : "Not yet",
                 },
-                { label: "Raised by", value: orDash(invoice.createdBy?.fullName) },
+                { label: "Raised by", value: invoice.createdBy ? <PersonLink memberId={invoice.createdBy.memberId} name={invoice.createdBy.fullName} /> : "—" },
               ]}
             />
           </section>

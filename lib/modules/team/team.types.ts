@@ -97,6 +97,7 @@ export type InvitationDTO = {
   department: { id: string; name: string } | null;
   jobTitle: string | null;
   invitedBy: string | null;
+  invitedByMemberId: string | null;
   invitedAt: string;
   expiresAt: string;
   /** Derived, so an unswept row still reads as expired (PRD #14 §236). */
@@ -124,6 +125,7 @@ export type TeamActivityDTO = {
   action: string;
   message: string | null;
   actor: string | null;
+  actorMemberId: string | null;
   createdAt: string;
 };
 

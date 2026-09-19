@@ -66,7 +66,7 @@ export async function getUnitPublishing(context: UserContext, unitId: string): P
   return {
     status: state.row.publicationStatus,
     statusChangedAt: state.row.publicationStatusChangedAt?.toISOString() ?? null,
-    currentPublication: current ? { id: current.id, versionNumber: current.versionNumber, publishedAt: current.publishedAt.toISOString(), publishedBy: names.get(current.publishedByMemberId) ?? null } : null,
+    currentPublication: current ? { id: current.id, versionNumber: current.versionNumber, publishedAt: current.publishedAt.toISOString(), publishedBy: names.get(current.publishedByMemberId) ?? null, publishedByMemberId: current.publishedByMemberId } : null,
     hasUnpublishedChanges: state.drift,
     revisionReason: state.row.revisionReason,
     pendingRequest: pending ? { id: pending.id, submittedAt: pending.submittedAt.toISOString(), submittedBy: names.get(pending.submittedByMemberId) ?? null, submittedByMemberId: pending.submittedByMemberId } : null,
@@ -97,6 +97,7 @@ export async function listUnitPublications(context: UserContext, unitId: string)
     versionNumber: row.versionNumber,
     publishedAt: row.publishedAt.toISOString(),
     publishedBy: names.get(row.publishedByMemberId) ?? null,
+    publishedByMemberId: row.publishedByMemberId,
     isCurrent: row.id === current?.currentPublicationId,
     salesPlanVersionNumber: (row.snapshot as UnitSnapshot).salesPlan?.versionNumber ?? null,
   }));
@@ -118,6 +119,7 @@ export async function getUnitPublication(context: UserContext, unitId: string, p
     versionNumber: row.versionNumber,
     publishedAt: row.publishedAt.toISOString(),
     publishedBy: names.get(row.publishedByMemberId) ?? null,
+    publishedByMemberId: row.publishedByMemberId,
     isCurrent: row.unit.currentPublicationId === row.id,
     salesPlanVersionNumber: snapshot.salesPlan?.versionNumber ?? null,
     snapshot,

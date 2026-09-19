@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { ProcurementApprovalDTO } from "@/lib/modules/procurement/procurement.types";
 import { formatDateTime } from "@/lib/utils/format";
 
@@ -28,11 +29,18 @@ export function ProcurementApprovalHistory({
         <li key={approval.id} className="flex flex-wrap items-start justify-between gap-3 p-4">
           <div className="min-w-0">
             <p className="text-table text-fg">
-              <span className="font-medium">
-                {approval.submittedBy?.fullName ?? "Somebody"}
-              </span>{" "}
+              {approval.submittedBy ? (
+                <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} />
+              ) : (
+                <span className="font-medium">Somebody</span>
+              )}{" "}
               submitted it
-              {approval.decidedBy ? `, ${approval.decidedBy.fullName} decided` : ""}
+              {approval.decidedBy ? (
+                <>
+                  {", "}
+                  <PersonLink memberId={approval.decidedBy.memberId} name={approval.decidedBy.fullName} /> decided
+                </>
+              ) : null}
             </p>
             <p className="text-meta text-fg-subtle">
               {formatDateTime(approval.submittedAt)}

@@ -5,10 +5,11 @@ import { DocumentActions } from "@/components/inventory/document-actions";
 import { TransferLinesTable } from "@/components/inventory/document-lines-table";
 import { InventoryActivityFeed } from "@/components/inventory/record-activity";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as transfers from "@/lib/modules/inventory/documents/transfer.service";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ transferId: string }> };
 
@@ -101,9 +102,9 @@ export default async function TransferPage({ params }: Params) {
               items={[
                 { label: "From", value: transfer.fromWarehouse.name },
                 { label: "To", value: transfer.toWarehouse.name },
-                { label: "Drafted by", value: orDash(transfer.createdBy?.fullName ?? null) },
+                { label: "Drafted by", value: transfer.createdBy ? <PersonLink memberId={transfer.createdBy.memberId} name={transfer.createdBy.fullName} /> : "—" },
                 { label: "Drafted", value: formatDateTime(transfer.createdAt) },
-                { label: "Posted by", value: orDash(transfer.postedBy?.fullName ?? null) },
+                { label: "Posted by", value: transfer.postedBy ? <PersonLink memberId={transfer.postedBy.memberId} name={transfer.postedBy.fullName} /> : "—" },
               ]}
             />
           </section>

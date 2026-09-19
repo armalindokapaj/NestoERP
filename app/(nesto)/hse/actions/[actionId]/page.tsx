@@ -10,11 +10,12 @@ import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
 import { actionTypeLabels, priorityLabels } from "@/lib/modules/hse/hse.status";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ actionId: string }> };
 
@@ -77,7 +78,14 @@ export default async function HseActionPage({ params }: Params) {
         }
         meta={[
           { label: "Project", value: action.project?.code ?? "Company-wide" },
-          { label: "Responsible", value: action.assignedTo?.fullName ?? "—" },
+          {
+            label: "Responsible",
+            value: action.assignedTo ? (
+              <PersonLink memberId={action.assignedTo.memberId} name={action.assignedTo.fullName} />
+            ) : (
+              "—"
+            ),
+          },
           { label: "Due", value: action.dueDate ? formatDate(action.dueDate) : "No date" },
         ]}
         actions={
@@ -134,7 +142,12 @@ export default async function HseActionPage({ params }: Params) {
                 {action.completionNote}
               </p>
               <p className="mt-3 text-meta text-fg-subtle">
-                Recorded by {action.completedBy?.fullName ?? "somebody"}
+                Recorded by{" "}
+                {action.completedBy ? (
+                  <PersonLink memberId={action.completedBy.memberId} name={action.completedBy.fullName} />
+                ) : (
+                  "somebody"
+                )}
                 {action.completedAt ? ` on ${formatDate(action.completedAt)}` : ""}.
               </p>
             </section>
@@ -151,7 +164,12 @@ export default async function HseActionPage({ params }: Params) {
                 </p>
               ) : null}
               <p className="mt-3 text-meta text-fg-subtle">
-                By {action.verifiedBy?.fullName ?? "somebody"}
+                By{" "}
+                {action.verifiedBy ? (
+                  <PersonLink memberId={action.verifiedBy.memberId} name={action.verifiedBy.fullName} />
+                ) : (
+                  "somebody"
+                )}
                 {action.verifiedAt ? ` on ${formatDate(action.verifiedAt)}` : ""}.
               </p>
             </section>
@@ -196,7 +214,16 @@ export default async function HseActionPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Raised by" value={orDash(action.createdBy?.fullName ?? null)} />
+              <Meta
+                label="Raised by"
+                value={
+                  action.createdBy ? (
+                    <PersonLink memberId={action.createdBy.memberId} name={action.createdBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Raised" value={formatDateTime(action.createdAt)} />
               {action.cancelledAt ? (
                 <Meta label="Cancelled" value={formatDateTime(action.cancelledAt)} />

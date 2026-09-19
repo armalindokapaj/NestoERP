@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
+import { PersonLink } from "@/components/people/person-link";
 import type { ApproverAssignmentDTO } from "@/lib/modules/timesheets/timesheet.approvers";
 import { formatMinutes, parseDuration } from "@/lib/modules/timesheets/timesheet.time";
 import type { TimesheetPerson, TimesheetSettingsDTO } from "@/lib/modules/timesheets/timesheet.types";
@@ -205,7 +206,9 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
             {shown.map((row) => (
               <tr key={row.member.memberId}>
                 <th scope="row" className="px-5 py-2 text-left font-normal">
-                  <span className="block font-medium text-fg">{row.member.name}</span>
+                  <span className="block font-medium text-fg">
+                    <PersonLink memberId={row.member.memberId} name={row.member.name} />
+                  </span>
                   <span className="block text-meta text-fg-muted">{[row.member.jobTitle, row.member.department].filter(Boolean).join(" · ") || "—"}</span>
                 </th>
                 <td className="px-3 py-2">
@@ -229,7 +232,7 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
                 <td className="px-5 py-2 text-fg-muted">
                   {row.effective ? (
                     <>
-                      {row.effective.name}
+                      <PersonLink memberId={row.effective.memberId} name={row.effective.name} />
                       {row.effective.source === "DEPARTMENT" ? <span className="ml-1 text-meta text-fg-subtle">(department)</span> : null}
                     </>
                   ) : (

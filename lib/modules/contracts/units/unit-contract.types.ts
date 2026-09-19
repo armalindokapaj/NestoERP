@@ -62,6 +62,7 @@ export type ContractRequestDTO = {
   reservation: { id: string; status: string; expiresAt: string };
   notes: string | null;
   requestedBy: string | null;
+  requestedByMemberId: string | null;
   requestedAt: string;
   closedAt: string | null;
   closeReason: string | null;
@@ -86,6 +87,7 @@ export type UnitContractDTO = {
   effectiveDate: string | null;
   completedAt: string | null;
   owner: string | null;
+  ownerMemberId: string | null;
   createdAt: string;
   units: Array<{ unitId: string; unitCode: string; value: string | null; valueNote: string | null; released: boolean; releaseReason: string | null }>;
   pendingApproval: boolean;

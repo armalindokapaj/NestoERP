@@ -153,6 +153,7 @@ export async function listMemberActivity(
         action: true,
         message: true,
         createdAt: true,
+        actorMemberId: true,
         actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
       },
     }),
@@ -166,6 +167,7 @@ export async function listMemberActivity(
     actor: row.actorMember
       ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}`
       : null,
+    actorMemberId: row.actorMemberId,
     createdAt: row.createdAt.toISOString(),
   }));
 

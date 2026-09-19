@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AssignCrewButton, CrewFormButton, CrewStatusButton, EndMembershipButton } from "@/components/workforce/workforce-actions";
 import { AccessError } from "@/lib/access/guards";
@@ -61,7 +61,7 @@ export default async function CrewPage({ params }: { params: Promise<{ crewId: s
       <dl className="nesto-card grid gap-4 p-5 sm:grid-cols-3">
         <div>
           <dt className="text-meta text-fg-subtle">Foreman</dt>
-          <dd className="text-body text-fg">{crew.supervisor ? <Link className="hover:underline" href={`/people/${crew.supervisor.personId}?tab=workforce`}>{crew.supervisor.name}</Link> : "Nobody yet"}</dd>
+          <dd className="text-body text-fg">{crew.supervisor ? <PersonLink personId={crew.supervisor.personId} name={crew.supervisor.name} tab="workforce" /> : "Nobody yet"}</dd>
         </div>
         <div>
           <dt className="text-meta text-fg-subtle">Trade</dt>
@@ -108,9 +108,7 @@ function Members({ title, members, manage, empty }: { title: string; members: Cr
             {members.map((member) => (
               <TableRow key={member.membershipId} data-testid="crew-member" data-worker-name={member.name}>
                 <TableCell className="font-medium">
-                  <Link className="hover:underline" href={`/people/${member.personId}?tab=workforce`}>
-                    {member.name}
-                  </Link>
+                  <PersonLink personId={member.personId} name={member.name} tab="workforce" />
                 </TableCell>
                 <TableCell>{orDash(member.trade)}</TableCell>
                 <TableCell>{orDash(member.role)}</TableCell>

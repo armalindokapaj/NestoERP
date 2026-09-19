@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { DetailGrid } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { LocationList } from "@/components/inventory/location-list";
 import { requireModule } from "@/lib/context/current-user";
 import * as warehouseService from "@/lib/modules/inventory/warehouses/warehouse.service";
@@ -78,7 +79,7 @@ export default async function WarehousePage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Added by" value={orDash(warehouse.createdBy?.fullName ?? null)} />
+              <Meta label="Added by" value={warehouse.createdBy ? <PersonLink memberId={warehouse.createdBy.memberId} name={warehouse.createdBy.fullName} /> : "—"} />
               <Meta label="Added" value={formatDateTime(warehouse.createdAt)} />
               <Meta label="Updated" value={formatDateTime(warehouse.updatedAt)} />
               {warehouse.archivedAt ? (

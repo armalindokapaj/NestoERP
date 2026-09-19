@@ -9,6 +9,7 @@ import { Due, Facts, formatDateTime, Panel, Person, PriorityMark, Ref, ReviewBad
 import { orNotFound } from "@/components/engineering/page-helpers";
 import { CommandBar, EditRfiButton, type CommandSpec } from "@/components/engineering/record-dialogs";
 import { RfiWorkspace } from "@/components/engineering/rfi-workspace";
+import { PersonLink } from "@/components/people/person-link";
 import { requireModule } from "@/lib/context/current-user";
 import { projectEngineeringOptions } from "@/lib/modules/engineering/engineering.documents";
 import { getRfi } from "@/lib/modules/engineering/engineering.rfis";
@@ -84,7 +85,7 @@ export default async function RfiPage({ params }: Params) {
                 { label: "Age", value: <span className="tabular-nums">{rfi.ageDays} days</span> },
                 { label: "Contractor", value: <Ref value={rfi.contractor} /> },
                 { label: "Work package", value: <Ref value={rfi.workPackage} /> },
-                { label: "Raised by", value: rfi.raisedByText ?? rfi.raisedBy?.name },
+                { label: "Raised by", value: rfi.raisedByText ?? (rfi.raisedBy ? <PersonLink memberId={rfi.raisedBy.id} name={rfi.raisedBy.name} /> : null) },
                 { label: "Answered", value: rfi.answeredAt ? formatDateTime(rfi.answeredAt, settings.timezone) : null },
               ]}
             />

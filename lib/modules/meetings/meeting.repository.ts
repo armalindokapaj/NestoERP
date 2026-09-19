@@ -260,6 +260,7 @@ export async function toDetailDTO(context: UserContext, row: MeetingDetailRow): 
     minutesFinalizedBy: row.minutesFinalizedByMemberId
       ? (row.participants.find((participant) => participant.memberId === row.minutesFinalizedByMemberId)?.displayName ?? (await memberName(row.minutesFinalizedByMemberId)))
       : null,
+    minutesFinalizedByMemberId: row.minutesFinalizedByMemberId,
     startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt.toISOString(),
     timezone: row.timezone,
@@ -304,15 +305,19 @@ export async function toDetailDTO(context: UserContext, row: MeetingDetailRow): 
       updatedAt: section.updatedAt.toISOString(),
       updatedBy: row.participants.find((participant) => participant.memberId === (section.updatedByMemberId ?? section.createdByMemberId))?.displayName ?? null,
     })),
-    decisions: row.decisions.map((decision) => ({
-      id: decision.id,
-      decisionNumber: decision.decisionNumber,
-      label: decisionLabel(decision.decisionNumber),
-      title: decision.title,
-      description: decision.description,
-      decidedAt: decision.decidedAt.toISOString(),
-      recordedBy: row.participants.find((participant) => participant.memberId === decision.recordedByMemberId)?.displayName ?? "—",
-    })),
+    decisions: row.decisions.map((decision) => {
+      const recorder = row.participants.find((participant) => participant.memberId === decision.recordedByMemberId);
+      return {
+        id: decision.id,
+        decisionNumber: decision.decisionNumber,
+        label: decisionLabel(decision.decisionNumber),
+        title: decision.title,
+        description: decision.description,
+        decidedAt: decision.decidedAt.toISOString(),
+        recordedBy: recorder?.displayName ?? "—",
+        recordedByMemberId: recorder?.memberId ?? null,
+      };
+    }),
     actions: row.actionItems.map((action) =>
       actionDTO(context, action, {
         today,

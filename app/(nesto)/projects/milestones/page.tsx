@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { selectClass } from "@/components/forms/record-form";
 import { ModulePage } from "@/components/modules/module-page";
+import { PersonLink } from "@/components/people/person-link";
 import { PlanningSettingsForm } from "@/components/project-planning/planning-settings-form";
 import { MilestoneStatusBadge, Variance } from "@/components/project-planning/planning-ui";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; c
                 </Link>
                 <span className="block text-meta text-fg-muted">
                   {row.phaseName ?? "No phase"}
-                  {row.owner ? ` · ${row.owner.name}` : ""}
+                  {row.owner ? <> · <PersonLink memberId={row.owner.memberId} name={row.owner.name} /></> : null}
                   {row.critical ? " · Critical" : ""}
                 </span>
               </th>

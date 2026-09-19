@@ -1,3 +1,5 @@
+import type { PersonRef } from "@/components/people/person-link";
+
 /**
  * The Unified Approvals Center's shapes (PRD #41 §13-§16, §54).
  *
@@ -112,7 +114,13 @@ export type UnifiedApprovalItem = {
   sortAt: string;
 };
 
-export type ApprovalSummaryField = { label: string; value: string; emphasis?: "normal" | "strong" | "warning" };
+export type ApprovalSummaryField = {
+  label: string;
+  value: string;
+  emphasis?: "normal" | "strong" | "warning";
+  /** The value names a person: it links to their profile (E-08 §71). */
+  person?: PersonRef;
+};
 
 export type ApprovalWarning = { code: string; message: string; severity: "INFO" | "WARNING" | "CRITICAL" };
 
@@ -133,6 +141,9 @@ export type UnifiedApprovalHistoryEntry = {
   action: string;
   actorName: string | null;
   actorRole: string | null;
+  /** Who acted, and whom they stood in for, when a member did (E-08 §71). */
+  actor: ApprovalPerson | null;
+  onBehalfOf: ApprovalPerson | null;
   occurredAt: string;
   note: string | null;
   step: number | null;
@@ -146,6 +157,10 @@ export type ApprovalStepDTO = {
   decidedBy: string | null;
   decidedAt: string | null;
   onBehalfOf: string | null;
+  decidedByMemberId: string | null;
+  onBehalfOfMemberId: string | null;
+  /** The step is one person — a document's reviewer — rather than a role. */
+  labelMemberId: string | null;
 };
 
 export type UnifiedApprovalDetail = {

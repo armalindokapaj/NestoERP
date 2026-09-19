@@ -60,6 +60,7 @@ export const qaqcApprovalProvider = createCycleProvider({
             workReference: true,
             summary: true,
             project: { select: { id: true, name: true, code: true } },
+            assignedInspectorMemberId: true,
             assignedInspector: { select: { user: { select: { firstName: true, lastName: true } } } },
           },
         });
@@ -81,7 +82,7 @@ export const qaqcApprovalProvider = createCycleProvider({
                 { label: "Project", value: row.project?.name ?? "—" },
                 { label: "Location", value: row.locationText ?? "—" },
                 { label: "Inspected", value: formatDate(row.inspectionDate) },
-                { label: "Inspector", value: `${row.assignedInspector.user.firstName} ${row.assignedInspector.user.lastName}` },
+                { label: "Inspector", value: `${row.assignedInspector.user.firstName} ${row.assignedInspector.user.lastName}`, person: { memberId: row.assignedInspectorMemberId } },
               ],
               description: row.summary,
             },

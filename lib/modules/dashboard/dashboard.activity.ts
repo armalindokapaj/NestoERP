@@ -225,6 +225,7 @@ export async function loadRecentActivityRows(context: UserContext, take = RECENT
       message: true,
       action: true,
       createdAt: true,
+      actorMemberId: true,
       actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
     },
   });
@@ -252,6 +253,7 @@ export async function loadRecentActivityRows(context: UserContext, take = RECENT
       item: {
         id: row.id,
         actor: row.actorMember ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}` : "NESTO",
+        actorMemberId: row.actorMember ? row.actorMemberId : null,
         message: row.message ?? row.action,
         createdAt: formatRelativeTime(row.createdAt),
       },

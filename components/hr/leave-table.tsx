@@ -1,5 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import type { LeaveRequestDTO } from "@/lib/modules/hr/hr.types";
 import { formatDate } from "@/lib/utils/format";
@@ -85,7 +86,11 @@ export function LeaveTable({
       key: "decided",
       label: "Decided by",
       hideBelow: "xl",
-      render: (request) => <span className="text-fg-muted">{request.decidedBy ?? "—"}</span>,
+      render: (request) => (
+        <span className="text-fg-muted">
+          {request.decidedByMemberId ? <PersonLink memberId={request.decidedByMemberId} name={request.decidedByName} /> : "—"}
+        </span>
+      ),
     },
   ];
 

@@ -91,6 +91,7 @@ export async function listWorkers(context: UserContext, query: WorkerListQuery) 
         project: place?.project ?? null,
         site: place?.site ?? null,
         supervisor: place?.supervisor ?? null,
+        supervisorPersonId: place?.supervisorPersonId ?? null,
         employmentStatus: row.employmentStatus,
         accountStatus: accountStatusOf(row.companyMember),
       };
@@ -101,12 +102,12 @@ export async function listWorkers(context: UserContext, query: WorkerListQuery) 
 
 /** Today's crew and main project of each worker on the page — two queries, never one per row (§244). */
 async function currentPlaces(context: UserContext, employeeIds: string[]) {
-  const places = new Map<string, { crew: { id: string; name: string } | null; supervisor: string | null; project: { id: string; name: string; code: string | null } | null; site: { id: string; name: string } | null }>();
+  const places = new Map<string, { crew: { id: string; name: string } | null; supervisor: string | null; supervisorPersonId: string | null; project: { id: string; name: string; code: string | null } | null; site: { id: string; name: string } | null }>();
   if (employeeIds.length === 0) return places;
   const [crews, assignments] = await Promise.all([
     prisma.workforceCrewMember.findMany({
       where: { employeeProfileId: { in: employeeIds }, ...coversDay(), crew: readableCrewWhere(context) },
-      select: { employeeProfileId: true, crew: { select: { id: true, name: true, supervisor: { select: { personProfile: { select: { firstName: true, lastName: true } } } } } } },
+      select: { employeeProfileId: true, crew: { select: { id: true, name: true, supervisor: { select: { personProfileId: true, personProfile: { select: { firstName: true, lastName: true } } } } } } },
     }),
     prisma.employeeProjectAssignment.findMany({
       where: { employeeProfileId: { in: employeeIds }, ...coversDay(), project: workforceProjectWhere(context) },
@@ -114,11 +115,12 @@ async function currentPlaces(context: UserContext, employeeIds: string[]) {
       select: { employeeProfileId: true, project: { select: { id: true, name: true, code: true } }, site: { select: { id: true, name: true } } },
     }),
   ]);
-  const at = (id: string) => places.get(id) ?? places.set(id, { crew: null, supervisor: null, project: null, site: null }).get(id)!;
+  const at = (id: string) => places.get(id) ?? places.set(id, { crew: null, supervisor: null, supervisorPersonId: null, project: null, site: null }).get(id)!;
   for (const row of crews) {
     const place = at(row.employeeProfileId);
     place.crew = { id: row.crew.id, name: row.crew.name };
     place.supervisor = row.crew.supervisor ? personName(row.crew.supervisor.personProfile) : null;
+    place.supervisorPersonId = row.crew.supervisor?.personProfileId ?? null;
   }
   for (const row of assignments) {
     const place = at(row.employeeProfileId);

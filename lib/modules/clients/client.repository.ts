@@ -292,6 +292,7 @@ export async function listClientActivity(
         action: true,
         message: true,
         createdAt: true,
+        actorMemberId: true,
         actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
       },
     }),

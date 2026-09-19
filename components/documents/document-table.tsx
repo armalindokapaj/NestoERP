@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import type { DocumentSummaryDTO } from "@/lib/modules/documents/document.types";
 import { formatDate } from "@/lib/utils/format";
@@ -76,7 +77,11 @@ export function DocumentTable({
       label: "Uploaded by",
       hideBelow: "xl",
       render: (document) => (
-        <span className="text-fg-muted">{document.uploadedBy?.fullName ?? "—"}</span>
+        document.uploadedBy ? (
+          <PersonLink memberId={document.uploadedBy.memberId} name={document.uploadedBy.fullName} />
+        ) : (
+          <span className="text-fg-muted">—</span>
+        )
       ),
     },
     {

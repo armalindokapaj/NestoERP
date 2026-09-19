@@ -4,6 +4,7 @@ import * as React from "react";
 import { Crown, Loader2, MoreHorizontal, UserPlus } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -127,7 +128,7 @@ export function ParticipantsPanel({
             </span>
             <span className="min-w-0 flex-1">
               <span className={cn("flex items-center gap-1 truncate text-table text-fg", !person.active && "text-fg-muted")}>
-                {person.fullName}
+                <PersonLink memberId={person.memberId} name={person.fullName} />
                 {person.role === "ORGANIZER" ? <Crown aria-hidden="true" className="size-3 shrink-0 text-accent-strong" /> : null}
               </span>
               <span className="block truncate text-meta text-fg-subtle">

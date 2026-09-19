@@ -1,5 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { TaskSummaryDTO } from "@/lib/modules/tasks/task.types";
 import { formatDate } from "@/lib/utils/format";
 
@@ -43,7 +44,7 @@ export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
       render: (task) =>
         task.assignee ? (
           <span className="text-fg-muted">
-            {task.assignee.fullName}
+            <PersonLink memberId={task.assignee.memberId} name={task.assignee.fullName} />
             {task.assignee.membershipActive ? null : (
               // Never silently hide an assignee who has left (PRD #11 §174).
               <span className="ml-1 text-meta text-fg-subtle">(inactive)</span>

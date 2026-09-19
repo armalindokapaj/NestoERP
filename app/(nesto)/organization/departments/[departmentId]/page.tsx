@@ -18,6 +18,7 @@ import {
 } from "@/components/organization/department-actions";
 import { POSITION_LABEL } from "@/components/organization/department-labels";
 import { DepartmentMemberProjects } from "@/components/organization/department-member-actions";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
@@ -45,16 +46,6 @@ type Tab = (typeof TABS)[number];
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
 const dateOf = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null);
-
-function PersonName({ person }: { person: { personId: string | null; name: string } }) {
-  return person.personId ? (
-    <Link href={`/people/${person.personId}`} className="font-medium text-fg hover:text-accent-strong hover:underline">
-      {person.name}
-    </Link>
-  ) : (
-    <span className="font-medium text-fg">{person.name}</span>
-  );
-}
 
 async function options(context: UserContext, departmentId: string, position: PositionDTO, company?: string): Promise<CandidateOption[]> {
   const candidates = await listDepartmentCandidates(memberActor(context), departmentId, { position, company, search: undefined });
@@ -148,7 +139,7 @@ async function Overview({ context, department }: { context: UserContext; departm
         <div className="flex flex-wrap items-center gap-3" data-testid="department-head">
           {head ? (
             <>
-              <PersonName person={head} />
+              <PersonLink personId={head.personId} name={head.name} />
               {head.jobTitle ? <span className="text-meta text-fg-muted">{head.jobTitle}</span> : null}
               {head.since ? <span className="text-meta text-fg-subtle">since {dateOf(head.since)}</span> : null}
               {department.capabilities.canAssignHead ? <EndAssignmentButton assignmentId={head.assignmentId} personName={head.name} what={`head of ${department.name}`} /> : null}
@@ -198,7 +189,7 @@ async function Companies({ context, department }: { context: UserContext; depart
         const may = department.capabilities.managerCompanyIds.includes(row.company.id);
         return (
           <div className="flex flex-wrap items-center gap-2">
-            {manager ? <PersonName person={manager} /> : <span className="text-fg-subtle">No manager assigned.</span>}
+            {manager ? <PersonLink personId={manager.personId} name={manager.name} /> : <span className="text-fg-subtle">No manager assigned.</span>}
             {manager && may ? <EndAssignmentButton assignmentId={manager.assignmentId} personName={manager.name} what={`manager of ${department.name} in ${row.company.name}`} /> : null}
             {may ? (
               <AppointButton api={API} target={{ kind: "manager", branchId: row.branch.id }} title={`${manager ? "Replace" : "Assign"} the manager of ${department.name} in ${row.company.name}`} holder={manager?.name ?? null} candidates={managerOptions.get(row.company.id) ?? []} />
@@ -259,7 +250,7 @@ async function Team({ context, department, query }: { context: UserContext; depa
       primary: true,
       render: (member) => (
         <span className="min-w-0">
-          <PersonName person={member.person} />
+          <PersonLink personId={member.person.personId} name={member.person.name} />
           {member.person.jobTitle ? <span className="block text-meta font-normal text-fg-muted">{member.person.jobTitle}</span> : null}
         </span>
       ),
@@ -386,7 +377,9 @@ async function Access({ context, department }: { context: UserContext; departmen
               <tbody className="divide-y divide-line">
                 {grants.map((grant) => (
                   <tr key={grant.id}>
-                    <td className="px-4 py-2">{grant.holder.name}</td>
+                    <td className="px-4 py-2">
+                      <PersonLink userId={grant.holder.userId} name={grant.holder.name} />
+                    </td>
                     <td className="px-4 py-2">{grant.module.label}</td>
                     <td className="px-4 py-2">{grant.scope.company?.name ?? "The whole group"}</td>
                     <td className="px-4 py-2">{grant.accessLevel.charAt(0) + grant.accessLevel.slice(1).toLowerCase()}</td>
@@ -415,7 +408,7 @@ async function Activity({ context, department }: { context: UserContext; departm
         <li key={event.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3" data-testid="department-activity">
           <span className="text-table text-fg">{event.text}</span>
           <span className="text-meta text-fg-subtle">
-            {event.actor ? `${event.actor} · ` : ""}
+            {event.actor ? <><PersonLink userId={event.actorUserId} name={event.actor} /> · </> : null}
             <time dateTime={event.at}>{new Date(event.at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</time>
           </span>
         </li>

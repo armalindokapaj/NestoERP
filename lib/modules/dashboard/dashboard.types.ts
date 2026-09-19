@@ -1,6 +1,7 @@
 import type { WidgetDefinition } from "@/config/widgets";
 import type { KpiDefinition } from "@/config/kpis";
 import type { QuickActionDefinition } from "@/config/quick-actions";
+import type { PersonRef } from "@/components/people/person-link";
 
 /** One row in a list widget. */
 export type WidgetListItem = {
@@ -10,6 +11,8 @@ export type WidgetListItem = {
   meta?: string;
   status?: string;
   href?: string;
+  /** The row is a person: its title leads to their profile (E-08 §71). */
+  person?: PersonRef;
 };
 
 /** One slice of a breakdown widget. */
@@ -43,6 +46,8 @@ export type WidgetApproval = {
 export type WidgetActivityItem = {
   id: string;
   actor: string;
+  /** Null when NESTO itself did it. */
+  actorMemberId: string | null;
   message: string;
   createdAt: string;
   /** The company it happened in, on a view across the group's companies. */

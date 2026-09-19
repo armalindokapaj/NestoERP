@@ -1,9 +1,10 @@
 import { Money } from "@/components/finance/money";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PersonLink } from "@/components/people/person-link";
 import { Wallet } from "lucide-react";
 import type { CompensationDTO } from "@/lib/modules/hr/hr.types";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
 
 /**
  * Effective-dated pay history (PRD #16 §240).
@@ -54,7 +55,7 @@ export function CompensationHistory({ records }: { records: CompensationDTO[] })
               </p>
             </div>
             <p className="text-meta text-fg-subtle">
-              Recorded by {orDash(record.recordedBy)}
+              Recorded by {record.recordedBy ? <PersonLink memberId={record.recordedByMemberId} name={record.recordedBy} /> : "—"}
             </p>
           </div>
 

@@ -104,6 +104,7 @@ export async function listInvitations(
     department: row.departmentId ? (departmentById.get(row.departmentId) ?? null) : null,
     jobTitle: row.jobTitle,
     invitedBy: inviterById.get(row.createdByMemberId) ?? null,
+    invitedByMemberId: inviterById.has(row.createdByMemberId) ? row.createdByMemberId : null,
     invitedAt: row.createdAt.toISOString(),
     expiresAt: row.expiresAt.toISOString(),
     // Derived, so a row nobody has swept still reads as expired (PRD #14 §236).

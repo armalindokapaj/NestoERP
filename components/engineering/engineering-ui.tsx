@@ -2,6 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import { localDate, localTime } from "@/lib/modules/calendar/calendar.time";
 import { dateLabel } from "@/lib/modules/project-planning/planning.dates";
 import { REVIEW_DECISION_LABELS, type PersonRef, type RecordRef, type ReviewDecision } from "@/lib/modules/engineering/engineering.types";
@@ -61,8 +62,9 @@ export function Ref({ value, fallback = "—" }: { value: RecordRef | null | und
   );
 }
 
+/** A member on an engineering record; `PersonRef.id` is the membership id. */
 export function Person({ value, fallback = "Unassigned" }: { value: PersonRef | null | undefined; fallback?: string }) {
-  return value ? <span className="text-fg">{value.name}</span> : <span className="text-fg-subtle">{fallback}</span>;
+  return value ? <PersonLink memberId={value.id} name={value.name} /> : <span className="text-fg-subtle">{fallback}</span>;
 }
 
 export function Metric({ label, value, tone = "default", href, testId }: { label: string; value: number | string; tone?: "default" | "warning" | "danger" | "success"; href?: string; testId?: string }) {

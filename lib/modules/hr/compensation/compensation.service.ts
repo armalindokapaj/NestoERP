@@ -85,6 +85,7 @@ export async function listCompensation(
     isCurrent: row.effectiveTo === null,
     notes: row.notes,
     recordedBy: nameById.get(row.createdByMemberId) ?? null,
+    recordedByMemberId: nameById.has(row.createdByMemberId) ? row.createdByMemberId : null,
     createdAt: row.createdAt.toISOString(),
   }));
 }

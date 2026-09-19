@@ -6,6 +6,7 @@ import { History } from "lucide-react";
 import { EmploymentChanges } from "@/components/hr/employment-changes";
 import { EmployeeTabs } from "@/components/hr/employee-tabs";
 import { DetailGrid, RecordContextHeader } from "@/components/modules/record-header";
+import { PersonLink, membershipHref } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
 import { todayDay } from "@/lib/modules/hr/employment/employment.dates";
 import { workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
@@ -59,13 +60,7 @@ export default async function EmploymentTabPage({ params }: Params) {
             { label: "Job title", value: orDash(employee.jobTitle) },
             {
               label: "Manager",
-              value: employee.manager?.employmentId ? (
-                <Link href={`/hr/employees/${employee.manager.employmentId}`} className="hover:text-accent">
-                  {employee.manager.fullName}
-                </Link>
-              ) : (
-                orDash(employee.manager?.fullName)
-              ),
+              value: employee.manager ? <PersonLink memberId={employee.manager.memberId} name={employee.manager.fullName} /> : "—",
             },
             {
               label: "Work location",
@@ -111,7 +106,7 @@ export default async function EmploymentTabPage({ params }: Params) {
         />
         {employee.memberId ? (
           <div className="mt-4 border-t border-line pt-4">
-            <Link href={`/team/${employee.memberId}`} className="text-table text-accent-strong hover:underline">
+            <Link href={membershipHref(employee.memberId)} className="text-table text-accent-strong hover:underline">
               Open team membership
             </Link>
           </div>

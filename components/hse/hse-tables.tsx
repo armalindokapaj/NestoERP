@@ -3,6 +3,7 @@ import Link from "next/link";
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { PersonLink } from "@/components/people/person-link";
 import {
   actionTypeLabels,
   environmentalCategoryLabels,
@@ -77,7 +78,12 @@ export function InspectionTable({
       key: "assignedInspector",
       label: "Inspector",
       hideBelow: "xl",
-      render: (row) => row.assignedInspector?.fullName ?? "—",
+      render: (row) =>
+        row.assignedInspector ? (
+          <PersonLink memberId={row.assignedInspector.memberId} name={row.assignedInspector.fullName} />
+        ) : (
+          "—"
+        ),
     },
     {
       key: "scheduledDate",
@@ -222,7 +228,11 @@ export function HazardTable({
       label: "Assigned to",
       hideBelow: "xl",
       render: (row) =>
-        row.assignedTo?.fullName ?? <span className="text-warning-strong">Unassigned</span>,
+        row.assignedTo ? (
+          <PersonLink memberId={row.assignedTo.memberId} name={row.assignedTo.fullName} />
+        ) : (
+          <span className="text-warning-strong">Unassigned</span>
+        ),
     },
     {
       key: "dueDate",
@@ -311,7 +321,12 @@ export function IncidentTable({
       key: "investigator",
       label: "Investigator",
       hideBelow: "xl",
-      render: (row) => row.investigator?.fullName ?? <span className="text-fg-subtle">—</span>,
+      render: (row) =>
+        row.investigator ? (
+          <PersonLink memberId={row.investigator.memberId} name={row.investigator.fullName} />
+        ) : (
+          <span className="text-fg-subtle">—</span>
+        ),
     },
     { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
   ];
@@ -480,7 +495,12 @@ export function ActionTable({
       key: "assignedTo",
       label: "Assigned to",
       hideBelow: "xl",
-      render: (row) => row.assignedTo?.fullName ?? "—",
+      render: (row) =>
+        row.assignedTo ? (
+          <PersonLink memberId={row.assignedTo.memberId} name={row.assignedTo.fullName} />
+        ) : (
+          "—"
+        ),
     },
     {
       key: "dueDate",
@@ -551,7 +571,12 @@ export function ToolboxTable({
       key: "conductedBy",
       label: "Conducted by",
       hideBelow: "xl",
-      render: (row) => row.conductedBy?.fullName ?? "—",
+      render: (row) =>
+        row.conductedBy ? (
+          <PersonLink memberId={row.conductedBy.memberId} name={row.conductedBy.fullName} />
+        ) : (
+          "—"
+        ),
     },
     {
       key: "attendedCount",
@@ -603,7 +628,10 @@ export function PermitTable({
       key: "responsible",
       label: "Responsible",
       hideBelow: "xl",
-      render: (row) => row.responsible?.fullName ?? row.requestedBy?.fullName ?? "—",
+      render: (row) => {
+        const person = row.responsible ?? row.requestedBy;
+        return person ? <PersonLink memberId={person.memberId} name={person.fullName} /> : "—";
+      },
     },
     {
       key: "validUntil",
@@ -666,7 +694,13 @@ export function PpeTable({
           <span className="flex flex-col">
             <span className="font-medium text-fg">{row.checkNumber}</span>
             <span className="text-meta text-fg-subtle">
-              {row.subject?.fullName ?? row.subjectWorker?.name ?? row.externalSubjectName ?? "Area spot check"}
+              {row.subject ? (
+                <PersonLink memberId={row.subject.memberId} name={row.subject.fullName} />
+              ) : row.subjectWorker ? (
+                <PersonLink personId={row.subjectWorker.personId} name={row.subjectWorker.name} />
+              ) : (
+                row.externalSubjectName ?? "Area spot check"
+              )}
             </span>
           </span>
         ),
@@ -687,7 +721,12 @@ export function PpeTable({
       key: "checkedBy",
       label: "Checked by",
       hideBelow: "xl",
-      render: (row) => row.checkedBy?.fullName ?? "—",
+      render: (row) =>
+        row.checkedBy ? (
+          <PersonLink memberId={row.checkedBy.memberId} name={row.checkedBy.fullName} />
+        ) : (
+          "—"
+        ),
     },
     {
       key: "failedItems",
@@ -749,7 +788,11 @@ export function ObservationTable({
       label: "Assigned to",
       hideBelow: "xl",
       render: (row) =>
-        row.assignedTo?.fullName ?? <span className="text-warning-strong">Unassigned</span>,
+        row.assignedTo ? (
+          <PersonLink memberId={row.assignedTo.memberId} name={row.assignedTo.fullName} />
+        ) : (
+          <span className="text-warning-strong">Unassigned</span>
+        ),
     },
     {
       key: "dueDate",
@@ -812,7 +855,12 @@ export function StopWorkTable({
       key: "issuedBy",
       label: "Issued by",
       hideBelow: "xl",
-      render: (row) => row.issuedBy?.fullName ?? "—",
+      render: (row) =>
+        row.issuedBy ? (
+          <PersonLink memberId={row.issuedBy.memberId} name={row.issuedBy.fullName} />
+        ) : (
+          "—"
+        ),
     },
     {
       key: "releasedAt",

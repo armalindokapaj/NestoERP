@@ -6,6 +6,7 @@ import { CollaborationPanel } from "@/components/collaboration/collaboration-pan
 import { RecordDocuments } from "@/components/documents/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PriorityBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { TaskActions } from "@/components/tasks/task-actions";
 import { Badge } from "@/components/ui/badge";
 import { can, canAccessModule } from "@/lib/access/can";
@@ -61,16 +62,7 @@ export default async function TaskDetailPage({ params }: Params) {
             label: "Assignee",
             value: task.assignee ? (
               <span className="flex items-center gap-2">
-                {can(context, "team.view") ? (
-                  <Link
-                    href={`/team/${task.assignee.memberId}`}
-                    className="text-fg transition-colors hover:text-accent"
-                  >
-                    {task.assignee.fullName}
-                  </Link>
-                ) : (
-                  task.assignee.fullName
-                )}
+                <PersonLink memberId={task.assignee.memberId} name={task.assignee.fullName} />
                 {task.assignee.membershipActive ? null : <Badge tone="warning">Inactive</Badge>}
               </span>
             ) : (
@@ -196,7 +188,7 @@ export default async function TaskDetailPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Details</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Created by" value={task.creator?.fullName ?? "—"} />
+              <Meta label="Created by" value={task.creator ? <PersonLink memberId={task.creator.memberId} name={task.creator.fullName} /> : "—"} />
               <Meta label="Created" value={formatDateTime(task.createdAt)} />
               <Meta label="Updated" value={formatDateTime(task.updatedAt)} />
               {task.archivedAt ? (
@@ -223,7 +215,7 @@ export default async function TaskDetailPage({ params }: Params) {
                   {activity.data.map((entry) => (
                     <li key={entry.id} className="text-table">
                       <p className="text-fg">
-                        <span className="font-medium">{entry.actor ?? "Someone"}</span>{" "}
+                        {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
                         {entry.message ?? entry.action}
                       </p>
                       <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>

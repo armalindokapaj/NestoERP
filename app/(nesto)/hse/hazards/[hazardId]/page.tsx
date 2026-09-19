@@ -12,6 +12,7 @@ import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
 import { RecordTasks } from "@/components/tasks/record-tasks";
+import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
@@ -67,7 +68,14 @@ export default async function HazardPage({ params }: Params) {
         meta={[
           { label: "Category", value: hazardCategoryLabels[hazard.hazardCategory] },
           { label: "Project", value: hazard.project?.code ?? "Company-wide" },
-          { label: "Assigned to", value: hazard.assignedTo?.fullName ?? "Not assigned" },
+          {
+            label: "Assigned to",
+            value: hazard.assignedTo ? (
+              <PersonLink memberId={hazard.assignedTo.memberId} name={hazard.assignedTo.fullName} />
+            ) : (
+              "Not assigned"
+            ),
+          },
           {
             label: "Due",
             value: hazard.dueDate ? formatDate(hazard.dueDate) : "No date",
@@ -215,12 +223,31 @@ export default async function HazardPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Record</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Reported by" value={orDash(hazard.reportedBy?.fullName ?? null)} />
+              <Meta
+                label="Reported by"
+                value={
+                  hazard.reportedBy ? (
+                    <PersonLink memberId={hazard.reportedBy.memberId} name={hazard.reportedBy.fullName} />
+                  ) : (
+                    "—"
+                  )
+                }
+              />
               <Meta label="Reported" value={formatDateTime(hazard.createdAt)} />
               {hazard.closedAt ? (
                 <Meta
                   label="Closed"
-                  value={`${formatDateTime(hazard.closedAt)}${hazard.closedBy ? ` by ${hazard.closedBy.fullName}` : ""}`}
+                  value={
+                    <>
+                      {formatDateTime(hazard.closedAt)}
+                      {hazard.closedBy ? (
+                        <>
+                          {" "}
+                          by <PersonLink memberId={hazard.closedBy.memberId} name={hazard.closedBy.fullName} />
+                        </>
+                      ) : null}
+                    </>
+                  }
                 />
               ) : null}
               {hazard.closureNote ? (

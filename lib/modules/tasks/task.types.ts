@@ -77,6 +77,7 @@ export type TaskActivityDTO = {
   action: string;
   message: string | null;
   actor: string | null;
+  actorMemberId: string | null;
   createdAt: string;
 };
 

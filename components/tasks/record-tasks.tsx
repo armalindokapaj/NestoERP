@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ListTodo } from "lucide-react";
 
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can, canAccessModule } from "@/lib/access/can";
@@ -85,7 +86,12 @@ export async function RecordTasks({
               </Link>
               <span className="shrink-0 text-meta text-fg-subtle">
                 {taskStatusLabels[task.status]} · {task.dueDate ? formatDate(task.dueDate) : "No due date"}
-                {task.assignee ? ` · ${task.assignee.fullName}` : ""}
+                {task.assignee ? (
+                  <>
+                    {" · "}
+                    <PersonLink memberId={task.assignee.memberId} name={task.assignee.fullName} />
+                  </>
+                ) : null}
               </span>
             </li>
           ))}

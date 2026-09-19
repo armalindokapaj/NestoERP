@@ -83,7 +83,7 @@ export type TimesheetTotals = {
 
 export type TimesheetWarning = { code: string; message: string; severity: "INFO" | "WARNING" | "CRITICAL" };
 
-export type TimesheetHistoryEntry = { id: string; action: string; actorName: string | null; occurredAt: string; note: string | null; tone: "neutral" | "info" | "success" | "warning" | "danger" };
+export type TimesheetHistoryEntry = { id: string; action: string; actorName: string | null; actorMemberId: string | null; occurredAt: string; note: string | null; tone: "neutral" | "info" | "success" | "warning" | "danger" };
 
 export type TimesheetSettingsDTO = {
   weekStartsOn: number;

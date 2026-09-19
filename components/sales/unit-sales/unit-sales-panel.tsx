@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { BadgeCheck, CalendarPlus, CircleX, MoreHorizontal, PauseCircle, PlayCircle, Tag, Undo2, Unlock } from "lucide-react";
 
 import { DetailGrid } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { areaText, structureApi } from "@/components/project-structure/structure-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,19 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
               { label: "Asking price", value: <span className="tabular-nums" data-testid="asking-price">{moneyLabel(sales.askingPrice, sales.currency)}</span> },
               { label: "Price/m²", value: <span className="tabular-nums" data-testid="price-per-sqm">{sales.priceBasis === "FIXED_UNIT_PRICE" ? "—" : perSqmLabel(sales.pricePerSqm, sales.currency)}</span> },
               { label: "Price basis", value: `${UNIT_PRICE_BASIS_LABELS[sales.priceBasis]}${sales.basisArea ? ` · ${areaText(sales.basisArea)}` : ""}` },
-              ...(status === "ON_HOLD" ? [{ label: "Held", value: `${sales.heldBy ?? "—"}${sales.holdUntil ? ` · until ${formatDate(sales.holdUntil)}` : ""}` }] : []),
+              ...(status === "ON_HOLD"
+                ? [
+                    {
+                      label: "Held",
+                      value: (
+                        <>
+                          {sales.heldBy ? <PersonLink memberId={sales.heldByMemberId} name={sales.heldBy} /> : "—"}
+                          {sales.holdUntil ? ` · until ${formatDate(sales.holdUntil)}` : ""}
+                        </>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
           />
           <SaleConditions sales={sales} onOpen={setOpen} />
@@ -226,7 +239,12 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
                   </div>
                   <p className="mt-0.5 text-meta text-fg-subtle">
                     {formatDate(row.reservedAt)} – {formatDate(row.closedAt ?? row.expiresAt)}
-                    {row.salesperson ? ` · ${row.salesperson}` : ""}
+                    {row.salesperson ? (
+                      <>
+                        {" · "}
+                        <PersonLink memberId={row.salespersonMemberId} name={row.salesperson} />
+                      </>
+                    ) : null}
                     {row.extensions.length ? ` · extended ${row.extensions.length === 1 ? "once" : `${row.extensions.length} times`}` : ""}
                   </p>
                   {row.closeReason ? <p className="mt-0.5 text-meta text-fg-muted">{row.closeReason}</p> : null}
@@ -272,7 +290,12 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
                   </p>
                   <p className="text-meta text-fg-subtle">
                     {formatDateTime(row.changedAt)}
-                    {row.changedBy ? ` · ${row.changedBy}` : ""}
+                    {row.changedBy ? (
+                      <>
+                        {" · "}
+                        <PersonLink memberId={row.changedByMemberId} name={row.changedBy} />
+                      </>
+                    ) : null}
                   </p>
                   {row.reason ? <p className="text-meta text-fg-muted">{row.reason}</p> : null}
                 </li>
@@ -296,7 +319,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
                     <span className="font-medium">{UNIT_COMMERCIAL_STATUS_LABELS[row.toStatus]}</span>
                   </p>
                   <p className="text-meta text-fg-subtle">
-                    {formatDateTime(row.changedAt)} · {row.actor ?? COMMERCIAL_SOURCE_LABELS[row.source]}
+                    {formatDateTime(row.changedAt)} · {row.actor ? <PersonLink memberId={row.actorMemberId} name={row.actor} /> : COMMERCIAL_SOURCE_LABELS[row.source]}
                   </p>
                   {row.reason ? <p className="text-meta text-fg-muted">{row.reason}</p> : null}
                 </li>
@@ -411,7 +434,7 @@ function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
           { label: "Deal", value: reservation.deal ? <Link href={`/sales/opportunities/${reservation.deal.id}`} className="font-medium hover:underline" data-testid="reservation-deal">{reservation.deal.name}</Link> : "Hidden" },
           { label: "Reserved", value: formatDate(reservation.reservedAt) },
           { label: "Expires", value: <span data-testid="reservation-expires">{formatDateTime(reservation.expiresAt)}</span> },
-          { label: "Salesperson", value: reservation.salesperson ?? "—" },
+          { label: "Salesperson", value: reservation.salesperson ? <PersonLink memberId={reservation.salespersonMemberId} name={reservation.salesperson} /> : "—" },
           { label: "Agreed price", value: <span className="tabular-nums" data-testid="agreed-price">{moneyLabel(reservation.agreedPrice, reservation.currency)}</span> },
         ]}
       />
@@ -423,7 +446,13 @@ function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
             {reservation.extensions.map((extension) => (
               <li key={extension.extendedAt} className="text-meta text-fg-muted">
                 {formatDate(extension.oldExpiresAt)} → {formatDate(extension.newExpiresAt)}
-                {extension.extendedBy ? ` · ${extension.extendedBy}` : ""} — {extension.reason}
+                {extension.extendedBy ? (
+                  <>
+                    {" · "}
+                    <PersonLink memberId={extension.extendedByMemberId} name={extension.extendedBy} />
+                  </>
+                ) : null}{" "}
+                — {extension.reason}
               </li>
             ))}
           </ul>

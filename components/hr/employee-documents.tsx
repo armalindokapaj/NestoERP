@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { PersonLink } from "@/components/people/person-link";
 import {
   CATEGORY_RULES,
   VERIFICATION_LABELS,
@@ -490,14 +491,14 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
               <dd>{VISIBILITY_LABELS[row.visibility]}</dd>
               <dt className="text-fg-muted">Filed by</dt>
               <dd>
-                {row.createdBy ?? "—"} · {formatDate(row.createdAt)}
+                {row.createdBy ? <PersonLink memberId={row.createdByMemberId} name={row.createdBy} /> : "—"} · {formatDate(row.createdAt)}
               </dd>
               {row.verifiable ? (
                 <>
                   <dt className="text-fg-muted">Verification</dt>
                   <dd>
                     {VERIFICATION_LABELS[row.verificationStatus]}
-                    {row.verifiedBy ? ` by ${row.verifiedBy}` : ""}
+                    {row.verifiedBy ? <> by <PersonLink memberId={row.verifiedByMemberId} name={row.verifiedBy} /></> : null}
                     {row.verifiedAt ? `, ${formatDate(row.verifiedAt)}` : ""}
                     {row.verificationNote ? <span className="block text-meta text-fg-muted">“{row.verificationNote}”</span> : null}
                     {row.newFileSinceVerification ? <span className="block text-meta text-warning-strong">A new file was uploaded after it was verified.</span> : null}

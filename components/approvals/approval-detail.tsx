@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, CircleAlert, Eye, EyeOff, FileText, Info, MessageSquare, RotateCw, TriangleAlert, UserRoundCheck, X } from "lucide-react";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -150,7 +151,7 @@ export function ApprovalDetailView({
           <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-fg-muted">
             <PersonMark name={item.requester.name} />
             <span>
-              Requested by <span className="font-medium text-fg">{item.requester.name}</span>
+              Requested by <PersonLink memberId={item.requester.memberId} name={item.requester.name} />
             </span>
             <span aria-hidden="true">·</span>
             <time dateTime={item.requestedAt}>{formatStamp(item.requestedAt)}</time>
@@ -181,7 +182,7 @@ export function ApprovalDetailView({
 
           {item.onBehalfOf ? (
             <Callout icon={<UserRoundCheck aria-hidden="true" className="size-4" />}>
-              You are standing in for <span className="font-medium">{item.onBehalfOf.name}</span>. Your decision is recorded as yours, on their behalf.
+              You are standing in for <PersonLink memberId={item.onBehalfOf.memberId} name={item.onBehalfOf.name} />. Your decision is recorded as yours, on their behalf.
             </Callout>
           ) : null}
 
@@ -206,7 +207,7 @@ export function ApprovalDetailView({
                       field.emphasis === "strong" ? "font-semibold tabular-nums text-fg" : field.emphasis === "warning" ? "font-medium text-warning-strong" : "text-fg",
                     )}
                   >
-                    {field.value}
+                    {field.person ? <PersonLink {...field.person} name={field.value} /> : field.value}
                   </dd>
                 </div>
               ))}
@@ -320,11 +321,19 @@ function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprova
               {parallel ? step.label.charAt(0) : step.number}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-table font-medium text-fg">{step.label}</span>
+              <span className="block text-table font-medium text-fg">
+                {step.labelMemberId ? <PersonLink memberId={step.labelMemberId} name={step.label} /> : step.label}
+              </span>
               {step.decidedBy ? (
                 <span className="block text-meta text-fg-muted">
-                  {step.decidedBy}
-                  {step.onBehalfOf ? ` for ${step.onBehalfOf}` : ""} · {formatStamp(step.decidedAt)}
+                  <PersonLink memberId={step.decidedByMemberId} name={step.decidedBy} />
+                  {step.onBehalfOf ? (
+                    <>
+                      {" for "}
+                      <PersonLink memberId={step.onBehalfOfMemberId} name={step.onBehalfOf} />
+                    </>
+                  ) : null}{" "}
+                  · {formatStamp(step.decidedAt)}
                 </span>
               ) : null}
             </span>
@@ -450,7 +459,20 @@ function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
               <span aria-hidden="true" className={cn("absolute -left-5 top-1.5 size-[11px] rounded-full ring-4 ring-surface", TONE_DOT[entry.tone])} />
               <p className="text-table font-medium text-fg">{entry.action}</p>
               <p className="text-meta text-fg-muted">
-                {[entry.actorName, formatStamp(entry.occurredAt)].filter(Boolean).join(" · ")}
+                {entry.actor ? (
+                  <>
+                    <PersonLink memberId={entry.actor.memberId} name={entry.actor.name} />
+                    {entry.onBehalfOf ? (
+                      <>
+                        {", for "}
+                        <PersonLink memberId={entry.onBehalfOf.memberId} name={entry.onBehalfOf.name} />
+                      </>
+                    ) : null}
+                    {` · ${formatStamp(entry.occurredAt)}`}
+                  </>
+                ) : (
+                  [entry.actorName, formatStamp(entry.occurredAt)].filter(Boolean).join(" · ")
+                )}
               </p>
               {entry.note ? <PlainText text={entry.note} className="mt-1.5 rounded-lg bg-surface-muted px-3 py-2 text-table text-fg" /> : null}
             </li>

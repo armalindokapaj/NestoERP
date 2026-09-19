@@ -50,6 +50,7 @@ export async function listRecordActivity(
         action: true,
         message: true,
         createdAt: true,
+        actorMemberId: true,
         actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
       },
     }),
@@ -63,6 +64,7 @@ export async function listRecordActivity(
     actor: row.actorMember
       ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}`
       : null,
+    actorMemberId: row.actorMemberId,
     createdAt: row.createdAt.toISOString(),
   }));
 

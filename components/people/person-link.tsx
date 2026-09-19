@@ -23,13 +23,26 @@ export type PersonRef = {
   employeeId?: string | null;
 };
 
-/** Where a reference leads: the profile itself, or the route that finds it. Null when the record names nobody. */
-export function personHref(ref: PersonRef): string | null {
-  if (ref.personId) return `/people/${ref.personId}`;
-  if (ref.memberId) return `/people/member/${ref.memberId}`;
-  if (ref.userId) return `/people/user/${ref.userId}`;
-  if (ref.employeeId) return `/people/employee/${ref.employeeId}`;
+/**
+ * Where a reference leads: the profile itself, or the route that finds it; a
+ * `tab` opens that section of the profile. Null when the record names nobody.
+ */
+export function personHref(ref: PersonRef, tab?: string): string | null {
+  const section = tab ? `?tab=${encodeURIComponent(tab)}` : "";
+  if (ref.personId) return `/people/${ref.personId}${section}`;
+  if (ref.memberId) return `/people/member/${ref.memberId}${section}`;
+  if (ref.userId) return `/people/user/${ref.userId}${section}`;
+  if (ref.employeeId) return `/people/employee/${ref.employeeId}${section}`;
   return null;
+}
+
+/**
+ * A membership's own page on Team, where a login's access in one company is
+ * managed (deactivated, its role changed). An action on the access, not a link
+ * to the person: a name still goes through `PersonLink`.
+ */
+export function membershipHref(memberId: string): string {
+  return `/team/${memberId}`;
 }
 
 export type PersonLinkProps = PersonRef & {
@@ -46,14 +59,16 @@ export type PersonLinkProps = PersonRef & {
    * link; `"hidden"` shows "Restricted user" where even the name is withheld.
    */
   restricted?: boolean | "hidden";
+  /** Opens a section of the profile, e.g. `workforce` from a crew list. */
+  tab?: string;
   className?: string;
 };
 
-export function PersonLink({ name, photoUrl, variant = "name", detail, restricted, className, ...ref }: PersonLinkProps) {
+export function PersonLink({ name, photoUrl, variant = "name", detail, restricted, tab, className, ...ref }: PersonLinkProps) {
   if (restricted === "hidden") return <span className={cn("text-fg-muted", className)}>Restricted user</span>;
   const label = name?.trim() || "Unknown";
   const parts = label.split(/\s+/);
-  const href = restricted ? null : personHref(ref);
+  const href = restricted ? null : personHref(ref, tab);
   const title = detail ? `${label} — ${detail}` : label;
 
   const avatar = variant === "name" ? null : <Avatar firstName={parts[0]} lastName={parts.length > 1 ? parts[parts.length - 1] : null} src={photoUrl ?? null} size={variant === "avatar" ? "md" : "sm"} />;

@@ -1,4 +1,5 @@
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { ContractApprovalDTO } from "@/lib/modules/contracts/contract.types";
 import { formatDateTime } from "@/lib/utils/format";
 
@@ -34,12 +35,14 @@ export function ContractApprovalHistory({
           <dl className="grid gap-x-6 gap-y-1 text-table sm:grid-cols-2">
             <div className="flex gap-2">
               <dt className="text-fg-subtle">Submitted by</dt>
-              <dd className="text-fg">{approval.submittedBy?.fullName ?? "—"}</dd>
+              <dd className="text-fg">
+                {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : "—"}
+              </dd>
             </div>
             <div className="flex gap-2">
               <dt className="text-fg-subtle">Decided by</dt>
               <dd className="text-fg">
-                {approval.decidedBy?.fullName ?? "Waiting for a decision"}
+                {approval.decidedBy ? <PersonLink memberId={approval.decidedBy.memberId} name={approval.decidedBy.fullName} /> : "Waiting for a decision"}
               </dd>
             </div>
             {approval.decidedAt ? (

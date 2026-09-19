@@ -6,6 +6,7 @@ import { QaqcKpiGrid } from "@/components/qaqc/qaqc-kpis";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PersonLink } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -73,7 +74,16 @@ export default async function QaqcOverviewPage() {
                 id: row.id,
                 href: `/qaqc/inspections/${row.id}`,
                 title: `${row.inspectionNumber} — ${row.project?.code ?? "Company"}`,
-                meta: `${inspectionResultLabels[row.result]} · ${row.assignedInspector?.fullName ?? "Unassigned"}`,
+                meta: (
+                  <>
+                    {inspectionResultLabels[row.result]} ·{" "}
+                    {row.assignedInspector ? (
+                      <PersonLink memberId={row.assignedInspector.memberId} name={row.assignedInspector.fullName} />
+                    ) : (
+                      "Unassigned"
+                    )}
+                  </>
+                ),
               }))}
             />
           ) : null}
@@ -135,7 +145,7 @@ function AttentionPanel({
 }: {
   title: string;
   href: string;
-  rows: { id: string; href: string; title: string; meta: string }[];
+  rows: { id: string; href: string; title: string; meta: React.ReactNode }[];
   emptyLabel: string;
 }) {
   return (

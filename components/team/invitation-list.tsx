@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { MailCheck, MailWarning, RotateCw, X } from "lucide-react";
 
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cancelInvitationAction, resendInvitationAction } from "@/lib/actions/team";
 import type { InvitationDTO } from "@/lib/modules/team/team.types";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
 
 /**
  * Whether the latest email for an open invitation arrived at the provider.
@@ -122,7 +123,7 @@ export function InvitationList({
                   {invite.jobTitle ? ` · ${invite.jobTitle}` : ""}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  Invited {formatDate(invite.invitedAt)} by {orDash(invite.invitedBy)} ·{" "}
+                  Invited {formatDate(invite.invitedAt)} by {invite.invitedBy ? <PersonLink memberId={invite.invitedByMemberId} name={invite.invitedBy} /> : "—"} ·{" "}
                   {expired ? "Expired" : "Expires"} {formatDate(invite.expiresAt)}
                 </p>
                 {open || expired ? <DeliveryNote delivery={invite.delivery} /> : null}

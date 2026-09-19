@@ -1,5 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { OpportunitySummaryDTO } from "@/lib/modules/sales/sales.types";
 import { formatDate } from "@/lib/utils/format";
 import { formatAmount } from "./sales-format";
@@ -43,7 +44,7 @@ export function OpportunityTable({
       hideBelow: "xl",
       render: (row) => (
         <span className={row.owner.active ? undefined : "text-fg-subtle"}>
-          {row.owner.fullName}
+          <PersonLink memberId={row.owner.memberId} name={row.owner.fullName} />
           {row.owner.active ? "" : " (inactive)"}
         </span>
       ),

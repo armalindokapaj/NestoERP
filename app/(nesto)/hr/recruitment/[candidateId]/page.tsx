@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { CandidateActions } from "@/components/hr/recruitment/candidate-actions";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
@@ -85,7 +86,7 @@ export default async function CandidatePage({ params }: Props) {
             <Row label="Department" value={candidate.targetDepartment?.name} />
             <Row label="Role" value={candidate.targetRole?.label} />
             <Row label="Job title" value={candidate.targetJobTitle} />
-            <Row label="Hiring manager" value={candidate.hiringManager?.name} />
+            <Row label="Hiring manager" value={candidate.hiringManager ? <PersonLink userId={candidate.hiringManager.userId} name={candidate.hiringManager.name} /> : null} />
             <Row label="Interview stage" value={candidate.interviewStage} />
             {candidate.decidedAt ? <Row label="Decided" value={formatDate(candidate.decidedAt)} /> : null}
           </dl>

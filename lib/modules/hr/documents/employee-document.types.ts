@@ -218,12 +218,14 @@ export type EmployeeDocumentDTO = {
   supersedes: { id: string; title: string } | null;
   amends: { id: string; title: string } | null;
   verifiedBy: string | null;
+  verifiedByMemberId: string | null;
   verifiedAt: string | null;
   verificationNote: string | null;
   /** A file was uploaded after the decision; that file has not been checked. */
   newFileSinceVerification: boolean;
   file: EmployeeDocumentFileDTO;
   createdBy: string | null;
+  createdByMemberId: string | null;
   createdAt: string;
   /** What a change must name, so a stale page is told rather than overwriting (§192). */
   version: number;

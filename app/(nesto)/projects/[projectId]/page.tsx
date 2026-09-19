@@ -6,6 +6,7 @@ import { Megaphone, TriangleAlert } from "lucide-react";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PriorityBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -137,16 +138,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
             label: "Project manager",
             value: project.projectManager ? (
               <span className="flex items-center gap-2">
-                {can(context, "team.view") ? (
-                  <Link
-                    href={`/team/${project.projectManager.memberId}`}
-                    className="text-fg transition-colors hover:text-accent"
-                  >
-                    {project.projectManager.fullName}
-                  </Link>
-                ) : (
-                  project.projectManager.fullName
-                )}
+                <PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />
                 {!project.projectManager.membershipActive ? (
                   <Badge tone="warning">Inactive</Badge>
                 ) : null}
@@ -435,7 +427,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
                   className="mt-1.5 size-1.5 shrink-0 rounded-full bg-line-strong"
                 />
                 <p className="text-table text-fg">
-                  <span className="font-medium">{entry.actor ?? "NESTO"}</span> {entry.message}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">NESTO</span>} {entry.message}
                   <span className="ml-2 text-meta text-fg-subtle">
                     {formatDate(entry.createdAt)}
                   </span>

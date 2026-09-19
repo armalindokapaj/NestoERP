@@ -49,7 +49,7 @@ export function TimesheetWarnings({ warnings, className }: { warnings: Timesheet
 }
 
 /** A figure in the week summary: a label above a large tabular number. */
-export function SummaryFigure({ label, value, tone, testId }: { label: string; value: string; tone?: "muted" | "warning"; testId?: string }) {
+export function SummaryFigure({ label, value, tone, testId }: { label: string; value: React.ReactNode; tone?: "muted" | "warning"; testId?: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-meta text-fg-muted">{label}</dt>

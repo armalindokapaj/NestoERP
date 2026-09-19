@@ -7,6 +7,7 @@ import { ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -84,7 +85,7 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
               <p className="text-meta text-fg-subtle">
                 {approval.client?.name ?? "No client"}
                 {approval.project ? ` · ${approval.project.code}` : ""} · submitted by{" "}
-                {approval.submittedBy?.fullName ?? "somebody"}{" "}
+                {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : "somebody"}{" "}
                 {formatDateTime(approval.submittedAt)}
               </p>
             </div>

@@ -1,6 +1,7 @@
 import { History } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { PersonLink } from "@/components/people/person-link";
 import type { UserContext } from "@/lib/context/types";
 import * as activity from "@/lib/modules/hse/hse.activity";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -38,7 +39,9 @@ export async function HseActivityFeed({
       {result.data.map((entry) => (
         <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-2 p-4">
           <p className="min-w-0 text-table text-fg">
-            <span className="font-medium">{entry.actor ?? "Somebody"}</span>{" "}
+            <span className="font-medium">
+              {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : "Somebody"}
+            </span>{" "}
             <span className="text-fg-muted">{entry.message ?? entry.action}</span>
           </p>
           <time className="shrink-0 text-meta text-fg-subtle" dateTime={entry.createdAt}>

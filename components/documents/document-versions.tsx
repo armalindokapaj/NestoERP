@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Check, Download, History, Loader2, Send, Upload, X } from "lucide-react";
 
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -227,7 +228,7 @@ function VersionRow({
             {version.fileName ?? "Unnamed file"} · {formatFileSize(version.sizeBytes)}
           </p>
           <p className="text-meta text-fg-subtle">
-            {version.uploadedBy?.fullName ?? "Someone"} · {formatDateTime(version.createdAt)}
+            {version.uploadedBy ? <PersonLink memberId={version.uploadedBy.memberId} name={version.uploadedBy.fullName} /> : "Someone"} · {formatDateTime(version.createdAt)}
           </p>
           {version.changeNote ? (
             <p className="mt-2 whitespace-pre-wrap text-table text-fg">{version.changeNote}</p>
@@ -254,7 +255,7 @@ function VersionRow({
             <li key={review.id} className="rounded-md border border-line bg-surface-muted px-3 py-2 text-table">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-fg">
-                  <span className="font-medium">{review.reviewer.fullName}</span>
+                  <PersonLink memberId={review.reviewer.memberId} name={review.reviewer.fullName} />
                   <span className="text-fg-muted"> · {REVIEW_STATUS[review.status]}</span>
                 </p>
                 {review.canDecide ? (
@@ -271,7 +272,7 @@ function VersionRow({
                 ) : null}
               </div>
               <p className="text-meta text-fg-subtle">
-                Requested by {review.requestedBy.fullName} · {formatDateTime(review.requestedAt)}
+                Requested by <PersonLink memberId={review.requestedBy.memberId} name={review.requestedBy.fullName} /> · {formatDateTime(review.requestedAt)}
                 {review.decidedAt ? ` · decided ${formatDateTime(review.decidedAt)}` : ""}
               </p>
               {review.dueDate && review.status === "PENDING" ? <p className="text-meta text-fg-subtle">Decision needed by {review.dueDate}</p> : null}

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Bell, BellOff, MessageSquare, Pencil, RotateCw, Trash2 } from "lucide-react";
 
+import { PersonLink } from "@/components/people/person-link";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -271,7 +272,7 @@ function CommentBody({ comment }: { comment: CommentDTO }) {
       {comment.segments.map((segment, index) =>
         segment.type === "mention" ? (
           <span key={index} className="rounded bg-accent-soft px-1 font-medium text-accent-strong">
-            @{segment.name}
+            @<PersonLink memberId={segment.memberId} name={segment.name} />
           </span>
         ) : (
           <React.Fragment key={index}>{segment.text}</React.Fragment>
@@ -322,7 +323,7 @@ function CommentItem({
       <Avatar firstName={first} lastName={rest.join(" ")} src={comment.author.avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-table font-semibold text-fg">{comment.author.fullName}</span>
+          <PersonLink memberId={comment.author.memberId} name={comment.author.fullName} className="text-table" />
           <time dateTime={comment.createdAt} className="text-meta text-fg-subtle" title={comment.createdAt}>
             {relative ?? ""}
           </time>

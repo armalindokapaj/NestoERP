@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { RecordHeader } from "@/components/modules/record-header";
 import { LeadActions } from "@/components/sales/lead-actions";
+import { PersonLink } from "@/components/people/person-link";
 import { SalesRecordDocuments } from "@/components/sales/record-documents";
 import { SalesActivityFeed } from "@/components/sales/sales-activity";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -38,9 +39,14 @@ export default async function LeadPage({ params }: Params) {
           { label: "Source", value: leadSourceLabels[lead.source] },
           {
             label: "Owner",
-            value: lead.owner
-              ? `${lead.owner.fullName}${lead.owner.active ? "" : " (inactive)"}`
-              : "Unassigned",
+            value: lead.owner ? (
+              <>
+                <PersonLink memberId={lead.owner.memberId} name={lead.owner.fullName} />
+                {lead.owner.active ? "" : " (inactive)"}
+              </>
+            ) : (
+              "Unassigned"
+            ),
           },
           {
             label: "Estimated value",

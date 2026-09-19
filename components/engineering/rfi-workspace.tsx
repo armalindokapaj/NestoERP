@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ListPlus, MessageCircleQuestionMark, Paperclip, X } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -73,7 +74,15 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
         </h2>
         <article className="border-l-2 border-accent pl-4">
           <p className="nesto-eyebrow text-fg-subtle">
-            Question{rfi.raisedByText ? ` · raised by ${rfi.raisedByText}` : rfi.raisedBy ? ` · raised by ${rfi.raisedBy.name}` : ""}
+            Question
+            {rfi.raisedByText ? (
+              ` · raised by ${rfi.raisedByText}`
+            ) : rfi.raisedBy ? (
+              <>
+                {" · raised by "}
+                <PersonLink memberId={rfi.raisedBy.id} name={rfi.raisedBy.name} />
+              </>
+            ) : null}
           </p>
           <p className="mt-2 whitespace-pre-wrap text-body leading-relaxed text-fg" data-testid="rfi-question">
             {rfi.question}
@@ -86,7 +95,7 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
             {rfi.responses.map((response) => (
               <li key={response.id} className={cn("rounded-lg border px-4 py-3", response.clarificationRequest ? "border-warning/40 bg-warning-soft/40" : "border-line bg-surface-muted/60")} data-testid={response.clarificationRequest ? "rfi-clarification" : "rfi-response"}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-table font-medium text-fg">{response.by?.name ?? "Former member"}</span>
+                  <span className="text-table font-medium text-fg">{response.by ? <PersonLink memberId={response.by.id} name={response.by.name} /> : "Former member"}</span>
                   <span className="text-meta text-fg-subtle">{formatDateTime(response.at, zone)}</span>
                   {response.clarificationRequest ? <Badge tone="warning">Clarification requested</Badge> : response.final ? <Badge tone="success">Final response</Badge> : <Badge tone="default">Response</Badge>}
                 </div>

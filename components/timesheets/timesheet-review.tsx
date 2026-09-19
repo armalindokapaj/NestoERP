@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { PersonLink } from "@/components/people/person-link";
 import { formatMinutes, weekLabel } from "@/lib/modules/timesheets/timesheet.time";
 import type { TimesheetFormOptions, TimesheetWeekDTO } from "@/lib/modules/timesheets/timesheet.types";
 import { failureMessage, timesheetApi } from "./timesheet-api";
@@ -28,6 +29,7 @@ const NO_OPTIONS: TimesheetFormOptions = { projects: [], recent: [] };
 export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; discussion: React.ReactNode }) {
   const router = useRouter();
   const toast = useToast();
+  const approver = week.approver ?? week.expectedApprover;
   const [reopening, setReopening] = React.useState(false);
   const [note, setNote] = React.useState("");
   const [pending, setPending] = React.useState(false);
@@ -58,7 +60,7 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
         <div className="min-w-0 flex-1">
           <p className="text-meta text-fg-muted">Timesheet</p>
           <h1 className="text-page font-semibold text-fg">
-            {week.member.name} <span className="font-normal text-fg-muted">· {weekLabel(week.periodStart)}</span>
+            <PersonLink memberId={week.member.memberId} name={week.member.name} /> <span className="font-normal text-fg-muted">· {weekLabel(week.periodStart)}</span>
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -90,7 +92,7 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
 
       {week.decisionNote && (week.status === "RETURNED" || week.status === "REJECTED") ? (
         <div className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-table text-fg" role="status">
-          <p className="font-medium">{week.status === "RETURNED" ? "Returned for correction" : "Rejected"}{week.decidedBy ? ` by ${week.decidedBy.name}` : ""}</p>
+          <p className="font-medium">{week.status === "RETURNED" ? "Returned for correction" : "Rejected"}{week.decidedBy ? <> by <PersonLink memberId={week.decidedBy.memberId} name={week.decidedBy.name} /></> : null}</p>
           <p className="mt-1 whitespace-pre-line text-fg-muted">“{week.decisionNote}”</p>
         </div>
       ) : null}
@@ -102,7 +104,7 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
           <SummaryFigure label="Billable" value={formatMinutes(week.totals.billableMinutes)} />
           <SummaryFigure label="Non-billable" value={formatMinutes(week.totals.nonBillableMinutes)} />
           <SummaryFigure label="Overtime" value={formatMinutes(week.totals.overtimeMinutes)} tone={week.totals.overtimeMinutes > 0 ? "warning" : "muted"} />
-          <SummaryFigure label="Approver" value={week.approver?.name ?? week.expectedApprover?.name ?? "—"} tone="muted" />
+          <SummaryFigure label="Approver" value={approver ? <PersonLink memberId={approver.memberId} name={approver.name} /> : "—"} tone="muted" />
         </dl>
         {week.totals.projects.length ? (
           <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-line pt-3 text-table" aria-label="Time by project">

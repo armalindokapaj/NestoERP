@@ -105,6 +105,7 @@ export type WorkerSummaryDTO = WorkerRef & {
   site: Ref | null;
   /** The crew's supervisor — the foreman — who may have no login either (§31, §32). */
   supervisor: string | null;
+  supervisorPersonId: string | null;
   employmentStatus: EmploymentStatus;
   accountStatus: AccountStatus;
 };

@@ -474,7 +474,7 @@ export async function getDepartmentActivity(actor: DepartmentActor, groupDepartm
   const assignmentIds = (await prisma.departmentAssignment.findMany({ where: { groupDepartmentId: department.id }, select: { id: true } })).map((row) => row.id);
   const events = await prisma.auditEvent.findMany({
     where: { OR: [{ entityType: "GroupDepartment", entityId: department.id }, ...(assignmentIds.length ? [{ entityType: "DepartmentAssignment", entityId: { in: assignmentIds } }] : [])] },
-    select: { id: true, occurredAt: true, actionKey: true, beforeJson: true, afterJson: true, actorDisplayNameSnapshot: true, companyId: true },
+    select: { id: true, occurredAt: true, actionKey: true, beforeJson: true, afterJson: true, actorUserId: true, actorDisplayNameSnapshot: true, companyId: true },
     orderBy: { occurredAt: "desc" },
     take: limit,
   });
@@ -486,6 +486,7 @@ export async function getDepartmentActivity(actor: DepartmentActor, groupDepartm
       actionKey: event.actionKey,
       text: describe(event.actionKey, event.beforeJson as Json, event.afterJson as Json, department.name),
       actor: event.actorDisplayNameSnapshot,
+      actorUserId: event.actorUserId,
     }));
 }
 

@@ -237,6 +237,7 @@ export async function listTaskActivity(
         action: true,
         message: true,
         createdAt: true,
+        actorMemberId: true,
         actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
       },
     }),

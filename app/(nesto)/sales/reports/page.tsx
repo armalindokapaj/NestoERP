@@ -6,6 +6,7 @@ import { ChartColumn } from "lucide-react";
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { ModulePage } from "@/components/modules/module-page";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
@@ -287,7 +288,7 @@ async function OwnerReport({
       primary: true,
       render: (row) => (
         <span className={row.owner.active ? undefined : "text-fg-subtle"}>
-          {row.owner.fullName}
+          <PersonLink memberId={row.owner.memberId} name={row.owner.fullName} />
           {row.owner.active ? "" : " (inactive)"}
         </span>
       ),

@@ -42,6 +42,7 @@ export type AssignmentRowDTO = {
   /** HR's view only. */
   note: string | null;
   createdBy: string | null;
+  createdByUserId: string | null;
   supersededAt: string | null;
   correctsId: string | null;
   correctionReason: string | null;
@@ -58,6 +59,7 @@ export type StatusRowDTO = {
   source: EmploymentHistorySource;
   document: HistoryDocumentDTO | null;
   createdBy: string | null;
+  createdByUserId: string | null;
   supersededAt: string | null;
   correctsId: string | null;
   correctionReason: string | null;
@@ -70,6 +72,7 @@ export type ScheduledChangeDTO = {
   status: EmploymentChangeStatus;
   summary: string;
   requestedBy: string | null;
+  requestedByUserId: string | null;
   createdAt: string;
   failureReason: string | null;
   cancelReason: string | null;
@@ -92,6 +95,7 @@ export type TimelineEventDTO = {
   document: HistoryDocumentDTO | null;
   /** HR's view only (E-03 §126 "created by if privileged"). */
   createdBy: string | null;
+  createdByUserId: string | null;
   corrected: boolean;
 };
 

@@ -256,6 +256,7 @@ function assignmentDTO(row: AssignmentRecord, hr: boolean, documents: Map<string
     document: row.sourceDocumentId ? (documents.get(row.sourceDocumentId) ?? null) : null,
     note: hr ? row.note : null,
     createdBy: hr && row.createdByUserId ? (names.get(row.createdByUserId) ?? null) : null,
+    createdByUserId: hr && row.createdByUserId && names.has(row.createdByUserId) ? row.createdByUserId : null,
     supersededAt: hr && row.supersededAt ? row.supersededAt.toISOString() : null,
     correctsId: hr ? row.correctsId : null,
     correctionReason: hr ? row.correctionReason : null,
@@ -273,6 +274,7 @@ function statusDTO(row: StatusRecord, hr: boolean, privateReasons: boolean, docu
     source: row.source,
     document: row.sourceDocumentId ? (documents.get(row.sourceDocumentId) ?? null) : null,
     createdBy: hr && row.createdByUserId ? (names.get(row.createdByUserId) ?? null) : null,
+    createdByUserId: hr && row.createdByUserId && names.has(row.createdByUserId) ? row.createdByUserId : null,
     supersededAt: hr && row.supersededAt ? row.supersededAt.toISOString() : null,
     correctsId: hr ? row.correctsId : null,
     correctionReason: hr ? row.correctionReason : null,
@@ -291,6 +293,7 @@ function scheduledDTO(
     status: row.status,
     summary: summarizePayload(row.type, row.payload),
     requestedBy: names.get(row.requestedByUserId) ?? null,
+    requestedByUserId: names.has(row.requestedByUserId) ? row.requestedByUserId : null,
     createdAt: row.createdAt.toISOString(),
     failureReason: row.failureReason,
     cancelReason: row.cancelReason,
@@ -360,6 +363,7 @@ function buildTimeline(
       changes,
       document: row.sourceDocumentId ? (documents.get(row.sourceDocumentId) ?? null) : null,
       createdBy: hr && row.createdByUserId ? (names.get(row.createdByUserId) ?? null) : null,
+      createdByUserId: hr && row.createdByUserId && names.has(row.createdByUserId) ? row.createdByUserId : null,
       corrected: hr && row.source === "CORRECTION",
     });
   });
@@ -382,6 +386,7 @@ function buildTimeline(
       changes: previous ? [{ label: "Status", from: employmentStatusLabels[previous.status], to: employmentStatusLabels[row.status] }] : [],
       document: row.sourceDocumentId ? (documents.get(row.sourceDocumentId) ?? null) : null,
       createdBy: hr && row.createdByUserId ? (names.get(row.createdByUserId) ?? null) : null,
+      createdByUserId: hr && row.createdByUserId && names.has(row.createdByUserId) ? row.createdByUserId : null,
       corrected: hr && row.source === "CORRECTION",
     });
   });

@@ -1,5 +1,6 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { accountStatusLabels, employmentTypeLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
 import type { EmployeeSummaryDTO } from "@/lib/modules/hr/hr.types";
 import { formatDate, orDash } from "@/lib/utils/format";
@@ -57,7 +58,9 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
       label: "Manager",
       hideBelow: "xl",
       render: (employee) => (
-        <span className="text-fg-muted">{orDash(employee.manager?.fullName)}</span>
+        <span className="text-fg-muted">
+          {employee.manager ? <PersonLink memberId={employee.manager.memberId} name={employee.manager.fullName} /> : "—"}
+        </span>
       ),
     },
     {

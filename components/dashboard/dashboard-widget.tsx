@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Building2, MapPin, TriangleAlert } from "lucide-react";
 
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import { widgetSpanClasses } from "@/components/dashboard/dashboard-grid";
 import type { AlertPriority, ResolvedWidget } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
@@ -87,7 +88,9 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
           {payload.items.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
               <div className="min-w-0">
-                {item.href ? (
+                {item.person ? (
+                  <PersonLink {...item.person} name={item.title} detail={item.subtitle} className="block truncate text-table" />
+                ) : item.href ? (
                   <Link
                     href={item.href}
                     className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
@@ -209,7 +212,7 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
               />
               <div className="min-w-0">
                 <p className="text-table text-fg">
-                  <span className="font-medium">{item.actor}</span> {item.message}
+                  {item.actorMemberId ? <PersonLink memberId={item.actorMemberId} name={item.actor} /> : <span className="font-medium">{item.actor}</span>} {item.message}
                 </p>
                 <p className="text-meta text-fg-subtle">{item.context ? `${item.createdAt} · ${item.context}` : item.createdAt}</p>
               </div>

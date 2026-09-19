@@ -1,6 +1,7 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { ProgressActions } from "@/components/hr/progress-actions";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { PersonLink } from "@/components/people/person-link";
 import type { ProgressKind, ProgressRow } from "@/lib/modules/hr/employees/progress.service";
 import { formatDate, orDash } from "@/lib/utils/format";
 
@@ -33,7 +34,7 @@ export function ProgressTable({
       key: "manager",
       label: "Manager",
       hideBelow: "xl",
-      render: (row) => <span className="text-fg-muted">{orDash(row.manager)}</span>,
+      render: (row) => <span className="text-fg-muted">{row.manager ? <PersonLink memberId={row.managerMemberId} name={row.manager} /> : "—"}</span>,
     },
     {
       key: "date",

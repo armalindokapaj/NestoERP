@@ -7,9 +7,10 @@ import { BudgetActions } from "@/components/finance/budget-actions";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
 import { Money, Variance } from "@/components/finance/money";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
 import { budgetBreadcrumbs, budgetLabel, loadBudget } from "./budget-context";
 import { FinanceRecordTabs } from "../../invoices/[invoiceId]/record-tabs";
 
@@ -179,7 +180,7 @@ export default async function BudgetDetailPage({ params }: Params) {
                   label: "Approved",
                   value: budget.approvedAt ? formatDate(budget.approvedAt) : "—",
                 },
-                { label: "Drafted by", value: orDash(budget.createdBy?.fullName) },
+                { label: "Drafted by", value: budget.createdBy ? <PersonLink memberId={budget.createdBy.memberId} name={budget.createdBy.fullName} /> : "—" },
               ]}
             />
           </section>
