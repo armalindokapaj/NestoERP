@@ -20,15 +20,20 @@ import { seedArmaarPeople } from "./access";
 import { seedArmaarCredentials } from "./credentials";
 import { seedArmaarEngineering } from "./engineering";
 import { seedArmaarFinance } from "./finance";
+import { seedArmaarInventory } from "./inventory";
 import { seedArmaarLegal } from "./legal";
 import { seedArmaarOperations } from "./operations";
 import { seedArmaarOrganization } from "./organization";
+import { seedArmaarQuality } from "./quality";
 import { seedArmaarProjects } from "./projects";
 import { ARMAAR_GROUP_ID } from "./records";
+import { seedArmaarSafety } from "./safety";
 import { seedArmaarSales } from "./sales";
 import { seedArmaarDocumentReviews, seedArmaarSchedule } from "./schedule";
+import { seedArmaarSite } from "./site";
 import { seedArmaarSupply } from "./supply";
 import { seedArmaarTasks } from "./tasks";
+import { seedArmaarTimesheets } from "./timesheets";
 import { seedArmaarUnits } from "./units";
 import { verifyDemoTenant } from "./verify";
 import { seedArmaarWorkers, seedArmaarWorkforce } from "./workforce";
@@ -70,18 +75,26 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const units = await seedArmaarUnits(prisma);
   const sales = await seedArmaarSales(prisma, units);
   const operations = await seedArmaarOperations(prisma);
-  // D-02: the rest of the supply chain, and the engineering record of Tirana Lake.
-  const supply = await seedArmaarSupply(prisma);
-  const engineering = await seedArmaarEngineering(prisma);
-  const tasks = await seedArmaarTasks(prisma);
-  // D-02: Legal's parties, obligations and contracts; invoices, expenses and what paid them; the diary.
-  const legal = await seedArmaarLegal(prisma);
-  const finance = await seedArmaarFinance(prisma);
-  const schedule = await seedArmaarSchedule(prisma);
   // Where the workers work, with whom, and their days on site (E-04).
   const workforce = await seedArmaarWorkforce(prisma);
   // Employee files and qualifications: contracts, licences, what waits for HR and what runs out (E-02).
   const credentials = await seedArmaarCredentials(prisma);
+
+  // D-02, after the workforce it names (crews on the daily log, workers at the toolbox talks):
+  // the rest of the supply chain and Tirana Lake's engineering record, the tasks behind them;
+  // Legal's parties, obligations and contracts; invoices, expenses and what paid them; the diary;
+  // then the site — safety, quality, stock, the daily log that refers to them, and the week's hours.
+  const supply = await seedArmaarSupply(prisma);
+  const engineering = await seedArmaarEngineering(prisma);
+  const tasks = await seedArmaarTasks(prisma);
+  const legal = await seedArmaarLegal(prisma);
+  const finance = await seedArmaarFinance(prisma);
+  const schedule = await seedArmaarSchedule(prisma);
+  const safety = await seedArmaarSafety(prisma);
+  const quality = await seedArmaarQuality(prisma);
+  const inventory = await seedArmaarInventory(prisma);
+  const site = await seedArmaarSite(prisma);
+  const timesheets = await seedArmaarTimesheets(prisma);
 
   // Every document has its first version, every company its storage quota and usage (PRD #29).
   if (shared) {
@@ -115,6 +128,11 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
     finance,
     schedule,
     reviews,
+    safety,
+    quality,
+    inventory,
+    site,
+    timesheets,
     records: await prisma.demoRecord.count({ where: { parentGroupId: ARMAAR_GROUP_ID } }),
   };
 }
@@ -132,6 +150,8 @@ export function describeArmaar(counts: Awaited<ReturnType<typeof seedArmaar>>): 
     `✓ ARMAAR legal: ${counts.legal.contracts} contracts besides the sales, ${counts.legal.parties} parties, ${counts.legal.obligations} obligations, ${counts.legal.amendments} amendments`,
     `✓ ARMAAR finance: ${counts.finance.invoices} invoices on installments, ${counts.finance.expenses} expenses, ${counts.finance.disbursements} disbursements, ${counts.finance.commitments} commitments`,
     `✓ ARMAAR diary: ${counts.schedule.meetings} meetings, ${counts.schedule.events} calendar events, ${counts.reviews} document reviews`,
+    `✓ ARMAAR site: ${counts.site.logs} daily logs on Tirana Lake; HSE ${counts.safety.inspections} inspections, ${counts.safety.hazards} hazards, ${counts.safety.actions} actions, ${counts.safety.talks} toolbox talks, ${counts.safety.incidents} incidents, ${counts.safety.permits} permits; QA/QC ${counts.quality.inspections} inspections, ${counts.quality.ncrs} NCRs, ${counts.quality.actions} corrective actions, ${counts.quality.defects} defects`,
+    `✓ ARMAAR stock and time: ${counts.inventory.items} items in ${counts.inventory.warehouses} stores, ${counts.inventory.movements} stock movements; ${counts.timesheets.weeks} timesheets, ${counts.timesheets.hours} hours logged`,
     `✓ ARMAAR provenance: ${counts.records} demo records; public facts match the source`,
   ];
 }

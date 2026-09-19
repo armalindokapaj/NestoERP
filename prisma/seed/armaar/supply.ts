@@ -59,7 +59,6 @@ const SUPPLIERS: Array<{ key: string; name: string; taxId: string; category: str
   { key: "balkan_cable", name: "Balkan Cable & Wire sh.p.k.", taxId: "X90000019U", category: "Power and solar cable", companies: [ARSOL] },
   { key: "geotest", name: "GeoTest Albania sh.p.k.", taxId: "X90000020V", category: "Geotechnical investigation and testing", companies: [BCI] },
 ];
-export const SUPPLY_SUPPLIER_KEYS = SUPPLIERS.map((supplier) => supplier.key);
 
 type Chain = {
   key: string;
@@ -167,13 +166,6 @@ const CHAINS: Chain[] = [
     request: { number: "PR-2026-0007", title: "PV modules 550 Wp — rooftop programme, batch 2", status: "ORDERED", submitted: -22, requester: "arsol.pm" },
     item: { description: "Monocrystalline PV modules 550 Wp", category: "EQUIPMENT", quantity: 1_800, unit: "each", estimate: 118 },
     order: { number: "PO-2026-0006", status: "ISSUED", placed: -18, leadDays: 40, price: 112 },
-  },
-  {
-    key: "as_cable", company: ARSOL, project: null, supplier: "balkan_cable",
-    request: { number: "PR-2026-0008", title: "Solar DC cable 6 mm²", status: "COMPLETED", submitted: -45, requester: "arsol.electrical" },
-    item: { description: "Solar DC cable H1Z2Z2-K 6 mm², red and black", category: "MATERIALS", quantity: 12_000, unit: "m", estimate: 1.35 },
-    order: { number: "PO-2026-0007", status: "RECEIVED", placed: -42, leadDays: 10, price: 1.28 },
-    receipts: [{ number: "GRN-2026-0008", share: 1, day: -30 }],
   },
 ];
 

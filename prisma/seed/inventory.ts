@@ -689,7 +689,7 @@ async function seedReservations(prisma: PrismaClient, createdBy: string) {
  * Exactly what the balance service does at runtime, so the seeded state is one
  * the application could itself have produced. Running it twice converges.
  */
-async function rebuildBalances(prisma: PrismaClient, companyId: string) {
+export async function rebuildBalances(prisma: PrismaClient, companyId: string) {
   const [movements, reservations, locations] = await Promise.all([
     prisma.stockMovement.groupBy({
       by: ["inventoryItemId", "locationId"],

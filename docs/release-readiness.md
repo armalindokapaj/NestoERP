@@ -2287,6 +2287,78 @@ On freshly built databases, on the final tree:
   integration must honour, nothing that talks to Microsoft.
 - **Demo files and qualifications are ARMAAR's only**; the five-company demo
   has none.
-- **`nesto_erp` lacks the E-01, E-13, E-03, D-01, E-04 and E-02 migrations.**
-  With the owner's consent: `migrate deploy`, `access:sync`, then `seed:armaar`
-  for the demo tenant.
+- **`nesto_erp` lacked the E-01, E-13, E-03, D-01, E-04 and E-02 migrations**
+  when E-02 was committed. With the owner's consent they were applied on
+  2026-09-19 (`migrate deploy`, `access:sync`, Workforce switched on where a
+  company had no switch, `seed:armaar`), after a backup and a rehearsal on a
+  copy; every data gate was clean.
+
+## 30. Demo D-02 — ARMAAR's operational demo data
+
+Demo PRD D-02 deepens the ARMAAR tenant D-01 created with operational data in
+every module, using only what NESTO already does: no migration, API, screen,
+state, permission or product change (§1, §57-§61). The seed is
+`prisma/seed/armaar/` (§81's package, in the repository's convention); the
+guide, the capability audit and the walkthrough are in
+[docs/demo-armaar.md](demo-armaar.md#what-d-02-added).
+
+### 30.1 What changed
+
+| Before | Now |
+| --- | --- |
+| 14 supplier records, 5 purchase requests, 3 orders, 3 deliveries | 29 supplier records; 18 requests, 13 orders, 9 deliveries in five companies, in every state of the buying workflow |
+| Approved orders without the Finance commitment approval opens | every approved order has its commitment and integration link — D-01's too |
+| D-01's PR/PO/GRN/NCR numbers three digits (`PR-2026-041`) | the product's series shape (`PR-2026-0041`): three-digit numbers made the highest-in-series allocator re-issue the same next number |
+| 5 contractors, no engineering record | 11 contractors with contacts, work packages, subcontracts and compliance; 12 engineering documents through 16 revisions, 14 RFIs, 12 submittals, 6 transmittals |
+| 28 tasks | 65, each raised from the record it is about |
+| No invoices; 3 expenses | invoices on the installments around the seed day, paid through their allocations; 12 expenses, the approved ones paid by disbursements |
+| Contracts without parties or obligations | parties on every non-sale contract, 13 obligations, 8 more contracts, amendments active, approved and draft |
+| 10 meetings, 4 calendar events | 17 meetings with minutes, decisions and actions; 11 events; 4 document reviews |
+| No daily logs, 1 hazard, 1 incident, 1 QA inspection, 1 NCR, no stock, no timesheets | 24 daily logs; HSE inspections, hazards, actions, toolbox talks signed by site workers, incidents, permits; QA/QC inspections, NCRs, corrective actions, defects; stock in three stores equal to its ledger; 10 timesheets |
+| Tirana Lake 77 units, Square 21 52; 77 clients | Tirana Lake 101 (a car park), Square 21 104 (blocks 3 and 4, bought by investors already in blocks 1 and 2); still 77 clients |
+
+`verifyDemoTenant` (run by every ARMAAR seed and `pnpm verify:demo`) now also
+holds the operational data to the product's rules: every approved order
+committed, stock equal to its ledger and never negative, numbers in the
+product's series shape, no invoice over-allocated, every task link resolving.
+
+### 30.2 The evidence
+
+- **vitest: 3 799 passed, 0 failed**, 11 skipped — two more ARMAAR tests: D-02's scale (§48's ranges) and its scenario chains (§62-§68).
+- **E2E on the production build: 469 of 469**, none flaky, against a database seeded with D-02's data. No product code changed since E-02, so the E-02 build served; the code gates (authorization, ownership, state, workers) scan nothing D-02 touched.
+- **verify:roles 1 715 of 1 715**; seed validation and the employment, employee-integrity, demo, company-integrity and organization gates clean. Typecheck clean; lint clean on every file D-02 touched.
+- A fresh database, and a copy of today's `nesto_erp` (seeded before D-02,
+  with D-01's three-digit numbers), both seed clean; on the copy D-01's numbers,
+  statuses and texts are corrected and 117 sale contracts keep 117 distinct
+  numbers. Seeding twice more leaves all fifty table counts unchanged. The ARMAAR tests (9) hold the
+  counts, §48's ranges and the §62-§68 scenario links.
+
+### 30.3 Defects found
+
+- **Seeded numbers broke the product's numbering** (both demos). The
+  procurement, QA/QC, HSE and inventory allocators take the highest number in
+  the year's series and add one, comparing as text; `PR-2026-055` sorts above
+  `PR-2026-0056`, so after one request the next is refused as a duplicate.
+  Fixed for ARMAAR; **the five-company demo still seeds three-digit numbers**
+  (`PR-2026-020`, `GRN-2026-010`) and has the same fault.
+- **D-01's orders had no commitment**, its requests no approval record on the
+  request, and its order lines did not name the request line they ordered, so
+  the product would have derived PARTIALLY_ORDERED; the request whose order
+  waits for approval was APPROVED rather than ORDERED. Corrected.
+- **The sales seed's counters restarted on a rerun**, so a unit added to the
+  layout later would have been sold under contract `BCI-SA-…-001` again.
+- **The engineering tests' fixture deleted every company's tasks** on
+  engineering and contractor records, not only its own; scoped to its
+  companies.
+
+### 30.4 Limits
+
+- **Numbers only the product's own**: the five-company demo's three-digit
+  numbers are left as they were (see 30.3).
+- **Written once**: daily logs, timesheets and installment invoices share the
+  first seed day's dates, like E-04's attendance; a rerun does not move them.
+- **Not seeded, because the feature is another PRD's (§4)**: E-08's directory,
+  E-09's worker profile and overtime, E-10's recruitment, E-11's contractor
+  invoice chain and external-company register, E-12, co-ownership, E-05C.
+- **`nesto_erp` does not have D-02's data**; `pnpm seed:armaar` adds it, with
+  the owner's consent.

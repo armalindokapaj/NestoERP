@@ -23,7 +23,7 @@ import { memberId } from "./access";
 import { companyId } from "./organization";
 import { userId } from "./people";
 import { projectId } from "./projects";
-import type { SeededUnit } from "./units";
+import { unitIdOf, type SeededUnit } from "./units";
 
 const BCI = "BUILDING_CONSTRUCTION_INVEST" as const;
 const EUR = "EUR";
@@ -97,12 +97,15 @@ export async function seedArmaarSales(prisma: PrismaClient, units: SeededUnit[])
     const sold = outcome === "SOLD_PAID" || outcome === "SOLD_PAYING";
     const reserved = outcome === "RESERVED" || outcome === "RESERVED_REQUESTED";
     const corporate = unit.type === "OFFICE" || unit.type === "SHOP";
+    // Square 21's blocks 3 and 4 (D-02) were bought by investors who already own the same apartment in
+    // block 1 or 2: repeat buyers (D-02 §18), so the client register stays one person per buyer.
+    const mirror = !corporate && unit.project === "SQUARE_21" && /^[34]-/.test(unit.code) ? unitIdOf("sq21", `${Number(unit.code[0]) - 2}${unit.code.slice(1)}`).replace(/^armaar_unit_/, "") : null;
     // A unit already on sale keeps its buyer and contract. The counters still count it, so a unit added
     // to the layout later gets the next buyer and the next contract number rather than the first again.
     if (await prisma.unitCommercialProfile.findUnique({ where: { unitId: unit.id }, select: { id: true } })) {
       if (sold || reserved) {
         if (corporate) companyBuyer += 1;
-        else buyer += 1;
+        else if (!mirror) buyer += 1;
       }
       if (sold) contractSequence += 1;
       continue;
@@ -127,10 +130,11 @@ export async function seedArmaarSales(prisma: PrismaClient, units: SeededUnit[])
     let opportunityId: string | null = null;
     let agreed = asking;
     if (sold || reserved) {
-      clientName = corporate ? COMPANY_BUYERS[companyBuyer++ % COMPANY_BUYERS.length]! : `${FIRST[buyer % FIRST.length]} ${LAST[(buyer * 7) % LAST.length]}`;
-      if (!corporate) buyer += 1;
-      // A company that buys twice is one client (PRD #12 §55); each person buys once.
-      const clientKey = corporate ? normalizeName(clientName).replace(/[^a-z0-9]+/g, "_") : slug;
+      const repeat = mirror ? await prisma.client.findUnique({ where: { id: `armaar_client_${mirror}` }, select: { name: true } }) : null;
+      clientName = corporate ? COMPANY_BUYERS[companyBuyer++ % COMPANY_BUYERS.length]! : repeat ? repeat.name : `${FIRST[buyer % FIRST.length]} ${LAST[(buyer * 7) % LAST.length]}`;
+      if (!corporate && !repeat) buyer += 1;
+      // A company that buys twice is one client (PRD #12 §55); so is a person (D-02 §18).
+      const clientKey = corporate ? normalizeName(clientName).replace(/[^a-z0-9]+/g, "_") : repeat ? mirror! : slug;
       clientId = `armaar_client_${clientKey}`;
       await prisma.client.upsert({
         where: { id: clientId },

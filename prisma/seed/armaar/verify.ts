@@ -103,5 +103,73 @@ export async function verifyDemoTenant(prisma: PrismaClient, groupId: string): P
   if (unrecorded) say(`${unrecorded} people without a login have no provenance record.`);
   if (!recorded.has(groupId)) say("The group has no provenance record.");
 
+  findings.push(...(await verifyOperations(prisma, groupId)));
+  return findings;
+}
+
+/** The product's own number series shape: highest-in-series allocation reads them as numbers (D-02). */
+const SERIES = /^[A-Z]+(-[A-Z]+)?-\d{4}-\d{4}$/;
+
+/**
+ * What D-02 holds true of the operational data (§55, §56, §83): the rules the
+ * product keeps when it writes these records itself.
+ */
+async function verifyOperations(prisma: PrismaClient, groupId: string): Promise<string[]> {
+  const findings: string[] = [];
+  const say = (finding: string) => findings.push(finding);
+  const inGroup = { company: { parentGroupId: groupId } };
+
+  // An approved order has opened its Finance commitment, and points at it.
+  const orders = await prisma.purchaseOrder.findMany({ where: { ...inGroup, status: { in: ["APPROVED", "ISSUED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"] } }, select: { id: true, poNumber: true, financeCommitmentId: true } });
+  const committed = new Map((await prisma.commitment.findMany({ where: { ...inGroup, sourceModule: "procurement", sourceEntityType: "purchase_order" }, select: { id: true, sourceEntityId: true } })).map((row) => [row.sourceEntityId, row.id]));
+  for (const order of orders) if (!order.financeCommitmentId || committed.get(order.id) !== order.financeCommitmentId) say(`Approved order ${order.poNumber} has no commitment of its own.`);
+
+  // Numbers the product continues from are in its own series shape.
+  const numbered = [
+    ...(await prisma.purchaseRequest.findMany({ where: inGroup, select: { requestNumber: true } })).map((row) => row.requestNumber),
+    ...(await prisma.purchaseOrder.findMany({ where: inGroup, select: { poNumber: true } })).map((row) => row.poNumber),
+    ...(await prisma.goodsReceipt.findMany({ where: inGroup, select: { receiptNumber: true } })).map((row) => row.receiptNumber),
+    ...(await prisma.nonConformanceReport.findMany({ where: inGroup, select: { ncrNumber: true } })).map((row) => row.ncrNumber),
+    ...(await prisma.qualityInspection.findMany({ where: inGroup, select: { inspectionNumber: true } })).map((row) => row.inspectionNumber),
+    ...(await prisma.hseHazard.findMany({ where: inGroup, select: { hazardNumber: true } })).map((row) => row.hazardNumber),
+    ...(await prisma.stockIssue.findMany({ where: inGroup, select: { issueNumber: true } })).map((row) => row.issueNumber),
+  ];
+  const odd = numbered.filter((number) => !SERIES.test(number));
+  if (odd.length) say(`${odd.length} numbers are not in the product's series shape, e.g. ${odd.slice(0, 3).join(", ")}: the next number the product allocates would repeat one.`);
+
+  // Stock on hand is the ledger's sum, location by location, and never negative (PRD #20 §79-§83).
+  const ledger = new Map((await prisma.stockMovement.groupBy({ by: ["inventoryItemId", "locationId"], where: inGroup, _sum: { signedQuantity: true } })).map((row) => [`${row.inventoryItemId}:${row.locationId}`, Number(row._sum.signedQuantity ?? 0)]));
+  for (const balance of await prisma.inventoryBalance.findMany({ where: inGroup, select: { inventoryItemId: true, locationId: true, onHandQuantity: true } })) {
+    const onHand = Number(balance.onHandQuantity);
+    if (onHand !== (ledger.get(`${balance.inventoryItemId}:${balance.locationId}`) ?? 0)) say(`Stock of ${balance.inventoryItemId} at ${balance.locationId} disagrees with its movements.`);
+    if (onHand < 0) say(`Stock of ${balance.inventoryItemId} at ${balance.locationId} is negative.`);
+  }
+
+  // No invoice is paid more than it asks.
+  for (const invoice of await prisma.invoice.findMany({ where: inGroup, select: { invoiceNumber: true, totalAmount: true, allocations: { where: { reversedAt: null }, select: { amount: true } } } })) {
+    const paid = invoice.allocations.reduce((sum, row) => sum + Number(row.amount), 0);
+    if (paid > Number(invoice.totalAmount) + 0.005) say(`Invoice ${invoice.invoiceNumber} is allocated more than its total.`);
+  }
+
+  // A task opened from a record names one that exists (§75: links resolve).
+  const linked = await prisma.task.findMany({ where: { ...inGroup, entityId: { not: null } }, select: { title: true, entityType: true, entityId: true } });
+  const exists: Record<string, (ids: string[]) => Promise<Array<{ id: string }>>> = {
+    rfi: (ids) => prisma.rfi.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    technical_submittal: (ids) => prisma.technicalSubmittal.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    engineering_document: (ids) => prisma.engineeringDocument.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    transmittal: (ids) => prisma.documentTransmittal.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    purchase_request: (ids) => prisma.purchaseRequest.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    purchase_order: (ids) => prisma.purchaseOrder.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    goods_receipt: (ids) => prisma.goodsReceipt.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    contractor: (ids) => prisma.contractorProfile.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    contractor_compliance: (ids) => prisma.contractorComplianceItem.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+  };
+  for (const [type, lookup] of Object.entries(exists)) {
+    const ids = linked.filter((task) => task.entityType === type).map((task) => task.entityId!);
+    if (!ids.length) continue;
+    const found = new Set((await lookup(ids)).map((row) => row.id));
+    for (const task of linked.filter((row) => row.entityType === type && !found.has(row.entityId!))) say(`Task "${task.title}" names a ${type} that does not exist.`);
+  }
+
   return findings;
 }

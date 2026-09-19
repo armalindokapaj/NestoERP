@@ -141,8 +141,9 @@ went all the way. `platform-admin` signs in to `/platform-admin`, where a new
 group is created, given companies and people, and activated.
 
 **The ARMAAR Group demo tenant** sits beside it: ARMAAR GROUP sh.p.k., its
-thirteen companies, eleven public projects and a working day of synthetic
-operations, for presenting NESTO to that client (Demo PRD D-01, ADR 0005). Its
+thirteen companies, eleven public projects and a month of synthetic
+operations in every module, for presenting NESTO to that client (Demo PRDs D-01
+and D-02, ADR 0005). Its
 people sign in as `armaar.owner`, `bci.director`, `bci.pm` and so on, with
 `ARMAAR_DEMO_PASSWORD` or, in development, the demo's password; every page says
 it is a demo. The guide, logins and walkthrough are in
