@@ -50,7 +50,16 @@ const OWNED: Record<string, string[]> = {
   ],
   // Access held outside every group (E-06 §19), and where a demonstration
   // tenant's seeded facts come from (D-01 §3).
-  platform: ["platformAccess", "demoRecord"],
+  platform: [
+    "platformAccess",
+    "demoRecord",
+    "featureFlag",
+    "featureFlagOverride",
+    "platformSetting",
+    "supportAccessSession",
+    "threeDProjectConfiguration",
+    "threeDModelVersion",
+  ],
 
   /* Shared foundation ------------------------------------------------------ */
   shared: ["activity"],
@@ -275,6 +284,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
     file: "lib/modules/platform/platform-implementation.service.ts",
     reason:
       "Implementing a parent group writes the opening rows of a group before any of its people can: the group and its departments, a company's first memberships for the group's Owner and IT, and the approved initial roster — person, login, memberships, positions and first project assignments — in one transaction per person. Refused once the group is active, after which each row has its owner's door (E-06 §20, §30, §138; PRD #48 §263).",
+  },
+  {
+    model: "*",
+    file: "lib/modules/platform/platform-control.service.ts",
+    reason:
+      "The Platform Admin control plane coordinates reviewed, permission-checked and audited changes across tenant domains. It validates each canonical record in its owning scope and keeps cross-domain lifecycle changes in one transaction without creating a second persistence model.",
   },
   {
     model: "*",

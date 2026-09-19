@@ -47,6 +47,7 @@ export default auth((req) => {
   forwarded.set("Content-Security-Policy", csp);
   // Always overwritten, so a client cannot choose it (E-05A §34).
   forwarded.set(REQUEST_PATH_HEADER, pathname + nextUrl.search);
+  forwarded.set("x-nesto-request-method", req.method);
 
   const proceed = () => {
     const response = NextResponse.next({ request: { headers: forwarded } });

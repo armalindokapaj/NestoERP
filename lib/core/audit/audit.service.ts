@@ -167,6 +167,22 @@ export async function recordPlatformAction(
   );
 }
 
+/** Platform action with no tenant owner, such as maintenance or a global flag. */
+export async function recordGlobalPlatformAction(
+  context: { userId: string; fullName: string; roleKey: string },
+  input: RecordAuditInput,
+  options: { tx?: Prisma.TransactionClient } = {},
+): Promise<void> {
+  return recordAuditEvent(
+    {
+      companyId: null,
+      actor: { type: "USER", userId: context.userId, memberId: null, displayNameSnapshot: context.fullName, roleSnapshot: context.roleKey },
+    },
+    input,
+    { tx: options.tx },
+  );
+}
+
 /** Automatic platform actions: expiries, scheduled transitions (PRD #28 §15). */
 export async function recordSystemAction(
   companyId: string,

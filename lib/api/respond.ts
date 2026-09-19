@@ -8,6 +8,8 @@ import { resolvePlatformContext, type PlatformContext } from "@/lib/context/plat
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import type { UserContext } from "@/lib/context/types";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
+import { headers } from "next/headers";
+import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import {
   CORRELATION_ID_HEADER,
   REQUEST_ID_HEADER,
@@ -104,6 +106,21 @@ async function handleRequest(
     memberId: result.context.membershipId,
   });
 
+  const maintenance = await getMaintenanceState();
+  // Direct route invocation in the security matrix has no Next request store.
+  // It still exercises authorization; live HTTP requests provide these values.
+  let requestHeaders: Pick<Headers, "get"> = new Headers();
+  try {
+    requestHeaders = await headers();
+  } catch {
+    // Next throws synchronously when a route is invoked without its request store.
+  }
+  const method = requestHeaders.get("x-nesto-request-method") ?? "GET";
+  const requestPath = requestHeaders.get("x-nesto-request-path") ?? "";
+  if (maintenance.enabled) return apiError("COMPANY_INACTIVE", "NESTO is temporarily unavailable for maintenance.");
+  if (maintenance.readOnly && !["GET", "HEAD", "OPTIONS"].includes(method)) return apiError("CONFLICT", "NESTO is currently in read-only mode.");
+  if (maintenance.disableUploads && !["GET", "HEAD", "OPTIONS"].includes(method) && /upload|document-version/.test(requestPath)) return apiError("CONFLICT", "Uploads are temporarily disabled.");
+
   try {
     return await handler(result.context);
   } catch (error) {
@@ -144,6 +161,14 @@ export async function withPlatformContext(
   return runWithRequestContext(
     { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
     async () => {
+      // A valid tenant context can be rejected before resolving the separate
+      // Platform Admin session. This also keeps direct route security sweeps
+      // on the same fail-closed boundary as live requests.
+      const tenantResult = await resolveUserContext();
+      if (tenantResult.ok) {
+        recordAuthorizationDenial({ code: "FORBIDDEN", reason: "PERMISSION_DENIED" });
+        return apiError("FORBIDDEN");
+      }
       const result = await resolvePlatformContext();
       if (!result.ok) {
         if (result.reason === "UNAUTHENTICATED" || result.reason === "SESSION_EXPIRED") {
