@@ -1,0 +1,8 @@
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { requirePlatformContext } from "@/lib/context/platform-context";
+import { platformSecurity } from "@/lib/modules/platform/platform-control.query";
+import { formatDate } from "@/lib/utils/format";
+export const metadata = { title: "Failed Logins" };
+export default async function FailedLoginsPage() { const context = await requirePlatformContext(); const { failedLogins } = await platformSecurity(context); return <div className="space-y-5"><PageHeader title="Failed logins" description="Authentication refusals and throttling events. Passwords and credentials are never recorded." /><section className="nesto-card p-5"><Table flush aria-label="Failed logins"><TableHead><TableRow><TableHeaderCell>Event</TableHeaderCell><TableHeaderCell>User</TableHeaderCell><TableHeaderCell>IP</TableHeaderCell><TableHeaderCell>Device</TableHeaderCell><TableHeaderCell>Occurred</TableHeaderCell></TableRow></TableHead><TableBody>{failedLogins.map((event) => <TableRow key={event.id}><TableCell><Badge tone="danger">{event.type}</Badge></TableCell><TableCell>{event.user ? `${event.user.firstName} ${event.user.lastName}` : "Unknown account"}<p className="font-mono text-micro text-fg-subtle">{event.user?.username ?? "—"}</p></TableCell><TableCell className="font-mono text-meta">{event.ipAddress ?? "—"}</TableCell><TableCell className="max-w-sm truncate">{event.userAgent ?? "—"}</TableCell><TableCell>{formatDate(event.createdAt)}</TableCell></TableRow>)}</TableBody></Table></section></div>; }
