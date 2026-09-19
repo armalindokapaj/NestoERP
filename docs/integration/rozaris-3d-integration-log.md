@@ -42,6 +42,16 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Created the `before-rozaris-3d` safety tag at the NESTO baseline commit.
 - Confirmed that no Rozaris Git history, authentication, marketplace domain, or framework configuration will be imported.
 
+### Phase 1 — Source dependency audit
+
+- Traced the shared RenderEngine closure, Company viewer wrapper, Experience Editor, GLB processing/release utilities, source APIs, packages, environment variables, static assets, and CSS assumptions.
+- Classified every retained boundary under the PRD categories in `docs/integration/rozaris-3d-source-audit.md`.
+- Chose a NESTO-native Company viewer shell because the Rozaris wrapper reaches marketplace state, account APIs, mock data, Publisher UI, and public listing navigation.
+- Chose NESTO Platform/API adapters for the editor because the source hooks depend on NextAuth, Vercel Blob, Rozaris Prisma-shaped DTOs, and source routes.
+- Confirmed that NESTO's private `StorageProvider` supports signed upload/download, metadata verification, server reads/writes, copies, and opaque Company-prefixed keys.
+- Confirmed that NESTO's durable job runner can host GLB processing without keeping expensive work in a request lifecycle.
+- Kept NESTO on Next.js 15.5.25, React 19.1.0, and its existing Prisma strategy.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.
