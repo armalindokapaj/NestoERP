@@ -59,7 +59,7 @@ export async function seedApprovalRecords(prisma: PrismaClient, members: Members
 
   const orderData = {
     companyId: COMPANY_A,
-    poNumber: "PO-2026-142",
+    poNumber: "PO-2026-0142",
     supplierId: "supplier_nordsteel",
     projectId: "project_a",
     orderDate: at(-3 * DAY),

@@ -207,7 +207,7 @@ and CEO dashboards and needs `approvals.history.view`.
 ## Seed
 
 `prisma/seed/approvals.ts`: Procurement limits of 25,000 / 75,000 EUR with the
-CEO as executive; `PO-2026-142` (EUR 81,600) with Procurement and Finance
+CEO as executive; `PO-2026-0142` (EUR 81,600) with Procurement and Finance
 approved and the CEO's step pending, its supplier quotation attached; and an
 upcoming delegation from the Owner to the CEO. Every other module's seed already
 provides pending approvals.

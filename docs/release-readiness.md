@@ -2339,8 +2339,11 @@ product's series shape, no invoice over-allocated, every task link resolving.
   procurement, QA/QC, HSE and inventory allocators take the highest number in
   the year's series and add one, comparing as text; `PR-2026-055` sorts above
   `PR-2026-0056`, so after one request the next is refused as a duplicate.
-  Fixed for ARMAAR; **the five-company demo still seeds three-digit numbers**
-  (`PR-2026-020`, `GRN-2026-010`) and has the same fault.
+  Fixed for ARMAAR, then for the five-company demo too (its procurement seed
+  wrote `PR-2026-020`, `GRN-2026-010`, `RFQ-2026-004` and the approvals chain's
+  `PO-2026-142`); a new procurement test creates two requests one after the
+  other in a seeded company, and fails against the old seed with the
+  duplicate-number error.
 - **D-01's orders had no commitment**, its requests no approval record on the
   request, and its order lines did not name the request line they ordered, so
   the product would have derived PARTIALLY_ORDERED; the request whose order
@@ -2353,8 +2356,9 @@ product's series shape, no invoice over-allocated, every task link resolving.
 
 ### 30.4 Limits
 
-- **Numbers only the product's own**: the five-company demo's three-digit
-  numbers are left as they were (see 30.3).
+- **Databases seeded before the fix keep their numbers**: a fresh seed writes
+  the product's shape, but an existing database's five-company demo still has
+  the three-digit ones until it is reseeded or renumbered.
 - **Written once**: daily logs, timesheets and installment invoices share the
   first seed day's dates, like E-04's attendance; a rerun does not move them.
 - **Not seeded, because the feature is another PRD's (§4)**: E-08's directory,

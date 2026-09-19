@@ -37,10 +37,10 @@ test.describe("Procurement role (PRD #19 §328)", () => {
     await expect(page.getByRole("heading", { name: "Procurement", level: 1 })).toBeVisible();
 
     for (const [section, expected] of [
-      ["requests", "PR-2026-001"],
-      ["orders", "PO-2026-001"],
+      ["requests", "PR-2026-0001"],
+      ["orders", "PO-2026-0001"],
       ["suppliers", "Atlas Materials"],
-      ["rfqs", "RFQ-2026-001"],
+      ["rfqs", "RFQ-2026-0001"],
     ] as const) {
       await page.goto(`/procurement/${section}`);
       await expect(recordTable(page).getByText(expected).first()).toBeVisible();
@@ -142,7 +142,7 @@ test.describe("CEO role (PRD #19 §327)", () => {
     await signIn(page, "CEO");
 
     await page.goto("/procurement/approvals");
-    await expect(mainRegion(page).getByText("PR-2026-005").first()).toBeVisible();
+    await expect(mainRegion(page).getByText("PR-2026-0005").first()).toBeVisible();
 
     await page.goto("/procurement/requests/request_005");
     await page.getByRole("button", { name: "Approve", exact: true }).click();
@@ -175,9 +175,9 @@ test.describe("Project Manager role (PRD #19 §329)", () => {
 
   test("sees the buying on its own jobs", async ({ page }) => {
     await page.goto("/procurement/requests");
-    await expect(recordTable(page).getByText("PR-2026-001").first()).toBeVisible();
+    await expect(recordTable(page).getByText("PR-2026-0001").first()).toBeVisible();
     // A company-general ask with no project is not inherited by having a job.
-    await expect(recordTable(page).getByText("PR-2026-012")).toHaveCount(0);
+    await expect(recordTable(page).getByText("PR-2026-0012")).toHaveCount(0);
   });
 
   test("is shown no supplier prices on the comparison (PRD #19 §261)", async ({ page }) => {

@@ -41,7 +41,7 @@ test("an executive reviews a high-value purchase order, its quote and history, a
   await row(page, `procurement:${CHAIN.approval}`).click();
   await expect(page).toHaveURL(new RegExp(`approval=procurement%3A${CHAIN.approval}`));
 
-  await expect(detail(page).getByTestId("approval-title")).toHaveText(/PO-2026-142/);
+  await expect(detail(page).getByTestId("approval-title")).toHaveText(/PO-2026-0142/);
   await expect(detail(page).getByTestId("approval-amount")).toHaveText("€81,600");
   await expect(detail(page).getByText("Why approval is needed")).toBeVisible();
   const steps = detail(page).getByTestId("approval-steps").getByRole("listitem");
