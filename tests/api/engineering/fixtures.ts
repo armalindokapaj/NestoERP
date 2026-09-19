@@ -29,7 +29,8 @@ export const HARBOUR = { project: "test46_harbour", assignment: "test46_harbour_
 const TYPES = ["contractor", "work_package", "contractor_compliance", "engineering_document", "rfi", "technical_submittal", "transmittal"];
 
 export async function restoreEngineering(): Promise<void> {
-  const tasks = await prisma.task.findMany({ where: { entityType: { in: TYPES } }, select: { id: true } });
+  // Only the companies this suite restores: another tenant's tasks on its own records are not ours to delete.
+  const tasks = await prisma.task.findMany({ where: { companyId: { in: [COMPANY_A, MERIDIAN, TENANT] }, entityType: { in: TYPES } }, select: { id: true } });
   if (tasks.length) {
     const ids = tasks.map((task) => task.id);
     await prisma.notification.deleteMany({ where: { entityType: "task", entityId: { in: ids } } });
