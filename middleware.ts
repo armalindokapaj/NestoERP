@@ -35,6 +35,7 @@ export default auth((req) => {
   const csp = buildContentSecurityPolicy({
     nonce,
     isProduction: process.env.NODE_ENV === "production",
+    mapboxEnabled: Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN),
   });
 
   /*

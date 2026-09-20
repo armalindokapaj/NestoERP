@@ -145,8 +145,19 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Removed the transitional Platform control-plane 3D services, commands, schemas, upload routes, project controls, diagnostic query, permissions, component, tests, and `@google/model-viewer` dependency. Platform project administration and diagnostics now use the native entitlement, workspace, slot, model-version, validation, and release records.
 - Repointed the shared local signed-upload gate from the obsolete model-version record to `Project3DModelVersion`, preserving the native single-use, 15-minute source-upload capability. Added a regression assertion that the grant accepts bytes before verification and rejects replay after verification.
 - Renamed the remaining browser-runtime `rzNodeId` fields to NESTO-owned `nodeId` and `parentNodeId`. The only Rozaris names left in migrated runtime code are two useful source-attribution comments.
-- Retained the old Prisma tables and audit action names as inert compatibility history so existing installations do not lose historical rows in this integration. No application, API, component, or test code reads or writes the old tables.
+- Retained the old Prisma tables as inert compatibility history so existing installations do not lose historical rows in this integration. Removed their obsolete audit policies; historical audit rows retain their string action keys without keeping inactive policies registered. No application, API, component, or test code reads or writes the old tables.
 - Verified the Rozaris worktree remains clean at `944a4c97114af442ae03ce7ff5665e5362b8274e`. Typecheck, focused ESLint, 32 focused native 3D/control-plane assertions, 21 runtime/Company-boundary assertions, and all 1,022 architecture assertions passed.
+
+### Phase 13 — Final verification and documentation
+
+- Added the final source-to-destination map in `docs/integration/rozaris-3d-port-map.md` and the operational architecture in `docs/project-3d.md`. Added the optional public Mapbox token to `.env.example` and `docs/environments.md`.
+- Replaced the source-account Mapbox style with the official Mapbox satellite-streets style. Extended the nonce CSP only when Mapbox is configured so required API, tile, event, image, and blob-worker access works without opening those origins for deployments that do not use Mapbox. Two CSP assertions cover both modes.
+- Added an isolated Playwright Project fixture that provisions 3D through Platform Admin, creates a published native release, opens the Company read-only viewer, validates the safe bootstrap contract, verifies authoring actions are absent, and confirms a Company session receives 403 from the Platform API.
+- `pnpm typecheck` passed. `pnpm lint` passed with 0 errors and 14 pre-existing warnings. `pnpm test:architecture` passed all 1,022 assertions. `pnpm test:security` passed 30 assertions with 1 skipped destructive case. The focused 3D, job, runtime, CSP, authorization, component, control-plane, and audit suites passed.
+- The dedicated 3D Playwright flow passed 2/2 against the live development server and 2/2 against the isolated production build. The production build completed all 410 routes with Next.js 15.5.25 and React 19.1.0.
+- Prisma schema validation and migration status passed with 69 migrations applied. A disposable PostgreSQL shadow database replay reported `No difference detected`, then was dropped.
+- The final `pnpm test` run passed 3,986 assertions and skipped 11. Its only 5 failures are the same pre-branch demo-fixture gaps recorded in the baseline: four employment-history assertions require absent historical seed rows and one Edvin company-switch assertion requires an absent cross-company membership. No PRD 52 or branch-owned test failed.
+- Verified the Rozaris repository remains clean and unchanged at `944a4c97114af442ae03ce7ff5665e5362b8274e`. The NESTO work remains isolated on `feature/rozaris-3d-integration` and was not merged to main.
 
 ### Material decisions
 

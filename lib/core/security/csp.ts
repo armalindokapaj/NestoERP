@@ -38,20 +38,25 @@ export function newCspNonce(): string {
 export function buildContentSecurityPolicy(options: {
   nonce: string;
   isProduction: boolean;
+  mapboxEnabled?: boolean;
 }): string {
   const scriptSrc = options.isProduction
     ? `script-src 'self' 'nonce-${options.nonce}' 'strict-dynamic'`
     : `script-src 'self' 'unsafe-inline' 'unsafe-eval'`;
 
+  const mapboxImages = options.mapboxEnabled ? " https://api.mapbox.com https://*.tiles.mapbox.com" : "";
+  const mapboxConnections = options.mapboxEnabled ? " https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com" : "";
+
   return [
     "default-src 'self'",
     scriptSrc,
     "style-src 'self' 'unsafe-inline'",
-    // `blob:` covers a preview rendered from bytes the page already holds;
-    // no remote origin is allowed (PRD #29 §188).
-    "img-src 'self' data: blob:",
+    // `blob:` covers a preview rendered from bytes the page already holds.
+    // Mapbox image origins are added only for deployments that configure it.
+    `img-src 'self' data: blob:${mapboxImages}`,
     "font-src 'self' data:",
-    "connect-src 'self'",
+    `connect-src 'self'${mapboxConnections}`,
+    options.mapboxEnabled ? "worker-src 'self' blob:" : "worker-src 'self'",
     // A document preview is framed from this origin only (PRD #29 §200).
     "frame-src 'self' blob:",
     "object-src 'self' blob:",
