@@ -5,9 +5,11 @@ import path from "node:path";
 import type { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { GET as getStorageObject } from "@/app/api/storage/objects/[...key]/route";
 import { DEFAULT_PROJECT_3D_CONFIG } from "@/lib/3d/shared/experience";
 import { LocalStorageProvider } from "@/lib/core/storage/providers/local.provider";
 import { setStorageProvider } from "@/lib/core/storage/storage-provider.factory";
+import { encodeClaims } from "@/lib/core/storage/url-signing";
 import { publishProject3DRelease } from "@/lib/modules/project-3d/project-3d.release";
 import { getProject3DViewerBootstrap, hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
 import { cleanupSessions, COMPANY, loginAs, loginAsPlatformAdmin, prisma, PROJECT } from "@/tests/helpers";
@@ -15,6 +17,8 @@ import { cleanupSessions, COMPANY, loginAs, loginAsPlatformAdmin, prisma, PROJEC
 describe("Company Project 3D viewer", () => {
   const tag = `p3d-view-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   let storageRoot: string;
+  let previousStorageRoot: string | undefined;
+  let localStorage: LocalStorageProvider;
   let owner: Awaited<ReturnType<typeof loginAs>>;
   let projectManager: Awaited<ReturnType<typeof loginAs>>;
   let admin: Awaited<ReturnType<typeof loginAsPlatformAdmin>>;
@@ -27,7 +31,10 @@ describe("Company Project 3D viewer", () => {
 
   beforeAll(async () => {
     storageRoot = await mkdtemp(path.join(tmpdir(), "nesto-project-3d-viewer-"));
-    setStorageProvider(new LocalStorageProvider({ root: storageRoot, baseUrl: "http://localhost:3000" }));
+    previousStorageRoot = process.env.DOCUMENT_STORAGE_ROOT;
+    process.env.DOCUMENT_STORAGE_ROOT = storageRoot;
+    localStorage = new LocalStorageProvider({ root: storageRoot, baseUrl: "http://localhost:3000" });
+    setStorageProvider(localStorage);
     [owner, projectManager, admin] = await Promise.all([loginAs("OWNER"), loginAs("PROJECT_MANAGER"), loginAsPlatformAdmin()]);
 
     const project = await prisma.project.create({
@@ -85,6 +92,7 @@ describe("Company Project 3D viewer", () => {
       },
     });
     versionId = version.id;
+    await localStorage.putObject(runtimeStorageKey, new TextEncoder().encode("published runtime fixture"), "model/gltf-binary");
     await prisma.project3DUnitMeshBinding.create({
       data: { companyId: COMPANY.a, projectId, modelVersionId: versionId, projectUnitId: unitId, meshName: "Unit_CV-101", mappingStatus: "MAPPED", mappedByUserId: admin.userId },
     });
@@ -108,6 +116,8 @@ describe("Company Project 3D viewer", () => {
     }
     if (unitTypeId) await prisma.projectUnitType.deleteMany({ where: { id: unitTypeId } });
     setStorageProvider(null);
+    if (previousStorageRoot === undefined) delete process.env.DOCUMENT_STORAGE_ROOT;
+    else process.env.DOCUMENT_STORAGE_ROOT = previousStorageRoot;
     if (storageRoot) await rm(storageRoot, { recursive: true, force: true });
     await cleanupSessions();
     await prisma.$disconnect();
@@ -137,6 +147,12 @@ describe("Company Project 3D viewer", () => {
     await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(false);
     await prisma.project3DEntitlement.update({ where: { projectId }, data: { expiresAt: new Date(Date.now() + 60_000) } });
     await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(true);
+
+    const active = await prisma.project3DConfig.findUniqueOrThrow({ where: { projectId }, select: { activeReleaseId: true } });
+    await prisma.project3DRelease.update({ where: { id: active.activeReleaseId! }, data: { status: "ARCHIVED" } });
+    await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(false);
+    await expect(getProject3DViewerBootstrap(owner, projectId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await prisma.project3DRelease.update({ where: { id: active.activeReleaseId! }, data: { status: "PUBLISHED" } });
   });
 
   it("returns only the active release contract with signed runtime assets and canonical units", async () => {
@@ -159,11 +175,41 @@ describe("Company Project 3D viewer", () => {
       models: [{ transformParentSlotId: null, unitBindings: [{ unitId, unitCode: "CV-101" }] }],
     });
     expect(bootstrap.models[0]?.asset.url).toContain(`/api/storage/objects/companies/${COMPANY.a}/projects/${projectId}/3d/runtime/`);
+    const remainingMs = new Date(bootstrap.models[0]!.asset.expiresAt).getTime() - Date.now();
+    expect(remainingMs).toBeGreaterThan(4 * 60_000);
+    expect(remainingMs).toBeLessThanOrEqual(5 * 60_000);
     expect(bootstrap.models[0]).not.toHaveProperty("runtimeStorageKey");
     const serialized = JSON.stringify(bootstrap);
     expect(serialized).not.toContain(sourceStorageKey);
     expect(serialized).not.toContain("diagnostic-must-not-leak");
     expect(serialized).not.toContain("draft-must-not-leak");
+  });
+
+  it("binds runtime asset grants to the exact key and expiry", async () => {
+    const bootstrap = await getProject3DViewerBootstrap(owner, projectId);
+    const signed = new URL(bootstrap.models[0]!.asset.url);
+    const encodedKey = signed.pathname.replace(/^\/api\/storage\/objects\//, "").split("/");
+    const allowed = await getStorageObject(new Request(signed), { params: Promise.resolve({ key: encodedKey }) });
+    expect(allowed.status).toBe(200);
+    expect(allowed.headers.get("cache-control")).toBe("private, no-store");
+
+    const wrongKey = runtimeStorageKey.replace(`/projects/${projectId}/`, `/projects/${PROJECT.companyB}/`);
+    const tampered = new URL(signed);
+    tampered.pathname = `/api/storage/objects/${wrongKey}`;
+    const denied = await getStorageObject(new Request(tampered), { params: Promise.resolve({ key: wrongKey.split("/") }) });
+    expect(denied.status).toBe(403);
+
+    const expired = new URL(`http://localhost/api/storage/objects/${runtimeStorageKey}`);
+    expired.search = encodeClaims({
+      method: "GET",
+      storageKey: runtimeStorageKey,
+      expiresAt: Date.now() - 10_000,
+      contentType: "model/gltf-binary",
+      disposition: "inline",
+      fileName: "viewer.glb",
+    }).toString();
+    const stale = await getStorageObject(new Request(expired), { params: Promise.resolve({ key: runtimeStorageKey.split("/") }) });
+    expect(stale.status).toBe(403);
   });
 
   it("enforces current-company and project scope before returning viewer data", async () => {

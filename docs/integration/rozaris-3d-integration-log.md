@@ -130,6 +130,16 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Joined live status for the release's canonical `ProjectUnit` identities, resolved mesh clicks to those ids, and exposed canonical Unit navigation only when the Company user holds `project.structure.view`.
 - Verified missing/inactive/suspended/expired entitlement behavior, active-entitlement-without-release behavior, active release bootstrap, Company/project scope isolation, source/draft/diagnostic omission, runtime signing, canonical status, exact Project permission handling, typecheck, focused ESLint, 38 focused 3D assertions, and all 1,019 architecture assertions.
 
+### Phase 11 — Security and bundle-boundary hardening
+
+- Added a static Company-viewer boundary that rejects Platform editor/components/services, model ingestion/processing code, and glTF processing libraries from Company route, API, component, and browser-contract trees.
+- Added a static shared-runtime boundary that rejects Prisma, database, auth, storage, Platform, and NESTO user-context imports from the render engine and its low-level host.
+- Exercised every Platform 3D API method with a real Company Owner context and verified that the Platform guard returns 403 before request parsing or record lookup. The Platform page tree remains guarded at its root layout.
+- Removed the transitional Company `/grant` endpoint, `@google/model-viewer` wrapper, and Company-facing Platform service import so the enforced bundle boundary has no compatibility exception.
+- Verified that archived/non-active releases are unavailable, a Company bootstrap omits source keys and mutable drafts/diagnostics, runtime grants expire in five minutes, and tampering the signed URL to another Project key returns 403.
+- Added component coverage for valid bootstrap mounting, controlled asset failure, canonical unit navigation, a model with no binding, Company shell unmount, mesh-selection callback forwarding, and render-engine disposal.
+- Added React 19 test-renderer support and Vitest TSX lowering for the component boundary tests. Typecheck, focused ESLint, 41 focused 3D/security assertions, the affected Platform control-plane suite, and all 1,022 architecture assertions passed.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.

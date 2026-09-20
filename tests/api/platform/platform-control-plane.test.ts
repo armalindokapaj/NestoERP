@@ -16,9 +16,8 @@ import {
   setGroupStatus,
 } from "@/lib/modules/platform/platform-control.service";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
-import { createThreeDViewerGrant } from "@/lib/modules/platform/platform-three-d.viewer";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
-import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
+import { cleanupSessions, COMPANY, loginAs, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
 
 describe("Platform Admin control plane", () => {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -121,7 +120,7 @@ describe("Platform Admin control plane", () => {
     expect(await prisma.auditEvent.count({ where: { actionKey: "PLATFORM_MAINTENANCE_CHANGED", actorUserId: admin.userId } })).toBeGreaterThan(0);
   });
 
-  it("publishes a verified 3D version to an authorized tenant viewer only", async () => {
+  it("publishes a verified transitional 3D version", async () => {
     const project = await prisma.project.create({ data: { companyId: COMPANY.a, code: `CP-${suffix}`.slice(0, 30), name: "Control Plane 3D Test", status: "ACTIVE", createdBy: admin.userId } });
     threeDProjectId = project.id;
     const configuration = await provisionThreeDProject(admin, project.id, "Provision isolated 3D test");
@@ -137,9 +136,6 @@ describe("Platform Admin control plane", () => {
     await completeThreeDModelUpload(admin, intent.versionId, "Verify uploaded tenant model");
     await publishThreeDVersion(admin, configuration.id, intent.versionId, "Publish verified tenant model");
 
-    const owner = await loginAs("OWNER");
-    await expect(createThreeDViewerGrant(owner, project.id)).resolves.toMatchObject({ project: { id: project.id }, version: { id: intent.versionId } });
-    const outsider = await loginAsEmail(DEMO_EMAIL.tenantViewer);
-    await expect(createThreeDViewerGrant(outsider, project.id)).rejects.toMatchObject({ code: expect.stringMatching(/NOT_FOUND|FORBIDDEN/) });
+    await expect(prisma.threeDProjectConfiguration.findUniqueOrThrow({ where: { id: configuration.id } })).resolves.toMatchObject({ status: "PUBLISHED", publishedVersionId: intent.versionId });
   });
 });
