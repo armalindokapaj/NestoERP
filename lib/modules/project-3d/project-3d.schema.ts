@@ -43,6 +43,21 @@ export const project3DUploadCreateSchema = z.object({
 
 export const project3DUploadCompleteSchema = z.object({ reason });
 
+const project3DUnitBindingSchema = z.object({
+  meshName: z.string().trim().min(1).max(500),
+  projectUnitId: z.string().trim().min(1).max(128),
+  mappingStatus: z.enum(["MAPPED", "CARRIED", "NEEDS_REVIEW"]).default("MAPPED"),
+  poiYawDeg: z.number().min(-36000).max(36000).default(0),
+  poiEnabled: z.boolean().default(true),
+  poiDistanceOverride: z.number().positive().max(100000).nullable().default(null),
+  poiHeightOverride: z.number().min(-100000).max(100000).nullable().default(null),
+});
+
+export const project3DUnitBindingsReplaceSchema = z.object({
+  bindings: z.array(project3DUnitBindingSchema).max(10_000),
+  reason,
+});
+
 export type Project3DSlotCreate = z.infer<typeof project3DSlotCreateSchema>;
 export type Project3DUploadCreate = z.infer<typeof project3DUploadCreateSchema>;
-
+export type Project3DUnitBindingsReplace = z.infer<typeof project3DUnitBindingsReplaceSchema>;
