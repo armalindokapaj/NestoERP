@@ -102,6 +102,16 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Added a NESTO-native binding editor with automatic matching, duplicate-choice prevention, POI visibility, reason capture, and clear unlinked state.
 - Verified atomic replacement and audit evidence, exact Platform permission enforcement, duplicate rejection, invented-node rejection, inactive-unit rejection, cross-Project rejection, cross-Company rejection, two pure matcher assertions, typecheck, focused ESLint, and all 1,042 architecture and focused 3D assertions.
 
+### Phase 8 — Platform 3D Experience Editor
+
+- Replaced the transitional Platform 3D project list with a NESTO-native cross-platform workspace list and Parent Group, Company, entitlement, readiness, and text filters.
+- Added Platform controls for Project entitlement provisioning/suspension, semantic model-slot creation, private signed GLB upload, and queued version processing.
+- Ported the active Rozaris editor behavior into a Platform-only NESTO editor: model version selection, scene hierarchy, transforms, visibility/shadows, material overrides, sun/sky/atmosphere, lighting, rendering, camera/idle flight, camera shots, sections, quality profiles, live renderer metrics, and canonical unit binding.
+- Added a complete typed authoring document with the audited Rozaris runtime defaults. Existing minimal authoring rows normalize forward without a destructive migration.
+- Added optimistic revision/version checks, manifest-bound node overrides, safe value validation, and required Platform audit events for Experience and model edits.
+- Added a Platform preview adapter that signs only processed runtime GLBs for five minutes. Its DTO omits source storage keys and source asset capability entirely.
+- Verified authoring normalization, invalid-camera rejection, revision concurrency, model concurrency, unknown-node rejection, audit evidence, preview source-key omission, Platform route guards, typecheck, focused ESLint, 1,047 focused/architecture assertions, and a 411-route production build. The build needed an 8 GB Node heap for Next.js post-build type analysis after the Three.js editor bundle compiled successfully.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.

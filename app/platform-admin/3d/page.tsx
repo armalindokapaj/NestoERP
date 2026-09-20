@@ -1,10 +1,40 @@
-import { SceneConfigurationButton, ThreeDModelUploadButton } from "@/components/platform/three-d-actions";
-import { PlatformCommandButton } from "@/components/platform/platform-command";
+import Link from "next/link";
+
+import { EntitlementControl } from "@/components/3d/platform/EntitlementControl";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { requirePlatformContext } from "@/lib/context/platform-context";
-import { listPlatformProjects, listThreeDProjects } from "@/lib/modules/platform/platform-control.query";
+import { listProject3DWorkspaces } from "@/lib/modules/project-3d/project-3d.service";
 
 export const metadata = { title: "3D Platform" };
-export default async function ThreeDPage() { const context = await requirePlatformContext(); const [configs, projects] = await Promise.all([listThreeDProjects(context), listPlatformProjects(context)]); const available = projects.filter((project) => !project.threeD && !project.archivedAt); return <div className="space-y-5"><PageHeader title="3D Platform" description="Model administration, scene configuration and publishing. Tenant users receive only the published viewer." actions={available.length ? <PlatformCommandButton label="Provision project" title="Provision 3D project" action="3d.provision" variant="primary" success="3D project provisioned." fields={[{ name: "projectId", label: "Canonical project", type: "select", required: true, options: available.map((project) => ({ value: project.id, label: `${project.company.name} · ${project.code} · ${project.name}` })) }, { name: "reason", label: "Reason", type: "textarea", required: true }]} /> : undefined} />
-  <div className="space-y-4">{configs.map((config) => <section key={config.id} className="nesto-card p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-meta font-medium uppercase tracking-wide text-fg-subtle">{config.project.company.parentGroup.name} · {config.project.company.name}</p><h2 className="mt-1 text-card font-semibold text-fg">{config.project.name}</h2><p className="font-mono text-meta text-fg-subtle">{config.project.code}</p></div><Badge tone={config.status === "PUBLISHED" ? "success" : config.status === "ERROR" ? "danger" : "info"}>{config.status}</Badge></div><div className="mt-5 grid gap-5 xl:grid-cols-[1fr_auto]"><div>{config.versions.length ? <div className="divide-y divide-line rounded-lg border border-line">{config.versions.map((version) => <div key={version.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><span><span className="font-medium text-fg">v{version.version} · {version.name}</span><span className="ml-2 text-meta text-fg-subtle">{version.sourceFileName ?? version.storageKey ?? "registered model"}</span></span><div className="flex items-center gap-2"><Badge tone={version.status === "PUBLISHED" ? "success" : version.status === "FAILED" ? "danger" : "neutral"}>{version.status}</Badge>{["READY", "PUBLISHED", "RETIRED"].includes(version.status) && version.id !== config.publishedVersionId ? <PlatformCommandButton label="Publish" title={`Publish v${version.version}?`} description="This replaces the tenant viewer's published version. The previous version remains available for rollback." action="3d.publish" fixed={{ configurationId: config.id, versionId: version.id }} reasonOnly submitLabel="Publish version" success="3D version published." /> : null}</div></div>)}</div> : <p className="rounded-lg border border-dashed border-line p-5 text-table text-fg-muted">No model versions uploaded.</p>}</div><div className="flex flex-wrap items-start gap-2"><ThreeDModelUploadButton configurationId={config.id} /><SceneConfigurationButton configurationId={config.id} initial={config.sceneConfiguration} /></div></div></section>)}</div></div>; }
+const filterSelectClass = "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
+
+export default async function ThreeDPage({ searchParams }: { searchParams: Promise<{ q?: string; group?: string; company?: string; entitlement?: string; readiness?: string }> }) {
+  const context = await requirePlatformContext();
+  const [rows, filters] = await Promise.all([listProject3DWorkspaces(context), searchParams]);
+  const groups = Array.from(new Map(rows.map((row) => [row.company.parentGroup.id, row.company.parentGroup])).values());
+  const companies = Array.from(new Map(rows.map((row) => [row.company.id, row.company])).values());
+  const query = filters.q?.trim().toLowerCase() ?? "";
+  const filtered = rows.filter((row) => {
+    const ready = Boolean(row.workspace && row.workspace.slots > 0);
+    return (!query || `${row.code} ${row.name} ${row.company.name} ${row.company.parentGroup.name}`.toLowerCase().includes(query))
+      && (!filters.group || row.company.parentGroup.id === filters.group)
+      && (!filters.company || row.company.id === filters.company)
+      && (!filters.entitlement || (row.entitlement?.status ?? "NONE") === filters.entitlement)
+      && (!filters.readiness || (filters.readiness === "READY" ? ready : !ready));
+  });
+
+  return <div className="space-y-5"><PageHeader title="3D Platform" description="Provision premium 3D, manage private models, author experiences, bind canonical units, and publish Company releases." />
+    <form className="nesto-card grid gap-3 p-4 md:grid-cols-5">
+      <Input name="q" defaultValue={filters.q} placeholder="Search project, company, group" />
+      <select name="group" defaultValue={filters.group ?? ""} className={filterSelectClass}><option value="">All groups</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>
+      <select name="company" defaultValue={filters.company ?? ""} className={filterSelectClass}><option value="">All companies</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select>
+      <select name="entitlement" defaultValue={filters.entitlement ?? ""} className={filterSelectClass}><option value="">All entitlements</option><option value="NONE">Not provisioned</option><option value="ACTIVE">Active</option><option value="SUSPENDED">Suspended</option><option value="INACTIVE">Inactive</option><option value="EXPIRED">Expired</option></select>
+      <div className="flex gap-2"><select name="readiness" defaultValue={filters.readiness ?? ""} className={filterSelectClass}><option value="">Any readiness</option><option value="READY">Has model slots</option><option value="MISSING">Needs models</option></select><Button type="submit" variant="secondary">Filter</Button></div>
+    </form>
+    <section className="nesto-card p-5"><Table flush aria-label="Platform 3D projects"><TableHead><TableRow><TableHeaderCell>Project</TableHeaderCell><TableHeaderCell>Organization</TableHeaderCell><TableHeaderCell>Entitlement</TableHeaderCell><TableHeaderCell>Workspace</TableHeaderCell><TableHeaderCell>Units</TableHeaderCell><TableHeaderCell /></TableRow></TableHead><TableBody>{filtered.map((row) => <TableRow key={row.id}><TableCell><span className="font-medium">{row.name}</span><p className="font-mono text-micro text-fg-subtle">{row.code}</p></TableCell><TableCell>{row.company.name}<p className="text-meta text-fg-subtle">{row.company.parentGroup.name}</p></TableCell><TableCell>{row.entitlement ? <Badge tone={row.entitlement.status === "ACTIVE" ? "success" : row.entitlement.status === "SUSPENDED" ? "warning" : "neutral"}>{row.entitlement.status}</Badge> : <Badge tone="neutral">NOT PROVISIONED</Badge>}</TableCell><TableCell>{row.workspace ? <span>{row.workspace.slots} slots · {row.workspace.releases} releases</span> : "—"}</TableCell><TableCell>{row.units}</TableCell><TableCell>{row.workspace ? <Button asChild size="sm"><Link href={`/platform-admin/3d/projects/${row.id}`}>Open workspace</Link></Button> : <EntitlementControl projectId={row.id} entitlement={null} compact />}</TableCell></TableRow>)}</TableBody></Table>{filtered.length === 0 ? <p className="py-8 text-center text-body text-fg-muted">No projects match these filters.</p> : null}</section>
+  </div>;
+}

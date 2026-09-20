@@ -5,10 +5,11 @@ import type { PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { defaultProject3DExperience } from "@/lib/3d/shared/experience";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DEntitlementUpdate } from "./project-3d.schema";
 
-const EMPTY_EXPERIENCE = { schemaVersion: 1, revision: 1 } satisfies Prisma.InputJsonObject;
+const EMPTY_EXPERIENCE = defaultProject3DExperience() as unknown as Prisma.InputJsonObject;
 
 function entitlementSnapshot(value: {
   status: string;
