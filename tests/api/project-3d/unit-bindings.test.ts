@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { PlatformContext } from "@/lib/context/platform-context";
+import { DEFAULT_PROJECT_3D_CONFIG } from "@/lib/3d/shared/experience";
 import { getProject3DUnitBindingWorkspace, replaceProject3DUnitBindings } from "@/lib/modules/project-3d/project-3d.binding";
+import { getProject3DEditorWorkspace, updateProject3DExperience, updateProject3DModelSettings } from "@/lib/modules/project-3d/project-3d.editor";
 import { cleanupSessions, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
 
 type Fixture = { companyId: string; projectId: string; unitTypeId: string; buildingId: string; floorId: string; unitId: string };
@@ -74,8 +76,8 @@ describe("Platform 3D unit bindings", () => {
         slotId: slot.id,
         version: 1,
         originalFileName: "units.glb",
-        sourceStorageKey: `${tag}/source.glb`,
-        runtimeStorageKey: `${tag}/runtime.glb`,
+        sourceStorageKey: `companies/${primary.companyId}/projects/${primary.projectId}/3d/source/${tag}.glb`,
+        runtimeStorageKey: `companies/${primary.companyId}/projects/${primary.projectId}/3d/runtime/${tag}.glb`,
         storageProvider: "test",
         sourceSizeBytes: BigInt(100),
         runtimeSizeBytes: BigInt(80),
@@ -181,5 +183,29 @@ describe("Platform 3D unit bindings", () => {
       bindings: [],
       reason: "Permission boundary check",
     })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("saves a complete Experience revision with optimistic concurrency and audit", async () => {
+    const config = { ...structuredClone(DEFAULT_PROJECT_3D_CONFIG), exposure: 1.25 };
+    await expect(updateProject3DExperience(admin, primary.projectId, { expectedRevision: 1, config, reason: "Tune the authored scene" })).resolves.toMatchObject({ document: { revision: 2, config: { exposure: 1.25 } } });
+    await expect(updateProject3DExperience(admin, primary.projectId, { expectedRevision: 1, config, reason: "Reject the stale editor" })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, projectId: primary.projectId, actionKey: "PLATFORM_THREE_D_EXPERIENCE_CHANGED" } })).toBe(1);
+  });
+
+  it("saves model transforms and manifest-bound material overrides with concurrency", async () => {
+    const before = await prisma.project3DModelVersion.findUniqueOrThrow({ where: { id: versionId } });
+    const input = { expectedUpdatedAt: before.updatedAt.toISOString(), scale: 1.5, rotationDeg: 10, altitudeOffset: 2, positionX: 3, positionZ: 4, rotationXDeg: 0, rotationZDeg: 0, visible: true, castShadow: true, receiveShadow: true, selectable: true, transformLocked: false, nodeOverrides: [{ nodeId: "node_0", materialOverrideEnabled: true, colorHex: "#aabbcc", roughness: 0.4 }], reason: "Author model placement and finish" };
+    const saved = await updateProject3DModelSettings(admin, primary.projectId, versionId, input);
+    await expect(prisma.project3DModelVersion.findUniqueOrThrow({ where: { id: versionId } })).resolves.toMatchObject({ scale: 1.5, rotationDeg: 10, positionX: 3, nodeOverrides: input.nodeOverrides });
+    await expect(updateProject3DModelSettings(admin, primary.projectId, versionId, { ...input, expectedUpdatedAt: saved.updatedAt, nodeOverrides: [{ nodeId: "invented", visible: false }] })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(updateProject3DModelSettings(admin, primary.projectId, versionId, input)).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("builds a Platform preview DTO without source storage identity", async () => {
+    const workspace = await getProject3DEditorWorkspace(admin, primary.projectId);
+    expect(workspace.config.document).toMatchObject({ schemaVersion: 1, revision: 2, config: { exposure: 1.25 } });
+    expect(workspace.slots[0]?.versions[0]?.asset?.url).toContain("/api/storage/objects/");
+    expect(JSON.stringify(workspace)).not.toContain("sourceStorageKey");
+    expect(JSON.stringify(workspace)).not.toContain(`/source/${tag}.glb`);
   });
 });
