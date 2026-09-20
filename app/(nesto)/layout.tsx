@@ -1,5 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { requireUserContext } from "@/lib/context/current-user";
+import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
+import { redirect } from "next/navigation";
 
 /**
  * Every authenticated NESTO route renders inside the one application shell
@@ -11,6 +13,8 @@ import { requireUserContext } from "@/lib/context/current-user";
  */
 export default async function NestoLayout({ children }: { children: React.ReactNode }) {
   const context = await requireUserContext();
+  const maintenance = await getMaintenanceState();
+  if (maintenance.enabled) redirect("/maintenance");
 
   return <AppShell context={context}>{children}</AppShell>;
 }

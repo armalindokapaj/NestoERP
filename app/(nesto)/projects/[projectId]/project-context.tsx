@@ -46,6 +46,7 @@ export async function loadProject(
 
 export type ProjectTabKey =
   | "overview"
+  | "3d"
   | "planning"
   | "units"
   | "sales"

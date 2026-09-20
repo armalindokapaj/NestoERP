@@ -52,6 +52,85 @@ enum ModuleStatus {
   INACTIVE
 }
 
+enum FeatureFlagState {
+  OFF
+  ON
+  BETA
+}
+
+enum FeatureFlagScopeType {
+  PLATFORM
+  GROUP
+  COMPANY
+  USER
+}
+
+enum ThreeDProjectStatus {
+  DRAFT
+  PROCESSING
+  READY
+  PUBLISHED
+  ERROR
+}
+
+enum ThreeDModelStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+  PUBLISHED
+  RETIRED
+}
+
+enum Project3DEntitlementStatus {
+  INACTIVE
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+}
+
+enum Project3DModelSlotKind {
+  MAP
+  DETAIL
+}
+
+enum Project3DModelSlotRole {
+  BUILDING
+  UNITS
+  SURROUNDINGS
+  CONTEXT
+  CUSTOM
+}
+
+enum Project3DModelVersionStatus {
+  DRAFT
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+  PUBLISHED
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum Project3DValidationStatus {
+  PENDING
+  READY
+  WARNING
+  BLOCKED
+}
+
+enum Project3DUnitMappingStatus {
+  MAPPED
+  CARRIED
+  NEEDS_REVIEW
+}
+
+enum Project3DReleaseStatus {
+  PUBLISHED
+  ARCHIVED
+}
+
 enum AccessLevel {
   NONE
   VIEW
@@ -1331,6 +1410,12 @@ model Company {
   projectBuildings         ProjectBuilding[]
   projectFloors            ProjectFloor[]
   projectUnits             ProjectUnit[]
+  project3DEntitlements    Project3DEntitlement[]
+  project3DConfigs         Project3DConfig[]
+  project3DModelSlots      Project3DModelSlot[]
+  project3DModelVersions   Project3DModelVersion[]
+  project3DUnitBindings    Project3DUnitMeshBinding[]
+  project3DReleases        Project3DRelease[]
   unitPublicationApprovals UnitPublicationApproval[]
   unitSaleApprovals        UnitSaleApproval[]
   clients                  Client[]
@@ -2044,6 +2129,367 @@ model PlatformAccess {
   @@map("platform_access")
 }
 
+/// A named capability whose effective state can be narrowed at platform,
+/// group, company or user level. Tenant code resolves this registry; it never
+/// reads a client-provided switch (Platform Admin PRD §39-§40, §94).
+model FeatureFlag {
+  id              String           @id @default(cuid())
+  key             String           @unique
+  name            String
+  description     String?
+  defaultState    FeatureFlagState @default(OFF)
+  archivedAt      DateTime?
+  createdByUserId String
+  updatedByUserId String
+
+  overrides FeatureFlagOverride[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([archivedAt])
+  @@map("feature_flags")
+}
+
+/// `scopeId` is `platform` for PLATFORM and the canonical record id for every
+/// other level. The service verifies the target before writing the override.
+model FeatureFlagOverride {
+  id              String               @id @default(cuid())
+  featureFlagId   String
+  scopeType       FeatureFlagScopeType
+  scopeId         String
+  state           FeatureFlagState
+  reason          String?
+  updatedByUserId String
+
+  featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([featureFlagId, scopeType, scopeId])
+  @@index([scopeType, scopeId])
+  @@map("feature_flag_overrides")
+}
+
+/// Platform-wide configuration. Values are typed and validated by the service
+/// for their category; JSON keeps the registry extensible without tenant copy
+/// tables (Platform Admin PRD §74-§80, §90).
+model PlatformSetting {
+  key             String  @id
+  category        String
+  value           Json
+  updatedByUserId String
+  reason          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("platform_settings")
+}
+
+/// Explicit, expiring permission to inspect sensitive tenant data for a stated
+/// support reason. It is separate from ordinary platform authority (§5, §67).
+model SupportAccessSession {
+  id              String    @id @default(cuid())
+  actorUserId     String
+  parentGroupId   String?
+  companyId       String?
+  projectId       String?
+  targetUserId    String?
+  reason          String
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([actorUserId, expiresAt])
+  @@index([parentGroupId])
+  @@index([companyId])
+  @@map("support_access_sessions")
+}
+
+/// Platform-owned authoring configuration bound to the one canonical Project.
+/// Tenant users receive only the published projection, never this record.
+model ThreeDProjectConfiguration {
+  id                 String              @id @default(cuid())
+  projectId          String              @unique
+  status             ThreeDProjectStatus @default(DRAFT)
+  sceneConfiguration Json?
+  publishedVersionId String?
+  createdByUserId    String
+  updatedByUserId    String
+  publishedAt        DateTime?
+
+  project  Project              @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  versions ThreeDModelVersion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("three_d_project_configurations")
+}
+
+model ThreeDModelVersion {
+  id              String            @id @default(cuid())
+  configurationId String
+  version         Int
+  name            String
+  sourceFileName  String?
+  storageKey      String?
+  checksum        String?
+  status          ThreeDModelStatus @default(UPLOADED)
+  diagnostics     Json?
+  createdByUserId String
+  publishedAt     DateTime?
+
+  configuration ThreeDProjectConfiguration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([configurationId, version])
+  @@index([status])
+  @@map("three_d_model_versions")
+}
+
+/// Platform-granted access to the 3D capability for one canonical Project.
+/// It does not make the Company viewer available without an active release.
+model Project3DEntitlement {
+  id                  String                     @id @default(cuid())
+  companyId           String
+  projectId           String                     @unique
+  status              Project3DEntitlementStatus @default(INACTIVE)
+  planKey             String?
+  viewerEnabled       Boolean                    @default(true)
+  activatedAt         DateTime?
+  expiresAt           DateTime?
+  provisionedByUserId String
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, companyId])
+  @@index([companyId, status])
+  @@index([status, expiresAt])
+  @@map("project_3d_entitlements")
+}
+
+/// The one versioned authoring document for a Project. `activeReleaseId` is
+/// the only pointer the Company viewer follows; draft edits never change it.
+model Project3DConfig {
+  id                String  @id @default(cuid())
+  companyId         String
+  projectId         String  @unique
+  schemaVersion     Int     @default(1)
+  authoringDocument Json
+  activeReleaseId   String? @unique
+  updatedByUserId   String
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+
+  activeRelease Project3DRelease?    @relation("Project3DActiveRelease", fields: [activeReleaseId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  slots         Project3DModelSlot[]
+  releases      Project3DRelease[]   @relation("Project3DConfigReleases")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, projectId, companyId])
+  @@unique([projectId, companyId])
+  @@unique([activeReleaseId, projectId, companyId])
+  @@index([companyId])
+  @@map("project_3d_configs")
+}
+
+/// A named model role in a Project. Detail slots may be transformed relative
+/// to another slot, but both stay within the same Project configuration.
+model Project3DModelSlot {
+  id                    String                 @id @default(cuid())
+  companyId             String
+  projectId             String
+  configId              String
+  kind                  Project3DModelSlotKind @default(DETAIL)
+  role                  Project3DModelSlotRole
+  slotKey               String
+  displayName           String
+  sortOrder             Int                    @default(0)
+  isActive              Boolean                @default(true)
+  transformParentSlotId String?
+
+  company Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project         @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  config  Project3DConfig @relation(fields: [configId, projectId, companyId], references: [id, projectId, companyId], onDelete: Cascade)
+
+  transformParent   Project3DModelSlot?     @relation("Project3DSlotTransformParent", fields: [transformParentSlotId], references: [id], onDelete: Restrict)
+  transformChildren Project3DModelSlot[]    @relation("Project3DSlotTransformParent")
+  versions          Project3DModelVersion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, slotKey])
+  @@unique([id, projectId, companyId])
+  @@index([companyId, projectId, isActive])
+  @@index([configId, sortOrder])
+  @@map("project_3d_model_slots")
+}
+
+/// One immutable source upload and its separately generated runtime object.
+/// Processing may advance state and diagnostics; source bytes are never overwritten.
+model Project3DModelVersion {
+  id                    String                      @id @default(cuid())
+  companyId             String
+  projectId             String
+  slotId                String
+  version               Int
+  originalFileName      String
+  sourceStorageKey      String                      @unique
+  runtimeStorageKey     String?                     @unique
+  storageProvider       String
+  sourceSizeBytes       BigInt
+  runtimeSizeBytes      BigInt?
+  sourceContentType     String
+  runtimeContentType    String?
+  sourceChecksum        String?
+  runtimeChecksum       String?
+  scale                 Float                       @default(1)
+  rotationDeg           Float                       @default(0)
+  altitudeOffset        Float                       @default(0)
+  positionX             Float                       @default(0)
+  positionZ             Float                       @default(0)
+  rotationXDeg          Float                       @default(0)
+  rotationZDeg          Float                       @default(0)
+  visible               Boolean                     @default(true)
+  castShadow            Boolean                     @default(true)
+  receiveShadow         Boolean                     @default(true)
+  selectable            Boolean                     @default(true)
+  transformLocked       Boolean                     @default(false)
+  validationStatus      Project3DValidationStatus   @default(PENDING)
+  validationIssues      Json?
+  processingDiagnostics Json?
+  triangleCount         Int?
+  meshCount             Int?
+  materialCount         Int?
+  textureCount          Int?
+  unitNodeNames         Json?
+  sceneManifest         Json?
+  nodeOverrides         Json?
+  experienceSnapshot    Json?
+  status                Project3DModelVersionStatus @default(DRAFT)
+  uploadedByUserId      String
+  publishedByUserId     String?
+  publishedAt           DateTime?
+  deletedAt             DateTime?
+  deletedByUserId       String?
+
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project            @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  slot    Project3DModelSlot @relation(fields: [slotId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+
+  unitBindings Project3DUnitMeshBinding[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([slotId, version])
+  @@unique([id, projectId, companyId])
+  @@index([companyId, projectId, status])
+  @@index([slotId, status])
+  @@index([validationStatus])
+  @@map("project_3d_model_versions")
+}
+
+/// A mesh in one model version mapped to the one canonical NESTO ProjectUnit.
+/// Composite foreign keys make cross-Project and cross-Company binding invalid.
+model Project3DUnitMeshBinding {
+  id                  String                     @id @default(cuid())
+  companyId           String
+  projectId           String
+  modelVersionId      String
+  projectUnitId       String
+  meshName            String
+  mappingStatus       Project3DUnitMappingStatus @default(MAPPED)
+  poiYawDeg           Float                      @default(0)
+  poiEnabled          Boolean                    @default(true)
+  poiDistanceOverride Float?
+  poiHeightOverride   Float?
+  mappedByUserId      String
+  mappedAt            DateTime                   @default(now())
+
+  company      Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project      Project               @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  modelVersion Project3DModelVersion @relation(fields: [modelVersionId, projectId, companyId], references: [id, projectId, companyId], onDelete: Cascade)
+  projectUnit  ProjectUnit           @relation(fields: [projectUnitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([modelVersionId, meshName])
+  @@unique([modelVersionId, projectUnitId])
+  @@index([companyId, projectId])
+  @@index([projectUnitId])
+  @@map("project_3d_unit_mesh_bindings")
+}
+
+/// An immutable Company-viewer snapshot. Activating or rolling back only moves
+/// Project3DConfig.activeReleaseId; it never rewrites this manifest or snapshot.
+model Project3DRelease {
+  id                 String                 @id @default(cuid())
+  companyId          String
+  projectId          String
+  configId           String
+  releaseNumber      Int
+  schemaVersion      Int                    @default(1)
+  experienceSnapshot Json
+  manifest           Json
+  manifestHash       String
+  status             Project3DReleaseStatus @default(PUBLISHED)
+  publishedByUserId  String
+  publishedAt        DateTime               @default(now())
+  activatedAt        DateTime               @default(now())
+  supersededAt       DateTime?
+
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project         Project          @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  config          Project3DConfig  @relation("Project3DConfigReleases", fields: [configId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  activeForConfig Project3DConfig? @relation("Project3DActiveRelease")
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, releaseNumber])
+  @@unique([id, projectId, companyId])
+  @@index([companyId, projectId, publishedAt])
+  @@index([configId])
+  @@map("project_3d_releases")
+}
+
+/// Reusable, Platform-global environment values used by the Experience Editor.
+model Platform3DEnvironmentPreset {
+  id              String  @id @default(cuid())
+  key             String  @unique
+  name            String
+  schemaVersion   Int     @default(1)
+  configuration   Json
+  isActive        Boolean @default(true)
+  createdByUserId String
+  updatedByUserId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, name])
+  @@map("platform_3d_environment_presets")
+}
+
 /// The person, before and apart from any login (E-06 §22, E-08 §3, §57). HR's
 /// record of a human being in the group: a candidate is one, an employee is one,
 /// and so is someone who never signs in. A login links to exactly one.
@@ -2285,26 +2731,33 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  calendarEvents       CalendarEvent[]
-  meetings             Meeting[]
-  meetingSeries        MeetingSeries[]
-  workLogs             WorkLog[]
-  dailyLogs            DailyLog[]
-  dailyLogSettings     ProjectDailyLogSettings?
-  phases               ProjectPhase[]
-  milestones           ProjectMilestone[]
+  calendarEvents         CalendarEvent[]
+  meetings               Meeting[]
+  meetingSeries          MeetingSeries[]
+  workLogs               WorkLog[]
+  dailyLogs              DailyLog[]
+  threeDConfiguration    ThreeDProjectConfiguration?
+  project3DEntitlement   Project3DEntitlement?
+  project3DConfig        Project3DConfig?
+  project3DModelSlots    Project3DModelSlot[]
+  project3DModelVersions Project3DModelVersion[]
+  project3DUnitBindings  Project3DUnitMeshBinding[]
+  project3DReleases      Project3DRelease[]
+  dailyLogSettings       ProjectDailyLogSettings?
+  phases                 ProjectPhase[]
+  milestones             ProjectMilestone[]
   /// The physical structure: buildings, their floors, the units on them (E-05B §3).
-  buildings            ProjectBuilding[]
+  buildings              ProjectBuilding[]
   /// Where on the ground the work happens (E-04 §38): a project with none is its own single site.
-  sites                ProjectSite[]
+  sites                  ProjectSite[]
   // E-04: who works here, in which crews, and what was recorded on site.
-  workforceCrews       WorkforceCrew[]
-  workforceAssignments EmployeeProjectAssignment[]
-  attendanceRecords    AttendanceRecord[]
-  hseInductions        HseInduction[]
-  floors               ProjectFloor[]
-  units                ProjectUnit[]
-  announcements        Announcement[]
+  workforceCrews         WorkforceCrew[]
+  workforceAssignments   EmployeeProjectAssignment[]
+  attendanceRecords      AttendanceRecord[]
+  hseInductions          HseInduction[]
+  floors                 ProjectFloor[]
+  units                  ProjectUnit[]
+  announcements          Announcement[]
 
   contractorAssignments ProjectContractorAssignment[]
   workPackages          WorkPackage[]
@@ -2585,6 +3038,7 @@ model ProjectUnit {
   // Legal and Finance (E-05F): the contracts holding it and Sales' requests for one.
   contractLinks         ContractUnit[]
   contractRequests      UnitContractRequest[]
+  threeDMeshBindings    Project3DUnitMeshBinding[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

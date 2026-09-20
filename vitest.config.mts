@@ -9,6 +9,9 @@ import { fileURLToPath } from "node:url";
  * must never mock the authorisation they exist to verify (PRD #9 §223).
  */
 export default defineConfig({
+  // Application TSX preserves JSX for Next.js; Vitest needs to lower it when
+  // component tests import the real Company 3D viewer.
+  oxc: { jsx: "react-jsx" },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./", import.meta.url)),

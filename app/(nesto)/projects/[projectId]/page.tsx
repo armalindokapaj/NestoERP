@@ -28,6 +28,7 @@ import {
 import { formatDate, orDash } from "@/lib/utils/format";
 import { loadProject, projectBreadcrumbs } from "./project-context";
 import { ProjectTabs } from "./project-tabs";
+import { hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -52,6 +53,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
   const actions = projects.projectActions(context);
+  const publishedThreeD = await hasActiveProject3DViewer(context, project.id);
 
   const archived = project.archivedAt !== null || project.status === "ARCHIVED";
 
@@ -167,6 +169,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
         actions={
           <>
           <RecordFavorite context={context} entityType="project" entityId={project.id} />
+          {publishedThreeD ? <Button asChild size="sm" variant="secondary"><Link href={`/projects/${project.id}/3d`}>View in 3D</Link></Button> : null}
           {canAddress(context, "PROJECT") ? (
             <Button asChild size="sm" variant="secondary">
               <Link href={`/announcements/new?projectId=${project.id}`}>
@@ -197,6 +200,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
         projectId={project.id}
         active="overview"
         show={{
+          threeD: publishedThreeD,
           planning: actions.canViewPlanning,
           units: actions.canViewUnits,
           sales: actions.canViewUnitSales,

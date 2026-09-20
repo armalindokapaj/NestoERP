@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
-import { NestoLogo } from "@/components/layout/nesto-logo";
+import { PlatformShell } from "@/components/platform/platform-shell";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { isDevMode } from "@/lib/auth/dev-mode";
@@ -27,29 +27,12 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
   return (
     <ToastProvider>
     <TooltipProvider>
-    <div className="min-h-dvh bg-canvas">
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <NestoLogo />
-            <span className="rounded-md border border-line px-2 py-0.5 text-meta font-medium text-fg-muted">
-              Platform
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Development only: back into a demo company as one of its people (C-01 §78). */}
-            {isDevMode ? (
-              <Suspense fallback={null}>
-                <DevUserSwitcher />
-              </Suspense>
-            ) : null}
-            <span className="text-table text-fg-muted">{context.fullName}</span>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
-    </div>
+    <PlatformShell
+      user={context.fullName}
+      actions={<>{isDevMode ? <Suspense fallback={null}><DevUserSwitcher /></Suspense> : null}<SignOutButton /></>}
+    >
+      {children}
+    </PlatformShell>
     </TooltipProvider>
     </ToastProvider>
   );
