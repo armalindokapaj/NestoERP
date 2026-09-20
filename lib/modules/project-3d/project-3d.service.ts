@@ -60,6 +60,41 @@ export async function listProject3DWorkspaces(context: PlatformContext) {
   }));
 }
 
+export async function listProject3DDiagnostics(context: PlatformContext) {
+  assertProject3DPlatformPermission(context, "platform.3d.view");
+  const rows = await prisma.project3DConfig.findMany({
+    where: { project: { company: { parentGroup: { isTestFixture: false } } } },
+    orderBy: [{ project: { company: { name: "asc" } } }, { project: { name: "asc" } }],
+    select: {
+      id: true,
+      projectId: true,
+      activeReleaseId: true,
+      project: { select: { name: true, company: { select: { name: true } }, project3DEntitlement: { select: { status: true } } } },
+      slots: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          displayName: true,
+          versions: {
+            where: { deletedAt: null },
+            orderBy: { version: "desc" },
+            select: { id: true, version: true, status: true, validationStatus: true },
+          },
+        },
+      },
+    },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    projectId: row.projectId,
+    projectName: row.project.name,
+    companyName: row.project.company.name,
+    entitlementStatus: row.project.project3DEntitlement?.status ?? null,
+    activeReleaseId: row.activeReleaseId,
+    slots: row.slots,
+  }));
+}
+
 export async function getProject3DWorkspace(context: PlatformContext, projectId: string) {
   assertProject3DPlatformPermission(context, "platform.3d.view");
   const project = assertFound(await prisma.project.findFirst({

@@ -615,10 +615,10 @@ export interface UnitMeshLink {
 }
 
 export interface SceneManifestNode {
-  rzNodeId: string;
+  nodeId: string;
   name: string;
   meshIndex: number | null;
-  parentRzNodeId: string | null;
+  parentNodeId: string | null;
   depth: number;
   isMesh: boolean;
   autoClassification: "unit_block" | "architecture";
@@ -627,7 +627,7 @@ export interface SceneManifestNode {
 export type NodeClassification = "architecture" | "landscape" | "interaction" | "helper";
 
 export interface NodeOverride {
-  rzNodeId: string;
+  nodeId: string;
   classification?: NodeClassification;
   materialPreset?: MaterialPresetId;
   colorHex?: string;
@@ -777,5 +777,4 @@ export interface ExperienceDocument {
     validationStatus: "ready" | "warning" | "blocked";
   };
 }
-
 

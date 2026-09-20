@@ -2,13 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { resolveFeatureFlag } from "@/lib/modules/platform/platform-control.query";
 import {
-  completeThreeDModelUpload,
   createFeatureFlag,
   createPlatformPerson,
   createPlatformUser,
-  createThreeDModelUpload,
-  provisionThreeDProject,
-  publishThreeDVersion,
   repairBrokenMembership,
   revokePlatformSession,
   saveMaintenanceSetting,
@@ -16,7 +12,6 @@ import {
   setGroupStatus,
 } from "@/lib/modules/platform/platform-control.service";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
-import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { cleanupSessions, COMPANY, loginAs, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
 
 describe("Platform Admin control plane", () => {
@@ -28,8 +23,6 @@ describe("Platform Admin control plane", () => {
   let companyId: string | undefined;
   let personId: string | undefined;
   let userId: string | undefined;
-  let threeDProjectId: string | undefined;
-  let threeDStorageKey: string | undefined;
   let brokenMembershipId: string | undefined;
 
   beforeAll(async () => {
@@ -39,11 +32,6 @@ describe("Platform Admin control plane", () => {
   afterAll(async () => {
     await prisma.platformSetting.deleteMany({ where: { key: "maintenance.enabled" } });
     await prisma.featureFlag.deleteMany({ where: { key: flagKey } });
-    if (threeDProjectId) {
-      await prisma.threeDProjectConfiguration.deleteMany({ where: { projectId: threeDProjectId } });
-      await prisma.project.deleteMany({ where: { id: threeDProjectId } });
-    }
-    if (threeDStorageKey) await storageProvider().deleteObject(threeDStorageKey).catch(() => undefined);
     if (userId) await prisma.user.deleteMany({ where: { id: userId } });
     if (personId) await prisma.personProfile.deleteMany({ where: { id: personId } });
     if (brokenMembershipId) await prisma.companyMember.deleteMany({ where: { id: brokenMembershipId } });
@@ -118,24 +106,5 @@ describe("Platform Admin control plane", () => {
     await expect(getMaintenanceState()).resolves.toMatchObject({ enabled: false });
     expect(await prisma.session.findUnique({ where: { id: admin.sessionId } })).not.toBeNull();
     expect(await prisma.auditEvent.count({ where: { actionKey: "PLATFORM_MAINTENANCE_CHANGED", actorUserId: admin.userId } })).toBeGreaterThan(0);
-  });
-
-  it("publishes a verified transitional 3D version", async () => {
-    const project = await prisma.project.create({ data: { companyId: COMPANY.a, code: `CP-${suffix}`.slice(0, 30), name: "Control Plane 3D Test", status: "ACTIVE", createdBy: admin.userId } });
-    threeDProjectId = project.id;
-    const configuration = await provisionThreeDProject(admin, project.id, "Provision isolated 3D test");
-    const bytes = new Uint8Array(12);
-    bytes.set(new TextEncoder().encode("glTF"), 0);
-    const header = new DataView(bytes.buffer);
-    header.setUint32(4, 2, true);
-    header.setUint32(8, bytes.length, true);
-    const intent = await createThreeDModelUpload(admin, configuration.id, { name: "Verified model", fileName: "verified.glb", sizeBytes: bytes.length, reason: "Upload verified tenant model" });
-    const version = await prisma.threeDModelVersion.findUniqueOrThrow({ where: { id: intent.versionId }, select: { storageKey: true } });
-    threeDStorageKey = version.storageKey!;
-    await storageProvider().putObject(threeDStorageKey, bytes, "model/gltf-binary");
-    await completeThreeDModelUpload(admin, intent.versionId, "Verify uploaded tenant model");
-    await publishThreeDVersion(admin, configuration.id, intent.versionId, "Publish verified tenant model");
-
-    await expect(prisma.threeDProjectConfiguration.findUniqueOrThrow({ where: { id: configuration.id } })).resolves.toMatchObject({ status: "PUBLISHED", publishedVersionId: intent.versionId });
   });
 });

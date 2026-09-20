@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { JOBS } from "@/lib/core/jobs/job.registry";
+import { uploadSessionAcceptsBytes } from "@/lib/modules/documents/storage/upload.service";
 import { completeProject3DModelUpload, createProject3DModelSlot, createProject3DModelUpload, processPendingProject3DModels } from "@/lib/modules/project-3d/project-3d.ingestion";
 import { updateProject3DEntitlement } from "@/lib/modules/project-3d/project-3d.service";
 import { cleanupSessions, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
@@ -105,8 +106,10 @@ describe("project-3d.process-models", () => {
       const intent = await createProject3DModelUpload(admin, projectId, slotId, { fileName: "units.glb", sizeBytes: bytes.length, scale: 1, rotationDeg: 0, altitudeOffset: 0, positionX: 0, positionZ: 0, rotationXDeg: 0, rotationZDeg: 0, reason: "Upload unit model" });
       const version = await prisma.project3DModelVersion.findUniqueOrThrow({ where: { id: intent.versionId }, select: { sourceStorageKey: true } });
       storedKeys.add(version.sourceStorageKey);
+      await expect(uploadSessionAcceptsBytes(version.sourceStorageKey)).resolves.toBe(true);
       await storageProvider().putObject(version.sourceStorageKey, bytes, "model/gltf-binary");
       await expect(completeProject3DModelUpload(admin, projectId, intent.versionId, "Queue verified source")).resolves.toMatchObject({ status: "PROCESSING" });
+      await expect(uploadSessionAcceptsBytes(version.sourceStorageKey)).resolves.toBe(false);
 
       await prisma.company.update({ where: { id: companyId }, data: { status: "SUSPENDED" } });
       await expect(processPendingProject3DModels({ limit: 10 })).resolves.toEqual({ processed: 1, ready: 1, failed: 0 });

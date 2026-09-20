@@ -58,7 +58,6 @@
     "@gltf-transform/core": "^4.4.2",
     "@gltf-transform/extensions": "^4.4.2",
     "@gltf-transform/functions": "^4.4.2",
-    "@google/model-viewer": "^4.3.1",
     "@hookform/resolvers": "^5.9.1",
     "@prisma/client": "^6",
     "@radix-ui/react-avatar": "^1.2.6",

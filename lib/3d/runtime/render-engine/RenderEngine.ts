@@ -1354,10 +1354,10 @@ export class RenderEngine {
   private applyNodeOverrides(root: THREE.Object3D, model: ProjectDetailModel) {
     const overrides = model.nodeOverrides ?? [];
     const manifest = model.sceneManifest ?? [];
-    const rzToOverride = new Map(overrides.map((o) => [o.rzNodeId, o]));
+    const nodeToOverride = new Map(overrides.map((override) => [override.nodeId, override]));
     const nameToOverride = new Map<string, NodeOverride>(
       manifest.flatMap((n: SceneManifestNode) => {
-        const o = rzToOverride.get(n.rzNodeId);
+        const o = nodeToOverride.get(n.nodeId);
         return o ? [[n.name, o] as const] : [];
       })
     );

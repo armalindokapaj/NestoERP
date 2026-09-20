@@ -248,10 +248,10 @@ export async function uploadSessionAcceptsBytes(storageKey: string, now = new Da
     select: { status: true, expiresAt: true },
   });
   if (session) return (session.status === "CREATED" || session.status === "UPLOADING") && session.expiresAt.getTime() > now.getTime();
-  // Platform 3D artifacts use the same signed, single-use object endpoint. A
-  // version waiting for its upload is its capability record; completion moves
-  // it to READY, after which this endpoint refuses any replay.
-  const model = await prisma.threeDModelVersion.findFirst({ where: { storageKey, status: "UPLOADED" }, select: { createdAt: true } });
+  // Native Project 3D artifacts use the same signed, single-use object endpoint.
+  // The pending version is the capability record; verification moves it out of
+  // UPLOADED, after which this endpoint refuses any replay.
+  const model = await prisma.project3DModelVersion.findFirst({ where: { sourceStorageKey: storageKey, status: "UPLOADED", deletedAt: null }, select: { createdAt: true } });
   return Boolean(model && now.getTime() - model.createdAt.getTime() <= 15 * 60 * 1000);
 }
 
