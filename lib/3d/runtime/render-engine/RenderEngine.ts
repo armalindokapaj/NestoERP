@@ -1079,7 +1079,7 @@ export class RenderEngine {
 
     const map = new mapboxgl.Map({
       container,
-      style: "mapbox://styles/armalindokapaj/cmsqj4p0101ao01sd6911ckb4",
+      style: "mapbox://styles/mapbox/satellite-streets-v12",
       center: [0, 0],
       zoom: 2,
       interactive: false,
