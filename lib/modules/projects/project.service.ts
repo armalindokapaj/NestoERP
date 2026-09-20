@@ -1088,7 +1088,11 @@ function toDetailDTO(
     location: { address: row.address, city: row.city, country: row.country },
     builtArea: row.builtArea === null ? null : Number(row.builtArea),
     isKeyProject: row.isKeyProject,
-    company: { id: row.company.id, name: row.company.name },
+    company: {
+      id: row.company.id,
+      name: row.company.name,
+      parentGroup: { id: row.company.parentGroup.id, name: row.company.parentGroup.name },
+    },
     projectType: row.projectType ? { id: row.projectType.id, name: row.projectType.name } : null,
     coverImageDocumentId: row.coverImageDocumentId,
     lastActivityAt: row.lastActivityAt.toISOString(),
@@ -1132,6 +1136,8 @@ export function projectActions(context: UserContext) {
     canViewEngineering: isModuleEnabled(context, "engineering") && canAccessModule(context, "engineering") && (can(context, "rfi.view") || can(context, "engineering_document.view")),
     canViewDocuments: can(context, "project.document.view") && can(context, "document.view"),
     canViewActivity: can(context, "project.activity.view"),
+    canViewMedia: can(context, "project.media.view"),
+    canManageMedia: can(context, "project.media.manage"),
     /**
      * The Finance tab appears when the reader holds at least one finance
      * permission that has something to show on a project (PRD #15 §182).

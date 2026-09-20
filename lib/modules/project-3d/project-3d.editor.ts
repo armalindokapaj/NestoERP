@@ -150,9 +150,11 @@ export async function updateProject3DExperience(
   parsed.config.updatedAt = new Date().toISOString();
 
   return prisma.$transaction(async (tx) => {
-    const current = await tx.project3DConfig.findUniqueOrThrow({ where: { id: config.id }, select: { authoringDocument: true } });
+    const current = await tx.project3DConfig.findFirstOrThrow({ where: { id: config.id, companyId: config.companyId, projectId }, select: { authoringDocument: true } });
     if (experience(current.authoringDocument).revision !== input.expectedRevision) throw new AccessError("CONFLICT", "The 3D Experience changed while you were editing it. Reload and try again.", { code: "EXPERIENCE_RACED" });
-    const updated = await tx.project3DConfig.update({ where: { id: config.id }, data: { authoringDocument: parsed as unknown as Prisma.InputJsonValue, schemaVersion: parsed.schemaVersion, updatedByUserId: context.userId } });
+    const changed = await tx.project3DConfig.updateMany({ where: { id: config.id, companyId: config.companyId, projectId }, data: { authoringDocument: parsed as unknown as Prisma.InputJsonValue, schemaVersion: parsed.schemaVersion, updatedByUserId: context.userId } });
+    if (changed.count !== 1) throw new AccessError("NOT_FOUND");
+    const updated = await tx.project3DConfig.findFirstOrThrow({ where: { id: config.id, companyId: config.companyId, projectId }, select: { updatedAt: true } });
     await recordPlatformAction(context, config.project.company.parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_CHANGED,
       entity: { type: "Project3DConfig", id: config.id, label: config.project.name },
@@ -174,7 +176,7 @@ export async function updateProject3DModelSettings(
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
   const version = assertFound(await prisma.project3DModelVersion.findFirst({
     where: { id: versionId, projectId, deletedAt: null, project: { company: { parentGroup: { isTestFixture: false } } } },
-    select: { id: true, slotId: true, version: true, originalFileName: true, status: true, validationStatus: true, sceneManifest: true, updatedAt: true, scale: true, rotationDeg: true, altitudeOffset: true, positionX: true, positionZ: true, rotationXDeg: true, rotationZDeg: true, visible: true, castShadow: true, receiveShadow: true, selectable: true, transformLocked: true, nodeOverrides: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
+    select: { id: true, companyId: true, slotId: true, version: true, originalFileName: true, status: true, validationStatus: true, sceneManifest: true, updatedAt: true, scale: true, rotationDeg: true, altitudeOffset: true, positionX: true, positionZ: true, rotationXDeg: true, rotationZDeg: true, visible: true, castShadow: true, receiveShadow: true, selectable: true, transformLocked: true, nodeOverrides: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
   }));
   if (!(["READY", "PUBLISHED"] as string[]).includes(version.status)) throw new AccessError("CONFLICT", "Finish processing this model before editing it.", { code: "MODEL_NOT_READY" });
   const nodeIds = input.nodeOverrides.map((override) => override.nodeId);
@@ -188,7 +190,7 @@ export async function updateProject3DModelSettings(
       data: { scale: input.scale, rotationDeg: input.rotationDeg, altitudeOffset: input.altitudeOffset, positionX: input.positionX, positionZ: input.positionZ, rotationXDeg: input.rotationXDeg, rotationZDeg: input.rotationZDeg, visible: input.visible, castShadow: input.castShadow, receiveShadow: input.receiveShadow, selectable: input.selectable, transformLocked: input.transformLocked, nodeOverrides: input.nodeOverrides as unknown as Prisma.InputJsonValue },
     });
     if (changed.count !== 1) throw new AccessError("CONFLICT", "The model changed while you were editing it. Reload and try again.", { code: "MODEL_RACED" });
-    const updated = await tx.project3DModelVersion.findUniqueOrThrow({ where: { id: version.id } });
+    const updated = await tx.project3DModelVersion.findFirstOrThrow({ where: { id: version.id, companyId: version.companyId, projectId } });
     await recordPlatformAction(context, version.project.company.parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelVersion", id: version.id, label: `${version.project.name} v${version.version}` },

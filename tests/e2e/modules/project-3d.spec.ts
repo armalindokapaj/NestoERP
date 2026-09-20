@@ -152,12 +152,16 @@ test("Platform Admin provisions the native Project 3D workspace", async ({ page 
 test("Company sees only the active read-only release", async ({ page }) => {
   await publishFixture();
   await signIn(page, "OWNER", { to: `/projects/${PROJECT_ID}` });
-  await expect(page.getByRole("link", { name: "3D", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "3D", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 1, name: `${PROJECT_NAME} · 3D Viewer` })).toBeVisible();
-  await expect(page.getByTestId("project-3d-viewer")).toBeVisible();
-  await expect(page.getByText("Published experience · Release 1")).toBeVisible();
-  await expect(page.getByRole("button", { name: /upload|publish|save experience|rollback/i })).toHaveCount(0);
+  const launch = page.getByRole("link", { name: "View in 3D" });
+  await expect(launch).toHaveAttribute("target", "_blank");
+  const explorerPromise = page.waitForEvent("popup");
+  await launch.click();
+  const explorer = await explorerPromise;
+  await expect(explorer.getByRole("heading", { level: 1, name: `${PROJECT_NAME} · 3D Explorer` })).toBeVisible();
+  await expect(explorer.getByTestId("project-3d-viewer")).toBeVisible();
+  await expect(explorer.getByText("Published experience · Release 1")).toBeVisible();
+  await expect(explorer.getByRole("button", { name: /upload|publish|save experience|rollback/i })).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/projects/${PROJECT_ID}$`));
 
   const bootstrap = await page.request.get(`/api/projects/${PROJECT_ID}/3d/bootstrap`);
   expect(bootstrap.status()).toBe(200);

@@ -1,0 +1,13 @@
+.git
+.next
+.next-e2e
+.storage
+node_modules
+coverage
+playwright-report
+test-results
+*.log
+.env
+.env.*
+!.env.example
+NestoERP.code-workspace

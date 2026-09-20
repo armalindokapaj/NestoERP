@@ -107,7 +107,7 @@ export async function seedArmaarPeople(prisma: PrismaClient, branches: ArmaarBra
 
   /* Logins, company by company ---------------------------------------------- */
   for (const person of ARMAAR_PEOPLE) {
-    for (const code of companiesOf(person)) {
+    for (const [loginIndex, code] of companiesOf(person).entries()) {
       const departments = branches.get(companyId(code))!;
       await upsertMembership(prisma, {
         id: memberId(person.username, code),
@@ -117,6 +117,10 @@ export async function seedArmaarPeople(prisma: PrismaClient, branches: ArmaarBra
         roleId,
         departmentId: departments.get(person.department) ?? null,
         jobTitle: person.jobTitle,
+        // PostgreSQL timestamps can tie when sequential inserts complete in the
+        // same millisecond. Keep the declared login order deterministic because
+        // credentials use the oldest membership as the sign-in workspace.
+        createdAt: new Date(activatedAt.getTime() + loginIndex),
       });
       const started = businessDay(person.startedDaysAgo);
       await prisma.companyMember.update({ where: { id: memberId(person.username, code) }, data: { joinedAt: started > activatedAt ? started : activatedAt } });

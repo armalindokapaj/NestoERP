@@ -536,6 +536,29 @@ async function seedCover(prisma: PrismaClient, plan: ProjectPlan) {
     });
   }
   await prisma.project.update({ where: { id: projectId(plan.code) }, data: { coverImageDocumentId: id } });
+  const fact = PROJECT_FACTS.find((candidate) => candidate.code === plan.code)!;
+  await prisma.projectMedia.upsert({
+    where: { projectId_documentId: { projectId: projectId(plan.code), documentId: id } },
+    update: {
+      type: "RENDER",
+      title: `${fact.name} render`,
+      sortOrder: 0,
+      isCover: true,
+      isFeatured: true,
+    },
+    create: {
+      id: `armaar_media_cover_${slugOf(plan.code)}`,
+      companyId: companyId(plan.company),
+      projectId: projectId(plan.code),
+      documentId: id,
+      type: "RENDER",
+      title: `${fact.name} render`,
+      sortOrder: 0,
+      isCover: true,
+      isFeatured: true,
+      createdByMemberId: memberId(plan.manager, plan.company),
+    },
+  });
 }
 
 /** Phases and milestones, the project manager's (`owner`); completed ones in the past, the rest ahead (PRD #44). */

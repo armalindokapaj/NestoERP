@@ -34,15 +34,17 @@ test.describe("Project Manager (PRD #9 §153)", () => {
 
     await expect(page.getByRole("heading", { name: "Riverside Residences" })).toBeVisible();
     await expect(page.getByText("PRJ-001").first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Edit" })).toBeVisible();
+    await page.getByRole("button", { name: "More project actions" }).click();
+    await expect(page.getByRole("menuitem", { name: "Edit project" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Manage project media" })).toBeVisible();
+    await page.keyboard.press("Escape");
     // The managing company is part of where the person is (E-05A §26).
     await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Aurelia Construction");
   });
 
   test("answers not found for a project outside scope (PRD #9 §112)", async ({ page }) => {
-    const response = await page.goto("/projects/project_c");
-
-    expect(response?.status()).toBe(404);
+    await page.goto("/projects/project_c");
+    await expect(page.getByRole("heading", { name: "Page not found." })).toBeVisible();
     // The response must not confirm that Terra's project exists.
     await expect(page.getByText("Logistics Hub")).toHaveCount(0);
   });
@@ -108,20 +110,13 @@ test.describe("Project Manager (PRD #9 §153)", () => {
     await expect(mainRegion(page).getByTestId("projects-clear-filters")).toHaveCount(0);
   });
 
-  test("shows the project tabs and each one loads", async ({ page }) => {
+  test("uses the simple project home and keeps detailed work in normal modules", async ({ page }) => {
     await page.goto("/projects/project_a");
-
-    // Scoped to the record's own tab bar: the sidebar also has a "Tasks" link,
-    // and they lead to different places.
-    const tabs = page.getByRole("navigation", { name: "Project sections" });
-
-    for (const tab of ["Tasks", "Team", "Documents", "Activity"] as const) {
-      await tabs.getByRole("link", { name: tab, exact: true }).click();
-      await expect(page).toHaveURL(new RegExp(`/projects/project_a/${tab.toLowerCase()}$`));
-      await expect(
-        page.getByRole("heading", { name: "Riverside Residences" }).first(),
-      ).toBeVisible();
-    }
+    await expect(page.getByRole("navigation", { name: "Project sections" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Project summary" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "My project work" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recent activity" })).toBeVisible();
   });
 
   test("runs projects but does not open new ones (E-05A §29)", async ({ page }) => {
@@ -291,7 +286,8 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
     const projectUrl = page.url();
 
     // Edit
-    await page.getByRole("link", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "More project actions" }).click();
+    await page.getByRole("menuitem", { name: "Edit project" }).click();
     await page.getByLabel("Project name").fill("End-to-end Renamed");
     await page.getByRole("button", { name: /save changes/i }).click();
     await expect(page.getByRole("heading", { name: "End-to-end Renamed" })).toBeVisible();

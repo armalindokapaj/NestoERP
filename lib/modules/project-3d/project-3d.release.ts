@@ -134,7 +134,7 @@ export async function publishProject3DRelease(
         })),
       };
       const hash = manifestHash(manifest);
-      if (config.activeReleaseId) await tx.project3DRelease.update({ where: { id: config.activeReleaseId }, data: { supersededAt: now } });
+      if (config.activeReleaseId) await tx.project3DRelease.updateMany({ where: { id: config.activeReleaseId, companyId: config.companyId, projectId, configId: config.id }, data: { supersededAt: now } });
       const release = await tx.project3DRelease.create({ data: { id: releaseId, companyId: config.companyId, projectId, configId: config.id, releaseNumber, schemaVersion: PROJECT_3D_SCHEMA_VERSION, experienceSnapshot: experience as unknown as Prisma.InputJsonValue, manifest: manifest as unknown as Prisma.InputJsonValue, manifestHash: hash, status: "PUBLISHED", publishedByUserId: context.userId, publishedAt: now, activatedAt: now } });
       const moved = await tx.project3DConfig.updateMany({ where: { id: config.id, activeReleaseId: config.activeReleaseId }, data: { activeReleaseId: release.id, updatedByUserId: context.userId } });
       if (moved.count !== 1) throw new AccessError("CONFLICT", "Another release became active while publishing. Reload and try again.", { code: "RELEASE_RACED" });
@@ -167,8 +167,9 @@ export async function activateProject3DRelease(context: PlatformContext, project
     if (!isProject3DEntitlementActive(config.project.project3DEntitlement, now)) throw stateDenied("Activate this Project's 3D entitlement before changing its release.", { code: "ENTITLEMENT_INACTIVE" });
     if (config.activeReleaseId === releaseId) throw new AccessError("CONFLICT", "This release is already active.", { code: "RELEASE_ALREADY_ACTIVE" });
     const target = assertFound(await tx.project3DRelease.findFirst({ where: { id: releaseId, projectId, companyId: config.companyId, configId: config.id, status: "PUBLISHED" }, select: { id: true, releaseNumber: true } }));
-    if (config.activeReleaseId) await tx.project3DRelease.update({ where: { id: config.activeReleaseId }, data: { supersededAt: now } });
-    await tx.project3DRelease.update({ where: { id: target.id }, data: { activatedAt: now, supersededAt: null } });
+    if (config.activeReleaseId) await tx.project3DRelease.updateMany({ where: { id: config.activeReleaseId, companyId: config.companyId, projectId, configId: config.id }, data: { supersededAt: now } });
+    const activated = await tx.project3DRelease.updateMany({ where: { id: target.id, companyId: config.companyId, projectId, configId: config.id }, data: { activatedAt: now, supersededAt: null } });
+    if (activated.count !== 1) throw new AccessError("NOT_FOUND");
     const moved = await tx.project3DConfig.updateMany({ where: { id: config.id, activeReleaseId: config.activeReleaseId }, data: { activeReleaseId: target.id, updatedByUserId: context.userId } });
     if (moved.count !== 1) throw new AccessError("CONFLICT", "The active release changed. Reload and try again.", { code: "RELEASE_RACED" });
     await recordPlatformAction(context, config.project.company.parentGroupId, {

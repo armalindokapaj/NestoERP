@@ -33,14 +33,41 @@ export async function hasActiveProject3DViewer(context: UserContext, projectId: 
     where: { AND: [buildProjectScopeWhere(context), { id: projectId }] },
     select: {
       project3DEntitlement: true,
-      project3DConfig: { select: { activeRelease: { select: { id: true, status: true } } } },
+      project3DConfig: { select: { activeRelease: { select: { status: true } } } },
     },
   });
-  return Boolean(
+  return Boolean(project && isProject3DEntitlementActive(project.project3DEntitlement) && project.project3DConfig?.activeRelease?.status === "PUBLISHED");
+}
+
+/** Lightweight published-experience resolver used by Project navigation. */
+export async function getProject3DAvailability(context: UserContext, projectId: string): Promise<{
+  available: boolean;
+  status: "PUBLISHED" | "UNAVAILABLE";
+  experienceId: string | null;
+  publishedVersionId: string | null;
+  viewerUrl: string | null;
+}> {
+  assertModule(context, "projects");
+  assertPermission(context, "project.view");
+  const project = assertFound(await prisma.project.findFirst({
+    where: { AND: [buildProjectScopeWhere(context), { id: projectId }] },
+    select: {
+      project3DEntitlement: true,
+      project3DConfig: { select: { id: true, activeRelease: { select: { id: true, status: true } } } },
+    },
+  }));
+  const available = Boolean(
     project
     && isProject3DEntitlementActive(project.project3DEntitlement)
     && project.project3DConfig?.activeRelease?.status === "PUBLISHED",
   );
+  return {
+    available,
+    status: available ? "PUBLISHED" : "UNAVAILABLE",
+    experienceId: available ? project!.project3DConfig!.id : null,
+    publishedVersionId: available ? project!.project3DConfig!.activeRelease!.id : null,
+    viewerUrl: available ? `/projects/${projectId}/3d` : null,
+  };
 }
 
 /**

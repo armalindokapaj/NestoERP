@@ -137,7 +137,7 @@ const DETAIL_SELECT = {
   archivedAt: true,
   clientId: true,
   projectManagerMemberId: true,
-  company: { select: { id: true, name: true } },
+  company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true } } } },
   client: { select: { id: true, name: true } },
   projectManager: {
     select: {
