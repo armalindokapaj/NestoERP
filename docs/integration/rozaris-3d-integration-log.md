@@ -121,6 +121,15 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Rollback moves only `Project3DConfig.activeReleaseId`, preserves every historical manifest/snapshot, and records the activation audit event.
 - Verified invalid-model rejection, unresolved-binding rejection, entitlement failure preserving the active release, successful publication, immutable history, distinct release hashes, rollback, audit counts, exact Platform route guards, typecheck, focused ESLint, and all 1,049 architecture and focused 3D assertions.
 
+### Phase 10 — Read-only Company Project 3D Viewer
+
+- Added the Company bootstrap API as the sole browser startup contract. It resolves the current tenant session and Project scope, requires the shared active-entitlement predicate, follows only `Project3DConfig.activeReleaseId`, validates manifest identity, and signs only runtime GLBs for five minutes.
+- Added a strict release-manifest schema and allow-listed node/material fields at the browser boundary. Draft authoring documents, original source objects, processing diagnostics, private storage keys, and Platform mutation capabilities are absent from the bootstrap DTO.
+- Added the native `/projects/[projectId]/3d` experience and a conditional `3D` tab across Project sections. The Company surface has view/reset/fullscreen/search controls only and no upload, editing, binding, publishing, rollback, version, or entitlement controls.
+- Adapted the immutable release into the shared Rozaris render engine, including slot transforms, authored environment/camera/lighting/rendering/unit behavior, controlled loading failures, signed-access refresh, responsive layout, and runtime disposal on unmount.
+- Joined live status for the release's canonical `ProjectUnit` identities, resolved mesh clicks to those ids, and exposed canonical Unit navigation only when the Company user holds `project.structure.view`.
+- Verified missing/inactive/suspended/expired entitlement behavior, active-entitlement-without-release behavior, active release bootstrap, Company/project scope isolation, source/draft/diagnostic omission, runtime signing, canonical status, exact Project permission handling, typecheck, focused ESLint, 38 focused 3D assertions, and all 1,019 architecture assertions.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.
