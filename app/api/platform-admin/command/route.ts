@@ -25,14 +25,9 @@ import {
   projectCreateSchema,
   sessionRevokeSchema,
   supportAccessSchema,
-  threeDProvisionSchema,
-  threeDPublishSchema,
-  threeDSceneSchema,
-  threeDVersionSchema,
   userStatusSchema,
 } from "@/lib/modules/platform/platform-control.schema";
 import {
-  addThreeDVersion,
   createFeatureFlag,
   createMembership,
   createPlatformGrant,
@@ -40,8 +35,6 @@ import {
   createPlatformPerson,
   createPlatformUser,
   createSupportAccess,
-  provisionThreeDProject,
-  publishThreeDVersion,
   repairBrokenMembership,
   revokePlatformGrant,
   revokePlatformSession,
@@ -57,7 +50,6 @@ import {
   updateMembership,
   updatePlatformCompany,
   updatePlatformPerson,
-  updateThreeDScene,
 } from "@/lib/modules/platform/platform-control.service";
 
 const command = z.object({ action: z.string().trim().min(1) });
@@ -150,24 +142,6 @@ export async function POST(request: Request) {
       case "grant.revoke": {
         const input = grantRevokeSchema.extend({ grantId: id }).parse(body);
         await revokePlatformGrant(context, input.grantId, input.reason);
-        return apiOk({ data: { ok: true } });
-      }
-      case "3d.provision": {
-        const input = threeDProvisionSchema.parse(body);
-        return apiOk({ data: await provisionThreeDProject(context, input.projectId, input.reason) }, { status: 201 });
-      }
-      case "3d.version": {
-        const input = threeDVersionSchema.extend({ configurationId: id }).parse(body);
-        return apiOk({ data: await addThreeDVersion(context, input.configurationId, input) }, { status: 201 });
-      }
-      case "3d.scene": {
-        const input = threeDSceneSchema.extend({ configurationId: id }).parse(body);
-        await updateThreeDScene(context, input.configurationId, input.sceneConfiguration, input.reason);
-        return apiOk({ data: { ok: true } });
-      }
-      case "3d.publish": {
-        const input = threeDPublishSchema.extend({ configurationId: id }).parse(body);
-        await publishThreeDVersion(context, input.configurationId, input.versionId, input.reason);
         return apiOk({ data: { ok: true } });
       }
       case "setting.save": {

@@ -11,9 +11,7 @@ import { normaliseUsername, usernameProblem, USERNAME_MESSAGES } from "@/lib/aut
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordGlobalPlatformAction, recordPlatformAction } from "@/lib/core/audit/audit.service";
-import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
-import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import { CORE_MODULES, DEPENDENCIES, SHARED_MODULES } from "@/lib/modules/settings/module-toggle.service";
 import type { AccessInspectorInput } from "./platform-control.schema";
 import { inspectAccess } from "./platform-control.query";
@@ -309,122 +307,6 @@ export async function revokePlatformGrant(context: PlatformContext, grantId: str
   await prisma.$transaction(async (tx) => {
     await tx.accessGrant.update({ where: { id: grant.id }, data: { revokedAt: new Date(), revokedByUserId: context.userId } });
     await recordPlatformAction(context, grant.parentGroupId, { actionKey: AuditAction.PLATFORM_ACCESS_GRANT_CHANGED, entity: { type: "AccessGrant", id: grant.id, label: grant.functionKey ?? "Access grant" }, before: { userId: grant.userId, parentGroupId: grant.parentGroupId, moduleKey: grant.functionKey, scopeType: grant.scopeType, scopeId: grant.scopeId, accessLevel: grant.accessLevel, revoked: false }, after: { userId: grant.userId, parentGroupId: grant.parentGroupId, moduleKey: grant.functionKey, scopeType: grant.scopeType, scopeId: grant.scopeId, accessLevel: grant.accessLevel, revoked: true }, reason }, { tx });
-  });
-}
-
-export async function provisionThreeDProject(context: PlatformContext, projectId: string, reason: string) {
-  assertPlatform(context, "platform.three_d.manage");
-  if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
-  const project = assertFound(await prisma.project.findFirst({ where: { id: projectId, company: { parentGroup: { isTestFixture: false } } }, select: { id: true, name: true, company: { select: { parentGroupId: true } } } }));
-  const existing = await prisma.threeDProjectConfiguration.findUnique({ where: { projectId: project.id }, select: { id: true } });
-  if (existing) return existing;
-  return prisma.$transaction(async (tx) => {
-    const configuration = await tx.threeDProjectConfiguration.create({ data: { projectId: project.id, createdByUserId: context.userId, updatedByUserId: context.userId } });
-    await recordPlatformAction(context, project.company.parentGroupId, { actionKey: AuditAction.PLATFORM_THREE_D_CONFIGURATION_CHANGED, entity: { type: "ThreeDProjectConfiguration", id: configuration.id, label: project.name }, projectId: project.id, after: { projectId: project.id, configurationId: configuration.id, status: configuration.status }, reason }, { tx });
-    return configuration;
-  });
-}
-
-export async function addThreeDVersion(context: PlatformContext, configurationId: string, input: { name: string; sourceFileName?: string; storageKey?: string; checksum?: string; reason: string }) {
-  assertPlatform(context, "platform.three_d.manage");
-  if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
-  const configuration = assertFound(await prisma.threeDProjectConfiguration.findUnique({ where: { id: configurationId }, select: { id: true, projectId: true, status: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } }, versions: { take: 1, orderBy: { version: "desc" }, select: { version: true } } } }));
-  return prisma.$transaction(async (tx) => {
-    const versionNumber = (configuration.versions[0]?.version ?? 0) + 1;
-    const version = await tx.threeDModelVersion.create({ data: { configurationId: configuration.id, version: versionNumber, name: input.name, sourceFileName: input.sourceFileName || null, storageKey: input.storageKey || null, checksum: input.checksum || null, status: "READY", diagnostics: { registeredAt: new Date().toISOString(), processing: "external-or-preprocessed" }, createdByUserId: context.userId } });
-    assertUpdated(await tx.threeDProjectConfiguration.updateMany({ where: { id: configuration.id, status: configuration.status }, data: { status: "READY", updatedByUserId: context.userId } }));
-    await recordPlatformAction(context, configuration.project.company.parentGroupId, { actionKey: AuditAction.PLATFORM_THREE_D_CONFIGURATION_CHANGED, entity: { type: "ThreeDModelVersion", id: version.id, label: version.name }, projectId: configuration.projectId, after: { projectId: configuration.projectId, configurationId: configuration.id, version: version.version, status: version.status, name: version.name }, reason: input.reason }, { tx });
-    return version;
-  });
-}
-
-const THREE_D_UPLOAD_TTL_SECONDS = 15 * 60;
-const THREE_D_MAX_BYTES = 200 * 1024 * 1024;
-
-function threeDFileType(fileName: string) {
-  const extension = fileName.toLowerCase().endsWith(".glb") ? "glb" : fileName.toLowerCase().endsWith(".gltf") ? "gltf" : null;
-  if (!extension) throw new AccessError("VALIDATION_ERROR", "Upload a GLB or glTF viewer artifact.", { field: "fileName" });
-  return { extension, contentType: extension === "glb" ? "model/gltf-binary" : "model/gltf+json" };
-}
-
-export async function createThreeDModelUpload(context: PlatformContext, configurationId: string, input: { name: string; fileName: string; sizeBytes: number; reason: string }) {
-  assertPlatform(context, "platform.three_d.manage");
-  if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
-  if (input.sizeBytes > THREE_D_MAX_BYTES) throw new AccessError("VALIDATION_ERROR", "The model is larger than 200 MB.", { field: "sizeBytes" });
-  const type = threeDFileType(input.fileName);
-  const configuration = assertFound(await prisma.threeDProjectConfiguration.findUnique({ where: { id: configurationId }, select: { id: true, projectId: true, status: true, project: { select: { name: true, companyId: true, company: { select: { parentGroupId: true, parentGroup: { select: { isTestFixture: true } } } } } }, versions: { take: 1, orderBy: { version: "desc" }, select: { version: true } } } }));
-  if (configuration.project.company.parentGroup.isTestFixture) throw new AccessError("NOT_FOUND");
-  const storageKey = `companies/${configuration.project.companyId}/3d/${configuration.projectId}/${crypto.randomUUID().replaceAll("-", "")}.${type.extension}`;
-  const version = await prisma.$transaction(async (tx) => {
-    const created = await tx.threeDModelVersion.create({ data: { configurationId: configuration.id, version: (configuration.versions[0]?.version ?? 0) + 1, name: input.name, sourceFileName: input.fileName, storageKey, status: "UPLOADED", diagnostics: { stage: "awaiting_upload", expectedSizeBytes: input.sizeBytes, contentType: type.contentType, uploadExpiresAt: new Date(Date.now() + THREE_D_UPLOAD_TTL_SECONDS * 1000).toISOString() }, createdByUserId: context.userId } });
-    assertUpdated(await tx.threeDProjectConfiguration.updateMany({ where: { id: configuration.id, status: configuration.status }, data: { status: "PROCESSING", updatedByUserId: context.userId } }));
-    await recordPlatformAction(context, configuration.project.company.parentGroupId, { actionKey: AuditAction.PLATFORM_THREE_D_CONFIGURATION_CHANGED, entity: { type: "ThreeDModelVersion", id: created.id, label: created.name }, projectId: configuration.projectId, after: { projectId: configuration.projectId, configurationId: configuration.id, version: created.version, status: "UPLOADED", name: created.name }, reason: input.reason }, { tx });
-    return created;
-  });
-  try {
-    const upload = await storageProvider().createUploadUrl({ storageKey, contentType: type.contentType, maxBytes: input.sizeBytes, expiresInSeconds: THREE_D_UPLOAD_TTL_SECONDS });
-    return { versionId: version.id, version: version.version, upload: { method: upload.method, url: upload.url, headers: upload.headers, expiresAt: upload.expiresAt.toISOString() } };
-  } catch (error) {
-    await prisma.threeDModelVersion.updateMany({ where: { id: version.id, status: "UPLOADED" }, data: { status: "FAILED", diagnostics: { stage: "upload_grant_failed" } } });
-    throw error;
-  }
-}
-
-export async function completeThreeDModelUpload(context: PlatformContext, versionId: string, reason: string) {
-  assertPlatform(context, "platform.three_d.manage");
-  const version = assertFound(await prisma.threeDModelVersion.findFirst({ where: { id: versionId, configuration: { project: { company: { parentGroup: { isTestFixture: false } } } } }, select: { id: true, name: true, version: true, status: true, sourceFileName: true, storageKey: true, diagnostics: true, createdAt: true, configurationId: true, configuration: { select: { projectId: true, status: true, project: { select: { company: { select: { parentGroupId: true } } } } } } } }));
-  if (version.status === "READY") return { id: version.id, status: version.status };
-  if (version.status !== "UPLOADED" || !version.storageKey || !version.sourceFileName) throw new AccessError("CONFLICT", "This model upload cannot be completed.");
-  if (Date.now() - version.createdAt.getTime() > THREE_D_UPLOAD_TTL_SECONDS * 1000) throw new AccessError("CONFLICT", "This upload grant expired. Start a new model version.");
-  const expectedSize = typeof version.diagnostics === "object" && version.diagnostics !== null && !Array.isArray(version.diagnostics) && typeof (version.diagnostics as Record<string, unknown>).expectedSizeBytes === "number" ? (version.diagnostics as Record<string, unknown>).expectedSizeBytes as number : null;
-  const provider = storageProvider();
-  const metadata = await provider.headObject(version.storageKey);
-  if (!metadata) throw new AccessError("CONFLICT", "The uploaded model did not arrive. Try the upload again.");
-  if (metadata.sizeBytes <= 0 || metadata.sizeBytes > THREE_D_MAX_BYTES || (expectedSize !== null && metadata.sizeBytes !== expectedSize)) {
-    await provider.deleteObject(version.storageKey).catch(() => undefined);
-    await prisma.threeDModelVersion.updateMany({ where: { id: version.id, status: "UPLOADED" }, data: { status: "FAILED", diagnostics: { stage: "verification_failed", reason: "size_mismatch", expectedSizeBytes: expectedSize, actualSizeBytes: metadata.sizeBytes } } });
-    throw new AccessError("VALIDATION_ERROR", "The uploaded model size does not match the selected file.");
-  }
-  const head = await provider.getObjectHead(version.storageKey, 512);
-  const isGlb = version.sourceFileName.toLowerCase().endsWith(".glb");
-  const glbHeader = head && head.length >= 12 ? new DataView(head.buffer, head.byteOffset, head.byteLength) : null;
-  const valid = head && (isGlb
-    ? new TextDecoder().decode(head.slice(0, 4)) === "glTF" && glbHeader?.getUint32(4, true) === 2 && glbHeader.getUint32(8, true) === metadata.sizeBytes
-    : new TextDecoder().decode(head).trimStart().startsWith("{"));
-  if (!valid) {
-    await provider.deleteObject(version.storageKey).catch(() => undefined);
-    await prisma.threeDModelVersion.updateMany({ where: { id: version.id, status: "UPLOADED" }, data: { status: "FAILED", diagnostics: { stage: "verification_failed", reason: "invalid_format" } } });
-    throw new AccessError("VALIDATION_ERROR", "The file contents are not a valid GLB or glTF artifact.");
-  }
-  await prisma.$transaction(async (tx) => {
-    assertUpdated(await tx.threeDModelVersion.updateMany({ where: { id: version.id, status: "UPLOADED" }, data: { status: "READY", checksum: metadata.checksumSha256 ?? metadata.etag, diagnostics: { stage: "ready", sizeBytes: metadata.sizeBytes, contentType: metadata.contentType, verifiedAt: new Date().toISOString() } } }));
-    assertUpdated(await tx.threeDProjectConfiguration.updateMany({ where: { id: version.configurationId, status: version.configuration.status }, data: { status: "READY", updatedByUserId: context.userId } }));
-    await recordPlatformAction(context, version.configuration.project.company.parentGroupId, { actionKey: AuditAction.PLATFORM_THREE_D_CONFIGURATION_CHANGED, entity: { type: "ThreeDModelVersion", id: version.id, label: version.name }, projectId: version.configuration.projectId, before: { projectId: version.configuration.projectId, configurationId: version.configurationId, version: version.version, status: "UPLOADED", name: version.name }, after: { projectId: version.configuration.projectId, configurationId: version.configurationId, version: version.version, status: "READY", name: version.name }, reason }, { tx });
-  });
-  return { id: version.id, status: "READY" as const };
-}
-
-export async function updateThreeDScene(context: PlatformContext, configurationId: string, sceneConfiguration: Record<string, unknown>, reason: string) {
-  assertPlatform(context, "platform.three_d.manage");
-  const config = assertFound(await prisma.threeDProjectConfiguration.findUnique({ where: { id: configurationId }, select: { id: true, projectId: true, sceneConfiguration: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } } }));
-  await prisma.$transaction(async (tx) => {
-    await tx.threeDProjectConfiguration.update({ where: { id: config.id }, data: { sceneConfiguration: sceneConfiguration as Prisma.InputJsonValue, updatedByUserId: context.userId } });
-    await recordPlatformAction(context, config.project.company.parentGroupId, { actionKey: AuditAction.PLATFORM_THREE_D_CONFIGURATION_CHANGED, entity: { type: "ThreeDProjectConfiguration", id: config.id, label: config.project.name }, projectId: config.projectId, before: { projectId: config.projectId, configurationId: config.id, status: "SCENE_PREVIOUS" }, after: { projectId: config.projectId, configurationId: config.id, status: "SCENE_UPDATED" }, reason }, { tx });
-  });
-}
-
-export async function publishThreeDVersion(context: PlatformContext, configurationId: string, versionId: string, reason: string) {
-  assertPlatform(context, "platform.three_d.manage");
-  if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
-  const config = assertFound(await prisma.threeDProjectConfiguration.findUnique({ where: { id: configurationId }, select: { id: true, projectId: true, status: true, publishedVersionId: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } }, versions: { where: { id: versionId }, select: { id: true, version: true, status: true } } } }));
-  const version = assertFound(config.versions[0]);
-  if (config.publishedVersionId === version.id && version.status === "PUBLISHED") return;
-  if (!config.projectId || version.status !== "READY") throw new AccessError("CONFLICT", "Only a ready model version can be published.");
-  await prisma.$transaction(async (tx) => {
-    await tx.threeDModelVersion.updateMany({ where: { configurationId: config.id, status: "PUBLISHED" }, data: { status: "RETIRED" } });
-    assertUpdated(await tx.threeDModelVersion.updateMany({ where: { id: version.id, status: version.status }, data: { status: "PUBLISHED", publishedAt: new Date() } }));
-    assertUpdated(await tx.threeDProjectConfiguration.updateMany({ where: { id: config.id, status: config.status, publishedVersionId: config.publishedVersionId }, data: { status: "PUBLISHED", publishedVersionId: version.id, publishedAt: new Date(), updatedByUserId: context.userId } }));
-    await recordPlatformAction(context, config.project.company.parentGroupId, { actionKey: AuditAction.PLATFORM_THREE_D_PUBLISHED, entity: { type: "ThreeDProjectConfiguration", id: config.id, label: config.project.name }, projectId: config.projectId, before: { projectId: config.projectId, configurationId: config.id, versionId: config.publishedVersionId, status: config.status }, after: { projectId: config.projectId, configurationId: config.id, versionId: version.id, version: version.version, status: "PUBLISHED" }, reason }, { tx });
   });
 }
 

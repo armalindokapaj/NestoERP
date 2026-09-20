@@ -126,30 +126,6 @@ export const projectCreateSchema = z.object({
   reason,
 });
 
-export const threeDProvisionSchema = z.object({ projectId: id, reason });
-
-export const threeDVersionSchema = z.object({
-  name: z.string().trim().min(2).max(160),
-  sourceFileName: z.string().trim().max(255).optional(),
-  storageKey: z.string().trim().max(500).optional(),
-  checksum: z.string().trim().max(128).optional(),
-  reason,
-});
-
-export const threeDUploadSchema = z.object({
-  name: z.string().trim().min(2).max(160),
-  fileName: z.string().trim().min(1).max(255),
-  sizeBytes: z.coerce.number().int().positive().max(200 * 1024 * 1024),
-  reason,
-});
-
-export const threeDSceneSchema = z.object({
-  sceneConfiguration: z.record(z.string(), z.unknown()),
-  reason,
-});
-
-export const threeDPublishSchema = z.object({ versionId: id, reason });
-
 export const platformSettingSchema = z.object({
   key: z.enum([
     "general.platformName",

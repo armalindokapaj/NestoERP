@@ -140,8 +140,16 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Added component coverage for valid bootstrap mounting, controlled asset failure, canonical unit navigation, a model with no binding, Company shell unmount, mesh-selection callback forwarding, and render-engine disposal.
 - Added React 19 test-renderer support and Vitest TSX lowering for the component boundary tests. Typecheck, focused ESLint, 41 focused 3D/security assertions, the affected Platform control-plane suite, and all 1,022 architecture assertions passed.
 
+### Phase 12 — Integration cleanup
+
+- Removed the transitional Platform control-plane 3D services, commands, schemas, upload routes, project controls, diagnostic query, permissions, component, tests, and `@google/model-viewer` dependency. Platform project administration and diagnostics now use the native entitlement, workspace, slot, model-version, validation, and release records.
+- Repointed the shared local signed-upload gate from the obsolete model-version record to `Project3DModelVersion`, preserving the native single-use, 15-minute source-upload capability. Added a regression assertion that the grant accepts bytes before verification and rejects replay after verification.
+- Renamed the remaining browser-runtime `rzNodeId` fields to NESTO-owned `nodeId` and `parentNodeId`. The only Rozaris names left in migrated runtime code are two useful source-attribution comments.
+- Retained the old Prisma tables and audit action names as inert compatibility history so existing installations do not lose historical rows in this integration. No application, API, component, or test code reads or writes the old tables.
+- Verified the Rozaris worktree remains clean at `944a4c97114af442ae03ce7ff5665e5362b8274e`. Typecheck, focused ESLint, 32 focused native 3D/control-plane assertions, 21 runtime/Company-boundary assertions, and all 1,022 architecture assertions passed.
+
 ### Material decisions
 
-- The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.
-- Source and processed model objects will use NESTO's storage provider. The existing scaffold's single-object workflow will be replaced rather than expanded into a parallel model.
+- The existing NESTO control-plane 3D scaffold was transitional code. PRD 52 now uses NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.
+- Source and processed model objects use NESTO's storage provider. The old scaffold's single-object workflow has been removed from runtime code rather than expanded into a parallel model.
 - Full-suite baseline fixture failures will be tracked separately from newly relevant 3D failures.

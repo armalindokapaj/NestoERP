@@ -52,9 +52,29 @@ export async function listPlatformProjects(context: PlatformContext) {
   const rows = await prisma.project.findMany({
     where: { company: { parentGroup: { isTestFixture: false } } },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-    select: { id: true, code: true, name: true, status: true, archivedAt: true, createdAt: true, company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true } } } }, threeDConfiguration: { select: { id: true, status: true, publishedAt: true, _count: { select: { versions: true } } } }, _count: { select: { members: true } } },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      status: true,
+      archivedAt: true,
+      createdAt: true,
+      company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true } } } },
+      project3DEntitlement: { select: { status: true, viewerEnabled: true, planKey: true, activatedAt: true, expiresAt: true } },
+      project3DConfig: { select: { activeReleaseId: true, _count: { select: { slots: true, releases: true } } } },
+      _count: { select: { members: true } },
+    },
   });
-  return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString(), archivedAt: iso(row.archivedAt), members: row._count.members, threeD: row.threeDConfiguration ? { ...row.threeDConfiguration, publishedAt: iso(row.threeDConfiguration.publishedAt), versions: row.threeDConfiguration._count.versions } : null }));
+  return rows.map((row) => ({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    archivedAt: iso(row.archivedAt),
+    members: row._count.members,
+    threeD: row.project3DEntitlement || row.project3DConfig ? {
+      entitlement: row.project3DEntitlement ? { ...row.project3DEntitlement, activatedAt: iso(row.project3DEntitlement.activatedAt), expiresAt: iso(row.project3DEntitlement.expiresAt) } : null,
+      workspace: row.project3DConfig ? { activeReleaseId: row.project3DConfig.activeReleaseId, slots: row.project3DConfig._count.slots, releases: row.project3DConfig._count.releases } : null,
+    } : null,
+  }));
 }
 
 export async function listImplementations(context: PlatformContext) {
@@ -186,16 +206,6 @@ export async function resolveFeatureFlag(key: string, target: { userId?: string;
   const pick = (scopeType: "USER" | "COMPANY" | "GROUP" | "PLATFORM", scopeId: string | undefined) => scopeId ? flag.overrides.find((row) => row.scopeType === scopeType && row.scopeId === scopeId) : undefined;
   const override = pick("USER", target.userId) ?? pick("COMPANY", target.companyId) ?? pick("GROUP", target.parentGroupId) ?? pick("PLATFORM", "platform");
   return { key, state: override?.state ?? flag.defaultState, source: override?.scopeType ?? "DEFAULT" };
-}
-
-export async function listThreeDProjects(context: PlatformContext) {
-  assertPlatform(context, "platform.three_d.view");
-  return prisma.threeDProjectConfiguration.findMany({ orderBy: { updatedAt: "desc" }, include: { project: { select: { id: true, code: true, name: true, company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true } } } } } }, versions: { orderBy: { version: "desc" } } } });
-}
-
-export async function getPublishedThreeDForProject(projectId: string) {
-  const config = await prisma.threeDProjectConfiguration.findFirst({ where: { projectId, status: "PUBLISHED", publishedVersionId: { not: null } }, select: { publishedVersionId: true, publishedAt: true, sceneConfiguration: true, versions: { where: { status: "PUBLISHED" }, take: 1, orderBy: { version: "desc" }, select: { id: true, version: true, name: true } } } });
-  return config?.versions[0] ? { ...config.versions[0], publishedAt: iso(config.publishedAt), sceneConfiguration: config.sceneConfiguration } : null;
 }
 
 export async function platformOperations(context: PlatformContext) {

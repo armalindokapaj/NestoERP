@@ -34,8 +34,6 @@ export const PLATFORM_PERMISSIONS = [
   "platform.module.manage",
   "platform.feature_flag.view",
   "platform.feature_flag.manage",
-  "platform.three_d.view",
-  "platform.three_d.manage",
   "platform.3d.view",
   "platform.3d.configure",
   "platform.3d.model.manage",
