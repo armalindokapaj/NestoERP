@@ -371,7 +371,9 @@ const LEAVE: LeaveFixture[] = [
   { id: "leave_015", user: "user_procurement", type: "ANNUAL", status: "REJECTED", start: 21, length: 8, note: "Please split this across two months." },
   // Withdrawn before a decision.
   { id: "leave_016", user: "user_sales", type: "ANNUAL", status: "CANCELLED", start: -40, length: 3 },
-  { id: "leave_017", user: "user_finance", type: "UNPAID", status: "CANCELLED", start: -50, length: 2 },
+  // Three calendar days always include a weekday, so this fixture does not
+  // disappear when the relative start happens to land on a Saturday.
+  { id: "leave_017", user: "user_finance", type: "UNPAID", status: "CANCELLED", start: -50, length: 3 },
   // A longer approved stretch, further back.
   { id: "leave_018", user: "user_it", type: "ANNUAL", status: "APPROVED", start: -120, length: 9 },
   { id: "leave_019", user: "user_hr", type: "ANNUAL", status: "APPROVED", start: -95, length: 5 },

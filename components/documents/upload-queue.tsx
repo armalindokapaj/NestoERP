@@ -64,7 +64,7 @@ const nextId = () => `upload-${(counter += 1)}`;
 
 export function useUploadQueue(options: {
   parent: UploadContextInput;
-  onUploaded?: (documentId: string) => void;
+  onUploaded?: (documentId: string, file: File) => void;
 }) {
   const [items, setItems] = React.useState<UploadItem[]>([]);
   const running = React.useRef(new Map<string, XMLHttpRequest>());
@@ -118,7 +118,7 @@ export function useUploadQueue(options: {
         // before it says AVAILABLE is exactly what §342 forbids.
         if (completed.status === "AVAILABLE") {
           patch(item.id, { status: "done" });
-          onUploadedRef.current?.(session.documentId);
+          onUploadedRef.current?.(session.documentId, item.file);
           return;
         }
 
@@ -126,7 +126,7 @@ export function useUploadQueue(options: {
         await pollUntilSettled(session.documentId, (status, message) => {
           if (status === "AVAILABLE") {
             patch(item.id, { status: "done" });
-            onUploadedRef.current?.(session.documentId);
+            onUploadedRef.current?.(session.documentId, item.file);
           } else if (status === "REJECTED" || status === "FAILED") {
             patch(item.id, { status: "failed", error: message, terminal: true });
           }

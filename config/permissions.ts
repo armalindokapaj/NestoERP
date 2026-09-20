@@ -226,6 +226,8 @@ export const PERMISSIONS = [
   "project.task.view",
   "project.document.view",
   "project.activity.view",
+  "project.media.view",
+  "project.media.manage",
 
   /* Project structure ----------------------------------------------------- */
   /**

@@ -194,6 +194,7 @@ export const AuditAction = {
   PROJECT_MEMBER_REMOVED: "PROJECT_MEMBER_REMOVED",
   PROJECT_ARCHIVED: "PROJECT_ARCHIVED",
   PROJECT_RESTORED: "PROJECT_RESTORED",
+  PROJECT_MEDIA_CHANGED: "PROJECT_MEDIA_CHANGED",
   /** The company's own list of project types (E-05A §62). */
   PROJECT_TYPE_CREATED: "PROJECT_TYPE_CREATED",
   PROJECT_TYPE_UPDATED: "PROJECT_TYPE_UPDATED",
@@ -687,6 +688,7 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PROJECT_MANAGER_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["managerMemberId", "managerName"], required: false },
   { actionKey: AuditAction.PROJECT_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
   { actionKey: AuditAction.PROJECT_RESTORED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["status", "archivedAt"], required: false },
+  { actionKey: AuditAction.PROJECT_MEDIA_CHANGED, moduleKey: "projects", category: "DOCUMENT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["change", "mediaId", "documentId", "type", "title", "isCover", "isFeatured", "order"], required: true },
   { actionKey: AuditAction.PROJECT_TYPE_CREATED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "isActive"], required: true },
   { actionKey: AuditAction.PROJECT_TYPE_UPDATED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "isActive"], required: true },
   { actionKey: AuditAction.PROJECT_TYPE_DELETED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name"], required: true },

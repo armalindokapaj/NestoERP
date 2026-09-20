@@ -40,12 +40,33 @@ const MAX_INPUT_PIXELS = 50_000_000;
 
 export type Thumbnail = { body: Uint8Array; contentType: string; etag: string };
 
+type AuthorizedThumbnailDocument = {
+  id: string;
+  updatedAt: Date;
+  storageKey: string | null;
+  thumbnailStorageKey: string | null;
+  detectedMimeType: string | null;
+  mimeType: string | null;
+};
+
 export function isThumbnailableMimeType(mimeType: string | null | undefined): boolean {
   return IMAGE_TYPES.has((mimeType ?? "").toLowerCase());
 }
 
 export async function readDocumentThumbnail(context: UserContext, documentId: string): Promise<Thumbnail> {
   const document = await requireDownloadableDocument(context, documentId);
+  return readAuthorizedDocumentThumbnail(context.companyId, document);
+}
+
+/**
+ * Builds or reads a thumbnail after a parent service has authorized the file.
+ * This keeps project/unit media permissions at their own boundary without
+ * duplicating image processing or weakening the normal Document download gate.
+ */
+export async function readAuthorizedDocumentThumbnail(
+  companyId: string,
+  document: AuthorizedThumbnailDocument,
+): Promise<Thumbnail> {
   const mimeType = document.detectedMimeType ?? document.mimeType;
   if (!isThumbnailableMimeType(mimeType)) throw new StorageError("PREVIEW_NOT_SUPPORTED");
   if (!document.storageKey) throw new StorageError("STORAGE_OBJECT_MISSING");
@@ -75,7 +96,7 @@ export async function readDocumentThumbnail(context: UserContext, documentId: st
   }
 
   const thumbnailKey = buildDerivedKey({
-    companyId: context.companyId,
+    companyId,
     documentId: document.id,
     kind: "thumb",
     extension: "webp",
@@ -85,7 +106,7 @@ export async function readDocumentThumbnail(context: UserContext, documentId: st
   // Conditional on the object it was built from, so a version promoted while
   // this ran is not given the previous version's thumbnail.
   await prisma.document.updateMany({
-    where: { id: document.id, companyId: context.companyId, storageKey: document.storageKey },
+    where: { id: document.id, companyId, storageKey: document.storageKey },
     data: { thumbnailStorageKey: thumbnailKey },
   });
 

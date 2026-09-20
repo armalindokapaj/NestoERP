@@ -150,7 +150,7 @@ export async function updateProject3DEntitlement(context: PlatformContext, proje
             data: { status: after.status, planKey: after.planKey, viewerEnabled: after.viewerEnabled, activatedAt: after.activatedAt, expiresAt: after.expiresAt },
           });
           if (changed.count !== 1) throw new AccessError("CONFLICT", "The 3D entitlement changed while you were editing it.");
-          return tx.project3DEntitlement.findUniqueOrThrow({ where: { id: existingEntitlement.id } });
+          return tx.project3DEntitlement.findFirstOrThrow({ where: { id: existingEntitlement.id, companyId: project.companyId, projectId: project.id } });
         })()
       : await tx.project3DEntitlement.create({
           data: { companyId: project.companyId, projectId: project.id, provisionedByUserId: context.userId, status: after.status, planKey: after.planKey, viewerEnabled: after.viewerEnabled, activatedAt: after.activatedAt, expiresAt: after.expiresAt },

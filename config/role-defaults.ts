@@ -216,6 +216,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project.task.view",
       "project.document.view",
       "project.activity.view",
+      "project.media.view",
       // The plan is read by everybody who can open the project (PRD #44 §80-§95).
       "project_planning.view",
       // So are its buildings, floors and units: Sales and Finance read the same units (E-05B §59, §80).
@@ -234,6 +235,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project.member.add",
       "project.member.update",
       "project.member.remove",
+      "project.media.manage",
       /*
        * Keeping the plan is the project manager's job (PRD #44 §85): phases,
        * milestones and their dates, dependencies, blockers, completion and

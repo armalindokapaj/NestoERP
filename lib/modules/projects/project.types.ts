@@ -46,7 +46,7 @@ export type ProjectDetailDTO = {
   /** Among the group's key projects on its dashboard (D-01 §31). */
   isKeyProject: boolean;
   /** The managing company, shown in the workspace breadcrumb (E-05A §26). */
-  company: { id: string; name: string };
+  company: { id: string; name: string; parentGroup: { id: string; name: string } };
   projectType: { id: string; name: string } | null;
   coverImageDocumentId: string | null;
   lastActivityAt: string;

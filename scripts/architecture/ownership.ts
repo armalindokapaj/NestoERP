@@ -84,6 +84,7 @@ const OWNED: Record<string, string[]> = {
 
   /* Business domains ------------------------------------------------------- */
   projects: ["project", "projectMember", "projectType"],
+  "project-media": ["projectMedia"],
   clients: ["client", "contact"],
   tasks: ["task"],
   documents: [
@@ -324,6 +325,13 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
       "Planning is part of the Projects module (PRD #44 §9) and its two settings live on the project row rather than in a table of their own. Projects owns everything else about the row; these two columns mean nothing outside Planning.",
   },
   {
+    model: "project",
+    domain: "project-media",
+    fields: ["coverImageDocumentId", "updatedBy"],
+    reason:
+      "Project Media owns cover selection and keeps the canonical Project cover pointer synchronized in the same transaction. It cannot change any other Project field, and removing media never deletes the Document.",
+  },
+  {
     model: "user",
     domain: "account",
     fields: ["firstName", "lastName", "phone"],
@@ -368,6 +376,7 @@ export const AGGREGATION_POINTS: Array<{ file: string; reason: string }> = [
   { file: "lib/modules/approvals/approvals.registry.ts", reason: "Every approval source the centre routes (PRD #41 §17)." },
   { file: "lib/modules/productivity/navigable.registry.ts", reason: "Every record type that can be starred (PRD #45 §81)." },
   { file: "lib/modules/dashboard/dashboard.service.ts", reason: "Every KPI on the dashboard, read-only across domains (PRD #48 §102)." },
+  { file: "lib/modules/projects/project-workspace.service.ts", reason: "The canonical Project home composes permission-filtered, read-only counts and dates from existing modules without owning their records." },
   { file: "lib/core/state/registry.ts", reason: "Every declared state machine, so the gate and the docs can read them (PRD #49 §154)." },
 ];
 
@@ -394,6 +403,11 @@ export const CASCADE_EXCEPTIONS: Array<{ from: string; to: string; reason: strin
     from: "ProjectDailyLogSettings.project",
     to: "Project",
     reason: "Per-project daily-log settings for a project that is gone. The logs themselves restrict, which is the row that matters.",
+  },
+  {
+    from: "ProjectMedia.project",
+    to: "Project",
+    reason: "Project media rows are presentation links, not file history. A removed Project takes its links, while each canonical Document remains protected independently.",
   },
   {
     from: "Session.membership",

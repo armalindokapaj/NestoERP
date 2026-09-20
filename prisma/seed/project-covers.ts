@@ -154,5 +154,27 @@ export async function seedProjectCovers(prisma: PrismaClient, members: SeedMembe
     // A re-seed rebuilds the render, so its thumbnail is rebuilt from it too.
     await prisma.document.update({ where: { id: cover.id }, data: { thumbnailStorageKey: null } });
     await prisma.project.update({ where: { id: cover.projectId }, data: { coverImageDocumentId: cover.id } });
+    await prisma.projectMedia.upsert({
+      where: { projectId_documentId: { projectId: cover.projectId, documentId: cover.id } },
+      update: {
+        type: "RENDER",
+        title: cover.name.replace(/\.[^.]+$/, ""),
+        sortOrder: 0,
+        isCover: true,
+        isFeatured: true,
+      },
+      create: {
+        id: `project_media_${cover.id}`,
+        companyId: cover.companyId,
+        projectId: cover.projectId,
+        documentId: cover.id,
+        type: "RENDER",
+        title: cover.name.replace(/\.[^.]+$/, ""),
+        sortOrder: 0,
+        isCover: true,
+        isFeatured: true,
+        createdByMemberId: members.in(cover.companyId, cover.uploadedBy),
+      },
+    });
   }
 }

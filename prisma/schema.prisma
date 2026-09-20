@@ -237,6 +237,18 @@ enum ProjectStatus {
   ARCHIVED
 }
 
+/// Generic visual content shown on the canonical Project workspace. The
+/// media record only classifies and orders a canonical Document; it never
+/// owns a second copy of the file.
+enum ProjectMediaType {
+  RENDER
+  ANIMATION
+}
+
+enum ProjectMediaVisibility {
+  PROJECT
+}
+
 enum ProjectPriority {
   LOW
   MEDIUM
@@ -1405,6 +1417,7 @@ model Company {
   owners      CompanyOwner[]
 
   projects                 Project[]
+  projectMedia             ProjectMedia[]
   projectTypes             ProjectType[]
   projectUnitTypes         ProjectUnitType[]
   projectBuildings         ProjectBuilding[]
@@ -2690,6 +2703,7 @@ model Project {
   members   ProjectMember[]
   tasks     Task[]
   documents Document[]      @relation("DocumentProject")
+  media     ProjectMedia[]
 
   invoices          Invoice[]
   expenses          Expense[]
@@ -2784,6 +2798,40 @@ model Project {
   @@index([startDate])
   @@index([endDate])
   @@map("projects")
+}
+
+/// A render or animation presented by the Project workspace. Files remain in
+/// Documents and are referenced here, so setting a cover, featuring, ordering
+/// or removing media never duplicates or deletes the stored object.
+model ProjectMedia {
+  id                  String                 @id @default(cuid())
+  companyId           String
+  projectId           String
+  documentId          String
+  type                ProjectMediaType
+  title               String
+  description         String?
+  thumbnailDocumentId String?
+  durationSeconds     Int?
+  sortOrder           Int                    @default(0)
+  isCover             Boolean                @default(false)
+  isFeatured          Boolean                @default(false)
+  visibility          ProjectMediaVisibility @default(PROJECT)
+  createdByMemberId   String
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project           Project   @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Cascade)
+  document          Document  @relation("ProjectMediaDocument", fields: [documentId], references: [id], onDelete: Restrict)
+  thumbnailDocument Document? @relation("ProjectMediaThumbnail", fields: [thumbnailDocumentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, documentId])
+  @@index([companyId, projectId, type, sortOrder])
+  @@index([documentId])
+  @@index([thumbnailDocumentId])
+  @@map("project_media")
 }
 
 /// A company's project types (E-05A §30, §62).
@@ -3676,7 +3724,9 @@ model Document {
   client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   /// Projects showing this document as their cover (E-05A §8).
-  coverForProjects Project[] @relation("ProjectCoverImage")
+  coverForProjects    Project[]      @relation("ProjectCoverImage")
+  projectMedia        ProjectMedia[] @relation("ProjectMediaDocument")
+  projectMediaPosters ProjectMedia[] @relation("ProjectMediaThumbnail")
 
   uploadedBy CompanyMember? @relation("DocumentUploadedBy", fields: [uploadedByMemberId], references: [id], onDelete: SetNull)
 

@@ -128,7 +128,17 @@ export async function upsertAccount(
 
 export async function upsertMembership(
   prisma: PrismaClient,
-  membership: { id: string; companyId: string; userId: string; role: RoleKey; roleId: Map<string, string>; departmentId: string | null; jobTitle: string | null; status?: MembershipStatus },
+  membership: {
+    id: string;
+    companyId: string;
+    userId: string;
+    role: RoleKey;
+    roleId: Map<string, string>;
+    departmentId: string | null;
+    jobTitle: string | null;
+    status?: MembershipStatus;
+    createdAt?: Date;
+  },
 ) {
   const roleId = membership.roleId.get(membership.role);
   if (!roleId) throw new Error(`Seed: role ${membership.role} is not configured. Run access sync first.`);
@@ -136,7 +146,13 @@ export async function upsertMembership(
   return prisma.companyMember.upsert({
     where: { companyId_userId: { companyId: membership.companyId, userId: membership.userId } },
     update: data,
-    create: { id: membership.id, companyId: membership.companyId, userId: membership.userId, ...data },
+    create: {
+      id: membership.id,
+      companyId: membership.companyId,
+      userId: membership.userId,
+      ...(membership.createdAt ? { createdAt: membership.createdAt } : {}),
+      ...data,
+    },
     select: { id: true },
   });
 }

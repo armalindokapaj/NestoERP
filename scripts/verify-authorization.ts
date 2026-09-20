@@ -46,7 +46,9 @@ for (const file of routeFiles) {
   const source = parse(file);
   if (ROUTE_CLASSES[pattern]) continue;
   // The platform's own routes run for a platform session, which carries no company (E-06 §116).
-  const wrapper = pattern.startsWith("/api/platform/") ? "withPlatformContext" : "withContext";
+  const wrapper = pattern.startsWith("/api/platform/") || pattern.startsWith("/api/platform-admin/")
+    ? "withPlatformContext"
+    : "withContext";
 
   let handlers = 0;
   for (const statement of source.statements) {
@@ -180,6 +182,10 @@ const SCHEMA_FIELD_EXCEPTIONS: Record<string, string> = {
     "the role a person of the approved initial roster is given, set by the Platform Admin while a group is implementing and never a session's own role; refused once the group is active (E-06 §30, §138)",
   "lib/modules/projects/project.schema.ts#companyId":
     "Projects page filter, which only narrows the union of the person's own memberships' project scopes; and the company a new project is created in, which contextForCompany re-checks against the person's own active memberships and project.create there (E-05A §30, §39)",
+  "lib/3d/shared/release.schema.ts#companyId":
+    "immutable server-built release manifest validation; this schema is never used to accept a request body",
+  "lib/modules/platform/platform-control.schema.ts#roleKey":
+    "the target membership role chosen by a separately authorized Platform Admin, never the caller's role",
 };
 
 for (const file of walk("lib", (candidate) => candidate.endsWith(".ts"))) {

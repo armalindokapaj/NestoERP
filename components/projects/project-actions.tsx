@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, MoreHorizontal, PenLine } from "lucide-react";
+import { Archive, ArchiveRestore, Images, MoreHorizontal, PenLine, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -30,6 +30,8 @@ export function ProjectActions({
   canUpdate,
   canArchive,
   canRestore,
+  canManageMedia = false,
+  canManageTeam = false,
 }: {
   projectId: string;
   projectName: string;
@@ -37,6 +39,8 @@ export function ProjectActions({
   canUpdate: boolean;
   canArchive: boolean;
   canRestore: boolean;
+  canManageMedia?: boolean;
+  canManageTeam?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -68,19 +72,10 @@ export function ProjectActions({
     });
   }
 
-  const showMenu = archived ? canRestore : canArchive;
+  const showMenu = archived ? canRestore : canArchive || canUpdate || canManageMedia || canManageTeam;
 
   return (
     <>
-      {!archived && canUpdate ? (
-        <Button asChild variant="secondary" size="sm">
-          <Link href={`/projects/${projectId}/edit`}>
-            <PenLine aria-hidden="true" />
-            Edit
-          </Link>
-        </Button>
-      ) : null}
-
       {archived && canRestore ? (
         <Button size="sm" onClick={restore} disabled={pending}>
           <ArchiveRestore aria-hidden="true" />
@@ -96,15 +91,20 @@ export function ProjectActions({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                setConfirming(true);
-              }}
-            >
-              <Archive />
-              Archive project
-            </DropdownMenuItem>
+            {canUpdate ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/edit`}><PenLine />Edit project</Link></DropdownMenuItem> : null}
+            {canManageMedia ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/media?manage=1`}><Images />Manage project media</Link></DropdownMenuItem> : null}
+            {canManageTeam ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/team`}><Users />Manage team</Link></DropdownMenuItem> : null}
+            {canArchive ? (
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setConfirming(true);
+                }}
+              >
+                <Archive />
+                Archive project
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

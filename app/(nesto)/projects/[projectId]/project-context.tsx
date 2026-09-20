@@ -70,6 +70,7 @@ export type ProjectTabKey =
 export function projectBreadcrumbs(project: ProjectDetailDTO, tab?: string) {
   const crumbs = [
     { label: "Projects", href: "/projects" },
+    { label: project.company.parentGroup.name },
     { label: project.company.name, href: `/projects?company=${encodeURIComponent(project.company.id)}` },
     { label: project.name, ...(tab ? { href: `/projects/${project.id}` } : {}) },
   ];
