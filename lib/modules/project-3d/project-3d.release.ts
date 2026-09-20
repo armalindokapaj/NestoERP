@@ -58,7 +58,7 @@ export async function publishProject3DRelease(
           slots: {
             where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
             select: {
-              id: true, displayName: true, role: true,
+              id: true, displayName: true, role: true, transformParentSlotId: true,
               versions: {
                 where: { id: { in: input.versionIds }, deletedAt: null },
                 select: {
@@ -117,6 +117,7 @@ export async function publishProject3DRelease(
           slotId: slot.id,
           slotName: slot.displayName,
           slotRole: slot.role,
+          transformParentSlotId: slot.transformParentSlotId,
           versionId: version.id,
           versionNumber: version.version,
           runtimeStorageKey: version.runtimeStorageKey!,

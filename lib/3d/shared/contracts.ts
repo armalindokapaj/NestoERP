@@ -94,6 +94,7 @@ export type Project3DReleaseModel = {
   slotId: string;
   slotName: string;
   slotRole: Project3DSlotRole;
+  transformParentSlotId: string | null;
   versionId: string;
   versionNumber: number;
   runtimeStorageKey: string;
@@ -119,4 +120,3 @@ export type Project3DReleaseManifest = {
   experience: Record<string, unknown>;
   models: Project3DReleaseModel[];
 };
-

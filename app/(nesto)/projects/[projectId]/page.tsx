@@ -28,7 +28,7 @@ import {
 import { formatDate, orDash } from "@/lib/utils/format";
 import { loadProject, projectBreadcrumbs } from "./project-context";
 import { ProjectTabs } from "./project-tabs";
-import { getPublishedThreeDForProject } from "@/lib/modules/platform/platform-control.query";
+import { hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -53,7 +53,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
   const actions = projects.projectActions(context);
-  const publishedThreeD = await getPublishedThreeDForProject(project.id);
+  const publishedThreeD = await hasActiveProject3DViewer(context, project.id);
 
   const archived = project.archivedAt !== null || project.status === "ARCHIVED";
 
@@ -200,6 +200,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
         projectId={project.id}
         active="overview"
         show={{
+          threeD: publishedThreeD,
           planning: actions.canViewPlanning,
           units: actions.canViewUnits,
           sales: actions.canViewUnitSales,
