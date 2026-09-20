@@ -4,6 +4,7 @@ import type { PlatformContext } from "@/lib/context/platform-context";
 import { DEFAULT_PROJECT_3D_CONFIG } from "@/lib/3d/shared/experience";
 import { getProject3DUnitBindingWorkspace, replaceProject3DUnitBindings } from "@/lib/modules/project-3d/project-3d.binding";
 import { getProject3DEditorWorkspace, updateProject3DExperience, updateProject3DModelSettings } from "@/lib/modules/project-3d/project-3d.editor";
+import { activateProject3DRelease, publishProject3DRelease } from "@/lib/modules/project-3d/project-3d.release";
 import { cleanupSessions, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
 
 type Fixture = { companyId: string; projectId: string; unitTypeId: string; buildingId: string; floorId: string; unitId: string };
@@ -63,6 +64,10 @@ describe("Platform 3D unit bindings", () => {
     });
     inactiveUnitId = inactive.id;
 
+    await prisma.project3DEntitlement.create({
+      data: { companyId: primary.companyId, projectId: primary.projectId, status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(Date.now() - 60_000), provisionedByUserId: admin.userId },
+    });
+
     const config = await prisma.project3DConfig.create({
       data: { companyId: primary.companyId, projectId: primary.projectId, authoringDocument: { schemaVersion: 1, revision: 1 }, updatedByUserId: admin.userId },
     });
@@ -103,8 +108,10 @@ describe("Platform 3D unit bindings", () => {
     if (projectIds.length > 0) {
       await prisma.project3DModelVersion.deleteMany({ where: { projectId: { in: projectIds } } });
       await prisma.project3DModelSlot.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.project3DConfig.updateMany({ where: { projectId: { in: projectIds } }, data: { activeReleaseId: null } });
       await prisma.project3DRelease.deleteMany({ where: { projectId: { in: projectIds } } });
       await prisma.project3DConfig.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.project3DEntitlement.deleteMany({ where: { projectId: { in: projectIds } } });
       await prisma.projectUnit.deleteMany({ where: { projectId: { in: projectIds } } });
       await prisma.projectFloor.deleteMany({ where: { projectId: { in: projectIds } } });
       await prisma.projectBuilding.deleteMany({ where: { projectId: { in: projectIds } } });
@@ -207,5 +214,36 @@ describe("Platform 3D unit bindings", () => {
     expect(workspace.slots[0]?.versions[0]?.asset?.url).toContain("/api/storage/objects/");
     expect(JSON.stringify(workspace)).not.toContain("sourceStorageKey");
     expect(JSON.stringify(workspace)).not.toContain(`/source/${tag}.glb`);
+  });
+
+  it("blocks invalid models and unresolved unit mappings before publication", async () => {
+    await prisma.project3DModelVersion.update({ where: { id: versionId }, data: { validationStatus: "BLOCKED" } });
+    await expect(publishProject3DRelease(admin, primary.projectId, { versionIds: [versionId], reason: "Reject blocked model" })).rejects.toMatchObject({ code: "CONFLICT", details: { code: "MODEL_NOT_READY" } });
+    await prisma.project3DModelVersion.update({ where: { id: versionId }, data: { validationStatus: "READY" } });
+    await expect(publishProject3DRelease(admin, primary.projectId, { versionIds: [versionId], reason: "Reject unresolved unit node" })).rejects.toMatchObject({ code: "CONFLICT", details: { code: "UNIT_BINDINGS_UNRESOLVED" } });
+    expect(await prisma.project3DRelease.count({ where: { projectId: primary.projectId } })).toBe(0);
+  });
+
+  it("publishes immutable releases, preserves the active release on failure, and rolls back by pointer", async () => {
+    await prisma.project3DModelVersion.update({ where: { id: versionId }, data: { unitNodeNames: ["Unit_A-101"] } });
+    const first = await publishProject3DRelease(admin, primary.projectId, { versionIds: [versionId], reason: "Publish approved first release" });
+    await expect(prisma.project3DConfig.findUniqueOrThrow({ where: { projectId: primary.projectId } })).resolves.toMatchObject({ activeReleaseId: first.id });
+    const immutableBefore = await prisma.project3DRelease.findUniqueOrThrow({ where: { id: first.id } });
+
+    await prisma.project3DEntitlement.update({ where: { projectId: primary.projectId }, data: { status: "SUSPENDED" } });
+    await expect(publishProject3DRelease(admin, primary.projectId, { versionIds: [versionId], reason: "Do not replace active while suspended" })).rejects.toMatchObject({ code: "CONFLICT", details: { code: "ENTITLEMENT_INACTIVE" } });
+    await expect(prisma.project3DConfig.findUniqueOrThrow({ where: { projectId: primary.projectId } })).resolves.toMatchObject({ activeReleaseId: first.id });
+    await prisma.project3DEntitlement.update({ where: { projectId: primary.projectId }, data: { status: "ACTIVE" } });
+
+    await updateProject3DExperience(admin, primary.projectId, { expectedRevision: 2, config: { ...structuredClone(DEFAULT_PROJECT_3D_CONFIG), exposure: 1.4 }, reason: "Prepare a second release" });
+    const second = await publishProject3DRelease(admin, primary.projectId, { versionIds: [versionId], reason: "Publish approved second release" });
+    expect(second.manifestHash).not.toBe(first.manifestHash);
+    await expect(prisma.project3DRelease.findUniqueOrThrow({ where: { id: first.id } })).resolves.toMatchObject({ manifestHash: immutableBefore.manifestHash, manifest: immutableBefore.manifest, experienceSnapshot: immutableBefore.experienceSnapshot });
+
+    await expect(activateProject3DRelease(admin, primary.projectId, first.id, "Restore the first approved release")).resolves.toMatchObject({ id: first.id, releaseNumber: 1, active: true });
+    await expect(prisma.project3DConfig.findUniqueOrThrow({ where: { projectId: primary.projectId } })).resolves.toMatchObject({ activeReleaseId: first.id });
+    expect(await prisma.project3DRelease.count({ where: { projectId: primary.projectId } })).toBe(2);
+    expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, projectId: primary.projectId, actionKey: "PLATFORM_THREE_D_RELEASE_PUBLISHED" } })).toBe(2);
+    expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, projectId: primary.projectId, actionKey: "PLATFORM_THREE_D_RELEASE_ACTIVATED" } })).toBe(3);
   });
 });

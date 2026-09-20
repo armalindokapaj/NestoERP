@@ -112,6 +112,15 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Added a Platform preview adapter that signs only processed runtime GLBs for five minutes. Its DTO omits source storage keys and source asset capability entirely.
 - Verified authoring normalization, invalid-camera rejection, revision concurrency, model concurrency, unknown-node rejection, audit evidence, preview source-key omission, Platform route guards, typecheck, focused ESLint, 1,047 focused/architecture assertions, and a 411-route production build. The build needed an 8 GB Node heap for Next.js post-build type analysis after the Three.js editor bundle compiled successfully.
 
+### Phase 9 — Immutable release publishing and rollback
+
+- Added Platform-only release history, publish, and activation APIs plus NESTO-native publishing controls in each Project 3D workspace and the global publishing view.
+- Publication requires an active entitlement, one selected processed runtime version for every active model slot, a valid authored Experience, valid private runtime keys/content types, and resolved active canonical-unit bindings for every detected Units-slot node.
+- Built a deterministic immutable release manifest and SHA-256 hash from the exact Experience, model transforms, scene manifests, node overrides, runtime object keys, and canonical unit bindings shown to the Company viewer.
+- Created the release and moved the active pointer inside one serializable transaction. A failed validation or concurrent publish leaves the previous active release unchanged.
+- Rollback moves only `Project3DConfig.activeReleaseId`, preserves every historical manifest/snapshot, and records the activation audit event.
+- Verified invalid-model rejection, unresolved-binding rejection, entitlement failure preserving the active release, successful publication, immutable history, distinct release hashes, rollback, audit counts, exact Platform route guards, typecheck, focused ESLint, and all 1,049 architecture and focused 3D assertions.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.

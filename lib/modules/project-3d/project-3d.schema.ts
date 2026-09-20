@@ -127,8 +127,16 @@ export const project3DModelSettingsUpdateSchema = z.object({
   reason,
 });
 
+export const project3DReleasePublishSchema = z.object({
+  versionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "Choose each model version once."),
+  reason,
+});
+
+export const project3DReleaseActivateSchema = z.object({ reason });
+
 export type Project3DSlotCreate = z.infer<typeof project3DSlotCreateSchema>;
 export type Project3DUploadCreate = z.infer<typeof project3DUploadCreateSchema>;
 export type Project3DUnitBindingsReplace = z.infer<typeof project3DUnitBindingsReplaceSchema>;
 export type Project3DExperienceUpdate = z.infer<typeof project3DExperienceUpdateSchema>;
 export type Project3DModelSettingsUpdate = z.infer<typeof project3DModelSettingsUpdateSchema>;
+export type Project3DReleasePublish = z.infer<typeof project3DReleasePublishSchema>;
