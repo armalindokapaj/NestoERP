@@ -49,6 +49,15 @@ has them, which is how `tests/e2e/auth/demo-user-switch.spec.ts` runs.
 | `CLAMAV_HOST` / `CLAMAV_PORT` | — | required with `clamav` | required with `clamav` |
 | `NOTIFICATION_BATCH_SIZE`, `SCAN_BATCH_SIZE` | optional | optional | optional |
 | `WORKER_RETENTION_APPLY` | — | optional | `true` once retention is signed off |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | optional | optional | optional |
+
+`NEXT_PUBLIC_MAPBOX_TOKEN` enables basemap and site-terrain features in the
+Project 3D editor and Company viewer. It must be a public Mapbox browser token
+restricted to the deployment's allowed origins. NESTO never accepts a secret or
+server-scoped Mapbox token. If the variable is absent, model rendering remains
+available and Mapbox-backed features are disabled. Because `NEXT_PUBLIC_*`
+values are compiled into client bundles, rebuild the application after changing
+the token.
 
 ## Workers
 

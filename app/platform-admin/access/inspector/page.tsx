@@ -1,0 +1,7 @@
+import { AccessInspector } from "@/components/platform/access-inspector";
+import { PageHeader } from "@/components/ui/page-header";
+import { requirePlatformContext } from "@/lib/context/platform-context";
+import { listPlatformCompanies, listPlatformProjects, listPlatformUsers, listRolePermissionRegistry } from "@/lib/modules/platform/platform-control.query";
+
+export const metadata = { title: "Access Inspector" };
+export default async function InspectorPage() { const context = await requirePlatformContext(); const [users, companies, projects, registry] = await Promise.all([listPlatformUsers(context), listPlatformCompanies(context), listPlatformProjects(context), listRolePermissionRegistry(context)]); return <div className="space-y-5"><PageHeader title="Access inspector" description="Resolve a tenant permission through live account, membership, group, company, module, role, grants and project state." /><AccessInspector users={users.filter((row) => !row.platformAccess).map((row) => ({ value: row.id, label: `${row.firstName} ${row.lastName} (${row.username})` }))} companies={companies.map((row) => ({ value: row.id, label: `${row.parentGroup.name} · ${row.name}` }))} projects={projects.map((row) => ({ value: row.id, label: `${row.company.name} · ${row.code} · ${row.name}`, companyId: row.company.id }))} permissions={registry.permissions.map((row) => ({ value: row.key, label: `${row.module} · ${row.key}` }))} /></div>; }

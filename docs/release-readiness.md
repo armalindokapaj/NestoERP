@@ -1,5 +1,36 @@
 # NESTO V0.1 — release readiness record
 
+## PRD 52 — native Project 3D integration (2026-09-20)
+
+The native Rozaris-to-NESTO 3D integration is ready for human review on
+`feature/rozaris-3d-integration`. It remains unmerged.
+
+| Gate | Result |
+|---|---|
+| Typecheck | Pass |
+| ESLint | Pass: 0 errors, 14 existing warnings |
+| Architecture | Pass: 1,022 |
+| Security | Pass: 30, 1 destructive case skipped |
+| Dedicated 3D Playwright | Pass: 2 development + 2 production-build runs |
+| Production build | Pass: Next.js 15.5.25, 410 routes |
+| Prisma | Valid; 69 migrations current; disposable shadow replay has no drift |
+| Source repository | Clean at `944a4c97114af442ae03ce7ff5665e5362b8274e` |
+| Full Vitest | 3,986 pass, 11 skip, 5 baseline demo-fixture failures |
+
+The five full-suite failures are unchanged from the pre-integration baseline:
+four employment-history tests expect historical seed rows absent from the local
+database, and one demo-user switch expects Edvin's absent cross-company
+membership. All Project 3D, audit, authorization, security, architecture,
+runtime, processing, release, Company-boundary, and browser tests pass.
+
+The Project 3D migrations are additive. Source and runtime GLBs remain private;
+Company access uses five-minute signed runtime URLs from an immutable active
+release. Mapbox is optional and requires a public origin-restricted browser
+token. Deployment must run the existing worker so `project-3d.process-models`
+can drain queued uploads.
+
+---
+
 Per PRD #35 §208–§214. Branch `nesto-v0.1-foundation-and-design-system`.
 Prepared 2026-09-13.
 

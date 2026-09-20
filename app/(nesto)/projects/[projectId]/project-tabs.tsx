@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { requireUserContext } from "@/lib/context/current-user";
+import { hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
 import { cn } from "@/lib/utils/cn";
 import type { ProjectTabKey } from "./project-context";
 
@@ -9,7 +11,7 @@ import type { ProjectTabKey } from "./project-context";
  * Routes, not client state, so each tab is a real URL. A tab whose permission
  * the user lacks is absent rather than empty (PRD #10 §135).
  */
-export function ProjectTabs({
+export async function ProjectTabs({
   projectId,
   active,
   show,
@@ -17,6 +19,7 @@ export function ProjectTabs({
   projectId: string;
   active: ProjectTabKey;
   show: {
+    threeD?: boolean;
     planning?: boolean;
     units?: boolean;
     sales?: boolean;
@@ -40,8 +43,10 @@ export function ProjectTabs({
     activity: boolean;
   };
 }) {
+  const threeD = show.threeD ?? await hasActiveProject3DViewer(await requireUserContext(), projectId);
   const tabs: { key: ProjectTabKey; label: string; href: string; visible: boolean }[] = [
     { key: "overview", label: "Overview", href: `/projects/${projectId}`, visible: true },
+    { key: "3d", label: "3D", href: `/projects/${projectId}/3d`, visible: threeD },
     { key: "planning", label: "Planning", href: `/projects/${projectId}/planning`, visible: Boolean(show.planning) },
     // Buildings, floors and units (E-05B §34: "Units", with the hierarchy inside).
     { key: "units", label: "Units", href: `/projects/${projectId}/units`, visible: Boolean(show.units) },

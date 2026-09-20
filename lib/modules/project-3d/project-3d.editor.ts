@@ -1,0 +1,202 @@
+import type { Prisma } from "@prisma/client";
+
+import { AccessError, assertFound } from "@/lib/access/guards";
+import type { Project3DSceneNode } from "@/lib/3d/shared/contracts";
+import { parseProject3DExperience } from "@/lib/3d/shared/experience";
+import type { PlatformContext } from "@/lib/context/platform-context";
+import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { recordPlatformAction } from "@/lib/core/audit/audit.service";
+import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
+import { prisma } from "@/lib/database/prisma";
+import { assertProject3DPlatformPermission } from "./project-3d.permissions";
+import type { Project3DExperienceUpdate, Project3DModelSettingsUpdate } from "./project-3d.schema";
+import { assertProject3DStorageKey } from "./project-3d.storage";
+
+const PREVIEW_TTL_SECONDS = 5 * 60;
+
+function sceneNodes(value: Prisma.JsonValue | null): Project3DSceneNode[] {
+  return Array.isArray(value) ? value.filter((node): node is Project3DSceneNode => Boolean(node) && typeof node === "object" && !Array.isArray(node) && typeof (node as { nodeId?: unknown }).nodeId === "string") : [];
+}
+
+function experience(value: Prisma.JsonValue) {
+  try {
+    return parseProject3DExperience(value);
+  } catch {
+    throw new AccessError("CONFLICT", "The saved 3D Experience is invalid. Restore a valid revision before editing.", { code: "INVALID_EXPERIENCE" });
+  }
+}
+
+export async function getProject3DEditorWorkspace(context: PlatformContext, projectId: string) {
+  assertProject3DPlatformPermission(context, "platform.3d.view");
+  const project = assertFound(await prisma.project.findFirst({
+    where: { id: projectId, company: { parentGroup: { isTestFixture: false } } },
+    select: {
+      id: true, code: true, name: true, companyId: true,
+      company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true } } } },
+      project3DEntitlement: true,
+      project3DConfig: {
+        include: {
+          slots: {
+            where: { isActive: true },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+            include: {
+              versions: {
+                where: { deletedAt: null },
+                orderBy: { version: "desc" },
+                include: { unitBindings: { include: { projectUnit: { select: { id: true, unitCode: true } } }, orderBy: { meshName: "asc" } } },
+              },
+            },
+          },
+        },
+      },
+      units: {
+        where: { isActive: true },
+        orderBy: [{ floor: { building: { sortOrder: "asc" } } }, { floor: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+        select: { id: true, unitCode: true, name: true, publicationStatus: true, commercialProfile: { select: { status: true } }, floor: { select: { name: true, number: true, building: { select: { name: true } } } } },
+      },
+    },
+  }));
+  const config = assertFound(project.project3DConfig);
+  const provider = storageProvider();
+  const slots = await Promise.all(config.slots.map(async (slot) => ({
+    id: slot.id,
+    kind: slot.kind,
+    role: slot.role,
+    slotKey: slot.slotKey,
+    displayName: slot.displayName,
+    sortOrder: slot.sortOrder,
+    transformParentSlotId: slot.transformParentSlotId,
+    versions: await Promise.all(slot.versions.map(async (version) => {
+      let asset: { url: string; expiresAt: string; fileName: string; contentType: "model/gltf-binary" } | null = null;
+      if (version.runtimeStorageKey && (version.status === "READY" || version.status === "PUBLISHED")) {
+        assertProject3DStorageKey(version.runtimeStorageKey, version.companyId, version.projectId, "runtime");
+        const signed = await provider.createDownloadUrl({
+          storageKey: version.runtimeStorageKey,
+          expiresInSeconds: PREVIEW_TTL_SECONDS,
+          disposition: "inline",
+          fileName: version.originalFileName,
+          contentType: "model/gltf-binary",
+        });
+        asset = { url: signed.url, expiresAt: signed.expiresAt.toISOString(), fileName: version.originalFileName, contentType: "model/gltf-binary" };
+      }
+      return {
+        id: version.id,
+        version: version.version,
+        originalFileName: version.originalFileName,
+        status: version.status,
+        validationStatus: version.validationStatus,
+        validationIssues: version.validationIssues,
+        triangleCount: version.triangleCount,
+        meshCount: version.meshCount,
+        materialCount: version.materialCount,
+        textureCount: version.textureCount,
+        scale: version.scale,
+        rotationDeg: version.rotationDeg,
+        altitudeOffset: version.altitudeOffset,
+        positionX: version.positionX,
+        positionZ: version.positionZ,
+        rotationXDeg: version.rotationXDeg,
+        rotationZDeg: version.rotationZDeg,
+        visible: version.visible,
+        castShadow: version.castShadow,
+        receiveShadow: version.receiveShadow,
+        selectable: version.selectable,
+        transformLocked: version.transformLocked,
+        sceneManifest: version.sceneManifest,
+        nodeOverrides: version.nodeOverrides,
+        unitBindings: version.unitBindings.map((binding) => ({
+          meshName: binding.meshName,
+          unitId: binding.projectUnitId,
+          unitCode: binding.projectUnit.unitCode,
+          poiYawDeg: binding.poiYawDeg,
+          poiEnabled: binding.poiEnabled,
+          poiDistanceOverride: binding.poiDistanceOverride,
+          poiHeightOverride: binding.poiHeightOverride,
+        })),
+        updatedAt: version.updatedAt.toISOString(),
+        asset,
+      };
+    })),
+  })));
+
+  return {
+    project: { id: project.id, code: project.code, name: project.name, company: project.company },
+    entitlement: project.project3DEntitlement,
+    config: { id: config.id, activeReleaseId: config.activeReleaseId, updatedAt: config.updatedAt.toISOString(), document: experience(config.authoringDocument) },
+    slots,
+    units: project.units,
+  };
+}
+
+export async function updateProject3DExperience(
+  context: PlatformContext,
+  projectId: string,
+  input: Project3DExperienceUpdate,
+) {
+  assertProject3DPlatformPermission(context, "platform.3d.configure");
+  const config = assertFound(await prisma.project3DConfig.findFirst({
+    where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
+    select: { id: true, projectId: true, companyId: true, authoringDocument: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
+  }));
+  const before = experience(config.authoringDocument);
+  if (before.revision !== input.expectedRevision) throw new AccessError("CONFLICT", "The 3D Experience changed while you were editing it. Reload and try again.", { code: "EXPERIENCE_RACED" });
+  let parsed;
+  try {
+    parsed = parseProject3DExperience({ schemaVersion: 1, revision: before.revision + 1, config: input.config });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The 3D Experience is invalid.";
+    throw new AccessError("VALIDATION_ERROR", message, { config: [message] });
+  }
+  parsed.config.updatedAt = new Date().toISOString();
+
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.project3DConfig.findUniqueOrThrow({ where: { id: config.id }, select: { authoringDocument: true } });
+    if (experience(current.authoringDocument).revision !== input.expectedRevision) throw new AccessError("CONFLICT", "The 3D Experience changed while you were editing it. Reload and try again.", { code: "EXPERIENCE_RACED" });
+    const updated = await tx.project3DConfig.update({ where: { id: config.id }, data: { authoringDocument: parsed as unknown as Prisma.InputJsonValue, schemaVersion: parsed.schemaVersion, updatedByUserId: context.userId } });
+    await recordPlatformAction(context, config.project.company.parentGroupId, {
+      actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_CHANGED,
+      entity: { type: "Project3DConfig", id: config.id, label: config.project.name },
+      projectId,
+      before: { projectId, configurationId: config.id, schemaVersion: before.schemaVersion, revision: before.revision },
+      after: { projectId, configurationId: config.id, schemaVersion: parsed.schemaVersion, revision: parsed.revision },
+      reason: input.reason,
+    }, { tx });
+    return { document: parsed, updatedAt: updated.updatedAt.toISOString() };
+  });
+}
+
+export async function updateProject3DModelSettings(
+  context: PlatformContext,
+  projectId: string,
+  versionId: string,
+  input: Project3DModelSettingsUpdate,
+) {
+  assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  const version = assertFound(await prisma.project3DModelVersion.findFirst({
+    where: { id: versionId, projectId, deletedAt: null, project: { company: { parentGroup: { isTestFixture: false } } } },
+    select: { id: true, slotId: true, version: true, originalFileName: true, status: true, validationStatus: true, sceneManifest: true, updatedAt: true, scale: true, rotationDeg: true, altitudeOffset: true, positionX: true, positionZ: true, rotationXDeg: true, rotationZDeg: true, visible: true, castShadow: true, receiveShadow: true, selectable: true, transformLocked: true, nodeOverrides: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
+  }));
+  if (!(["READY", "PUBLISHED"] as string[]).includes(version.status)) throw new AccessError("CONFLICT", "Finish processing this model before editing it.", { code: "MODEL_NOT_READY" });
+  const nodeIds = input.nodeOverrides.map((override) => override.nodeId);
+  if (new Set(nodeIds).size !== nodeIds.length) throw new AccessError("VALIDATION_ERROR", "Each scene node can have one override.", { nodeOverrides: ["Remove duplicate scene nodes."] });
+  const allowedNodeIds = new Set(sceneNodes(version.sceneManifest).map((node) => node.nodeId));
+  if (nodeIds.some((nodeId) => !allowedNodeIds.has(nodeId))) throw new AccessError("VALIDATION_ERROR", "Choose nodes from this model's scene manifest.", { nodeOverrides: ["An override references an unknown node."] });
+  const before = { projectId, slotId: version.slotId, versionId: version.id, version: version.version, status: version.status, validationStatus: version.validationStatus, fileName: version.originalFileName, scale: version.scale, rotationDeg: version.rotationDeg, altitudeOffset: version.altitudeOffset, positionX: version.positionX, positionZ: version.positionZ, rotationXDeg: version.rotationXDeg, rotationZDeg: version.rotationZDeg, visible: version.visible, castShadow: version.castShadow, receiveShadow: version.receiveShadow, selectable: version.selectable, transformLocked: version.transformLocked, nodeOverrideCount: Array.isArray(version.nodeOverrides) ? version.nodeOverrides.length : 0 };
+  return prisma.$transaction(async (tx) => {
+    const changed = await tx.project3DModelVersion.updateMany({
+      where: { id: version.id, updatedAt: new Date(input.expectedUpdatedAt) },
+      data: { scale: input.scale, rotationDeg: input.rotationDeg, altitudeOffset: input.altitudeOffset, positionX: input.positionX, positionZ: input.positionZ, rotationXDeg: input.rotationXDeg, rotationZDeg: input.rotationZDeg, visible: input.visible, castShadow: input.castShadow, receiveShadow: input.receiveShadow, selectable: input.selectable, transformLocked: input.transformLocked, nodeOverrides: input.nodeOverrides as unknown as Prisma.InputJsonValue },
+    });
+    if (changed.count !== 1) throw new AccessError("CONFLICT", "The model changed while you were editing it. Reload and try again.", { code: "MODEL_RACED" });
+    const updated = await tx.project3DModelVersion.findUniqueOrThrow({ where: { id: version.id } });
+    await recordPlatformAction(context, version.project.company.parentGroupId, {
+      actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
+      entity: { type: "Project3DModelVersion", id: version.id, label: `${version.project.name} v${version.version}` },
+      projectId,
+      before,
+      after: { ...before, scale: updated.scale, rotationDeg: updated.rotationDeg, altitudeOffset: updated.altitudeOffset, positionX: updated.positionX, positionZ: updated.positionZ, rotationXDeg: updated.rotationXDeg, rotationZDeg: updated.rotationZDeg, visible: updated.visible, castShadow: updated.castShadow, receiveShadow: updated.receiveShadow, selectable: updated.selectable, transformLocked: updated.transformLocked, nodeOverrideCount: input.nodeOverrides.length },
+      reason: input.reason,
+    }, { tx });
+    return { id: updated.id, updatedAt: updated.updatedAt.toISOString() };
+  });
+}
