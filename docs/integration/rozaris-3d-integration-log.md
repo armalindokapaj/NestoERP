@@ -93,6 +93,15 @@ The NESTO baseline was verified before PRD 52 implementation:
 - Added typed geometry metrics and unit-node names through an additive migration, replayed all 69 migrations from zero, and verified no drift.
 - Verified processing success, source/runtime separation, idempotency, blocked models, Project isolation, suspended-Company queue completion, worker contracts, Platform route guards, typecheck, ESLint, and all 1,019 architecture assertions.
 
+### Phase 7 — Scene manifest and canonical unit binding
+
+- Added browser-safe unit-node normalization and automatic matching from the Rozaris `Unit_<code>` convention to NESTO `ProjectUnit.unitCode` values.
+- Added a Platform binding workspace and replace operation guarded by `platform.3d.view` and `platform.3d.binding.manage` respectively.
+- Validated every requested node against the processed scene manifest and every unit against the active canonical units of the same Project and Company before writing.
+- Kept the database composite foreign keys and one-node/one-unit uniqueness constraints as a second line of enforcement.
+- Added a NESTO-native binding editor with automatic matching, duplicate-choice prevention, POI visibility, reason capture, and clear unlinked state.
+- Verified atomic replacement and audit evidence, exact Platform permission enforcement, duplicate rejection, invented-node rejection, inactive-unit rejection, cross-Project rejection, cross-Company rejection, two pure matcher assertions, typecheck, focused ESLint, and all 1,042 architecture and focused 3D assertions.
+
 ### Material decisions
 
 - The existing NESTO control-plane 3D scaffold is treated as transitional code. PRD 52 requires NESTO-native entitlement, model slots and versions, canonical unit bindings, immutable releases, a Company-safe bootstrap DTO, and a ported Rozaris runtime/editor boundary.

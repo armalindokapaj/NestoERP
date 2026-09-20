@@ -1,0 +1,185 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import type { PlatformContext } from "@/lib/context/platform-context";
+import { getProject3DUnitBindingWorkspace, replaceProject3DUnitBindings } from "@/lib/modules/project-3d/project-3d.binding";
+import { cleanupSessions, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
+
+type Fixture = { companyId: string; projectId: string; unitTypeId: string; buildingId: string; floorId: string; unitId: string };
+
+describe("Platform 3D unit bindings", () => {
+  const tag = `p3d-bind-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  let admin: Awaited<ReturnType<typeof loginAsPlatformAdmin>>;
+  let groupId: string;
+  let versionId: string;
+  let primary: Fixture;
+  let anotherProject: Fixture;
+  let anotherCompany: Fixture;
+  let inactiveUnitId: string;
+
+  async function createFixture(companyId: string, projectLabel: string): Promise<Fixture> {
+    const project = await prisma.project.create({
+      data: { companyId, code: `${tag}-${projectLabel}`.slice(0, 30), name: `Binding ${projectLabel}`, status: "ACTIVE", createdBy: admin.userId },
+    });
+    const unitType = await prisma.projectUnitType.create({
+      data: { companyId, name: `Apartment ${projectLabel}`, code: `APT_${projectLabel}`.toUpperCase(), category: "RESIDENTIAL", createdBy: admin.userId },
+    });
+    const building = await prisma.projectBuilding.create({
+      data: { companyId, projectId: project.id, name: `Tower ${projectLabel}`, nameKey: `TOWER ${projectLabel}`.toUpperCase(), sortOrder: 1, createdBy: admin.userId },
+    });
+    const floor = await prisma.projectFloor.create({
+      data: { companyId, projectId: project.id, buildingId: building.id, number: 1, name: "Floor 1", levelType: "STANDARD", floorKey: "STANDARD:1", sortOrder: 1, createdBy: admin.userId },
+    });
+    const unit = await prisma.projectUnit.create({
+      data: { companyId, projectId: project.id, floorId: floor.id, unitCode: "A-101", unitCodeKey: "A-101", unitTypeId: unitType.id, sortOrder: 1, createdBy: admin.userId },
+    });
+    return { companyId, projectId: project.id, unitTypeId: unitType.id, buildingId: building.id, floorId: floor.id, unitId: unit.id };
+  }
+
+  beforeAll(async () => {
+    admin = await loginAsPlatformAdmin();
+    const group = await prisma.parentGroup.create({ data: { slug: tag, name: "3D binding group", status: "ACTIVE" } });
+    groupId = group.id;
+    const [company, otherCompany] = await Promise.all([
+      prisma.company.create({ data: { slug: `${tag}-a`, name: "3D binding A", parentGroupId: group.id } }),
+      prisma.company.create({ data: { slug: `${tag}-b`, name: "3D binding B", parentGroupId: group.id } }),
+    ]);
+    primary = await createFixture(company.id, "primary");
+    anotherProject = await createFixture(company.id, "other-project");
+    anotherCompany = await createFixture(otherCompany.id, "other-company");
+    const inactive = await prisma.projectUnit.create({
+      data: {
+        companyId: primary.companyId,
+        projectId: primary.projectId,
+        floorId: primary.floorId,
+        unitCode: "A-102",
+        unitCodeKey: "A-102",
+        unitTypeId: primary.unitTypeId,
+        sortOrder: 2,
+        isActive: false,
+        createdBy: admin.userId,
+      },
+    });
+    inactiveUnitId = inactive.id;
+
+    const config = await prisma.project3DConfig.create({
+      data: { companyId: primary.companyId, projectId: primary.projectId, authoringDocument: { schemaVersion: 1, revision: 1 }, updatedByUserId: admin.userId },
+    });
+    const slot = await prisma.project3DModelSlot.create({
+      data: { companyId: primary.companyId, projectId: primary.projectId, configId: config.id, role: "UNITS", slotKey: "units", displayName: "Unit blocks" },
+    });
+    const version = await prisma.project3DModelVersion.create({
+      data: {
+        companyId: primary.companyId,
+        projectId: primary.projectId,
+        slotId: slot.id,
+        version: 1,
+        originalFileName: "units.glb",
+        sourceStorageKey: `${tag}/source.glb`,
+        runtimeStorageKey: `${tag}/runtime.glb`,
+        storageProvider: "test",
+        sourceSizeBytes: BigInt(100),
+        runtimeSizeBytes: BigInt(80),
+        sourceContentType: "model/gltf-binary",
+        runtimeContentType: "model/gltf-binary",
+        validationStatus: "READY",
+        status: "READY",
+        unitNodeNames: ["Unit_A-101", "Unit_A-102"],
+        sceneManifest: [
+          { nodeId: "node_0", name: "Unit_A-101", meshIndex: 0, parentNodeId: null, depth: 0, isMesh: true, autoClassification: "unit_block" },
+          { nodeId: "node_1", name: "Unit_A-102", meshIndex: 1, parentNodeId: null, depth: 0, isMesh: true, autoClassification: "unit_block" },
+        ],
+        uploadedByUserId: admin.userId,
+      },
+    });
+    versionId = version.id;
+  });
+
+  afterAll(async () => {
+    const fixtures = [primary, anotherProject, anotherCompany].filter((fixture): fixture is Fixture => Boolean(fixture));
+    const projectIds = fixtures.map((fixture) => fixture.projectId);
+    if (versionId) await prisma.project3DUnitMeshBinding.deleteMany({ where: { modelVersionId: versionId } });
+    if (projectIds.length > 0) {
+      await prisma.project3DModelVersion.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.project3DModelSlot.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.project3DRelease.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.project3DConfig.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.projectUnit.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.projectFloor.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.projectBuilding.deleteMany({ where: { projectId: { in: projectIds } } });
+      await prisma.project.deleteMany({ where: { id: { in: projectIds } } });
+      await prisma.projectUnitType.deleteMany({ where: { id: { in: fixtures.map((fixture) => fixture.unitTypeId) } } });
+      await prisma.company.deleteMany({ where: { id: { in: Array.from(new Set(fixtures.map((fixture) => fixture.companyId))) } } });
+    }
+    if (groupId) {
+      await prisma.auditEvent.deleteMany({ where: { parentGroupId: groupId } });
+      await prisma.groupDepartment.deleteMany({ where: { parentGroupId: groupId } });
+      await prisma.parentGroup.deleteMany({ where: { id: groupId } });
+    }
+    await cleanupSessions();
+    await prisma.$disconnect();
+  });
+
+  it("returns detected nodes and only active canonical units from the model project", async () => {
+    await expect(getProject3DUnitBindingWorkspace(admin, primary.projectId, versionId)).resolves.toMatchObject({
+      detectedNodes: ["Unit_A-101", "Unit_A-102"],
+      units: [{ id: primary.unitId, unitCode: "A-101" }],
+      bindings: [],
+    });
+  });
+
+  it("replaces links atomically and records an audit event", async () => {
+    await expect(replaceProject3DUnitBindings(admin, primary.projectId, versionId, {
+      bindings: [{ meshName: "Unit_A-101", projectUnitId: primary.unitId, mappingStatus: "MAPPED", poiYawDeg: 15, poiEnabled: true, poiDistanceOverride: null, poiHeightOverride: null }],
+      reason: "Map the processed unit node",
+    })).resolves.toMatchObject([{ meshName: "Unit_A-101", projectUnitId: primary.unitId, poiYawDeg: 15 }]);
+    await expect(prisma.auditEvent.findFirstOrThrow({ where: { parentGroupId: groupId, actionKey: "PLATFORM_THREE_D_BINDING_CHANGED" } })).resolves.toMatchObject({
+      projectId: primary.projectId,
+      beforeJson: { projectId: primary.projectId, versionId, bindingCount: 0 },
+      afterJson: { projectId: primary.projectId, versionId, bindingCount: 1 },
+    });
+  });
+
+  it("rejects duplicate nodes and duplicate canonical units", async () => {
+    const base = { mappingStatus: "MAPPED" as const, poiYawDeg: 0, poiEnabled: true, poiDistanceOverride: null, poiHeightOverride: null };
+    await expect(replaceProject3DUnitBindings(admin, primary.projectId, versionId, {
+      bindings: [
+        { ...base, meshName: "Unit_A-101", projectUnitId: primary.unitId },
+        { ...base, meshName: "Unit_A-101", projectUnitId: inactiveUnitId },
+      ],
+      reason: "Reject repeated scene nodes",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(replaceProject3DUnitBindings(admin, primary.projectId, versionId, {
+      bindings: [
+        { ...base, meshName: "Unit_A-101", projectUnitId: primary.unitId },
+        { ...base, meshName: "Unit_A-102", projectUnitId: primary.unitId },
+      ],
+      reason: "Reject repeated canonical units",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("rejects nodes outside the processed scene manifest", async () => {
+    await expect(replaceProject3DUnitBindings(admin, primary.projectId, versionId, {
+      bindings: [{ meshName: "Unit_INVENTED", projectUnitId: primary.unitId, mappingStatus: "MAPPED", poiYawDeg: 0, poiEnabled: true, poiDistanceOverride: null, poiHeightOverride: null }],
+      reason: "Reject an invented node",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it.each([
+    ["another project", () => anotherProject.unitId],
+    ["another company", () => anotherCompany.unitId],
+    ["an inactive unit", () => inactiveUnitId],
+  ])("rejects a link to %s", async (_label, unitId) => {
+    await expect(replaceProject3DUnitBindings(admin, primary.projectId, versionId, {
+      bindings: [{ meshName: "Unit_A-101", projectUnitId: unitId(), mappingStatus: "MAPPED", poiYawDeg: 0, poiEnabled: true, poiDistanceOverride: null, poiHeightOverride: null }],
+      reason: "Enforce canonical unit scope",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR", reason: "CROSS_PROJECT_REFERENCE" });
+  });
+
+  it("checks binding permission independently of route authentication", async () => {
+    const readOnly = { ...admin, permissions: ["platform.3d.view"] } as PlatformContext;
+    await expect(replaceProject3DUnitBindings(readOnly, primary.projectId, versionId, {
+      bindings: [],
+      reason: "Permission boundary check",
+    })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
