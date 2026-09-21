@@ -48,6 +48,40 @@ export type Project3DExperienceCreate = z.infer<typeof project3DExperienceCreate
 export type Project3DExperienceMetadata = z.infer<typeof project3DExperienceMetadataSchema>;
 export type Project3DExperienceListQuery = z.infer<typeof project3DExperienceListQuerySchema>;
 
+const nullableText = (max: number) => z.string().trim().max(max).nullable().optional().transform((value) => value || null);
+const nullableDecimal = z.union([z.string().trim().regex(/^\d{1,10}(\.\d{1,2})?$/), z.literal(""), z.null()]).optional().transform((value) => value || null);
+const nullableInteger = z.union([z.number().int().min(0).max(10_000), z.null()]).optional().transform((value) => value ?? null);
+const floorNumber = z.number().int().min(-50).max(500).nullable();
+const structureReason = { reason };
+
+const unitTechnicalFields = {
+  unitTypeId: z.string().trim().min(1).max(128),
+  internalArea: nullableDecimal,
+  saleableArea: nullableDecimal,
+  rooms: nullableInteger,
+  bedrooms: nullableInteger,
+  bathrooms: nullableInteger,
+  description: nullableText(1_000),
+};
+
+export const project3DStructureCreateSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("building.create"), name: z.string().trim().min(1).max(120), code: nullableText(40), description: nullableText(1_000), ...structureReason }),
+  z.object({ action: z.literal("floor.create"), buildingId: z.string().trim().min(1).max(128), number: floorNumber, name: z.string().trim().min(1).max(120), levelType: z.enum(["BASEMENT", "GROUND", "STANDARD", "MEZZANINE", "TECHNICAL", "ROOF", "OTHER"]), elevation: nullableDecimal, description: nullableText(1_000), ...structureReason }),
+  z.object({ action: z.literal("floor.bulk"), buildingId: z.string().trim().min(1).max(128), from: z.number().int().min(-50).max(500), to: z.number().int().min(-50).max(500), ...structureReason }).refine((value) => value.to >= value.from && value.to - value.from < 100, { message: "Create a range of at most 100 floors.", path: ["to"] }),
+  z.object({ action: z.literal("unit.create"), floorId: z.string().trim().min(1).max(128), unitCode: z.string().trim().min(1).max(80), name: nullableText(160), ...unitTechnicalFields, ...structureReason }),
+  z.object({ action: z.literal("unit.bulk"), floorId: z.string().trim().min(1).max(128), prefix: z.string().max(40), start: z.number().int().min(0).max(999_999), end: z.number().int().min(0).max(999_999), padding: z.number().int().min(1).max(8), suffix: z.string().max(20), ...unitTechnicalFields, ...structureReason }).refine((value) => value.end >= value.start && value.end - value.start < 500, { message: "Create a range of at most 500 units.", path: ["end"] }),
+]);
+
+export const project3DStructureUpdateSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("building"), name: z.string().trim().min(1).max(120), code: nullableText(40), description: nullableText(1_000), isActive: z.boolean(), expectedVersion: z.number().int().positive(), ...structureReason }),
+  z.object({ kind: z.literal("floor"), buildingId: z.string().trim().min(1).max(128), number: floorNumber, name: z.string().trim().min(1).max(120), levelType: z.enum(["BASEMENT", "GROUND", "STANDARD", "MEZZANINE", "TECHNICAL", "ROOF", "OTHER"]), elevation: nullableDecimal, description: nullableText(1_000), isActive: z.boolean(), expectedVersion: z.number().int().positive(), ...structureReason }),
+  z.object({ kind: z.literal("unit"), floorId: z.string().trim().min(1).max(128), unitCode: z.string().trim().min(1).max(80), name: nullableText(160), ...unitTechnicalFields, isActive: z.boolean(), expectedVersion: z.number().int().positive(), ...structureReason }),
+]);
+
+export const project3DStructureDeleteSchema = z.object({ reason });
+export type Project3DStructureCreate = z.infer<typeof project3DStructureCreateSchema>;
+export type Project3DStructureUpdate = z.infer<typeof project3DStructureUpdateSchema>;
+
 export const project3DSlotCreateSchema = z.object({
   kind: z.enum(["MAP", "DETAIL"]).default("DETAIL"),
   role: z.enum(["BUILDING", "UNITS", "SURROUNDINGS", "CONTEXT", "CUSTOM"]),
