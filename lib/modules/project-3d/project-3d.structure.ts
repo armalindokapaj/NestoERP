@@ -88,6 +88,7 @@ export async function createPlatformProjectStructure(context: PlatformContext, p
         if (new Set(keys).size !== keys.length) throw new AccessError("CONFLICT", "The floor range contains duplicate levels.", { code: "FLOOR_COLLISION" });
         const collisions = await tx.projectFloor.count({ where: { buildingId: building.id, floorKey: { in: keys } } });
         if (collisions) throw new AccessError("CONFLICT", "One or more of these floors already exist in the building.", { code: "FLOOR_COLLISION" });
+        if (input.action === "floor.bulk" && input.dryRun) return { action: input.action, ids: [], preview: { count: drafts.length, labels: drafts.map((floor) => floor.name) } };
         const last = await tx.projectFloor.aggregate({ where: { buildingId: building.id }, _max: { sortOrder: true } });
         const ordered = drafts.toSorted((a, b) => floorRank(a.levelType, a.number) - floorRank(b.levelType, b.number));
         const rows = await tx.projectFloor.createManyAndReturn({ data: ordered.map((floor, index) => ({ companyId: project.companyId, projectId, buildingId: building.id, number: floor.number, name: floor.name, levelType: floor.levelType, floorKey: floorKeyOf(floor.levelType, floor.number, floor.name), sortOrder: (last._max.sortOrder ?? 0) + index + 1, elevation: decimal(floor.elevation), description: floor.description, createdBy: context.userId })), select: { id: true } });
@@ -102,6 +103,7 @@ export async function createPlatformProjectStructure(context: PlatformContext, p
       if (new Set(keys).size !== keys.length) throw new AccessError("CONFLICT", "The unit range contains duplicate codes.", { code: "UNIT_CODE_COLLISION" });
       const collisions = await tx.projectUnit.count({ where: { projectId, unitCodeKey: { in: keys } } });
       if (collisions) throw new AccessError("CONFLICT", "One or more unit codes already exist in this Project.", { code: "UNIT_CODE_COLLISION" });
+      if (input.action === "unit.bulk" && input.dryRun) return { action: input.action, ids: [], preview: { count: units.length, labels: units.map((unit) => unit.unitCode) } };
       const last = await tx.projectUnit.aggregate({ where: { floorId: floor.id }, _max: { sortOrder: true } });
       const rows = await tx.projectUnit.createManyAndReturn({ data: units.map((unit, index) => ({ companyId: project.companyId, projectId, floorId: floor.id, unitCode: unit.unitCode, unitCodeKey: structureKey(unit.unitCode), name: unit.name, unitTypeId: type.id, internalArea: decimal(input.internalArea), saleableArea: decimal(input.saleableArea), rooms: input.rooms, bedrooms: input.bedrooms, bathrooms: input.bathrooms, description: input.description, sortOrder: (last._max.sortOrder ?? 0) + index + 1, createdBy: context.userId })), select: { id: true } });
       await audit(context, project.company.parentGroupId, tx, projectId, { type: "ProjectFloor", id: floor.id, label: floor.name }, input.action, null, { floorId: floor.id, count: rows.length }, input.reason);
