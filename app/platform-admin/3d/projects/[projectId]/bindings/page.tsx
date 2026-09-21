@@ -1,0 +1,20 @@
+import Link from "next/link";
+
+import { UnitBindingEditor } from "@/components/3d/platform/UnitBindingEditor";
+import { Badge } from "@/components/ui/badge";
+import { requirePlatformContext } from "@/lib/context/platform-context";
+import { getProject3DEditorWorkspace } from "@/lib/modules/project-3d/project-3d.editor";
+
+export const metadata = { title: "3D Unit Binding" };
+
+export default async function ExperienceBindingsPage({ params, searchParams }: { params: Promise<{ projectId: string }>; searchParams: Promise<{ versionId?: string }> }) {
+  const [{ projectId }, search] = await Promise.all([params, searchParams]);
+  const context = await requirePlatformContext();
+  const workspace = await getProject3DEditorWorkspace(context, projectId);
+  const versions = workspace.slots.flatMap((slot) => slot.versions.map((version) => ({ ...version, slotName: slot.displayName }))).filter((version) => ["READY", "PUBLISHED"].includes(version.status));
+  const selected = versions.find((version) => version.id === search.versionId) ?? versions[0] ?? null;
+  return <div className="space-y-4">
+    <section className="nesto-card p-4"><div className="flex flex-wrap items-center gap-2"><span className="mr-2 text-table font-medium text-fg">Model version</span>{versions.map((version) => <Link key={version.id} href={`?versionId=${version.id}`} className={`rounded-md border px-3 py-1.5 text-table ${selected?.id === version.id ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:bg-hover"}`}>{version.slotName} · v{version.version} <Badge className="ml-1" tone="neutral">{version.status}</Badge></Link>)}</div></section>
+    {selected ? <UnitBindingEditor projectId={projectId} versionId={selected.id} /> : <section className="nesto-card p-8 text-center"><h2 className="text-card font-semibold text-fg">No model is ready for binding</h2><p className="mt-1 text-body text-fg-muted">Upload and process a GLB model before linking scene nodes to canonical Units.</p><Link className="mt-4 inline-block text-table font-medium text-accent-strong hover:underline" href={`/platform-admin/3d/projects/${projectId}/models`}>Open Models</Link></section>}
+  </div>;
+}

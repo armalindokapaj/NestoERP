@@ -28,7 +28,7 @@ const groups: NavGroup[] = [
     { label: "Modules", href: "/platform-admin/product/modules" }, { label: "Feature Flags", href: "/platform-admin/product/feature-flags", icon: Flag }, { label: "Templates", href: "/platform-admin/product/templates" },
   ] },
   { label: "3D Platform", icon: Orbit, items: [
-    { label: "Projects & Models", href: "/platform-admin/3d" }, { label: "Publishing", href: "/platform-admin/3d/publishing" }, { label: "Diagnostics", href: "/platform-admin/3d/diagnostics" },
+    { label: "3D Experiences", href: "/platform-admin/3d" }, { label: "Model Library", href: "/platform-admin/3d/models" }, { label: "Publishing", href: "/platform-admin/3d/publishing" }, { label: "Diagnostics", href: "/platform-admin/3d/diagnostics" },
   ] },
   { label: "Data", icon: Database, items: [
     { label: "Storage", href: "/platform-admin/data/storage" }, { label: "Diagnostics", href: "/platform-admin/data/diagnostics" },
