@@ -302,7 +302,7 @@ export async function getProject3DWorkspace(context: PlatformContext, projectId:
       project3DEntitlement: true,
       project3DConfig: {
         include: {
-          slots: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], include: { versions: { where: { deletedAt: null }, orderBy: { version: "desc" } } } },
+          slots: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], include: { versions: { where: { deletedAt: null }, orderBy: { version: "desc" }, include: { _count: { select: { unitBindings: true } } } } } },
           releases: { orderBy: { releaseNumber: "desc" } },
         },
       },
