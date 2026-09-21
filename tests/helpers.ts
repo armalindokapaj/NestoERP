@@ -104,7 +104,7 @@ const createdSessions: string[] = [];
  * account is found by it, not authenticated by it — signing in is by username
  * (PRD #50 §6), which `authenticateCredentials` covers in its own tests.
  */
-export async function loginAsEmail(email: string): Promise<UserContext> {
+export async function loginAsEmail(email: string, options: WorkspaceOption = {}): Promise<UserContext> {
   // An undefined address would drop the filter and sign in as whoever comes first.
   if (!email) throw new Error("loginAsEmail needs an address: is the role still seeded?");
   const user = await prisma.user.findFirst({
@@ -122,6 +122,7 @@ export async function loginAsEmail(email: string): Promise<UserContext> {
       userId: user.id,
       membershipId: membership.id,
       currentCompanyId: membership.companyId,
+      workspaceScope: options.workspace ?? "COMPANY",
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     },
   });
@@ -139,7 +140,7 @@ export async function loginAsEmail(email: string): Promise<UserContext> {
  * `loginAsEmail` takes whichever the database returns first — a test about
  * which company the session is in has to say (E-05A §28).
  */
-export async function loginAsMembership(membershipId: string): Promise<UserContext> {
+export async function loginAsMembership(membershipId: string, options: WorkspaceOption = {}): Promise<UserContext> {
   const membership = await prisma.companyMember.findUnique({ where: { id: membershipId } });
   if (!membership) throw new Error(`No seeded membership ${membershipId}. Run the seed first.`);
 
@@ -149,6 +150,7 @@ export async function loginAsMembership(membershipId: string): Promise<UserConte
       userId: membership.userId,
       membershipId: membership.id,
       currentCompanyId: membership.companyId,
+      workspaceScope: options.workspace ?? "COMPANY",
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     },
   });
@@ -159,9 +161,18 @@ export async function loginAsMembership(membershipId: string): Promise<UserConte
   return result.context;
 }
 
-export function loginAs(role: RoleKey): Promise<UserContext> {
-  return loginAsEmail(demoEmail(role));
+export function loginAs(role: RoleKey, options: WorkspaceOption = {}): Promise<UserContext> {
+  return loginAsEmail(demoEmail(role), options);
 }
+
+/**
+ * The workspace a test session starts in. A session made here works in its
+ * company unless it says otherwise, as every test written before the Group
+ * workspace assumed; `workspace: "GROUP"` asks for the group, which the
+ * resolver grants only to somebody with group-level standing
+ * (Workspace Context §16, §82).
+ */
+export type WorkspaceOption = { workspace?: "GROUP" | "COMPANY" };
 
 /**
  * A session for the Platform Admin, who has no membership: it resolves to the
@@ -204,12 +215,29 @@ export async function createRawSession(identifier: string) {
       userId: user.id,
       membershipId: membership.id,
       currentCompanyId: membership.companyId,
+      workspaceScope: "COMPANY",
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     },
   });
 
   createdSessions.push(session.id);
   return { session, user, membership };
+}
+
+/**
+ * Group-level standing for somebody who has none by role: a group-scope grant on
+ * a module, which is one of the ways the access model gives it (Workspace
+ * Context §7, §8, §63). Returns what undoes it. Used to test the cross-company
+ * mechanics with the seeded multi-company Architect, who holds no group position.
+ */
+export async function grantGroupStanding(userId: string, parentGroupId = "group_demo_nesto"): Promise<() => Promise<void>> {
+  const owner = await prisma.user.findFirstOrThrow({ where: { email: EMAIL_FOR_ROLE.OWNER } });
+  const grant = await prisma.accessGrant.create({
+    data: { userId, parentGroupId, functionKey: "organization", scopeType: "GROUP", accessLevel: "VIEW", grantedByUserId: owner.id, reason: "test: group standing" },
+  });
+  return async () => {
+    await prisma.accessGrant.delete({ where: { id: grant.id } });
+  };
 }
 
 /** Removes the sessions a test file created, leaving the seed untouched. */

@@ -6,5 +6,5 @@ import { portfolioFilterOptions } from "@/lib/modules/projects/project.portfolio
  * drawn only from projects this person can see (E-05A §41).
  */
 export async function GET() {
-  return withContext(async (context) => apiOk({ data: await portfolioFilterOptions(context) }));
+  return withContext(async (context) => apiOk({ data: await portfolioFilterOptions(context) }), { group: "read" });
 }

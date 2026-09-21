@@ -38,6 +38,14 @@ export type ModuleLinkRef = { id: string; label: string; href: string | null };
 
 export type MoneyDTO = { currency: string; amount: string };
 
+/**
+ * The company a row belongs to. Present only on rows read in the Group
+ * workspace, where without it a row from one company reads like any other
+ * (Workspace Context §45); absent in a company workspace, whose every row is
+ * the one company's.
+ */
+export type CompanyRef = { id: string; name: string };
+
 /* -------------------------------------------------------------------------- */
 /* Suppliers                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -56,6 +64,8 @@ export type SupplierSummaryDTO = {
   defaultCurrency: string | null;
   openOrders: number;
   updatedAt: string;
+  /** Group workspace only: suppliers are company-owned rows, listed per company and never merged. */
+  company?: CompanyRef;
 };
 
 export type SupplierCapabilities = {
@@ -119,6 +129,7 @@ export type RequestSummaryDTO = {
   itemCount: number;
   attention: RequestAttentionDTO;
   updatedAt: string;
+  company?: CompanyRef;
 };
 
 export type RequestCapabilities = {
@@ -191,6 +202,7 @@ export type RfqSummaryDTO = {
   invitedCount: number;
   respondedCount: number;
   updatedAt: string;
+  company?: CompanyRef;
 };
 
 export type RfqCapabilities = {
@@ -321,6 +333,7 @@ export type OrderSummaryDTO = {
   itemCount: number;
   attention: OrderAttentionDTO;
   updatedAt: string;
+  company?: CompanyRef;
 };
 
 export type OrderCapabilities = {
@@ -451,7 +464,22 @@ export type ProcurementOverviewDTO = {
   overdueOrders: number;
   receiptsThisMonth: number;
   activeSuppliers: number;
-  /** Grouped by currency and never summed across them (PRD #19 §190). */
+  /**
+   * Grouped by currency and never summed across them (PRD #19 §190). In the
+   * Group workspace the same currency is added across companies — one code, one
+   * unit — and a different one stays a line of its own (Workspace Context §72).
+   */
+  committedValue: CurrencyTotal[] | null;
+  /** Group workspace only: the same figures company by company, each in its own currencies (§72, §73). */
+  companies?: ProcurementCompanyFiguresDTO[];
+};
+
+export type ProcurementCompanyFiguresDTO = {
+  company: CompanyRef;
+  openRequests: number;
+  requestsAwaitingApproval: number;
+  ordersAwaitingReceipt: number;
+  overdueOrders: number;
   committedValue: CurrencyTotal[] | null;
 };
 
@@ -467,6 +495,8 @@ export type SpendRow = {
   label: string;
   count: number;
   totals: CurrencyTotal[];
+  /** Group workspace: the company a supplier or project row belongs to. A category row spans companies and has none. */
+  company?: CompanyRef;
 };
 
 export type DeliveryPerformanceRow = {
@@ -475,6 +505,7 @@ export type DeliveryPerformanceRow = {
   onTime: number;
   late: number;
   onTimeRate: number | null;
+  company?: CompanyRef;
 };
 
 export type OutstandingReceiptRow = {

@@ -195,6 +195,39 @@ export async function listTasks(context: UserContext, query: TaskListQuery) {
   return { rows, total };
 }
 
+/** A list row from the Group workspace, which also says whose task it is. */
+export type GroupTaskSummaryRow = TaskSummaryRow & { companyId: string };
+
+/**
+ * The tasks of several companies as one list (Workspace Context §32, §58).
+ *
+ * Each context is the person's own in that company, so the union below is
+ * exactly the answers the company pages give: every branch starts with that
+ * company's boundary, then its permission scope and the same filters. `mine`
+ * reads each branch's own membership, which is what "my work" means in a
+ * company they belong to under a different membership id. Search, sort and
+ * pagination run over the union in the database, never over a merged page.
+ */
+export async function listTasksForContexts(contexts: UserContext[], query: TaskListQuery) {
+  if (contexts.length === 0) return { rows: [] as GroupTaskSummaryRow[], total: 0 };
+  const now = new Date();
+  const where: Prisma.TaskWhereInput = { OR: contexts.map((context) => buildTaskListWhere(context, query, now)) };
+
+  const [rows, total] = await Promise.all([
+    prisma.task.findMany({
+      where,
+      select: { ...SUMMARY_SELECT, companyId: true },
+      // The id keeps a page boundary stable when two companies' tasks tie.
+      orderBy: [...SORT_ORDER[query.sort], { id: "asc" }],
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+    }),
+    prisma.task.count({ where }),
+  ]);
+
+  return { rows, total };
+}
+
 /** A single task, already narrowed to what this caller may see (PRD #11 §120). */
 export async function findTaskInScope(
   context: UserContext,
@@ -289,6 +322,23 @@ export async function priorityTasks(context: UserContext, limit = 5) {
     },
     select: SUMMARY_SELECT,
     orderBy: [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }],
+    take: limit,
+  });
+}
+
+/** High and critical open work across several companies, for the Group overview's attention list. */
+export async function priorityTasksForContexts(contexts: UserContext[], limit = 5): Promise<GroupTaskSummaryRow[]> {
+  if (contexts.length === 0) return [];
+  return prisma.task.findMany({
+    where: {
+      AND: [
+        { OR: contexts.map((context) => buildTaskScopeWhere(context)) },
+        { archivedAt: null, status: { in: [...OPEN_STATUSES] } },
+        { priority: { in: ["HIGH", "CRITICAL"] } },
+      ],
+    },
+    select: { ...SUMMARY_SELECT, companyId: true },
+    orderBy: [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
     take: limit,
   });
 }

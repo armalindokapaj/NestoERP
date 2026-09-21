@@ -96,6 +96,29 @@ export async function listExpenses(context: UserContext, query: ExpenseListQuery
   return { rows, total };
 }
 
+/**
+ * The Group workspace's expense list (Workspace Context §36, §58): the union of
+ * each company's own list clause, applied before sort and pagination, with `id`
+ * as the tiebreaker so a page holds still.
+ */
+export async function listExpensesAcross(contexts: UserContext[], query: ExpenseListQuery) {
+  if (contexts.length === 0) return { rows: [], total: 0 };
+  const where: Prisma.ExpenseWhereInput = { OR: contexts.map((context) => buildExpenseListWhere(context, query)) };
+
+  const [rows, total] = await Promise.all([
+    prisma.expense.findMany({
+      where,
+      orderBy: [...ORDER[query.sort], { id: "asc" }],
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+      select: { ...SUMMARY_SELECT, companyId: true },
+    }),
+    prisma.expense.count({ where }),
+  ]);
+
+  return { rows, total };
+}
+
 export function findExpenseInScope(context: UserContext, expenseId: string) {
   return prisma.expense.findFirst({
     where: { AND: [buildExpenseScopeWhere(context), { id: expenseId }] },
@@ -121,6 +144,18 @@ export async function expenseFilterOptions(context: UserContext) {
   ]);
 
   return { projects, currencies: currencies.map((row) => row.currency) };
+}
+
+/** Currencies of the expenses the Group workspace reads: no project filter, projects belong to one company. */
+export async function expenseCurrenciesAcross(contexts: UserContext[]): Promise<string[]> {
+  if (contexts.length === 0) return [];
+  const rows = await prisma.expense.findMany({
+    where: { OR: contexts.map((context) => buildExpenseScopeWhere(context)) },
+    select: { currency: true },
+    distinct: ["currency"],
+    orderBy: { currency: "asc" },
+  });
+  return rows.map((row) => row.currency);
 }
 
 /** Approved expenses a disbursement may settle. */

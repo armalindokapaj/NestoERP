@@ -1,15 +1,16 @@
 import { cache } from "react";
 
+import type { ModuleKey } from "@/config/modules";
+import type { Permission } from "@/config/permissions";
 import { can, isModuleEnabled } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
-import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
-import { contextInCompany } from "@/lib/context/member-context";
+import { buildClientScopeWhere, buildProjectScopeWhere, buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
 import { contractorDirectoryWhere } from "@/lib/modules/contractors/contractor.permissions";
 import { buildBudgetScopeWhere, buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
 import { buildEmployeeScopeWhere, hasCompanyHrScope } from "@/lib/modules/hr/hr.scope";
-import { listCompanyContexts } from "@/lib/modules/organization/company-context.service";
 import { buildSupplierWhere } from "@/lib/modules/procurement/procurement.scope";
 import { readableMilestoneWhere } from "@/lib/modules/project-planning/planning.permissions";
 import { upcomingMilestones } from "@/lib/modules/project-planning/planning.reports";
@@ -18,28 +19,29 @@ import { currencyTotals } from "@/lib/modules/sales/opportunities/opportunity.fo
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { loadRecentActivityRows } from "./dashboard.activity";
-import type { WidgetActivityItem, WidgetBreakdownItem, WidgetListItem, WidgetProjectCard } from "./dashboard.types";
+import type { WidgetActivityItem, WidgetAlert, WidgetBreakdownItem, WidgetListItem, WidgetProjectCard } from "./dashboard.types";
 
 /**
- * The group on a dashboard (E-06 §96, §108-§111).
+ * The group on a dashboard (E-06 §96, §108-§111; Workspace Context §19, §57-§62).
  *
- * One row per company the reader works in. Each row is computed as the
- * reader's own membership in that company, with that company's scope
- * builders, so a group view is the same answers the company pages give and
- * never a query with the company boundary taken off (§161, §171). A reader in
- * one company sees one row.
+ * One row per company the reader may enter. Each row is computed as the
+ * reader's own context in that company, with that company's scope builders, so
+ * a group view is the same answers the company pages give and never a query with
+ * the company boundary taken off (§161, §171). The companies are the workspace
+ * resolver's — the person's own active memberships in this group, never a list
+ * from a browser — and a figure a company does not let them read is left out of
+ * the total rather than counted partly.
+ *
+ * These run only in the Group workspace: a company workspace shows that
+ * company's own dashboard.
  */
 
 const OPEN_STAGES = ["PROSPECTING", "QUALIFIED", "DISCOVERY", "PROPOSAL", "NEGOTIATION"] as const;
 
-/** The reader's own membership in each company they work in, resolved once per request. */
-const companyContexts = cache(async (context: UserContext): Promise<Array<{ name: string; context: UserContext }>> => {
-  const companies = await listCompanyContexts(context);
-  const contexts = await Promise.all(
-    companies.map(async (company) => ({ name: company.companyName, context: await contextInCompany(context, company.companyId) })),
-  );
-  return contexts.filter((row): row is { name: string; context: UserContext } => row.context !== null);
-});
+/** The reader's own context in each company of the group they may enter, resolved once per request. */
+const companyContexts = cache(async (context: UserContext): Promise<Array<{ name: string; context: UserContext }>> =>
+  (await resolveGroupContexts(context)).map((company) => ({ name: company.company.name, context: company })),
+);
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
@@ -105,6 +107,9 @@ export async function groupFinance(context: UserContext): Promise<WidgetListItem
         title: name,
         subtitle: `${pending} awaiting approval · ${sent} sent · ${overdue} overdue`,
         status: overdue > 0 ? "OVERDUE" : undefined,
+        // Drilling into a company enters it, then goes to its invoices (Workspace Context §74).
+        companyId: company.companyId,
+        href: "/finance/invoices",
       };
     }),
   );
@@ -125,6 +130,8 @@ export async function groupPipeline(context: UserContext): Promise<WidgetListIte
         title: name,
         subtitle: plural(deals.length, "open deal"),
         meta: totals.map((total) => formatCurrency(Number.parseFloat(total.value), total.currency)).join(" · ") || undefined,
+        companyId: company.companyId,
+        href: "/sales/opportunities",
       };
     }),
   );
@@ -145,24 +152,130 @@ export type GroupIdentity = {
   suspendedCompanies: number;
 };
 
-/** Who sees the group as a group: its Owner and the heads of its functions (E-06 §78). */
+/** Whether the request is in the Group workspace, where the group is seen as a group (Workspace Context §18). */
 export function seesGroup(context: UserContext): boolean {
-  return can(context, "department.group.view");
+  return context.workspace.scopeType === "GROUP";
 }
 
 /** The group's identity for the dashboard's banner (D-01 §26), or null for a reader who works in one company's view. */
 export async function groupIdentity(context: UserContext): Promise<GroupIdentity | null> {
   if (!seesGroup(context)) return null;
   const [group, companies] = await Promise.all([
-    // The session's own group, reached through its company.
-    prisma.parentGroup.findFirstOrThrow({ where: { id: context.parentGroupId, companies: { some: { id: context.companyId } } }, select: { name: true, legalName: true, registrationNumber: true, city: true, country: true, isDemo: true } }),
-    prisma.company.groupBy({ by: ["status"], where: { parentGroupId: context.parentGroupId }, _count: { _all: true } }),
+    prisma.parentGroup.findFirstOrThrow({ where: { id: context.parentGroupId }, select: { name: true, legalName: true, registrationNumber: true, city: true, country: true, isDemo: true } }),
+    // The companies the reader belongs to: the count matches the list they are shown (Workspace Context §60).
+    prisma.company.groupBy({ by: ["status"], where: { parentGroupId: context.parentGroupId, memberships: { some: { userId: context.userId, status: "ACTIVE" } } }, _count: { _all: true } }),
   ]);
   const count = (status: string) => companies.find((row) => row.status === status)?._count._all ?? 0;
   return { ...group, activeCompanies: count("ACTIVE"), suspendedCompanies: count("SUSPENDED") };
 }
 
-export type GroupFigure = { value: string; hint?: string };
+export type GroupFigure = { value: string; hint?: string; breakdown?: GroupCount[] };
+
+/** One company's figure, kept beside a group total so it can be drilled into (Workspace Context §73, §74). */
+export type GroupCount = { companyId: string; company: string; value: number };
+
+/**
+ * A count summed across the companies the reader may read it in (§72, §73).
+ * Only counts: the total is the sum of figures that mean the same thing in every
+ * company. Nothing that is money goes through here — currencies are never added.
+ */
+export async function groupCounts(
+  context: UserContext,
+  request: { module: ModuleKey; permission: Permission },
+  count: (company: UserContext) => Promise<number>,
+): Promise<GroupCount[]> {
+  const rows = (await companyContexts(context)).filter(({ context: company }) => isModuleEnabled(company, request.module) && can(company, request.permission));
+  return Promise.all(rows.map(async ({ name, context: company }) => ({ companyId: company.companyId, company: name, value: await count(company) })));
+}
+
+/** The total, and "ARLIS 7 · IDEAL 4 · UNICO 6" beside it; null where no company lets the reader read it. */
+export function groupFigureOfCounts(rows: GroupCount[], unit?: string): GroupFigure | null {
+  if (rows.length === 0) return null;
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  const shown = rows.filter((row) => row.value > 0).sort((a, b) => b.value - a.value || a.company.localeCompare(b.company));
+  return {
+    value: String(total),
+    hint: shown.length ? shown.slice(0, 3).map((row) => `${row.company} ${row.value}`).join(" · ") + (shown.length > 3 ? ` · +${shown.length - 3} more` : "") : unit,
+    breakdown: rows.slice().sort((a, b) => b.value - a.value || a.company.localeCompare(b.company)),
+  };
+}
+
+const OPEN_TASK = ["TODO", "IN_PROGRESS", "BLOCKED"] as const;
+
+/** Open, overdue and blocked tasks in one company, in the reader's own task scope there. */
+async function taskCounts(company: UserContext): Promise<{ open: number; overdue: number; blocked: number }> {
+  const scope = buildTaskScopeWhere(company);
+  const [open, overdue, blocked] = await Promise.all([
+    prisma.task.count({ where: { AND: [scope, { archivedAt: null, status: { in: [...OPEN_TASK] } }] } }),
+    prisma.task.count({ where: { AND: [scope, { archivedAt: null, status: { in: [...OPEN_TASK] }, dueDate: { lt: new Date() } }] } }),
+    prisma.task.count({ where: { AND: [scope, { archivedAt: null, status: "BLOCKED" }] } }),
+  ]);
+  return { open, overdue, blocked };
+}
+
+/** §19: open tasks, per company and in total. */
+export async function groupOpenTasks(context: UserContext): Promise<GroupFigure | null> {
+  if (!seesGroup(context)) return null;
+  return groupFigureOfCounts(await groupCounts(context, { module: "tasks", permission: "task.view" }, async (company) => (await taskCounts(company)).open));
+}
+
+/** §71: overdue tasks, per company and in total. */
+export async function groupOverdueTasks(context: UserContext): Promise<GroupFigure | null> {
+  if (!seesGroup(context)) return null;
+  return groupFigureOfCounts(await groupCounts(context, { module: "tasks", permission: "task.view" }, async (company) => (await taskCounts(company)).overdue));
+}
+
+/** §33: what waits for a decision, per company and in total — each company's own Approvals Center answer. */
+export async function groupPendingApprovals(context: UserContext): Promise<GroupFigure | null> {
+  if (!seesGroup(context)) return null;
+  const { getApprovalCounts } = await import("@/lib/modules/approvals/approvals.service");
+  const rows = await groupCounts(context, { module: "approvals", permission: "dashboard.view" }, async (company) => (await getApprovalCounts(company).catch(() => ({ waiting: 0 }))).waiting);
+  return groupFigureOfCounts(rows);
+}
+
+/** §19: tasks by company — open, overdue and blocked — each company one row that enters it (§74). */
+export async function groupTasks(context: UserContext): Promise<WidgetListItem[]> {
+  if (!seesGroup(context)) return [];
+  const rows = (await companyContexts(context)).filter(({ context: company }) => isModuleEnabled(company, "tasks") && can(company, "task.view"));
+  const counted = await Promise.all(rows.map(async ({ name, context: company }) => ({ name, company, counts: await taskCounts(company) })));
+  return counted
+    .filter((row) => row.counts.open > 0)
+    .sort((a, b) => b.counts.overdue - a.counts.overdue || b.counts.open - a.counts.open || a.name.localeCompare(b.name))
+    .map(({ name, company, counts }) => ({
+      id: company.companyId,
+      title: name,
+      subtitle: `${counts.open} open · ${counts.overdue} overdue · ${counts.blocked} blocked`,
+      status: counts.overdue > 0 ? "OVERDUE" : undefined,
+      companyId: company.companyId,
+      href: "/tasks",
+    }));
+}
+
+/** §33, §73: approvals waiting in each company, each row entering it. */
+export async function groupApprovals(context: UserContext): Promise<WidgetListItem[]> {
+  const figure = await groupPendingApprovals(context);
+  return (figure?.breakdown ?? [])
+    .filter((row) => row.value > 0)
+    .map((row) => ({ id: row.companyId, title: row.company, meta: `${row.value} waiting`, companyId: row.companyId, href: "/approvals" }));
+}
+
+const PRIORITY_RANK: Record<WidgetAlert["priority"], number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+
+/**
+ * §71: what needs attention in each company, labelled by company and most
+ * urgent first. Each company's alerts are the ones it would show its own
+ * dashboard (`load`), read as the reader there.
+ */
+export async function groupAttention(context: UserContext, load: (company: UserContext) => Promise<WidgetAlert[]>, take = 12): Promise<WidgetAlert[]> {
+  if (!seesGroup(context)) return [];
+  const rows = (await companyContexts(context)).filter(({ context: company }) => can(company, "dashboard.view"));
+  const perCompany = await Promise.all(
+    rows.map(async ({ name, context: company }) =>
+      (await load(company).catch((): WidgetAlert[] => [])).map((alert) => ({ ...alert, id: `${company.companyId}:${alert.id}`, company: name, companyId: company.companyId })),
+    ),
+  );
+  return perCompany.flat().sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || (a.company ?? "").localeCompare(b.company ?? "")).slice(0, take);
+}
 
 /** D-01 §28: the group's companies, from the database, suspended ones counted and named as such. */
 export async function groupCompanyCount(context: UserContext): Promise<GroupFigure | null> {
@@ -314,10 +427,12 @@ export async function groupKeyProjects(context: UserContext): Promise<WidgetProj
 /** D-01 §34: the group's departments and how many people each counts, from E-13's places. */
 export async function groupDepartments(context: UserContext): Promise<WidgetBreakdownItem[]> {
   if (!seesGroup(context)) return [];
+  // Only the places in companies the reader may enter (Workspace Context §60).
+  const companyIds = (await companyContexts(context)).map((row) => row.context.companyId);
   const [departments, places] = await Promise.all([
     prisma.groupDepartment.findMany({ where: { parentGroupId: context.parentGroupId, status: "ACTIVE" }, select: { id: true, name: true } }),
     prisma.departmentAssignment.findMany({
-      where: { parentGroupId: context.parentGroupId, positionLevel: "MEMBER", status: "ACTIVE", company: { is: { status: "ACTIVE" } } },
+      where: { parentGroupId: context.parentGroupId, positionLevel: "MEMBER", status: "ACTIVE", company: { is: { status: "ACTIVE", id: { in: companyIds } } } },
       distinct: ["groupDepartmentId", "userId"],
       select: { groupDepartmentId: true },
     }),

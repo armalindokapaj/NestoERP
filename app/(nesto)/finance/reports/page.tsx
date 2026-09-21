@@ -5,16 +5,25 @@ import { ChartColumn } from "lucide-react";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
+import { NoAccessibleData } from "@/components/finance/group-rows";
 import { Money, Variance } from "@/components/finance/money";
 import { ModulePage } from "@/components/modules/module-page";
 import { EmptyState } from "@/components/ui/empty-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { financeContexts, financeExperience } from "@/lib/modules/finance/finance.workspace";
 import * as reports from "@/lib/modules/finance/reports/reports.service";
 import { cn } from "@/lib/utils/cn";
+import {
+  GroupAgingReport,
+  GroupBudgetReport,
+  GroupCashflowReport,
+  GroupCategoryReport,
+  GroupCommitmentReport,
+} from "./group-reports";
 
 export const metadata: Metadata = { title: "Finance reports" };
 
@@ -24,6 +33,11 @@ export const metadata: Metadata = { title: "Finance reports" };
  * Six named reports, not a report builder. Each one is offered only when the
  * reader holds the permission behind it, so the tab strip is the list of
  * reports they can actually open (PRD #15 §158).
+ *
+ * In the Group workspace a report is offered when at least one company lets the
+ * reader open it, and it is that company's own report for every company that
+ * does — rows naming their company, totals added within a currency only
+ * (Workspace Context §41, §72). See `group-reports.tsx`.
  */
 const REPORTS = [
   { key: "receivables-aging", label: "Receivables aging", permission: "finance.receivables.view" },
@@ -41,15 +55,27 @@ export default async function FinanceReportsPage({
   searchParams: Promise<{ report?: string; period?: string }>;
 }) {
   const context = await requireModule("finance");
+  const group = inGroupWorkspace(context);
 
-  if (!can(context, "finance.report.view")) redirect("/access-denied");
+  if (!group && !can(context, "finance.report.view")) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "finance");
+  const experience = await financeExperience(context);
   const { report: requested, period } = await searchParams;
 
+  // The contexts the reports are read in: the company's own, or each company
+  // of the group that lets the reader open reports.
+  const readers = group ? await financeContexts(context, "finance.report.view") : [context];
   const available = REPORTS.filter((entry) =>
-    can(context, entry.permission as Parameters<typeof can>[1]),
+    readers.some((reader) => can(reader, entry.permission as Parameters<typeof can>[1])),
   );
+
+  if (group && readers.length === 0) {
+    return (
+      <ModulePage experience={experience} activeSection="reports">
+        <NoAccessibleData />
+      </ModulePage>
+    );
+  }
 
   if (available.length === 0) {
     return (
@@ -90,11 +116,23 @@ export default async function FinanceReportsPage({
           </ul>
         </nav>
 
-        {active === "receivables-aging" ? <AgingReport context={context} /> : null}
-        {active === "budget-vs-actual" ? <BudgetReport context={context} /> : null}
-        {active === "expenses-by-category" ? <CategoryReport context={context} /> : null}
-        {active === "cashflow" ? <CashflowReport context={context} period={period} /> : null}
-        {active === "commitment-summary" ? <CommitmentReport context={context} /> : null}
+        {group ? (
+          <>
+            {active === "receivables-aging" ? <GroupAgingReport context={context} /> : null}
+            {active === "budget-vs-actual" ? <GroupBudgetReport context={context} /> : null}
+            {active === "expenses-by-category" ? <GroupCategoryReport context={context} /> : null}
+            {active === "cashflow" ? <GroupCashflowReport context={context} period={period} /> : null}
+            {active === "commitment-summary" ? <GroupCommitmentReport context={context} /> : null}
+          </>
+        ) : (
+          <>
+            {active === "receivables-aging" ? <AgingReport context={context} /> : null}
+            {active === "budget-vs-actual" ? <BudgetReport context={context} /> : null}
+            {active === "expenses-by-category" ? <CategoryReport context={context} /> : null}
+            {active === "cashflow" ? <CashflowReport context={context} period={period} /> : null}
+            {active === "commitment-summary" ? <CommitmentReport context={context} /> : null}
+          </>
+        )}
       </div>
     </ModulePage>
   );

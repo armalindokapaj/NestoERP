@@ -33,6 +33,12 @@ import { DelegationDialog } from "./delegation-dialog";
  * queue or an open review is a link. The list and the review are read from
  * the server every time they matter — nothing is shown as decided until the
  * server says so.
+ *
+ * In the Group workspace (`group`) the Center is a read view across the
+ * companies the person works in (Workspace Context §33, §45): the header says
+ * how many wait in each, every row names its company and opens inside it, and
+ * the review, the decision and the delegation are not offered — they belong to
+ * one company's workspace.
  */
 
 const TABS: Array<{ key: ApprovalTab; label: string }> = [
@@ -84,6 +90,7 @@ function toParams(state: ApprovalsState, extra: { approval?: string | null; pane
   for (const value of filters.dueState) params.append("dueState", value);
   if (filters.projectId) params.set("projectId", filters.projectId);
   if (filters.requesterId) params.set("requesterId", filters.requesterId);
+  if (filters.company) params.set("company", filters.company);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
   if (filters.amountMin) params.set("amountMin", filters.amountMin);
@@ -114,6 +121,7 @@ export function ApprovalsShell({
   initialDetail,
   initialDetailError,
   openDelegation,
+  group = false,
 }: {
   initialState: ApprovalsState;
   initial: ApprovalQueueResult;
@@ -121,6 +129,8 @@ export function ApprovalsShell({
   initialDetail: UnifiedApprovalDetail | null;
   initialDetailError: string | null;
   openDelegation: boolean;
+  /** The Group workspace: a read view, company by company. */
+  group?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -142,15 +152,17 @@ export function ApprovalsShell({
   const attemptKey = React.useRef<string | null>(null);
 
   const [filtersOpen, setFiltersOpen] = React.useState(false);
-  const [delegationOpen, setDelegationOpen] = React.useState(openDelegation);
+  const [delegationOpen, setDelegationOpen] = React.useState(openDelegation && !group);
   const [density, setDensity] = React.useState<Density>("comfortable");
   const [search, setSearch] = React.useState(initialState.q);
 
   // Options for project and requester filters, gathered from what this reader has seen.
   const seen = React.useRef({ projects: new Map<string, string>(), requesters: new Map<string, string>() });
   for (const item of items) {
-    if (item.project) seen.current.projects.set(item.project.id, item.project.code ? `${item.project.code} · ${item.project.name}` : item.project.name);
-    seen.current.requesters.set(item.requester.memberId, item.requester.name);
+    // In the Group workspace the same name can be a project or a person in two companies.
+    const where = group && item.company ? ` · ${item.company.name}` : "";
+    if (item.project) seen.current.projects.set(item.project.id, `${item.project.code ? `${item.project.code} · ${item.project.name}` : item.project.name}${where}`);
+    seen.current.requesters.set(item.requester.memberId, `${item.requester.name}${where}`);
   }
   const projectOptions = [...seen.current.projects.entries()].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label));
   const requesterOptions = [...seen.current.requesters.entries()].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label));
@@ -308,10 +320,12 @@ export function ApprovalsShell({
   }
 
   const counts = data.counts;
+  // "ARLIS 7 · IDEAL 4": only the companies where something waits (§33).
+  const byCompany = (counts.byCompany ?? []).filter((row) => row.waiting > 0);
   const filterCount = activeFilterCount(state.filters);
   const visibleTabs = TABS.filter((tab) => tab.key !== "history" || data.canViewHistory);
-  const empty = EMPTY[state.tab];
-  const sheetOpen = !desktop && selectedId !== null;
+  const empty = group && data.companies?.length === 0 ? { title: "No accessible data for this module.", body: "None of your companies offers approvals to you." } : EMPTY[state.tab];
+  const sheetOpen = !group && !desktop && selectedId !== null;
 
   return (
     <div className="flex flex-col gap-5" data-testid="approvals-center">
@@ -324,21 +338,30 @@ export function ApprovalsShell({
           <p className="mt-1 flex flex-wrap gap-x-3 text-table text-fg-muted">
             {counts.overdue > 0 ? <span className="font-medium text-danger-strong">{counts.overdue} overdue</span> : null}
             {counts.critical > 0 ? <span className="font-medium text-warning-strong">{counts.critical} critical</span> : null}
-            {counts.overdue === 0 && counts.critical === 0 ? <span>Every decision from every module you work in, in one place.</span> : null}
+            {counts.overdue === 0 && counts.critical === 0 ? (
+              <span>{group ? "Every decision waiting in the companies you work in, in one place." : "Every decision from every module you work in, in one place."}</span>
+            ) : null}
           </p>
+          {group && byCompany.length > 0 ? (
+            <p className="mt-1 text-table text-fg-muted" data-testid="approvals-by-company">
+              {byCompany.map((row) => `${row.company.name} ${row.waiting}${row.capped ? "+" : ""}`).join(" · ")}
+            </p>
+          ) : null}
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setDelegationOpen(true);
-            syncUrl(state, selectedId, "delegation");
-          }}
-        >
-          <UserRoundCog aria-hidden="true" />
-          Delegation
-        </Button>
+        {group ? null : (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setDelegationOpen(true);
+              syncUrl(state, selectedId, "delegation");
+            }}
+          >
+            <UserRoundCog aria-hidden="true" />
+            Delegation
+          </Button>
+        )}
       </header>
 
       <div role="tablist" aria-label="Approval views" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
@@ -429,18 +452,25 @@ export function ApprovalsShell({
         </div>
       </div>
 
-      <FilterChips filters={state.filters} providers={data.providers} projects={projectOptions} requesters={requesterOptions} onChange={(filters) => update({ filters })} />
+      <FilterChips
+        filters={state.filters}
+        providers={data.providers}
+        projects={projectOptions}
+        requesters={requesterOptions}
+        companies={group ? data.companies : undefined}
+        onChange={(filters) => update({ filters })}
+      />
 
       {data.failedProviders.length > 0 ? (
         <div role="status" className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3">
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
           <p className="text-table text-fg">
-            Some approval sources could not be loaded: {data.failedProviders.map((provider) => provider.label).join(", ")}. Their items are not shown and not counted.
+            Some approval sources could not be loaded: {data.failedProviders.map((provider) => (provider.company ? `${provider.label} (${provider.company.name})` : provider.label)).join(", ")}. Their items are not shown and not counted.
           </p>
         </div>
       ) : null}
 
-      <div id="approvals-panel" role="tabpanel" className="grid items-start gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div id="approvals-panel" role="tabpanel" className={cn("grid items-start gap-5", group ? "" : "lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]")}>
         <section className="overflow-hidden rounded-2xl border border-line bg-surface" aria-busy={listLoading}>
           {listError ? (
             <div className="px-6 py-10 text-center" role="alert">
@@ -461,7 +491,7 @@ export function ApprovalsShell({
             </div>
           ) : (
             <div className={cn(listLoading && "opacity-60 transition-opacity")}>
-              <ApprovalList items={items} tab={state.tab} selectedId={selectedId} density={density} onSelect={(item) => select(item)} />
+              <ApprovalList items={items} tab={state.tab} selectedId={selectedId} density={density} onSelect={(item) => select(item)} group={group} />
               {cursor || data.windowed ? (
                 <div className="flex flex-col items-center gap-2 border-t border-line px-4 py-3">
                   {cursor ? (
@@ -476,23 +506,25 @@ export function ApprovalsShell({
           )}
         </section>
 
-        <aside
-          aria-label="Approval review"
-          className="hidden overflow-hidden rounded-2xl border border-line bg-surface lg:sticky lg:top-[calc(var(--nesto-topbar-height)+1rem)] lg:flex lg:h-[calc(100dvh-var(--nesto-topbar-height)-2rem)] lg:flex-col"
-        >
-          {desktop ? (
-            <ApprovalDetailView
-              detail={detail}
-              loading={detailLoading}
-              failure={detailFailure}
-              pending={pending}
-              onDecide={decide}
-              onReload={() => (selectedId ? void loadDetail(selectedId).then(() => loadList(state)) : undefined)}
-              onClose={() => select(null)}
-              variant="panel"
-            />
-          ) : null}
-        </aside>
+        {group ? null : (
+          <aside
+            aria-label="Approval review"
+            className="hidden overflow-hidden rounded-2xl border border-line bg-surface lg:sticky lg:top-[calc(var(--nesto-topbar-height)+1rem)] lg:flex lg:h-[calc(100dvh-var(--nesto-topbar-height)-2rem)] lg:flex-col"
+          >
+            {desktop ? (
+              <ApprovalDetailView
+                detail={detail}
+                loading={detailLoading}
+                failure={detailFailure}
+                pending={pending}
+                onDecide={decide}
+                onReload={() => (selectedId ? void loadDetail(selectedId).then(() => loadList(state)) : undefined)}
+                onClose={() => select(null)}
+                variant="panel"
+              />
+            ) : null}
+          </aside>
+        )}
       </div>
 
       <DialogPrimitive.Root open={sheetOpen} onOpenChange={(open) => (open ? null : select(null))}>
@@ -527,16 +559,19 @@ export function ApprovalsShell({
         providers={data.providers}
         projects={projectOptions}
         requesters={requesterOptions}
+        companies={group ? data.companies : undefined}
         onApply={(filters) => update({ filters })}
       />
-      <DelegationDialog
-        open={delegationOpen}
-        providers={data.providers}
-        onOpenChange={(open) => {
-          setDelegationOpen(open);
-          syncUrl(state, selectedId, open ? "delegation" : null);
-        }}
-      />
+      {group ? null : (
+        <DelegationDialog
+          open={delegationOpen}
+          providers={data.providers}
+          onOpenChange={(open) => {
+            setDelegationOpen(open);
+            syncUrl(state, selectedId, open ? "delegation" : null);
+          }}
+        />
+      )}
     </div>
   );
 }

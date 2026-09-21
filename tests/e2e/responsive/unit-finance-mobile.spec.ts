@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 import { STRUCTURE_SEED } from "../structure-fixtures";
 
 /**
@@ -12,10 +12,11 @@ import { STRUCTURE_SEED } from "../structure-fixtures";
 
 test("finds the overdue sale and reads its collection on a phone", async ({ page }) => {
   await signIn(page, "FINANCE", { to: `/projects/${STRUCTURE_SEED.riverside}/finance/units` });
-  await expect(page.getByTestId("finance-table")).toBeHidden();
+  // Scoped to the main region: the list streams, and for a moment React's parked copy is in the document too (see mainRegion).
+  await expect(mainRegion(page).getByTestId("finance-table")).toBeHidden();
 
-  await page.getByTestId("finance-quick-filter").and(page.locator('[data-status="OVERDUE"]')).click();
-  const cards = page.getByTestId("finance-cards").getByTestId("finance-card");
+  await mainRegion(page).getByTestId("finance-quick-filter").and(page.locator('[data-status="OVERDUE"]')).click();
+  const cards = mainRegion(page).getByTestId("finance-cards").getByTestId("finance-card");
   // Riverside's seeded sale: A-201, its first installment part paid and past due.
   const a201 = cards.and(page.locator('[data-unit-code="A-201"]'));
   await expect(a201).toBeVisible();

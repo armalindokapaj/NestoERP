@@ -6,33 +6,39 @@ import * as reports from "@/lib/modules/sales/reports/reports.service";
  *
  * One endpoint with a `report` key rather than nine routes that would each have
  * to re-derive the same period and the same scope.
+ *
+ * Reports consume the active workspace (Workspace Context §41): a company's own
+ * numbers, or in the Group workspace the aggregate of every authorised company,
+ * money per currency and never summed across them. `?company=` narrows within
+ * the group.
  */
 export async function GET(request: Request) {
   return withContext(async (context) => {
     const url = new URL(request.url);
     const key = url.searchParams.get("report") ?? "pipeline";
     const period = readPeriod(url);
+    const company = url.searchParams.get("company") ?? undefined;
 
     switch (key) {
       case "pipeline":
-        return apiOk({ data: await reports.pipelineByStage(context) });
+        return apiOk({ data: await reports.pipelineByStageForWorkspace(context, company) });
       case "forecast":
       case "expected-close":
-        return apiOk({ data: await reports.expectedCloseReport(context) });
+        return apiOk({ data: await reports.expectedCloseReportForWorkspace(context, company) });
       case "win-loss":
-        return apiOk({ data: await reports.winLossReport(context, period) });
+        return apiOk({ data: await reports.winLossReportForWorkspace(context, period, company) });
       case "by-owner":
-        return apiOk({ data: await reports.ownerReport(context, period) });
+        return apiOk({ data: await reports.ownerReportForWorkspace(context, period, company) });
       case "lead-conversion":
-        return apiOk({ data: await reports.leadConversionReport(context, period) });
+        return apiOk({ data: await reports.leadConversionReportForWorkspace(context, period, company) });
       case "lost-reasons":
-        return apiOk({ data: await reports.lostReasonReport(context, period) });
+        return apiOk({ data: await reports.lostReasonReportForWorkspace(context, period, company) });
       case "proposals":
-        return apiOk({ data: await reports.proposalReport(context, period) });
+        return apiOk({ data: await reports.proposalReportForWorkspace(context, period, company) });
       default:
         return apiError("VALIDATION_ERROR", "That report does not exist.");
     }
-  });
+  }, { group: "read" });
 }
 
 /** An unreadable date falls back to the default period rather than failing. */

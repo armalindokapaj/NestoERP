@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import { updateDocumentSchema } from "@/lib/modules/documents/document.schema";
 import * as documents from "@/lib/modules/documents/document.service";
 
@@ -51,7 +51,7 @@ export async function updateDocumentAction(
   documentId: string,
   formData: FormData,
 ): Promise<DocumentActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateDocumentSchema.safeParse(textValues(formData));
   if (!parsed.success) {
@@ -73,7 +73,7 @@ export async function updateDocumentAction(
 }
 
 export async function archiveDocumentAction(documentId: string): Promise<DocumentActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await documents.archiveDocument(context, documentId);
   } catch (error) {
@@ -84,7 +84,7 @@ export async function archiveDocumentAction(documentId: string): Promise<Documen
 }
 
 export async function restoreDocumentAction(documentId: string): Promise<DocumentActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await documents.restoreDocument(context, documentId);
   } catch (error) {

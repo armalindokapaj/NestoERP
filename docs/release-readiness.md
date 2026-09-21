@@ -2675,3 +2675,81 @@ No migration and no data change: only code.
   production run skips it, as the sign-in picker's panel always has.
 - **Every switch writes a sign-out and a sign-in** to the authentication log.
   A developer's afternoon of switching shows there.
+
+## 34. Workspace Context — one switcher between the group and a company
+
+The Workspace Context PRD puts a server-validated **workspace** on the session:
+the whole group, or one company. The dashboard, the sidebar, every module list,
+search and activity read it.
+[ADR 0011](adr/0011-workspace-context.md) records the decisions. One additive
+migration, `20260920190000_workspace_scope`.
+
+### 34.1 What changed
+
+| Before | Now |
+| --- | --- |
+| The top bar's **company switcher** moved the session between memberships. That was the only question it could answer: "which company am I in?" | One **workspace switcher**: the Group pinned above, then the companies the person may enter, searchable, keyboard-operable, a bottom sheet on a phone. It replaces the company switcher, and no module has a company switch of its own (§39) |
+| There was no group answer. Features that wanted one grew their own fan-out — the D-01 executive dashboard, the Projects portfolio, the people directory, the HR employment report | `resolveWorkspaceContexts(session, { module, permission })` is the one place that answers "which companies?". A group list is the union of each company's own answer, asked with that company's own context, so the company boundary is never taken off a query (§57, §58, §60) |
+| — | `Session.workspaceScope` (`GROUP`/`COMPANY`, nullable). `NULL` means "not chosen": the resolver picks the default, so no migration had to guess one for sessions that already existed |
+| — | `MODULE_GROUP_SUPPORT` classifies every module `AGGREGATED`, `AGNOSTIC` or `COMPANY_ONLY`, and `GROUP_ROUTES` names the routes of an aggregated module that have a group answer. A test fails when a new module is not classified |
+| — | The Group workspace **reads**. A company write made there is refused with **409 `WORKSPACE_COMPANY_REQUIRED`** — "Choose a company to do this." — at the route (`withContext(handler, { group })`) and in the 316 server actions, which now resolve with `requireCompanyContext` |
+| A multi-company person's Projects page always unioned their memberships | The workspace decides. Their two companies on one page is the Group workspace, which **working in two companies opens to them** (§7): it unions only companies they already belong to, so it grants nothing |
+| The people directory was group-wide for everyone | A company workspace opens on that company's people and the company filter widens back to the group. This is the one module where the workspace is a default rather than a wall, because it is the one that was group-wide before (E-01 §103, §85, §86) |
+| Losing your active company deleted the session: you were signed out | You are moved to a company you still work in, with the workspace left unchosen so the next request picks your default again. Only somebody with nowhere left to go is signed out (§82) |
+| `/api/me/company-context`, `/api/me/companies`, `company-switcher.tsx`, `company-context.service.ts` | `GET /api/workspaces`, `POST /api/workspace`, `GET /api/workspace/context`; `lib/workspace/*`; `WorkspaceSwitcher`. The four are deleted |
+
+### 34.2 The evidence
+
+- **vitest on a copy of the dev database: 4 221 passed, 0 failed**, 11 skipped
+  (221 files). That includes the workspace's own tests:
+  - `tests/api/workspace/workspace-context.test.ts`, 26 tests: where a sign-in
+    starts, the workspaces a person may enter, switching, what the group reads,
+    navigation, and access revoked while the group is active.
+  - A `group-workspace.test.ts` for each aggregated module — tasks, meetings,
+    approvals, documents, finance, sales, procurement, search — each checking
+    that the group list is exactly the union of the company workspaces' lists,
+    that every row names its company, that a company withholding the module
+    contributes nothing, that the company filter can only narrow, and that
+    paging across companies neither repeats nor skips.
+- **Playwright against a production build: 458 passed**, 5 skipped, 14 failed —
+  measured against a baseline run of the same suite on a worktree at `main`,
+  which passes 463 and fails 11. Eight failures are the same on both and belong
+  to other modules. Three that fail at `main` pass here. The rest are a family
+  of specs (`project-structure`, `unit-publishing`, `unit-sales`, `daily-logs`
+  and their mobile counterparts) that chain seeded state between tests and are
+  flaky on both trees: which of them fails moves between runs, and
+  `unit-publishing`'s "Sales reads the published unit" fails at `main` too once
+  the database is fresh rather than left over from an earlier run.
+  - Every workspace-related spec passes: `workspace-context` (5),
+    `projects-multi-company` (4), `organization-group` (4), `role-navigation`
+    (15), `people` (20), `people-links` (9), `armaar-dashboard` (4) and
+    `projects` (25).
+  - `tests/e2e/fixtures.ts` settles the workspace before a spec's page is
+    opened, so a sign-in always ends in a company workspace unless the spec asks
+    for `workspace: "GROUP"`. The specs that assert cross-company results ask
+    for it.
+- **Gates:** `verify:ownership` (252 models, 897 write sites, 61 domains with no
+  import cycle), `verify:authorization` (673 routes, 316 server actions),
+  `verify:production-guards`, `verify:state`, `verify:organization`,
+  `verify:demo` and `security:matrix --check` (1 090 endpoints, none unguarded)
+  all pass. Typecheck and lint are clean.
+- Three `SCHEMA_FIELD_EXCEPTIONS` were added, each a company **filter** that
+  `narrowToCompany` intersects with the companies already resolved — never an
+  authority: the workspace switch's own `companyId`, and the sales lead and
+  opportunity list filters.
+
+### 34.3 Limits
+
+- **Deviation from §81.** A company the person may not enter and one that does
+  not exist both answer 403. A 404 that differed would tell an attacker which
+  company ids are real. A membership that exists but is not usable right now is
+  the one case that says so.
+- **E-05A's cross-company create is superseded.** A CEO of two companies working
+  in A is offered A alone and cannot create in B by naming it in the body; they
+  switch to B first.
+- **`nesto_erp` needs `prisma migrate deploy`** for
+  `20260920190000_workspace_scope` before a server can run against it: the
+  generated client expects the column.
+- **Sessions from before the migration** carry `workspaceScope NULL` and get
+  their default on the next request — the Group for a group-level person, their
+  employing company for everyone else.

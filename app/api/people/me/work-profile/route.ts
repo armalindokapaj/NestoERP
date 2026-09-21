@@ -4,8 +4,12 @@ import { updateOwnWorkProfile } from "@/lib/modules/people/people.service";
 
 /** PATCH /api/people/me/work-profile — your bio, extension, office and preferred name (E-01 §53, §124). */
 export async function PATCH(request: Request) {
-  return withContext(async (context) => {
-    const input = ownWorkProfileSchema.parse(await readJson(request));
-    return apiOk({ data: await updateOwnWorkProfile(context, input) });
-  });
+  // The person's own profile: no company to get wrong (Workspace Context §14).
+  return withContext(
+    async (context) => {
+      const input = ownWorkProfileSchema.parse(await readJson(request));
+      return apiOk({ data: await updateOwnWorkProfile(context, input) });
+    },
+    { group: "any" },
+  );
 }

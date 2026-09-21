@@ -243,6 +243,8 @@ export type MeetingListItemDTO = {
   recurring: boolean;
   openActionCount: number;
   href: string;
+  /** Present only in the Group workspace, where a row must say which company it is (Workspace Context §34, §45). */
+  company?: { id: string; name: string };
 };
 
 export type MeetingParticipantDTO = MeetingPersonDTO & {
@@ -371,4 +373,6 @@ export type MeetingWriteResult = { meeting: MeetingDetailDTO; conflicts: Meeting
 export type MyActionItemDTO = MeetingActionItemDTO & {
   meeting: { id: string; title: string; startsAt: string; href: string };
   project: { id: string; name: string } | null;
+  /** Present only in the Group workspace (Workspace Context §34, §45). */
+  company?: { id: string; name: string };
 };

@@ -75,13 +75,13 @@ test("the Architect prepares a unit and submits it; nothing publishes it but a p
   await signIn(page, "ARCHITECT", { to: unitUrl(READY) });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("H-201");
   await expect(status(page)).toHaveText("Draft");
-  const readiness = page.getByTestId("readiness-panel");
+  const readiness = mainRegion(page).getByTestId("readiness-panel");
   await expect(readiness).toContainText("Upload the Sales Plan PDF.");
   await expect(mainRegion(page).getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
 
   // The Sales Plan: one canonical document, uploaded to the unit (§33).
   await section(page, "H-201", "Documents").click();
-  await page.getByTestId("sales-plan-input").setInputFiles({ name: "H-201 sales plan.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\nH-201\n%%EOF\n") });
+  await mainRegion(page).getByTestId("sales-plan-input").setInputFiles({ name: "H-201 sales plan.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\nH-201\n%%EOF\n") });
   await expect(page.getByTestId("sales-plan")).toContainText("v1", { timeout: 20_000 });
 
   // An image, which becomes primary as the first (§42).
@@ -91,7 +91,7 @@ test("the Architect prepares a unit and submits it; nothing publishes it but a p
   await expect(page.getByTestId("unit-media-item").first()).toHaveAttribute("data-primary", "true", { timeout: 20_000 });
 
   await section(page, "H-201", "Overview").click();
-  await expect(page.getByTestId("readiness-panel")).toContainText(/(\d+) \/ \1 required items complete/);
+  await expect(mainRegion(page).getByTestId("readiness-panel")).toContainText(/(\d+) \/ \1 required items complete/);
   await mainRegion(page).getByRole("button", { name: "Submit for Publishing" }).click();
   await expect(status(page)).toHaveText("Ready for Publishing");
   await expect(mainRegion(page).getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
@@ -99,10 +99,10 @@ test("the Architect prepares a unit and submits it; nothing publishes it but a p
 
 test("the Architecture Manager publishes it, and a later edit shows as unpublished changes", async ({ page }) => {
   await signIn(page, "ARCHITECTURE_HEAD", { to: unitUrl(READY, "/publishing") });
-  await expect(page.getByTestId("publishing-state")).toContainText("Submitted by");
+  await expect(mainRegion(page).getByTestId("publishing-state")).toContainText("Submitted by");
   await mainRegion(page).getByRole("button", { name: "Publish", exact: true }).click();
   await expect(status(page)).toHaveText("Published v1");
-  await expect(page.getByTestId("publication-history")).toContainText("v1 Published");
+  await expect(mainRegion(page).getByTestId("publication-history")).toContainText("v1 Published");
   await expect(page.getByTestId("publication-history")).toContainText("Current");
 
   // The published version is a snapshot: open it.

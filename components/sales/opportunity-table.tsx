@@ -1,6 +1,8 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
+import { CompanyTag } from "@/components/workspace/company-tag";
 import type { OpportunitySummaryDTO } from "@/lib/modules/sales/sales.types";
 import { formatDate } from "@/lib/utils/format";
 import { formatAmount } from "./sales-format";
@@ -12,21 +14,48 @@ import { formatAmount } from "./sales-format";
  * forecast a person changed by hand does not look like the system's own opinion
  * (PRD #17 §276). An overdue expected close is labelled in words rather than by
  * colour alone (PRD #17 §296, §405).
+ *
+ * In the Group workspace (`grouped`) each row names its company and opens the
+ * deal through the company hop, since a deal's own page is one company's
+ * (Workspace Context §31, §45).
  */
 export function OpportunityTable({
   opportunities,
   showClient = true,
+  grouped = false,
 }: {
   opportunities: OpportunitySummaryDTO[];
   showClient?: boolean;
+  grouped?: boolean;
 }) {
   const columns: TableColumn<OpportunitySummaryDTO>[] = [
     {
       key: "name",
       label: "Opportunity",
       primary: true,
-      render: (row) => <span className="font-medium text-fg">{row.name}</span>,
+      render: (row) =>
+        grouped && row.company ? (
+          <CompanyRecordLink
+            companyId={row.company.id}
+            companyName={row.company.name}
+            href={`/sales/opportunities/${row.id}`}
+            className="font-medium text-fg transition-colors hover:text-accent"
+          >
+            {row.name}
+          </CompanyRecordLink>
+        ) : (
+          <span className="font-medium text-fg">{row.name}</span>
+        ),
     },
+    ...(grouped
+      ? [
+          {
+            key: "company",
+            label: "Company",
+            render: (row: OpportunitySummaryDTO) => (row.company ? <CompanyTag name={row.company.name} /> : null),
+          },
+        ]
+      : []),
     ...(showClient
       ? [
           {
@@ -101,7 +130,7 @@ export function OpportunityTable({
       columns={columns}
       records={opportunities}
       rowKey={(row) => row.id}
-      rowHref={(row) => `/sales/opportunities/${row.id}`}
+      rowHref={grouped ? undefined : (row) => `/sales/opportunities/${row.id}`}
       caption="Opportunities"
     />
   );

@@ -3,17 +3,27 @@ import { Receipt } from "lucide-react";
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { ExpenseTable } from "@/components/finance/expense-table";
+import { NoAccessibleData } from "@/components/finance/group-rows";
 import { EmptyState } from "@/components/ui/empty-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseExpenseQuery } from "@/lib/modules/finance/finance.query";
-import { expenseFilterOptions } from "@/lib/modules/finance/expenses/expense.repository";
+import { companyFilterOptions, financeContexts } from "@/lib/modules/finance/finance.workspace";
+import { expenseCurrenciesAcross, expenseFilterOptions } from "@/lib/modules/finance/expenses/expense.repository";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import * as expenses from "@/lib/modules/finance/expenses/expense.service";
+import { firstValue } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** The expense list (PRD #15 §167, §168). */
+/**
+ * The expense list (PRD #15 §167, §168).
+ *
+ * In the Group workspace it is the expenses of every company the reader may
+ * open Finance in, with a Company filter over those companies (§36, §86); a
+ * project belongs to one company, so that filter is a company workspace's.
+ */
 export async function ExpensesList({
   context,
   searchParams,
@@ -26,10 +36,16 @@ export async function ExpensesList({
   basePath: string;
 }) {
   const query = parseExpenseQuery(searchParams, archived ? { archived: true } : {});
+  const group = inGroupWorkspace(context);
+  const company = group ? firstValue(searchParams.company) : undefined;
+  const readable = group ? await financeContexts(context, "finance.expense.view") : [];
+  if (group && readable.length === 0) return <NoAccessibleData />;
 
   const [result, options] = await Promise.all([
-    expenses.listExpenses(context, query),
-    expenseFilterOptions(context),
+    expenses.listExpensesForWorkspace(context, query, { company }),
+    group
+      ? expenseCurrenciesAcross(readable).then((currencies) => ({ projects: [], currencies }))
+      : expenseFilterOptions(context),
   ]);
 
   const hasFilters = Boolean(
@@ -38,10 +54,12 @@ export async function ExpensesList({
       query.settlement?.length ||
       query.category?.length ||
       query.projectId ||
-      query.currency,
+      query.currency ||
+      company,
   );
 
   const filters: FilterConfig[] = [
+    ...(group ? [{ param: "company", label: "Company", options: companyFilterOptions(readable) }] : []),
     ...(archived
       ? []
       : [
@@ -71,11 +89,15 @@ export async function ExpensesList({
         { value: "PAID", label: "Paid" },
       ],
     },
-    {
-      param: "projectId",
-      label: "Project",
-      options: options.projects.map((project) => ({ value: project.id, label: project.name })),
-    },
+    ...(group
+      ? []
+      : [
+          {
+            param: "projectId",
+            label: "Project",
+            options: options.projects.map((project) => ({ value: project.id, label: project.name })),
+          },
+        ]),
     ...(options.currencies.length > 1
       ? [
           {
@@ -129,7 +151,7 @@ export async function ExpensesList({
                 : "Costs you can see will appear here."
             }
             action={
-              !archived && can(context, "finance.expense.create")
+              !archived && !group && can(context, "finance.expense.create")
                 ? { label: "New expense", href: "/finance/expenses/new" }
                 : undefined
             }

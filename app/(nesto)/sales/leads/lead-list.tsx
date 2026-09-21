@@ -4,6 +4,7 @@ import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { LeadTable } from "@/components/sales/lead-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { LEAD_SOURCES, LEAD_STATUSES } from "@/lib/modules/sales/leads/lead.schema";
@@ -22,17 +23,31 @@ export async function LeadList({
   searchParams: SearchParams;
 }) {
   const query = parseLeadQuery(searchParams);
+  const grouped = inGroupWorkspace(context);
 
   const [result, options] = await Promise.all([
-    leads.listLeads(context, query),
-    leads.leadFilterOptions(context),
+    leads.listLeadsForWorkspace(context, query),
+    leads.leadFilterOptionsForWorkspace(context, query.companyId),
   ]);
 
   const hasFilters = Boolean(
-    query.search || query.status?.length || query.source?.length || query.ownerMemberId || query.currency,
+    query.search ||
+      query.status?.length ||
+      query.source?.length ||
+      query.ownerMemberId ||
+      query.currency ||
+      (grouped && query.companyId),
   );
 
+  // Group workspace only: narrows the companies already read (§86, §87). A menu
+  // of one company is not a choice, so it is offered from two.
+  const companyFilter: FilterConfig[] =
+    grouped && options.companies.length > 1
+      ? [{ param: "company", label: "Company", options: options.companies.map((company) => ({ value: company.id, label: company.name })) }]
+      : [];
+
   const filters: FilterConfig[] = [
+    ...companyFilter,
     {
       param: "status",
       label: "Status",
@@ -53,7 +68,7 @@ export async function LeadList({
       label: "Owner",
       options: options.owners.map((owner) => ({
         value: owner.memberId,
-        label: owner.active ? owner.fullName : `${owner.fullName} (inactive)`,
+        label: `${owner.active ? owner.fullName : `${owner.fullName} (inactive)`}${owner.company ? ` · ${owner.company}` : ""}`,
       })),
     },
   ];
@@ -91,6 +106,13 @@ export async function LeadList({
             description="Adjust or clear the filters to see more."
             action={{ label: "Clear filters", href: "/sales/leads" }}
           />
+        ) : grouped ? (
+          // Nothing to read is not an error in the group (Workspace Context §76).
+          <EmptyState
+            icon={<UserPlus />}
+            title="No accessible data for this module."
+            description="None of the companies you can open holds leads you may read."
+          />
         ) : (
           <EmptyState
             icon={<UserPlus />}
@@ -105,7 +127,7 @@ export async function LeadList({
         )
       ) : (
         <>
-          <LeadTable leads={result.data} />
+          <LeadTable leads={result.data} grouped={grouped} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

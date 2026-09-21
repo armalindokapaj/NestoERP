@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
+import type { Permission } from "@/config/permissions";
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
@@ -14,7 +15,8 @@ import {
 import { baseCurrency } from "../finance.settings";
 import { paidByInvoice } from "../finance.settlement";
 import { projectFinanceNumbers } from "../budgets/budget.summary";
-import type { CurrencyTotal } from "../finance.types";
+import type { CompanyRef, CurrencyTotal, WithCompany } from "../finance.types";
+import { companyOf, financeContexts, mergeCurrencyTotals } from "../finance.workspace";
 import type { BudgetRisk } from "../budgets/budget.status";
 
 /**
@@ -417,6 +419,151 @@ export async function commitmentSummary(
     totals: [...byCurrency.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([currency, amount]) => ({ currency, amount: toAmountString(amount) })),
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* The Group workspace (Workspace Context §36, §41, §60, §72, §92)             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A group report is each company's own report, put side by side.
+ *
+ * `rows` are the companies' rows, every one naming its company; `totals` add
+ * what can be added — an amount to the same currency (and, where the report
+ * has one, the same category) in another company, never to another currency
+ * (PRD #15 §36, §150; Workspace Context §72). A company where Finance is off or
+ * the reader lacks the report's permissions is not asked, so it is in neither.
+ */
+export type GroupReport<Row, Total = Row> = { rows: WithCompany<Row>[]; totals: Total[] };
+
+/** Each readable company's answer to `read`, as the reader is in that company. */
+async function askEachCompany<T>(
+  session: UserContext,
+  permissions: Permission[],
+  read: (context: UserContext) => Promise<T>,
+): Promise<Array<{ company: CompanyRef; result: T }>> {
+  // No company to ask is an empty report, not an error (§76).
+  const contexts = await financeContexts(session, "finance.report.view", ...permissions);
+  return Promise.all(contexts.map(async (context) => ({ company: companyOf(context), result: await read(context) })));
+}
+
+const tagged = <Row>(answers: Array<{ company: CompanyRef; result: Row[] }>): WithCompany<Row>[] =>
+  answers.flatMap(({ company, result }) => result.map((row) => ({ ...row, company })));
+
+/** Decimal-safe sum of amount strings. */
+const addAmounts = (values: readonly string[]) => toAmountString(values.reduce<Money>((sum, value) => sum.plus(value), ZERO));
+
+/** The rows that may be added together, in the order they were first seen. */
+function addable<Row>(rows: readonly Row[], key: (row: Row) => string): Row[][] {
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) groups.set(key(row), [...(groups.get(key(row)) ?? []), row]);
+  return [...groups.values()];
+}
+
+export async function receivablesAgingAcross(
+  session: UserContext,
+  options: { now?: Date } = {},
+): Promise<GroupReport<AgingRow>> {
+  const now = options.now ?? new Date();
+  const rows = tagged(await askEachCompany(session, ["finance.receivables.view"], (context) => receivablesAging(context, { now })));
+
+  const totals = addable(rows, (row) => row.currency)
+    .map(
+      (mine): AgingRow => ({
+        currency: mine[0].currency,
+        buckets: Object.fromEntries(AGING_BUCKETS.map((bucket) => [bucket, addAmounts(mine.map((row) => row.buckets[bucket]))])) as Record<AgingBucket, string>,
+        total: addAmounts(mine.map((row) => row.total)),
+      }),
+    )
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+
+  return { rows, totals };
+}
+
+export type BudgetVsActualTotal = {
+  currency: string;
+  budget: string;
+  actual: string;
+  openCommitments: string;
+  forecast: string;
+  variance: string;
+};
+
+export async function budgetVsActualAcross(session: UserContext): Promise<GroupReport<BudgetVsActualRow, BudgetVsActualTotal>> {
+  const rows = tagged(await askEachCompany(session, ["finance.project_budget.view"], (context) => budgetVsActual(context))).sort(
+    (a, b) => a.name.localeCompare(b.name) || a.company.name.localeCompare(b.company.name),
+  );
+
+  const totals = addable(rows, (row) => row.currency)
+    .map(
+      (mine): BudgetVsActualTotal => ({
+        currency: mine[0].currency,
+        budget: addAmounts(mine.map((row) => row.budget)),
+        actual: addAmounts(mine.map((row) => row.actual)),
+        openCommitments: addAmounts(mine.map((row) => row.openCommitments)),
+        forecast: addAmounts(mine.map((row) => row.forecast)),
+        variance: addAmounts(mine.map((row) => row.variance)),
+      }),
+    )
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+
+  return { rows, totals };
+}
+
+export async function expensesByCategoryAcross(
+  session: UserContext,
+  options: { projectId?: string } = {},
+): Promise<GroupReport<CategoryRow>> {
+  const rows = tagged(await askEachCompany(session, ["finance.expense.view"], (context) => expensesByCategory(context, options)));
+
+  // The same category in the same currency, whichever company spent it.
+  const totals = addable(rows, (row) => `${row.category}|${row.currency}`)
+    .map(
+      (mine): CategoryRow => ({
+        category: mine[0].category,
+        currency: mine[0].currency,
+        actual: addAmounts(mine.map((row) => row.actual)),
+        committed: addAmounts(mine.map((row) => row.committed)),
+      }),
+    )
+    .sort((a, b) => a.category.localeCompare(b.category) || a.currency.localeCompare(b.currency));
+
+  return { rows, totals };
+}
+
+export type CashflowRow = CashflowReport["rows"][number];
+
+export async function cashflowSummaryAcross(
+  session: UserContext,
+  period: CashflowPeriod = "this-month",
+  options: { now?: Date } = {},
+): Promise<Omit<CashflowReport, "rows"> & GroupReport<CashflowRow>> {
+  const now = options.now ?? new Date();
+  const answers = await askEachCompany(session, ["finance.cashflow.view"], (context) => cashflowSummary(context, period, { now }));
+  const rows = tagged(answers.map(({ company, result }) => ({ company, result: result.rows })));
+
+  const totals = addable(rows, (row) => row.currency)
+    .map(
+      (mine): CashflowRow => ({
+        currency: mine[0].currency,
+        cashIn: addAmounts(mine.map((row) => row.cashIn)),
+        cashOut: addAmounts(mine.map((row) => row.cashOut)),
+        net: addAmounts(mine.map((row) => row.net)),
+      }),
+    )
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+
+  const range = periodRange(period, now);
+  return { period, from: range.from.toISOString().slice(0, 10), to: range.to.toISOString().slice(0, 10), rows, totals };
+}
+
+export async function commitmentSummaryAcross(session: UserContext): Promise<GroupReport<CommitmentSummaryRow, CurrencyTotal>> {
+  const answers = await askEachCompany(session, ["finance.commitment.view"], (context) => commitmentSummary(context));
+
+  return {
+    rows: tagged(answers.map(({ company, result }) => ({ company, result: result.rows }))),
+    totals: mergeCurrencyTotals(answers.map(({ result }) => result.totals)),
   };
 }
 

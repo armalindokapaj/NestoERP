@@ -6,21 +6,29 @@ import { ModulePage } from "@/components/modules/module-page";
 import { SalesExportLink } from "@/components/sales/export-link";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { resolveSalesExperience } from "@/lib/modules/sales/sales.workspace";
 import { OpportunityList } from "./opportunity-list";
 
 export const metadata: Metadata = { title: "Opportunities" };
 
-/** The opportunity list (PRD #17 §71, §292). */
+/**
+ * The opportunity list (PRD #17 §71, §292).
+ *
+ * In the Group workspace it lists the deals of every company the reader may read
+ * Sales in, each row naming its company (Workspace Context §37, §45). Opening a
+ * deal, and the export, are one company's, so neither is offered there.
+ */
 export default async function OpportunitiesPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("sales");
-  const experience = resolveModuleExperience(context, "sales");
+  const grouped = inGroupWorkspace(context);
+  const experience = await resolveSalesExperience(context);
   const params = await searchParams;
 
   return (
@@ -29,8 +37,8 @@ export default async function OpportunitiesPage({
       activeSection="opportunities"
       actions={
         <div className="flex items-center gap-2">
-          {can(context, "sales.export") ? <SalesExportLink type="opportunities" /> : null}
-          {can(context, "sales.opportunity.create") ? (
+          {!grouped && can(context, "sales.export") ? <SalesExportLink type="opportunities" /> : null}
+          {!grouped && can(context, "sales.opportunity.create") ? (
             <Button asChild size="sm">
               <Link href="/sales/opportunities/new">New opportunity</Link>
             </Button>

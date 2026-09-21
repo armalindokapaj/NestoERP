@@ -15,18 +15,25 @@ type Params = { params: Promise<{ projectId: string }> };
  */
 export async function POST(_request: Request, { params }: Params) {
   const { projectId } = await params;
-  return withContext(async (session) => {
-    const context = await contextForProject(session, projectId);
-    await addFavorite(context, { entityType: "project", entityId: projectId });
-    return apiOk({ data: { isFavorite: true } });
-  });
+  // `group: "any"`: the star on a card in the Group workspace is written in the project's own company.
+  return withContext(
+    async (session) => {
+      const context = await contextForProject(session, projectId);
+      await addFavorite(context, { entityType: "project", entityId: projectId });
+      return apiOk({ data: { isFavorite: true } });
+    },
+    { group: "any" },
+  );
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
   const { projectId } = await params;
-  return withContext(async (session) => {
-    const context = await contextForProject(session, projectId);
-    await removeFavorite(context, { entityType: "project", entityId: projectId });
-    return apiOk({ data: { isFavorite: false } });
-  });
+  return withContext(
+    async (session) => {
+      const context = await contextForProject(session, projectId);
+      await removeFavorite(context, { entityType: "project", entityId: projectId });
+      return apiOk({ data: { isFavorite: false } });
+    },
+    { group: "any" },
+  );
 }

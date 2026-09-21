@@ -5,7 +5,14 @@ import {
   updatePreferenceSchema,
 } from "@/lib/core/notifications/notification.preferences";
 
-/** GET /api/notifications/preferences — the caller's own delivery choices by category (PRD #38 §78). */
+/**
+ * GET /api/notifications/preferences — the caller's own delivery choices by category (PRD #38 §78).
+ *
+ * Group workspace: not offered (the default, 409). Delivery choices are kept per
+ * membership, so they belong to one company and there is no company to read them
+ * from under a group header — the settings page asks which company first
+ * (Workspace Context §29, §59).
+ */
 export async function GET() {
   return withContext(async (context) => apiOk({ data: await listPreferences(context) }));
 }

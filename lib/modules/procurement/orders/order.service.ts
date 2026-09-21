@@ -5,6 +5,7 @@ import { IntegrationType } from "@/lib/core/integrations/integration.registry";
 import { linkIntegration } from "@/lib/core/integrations/integration.service";
 import { ensureCommitmentForSource, settleCommitmentForSource } from "@/lib/modules/finance/commitments/commitment.source";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { can, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
@@ -32,6 +33,12 @@ import {
   buildRequestScopeWhere,
 } from "../procurement.scope";
 import type { OrderInput, OrderListQuery } from "../procurement.schema";
+import {
+  companyFilterOptions,
+  groupProcurementContexts,
+  narrowToCompany,
+  unionWhere,
+} from "../procurement.workspace";
 import {
   acceptsReceipts,
   canTransitionOrderStatus,
@@ -121,7 +128,15 @@ const DETAIL_SELECT = {
   contract: { select: { id: true, contractNumber: true, title: true } },
 } satisfies Prisma.PurchaseOrderSelect;
 
-type ListRow = Prisma.PurchaseOrderGetPayload<{ select: typeof LIST_SELECT }>;
+/** What a Group list adds: the company each row belongs to (Workspace Context §45). */
+const GROUP_LIST_SELECT = {
+  ...LIST_SELECT,
+  company: { select: { id: true, name: true } },
+} satisfies Prisma.PurchaseOrderSelect;
+
+type ListRow = Prisma.PurchaseOrderGetPayload<{ select: typeof LIST_SELECT }> & {
+  company?: { id: string; name: string };
+};
 type DetailRow = Prisma.PurchaseOrderGetPayload<{ select: typeof DETAIL_SELECT }>;
 
 /* -------------------------------------------------------------------------- */
@@ -132,7 +147,36 @@ export async function listOrders(context: UserContext, query: OrderListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "procurement.order.view");
 
-  const filters: Prisma.PurchaseOrderWhereInput[] = [buildOrderScopeWhere(context)];
+  const where = buildListWhere([context], query);
+
+  const [rows, total] = await Promise.all([
+    prisma.purchaseOrder.findMany({
+      where,
+      orderBy: orderFor(query.sort),
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+      select: LIST_SELECT,
+    }),
+    prisma.purchaseOrder.count({ where }),
+  ]);
+
+  const today = new Date();
+  return {
+    data: rows.map((row) => toSummaryDTO(row, today)),
+    pagination: paginationMeta(total, query.page, query.limit),
+  };
+}
+
+/**
+ * The register's `where`, for one company's context or for every company a
+ * Group read spans, each company's own scope unioned in the database ahead of
+ * every filter, sort and page (Workspace Context §57).
+ */
+function buildListWhere(
+  contexts: UserContext[],
+  query: OrderListQuery,
+): Prisma.PurchaseOrderWhereInput {
+  const filters: Prisma.PurchaseOrderWhereInput[] = [unionWhere(contexts, buildOrderScopeWhere)];
 
   switch (query.view) {
     case "draft":
@@ -174,15 +218,34 @@ export async function listOrders(context: UserContext, query: OrderListQuery) {
     });
   }
 
-  const where: Prisma.PurchaseOrderWhereInput = { AND: filters };
+  return { AND: filters };
+}
+
+/**
+ * The register the active workspace shows (Workspace Context §38).
+ *
+ * A company workspace is `listOrders`, untouched. The Group workspace is one
+ * query over the union of each authorised company's own order scope, every row
+ * labelled with its company. Values stay in the order's own currency; nothing
+ * here adds two together (§72).
+ */
+export async function listOrdersForWorkspace(session: UserContext, query: OrderListQuery) {
+  if (!inGroupWorkspace(session)) return listOrders(session, query);
+
+  const contexts = narrowToCompany(
+    await groupProcurementContexts(session, "procurement.order.view"),
+    query.companyId,
+  );
+  const where = buildListWhere(contexts, query);
 
   const [rows, total] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where,
-      orderBy: orderFor(query.sort),
+      // The list's own sort first; the id keeps a page boundary stable when rows tie.
+      orderBy: [...orderFor(query.sort), { id: "asc" }],
       skip: skipFor(query.page, query.limit),
       take: query.limit,
-      select: LIST_SELECT,
+      select: GROUP_LIST_SELECT,
     }),
     prisma.purchaseOrder.count({ where }),
   ]);
@@ -459,6 +522,65 @@ export async function orderFilterOptions(context: UserContext) {
   ]);
 
   return { suppliers, projects, currencies: currencies.map((row) => row.currency) };
+}
+
+type InCompany = { company?: { name: string } };
+
+export type OrderFilterOptions = {
+  suppliers: ({ id: string; name: string } & InCompany)[];
+  projects: ({ id: string; code: string; name: string } & InCompany)[];
+  currencies: string[];
+  /** The Group `company` filter's choices; empty in a company workspace, where the filter is locked (§86). */
+  companies: { value: string; label: string }[];
+};
+
+/**
+ * The filter choices for the workspace's register: a company's own, or in the
+ * Group workspace the union across companies, each named with its company so a
+ * supplier or project that exists in several stays distinguishable (§45).
+ */
+export async function orderFilterOptionsForWorkspace(session: UserContext): Promise<OrderFilterOptions> {
+  if (!inGroupWorkspace(session)) {
+    return { ...(await orderFilterOptions(session)), companies: [] };
+  }
+
+  const contexts = await groupProcurementContexts(session, "procurement.order.view");
+  const inCompany = { select: { name: true } } as const;
+
+  const [suppliers, projects, currencies] = await Promise.all([
+    prisma.supplier.findMany({
+      where: {
+        OR: contexts.map((context) => ({
+          companyId: context.companyId,
+          purchaseOrders: { some: buildOrderScopeWhere(context) },
+        })),
+      },
+      select: { id: true, name: true, company: inCompany },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    }),
+    prisma.project.findMany({
+      where: {
+        OR: contexts.map((context) => ({
+          AND: [buildProcurementProjectWhere(context), { purchaseOrders: { some: buildOrderScopeWhere(context) } }],
+        })),
+      },
+      select: { id: true, code: true, name: true, company: inCompany },
+      orderBy: [{ code: "asc" }, { id: "asc" }],
+    }),
+    prisma.purchaseOrder.findMany({
+      where: unionWhere(contexts, buildOrderScopeWhere),
+      select: { currency: true },
+      distinct: ["currency"],
+      orderBy: { currency: "asc" },
+    }),
+  ]);
+
+  return {
+    suppliers,
+    projects,
+    currencies: currencies.map((row) => row.currency),
+    companies: companyFilterOptions(contexts),
+  };
 }
 
 /** What an order form may offer (PRD #19 §272, §258). */
@@ -1462,6 +1584,7 @@ export function toSummaryDTO(row: ListRow, today: Date): OrderSummaryDTO {
       fullyReceived: fraction >= 1,
     },
     updatedAt: row.updatedAt.toISOString(),
+    ...(row.company ? { company: row.company } : {}),
   };
 }
 

@@ -200,6 +200,12 @@ export const opportunityListQuerySchema = z.object({
   outcome: z.array(z.enum(OPPORTUNITY_OUTCOMES)).optional(),
   ownerMemberId: z.string().optional(),
   clientId: z.string().optional(),
+  /**
+   * Group workspace only: narrows to one of the companies the reader already
+   * reads there. It is a filter, never an authority (Workspace Context §86, §87);
+   * a company workspace ignores it.
+   */
+  companyId: z.string().optional(),
   currency: z.string().optional(),
   minValue: z.string().optional(),
   maxValue: z.string().optional(),

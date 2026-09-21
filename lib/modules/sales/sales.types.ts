@@ -20,6 +20,15 @@ import type {
  */
 
 export type ClientRef = { id: string; name: string };
+/** A filter menu entry; in the group it also names the company the record belongs to. */
+export type OwnerOption = { memberId: string; fullName: string; active: boolean; company?: string };
+export type ClientOption = { id: string; name: string; company?: string };
+/**
+ * The company a row belongs to, present only in the Group workspace
+ * (Workspace Context §45): a group list holds rows of several companies and a
+ * row that does not say which reads like any other.
+ */
+export type CompanyRef = { id: string; name: string };
 export type ProjectRef = { id: string; code: string; name: string };
 export type MemberRef = { memberId: string; fullName: string; active: boolean };
 export type ContactRef = {
@@ -45,6 +54,8 @@ export type LeadSummaryDTO = {
   estimatedValue: string | null;
   currency: string | null;
   updatedAt: string;
+  /** Group workspace only (Workspace Context §45). */
+  company?: CompanyRef;
 };
 
 export type LeadCapabilities = {
@@ -102,6 +113,8 @@ export type OpportunitySummaryDTO = {
   /** Derived at read time, never stored (PRD #17 §405). */
   expectedCloseOverdue: boolean;
   updatedAt: string;
+  /** Group workspace only (Workspace Context §45). */
+  company?: CompanyRef;
 };
 
 export type OpportunityCapabilities = {
@@ -165,6 +178,8 @@ export type ProposalSummaryDTO = {
   status: ProposalStatus;
   expiry: "NONE" | "EXPIRING_SOON" | "EXPIRED";
   updatedAt: string;
+  /** Group workspace only (Workspace Context §45). */
+  company?: CompanyRef;
 };
 
 export type ProposalCapabilities = {
@@ -291,6 +306,8 @@ export type OwnerPerformanceRow = {
   lostCount: number;
   lostValue: string;
   winRate: string | null;
+  /** Group workspace only: an owner is a membership, so the same person is one row per company (§45). */
+  company?: CompanyRef;
 };
 
 export type ForecastBucket = {

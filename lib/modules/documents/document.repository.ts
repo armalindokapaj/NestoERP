@@ -27,6 +27,8 @@ const SORT_ORDER: Record<DocumentSortKey, Prisma.DocumentOrderByWithRelationInpu
 
 const SUMMARY_SELECT = {
   id: true,
+  /// A group list names the company each row belongs to (Workspace Context §45).
+  companyId: true,
   name: true,
   originalFileName: true,
   extension: true,
@@ -80,6 +82,34 @@ const DETAIL_SELECT = {
 export type DocumentDetailRow = Prisma.DocumentGetPayload<{ select: typeof DETAIL_SELECT }>;
 
 /**
+ * The access part of a list `where`, for every context the list reads.
+ *
+ * One context is the company workspace and its clause is exactly the company's
+ * own. Several are the Group workspace: the union of each company's own clause,
+ * every branch starting with its `companyId` and built by the same function the
+ * company page uses, so a group list can never admit a file that company's own
+ * list would not (Workspace Context §35, §57, §62). `mine` is per branch — a
+ * person is a different member in each company.
+ */
+async function documentScopeFilters(contexts: UserContext[], mine: boolean): Promise<Prisma.DocumentWhereInput[]> {
+  // No company to read is a real answer — nothing — not an unfiltered query.
+  if (contexts.length === 0) return [{ id: { in: [] } }];
+
+  if (contexts.length === 1) {
+    const [context] = contexts;
+    return [await buildDocumentAccessWhere(context), ...(mine ? [{ uploadedByMemberId: context.membershipId }] : [])];
+  }
+
+  const branches = await Promise.all(
+    contexts.map(async (context): Promise<Prisma.DocumentWhereInput> => {
+      const access = await buildDocumentAccessWhere(context);
+      return mine ? { AND: [access, { uploadedByMemberId: context.membershipId }] } : access;
+    }),
+  );
+  return [{ OR: branches }];
+}
+
+/**
  * Builds the full `where` for a list request.
  *
  * Order: company + parent access → archive state → search → filters
@@ -89,15 +119,21 @@ export async function buildDocumentListWhere(
   context: UserContext,
   query: DocumentListQuery,
 ): Promise<Prisma.DocumentWhereInput> {
-  const filters: Prisma.DocumentWhereInput[] = [await buildDocumentAccessWhere(context)];
+  return buildDocumentListWhereAcross([context], query);
+}
+
+/** The same list `where` over one or several companies' contexts (Workspace Context §35). */
+export async function buildDocumentListWhereAcross(
+  contexts: UserContext[],
+  query: DocumentListQuery,
+): Promise<Prisma.DocumentWhereInput> {
+  const filters: Prisma.DocumentWhereInput[] = await documentScopeFilters(contexts, query.mine);
 
   filters.push(
     query.archived
       ? { OR: [{ archivedAt: { not: null } }, { status: "ARCHIVED" }] }
       : { archivedAt: null, status: { not: "ARCHIVED" } },
   );
-
-  if (query.mine) filters.push({ uploadedByMemberId: context.membershipId });
 
   const search = searchClause(query.search, ["name", "originalFileName", "description"]);
   if (search) {
@@ -165,6 +201,29 @@ export async function listDocuments(context: UserContext, query: DocumentListQue
 }
 
 /**
+ * The Group workspace's list: every company's own clause in one query, applied
+ * in the database before search, filters, sort and pagination — never a page
+ * per company merged afterwards (Workspace Context §35, §57). Ties on the sort
+ * key fall back to the id so a page boundary cannot repeat or drop a row.
+ */
+export async function listDocumentsAcross(contexts: UserContext[], query: DocumentListQuery) {
+  const where = await buildDocumentListWhereAcross(contexts, query);
+
+  const [rows, total] = await Promise.all([
+    prisma.document.findMany({
+      where,
+      select: SUMMARY_SELECT,
+      orderBy: [...SORT_ORDER[query.sort], { id: "asc" }],
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+    }),
+    prisma.document.count({ where }),
+  ]);
+
+  return { rows, total };
+}
+
+/**
  * A single document, if its parent is reachable right now.
  *
  * Decided by the record registry for that one parent rather than by building
@@ -218,7 +277,12 @@ export async function listDocumentActivity(
 
 /** The overview counters, all counted in the database under access (PRD #13 §167). */
 export async function documentOverviewStats(context: UserContext) {
-  const access = await buildDocumentAccessWhere(context);
+  return documentOverviewStatsAcross([context]);
+}
+
+/** The same counters over one or several companies, each under its own access clause (Workspace Context §35). */
+export async function documentOverviewStatsAcross(contexts: UserContext[]) {
+  const access: Prisma.DocumentWhereInput = { AND: await documentScopeFilters(contexts, false) };
   const live: Prisma.DocumentWhereInput = {
     AND: [access, { archivedAt: null, status: { not: "ARCHIVED" } }],
   };
@@ -240,27 +304,32 @@ export async function documentOverviewStats(context: UserContext) {
 }
 
 export async function recentDocuments(context: UserContext, take = 6) {
+  return recentDocumentsAcross([context], take);
+}
+
+export async function recentDocumentsAcross(contexts: UserContext[], take = 6) {
   return prisma.document.findMany({
     where: {
-      AND: [await buildDocumentAccessWhere(context), { archivedAt: null, status: { not: "ARCHIVED" } }],
+      AND: [...(await documentScopeFilters(contexts, false)), { archivedAt: null, status: { not: "ARCHIVED" } }],
     },
     select: SUMMARY_SELECT,
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     take,
   });
 }
 
 export async function myRecentUploads(context: UserContext, take = 6) {
+  return myRecentUploadsAcross([context], take);
+}
+
+/** Each company's own uploads by this person — a different member in every company. */
+export async function myRecentUploadsAcross(contexts: UserContext[], take = 6) {
   return prisma.document.findMany({
     where: {
-      AND: [
-        await buildDocumentAccessWhere(context),
-        { archivedAt: null, status: { not: "ARCHIVED" } },
-        { uploadedByMemberId: context.membershipId },
-      ],
+      AND: [...(await documentScopeFilters(contexts, true)), { archivedAt: null, status: { not: "ARCHIVED" } }],
     },
     select: SUMMARY_SELECT,
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     take,
   });
 }
@@ -300,5 +369,27 @@ export async function documentFilterOptions(context: UserContext) {
       id: member.id,
       name: `${member.user.firstName} ${member.user.lastName}`,
     })),
+  };
+}
+
+/**
+ * The dropdown values of a group list: each company's own options — found under
+ * that company's own access clause — merged, and named by company where more
+ * than one contributes, because two companies can each have a "Tower A"
+ * (Workspace Context §35, §45). The ids stay the companies' own record ids, so
+ * choosing one narrows a list that already only holds what the reader may open.
+ */
+export async function documentFilterOptionsAcross(contexts: UserContext[]) {
+  const perCompany = await Promise.all(
+    contexts.map(async (context) => ({ company: context.company.name, options: await documentFilterOptions(context) })),
+  );
+  const named = perCompany.length > 1;
+  const label = (name: string, company: string) => (named ? `${name} · ${company}` : name);
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+
+  return {
+    projects: perCompany.flatMap(({ company, options }) => options.projects.map((row) => ({ id: row.id, name: label(row.name, company) }))).sort(byName),
+    clients: perCompany.flatMap(({ company, options }) => options.clients.map((row) => ({ id: row.id, name: label(row.name, company) }))).sort(byName),
+    uploaders: perCompany.flatMap(({ company, options }) => options.uploaders.map((row) => ({ id: row.id, name: label(row.name, company) }))).sort(byName),
   };
 }

@@ -1,6 +1,9 @@
 import Link from "next/link";
 
-import type { ProcurementOverviewDTO } from "@/lib/modules/procurement/procurement.types";
+import type {
+  ProcurementCompanyFiguresDTO,
+  ProcurementOverviewDTO,
+} from "@/lib/modules/procurement/procurement.types";
 import { totalsLabel } from "./procurement-format";
 
 /**
@@ -10,7 +13,14 @@ import { totalsLabel } from "./procurement-format";
  * permission is missing would be a claim about the world rather than about
  * their access (PRD #19 §259).
  */
-export function ProcurementKpiGrid({ overview }: { overview: ProcurementOverviewDTO }) {
+export function ProcurementKpiGrid({
+  overview,
+  group = false,
+}: {
+  overview: ProcurementOverviewDTO;
+  /** The Group workspace: a card whose page belongs to one company is not a link there (Workspace Context §25, §29). */
+  group?: boolean;
+}) {
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
   if (overview.visible.requests) {
@@ -44,7 +54,9 @@ export function ProcurementKpiGrid({ overview }: { overview: ProcurementOverview
     cards.push({
       label: "Committed value",
       value: totalsLabel(overview.committedValue),
-      hint: "Ordered, not paid. Grouped by currency.",
+      hint: group
+        ? "Ordered, not paid. Added per currency across companies, never between currencies."
+        : "Ordered, not paid. Grouped by currency.",
       href: "/procurement/reports",
     });
   }
@@ -54,7 +66,7 @@ export function ProcurementKpiGrid({ overview }: { overview: ProcurementOverview
       label: "Open enquiries",
       value: String(overview.openRfqs),
       hint: `${overview.rfqsAwaitingResponse} still awaiting a reply`,
-      href: "/procurement/rfqs?view=issued",
+      href: group ? undefined : "/procurement/rfqs?view=issued",
     });
   }
 
@@ -94,5 +106,48 @@ export function ProcurementKpiGrid({ overview }: { overview: ProcurementOverview
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The overview's figures company by company, in the Group workspace only
+ * (Workspace Context §72, §73).
+ *
+ * A group total is only as useful as the breakdown behind it. Each company's
+ * committed value is in its own currencies; the rows are never added into a
+ * single figure here.
+ */
+export function ProcurementCompanyBreakdown({ companies }: { companies: ProcurementCompanyFiguresDTO[] }) {
+  if (companies.length === 0) return null;
+
+  return (
+    <section className="nesto-card p-5" data-testid="procurement-company-breakdown">
+      <h2 className="text-card font-semibold text-fg">By company</h2>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-table">
+          <caption className="sr-only">Procurement figures by company</caption>
+          <thead>
+            <tr className="text-left text-meta text-fg-subtle">
+              <th scope="col" className="pb-2 pr-3 font-medium">Company</th>
+              <th scope="col" className="pb-2 pr-3 text-right font-medium">Open requests</th>
+              <th scope="col" className="pb-2 pr-3 text-right font-medium">Awaiting receipt</th>
+              <th scope="col" className="pb-2 pr-3 text-right font-medium">Past their date</th>
+              <th scope="col" className="pb-2 text-right font-medium">Committed value</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {companies.map((row) => (
+              <tr key={row.company.id} data-company-id={row.company.id}>
+                <th scope="row" className="py-2 pr-3 text-left font-medium text-fg">{row.company.name}</th>
+                <td className="py-2 pr-3 text-right tabular-nums text-fg-muted">{row.openRequests}</td>
+                <td className="py-2 pr-3 text-right tabular-nums text-fg-muted">{row.ordersAwaitingReceipt}</td>
+                <td className="py-2 pr-3 text-right tabular-nums text-fg-muted">{row.overdueOrders}</td>
+                <td className="py-2 text-right tabular-nums text-fg">{totalsLabel(row.committedValue)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

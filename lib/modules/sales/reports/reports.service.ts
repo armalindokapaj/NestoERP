@@ -1,11 +1,16 @@
 import { Prisma, type OpportunityStage, type ProposalStatus } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
+import type { Permission } from "@/config/permissions";
+import { can } from "@/lib/access/can";
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
-import { buildLeadScopeWhere, buildOpportunityScopeWhere } from "../sales.scope";
+import { buildLeadUnionWhere, buildOpportunityUnionWhere, buildProposalUnionWhere } from "../sales.scope";
+import { companyRefs, groupReaders } from "../sales.workspace";
 import type {
+  CompanyRef,
   CurrencyTotal,
   ForecastBucket,
   LeadConversionRow,
@@ -70,6 +75,29 @@ function assertReportAccess(context: UserContext): void {
   assertPermission(context, "sales.report.view");
 }
 
+/**
+ * The reports for the active workspace (Workspace Context §37, §41).
+ *
+ * A company workspace runs the company's own report, guards and all. The Group
+ * workspace runs the same report over every authorised company that lets the
+ * reader open reports *and* the records behind this one (each report needs the
+ * permission of the data it summarises, PRD #17 §339) — a company that grants
+ * one and not the other contributes nothing rather than half. Money stays per
+ * currency, so a group's pipeline is one row per currency, never a sum across
+ * them (§72); counts and rates are recomputed over the union, never averaged.
+ */
+async function forWorkspace<T>(
+  session: UserContext,
+  needs: Permission,
+  companyId: string | undefined,
+  inCompany: () => Promise<T>,
+  inGroup: (readers: UserContext[]) => Promise<T>,
+): Promise<T> {
+  if (!inGroupWorkspace(session)) return inCompany();
+  const readers = (await groupReaders(session, "sales.report.view", companyId)).filter((context) => can(context, needs));
+  return inGroup(readers);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Pipeline and forecast                                                       */
 /* -------------------------------------------------------------------------- */
@@ -81,7 +109,15 @@ export async function pipelineByStage(context: UserContext): Promise<StageReport
   assertReportAccess(context);
   assertPermission(context, "sales.opportunity.view");
 
-  const rows = await opportunityRepository.openOpportunityAggregateRows(context);
+  return pipelineRows([context]);
+}
+
+export function pipelineByStageForWorkspace(session: UserContext, companyId?: string) {
+  return forWorkspace(session, "sales.opportunity.view", companyId, () => pipelineByStage(session), pipelineRows);
+}
+
+async function pipelineRows(readers: UserContext[]): Promise<StageReportRow[]> {
+  const rows = await opportunityRepository.openOpportunityAggregateRowsIn(buildOpportunityUnionWhere(readers));
 
   return OPEN_STAGES.map((stage) => ({
     stage,
@@ -94,9 +130,17 @@ export async function expectedCloseReport(context: UserContext): Promise<Forecas
   assertReportAccess(context);
   assertPermission(context, "sales.opportunity.view");
 
+  return expectedCloseRows([context]);
+}
+
+export function expectedCloseReportForWorkspace(session: UserContext, companyId?: string) {
+  return forWorkspace(session, "sales.opportunity.view", companyId, () => expectedCloseReport(session), expectedCloseRows);
+}
+
+async function expectedCloseRows(readers: UserContext[]): Promise<ForecastBucket[]> {
   const rows = await prisma.opportunity.findMany({
     where: {
-      AND: [buildOpportunityScopeWhere(context), { archivedAt: null, stage: { in: OPEN_STAGES } }],
+      AND: [buildOpportunityUnionWhere(readers), { archivedAt: null, stage: { in: OPEN_STAGES } }],
     },
     select: {
       stage: true,
@@ -130,7 +174,15 @@ export async function winLossReport(
   assertReportAccess(context);
   assertPermission(context, "sales.opportunity.view");
 
-  const rows = await opportunityRepository.closedOpportunityRows(context, period.from, period.to);
+  return winLossRows([context], period);
+}
+
+export function winLossReportForWorkspace(session: UserContext, period: ReportPeriod, companyId?: string) {
+  return forWorkspace(session, "sales.opportunity.view", companyId, () => winLossReport(session, period), (readers) => winLossRows(readers, period));
+}
+
+async function winLossRows(readers: UserContext[], period: ReportPeriod): Promise<WinLossReport> {
+  const rows = await opportunityRepository.closedOpportunityRowsIn(buildOpportunityUnionWhere(readers), period.from, period.to);
   const won = rows.filter((row) => row.stage === "WON");
   const lost = rows.filter((row) => row.stage === "LOST");
 
@@ -151,7 +203,15 @@ export async function lostReasonReport(
   assertReportAccess(context);
   assertPermission(context, "sales.opportunity.view");
 
-  const rows = await opportunityRepository.closedOpportunityRows(context, period.from, period.to);
+  return lostReasonRows([context], period);
+}
+
+export function lostReasonReportForWorkspace(session: UserContext, period: ReportPeriod, companyId?: string) {
+  return forWorkspace(session, "sales.opportunity.view", companyId, () => lostReasonReport(session, period), (readers) => lostReasonRows(readers, period));
+}
+
+async function lostReasonRows(readers: UserContext[], period: ReportPeriod): Promise<LostReasonRow[]> {
+  const rows = await opportunityRepository.closedOpportunityRowsIn(buildOpportunityUnionWhere(readers), period.from, period.to);
 
   const buckets = new Map<string, LostReasonRow>();
 
@@ -180,10 +240,34 @@ export async function ownerReport(
   assertReportAccess(context);
   assertPermission(context, "sales.opportunity.view");
 
+  return ownerRows([context], period);
+}
+
+/**
+ * In the group an owner is a membership, so the same person in two companies is
+ * two rows, each naming its company (§45); money is per currency as ever.
+ */
+export function ownerReportForWorkspace(session: UserContext, period: ReportPeriod, companyId?: string) {
+  return forWorkspace(
+    session,
+    "sales.opportunity.view",
+    companyId,
+    () => ownerReport(session, period),
+    (readers) => ownerRows(readers, period, companyRefs(readers)),
+  );
+}
+
+async function ownerRows(
+  readers: UserContext[],
+  period: ReportPeriod,
+  companies?: Map<string, CompanyRef>,
+): Promise<OwnerPerformanceRow[]> {
+  const scope = buildOpportunityUnionWhere(readers);
+
   const [openRows, closedRows] = await Promise.all([
     prisma.opportunity.findMany({
       where: {
-        AND: [buildOpportunityScopeWhere(context), { archivedAt: null, stage: { in: OPEN_STAGES } }],
+        AND: [scope, { archivedAt: null, stage: { in: OPEN_STAGES } }],
       },
       select: {
         stage: true,
@@ -191,12 +275,13 @@ export async function ownerReport(
         estimatedValue: true,
         probabilityOverride: true,
         ownerMemberId: true,
+        companyId: true,
         owner: {
           select: { id: true, status: true, user: { select: { firstName: true, lastName: true } } },
         },
       },
     }),
-    opportunityRepository.closedOpportunityRows(context, period.from, period.to),
+    opportunityRepository.closedOpportunityRowsIn(scope, period.from, period.to),
   ]);
 
   type Bucket = OwnerPerformanceRow & { wonRaw: number; lostRaw: number };
@@ -206,6 +291,7 @@ export async function ownerReport(
     ownerMemberId: string,
     owner: { id: string; status: string; user: { firstName: string; lastName: string } },
     currency: string,
+    companyId: string,
   ): Bucket {
     const key = `${ownerMemberId}|${currency}`;
     const existing = buckets.get(key);
@@ -224,13 +310,14 @@ export async function ownerReport(
       winRate: null,
       wonRaw: 0,
       lostRaw: 0,
+      ...(companies ? { company: companies.get(companyId) } : {}),
     };
     buckets.set(key, created);
     return created;
   }
 
   for (const row of openRows) {
-    const bucket = bucketFor(row.ownerMemberId, row.owner, row.currency);
+    const bucket = bucketFor(row.ownerMemberId, row.owner, row.currency, row.companyId);
     const [totals] = currencyTotals([row]);
     bucket.openCount += 1;
     bucket.openValue = toAmountString(new Prisma.Decimal(bucket.openValue).plus(totals.value));
@@ -240,7 +327,7 @@ export async function ownerReport(
   }
 
   for (const row of closedRows) {
-    const bucket = bucketFor(row.ownerMemberId, row.owner, row.currency);
+    const bucket = bucketFor(row.ownerMemberId, row.owner, row.currency, row.companyId);
     if (row.stage === "WON") {
       bucket.wonCount += 1;
       bucket.wonRaw += 1;
@@ -278,7 +365,15 @@ export async function leadConversionReport(
   assertReportAccess(context);
   assertPermission(context, "sales.lead.view");
 
-  const scope = buildLeadScopeWhere(context);
+  return leadConversionRows([context], period);
+}
+
+export function leadConversionReportForWorkspace(session: UserContext, period: ReportPeriod, companyId?: string) {
+  return forWorkspace(session, "sales.lead.view", companyId, () => leadConversionReport(session, period), (readers) => leadConversionRows(readers, period));
+}
+
+async function leadConversionRows(readers: UserContext[], period: ReportPeriod): Promise<LeadConversionRow> {
+  const scope = buildLeadUnionWhere(readers);
   const window = { createdAt: { gte: period.from, lte: period.to } };
 
   const [totalCreated, converted, qualified, disqualified] = await Promise.all([
@@ -324,7 +419,15 @@ export async function proposalReport(
   assertReportAccess(context);
   assertPermission(context, "sales.proposal.view");
 
-  const rows = await proposalRepository.proposalReportRows(context, period.from, period.to);
+  return proposalRows([context], period);
+}
+
+export function proposalReportForWorkspace(session: UserContext, period: ReportPeriod, companyId?: string) {
+  return forWorkspace(session, "sales.proposal.view", companyId, () => proposalReport(session, period), (readers) => proposalRows(readers, period));
+}
+
+async function proposalRows(readers: UserContext[], period: ReportPeriod): Promise<ProposalReportRow[]> {
+  const rows = await proposalRepository.proposalReportRowsIn(buildProposalUnionWhere(readers), period.from, period.to);
   const buckets = new Map<string, ProposalReportRow>();
 
   for (const row of rows) {

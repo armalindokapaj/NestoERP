@@ -109,7 +109,8 @@ test("the day's log takes its workforce from the crew the site sheet marked pres
   const log = await db.dailyLog.create({ data: { companyId: COMPANY_A, projectId: PROJECT, workDate: date, createdByMemberId: "member_pm" }, select: { id: true } });
 
   await signIn(page, "PROJECT_MANAGER", { to: `/projects/${PROJECT}/daily-logs/${log.id}` });
-  await page.getByTestId("daily-log-workspace").getByTestId("workforce-suggest").click();
+  // Scoped to the main region: the log streams, and for a moment React's parked copy is in the document too (see mainRegion).
+  await mainRegion(page).getByTestId("daily-log-workspace").getByTestId("workforce-suggest").click();
   const dialog = page.getByTestId("workforce-suggestions");
   // Counted from the site sheet: one of the crew's two was there (§44).
   const suggestion = dialog.getByTestId("workforce-suggestion").filter({ hasText: `${PREFIX} Rebar` });

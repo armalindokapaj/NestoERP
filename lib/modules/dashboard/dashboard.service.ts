@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { dashboardForRole } from "@/config/dashboards";
+import { dashboardForRole, groupDashboardFor } from "@/config/dashboards";
 import { kpis } from "@/config/kpis";
 import { quickActions } from "@/config/quick-actions";
 import { widgets } from "@/config/widgets";
@@ -45,12 +45,15 @@ import {
   OPEN_INCIDENT_STATUSES,
 } from "@/lib/modules/hse/hse.status";
 import type { UserContext } from "@/lib/context/types";
+import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
 import { loadRecentActivity } from "./dashboard.activity";
 import {
   groupActiveProjects,
   groupActivity,
+  groupApprovals,
+  groupAttention,
   groupCompanies,
   groupCompanyCount,
   groupDepartments,
@@ -58,6 +61,10 @@ import {
   groupExternalCompanies,
   groupFinance,
   groupKeyProjects,
+  groupOpenTasks,
+  groupOverdueTasks,
+  groupPendingApprovals,
+  groupTasks,
   groupMilestones,
   groupPipeline,
   groupPortfolioByStatus,
@@ -85,15 +92,21 @@ import type {
  * working (PRD #4 §77).
  */
 export async function resolveDashboard(context: UserContext): Promise<ResolvedDashboard> {
+  // The same dashboard engine for both workspaces (Workspace Context §18): the
+  // Group workspace reads its own layout, asking each authorised company in turn.
+  if (context.workspace.scopeType === "GROUP") return resolveGroupDashboard(context);
+
   const config = dashboardForRole(context.role, context.position);
 
-  // A switched-off module is absent from the dashboard (PRD #47 §26) — including a
-  // group figure gated on a group permission rather than on the module's own.
+  // A switched-off module is absent from the dashboard (PRD #47 §26). And a group
+  // figure has no place in a company workspace, whatever the role's layout lists:
+  // the company's own dashboard is that company's data (§20, §75).
   const visibleKpis = config.kpis
     .map((key) => kpis[key])
     .filter(
       (definition) =>
         definition &&
+        definition.supportsCompanyContext !== false &&
         isModuleEnabled(context, definition.module) &&
         can(context, definition.permission) &&
         (KPI_ALSO_REQUIRES[definition.key] ?? []).every((permission) => can(context, permission)),
@@ -101,20 +114,63 @@ export async function resolveDashboard(context: UserContext): Promise<ResolvedDa
 
   const visibleWidgets = config.widgets
     .map((key) => widgets[key])
-    .filter((definition) => definition && isModuleEnabled(context, definition.module) && can(context, definition.permission))
+    .filter(
+      (definition) =>
+        definition &&
+        definition.supportsCompanyContext !== false &&
+        isModuleEnabled(context, definition.module) &&
+        can(context, definition.permission),
+    )
     .sort((a, b) => a.priority - b.priority);
 
   const visibleActions = config.quickActions
     .map((key) => quickActions[key])
     .filter((definition) => definition && can(context, definition.permission));
 
+  return {
+    focus: config.focus,
+    ...(await loadResolved(context, visibleKpis, visibleWidgets)),
+    quickActions: visibleActions,
+  };
+}
+
+/**
+ * The Group workspace's dashboard (Workspace Context §19, §21, §75).
+ *
+ * An entry is shown when it declares the group and at least one company the
+ * reader may enter both has its module on and grants what it needs — the same
+ * "only what you are permitted to see" as everywhere, asked company by company.
+ * The loaders then read each company as the reader there, so a company that
+ * withholds a figure is left out of it rather than counted partly.
+ */
+async function resolveGroupDashboard(context: UserContext): Promise<ResolvedDashboard> {
+  const companies = await resolveGroupContexts(context);
+  const offered = (definition: { module: Parameters<typeof isModuleEnabled>[1]; permission: Permission; supportsGroupContext?: boolean } | undefined) =>
+    Boolean(definition?.supportsGroupContext) && companies.some((company) => isModuleEnabled(company, definition!.module) && can(company, definition!.permission));
+
+  const config = groupDashboardFor(context.role, context.position);
+  const visibleKpis = config.kpis.map((key) => kpis[key]).filter(offered);
+  const visibleWidgets = config.widgets
+    .map((key) => widgets[key])
+    .filter(offered)
+    .sort((a, b) => a.priority - b.priority);
+
+  return { focus: config.focus, ...(await loadResolved(context, visibleKpis, visibleWidgets)), quickActions: [] };
+}
+
+/** Loads what a dashboard resolved to show; one failing widget leaves the rest working (PRD #4 §77). */
+async function loadResolved(
+  context: UserContext,
+  visibleKpis: Array<(typeof kpis)[string]>,
+  visibleWidgets: Array<(typeof widgets)[string]>,
+): Promise<{ kpis: ResolvedKpi[]; widgets: ResolvedWidget[] }> {
   const [resolvedKpis, resolvedWidgets] = await Promise.all([
     Promise.all(
       visibleKpis.map(async (definition): Promise<ResolvedKpi | null> => {
         const value = await loadKpi(context, definition.key).catch(() => null);
         // A group figure with nothing behind it for this reader is left out, not shown as a dash (D-01 §66).
         if (value === NOT_FOR_READER) return null;
-        if (value !== null && typeof value === "object") return { definition, value: value.value, hint: value.hint };
+        if (value !== null && typeof value === "object") return { definition, value: value.value, hint: value.hint, breakdown: value.breakdown };
         return {
           definition,
           value: value ?? "—",
@@ -131,12 +187,7 @@ export async function resolveDashboard(context: UserContext): Promise<ResolvedDa
     ),
   ]);
 
-  return {
-    focus: config.focus,
-    kpis: resolvedKpis,
-    widgets: resolvedWidgets,
-    quickActions: visibleActions,
-  };
+  return { kpis: resolvedKpis, widgets: resolvedWidgets };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -175,6 +226,12 @@ async function loadKpi(context: UserContext, key: string): Promise<string | Grou
       return groupFigure(groupExternalCompanies(context));
     case "groupPortfolioValue":
       return groupFigure(groupPortfolioValue(context));
+    case "groupPendingApprovals":
+      return groupFigure(groupPendingApprovals(context));
+    case "groupOpenTasks":
+      return groupFigure(groupOpenTasks(context));
+    case "groupOverdueTasks":
+      return groupFigure(groupOverdueTasks(context));
 
     case "activeProjects":
       return String(
@@ -482,6 +539,14 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
 
     case "groupPipeline":
       return { kind: "list", items: await groupPipeline(context) };
+
+    // What the Group workspace adds to the executive view (Workspace Context §19, §33, §71).
+    case "groupAttention":
+      return { kind: "alerts", items: await groupAttention(context, loadAlerts) };
+    case "groupApprovals":
+      return { kind: "list", items: await groupApprovals(context) };
+    case "groupTasks":
+      return { kind: "list", items: await groupTasks(context) };
 
     // The group's executive view (D-01 §30-§36).
     case "keyProjects":

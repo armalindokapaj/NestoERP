@@ -1,9 +1,13 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import type { ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
+import { isGroupRoute, MODULE_GROUP_SUPPORT } from "@/config/workspace";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
+import { REQUEST_PATH_HEADER } from "@/lib/core/security/request-path";
 import { resolveUserContext } from "./resolve-user-context";
+import { assertCompanyWorkspace, resolveWorkspaceContexts } from "./workspace-access";
 import type { ContextFailure, UserContext } from "./types";
 
 /**
@@ -65,7 +69,52 @@ export async function requirePermission(permission: Permission): Promise<UserCon
  */
 export async function requireModule(moduleKey: ModuleKey): Promise<UserContext> {
   const context = await requireUserContext();
+
+  // The Group workspace (Workspace Context §25, §29). A module whose records
+  // belong to one company is not opened under a group header: the person is
+  // asked which company. A module the workspace offers is usable when at least
+  // one company they may enter enables it and lets them open it — the page then
+  // asks each of those companies for its own answer.
+  if (context.workspace.scopeType === "GROUP" && MODULE_GROUP_SUPPORT[moduleKey] !== "AGNOSTIC") {
+    // Only the routes that read across companies are answered here. The path is
+    // the middleware's, which a client cannot set; where there is none (a call
+    // outside a request) the module's own entry is what is being asked for.
+    const path = (await requestPath())?.split("?")[0] ?? null;
+    const supported = MODULE_GROUP_SUPPORT[moduleKey] === "AGGREGATED" && (path === null || isGroupRoute(moduleKey, path));
+    if (!supported) redirect(companyRequiredHref(moduleKey, path));
+    if ((await resolveWorkspaceContexts(context, { module: moduleKey })).length === 0) redirect("/module-unavailable");
+    return context;
+  }
+
   if (!isModuleEnabled(context, moduleKey)) redirect("/module-unavailable");
   if (!canAccessModule(context, moduleKey)) redirect("/access-denied");
+  return context;
+}
+
+async function requestPath(): Promise<string | null> {
+  try {
+    return (await headers()).get(REQUEST_PATH_HEADER);
+  } catch {
+    // Called outside a request: there is no path to check.
+    return null;
+  }
+}
+
+/** Where the Group workspace sends a route that works inside one company (§29): choose which, then go on. */
+export function companyRequiredHref(moduleKey: ModuleKey, path: string | null): string {
+  const query = new URLSearchParams({ module: moduleKey });
+  if (path) query.set("next", path);
+  return `/workspace/company-required?${query.toString()}`;
+}
+
+/**
+ * The context for something that belongs to one company: a form, a write, a
+ * company-only record (Workspace Context §59). In the Group workspace there is
+ * no company to write to, so it is refused with "choose a company" rather than
+ * answered from whichever company the session happens to be anchored in.
+ */
+export async function requireCompanyContext(): Promise<UserContext> {
+  const context = await requireUserContext();
+  assertCompanyWorkspace(context);
   return context;
 }

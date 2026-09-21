@@ -121,7 +121,16 @@ export const supplierSchema = z.object({
 
 export type SupplierInput = z.infer<typeof supplierSchema>;
 
+/**
+ * The Group workspace's `company` filter (Workspace Context §86, §87). A
+ * refinement of what the workspace already allows, never authority: the
+ * workspace entry points check it against the companies the person may read and
+ * ignore an id they may not. A company workspace does not read it at all.
+ */
+const companyFilter = z.string().trim().max(120).optional();
+
 export const supplierListQuerySchema = paginationSchema.extend({
+  companyId: companyFilter,
   search: z.string().trim().max(200).optional(),
   status: z.array(z.enum(SUPPLIER_STATUSES)).optional(),
   supplierType: z.array(z.enum(SUPPLIER_TYPES)).optional(),
@@ -167,6 +176,7 @@ export type RequestInput = z.infer<typeof requestSchema>;
 export type RequestItemInput = z.infer<typeof requestItemSchema>;
 
 export const requestListQuerySchema = paginationSchema.extend({
+  companyId: companyFilter,
   search: z.string().trim().max(200).optional(),
   view: z
     .enum(["all", "mine", "drafts", "pending", "approved", "sourcing", "ordered", "archived"])
@@ -295,6 +305,7 @@ export const orderSchema = z.object({
 export type OrderInput = z.infer<typeof orderSchema>;
 
 export const orderListQuerySchema = paginationSchema.extend({
+  companyId: companyFilter,
   search: z.string().trim().max(200).optional(),
   view: z
     .enum(["all", "draft", "pending", "issued", "receiving", "closed", "archived"])

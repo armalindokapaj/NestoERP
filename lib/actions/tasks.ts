@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { TaskStatus } from "@prisma/client";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import { createTaskSchema, updateTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
 
@@ -49,7 +49,7 @@ function formValues(formData: FormData): Record<string, unknown> {
 }
 
 export async function createTaskAction(formData: FormData): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createTaskSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -88,7 +88,7 @@ export async function updateTaskAction(
   taskId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateTaskSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -118,7 +118,7 @@ export async function setTaskStatusAction(
   reopenTo: TaskStatus = "TODO",
   blockedReason = "",
 ): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "start") await tasks.startTask(context, taskId);
@@ -134,7 +134,7 @@ export async function setTaskStatusAction(
 }
 
 export async function archiveTaskAction(taskId: string): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await tasks.archiveTask(context, taskId);
   } catch (error) {
@@ -145,7 +145,7 @@ export async function archiveTaskAction(taskId: string): Promise<ActionResult> {
 }
 
 export async function restoreTaskAction(taskId: string): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await tasks.restoreTask(context, taskId);
   } catch (error) {

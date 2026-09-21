@@ -173,6 +173,8 @@ export const leadListQuerySchema = z.object({
   status: z.array(z.enum(LEAD_STATUSES)).optional(),
   source: z.array(z.enum(LEAD_SOURCES)).optional(),
   ownerMemberId: z.string().optional(),
+  /** Group workspace only; a filter over the companies already read, never an authority (§86, §87). */
+  companyId: z.string().optional(),
   currency: z.string().optional(),
   minValue: z.string().optional(),
   maxValue: z.string().optional(),

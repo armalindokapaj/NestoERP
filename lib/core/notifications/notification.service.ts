@@ -1,8 +1,10 @@
 import type { Prisma } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
 import { currentRequestContext } from "@/lib/core/observability/request-context";
 import { loadRecord } from "@/lib/core/records/record.registry";
@@ -34,6 +36,8 @@ export type NotificationListItemDTO = {
   /** Who caused it, when somebody did: a membership of this company (E-08 §71). */
   actorMemberId: string | null;
   actorName: string | null;
+  /** The company it was sent in, named in the Group workspace only (Workspace Context §45). */
+  company?: { id: string; name: string };
 };
 
 export type UnreadCountDTO = {
@@ -94,28 +98,53 @@ export async function listNotifications(
   context: UserContext,
   options: { readState?: "UNREAD" | "READ"; before?: string; limit?: number } = {},
 ): Promise<NotificationPage> {
+  return pageOfNotifications([context], options, false);
+}
+
+/**
+ * The person's own notification rows in the contexts a request reads: one
+ * company's `(company, member)` pair, or in the Group workspace one pair per
+ * company they may use. Both, always — a notification belongs to one member in
+ * one company — and each company's own module door narrows its own rows.
+ */
+function ownRows(contexts: UserContext[]): Prisma.NotificationWhereInput {
+  const own = (context: UserContext): Prisma.NotificationWhereInput => ({ companyId: context.companyId, recipientMemberId: context.membershipId });
+  return contexts.length === 1 ? own(contexts[0]) : { OR: contexts.map(own) };
+}
+
+function readableRows(contexts: UserContext[]): Prisma.NotificationWhereInput {
+  // The panel agrees with the badge: nothing from a module this reader
+  // cannot open any more (PRD #25 §279, PRD #47 §26) — in each company, by that company's own switches.
+  const readable = (context: UserContext): Prisma.NotificationWhereInput => ({
+    companyId: context.companyId,
+    recipientMemberId: context.membershipId,
+    moduleKey: { in: openModuleKeys(context) },
+  });
+  return contexts.length === 1 ? readable(contexts[0]) : { OR: contexts.map(readable) };
+}
+
+async function pageOfNotifications(
+  contexts: UserContext[],
+  options: { readState?: "UNREAD" | "READ"; before?: string; limit?: number },
+  labelCompany: boolean,
+): Promise<NotificationPage> {
   const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
 
   let anchor: { createdAt: Date; id: string } | null = null;
   if (options.before) {
     anchor = await prisma.notification.findFirst({
-      where: { id: options.before, companyId: context.companyId, recipientMemberId: context.membershipId },
+      where: { AND: [{ id: options.before }, ownRows(contexts)] },
       select: { createdAt: true, id: true },
     });
   }
 
   const rows = await prisma.notification.findMany({
     where: {
-      // Both, always: a notification belongs to one member in one company.
-      companyId: context.companyId,
-      recipientMemberId: context.membershipId,
-      // The panel agrees with the badge: nothing from a module this reader
-      // cannot open any more (PRD #25 §279, PRD #47 §26).
-      moduleKey: { in: openModuleKeys(context) },
-      ...(options.readState ? { readState: options.readState } : {}),
-      ...(anchor
-        ? { OR: [{ createdAt: { lt: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { lt: anchor.id } }] }
-        : {}),
+      AND: [
+        readableRows(contexts),
+        ...(options.readState ? [{ readState: options.readState }] : []),
+        ...(anchor ? [{ OR: [{ createdAt: { lt: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { lt: anchor.id } }] }] : []),
+      ],
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
@@ -125,14 +154,17 @@ export async function listNotifications(
   const actorIds = [...new Set(page.map((row) => row.actorMemberId).filter((id): id is string => Boolean(id)))];
   const actors = actorIds.length
     ? await prisma.companyMember.findMany({
-        where: { id: { in: actorIds }, companyId: context.companyId },
-        select: { id: true, user: { select: { firstName: true, lastName: true } } },
+        where: { id: { in: actorIds }, companyId: { in: contexts.map((context) => context.companyId) } },
+        select: { id: true, companyId: true, user: { select: { firstName: true, lastName: true } } },
       })
     : [];
-  const actorNames = new Map(actors.map((member) => [member.id, `${member.user.firstName} ${member.user.lastName}`.trim()]));
+  // An actor is a membership of the notification's own company (E-08 §71).
+  const actorNames = new Map(actors.map((member) => [`${member.companyId}:${member.id}`, `${member.user.firstName} ${member.user.lastName}`.trim()]));
+  const companies = new Map(contexts.map((context) => [context.companyId, { id: context.companyId, name: context.company.name }]));
   return {
-    data: page.map(
-      (row): NotificationListItemDTO => ({
+    data: page.map((row): NotificationListItemDTO => {
+      const actorKey = row.actorMemberId ? `${row.companyId}:${row.actorMemberId}` : null;
+      return {
         id: row.id,
         eventType: row.eventType,
         category: row.category,
@@ -144,12 +176,30 @@ export async function listNotifications(
         createdAt: row.createdAt.toISOString(),
         readAt: row.readAt?.toISOString() ?? null,
         href: row.entityType && row.entityId ? `/notifications/${row.id}/open` : null,
-        actorMemberId: row.actorMemberId && actorNames.has(row.actorMemberId) ? row.actorMemberId : null,
-        actorName: (row.actorMemberId && actorNames.get(row.actorMemberId)) || null,
-      }),
-    ),
+        actorMemberId: row.actorMemberId && actorKey && actorNames.has(actorKey) ? row.actorMemberId : null,
+        actorName: (actorKey && actorNames.get(actorKey)) || null,
+        ...(labelCompany && companies.has(row.companyId) ? { company: companies.get(row.companyId) } : {}),
+      };
+    }),
     nextBefore: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
   };
+}
+
+/**
+ * The person's notifications in the active workspace (Workspace Context §45).
+ *
+ * A notification belongs to one member in one company and stays that way; the
+ * Group workspace lists the person's own across every company they may use,
+ * each company's rows narrowed by that company's own module switches, every
+ * row naming its company. The cursor pages the merged list as one. A company
+ * workspace is `listNotifications`, unchanged.
+ */
+export async function listNotificationsForWorkspace(
+  session: UserContext,
+  options: { readState?: "UNREAD" | "READ"; before?: string; limit?: number } = {},
+): Promise<NotificationPage> {
+  if (!inGroupWorkspace(session)) return listNotifications(session, options);
+  return pageOfNotifications(await resolveWorkspaceContexts(session, {}), options, true);
 }
 
 export type OpenedNotification = { href: string } | { unavailable: true };
@@ -230,19 +280,90 @@ function openModuleKeys(context: UserContext): string[] {
     .map(([key]) => key);
 }
 
-/** Only the recipient may change their own read state (PRD #25 §157, §165). */
-export async function markRead(context: UserContext, id: string, read: boolean): Promise<void> {
+/**
+ * The one place a read state is written. Read state is the recipient's own
+ * marker, not a domain state machine: it moves either way from either value, so
+ * the `where` scopes it to rows that are theirs and never to the state it is in.
+ */
+async function writeReadState(where: Prisma.NotificationWhereInput, read: boolean): Promise<void> {
   const result = await prisma.notification.updateMany({
-    where: { id, companyId: context.companyId, recipientMemberId: context.membershipId },
+    where,
     data: { readState: read ? "READ" : "UNREAD", readAt: read ? new Date() : null },
   });
   // Somebody else's notification is simply not found (PRD #25 §165).
   if (result.count === 0) throw new AccessError("NOT_FOUND");
 }
 
+/** Only the recipient may change their own read state (PRD #25 §157, §165). */
+export async function markRead(context: UserContext, id: string, read: boolean): Promise<void> {
+  return writeReadState({ id, companyId: context.companyId, recipientMemberId: context.membershipId }, read);
+}
+
 export async function markAllRead(context: UserContext): Promise<number> {
   const result = await prisma.notification.updateMany({
     where: { companyId: context.companyId, recipientMemberId: context.membershipId, readState: "UNREAD" },
+    data: { readState: "READ", readAt: new Date() },
+  });
+  return result.count;
+}
+
+/* -------------------------------------------------------------------------- */
+/* The active workspace (Workspace Context §45)                                */
+/* -------------------------------------------------------------------------- */
+
+/** Where a notification leads, and — in the Group workspace — the company whose workspace is entered first. */
+export type OpenedInWorkspace = OpenedNotification & { company?: { id: string; name: string } };
+
+/**
+ * Follows a notification from the Group workspace: the notification is found
+ * among the person's own rows in any company they may use, and its record is
+ * read again in *that company's* own context — never the anchor's. The answer
+ * names the company, so the page enters its workspace before going on (§31); a
+ * notification that is not the person's is not found, whichever company it
+ * would belong to.
+ */
+export async function openNotificationForWorkspace(session: UserContext, id: string): Promise<OpenedInWorkspace> {
+  if (!inGroupWorkspace(session)) return openNotification(session, id);
+  const contexts = await resolveWorkspaceContexts(session, {});
+  const owner = await prisma.notification.findFirst({ where: { AND: [{ id }, ownRows(contexts)] }, select: { companyId: true } });
+  const context = contexts.find((candidate) => candidate.companyId === owner?.companyId);
+  if (!context) throw new AccessError("NOT_FOUND");
+  return { ...(await openNotification(context, id)), company: { id: context.companyId, name: context.company.name } };
+}
+
+/**
+ * The badge in the active workspace: the sum, over the companies the person may
+ * use, of what each company's own count says — so a module one company switched
+ * off does not count, and one they may open elsewhere does.
+ */
+export async function getUnreadCountForWorkspace(session: UserContext): Promise<UnreadCountDTO> {
+  if (!inGroupWorkspace(session)) return getUnreadCount(session);
+  const contexts = await resolveWorkspaceContexts(session, {});
+  const unreadWhere: Prisma.NotificationWhereInput = { AND: [readableRows(contexts), { readState: "UNREAD" }] };
+  const [unread, criticalUnread, attention] = await Promise.all([
+    prisma.notification.count({ where: unreadWhere }),
+    prisma.notification.count({ where: { AND: [unreadWhere, { priority: "CRITICAL" }] } }),
+    Promise.all(contexts.map((context) => countReadableAttention(context))),
+  ]);
+  return {
+    unread,
+    criticalUnread,
+    activeAttention: attention.reduce((sum, count) => sum + count.active, 0),
+    criticalAttention: attention.reduce((sum, count) => sum + count.critical, 0),
+  };
+}
+
+/** Marks one of the person's own notifications read or unread, in whichever of their companies it was sent (PRD #25 §157, §165). */
+export async function markReadForWorkspace(session: UserContext, id: string, read: boolean): Promise<void> {
+  if (!inGroupWorkspace(session)) return markRead(session, id, read);
+  return writeReadState({ AND: [{ id }, ownRows(await resolveWorkspaceContexts(session, {}))] }, read);
+}
+
+/** "All" is the person's own unread rows across the companies the Group workspace reads, and nobody else's. */
+export async function markAllReadForWorkspace(session: UserContext): Promise<number> {
+  if (!inGroupWorkspace(session)) return markAllRead(session);
+  const result = await prisma.notification.updateMany({
+    where: { AND: [ownRows(await resolveWorkspaceContexts(session, {})), { readState: "UNREAD" }] },
     data: { readState: "READ", readAt: new Date() },
   });
   return result.count;

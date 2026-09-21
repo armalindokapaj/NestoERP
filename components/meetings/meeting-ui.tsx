@@ -80,6 +80,12 @@ export function meetingDate(iso: string, zone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 }
 
+/** The zone's short name at that moment ("CEST", "GMT+2"), so a time can say which clock it is on. */
+export function meetingZoneLabel(iso: string, zone: string): string {
+  const part = new Intl.DateTimeFormat("en-GB", { timeZone: zone, timeZoneName: "short" }).formatToParts(new Date(iso)).find((entry) => entry.type === "timeZoneName");
+  return part?.value ?? zone;
+}
+
 /** "Wed 16 Sep · 10:00–11:00" */
 export function meetingWhen(startsAt: string, endsAt: string, zone: string): string {
   return `${meetingDay(startsAt, zone, { weekday: "short", day: "numeric", month: "short" })} · ${meetingClock(startsAt, zone)}–${meetingClock(endsAt, zone)}`;

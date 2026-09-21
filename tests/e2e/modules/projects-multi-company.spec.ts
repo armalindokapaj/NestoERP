@@ -1,21 +1,23 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import { db } from "../db";
-import { mainRegion, signIn } from "../fixtures";
+import { mainRegion, signIn, switchToGroup } from "../fixtures";
 
 /**
- * One person, two companies (E-05A §26, §28, §63, §70, §73; E-06 §55).
+ * One person, two companies (E-05A §26, §28, §63, §70, §73; E-06 §55;
+ * Workspace Context §7, §16, §83).
  *
  * `multi-architect` is an Architect in Aurelia Construction on Riverside
  * Residences and in Forma Engineering on Marina Apartments. Sign-in lands in
- * Aurelia, the older membership.
+ * Aurelia, the older membership. Both companies on one page is the Group
+ * workspace, which working in two companies opens to them.
  */
 
 const card = (page: Page, name: string) =>
   mainRegion(page).getByTestId("project-card").filter({ has: page.getByRole("link", { name }) });
 
 test.beforeEach(async ({ page }) => {
-  await signIn(page, "MULTI_COMPANY");
+  await signIn(page, "MULTI_COMPANY", { workspace: "GROUP" });
 });
 
 test("finds both companies' projects on one page, each company named", async ({ page }) => {
@@ -42,7 +44,9 @@ test("opens a project in the other company without choosing the company first", 
   await expect(page.getByRole("heading", { name: "Marina Apartments" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Forma Engineering");
 
-  // And back again, the same way.
+  // Opening it moved the workspace into Forma, so the portfolio is Forma's now.
+  // Back in the group, the other company's project opens the same way.
+  await switchToGroup(page);
   await page.goto("/projects");
   await card(page, "Riverside Residences").getByTestId("project-card-link").click();
   await expect(page).toHaveURL(/\/projects\/project_a$/);
@@ -63,8 +67,11 @@ test("reveals nothing of a project in either company it cannot open (E-05A §49)
   await db.projectMember.updateMany({ where, data: { status: "INACTIVE" } });
   await db.companyMember.update({ where: { id: "member_multicompany_d" }, data: { accessVersion: { increment: 1 } } });
   try {
-    const response = await page.goto("/projects/project_d");
-    expect(response?.status()).toBe(404);
+    // Not found, and nothing about it: not its name, not the company holding it.
+    // (The shell has already streamed by the time the lookup fails, so the
+    // document's status is 200 while the page itself is the not-found page.)
+    await page.goto("/projects/project_d");
+    await expect(page.getByText("Page not found.")).toBeVisible();
     await expect(page.getByText("Marina Apartments")).toHaveCount(0);
     await expect(page.getByText("Forma Engineering")).toHaveCount(0);
 

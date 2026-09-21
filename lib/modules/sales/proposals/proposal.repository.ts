@@ -152,9 +152,14 @@ export async function proposalFilterOptions(context: UserContext) {
 
 /** Proposal totals in a period, for the proposal report (PRD #17 §169, §244). */
 export function proposalReportRows(context: UserContext, from: Date, to: Date) {
+  return proposalReportRowsIn(buildProposalScopeWhere(context), from, to);
+}
+
+/** The same rows for any scope: one company's, or the union a group reads. */
+export function proposalReportRowsIn(scope: Prisma.ProposalWhereInput, from: Date, to: Date) {
   return prisma.proposal.findMany({
     where: {
-      AND: [buildProposalScopeWhere(context), { createdAt: { gte: from, lte: to } }],
+      AND: [scope, { createdAt: { gte: from, lte: to } }],
     },
     select: { status: true, currency: true, totalAmount: true },
   });

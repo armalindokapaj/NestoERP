@@ -11,28 +11,39 @@ import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
 import { orderListQuerySchema } from "@/lib/modules/procurement/procurement.schema";
+import {
+  canReadProcurement,
+  resolveProcurementExperience,
+} from "@/lib/modules/procurement/procurement.workspace";
 import { ORDER_STATUSES, orderStatusLabels } from "@/lib/modules/procurement/procurement.status";
 
 export const metadata: Metadata = { title: "Purchase orders" };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** The purchase order register (PRD #19 §254, §255). */
+/**
+ * The purchase order register (PRD #19 §254, §255).
+ *
+ * In the Group workspace it lists the orders of every company the reader may
+ * read them in, each labelled with its company and valued in its own currency
+ * (Workspace Context §38, §45, §72); a new order needs a company, so the
+ * control is not offered there.
+ */
 export default async function OrdersPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("procurement");
-  if (!can(context, "procurement.order.view")) redirect("/access-denied");
+  if (!(await canReadProcurement(context, "procurement.order.view"))) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "procurement");
+  const experience = await resolveProcurementExperience(context);
   const params = await searchParams;
 
   return (
@@ -40,7 +51,7 @@ export default async function OrdersPage({
       experience={experience}
       activeSection="orders"
       actions={
-        can(context, "procurement.order.create") ? (
+        !inGroupWorkspace(context) && can(context, "procurement.order.create") ? (
           <Button asChild size="sm">
             <Link href="/procurement/orders/new">New order</Link>
           </Button>
@@ -68,7 +79,11 @@ async function OrderList({
     ?.split(",")
     .filter((value) => (ORDER_STATUSES as readonly string[]).includes(value));
 
+  const group = inGroupWorkspace(context);
+
   const query = orderListQuerySchema.parse({
+    // The Group `company` filter; a company workspace never reads it (§86, §87).
+    companyId: group ? read("company") : undefined,
     search: read("search"),
     view: read("view") ?? "all",
     status: statuses?.length ? statuses : undefined,
@@ -80,15 +95,23 @@ async function OrderList({
   });
 
   const [result, options] = await Promise.all([
-    orders.listOrders(context, query),
-    orders.orderFilterOptions(context),
+    orders.listOrdersForWorkspace(context, query),
+    orders.orderFilterOptionsForWorkspace(context),
   ]);
 
   const hasFilters = Boolean(
-    query.search || query.status?.length || query.supplierId || query.projectId || query.currency,
+    query.companyId ||
+      query.search ||
+      query.status?.length ||
+      query.supplierId ||
+      query.projectId ||
+      query.currency,
   );
 
   const filters: FilterConfig[] = [
+    ...(group && options.companies.length > 1
+      ? [{ param: "company", label: "Company", options: options.companies }]
+      : []),
     {
       param: "status",
       label: "Status",
@@ -104,7 +127,7 @@ async function OrderList({
             label: "Supplier",
             options: options.suppliers.map((supplier) => ({
               value: supplier.id,
-              label: supplier.name,
+              label: supplier.company ? `${supplier.name} · ${supplier.company.name}` : supplier.name,
             })),
           },
         ]
@@ -116,7 +139,7 @@ async function OrderList({
             label: "Project",
             options: options.projects.map((project) => ({
               value: project.id,
-              label: `${project.code} — ${project.name}`,
+              label: `${project.code} — ${project.name}${project.company ? ` · ${project.company.name}` : ""}`,
             })),
           },
         ]
@@ -169,9 +192,13 @@ async function OrderList({
           <EmptyState
             icon={<PackageCheck />}
             title="No purchase orders yet."
-            description="An order is the commitment: issuing one is the moment the company owes a supplier money."
+            description={
+              group
+                ? "No company you can read has a purchase order yet. Raising one is done inside a company."
+                : "An order is the commitment: issuing one is the moment the company owes a supplier money."
+            }
             action={
-              can(context, "procurement.order.create")
+              !group && can(context, "procurement.order.create")
                 ? { label: "New order", href: "/procurement/orders/new" }
                 : undefined
             }

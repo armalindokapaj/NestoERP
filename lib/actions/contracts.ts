@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import * as amendments from "@/lib/modules/contracts/amendments/amendment.service";
 import * as contracts from "@/lib/modules/contracts/contracts/contract.service";
 import * as obligations from "@/lib/modules/contracts/obligations/obligation.service";
@@ -86,7 +86,7 @@ function formValues(formData: FormData): Record<string, unknown> {
 /* -------------------------------------------------------------------------- */
 
 export async function createContractAction(formData: FormData): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createContractSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -107,7 +107,7 @@ export async function updateContractAction(
   contractId: string,
   formData: FormData,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const values = formValues(formData);
   // A body without a contract number is the metadata correction an approved
@@ -155,7 +155,7 @@ export async function contractLifecycleAction(
   action: ContractLifecycleAction,
   note?: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit-review") await contracts.submitForReview(context, contractId);
@@ -177,7 +177,7 @@ export async function returnToDraftAction(
   contractId: string,
   note: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await contracts.returnToDraft(context, contractId, note.trim() === "" ? null : note);
@@ -193,7 +193,7 @@ export async function rejectContractAction(
   contractId: string,
   reason: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = contractReasonSchema.safeParse({ note: reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -212,7 +212,7 @@ export async function markSignedAction(
   contractId: string,
   input: { signedDate: string; acknowledgeMissingDocument: boolean },
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = contractSignedSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
@@ -231,7 +231,7 @@ export async function activateContractAction(
   contractId: string,
   effectiveDate?: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await contracts.activateContract(
@@ -251,7 +251,7 @@ export async function terminateContractAction(
   contractId: string,
   input: { terminationDate: string; terminationReason: string },
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = contractTerminationSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
@@ -270,7 +270,7 @@ export async function cancelContractAction(
   contractId: string,
   note: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await contracts.cancelContract(context, contractId, note.trim() === "" ? null : note);
@@ -286,7 +286,7 @@ export async function assignContractOwnerAction(
   contractId: string,
   ownerMemberId: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = contractOwnerSchema.safeParse({ ownerMemberId });
   if (!parsed.success) return invalid(parsed.error);
@@ -310,7 +310,7 @@ export async function saveContractPartyAction(
   partyId: string | null,
   formData: FormData,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const values = formValues(formData);
   const parsed = contractPartySchema.safeParse({
@@ -334,7 +334,7 @@ export async function removeContractPartyAction(
   contractId: string,
   partyId: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await parties.removeParty(context, contractId, partyId);
@@ -355,7 +355,7 @@ export async function saveObligationAction(
   obligationId: string | null,
   formData: FormData,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = obligationSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -381,7 +381,7 @@ export async function closeObligationAction(
   action: "complete" | "cancel",
   note?: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await obligations.assertObligationOnContract(context, contractId, obligationId);
@@ -403,7 +403,7 @@ export async function createObligationTaskAction(
   obligationId: string,
   formData: FormData,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = obligationTaskSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -431,7 +431,7 @@ export async function saveAmendmentAction(
   amendmentId: string | null,
   formData: FormData,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const values = formValues(formData);
   const parsed = amendmentSchema.safeParse({
@@ -472,7 +472,7 @@ export async function amendmentLifecycleAction(
   action: AmendmentLifecycleAction,
   note?: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await amendments.assertAmendmentOnContract(context, contractId, amendmentId);
@@ -497,7 +497,7 @@ export async function rejectAmendmentAction(
   amendmentId: string,
   reason: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = amendmentReasonSchema.safeParse({ note: reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -518,7 +518,7 @@ export async function markAmendmentSignedAction(
   amendmentId: string,
   signedDate: string,
 ): Promise<ContractActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = amendmentSignedSchema.safeParse({ signedDate });
   if (!parsed.success) return invalid(parsed.error);

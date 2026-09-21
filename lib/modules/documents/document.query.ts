@@ -80,6 +80,7 @@ export function parseDocumentListQuery(
     projectId: read(params, "projectId") || undefined,
     clientId: read(params, "clientId") || undefined,
     uploadedByMemberId: read(params, "uploadedBy") || undefined,
+    companyId: read(params, "company") || undefined,
     dateFrom: dateFrom(preset) ?? read(params, "dateFrom") ?? undefined,
     dateTo: read(params, "dateTo") || undefined,
     page: Number.isFinite(page) && page > 0 ? page : 1,

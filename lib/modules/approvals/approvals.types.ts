@@ -57,6 +57,9 @@ export type ApprovalProviderKey = (typeof PROVIDER_KEYS)[number];
 export type ApprovalMoney = { value: string; currency: string };
 export type ApprovalPerson = { memberId: string; name: string };
 
+/** The company an approval belongs to, on a list read in the Group workspace (Workspace Context §45). */
+export type ApprovalCompany = { id: string; name: string };
+
 export type UnifiedApprovalItem = {
   /** `${providerKey}:${approvalId}` — the Center's own reference (§197). */
   id: string;
@@ -112,6 +115,9 @@ export type UnifiedApprovalItem = {
   urgency: number;
   /** The date the current tab orders by. */
   sortAt: string;
+
+  /** Group workspace only: which company's approval this is, so no row reads like another company's (§45). */
+  company?: ApprovalCompany;
 };
 
 export type ApprovalSummaryField = {
@@ -200,9 +206,18 @@ export type ApprovalCounts = {
   critical: number;
   /** A source reached its window, so there are at least this many (§251, §253). */
   capped: boolean;
+  /**
+   * Group workspace only: the same three figures per company the person may
+   * read approvals in, by company name — "ARLIS 7 · IDEAL 4 · UNICO 6" (§33).
+   * The totals above are exactly the sum of these.
+   */
+  byCompany?: ApprovalCompanyCounts[];
 };
 
-export type ApprovalProviderSummary = { key: ApprovalProviderKey; label: string; moduleKey: string };
+export type ApprovalCompanyCounts = { company: ApprovalCompany; waiting: number; overdue: number; critical: number; capped: boolean };
+
+/** A source of approvals; in the Group workspace also the company whose copy of it could not be read. */
+export type ApprovalProviderSummary = { key: ApprovalProviderKey; label: string; moduleKey: string; company?: ApprovalCompany };
 
 export type ApprovalQueueResult = {
   items: UnifiedApprovalItem[];
@@ -215,6 +230,12 @@ export type ApprovalQueueResult = {
   providers: ApprovalProviderSummary[];
   canViewHistory: boolean;
   canManageDelegation: boolean;
+  /**
+   * Group workspace only: the companies whose approvals this person may read,
+   * by name — the choices of the Company filter, derived from their access and
+   * never from the request (§57, §87). Absent in a company workspace.
+   */
+  companies?: ApprovalCompany[];
 };
 
 export type ApprovalDelegationDTO = {

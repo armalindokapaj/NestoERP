@@ -11,12 +11,15 @@ import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { NoAccessibleData } from "@/components/finance/group-rows";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import { parseBudgetQuery } from "@/lib/modules/finance/finance.query";
+import { companyFilterOptions, financeContexts, financeExperience } from "@/lib/modules/finance/finance.workspace";
+import { firstValue } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Budgets" };
 
@@ -29,9 +32,12 @@ export default async function BudgetsPage({
 }) {
   const context = await requireModule("finance");
 
-  if (!can(context, "finance.budget.view")) redirect("/access-denied");
+  // In the Group workspace the list asks each company for it and says so when
+  // none has it (Workspace Context §76).
+  const group = inGroupWorkspace(context);
+  if (!group && !can(context, "finance.budget.view")) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "finance");
+  const experience = await financeExperience(context);
   const params = await searchParams;
 
   return (
@@ -39,7 +45,7 @@ export default async function BudgetsPage({
       experience={experience}
       activeSection="budgets"
       actions={
-        can(context, "finance.budget.create") ? (
+        !group && can(context, "finance.budget.create") ? (
           <Button asChild size="sm">
             <Link href="/finance/budgets/new">New budget</Link>
           </Button>
@@ -53,7 +59,13 @@ export default async function BudgetsPage({
   );
 }
 
-/** Budgets, with the project's real actual and forecast beside each version. */
+/**
+ * Budgets, with the project's real actual and forecast beside each version.
+ *
+ * In the Group workspace it is the budgets of every company the reader may open
+ * budgets in, each in its own currency, with a Company filter over those
+ * companies (Workspace Context §36, §86).
+ */
 async function BudgetsList({
   context,
   searchParams,
@@ -62,9 +74,14 @@ async function BudgetsList({
   searchParams: SearchParams;
 }) {
   const query = parseBudgetQuery(searchParams);
-  const result = await budgets.listBudgets(context, query);
+  const group = inGroupWorkspace(context);
+  const company = group ? firstValue(searchParams.company) : undefined;
+  const readable = group ? await financeContexts(context, "finance.budget.view") : [];
+  if (group && readable.length === 0) return <NoAccessibleData />;
 
-  const hasFilters = Boolean(query.search || query.status?.length || query.currentOnly);
+  const result = await budgets.listBudgetsForWorkspace(context, query, { company });
+
+  const hasFilters = Boolean(query.search || query.status?.length || query.currentOnly || company);
 
   function buildHref(page: number) {
     const params = new URLSearchParams();
@@ -81,6 +98,7 @@ async function BudgetsList({
       <ListToolbar
         searchPlaceholder="Search project or budget name…"
         filters={[
+          ...(group ? [{ param: "company", label: "Company", options: companyFilterOptions(readable) }] : []),
           {
             param: "status",
             label: "Status",
@@ -119,7 +137,7 @@ async function BudgetsList({
             title="No project budgets yet."
             description="A budget is what every variance figure on a project is measured against."
             action={
-              can(context, "finance.budget.create")
+              !group && can(context, "finance.budget.create")
                 ? { label: "New budget", href: "/finance/budgets/new" }
                 : undefined
             }

@@ -524,6 +524,18 @@ export function toSummaryDTO(row: repository.DocumentSummaryRow): DocumentSummar
   };
 }
 
+/**
+ * A row of a Group workspace list, which names the company it belongs to
+ * (Workspace Context §45). A separate function rather than a second argument:
+ * the list calls `rows.map(toSummaryDTO)`, and `map` would hand it an index.
+ */
+export function toGroupSummaryDTO(
+  row: repository.DocumentSummaryRow,
+  company: { id: string; name: string },
+): DocumentSummaryDTO {
+  return { ...toSummaryDTO(row), company: { id: company.id, name: company.name } };
+}
+
 function toDetailDTO(
   context: UserContext,
   row: repository.DocumentDetailRow,

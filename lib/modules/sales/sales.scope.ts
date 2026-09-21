@@ -96,6 +96,36 @@ export function buildOpportunityScopeWhere(
 }
 
 /**
+ * The Group workspace reads sales as the union of every authorised company's
+ * own scope (Workspace Context §57, §58, §62).
+ *
+ * Each branch is that company's real scope clause for the reader's membership
+ * there, so it starts with `companyId` and carries that company's SELF /
+ * DEPARTMENT / PROJECT / COMPANY rule — a rep who owns two deals in Company B
+ * and holds only their own scope there gets those two, never B's pipeline. The
+ * union is applied in the database, before search, filters, sort and
+ * pagination. No company means no rows, never "all rows": an empty `OR` would
+ * read as false today and as a mistake tomorrow.
+ */
+function unionOf<T>(contexts: UserContext[], build: (context: UserContext) => T): { id: { in: never[] } } | T | { OR: T[] } {
+  if (contexts.length === 0) return { id: { in: [] } };
+  if (contexts.length === 1) return build(contexts[0]);
+  return { OR: contexts.map((context) => build(context)) };
+}
+
+export function buildLeadUnionWhere(contexts: UserContext[]): Prisma.LeadWhereInput {
+  return unionOf(contexts, buildLeadScopeWhere);
+}
+
+export function buildOpportunityUnionWhere(contexts: UserContext[]): Prisma.OpportunityWhereInput {
+  return unionOf(contexts, buildOpportunityScopeWhere);
+}
+
+export function buildProposalUnionWhere(contexts: UserContext[]): Prisma.ProposalWhereInput {
+  return unionOf(contexts, buildProposalScopeWhere);
+}
+
+/**
  * Proposals inherit the opportunity they quote (PRD #17 §216, §415).
  *
  * `sales.proposal.view` alone is deliberately not enough — the opportunity has

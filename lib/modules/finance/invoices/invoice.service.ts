@@ -14,6 +14,7 @@ import {
   assertPermission,
   stateDenied,
 } from "@/lib/access/guards";
+import { inGroupWorkspace } from "@/config/workspace";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -27,6 +28,7 @@ import { toAmountString, toRateString } from "../finance.money";
 import { buildProposalScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { buildInvoiceScopeWhere, hasCompanyFinanceScope } from "../finance.scope";
 import { resolveFinanceSettings } from "../finance.settings";
+import { companyOf, financeContexts, narrowToCompany } from "../finance.workspace";
 import { paidByInvoice, settlementFor } from "../finance.settlement";
 import { PAYMENT_SELECT, toSummaryDTO as paymentSummaryDTO } from "../payments/payment.service";
 import type { InvoiceDetailDTO, InvoiceSummaryDTO, RecordCapabilities } from "../finance.types";
@@ -82,6 +84,37 @@ export async function listInvoices(context: UserContext, query: InvoiceListQuery
   // Settlement is derived, so it cannot be a SQL filter. Filtering after the
   // page is read means a settlement filter narrows the page rather than the
   // query — which is honest about what it is, and correct (PRD #15 §42).
+  if (query.settlement?.length) {
+    const wanted = new Set(query.settlement);
+    data = data.filter((invoice) => wanted.has(invoice.settlementStatus));
+  }
+
+  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+}
+
+/**
+ * The invoice list of the active workspace (Workspace Context §36, §45).
+ *
+ * A company workspace is `listInvoices`, untouched. The Group workspace is the
+ * invoices of every company the reader may open Finance in, each row naming its
+ * company; `options.company` narrows it further and can only narrow — it is
+ * checked against those companies, never trusted (§57, §86).
+ */
+export async function listInvoicesForWorkspace(
+  session: UserContext,
+  query: InvoiceListQuery,
+  options: { company?: string | null } = {},
+) {
+  if (!inGroupWorkspace(session)) return listInvoices(session, query);
+
+  // Nothing readable is an empty answer, not an error (§76).
+  const readable = narrowToCompany(await financeContexts(session, "finance.invoice.view"), options.company);
+  const { rows, total } = await repository.listInvoicesAcross(readable, query);
+  const paid = await paidByInvoice(rows.map((row) => row.id));
+  const companies = new Map(readable.map((context) => [context.companyId, companyOf(context)]));
+
+  let data = rows.map((row) => ({ ...toSummaryDTO(row, paid.get(row.id)), company: companies.get(row.companyId)! }));
+
   if (query.settlement?.length) {
     const wanted = new Set(query.settlement);
     data = data.filter((invoice) => wanted.has(invoice.settlementStatus));

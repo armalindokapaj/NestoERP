@@ -34,7 +34,10 @@ export function WelcomeHeader({ context, focus }: { context: UserContext; focus:
         </div>
 
         <p className="mt-2 text-body text-fg-muted">{focus}</p>
-        <p className="mt-1 text-table text-fg-subtle">{context.company.name}</p>
+        {/* Group: "Across <the group>"; company: the company's own name (Workspace Context §70). */}
+        <p className="mt-1 text-table text-fg-subtle" data-testid="dashboard-workspace">
+          {context.workspace.scopeType === "GROUP" ? `Across ${context.parentGroup.name}` : context.company.name}
+        </p>
       </div>
 
       <div className="hidden shrink-0 text-right md:block">

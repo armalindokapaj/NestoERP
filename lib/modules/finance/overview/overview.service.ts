@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { assertModule, assertPermission } from "@/lib/access/guards";
+import { inGroupWorkspace } from "@/config/workspace";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { countPendingApprovals } from "../approvals/approval.service";
@@ -14,7 +15,8 @@ import {
 } from "../finance.scope";
 import { baseCurrency } from "../finance.settings";
 import { paidByExpense, paidByInvoice } from "../finance.settlement";
-import type { CurrencyTotal, FinanceOverviewDTO } from "../finance.types";
+import type { CurrencyTotal, FinanceOverviewDTO, GroupFinanceOverviewDTO } from "../finance.types";
+import { companyOf, financeContexts, mergeCurrencyTotals } from "../finance.workspace";
 
 /**
  * The Finance overview (PRD #15 §21–§27, §249–§256).
@@ -70,6 +72,72 @@ export async function getFinanceOverview(
     openCommitments: commitments,
     counts,
     visible,
+  };
+}
+
+/**
+ * The overview of the active workspace (Workspace Context §36, §72): a company
+ * workspace is `getFinanceOverview`, untouched; the Group workspace is
+ * `getGroupFinanceOverview`.
+ */
+export async function getFinanceOverviewForWorkspace(
+  session: UserContext,
+  options: { now?: Date } = {},
+): Promise<FinanceOverviewDTO | GroupFinanceOverviewDTO> {
+  return inGroupWorkspace(session) ? getGroupFinanceOverview(session, options) : getFinanceOverview(session, options);
+}
+
+/**
+ * The group's Finance overview: every company the reader may open the overview
+ * in answers as itself, on one clock, and the group is those answers together.
+ *
+ * Nothing is asked of a company where Finance is off or where the reader lacks
+ * the permission, so nothing of it can reach a total (§60, §92). Amounts are
+ * added only within a currency; what cannot be — a base currency, a company's
+ * own picture — stays a per-company row (§72).
+ */
+export async function getGroupFinanceOverview(
+  session: UserContext,
+  options: { now?: Date } = {},
+): Promise<GroupFinanceOverviewDTO> {
+  // A group with no company to read is an empty overview, not an error (§76).
+  const contexts = await financeContexts(session, "finance.dashboard.view");
+
+  const now = options.now ?? new Date();
+  const companies = await Promise.all(
+    contexts.map(async (context) => ({ company: companyOf(context), overview: await getFinanceOverview(context, { now }) })),
+  );
+  const overviews = companies.map((row) => row.overview);
+  const sum = (pick: (overview: FinanceOverviewDTO) => CurrencyTotal[]) => mergeCurrencyTotals(overviews.map(pick));
+  const count = (key: keyof FinanceOverviewDTO["counts"]) => overviews.reduce((total, overview) => total + overview.counts[key], 0);
+  const anywhere = (key: keyof FinanceOverviewDTO["visible"]) => overviews.some((overview) => overview.visible[key]);
+
+  return {
+    scope: "GROUP",
+    companies,
+    totals: {
+      receivables: sum((overview) => overview.receivables),
+      overdueReceivables: sum((overview) => overview.overdueReceivables),
+      payables: sum((overview) => overview.payables),
+      cashIn: sum((overview) => overview.cashIn),
+      cashOut: sum((overview) => overview.cashOut),
+      netCashflow: sum((overview) => overview.netCashflow),
+      openCommitments: sum((overview) => overview.openCommitments),
+    },
+    counts: {
+      draftInvoices: count("draftInvoices"),
+      pendingApprovals: count("pendingApprovals"),
+      overdueInvoices: count("overdueInvoices"),
+      unpaidExpenses: count("unpaidExpenses"),
+    },
+    visible: {
+      receivables: anywhere("receivables"),
+      payables: anywhere("payables"),
+      cashflow: anywhere("cashflow"),
+      commitments: anywhere("commitments"),
+      approvals: anywhere("approvals"),
+      projectBudgets: anywhere("projectBudgets"),
+    },
   };
 }
 

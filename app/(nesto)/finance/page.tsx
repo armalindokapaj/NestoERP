@@ -6,12 +6,14 @@ import { CurrencyTotals } from "@/components/finance/money";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { getFinanceOverview } from "@/lib/modules/finance/overview/overview.service";
 import { budgetVsActual } from "@/lib/modules/finance/reports/reports.service";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
+import { GroupFinanceOverview } from "./group-overview";
 
 export const metadata: Metadata = { title: "Finance" };
 
@@ -23,9 +25,14 @@ export const metadata: Metadata = { title: "Finance" };
  * alone rather than a company cash position with holes in it — and an Architect
  * with only the project-budget grant sees the budget panel and nothing else
  * (PRD #15 §24, §25).
+ *
+ * The Group workspace has its own overview, the companies' answers side by side
+ * (Workspace Context §36, §72): see `group-overview.tsx`.
  */
 export default async function FinanceOverviewPage() {
   const context = await requireModule("finance");
+  if (inGroupWorkspace(context)) return <GroupFinanceOverview context={context} />;
+
   const experience = resolveModuleExperience(context, "finance");
 
   const overview = await getFinanceOverview(context);

@@ -33,6 +33,9 @@ test("a project manager finds a colleague in another company and reads their wor
 
   const find = mainRegion(page).getByRole("form", { name: "Find people" });
   await find.getByRole("searchbox", { name: "Search" }).fill("Dritan");
+  // A company workspace opens on its own company; the directory is the group's
+  // for everyone who works in it, and this is how it widens (E-01 §103, §85, §86).
+  await find.getByLabel("Company").selectOption({ label: "Every company" });
   await find.getByRole("button", { name: "Search" }).click();
   const card = mainRegion(page).getByTestId("person-card").filter({ hasText: "Dritan Lleshi" });
   await expect(card).toContainText("Meridian Developments");

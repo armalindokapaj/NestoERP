@@ -2,6 +2,7 @@ import type { AccessLevel, DataScope } from "@/config/access";
 import type { ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
 import type { PositionLevel, RoleKey } from "@/config/roles";
+import type { WorkspaceContext } from "@/config/workspace";
 import type { ContextAssignment } from "./organization-access";
 
 /** Resolved access to one module for the current user (PRD #5 §42). */
@@ -87,6 +88,15 @@ export type UserContext = {
   moduleAccess: Record<ModuleKey, ModuleAccess>;
   /** Modules switched on for this company, regardless of the user's role. */
   enabledModules: ModuleKey[];
+
+  /**
+   * The workspace this request works in (Workspace Context §4, §56). Everything
+   * above is one operational context — the home company's. In the Group
+   * workspace `companyId` is that home company, not "the" company: what a
+   * group view reads comes from `resolveWorkspaceContexts`, which asks each
+   * authorised company's own rules in turn. Never trust it from a browser (§14).
+   */
+  workspace: WorkspaceContext;
 };
 
 /**

@@ -24,7 +24,7 @@ export const metadata: Metadata = {
  */
 export default async function DashboardPage() {
   const context = await requireUserContext();
-  // The group's banner is for those who see the group as a group (D-01 §26, §66).
+  // The group's banner is the Group workspace's (D-01 §26, §66; Workspace Context §18).
   const [dashboard, group] = await Promise.all([resolveDashboard(context), groupIdentity(context).catch(() => null)]);
 
   return (

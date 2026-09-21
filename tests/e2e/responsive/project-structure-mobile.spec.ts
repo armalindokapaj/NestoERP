@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 import { STRUCTURE_SEED } from "../structure-fixtures";
 
 /**
@@ -33,7 +33,8 @@ test("reads a published unit's page, sections and Sales Plan on a phone (E-05D Â
   await signIn(page, "SALES", { to: `/projects/${STRUCTURE_SEED.riverside}/units/${STRUCTURE_SEED.units.a101}` });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("A-101");
   await expect(page.getByTestId("publication-status").first()).toHaveText("Published v1");
-  await expect(page.getByTestId("unit-primary-image")).toBeVisible();
+  // Scoped to the main region: the page streams, and for a moment React's parked copy is in the document too (see mainRegion).
+  await expect(mainRegion(page).getByTestId("unit-primary-image")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.getByRole("navigation", { name: "A-101 sections" }).getByRole("link", { name: "Documents", exact: true }).click();

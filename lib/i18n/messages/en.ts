@@ -54,6 +54,28 @@ export const en = {
     },
   },
 
+  workspace: {
+    switcherLabel: "Workspace: {name}. Switch workspace",
+    title: "Switch workspace",
+    description: "Choose the group or one company to work in.",
+    groupHeading: "Group company",
+    groupOptionHint: "All accessible group data",
+    companiesHeading: "Group companies",
+    searchPlaceholder: "Search companies…",
+    searchLabel: "Search companies",
+    noMatches: "No company matches your search.",
+    current: "Current workspace",
+    switching: "Switching to {name}…",
+    switchFailed: "That workspace could not be opened. You are still in {name}.",
+    groupWorkspaceName: "Group Company",
+    acrossGroup: "Across {group}",
+    companyRequiredTitle: "Choose a company to continue",
+    companyRequiredDescription: "{module} works inside one company. Choose a company to open it.",
+    companyRequiredNone: "None of your companies offers {module}.",
+    openInCompany: "Open in {company}",
+    company: "Company",
+  },
+
   notificationCenter: {
     title: "Notifications",
     description: "Everything NESTO has told you, and what still needs your attention.",

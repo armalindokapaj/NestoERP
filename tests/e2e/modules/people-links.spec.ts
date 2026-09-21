@@ -114,7 +114,9 @@ test("the architect sets her photo, a colleague sees it in the directory, and sh
   await expect(mainRegion(page).locator("header img").first()).toHaveAttribute("src", /^\/api\/people\/person_architect\/photo\?v=[0-9a-f]{16}$/);
   await signOut(page);
 
-  await signIn(page, "PM_B", { to: "/people?q=Anna+Rossi" });
+  // Anna works in Aurelia and the reader in Meridian, so the directory is widened
+  // to the group, which it is for everyone who works in it (E-01 §103, §85).
+  await signIn(page, "PM_B", { to: "/people?q=Anna+Rossi&company=all" });
   const card = mainRegion(page).getByTestId("person-card").filter({ hasText: "Anna Rossi" });
   const photo = card.locator("img");
   await expect(photo).toHaveAttribute("src", /^\/api\/people\/person_architect\/photo\?v=/);

@@ -115,6 +115,17 @@ export const documentListQuerySchema = z.object({
   projectId: z.string().optional(),
   clientId: z.string().optional(),
   uploadedByMemberId: z.string().optional(),
+  /**
+   * The Group workspace's company filter (Workspace Context §86, §87). A filter,
+   * not the workspace: only a company the reader may already read narrows
+   * anything, and the company workspace never looks at it. A value that cannot
+   * be a company id is dropped rather than refused, like one that is not theirs.
+   */
+  companyId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value && value.length <= 64 ? value : undefined)),
   dateFrom: optionalDate,
   dateTo: optionalDate,
   page: z.number().int().min(1).default(1),

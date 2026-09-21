@@ -18,6 +18,9 @@ type Params = { params: Promise<{ projectId: string }> };
  */
 export async function GET(_request: Request, { params }: Params) {
   const { projectId } = await params;
+  // `group: "read"` — the Group workspace's project list shows these covers, and
+  // the two doors below are the project's own company's, not the session's
+  // (Workspace Context §45, §59).
   return withContext(async (session) => {
     const context = await contextForProject(session, projectId);
     const documentId = await projectCoverDocumentId(context, projectId);
@@ -34,5 +37,5 @@ export async function GET(_request: Request, { params }: Params) {
         "X-Content-Type-Options": "nosniff",
       },
     });
-  });
+  }, { group: "read" });
 }

@@ -1,6 +1,6 @@
 import { apiOk, withContext } from "@/lib/api/respond";
 import { approvalQuerySchema } from "@/lib/modules/approvals/approvals.schema";
-import { listApprovals } from "@/lib/modules/approvals/approvals.service";
+import { listApprovalsForWorkspace } from "@/lib/modules/approvals/approvals.group";
 
 /**
  * GET /api/approvals — the aggregated queue (PRD #41 §114).
@@ -8,6 +8,11 @@ import { listApprovals } from "@/lib/modules/approvals/approvals.service";
  * `tab`, `provider`, `status`, `priority`, `projectId`, `requesterId`, `from`,
  * `to`, `dueState`, `amountMin`, `amountMax`, `q`, `sort`, `cursor`, `limit`.
  * Every item is one the reader can open; counts come from the same providers.
+ *
+ * In the Group workspace the answer is the merge of every company the person
+ * may read approvals in, each item naming its company, and `company` narrows it
+ * to one of them (Workspace Context §33, §45). Deciding is company-only: the
+ * routes under this one still answer "choose a company" there.
  */
 export async function GET(request: Request) {
   return withContext(async (context) => {
@@ -22,6 +27,7 @@ export async function GET(request: Request) {
       dueState: many("dueState"),
       projectId: one("projectId"),
       requesterId: one("requesterId"),
+      company: one("company"),
       from: one("from"),
       to: one("to"),
       amountMin: one("amountMin"),
@@ -32,6 +38,6 @@ export async function GET(request: Request) {
       cursor: one("cursor"),
       limit: one("limit"),
     });
-    return apiOk({ data: await listApprovals(context, query) });
-  });
+    return apiOk({ data: await listApprovalsForWorkspace(context, query) });
+  }, { group: "read" });
 }

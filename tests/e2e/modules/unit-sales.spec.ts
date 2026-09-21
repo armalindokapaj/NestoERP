@@ -77,7 +77,8 @@ test.afterAll(async () => {
 });
 
 const salesUrl = (unitId: string) => `/projects/${PROJECT}/units/${unitId}/sales`;
-const status = (page: Page) => page.getByTestId("unit-sales-summary").getByTestId("commercial-status");
+// Scoped to the main region: the panel streams, and for a moment React's parked copy is in the document too (see mainRegion).
+const status = (page: Page) => mainRegion(page).getByTestId("unit-sales-summary").getByTestId("commercial-status");
 const actions = (page: Page) => page.getByTestId("unit-sales-actions");
 const inFuture = (days: number) => {
   const date = new Date(Date.now() + days * 86_400_000);

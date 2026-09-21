@@ -216,9 +216,12 @@ const documentProvider: GlobalSearchProvider = {
 const peopleProvider: GlobalSearchProvider = {
   moduleKey: "people",
   entityTypes: ["person"],
+  // The directory is the group's, not a company's: the Group workspace asks it once (Workspace Context §46).
+  groupWide: { readableBy: (context) => available(context, "people", "people.directory.view") },
   async search(context, query) {
     if (!available(context, "people", "people.directory.view")) return [];
-    const { data } = await listPeople(context, directoryQuerySchema.parse({ q: query.text, limit: query.limitPerProvider }));
+    // A Group search narrowed to one company asks the directory's own company filter (§86).
+    const { data } = await listPeople(context, directoryQuerySchema.parse({ q: query.text, limit: query.limitPerProvider, ...(query.companyId ? { company: query.companyId } : {}) }));
     return data.map((person) => ({
       moduleKey: "people",
       entityType: "person",
@@ -239,8 +242,11 @@ const peopleProvider: GlobalSearchProvider = {
 const qualificationProvider: GlobalSearchProvider = {
   moduleKey: "people",
   entityTypes: ["person_qualification"],
+  groupWide: { readableBy: (context) => available(context, "people", "people.directory.view") && can(context, "people.profile.view") },
   async search(context, query) {
     if (!available(context, "people", "people.directory.view") || !can(context, "people.profile.view")) return [];
+    // A qualification is the person's, held for the group; it has no company to narrow by (§86).
+    if (query.companyId) return [];
     const rows = await prisma.personQualification.findMany({
       where: {
         AND: [

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import * as commitments from "@/lib/modules/finance/commitments/commitment.service";
 import * as expenses from "@/lib/modules/finance/expenses/expense.service";
@@ -120,7 +120,7 @@ const INVOICE_LINE_FIELDS = ["description", "quantity", "unitPrice", "taxRate"];
 export async function invoiceFromProposalAction(
   proposalId: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   let id: string;
   try {
@@ -134,7 +134,7 @@ export async function invoiceFromProposalAction(
 }
 
 export async function createInvoiceAction(formData: FormData): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createInvoiceSchema.safeParse({
     ...scalarValues(formData),
@@ -157,7 +157,7 @@ export async function updateInvoiceAction(
   invoiceId: string,
   formData: FormData,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateInvoiceSchema.safeParse({
     ...scalarValues(formData),
@@ -188,7 +188,7 @@ export async function invoiceLifecycleAction(
   action: InvoiceAction,
   note?: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await invoices.submitInvoice(context, invoiceId);
@@ -209,7 +209,7 @@ export async function rejectInvoiceAction(
   invoiceId: string,
   reason: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await invoices.rejectInvoice(context, invoiceId, reason);
@@ -226,7 +226,7 @@ export async function rejectInvoiceAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createExpenseAction(formData: FormData): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createExpenseSchema.safeParse(scalarValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -246,7 +246,7 @@ export async function updateExpenseAction(
   expenseId: string,
   formData: FormData,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateExpenseSchema.safeParse(scalarValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -268,7 +268,7 @@ export async function expenseLifecycleAction(
   action: ExpenseAction,
   note?: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await expenses.submitExpense(context, expenseId);
@@ -288,7 +288,7 @@ export async function rejectExpenseAction(
   expenseId: string,
   reason: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await expenses.rejectExpense(context, expenseId, reason);
@@ -307,7 +307,7 @@ export async function rejectExpenseAction(
 const BUDGET_LINE_FIELDS = ["category", "description", "plannedAmount"];
 
 export async function createBudgetAction(formData: FormData): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createBudgetSchema.safeParse({
     ...scalarValues(formData),
@@ -330,7 +330,7 @@ export async function updateBudgetAction(
   budgetId: string,
   formData: FormData,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateBudgetSchema.safeParse({
     ...scalarValues(formData),
@@ -355,7 +355,7 @@ export async function budgetLifecycleAction(
   action: BudgetAction,
   note?: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await budgets.submitBudget(context, budgetId);
@@ -374,7 +374,7 @@ export async function rejectBudgetAction(
   budgetId: string,
   reason: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await budgets.rejectBudget(context, budgetId, reason);
@@ -387,7 +387,7 @@ export async function rejectBudgetAction(
 }
 
 export async function reviseBudgetAction(budgetId: string): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   let id: string;
   try {
@@ -405,7 +405,7 @@ export async function reviseBudgetAction(budgetId: string): Promise<FinanceActio
 /* -------------------------------------------------------------------------- */
 
 export async function createCommitmentAction(formData: FormData): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createCommitmentSchema.safeParse(scalarValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -425,7 +425,7 @@ export async function updateCommitmentAction(
   commitmentId: string,
   formData: FormData,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateCommitmentSchema.safeParse(scalarValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -453,7 +453,7 @@ export async function commitmentLifecycleAction(
   action: CommitmentAction,
   note?: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await commitments.submitCommitment(context, commitmentId);
@@ -475,7 +475,7 @@ export async function rejectCommitmentAction(
   commitmentId: string,
   reason: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await commitments.rejectCommitment(context, commitmentId, reason);
@@ -492,7 +492,7 @@ export async function rejectCommitmentAction(
 /* -------------------------------------------------------------------------- */
 
 export async function recordPaymentAction(formData: FormData): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createPaymentSchema.safeParse(scalarValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -515,7 +515,7 @@ export async function voidPaymentAction(
   paymentId: string,
   reason: string,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = voidPaymentSchema.safeParse({ reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -537,7 +537,7 @@ export async function voidPaymentAction(
 export async function updateFinanceSettingsAction(
   formData: FormData,
 ): Promise<FinanceActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = financeSettingsSchema.safeParse(scalarValues(formData));
   if (!parsed.success) return invalid(parsed.error);

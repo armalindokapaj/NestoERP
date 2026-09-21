@@ -1,6 +1,8 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
+import { CompanyTag } from "@/components/workspace/company-tag";
 import type { TaskSummaryDTO } from "@/lib/modules/tasks/task.types";
 import { formatDate } from "@/lib/utils/format";
 
@@ -10,22 +12,52 @@ import { formatDate } from "@/lib/utils/format";
  * Operational ERP density on desktop; record cards below the tablet
  * breakpoint. Clicking a row opens the task — individual cells are not
  * separately clickable.
+ *
+ * In the Group workspace every row carries its company (Workspace Context §32,
+ * §45), shown as a column of its own, and opening a task goes through
+ * `CompanyRecordLink`: the task's page is a company page, so the click enters
+ * that company's workspace first.
  */
 export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
+  const grouped = tasks.some((task) => task.company);
+
   const columns: TableColumn<TaskSummaryDTO>[] = [
     {
       key: "title",
       label: "Task",
       primary: true,
-      render: (task) => (
-        <>
-          <span className="block truncate">{task.title}</span>
-          <span className="block text-meta font-normal text-fg-subtle">
-            {task.project ? task.project.name : "Personal task"}
-          </span>
-        </>
-      ),
+      render: (task) => {
+        const title = (
+          <>
+            <span className="block truncate">{task.title}</span>
+            <span className="block text-meta font-normal text-fg-subtle">
+              {task.project ? task.project.name : "Personal task"}
+            </span>
+          </>
+        );
+        return task.company ? (
+          <CompanyRecordLink
+            companyId={task.company.id}
+            companyName={task.company.name}
+            href={`/tasks/${task.id}`}
+            className="font-medium text-fg transition-colors hover:text-accent focus-visible:text-accent"
+          >
+            {title}
+          </CompanyRecordLink>
+        ) : (
+          title
+        );
+      },
     },
+    ...(grouped
+      ? [
+          {
+            key: "company",
+            label: "Company",
+            render: (task: TaskSummaryDTO) => (task.company ? <CompanyTag name={task.company.name} /> : null),
+          },
+        ]
+      : []),
     {
       key: "project",
       label: "Project",
@@ -88,7 +120,8 @@ export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
       columns={columns}
       records={tasks}
       rowKey={(task) => task.id}
-      rowHref={(task) => `/tasks/${task.id}`}
+      // A group row links itself, through its company (above).
+      rowHref={grouped ? undefined : (task) => `/tasks/${task.id}`}
     />
   );
 }

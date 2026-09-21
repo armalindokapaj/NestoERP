@@ -70,6 +70,13 @@ export const approvalQuerySchema = z
     dueState: csvOf(DUE_STATES),
     projectId: optionalId,
     requesterId: optionalId,
+    /**
+     * Group workspace only: narrow to one company. It is a filter, not the
+     * workspace (Workspace Context §87), and only ever intersects the companies
+     * the person may read — a company outside them finds nothing (§57). A
+     * company workspace ignores it: its company is fixed (§86).
+     */
+    company: optionalId,
     from: optionalDate,
     to: optionalDate,
     amountMin: optionalAmount,

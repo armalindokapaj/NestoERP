@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { addLocalDays, dateLabel, localDate } from "@/lib/modules/project-planning/planning.dates";
 import { db } from "../db";
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 import { PLANNING_SEED, restoreSeededPlanning } from "../planning-fixtures";
 
 /**
@@ -20,8 +20,9 @@ test.afterAll(async () => {
 
 test("updates a delayed milestone from the phone", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a/planning" });
-  await expect(page.getByTestId("planning-view-timeline")).toHaveCount(0);
-  await page.getByTestId("planning-view-milestones").click();
+  // Scoped to the main region: the view streams, and for a moment React's parked copy is in the document too (see mainRegion).
+  await expect(mainRegion(page).getByTestId("planning-view-timeline")).toHaveCount(0);
+  await mainRegion(page).getByTestId("planning-view-milestones").click();
   await page.getByRole("button", { name: "Delayed", exact: true }).click();
 
   const card = page.getByTestId("milestone-card").filter({ hasText: "Scaffold Inspection Passed" });

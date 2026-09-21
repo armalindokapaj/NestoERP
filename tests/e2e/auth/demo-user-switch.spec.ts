@@ -133,9 +133,9 @@ test.describe("demo user switcher (C-01)", () => {
     await signInOnTheForm(page, "armaar.finance");
     const before = { user: await shown(page, "User ID"), session: await shown(page, "Session ID") };
 
-    await page.getByTestId("company-switcher").click();
-    await page.getByTestId("company-switcher-option").filter({ hasText: "ARLIS - NDERTIM" }).click();
-    await expect(page.getByTestId("company-switcher")).toHaveAccessibleName(/Company: ARLIS - NDERTIM/);
+    await page.getByTestId("workspace-switcher").click();
+    await page.getByTestId("workspace-option").filter({ hasText: "ARLIS - NDERTIM" }).click();
+    await expect(page.getByTestId("workspace-switcher")).toHaveAccessibleName(/Workspace: ARLIS - NDERTIM/);
 
     await expect(userMenu(page)).toContainText("Edvin Gace");
     await expect(userMenu(page)).toContainText("Finance");

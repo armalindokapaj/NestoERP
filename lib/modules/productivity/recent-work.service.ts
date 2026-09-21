@@ -1,12 +1,15 @@
 import { Prisma } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import type { UserContext } from "@/lib/context/types";
+import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
 import { jobStopRequested } from "@/lib/core/jobs/job.context";
 import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { canNavigate, isNavigableType, resolveNavigable, type NavigableEntityDTO } from "./navigable.registry";
 import { resolveProductivitySettings } from "./productivity.settings";
+import { contextOpening, narrowedTo, type InCompany } from "./productivity.workspace";
 
 /**
  * Recent Work (PRD #45 §94-§115, §162, §251, §254-§259).
@@ -21,7 +24,7 @@ import { resolveProductivitySettings } from "./productivity.settings";
 export const RECENT_CAP = 100;
 export const RECENT_DEBOUNCE_MS = 10 * 60_000;
 
-export type RecentWorkItemDTO = NavigableEntityDTO & { lastAccessedAt: string };
+export type RecentWorkItemDTO = NavigableEntityDTO & InCompany & { lastAccessedAt: string };
 
 /**
  * Records that this member opened a record (§99, §100). Silent: a page never
@@ -74,6 +77,58 @@ export async function removeRecentItem(context: UserContext, entityType: string,
 export async function clearRecentWork(context: UserContext): Promise<number> {
   const removed = await prisma.recentItem.deleteMany({ where: { companyId: context.companyId, memberId: context.membershipId } });
   return removed.count;
+}
+
+/* -------------------------------------------------------------------------- */
+/* The active workspace (Workspace Context §43)                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Recent work in the active workspace (§43): the selected company's in a
+ * company workspace, the recent accessible work across companies in the Group
+ * workspace. Each company's list is its own — this person's membership there,
+ * resolved in that company's context, so a record they can no longer open is
+ * gone — and the merge is newest first with every row naming its company.
+ * `companyId` is a filter, ignored unless it is a company the person may use.
+ */
+export async function listRecentWorkForWorkspace(session: UserContext, options: { limit?: number; companyId?: string | null } = {}): Promise<RecentWorkItemDTO[]> {
+  if (!inGroupWorkspace(session)) return listRecentWork(session, options);
+  const contexts = narrowedTo(await resolveWorkspaceContexts(session, {}), options.companyId);
+  const lists = await Promise.all(
+    contexts.map(async (context) => {
+      const company = { id: context.companyId, name: context.company.name };
+      // Each list holds its own newest `limit`, so the newest `limit` of all of them is among them.
+      return (await listRecentWork(context, { limit: options.limit })).map((item) => ({ ...item, company }));
+    }),
+  );
+  return lists
+    .flat()
+    .sort((a, b) => b.lastAccessedAt.localeCompare(a.lastAccessedAt) || `${a.entityType}:${a.entityId}`.localeCompare(`${b.entityType}:${b.entityId}`))
+    .slice(0, options.limit ?? Number.POSITIVE_INFINITY);
+}
+
+/** Records an open. In the Group workspace the record's own company keeps it — the person's membership there — never the company the session is anchored in. */
+export async function recordRecentAccessForWorkspace(session: UserContext, entityType: string, entityId: string): Promise<boolean> {
+  if (!inGroupWorkspace(session)) return recordRecentAccess(session, entityType, entityId);
+  if (!isNavigableType(entityType)) return false;
+  const owner = await contextOpening(session, { entityType, entityId });
+  return owner ? recordRecentAccess(owner, entityType, entityId, { verified: true }) : false;
+}
+
+/** The person's own recent rows across the memberships the Group workspace reads; nobody else's is ever named. */
+async function ownRecentWhere(session: UserContext) {
+  return (await resolveWorkspaceContexts(session, {})).map((context) => ({ companyId: context.companyId, memberId: context.membershipId }));
+}
+
+export async function removeRecentItemForWorkspace(session: UserContext, entityType: string, entityId: string): Promise<boolean> {
+  if (!inGroupWorkspace(session)) return removeRecentItem(session, entityType, entityId);
+  const { count } = await prisma.recentItem.deleteMany({ where: { OR: await ownRecentWhere(session), entityType, entityId } });
+  return count > 0;
+}
+
+export async function clearRecentWorkForWorkspace(session: UserContext): Promise<number> {
+  if (!inGroupWorkspace(session)) return clearRecentWork(session);
+  return (await prisma.recentItem.deleteMany({ where: { OR: await ownRecentWhere(session) } })).count;
 }
 
 const PRUNE_JOB = "recentwork.prune";

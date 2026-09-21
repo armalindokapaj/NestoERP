@@ -5,9 +5,11 @@ import Link from "next/link";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { workspaceExperience } from "@/lib/modules/documents/document.workspace";
 import { DocumentsList } from "../documents-list";
 
 export const metadata: Metadata = { title: "Recent Documents" };
@@ -18,7 +20,7 @@ export default async function DocumentsSectionPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("documents");
-  const experience = resolveModuleExperience(context, "documents");
+  const experience = workspaceExperience(context, resolveModuleExperience(context, "documents"));
   const params = await searchParams;
 
   return (
@@ -26,7 +28,9 @@ export default async function DocumentsSectionPage({
       experience={experience}
       activeSection="recent"
       actions={
-        can(context, "document.create") ? (
+        // Creating a document belongs to one company, so the Group workspace
+        // offers no upload (Workspace Context §35).
+        !inGroupWorkspace(context) && can(context, "document.create") ? (
           <Button asChild size="sm">
             <Link href="/documents/new">Add document</Link>
           </Button>

@@ -122,6 +122,33 @@ export async function listInvoices(context: UserContext, query: InvoiceListQuery
   return { rows, total };
 }
 
+/**
+ * The Group workspace's invoice list (Workspace Context §36, §58).
+ *
+ * The union of each company's own list clause — that company's scope, the
+ * archive rule, the search and the filters — so the database decides which
+ * invoices belong before it sorts and pages, and every branch begins with its
+ * company. `id` breaks ties: several companies can hold the same due date, and
+ * a page must not move between requests.
+ */
+export async function listInvoicesAcross(contexts: UserContext[], query: InvoiceListQuery) {
+  if (contexts.length === 0) return { rows: [], total: 0 };
+  const where: Prisma.InvoiceWhereInput = { OR: contexts.map((context) => buildInvoiceListWhere(context, query)) };
+
+  const [rows, total] = await Promise.all([
+    prisma.invoice.findMany({
+      where,
+      orderBy: [...ORDER[query.sort], { id: "asc" }],
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+      select: { ...SUMMARY_SELECT, companyId: true },
+    }),
+    prisma.invoice.count({ where }),
+  ]);
+
+  return { rows, total };
+}
+
 export function findInvoiceInScope(context: UserContext, invoiceId: string) {
   return prisma.invoice.findFirst({
     where: { AND: [buildInvoiceScopeWhere(context), { id: invoiceId }] },
@@ -153,6 +180,18 @@ export async function invoiceFilterOptions(context: UserContext) {
   ]);
 
   return { clients, projects, currencies: currencies.map((row) => row.currency) };
+}
+
+/** Currencies of the invoices the Group workspace reads: no client or project, which belong to one company. */
+export async function invoiceCurrenciesAcross(contexts: UserContext[]): Promise<string[]> {
+  if (contexts.length === 0) return [];
+  const rows = await prisma.invoice.findMany({
+    where: { OR: contexts.map((context) => buildInvoiceScopeWhere(context)) },
+    select: { currency: true },
+    distinct: ["currency"],
+    orderBy: { currency: "asc" },
+  });
+  return rows.map((row) => row.currency);
 }
 
 /** Clients and projects a new invoice may name (PRD #15 §48, §49). */

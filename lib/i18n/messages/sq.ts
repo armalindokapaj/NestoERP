@@ -44,6 +44,28 @@ export const sq: Messages = {
     },
   },
 
+  workspace: {
+    switcherLabel: "Hapësira e punës: {name}. Ndrysho hapësirën e punës",
+    title: "Ndrysho hapësirën e punës",
+    description: "Zgjidhni grupin ose një kompani për të punuar.",
+    groupHeading: "Kompania e grupit",
+    groupOptionHint: "Të gjitha të dhënat e grupit që keni të drejtë t'i shihni",
+    companiesHeading: "Kompanitë e grupit",
+    searchPlaceholder: "Kërko kompani…",
+    searchLabel: "Kërko kompani",
+    noMatches: "Asnjë kompani nuk përputhet me kërkimin.",
+    current: "Hapësira aktuale",
+    switching: "Duke kaluar te {name}…",
+    switchFailed: "Ajo hapësirë pune nuk mund të hapej. Jeni ende te {name}.",
+    groupWorkspaceName: "Kompania e grupit",
+    acrossGroup: "Në të gjithë {group}",
+    companyRequiredTitle: "Zgjidhni një kompani për të vazhduar",
+    companyRequiredDescription: "{module} punon brenda një kompanie. Zgjidhni një kompani për ta hapur.",
+    companyRequiredNone: "Asnjë nga kompanitë tuaja nuk ofron {module}.",
+    openInCompany: "Hape te {company}",
+    company: "Kompania",
+  },
+
   notificationCenter: {
     title: "Njoftimet",
     description: "Gjithçka që ju ka treguar NESTO dhe çfarë kërkon ende vëmendjen tuaj.",

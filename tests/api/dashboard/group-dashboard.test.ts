@@ -8,7 +8,7 @@ import { loginAs, loginAsEmail, prisma } from "../../helpers";
  * The group's executive dashboard (D-01 §25-§36, §66, §79-§85, §97, §106).
  *
  * Run against the ARMAAR demo tenant the seed builds beside the five-company
- * demo. Every figure must be what the database holds, computed company by
+ * demo, in the Group workspace. Every figure must be what the database holds, computed company by
  * company as the reader; a reader who works in one company's view gets nothing
  * group-wide; nothing crosses from one group into the other.
  */
@@ -17,6 +17,8 @@ const ARMAAR = "armaar_group";
 const OWNER = "owner@armaar-demo.test";
 const GROUP_FINANCE = "finance@armaar-demo.test";
 const COMPANY_FINANCE = "bci.finance@armaar-demo.test";
+/** The group's dashboard is the Group workspace's (Workspace Context §18). */
+const GROUP = { workspace: "GROUP" } as const;
 
 afterAll(async () => {
   await prisma.$disconnect();
@@ -24,7 +26,7 @@ afterAll(async () => {
 
 describe("the Owner's view of the group (§26-§36)", () => {
   it("names the group and derives every figure from the database (§27, §28, §70)", async () => {
-    const owner = await loginAsEmail(OWNER);
+    const owner = await loginAsEmail(OWNER, GROUP);
     const view = await getGroupDashboard(owner);
 
     expect(view.group).toMatchObject({ name: "ARMAAR GROUP", legalName: "ARMAAR GROUP sh.p.k.", registrationNumber: "M01517007J", city: "Tirana", isDemo: true });
@@ -44,7 +46,7 @@ describe("the Owner's view of the group (§26-§36)", () => {
   });
 
   it("counts an external company once, however many roles it plays (§45, §99)", async () => {
-    const owner = await loginAsEmail(OWNER);
+    const owner = await loginAsEmail(OWNER, GROUP);
     const suppliers = await prisma.supplier.findMany({ where: { company: { parentGroupId: ARMAAR }, status: "ACTIVE" }, select: { taxId: true } });
     const contractors = await prisma.contractorProfile.findMany({ where: { company: { parentGroupId: ARMAAR } }, select: { vatNumber: true } });
     // AlbaBuild supplies BCI and IDEAL, and builds Tirana Lake's frame: three records, one company.
@@ -57,7 +59,7 @@ describe("the Owner's view of the group (§26-§36)", () => {
   });
 
   it("shows the key projects with their progress from the plan, flagship first (§17, §19, §31)", async () => {
-    const owner = await loginAsEmail(OWNER);
+    const owner = await loginAsEmail(OWNER, GROUP);
     const { keyProjects } = await getGroupDashboard(owner);
     expect(keyProjects.map((project) => project.name)).toEqual(expect.arrayContaining(["Tirana Lake", "United Towers", "Gran Melia", "Square 21"]));
     const lake = keyProjects[0]!;
@@ -68,7 +70,7 @@ describe("the Owner's view of the group (§26-§36)", () => {
   });
 
   it("charts the portfolio by status and type, departments by their people, and lists what is next (§32-§36)", async () => {
-    const owner = await loginAsEmail(OWNER);
+    const owner = await loginAsEmail(OWNER, GROUP);
     const view = await getGroupDashboard(owner);
     const projects = await prisma.project.findMany({ where: { company: { parentGroupId: ARMAAR }, archivedAt: null }, select: { status: true } });
     expect(view.portfolio.reduce((sum, row) => sum + row.value, 0)).toBe(projects.length);
@@ -93,7 +95,7 @@ describe("who sees the group (§65, §66, §85, §106)", () => {
   });
 
   it("gives a group head the group through their own function's reads: Finance's value, not HR's people", async () => {
-    const head = await loginAsEmail(GROUP_FINANCE);
+    const head = await loginAsEmail(GROUP_FINANCE, GROUP);
     const view = await getGroupDashboard(head);
     expect(view.figures.portfolioValue?.value).toMatch(/^€/);
     expect(view.figures.employees).toBeNull();
@@ -102,8 +104,8 @@ describe("who sees the group (§65, §66, §85, §106)", () => {
   });
 
   it("keeps each group's figures inside it (§75, §106)", async () => {
-    const armaar = await getGroupDashboard(await loginAsEmail(OWNER));
-    const demo = await getGroupDashboard(await loginAs("OWNER"));
+    const armaar = await getGroupDashboard(await loginAsEmail(OWNER, GROUP));
+    const demo = await getGroupDashboard(await loginAs("OWNER", GROUP));
     expect(demo.group).toMatchObject({ name: expect.not.stringContaining("ARMAAR"), isDemo: false });
     expect(demo.figures.companies?.value).toBe("5");
 

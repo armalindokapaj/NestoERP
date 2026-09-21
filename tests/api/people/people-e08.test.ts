@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { UserContext } from "@/lib/context/types";
-import { directoryQuerySchema } from "@/lib/modules/people/people.schema";
+import { ALL_COMPANIES, directoryQuerySchema } from "@/lib/modules/people/people.schema";
 import { directoryFilterOptions, getAccessSummary, getDocumentsTab, getQualificationsTab, getWorkProfile, listPeople } from "@/lib/modules/people/people.service";
 import { readPhoto, removePhoto, setPhoto } from "@/lib/modules/people/person.photo";
 import { assignableProjects, assignPersonToProject, removableProjectIds, unassignPersonFromProject } from "@/lib/modules/people/person.projects";
@@ -172,7 +172,9 @@ describe("direct reports and the directory's views (E-08 §11, §21, §41)", () 
     expect(architects.data.every((row) => row.personId !== pmPerson)).toBe(true);
 
     const company = await listPeople(pm, directoryQuerySchema.parse({ view: "company", limit: 100 }));
-    const everyone = await listPeople(pm, directoryQuerySchema.parse({ limit: 100 }));
+    // A company workspace opens on its own company, so "everyone" is the group
+    // only once the filter widens (Workspace Context §85, §86).
+    const everyone = await listPeople(pm, directoryQuerySchema.parse({ company: ALL_COMPANIES, limit: 100 }));
     expect(company.pagination.total).toBeLessThan(everyone.pagination.total);
     expect(company.data.map((row) => row.personId)).toContain(pmPerson);
 

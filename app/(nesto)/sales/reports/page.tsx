@@ -7,11 +7,16 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { ModulePage } from "@/components/modules/module-page";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { GroupSalesScope } from "@/components/sales/group-scope";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CompanyTag } from "@/components/workspace/company-tag";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
+import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
+import { firstValue } from "@/lib/modules/shared/list-query";
+import { groupCompanies, includedCompanies, resolveSalesExperience } from "@/lib/modules/sales/sales.workspace";
 import { opportunityStageLabels } from "@/lib/modules/sales/opportunities/opportunity.stage";
 import { lostReasonLabels, proposalStatusLabels } from "@/lib/modules/sales/proposals/proposal.status";
 import * as reports from "@/lib/modules/sales/reports/reports.service";
@@ -35,6 +40,11 @@ export const metadata: Metadata = { title: "Sales reports" };
  *
  * Every monetary figure is grouped by currency and never summed across them:
  * V0.1 has no FX engine (PRD #17 §172).
+ *
+ * Reports consume the active workspace (Workspace Context §41): a company's
+ * own, or in the Group workspace the aggregate of every company the reader may
+ * read the report in — the companies included are named above it, and the
+ * by-owner report names each owner's company (§45).
  */
 const REPORTS = [
   { key: "pipeline", label: "Pipeline by stage", needs: "opportunity" },
@@ -51,28 +61,45 @@ type ReportKey = (typeof REPORTS)[number]["key"];
 export default async function SalesReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ report?: string }>;
+  searchParams: Promise<{ report?: string; company?: string }>;
 }) {
   const context = await requireModule("sales");
-  if (!can(context, "sales.report.view")) redirect("/access-denied");
+  const grouped = inGroupWorkspace(context);
+  if (!grouped && !can(context, "sales.report.view")) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "sales");
-  const { report: requested } = await searchParams;
+  const experience = await resolveSalesExperience(context);
+  const { report: requested, company: requestedCompany } = await searchParams;
+  const company = grouped ? firstValue(requestedCompany) : undefined;
 
+  // Which reports are offered is what the reader may open: in the group, what
+  // they may open in at least one company that lets them read reports.
+  const readers = grouped
+    ? await resolveWorkspaceContexts(context, { module: "sales", permission: "sales.report.view" })
+    : [context];
+  const holds = (permission: "sales.opportunity.view" | "sales.lead.view" | "sales.proposal.view") =>
+    readers.some((reader) => can(reader, permission));
   const available = REPORTS.filter((entry) => {
-    if (entry.needs === "opportunity") return can(context, "sales.opportunity.view");
-    if (entry.needs === "lead") return can(context, "sales.lead.view");
-    return can(context, "sales.proposal.view");
+    if (entry.needs === "opportunity") return holds("sales.opportunity.view");
+    if (entry.needs === "lead") return holds("sales.lead.view");
+    return holds("sales.proposal.view");
   });
 
   if (available.length === 0) {
     return (
       <ModulePage experience={experience} activeSection="reports">
-        <EmptyState
-          icon={<ChartColumn />}
-          title="No reports in your view."
-          description="Reports follow the same permissions as the lists they summarise."
-        />
+        {grouped ? (
+          <EmptyState
+            icon={<ChartColumn />}
+            title="No accessible data for this module."
+            description="None of the companies you can open lets you read Sales reports."
+          />
+        ) : (
+          <EmptyState
+            icon={<ChartColumn />}
+            title="No reports in your view."
+            description="Reports follow the same permissions as the lists they summarise."
+          />
+        )}
       </ModulePage>
     );
   }
@@ -81,16 +108,19 @@ export default async function SalesReportsPage({
     available[0].key) as ReportKey;
 
   const period = reports.defaultPeriod();
+  const companies = grouped ? await groupCompanies(context, "sales.report.view") : [];
 
   return (
     <ModulePage experience={experience} activeSection="reports">
       <div className="space-y-5">
+        {grouped ? <GroupSalesScope companies={companies} included={includedCompanies(companies, company)} /> : null}
+
         <nav aria-label="Reports" className="border-b border-line">
           <ul className="-mb-px flex gap-1 overflow-x-auto">
             {available.map((entry) => (
               <li key={entry.key}>
                 <Link
-                  href={`/sales/reports?report=${entry.key}`}
+                  href={`/sales/reports?report=${entry.key}${company ? `&company=${encodeURIComponent(company)}` : ""}`}
                   aria-current={entry.key === active ? "page" : undefined}
                   className={cn(
                     "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",
@@ -106,13 +136,13 @@ export default async function SalesReportsPage({
           </ul>
         </nav>
 
-        {active === "pipeline" ? <PipelineReport context={context} /> : null}
-        {active === "expected-close" ? <ExpectedCloseReport context={context} /> : null}
-        {active === "win-loss" ? <WinLossReport context={context} period={period} /> : null}
-        {active === "by-owner" ? <OwnerReport context={context} period={period} /> : null}
-        {active === "lost-reasons" ? <LostReasons context={context} period={period} /> : null}
-        {active === "lead-conversion" ? <LeadConversion context={context} period={period} /> : null}
-        {active === "proposals" ? <Proposals context={context} period={period} /> : null}
+        {active === "pipeline" ? <PipelineReport context={context} company={company} /> : null}
+        {active === "expected-close" ? <ExpectedCloseReport context={context} company={company} /> : null}
+        {active === "win-loss" ? <WinLossReport context={context} period={period} company={company} /> : null}
+        {active === "by-owner" ? <OwnerReport context={context} period={period} company={company} /> : null}
+        {active === "lost-reasons" ? <LostReasons context={context} period={period} company={company} /> : null}
+        {active === "lead-conversion" ? <LeadConversion context={context} period={period} company={company} /> : null}
+        {active === "proposals" ? <Proposals context={context} period={period} company={company} /> : null}
       </div>
     </ModulePage>
   );
@@ -142,8 +172,8 @@ function Totals({ totals }: { totals: CurrencyTotal[] }) {
   return <span className="tabular-nums">{totalsLabel(totals)}</span>;
 }
 
-async function PipelineReport({ context }: { context: UserContext }) {
-  const rows = await reports.pipelineByStage(context);
+async function PipelineReport({ context, company }: { context: UserContext; company?: string }) {
+  const rows = await reports.pipelineByStageForWorkspace(context, company);
 
   if (rows.length === 0) {
     return (
@@ -193,8 +223,8 @@ async function PipelineReport({ context }: { context: UserContext }) {
   );
 }
 
-async function ExpectedCloseReport({ context }: { context: UserContext }) {
-  const buckets = await reports.expectedCloseReport(context);
+async function ExpectedCloseReport({ context, company }: { context: UserContext; company?: string }) {
+  const buckets = await reports.expectedCloseReportForWorkspace(context, company);
 
   if (buckets.length === 0) {
     return (
@@ -242,11 +272,13 @@ async function ExpectedCloseReport({ context }: { context: UserContext }) {
 async function WinLossReport({
   context,
   period,
+  company,
 }: {
   context: UserContext;
   period: reports.ReportPeriod;
+  company?: string;
 }) {
-  const report = await reports.winLossReport(context, period);
+  const report = await reports.winLossReportForWorkspace(context, period, company);
 
   return (
     <ReportShell
@@ -269,11 +301,13 @@ async function WinLossReport({
 async function OwnerReport({
   context,
   period,
+  company,
 }: {
   context: UserContext;
   period: reports.ReportPeriod;
+  company?: string;
 }) {
-  const rows = await reports.ownerReport(context, period);
+  const rows = await reports.ownerReportForWorkspace(context, period, company);
 
   if (rows.length === 0) {
     return (
@@ -293,6 +327,16 @@ async function OwnerReport({
         </span>
       ),
     },
+    // Group workspace only: an owner is a membership, one per company (§45).
+    ...(rows.some((row) => row.company)
+      ? [
+          {
+            key: "company",
+            label: "Company",
+            render: (row: OwnerPerformanceRow) => (row.company ? <CompanyTag name={row.company.name} /> : null),
+          },
+        ]
+      : []),
     { key: "currency", label: "Currency", render: (row) => row.currency },
     {
       key: "open",
@@ -347,11 +391,13 @@ async function OwnerReport({
 async function LostReasons({
   context,
   period,
+  company,
 }: {
   context: UserContext;
   period: reports.ReportPeriod;
+  company?: string;
 }) {
-  const rows = await reports.lostReasonReport(context, period);
+  const rows = await reports.lostReasonReportForWorkspace(context, period, company);
 
   if (rows.length === 0) {
     return (
@@ -398,11 +444,13 @@ async function LostReasons({
 async function LeadConversion({
   context,
   period,
+  company,
 }: {
   context: UserContext;
   period: reports.ReportPeriod;
+  company?: string;
 }) {
-  const report = await reports.leadConversionReport(context, period);
+  const report = await reports.leadConversionReportForWorkspace(context, period, company);
 
   return (
     <ReportShell
@@ -427,11 +475,13 @@ async function LeadConversion({
 async function Proposals({
   context,
   period,
+  company,
 }: {
   context: UserContext;
   period: reports.ReportPeriod;
+  company?: string;
 }) {
-  const rows = await reports.proposalReport(context, period);
+  const rows = await reports.proposalReportForWorkspace(context, period, company);
 
   if (rows.length === 0) {
     return (

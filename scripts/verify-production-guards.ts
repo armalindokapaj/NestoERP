@@ -29,11 +29,13 @@ const checks: Check[] = [
         }
       };
       ["app", "components"].forEach(walk);
-      // Each rendering sits in the branch of an isDevMode test, a Suspense boundary at most between them.
+      // Each rendering sits in the branch of an isDevMode test, a Suspense
+      // boundary at most between them. The branch is parenthesised or not, as
+      // the formatter left it.
       const unguarded = renderers.filter((path) => {
         const source = readFileSync(path, "utf8");
         const renderings = source.match(/<DevUserSwitcher\s*\/>/g)?.length ?? 0;
-        const guarded = source.match(/isDevMode \? \(\s*(?:<Suspense[^>]*>\s*)?<DevUserSwitcher\s*\/>/g)?.length ?? 0;
+        const guarded = source.match(/isDevMode \? \(?\s*(?:<Suspense[^>]*>\s*)?<DevUserSwitcher\s*\/>/g)?.length ?? 0;
         return guarded < renderings;
       });
       if (renderers.length === 0) return "nothing renders the demo user switcher";

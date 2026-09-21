@@ -9,8 +9,13 @@ import { apiOk, withContext } from "@/lib/api/respond";
  * are never included (PRD #8 §119).
  */
 export async function GET() {
-  return withContext(async (context) =>
+  // `group: "any"`: who the caller is. In the Group workspace `company` and the
+  // permissions below are the home company's; `workspace` says which workspace
+  // the request is in, so no client mistakes one for the other (Workspace Context §4, §56).
+  return withContext(
+    async (context) =>
     apiOk({
+      workspace: context.workspace,
       user: {
         id: context.userId,
         firstName: context.firstName,
@@ -37,5 +42,6 @@ export async function GET() {
       ),
       enabledModules: context.enabledModules,
     }),
+    { group: "any" },
   );
 }

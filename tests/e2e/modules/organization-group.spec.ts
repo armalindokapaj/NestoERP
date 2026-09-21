@@ -25,21 +25,21 @@ test.afterAll(async () => {
 
 test("somebody in two companies switches between them from the top bar (§3.4, §96)", async ({ page }) => {
   await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-  const switcher = page.getByTestId("company-switcher");
+  const switcher = page.getByTestId("workspace-switcher");
   await expect(switcher).toHaveAttribute("aria-label", /Aurelia Construction/);
   await switcher.click();
-  await page.getByTestId("company-switcher-option").filter({ hasText: "Forma Engineering" }).click();
-  await expect(page.getByTestId("company-switcher")).toHaveAttribute("aria-label", /Forma Engineering/);
+  await page.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
+  await expect(page.getByTestId("workspace-switcher")).toHaveAttribute("aria-label", /Forma Engineering/);
   await expect(page).toHaveURL(/\/dashboard$/);
 
   await page.goto("/projects/project_d/team");
   await expect(page.getByRole("heading", { name: "Marina Apartments" }).first()).toBeVisible();
 });
 
-test("somebody in one company is offered no switch", async ({ page }) => {
+test("somebody with one company and no group standing is offered no switch", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(page.getByTestId("company-switcher")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-switcher")).toHaveCount(0);
 });
 
 test("a company department manager assigns one of their people to a project, and takes them off (§65, §94; E-13 §88)", async ({ page }) => {
@@ -69,7 +69,8 @@ test("a company department manager assigns one of their people to a project, and
 });
 
 test("the Owner's dashboard shows the group's five companies (§108)", async ({ page }) => {
-  await signIn(page, "OWNER", { to: "/dashboard" });
+  // The group's own dashboard, which is the Group workspace's (Workspace Context §84).
+  await signIn(page, "OWNER", { workspace: "GROUP", to: "/dashboard" });
   const companies = mainRegion(page).getByRole("region", { name: "Group Companies" });
   for (const name of ["Aurelia Construction", "Meridian Developments", "Terra Infrastructure", "Forma Engineering", "Nova Hospitality Development"]) {
     await expect(companies.getByText(name)).toBeVisible();

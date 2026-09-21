@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 
 import { ApprovalsShell } from "@/components/approvals/approvals-shell";
 import type { ApprovalFilters } from "@/components/approvals/approval-filters";
+import { inGroupWorkspace } from "@/config/workspace";
 import { AccessError } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { loadRecord } from "@/lib/core/records/record.registry";
 import { approvalQuerySchema, parseApprovalRef } from "@/lib/modules/approvals/approvals.schema";
-import { findApprovalForRecord, getApprovalDetail, listApprovals } from "@/lib/modules/approvals/approvals.service";
+import { listApprovalsForWorkspace } from "@/lib/modules/approvals/approvals.group";
+import { findApprovalForRecord, getApprovalDetail } from "@/lib/modules/approvals/approvals.service";
 import type { UnifiedApprovalDetail } from "@/lib/modules/approvals/approvals.types";
 
 export const metadata: Metadata = { title: "Approvals" };
@@ -25,13 +27,21 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
  * A link that names a record rather than an approval is resolved here to the
  * approval this reader may open on it — or to the record itself when there is
  * none. Nothing in the URL grants anything: every id is authorised again.
+ *
+ * In the Group workspace this is the read view across the companies the person
+ * works in (Workspace Context §33, §45): the list is the merge of each company's
+ * own queue, and an approval, a record link or the delegation panel is opened
+ * inside its company, so none of those parameters is read here. Who may see
+ * approvals at all is each company's own answer, not the home company's: a
+ * person with none anywhere gets the empty state rather than an access error (§76).
  */
 export default async function ApprovalsPage({ searchParams }: Params) {
   const context = await requireModule("approvals");
-  if (!can(context, "approvals.view")) redirect("/access-denied");
+  const group = inGroupWorkspace(context);
+  if (!group && !can(context, "approvals.view")) redirect("/access-denied");
   const params = await searchParams;
 
-  const record = one(params.record);
+  const record = group ? undefined : one(params.record);
   if (record) {
     const [type, id] = record.split(":");
     const ref = type && id ? await findApprovalForRecord(context, type, id) : null;
@@ -48,6 +58,7 @@ export default async function ApprovalsPage({ searchParams }: Params) {
     dueState: params.dueState,
     projectId: one(params.projectId),
     requesterId: one(params.requesterId),
+    company: group ? one(params.company) : undefined,
     from: one(params.from),
     to: one(params.to),
     amountMin: one(params.amountMin),
@@ -57,7 +68,7 @@ export default async function ApprovalsPage({ searchParams }: Params) {
     returned: one(params.returned),
   });
 
-  const ref = parseApprovalRef(one(params.approval));
+  const ref = group ? null : parseApprovalRef(one(params.approval));
   let detail: UnifiedApprovalDetail | null = null;
   let detailError: string | null = null;
   if (ref) {
@@ -68,7 +79,7 @@ export default async function ApprovalsPage({ searchParams }: Params) {
     }
   }
 
-  const initial = await listApprovals(context, query);
+  const initial = await listApprovalsForWorkspace(context, query);
   const filters: ApprovalFilters = {
     provider: query.provider,
     status: query.status,
@@ -76,6 +87,7 @@ export default async function ApprovalsPage({ searchParams }: Params) {
     dueState: query.dueState,
     projectId: query.projectId ?? null,
     requesterId: query.requesterId ?? null,
+    company: query.company ?? null,
     from: query.from ?? null,
     to: query.to ?? null,
     amountMin: query.amountMin !== undefined ? String(query.amountMin) : null,
@@ -89,7 +101,8 @@ export default async function ApprovalsPage({ searchParams }: Params) {
       initialSelection={ref ? `${ref.providerKey}:${ref.approvalId}` : null}
       initialDetail={detail}
       initialDetailError={detailError}
-      openDelegation={one(params.panel) === "delegation"}
+      openDelegation={!group && one(params.panel) === "delegation"}
+      group={group}
     />
   );
 }

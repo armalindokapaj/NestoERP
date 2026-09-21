@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
 import { MODULE_KEYS } from "@/config/modules";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import {
   companySettingsSchema,
   updateCompanySettings,
@@ -73,7 +73,7 @@ function field(formData: FormData, name: string): string | undefined {
 }
 
 export async function updateCompanySettingsAction(formData: FormData): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   // The finance fields are only on the form for somebody who may see them, so
   // a missing one means "unchanged" rather than a value (PRD #47 §61).
   const input = companySettingsSchema.parse({
@@ -89,7 +89,7 @@ export async function updateCompanySettingsAction(formData: FormData): Promise<A
 }
 
 export async function updateIntegrationSettingsAction(formData: FormData): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const input = integrationSettingsSchema.parse({
     qualityGateForInventoryReceipts: formData.get("qualityGateForInventoryReceipts") === "on",
     autoCreateFinanceCommitmentFromApprovedPo:
@@ -108,7 +108,7 @@ export async function setModuleEnabledAction(
   moduleKey: string,
   enabled: boolean,
 ): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const parsed = moduleToggleArgs.safeParse({ moduleKey, enabled });
   if (!parsed.success) return { ok: false, message: MESSAGES.MODULE_NOT_FOUND };
   return run(() => setModuleEnabled(context, parsed.data.moduleKey, parsed.data.enabled), [
@@ -118,7 +118,7 @@ export async function setModuleEnabledAction(
 }
 
 export async function updateNumberingSchemeAction(formData: FormData): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const moduleKey = String(formData.get("moduleKey"));
   const entityType = String(formData.get("entityType"));
   const input = numberingSchemeSchema.parse({

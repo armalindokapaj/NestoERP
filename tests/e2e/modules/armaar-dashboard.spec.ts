@@ -49,7 +49,8 @@ test("a company's own finance manager sees their company, not the group (§66)",
 });
 
 test("the five-company demo is not a demo tenant: no notice (§69)", async ({ page }) => {
-  await signIn(page, "OWNER", { to: "/dashboard" });
+  // The group hero belongs to the group dashboard, which is the Group workspace's.
+  await signIn(page, "OWNER", { workspace: "GROUP", to: "/dashboard" });
   await expect(mainRegion(page).getByTestId("group-hero")).toContainText("NESTO");
   await expect(page.getByTestId("demo-notice")).toHaveCount(0);
 });

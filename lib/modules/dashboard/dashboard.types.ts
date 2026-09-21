@@ -13,6 +13,11 @@ export type WidgetListItem = {
   href?: string;
   /** The row is a person: its title leads to their profile (E-08 §71). */
   person?: PersonRef;
+  /**
+   * The company the row is about, on a group widget: following `href` enters that
+   * company first, then goes on (Workspace Context §74).
+   */
+  companyId?: string;
 };
 
 /** One slice of a breakdown widget. */
@@ -23,6 +28,8 @@ export type WidgetBreakdownItem = {
   display?: string;
   status?: string;
   href?: string;
+  /** As on a list row: the company that `href` enters (Workspace Context §74). */
+  companyId?: string;
 };
 
 /** Priority levels for the attention area (PRD #4 §63). */
@@ -34,6 +41,9 @@ export type WidgetAlert = {
   title: string;
   detail: string;
   href?: string;
+  /** On the group's attention list: the company it is about, which `href` enters (Workspace Context §71). */
+  company?: string;
+  companyId?: string;
 };
 
 export type WidgetApproval = {
@@ -89,6 +99,8 @@ export type ResolvedKpi = {
   definition: KpiDefinition;
   value: string;
   hint?: string;
+  /** A group total with each company's own figure beside it, for "view by company" (Workspace Context §73). */
+  breakdown?: Array<{ companyId: string; company: string; value: number }>;
 };
 
 export type ResolvedDashboard = {

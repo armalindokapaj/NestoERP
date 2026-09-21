@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";
 import { useToast } from "@/components/ui/toast";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
+import { CompanyTag } from "@/components/workspace/company-tag";
 import { changeStageAction } from "@/lib/actions/sales";
 import {
   canTransitionOpportunityStage,
@@ -30,13 +32,20 @@ import { cardDescription, formatAmount, totalsLabel, weightedTotalsLabel } from 
  *
  * On a narrow screen the columns become a stage selector with the cards stacked
  * beneath it, rather than a wide board squeezed sideways (PRD #17 §102, §284).
+ *
+ * The Group workspace (`grouped`) reads: one column per stage across every
+ * company, each card naming its company and opening through the company hop.
+ * Nothing moves there — a stage change is one company's write, so the control
+ * is not offered (Workspace Context §59).
  */
 export function PipelineBoard({
   stages,
   canChangeStage,
+  grouped = false,
 }: {
   stages: PipelineStageBucket[];
   canChangeStage: boolean;
+  grouped?: boolean;
 }) {
   const [selected, setSelected] = React.useState<OpportunityStage>(
     stages[0]?.stage ?? "PROSPECTING",
@@ -71,7 +80,8 @@ export function PipelineBoard({
                 key={opportunity.id}
                 opportunity={opportunity}
                 stages={stages}
-                canChangeStage={canChangeStage}
+                canChangeStage={canChangeStage && !grouped}
+                grouped={grouped}
               />
             ))}
           </div>
@@ -97,7 +107,8 @@ export function PipelineBoard({
                   key={opportunity.id}
                   opportunity={opportunity}
                   stages={stages}
-                  canChangeStage={canChangeStage}
+                  canChangeStage={canChangeStage && !grouped}
+                  grouped={grouped}
                 />
               ))
             )}
@@ -131,10 +142,12 @@ function PipelineCard({
   opportunity,
   stages,
   canChangeStage,
+  grouped,
 }: {
   opportunity: PipelineStageBucket["opportunities"][number];
   stages: PipelineStageBucket[];
   canChangeStage: boolean;
+  grouped: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -163,12 +176,28 @@ function PipelineCard({
 
   return (
     <article className="nesto-card p-4">
-      <Link
-        href={`/sales/opportunities/${opportunity.id}`}
-        className="text-table font-medium text-fg transition-colors hover:text-accent"
-      >
-        {opportunity.name}
-      </Link>
+      {grouped && opportunity.company ? (
+        <>
+          <div className="mb-1.5">
+            <CompanyTag name={opportunity.company.name} />
+          </div>
+          <CompanyRecordLink
+            companyId={opportunity.company.id}
+            companyName={opportunity.company.name}
+            href={`/sales/opportunities/${opportunity.id}`}
+            className="text-table font-medium text-fg transition-colors hover:text-accent"
+          >
+            {opportunity.name}
+          </CompanyRecordLink>
+        </>
+      ) : (
+        <Link
+          href={`/sales/opportunities/${opportunity.id}`}
+          className="text-table font-medium text-fg transition-colors hover:text-accent"
+        >
+          {opportunity.name}
+        </Link>
+      )}
       {/* Everything the colour of a column would otherwise imply, in words
           (PRD #17 §406). */}
       <span className="sr-only">

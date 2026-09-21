@@ -8,7 +8,9 @@
  * Because widgets are keyed rather than bound to role names, a future custom
  * role composes a dashboard from the same registry (PRD #4 §89).
  */
+import { kpis } from "./kpis";
 import type { PositionLevel, RoleKey } from "./roles";
+import { widgets } from "./widgets";
 
 export type DashboardConfig = {
   /** A short line under the greeting, describing the role's focus. */
@@ -365,6 +367,64 @@ const managerDashboards: Partial<Record<RoleKey, DashboardConfig>> = {
     quickActions: ["newLead", "newOpportunity", "newClient"],
   },
 };
+
+/**
+ * The Group workspace's dashboard (Workspace Context §18, §19, §84).
+ *
+ * One layout for everybody who works in the group, because each entry is
+ * asked of every authorised company in turn and a person sees only what at
+ * least one of their companies lets them read. An Owner ends up with all of it,
+ * a Group Finance head with the finance and portfolio figures and what waits on
+ * them. The company dashboards are the role layouts above, unchanged.
+ *
+ * No quick actions: creating a record needs a company workspace.
+ *
+ * `groupDashboardFor` puts the reader's own function first (§22): Head of
+ * Finance is the Group Finance dashboard in the group and the Company Finance
+ * dashboard in a company — same person, same function, different context.
+ */
+export const groupDashboard: DashboardConfig = {
+  focus: "Across the companies of your group, as far as your access reaches.",
+  kpis: [
+    "groupCompanyCount",
+    "groupActiveProjects",
+    "groupPendingApprovals",
+    "groupOpenTasks",
+    "groupOverdueTasks",
+    "groupEmployees",
+    "groupExternalCompanies",
+    "groupPortfolioValue",
+  ],
+  widgets: [
+    "groupAttention",
+    "keyProjects",
+    "groupApprovals",
+    "groupCompanies",
+    "portfolioStatus",
+    "projectTypes",
+    "groupFinance",
+    "groupPipeline",
+    "groupTasks",
+    "groupDepartments",
+    "groupMilestones",
+    "groupActivity",
+  ],
+  quickActions: [],
+};
+
+/** The Group workspace's dashboard for a role: the role's own group entries first, then the shared layout (§22). */
+export function groupDashboardFor(role: RoleKey, position: PositionLevel = "MEMBER"): DashboardConfig {
+  const own = dashboardForRole(role, position);
+  const first = (ownKeys: string[], groupKeys: string[], declared: Record<string, { supportsGroupContext?: boolean }>) => [
+    ...new Set([...ownKeys.filter((key) => declared[key]?.supportsGroupContext), ...groupKeys]),
+  ];
+  return {
+    focus: own.focus,
+    kpis: first(own.kpis, groupDashboard.kpis, kpis),
+    widgets: first(own.widgets, groupDashboard.widgets, widgets),
+    quickActions: [],
+  };
+}
 
 export function dashboardForRole(role: RoleKey, position: PositionLevel = "MEMBER"): DashboardConfig {
   if (position !== "MEMBER" && managerDashboards[role]) return managerDashboards[role];

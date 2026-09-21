@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
-import { buildLeadScopeWhere } from "../sales.scope";
+import { buildLeadScopeWhere, buildLeadUnionWhere } from "../sales.scope";
 import type { LeadListQuery, LeadSortKey } from "./lead.schema";
 
 /** Lead queries (PRD #17 §36–§40, §245, §246). */
@@ -42,6 +42,11 @@ export const SUMMARY_SELECT = {
 
 export type LeadRow = Prisma.LeadGetPayload<{ select: typeof SUMMARY_SELECT }>;
 
+/** A group row also says whose it is, so the service can label it (Workspace Context §45). */
+export const GROUP_SUMMARY_SELECT = { ...SUMMARY_SELECT, companyId: true } satisfies Prisma.LeadSelect;
+
+export type GroupLeadRow = Prisma.LeadGetPayload<{ select: typeof GROUP_SUMMARY_SELECT }>;
+
 export const DETAIL_SELECT = {
   ...SUMMARY_SELECT,
   website: true,
@@ -60,11 +65,12 @@ export const DETAIL_SELECT = {
 
 export type LeadDetailRow = Prisma.LeadGetPayload<{ select: typeof DETAIL_SELECT }>;
 
-export function buildLeadListWhere(
-  context: UserContext,
-  query: LeadListQuery,
-): Prisma.LeadWhereInput {
-  const filters: Prisma.LeadWhereInput[] = [buildLeadScopeWhere(context)];
+/**
+ * Everything a list narrows by other than the scope. `mine` is the reader's own
+ * membership, and a group reader has one per company: their own leads in each.
+ */
+function leadFilters(query: LeadListQuery, mineMemberIds: string[]): Prisma.LeadWhereInput[] {
+  const filters: Prisma.LeadWhereInput[] = [];
 
   // Archived leads are absent unless asked for, and ARCHIVED is not a status
   // anyone can filter into by accident (PRD #17 §57).
@@ -88,7 +94,7 @@ export function buildLeadListWhere(
 
   if (query.status?.length && !query.archived) filters.push({ status: { in: query.status } });
   if (query.source?.length) filters.push({ source: { in: query.source } });
-  if (query.mine) filters.push({ ownerMemberId: context.membershipId });
+  if (query.mine) filters.push({ ownerMemberId: mineMemberIds.length === 1 ? mineMemberIds[0] : { in: mineMemberIds } });
   else if (query.ownerMemberId) filters.push({ ownerMemberId: query.ownerMemberId });
   if (query.currency) filters.push({ currency: query.currency });
   if (query.minValue) filters.push({ estimatedValue: { gte: new Prisma.Decimal(query.minValue) } });
@@ -96,7 +102,21 @@ export function buildLeadListWhere(
   if (query.createdFrom) filters.push({ createdAt: { gte: query.createdFrom } });
   if (query.createdTo) filters.push({ createdAt: { lte: query.createdTo } });
 
-  return { AND: filters };
+  return filters;
+}
+
+export function buildLeadListWhere(
+  context: UserContext,
+  query: LeadListQuery,
+): Prisma.LeadWhereInput {
+  return { AND: [buildLeadScopeWhere(context), ...leadFilters(query, [context.membershipId])] };
+}
+
+/** The Group workspace's list: the union of each company's own scope, then the same filters (§58). */
+export function buildLeadGroupWhere(contexts: UserContext[], query: LeadListQuery): Prisma.LeadWhereInput {
+  return {
+    AND: [buildLeadUnionWhere(contexts), ...leadFilters(query, contexts.map((context) => context.membershipId))],
+  };
 }
 
 export async function listLeads(context: UserContext, query: LeadListQuery) {
@@ -109,6 +129,24 @@ export async function listLeads(context: UserContext, query: LeadListQuery) {
       skip: skipFor(query.page, query.limit),
       take: query.limit,
       select: SUMMARY_SELECT,
+    }),
+    prisma.lead.count({ where }),
+  ]);
+
+  return { rows, total };
+}
+
+/** One page of the group's leads, the id breaking ties so a page boundary between two companies is stable. */
+export async function listLeadsInGroup(contexts: UserContext[], query: LeadListQuery) {
+  const where = buildLeadGroupWhere(contexts, query);
+
+  const [rows, total] = await Promise.all([
+    prisma.lead.findMany({
+      where,
+      orderBy: [...ORDER[query.sort], { id: "asc" }],
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+      select: GROUP_SUMMARY_SELECT,
     }),
     prisma.lead.count({ where }),
   ]);
@@ -147,6 +185,42 @@ export async function leadFilterOptions(context: UserContext) {
   return {
     owners: owners.map((owner) => ({
       memberId: owner.id,
+      fullName: `${owner.user.firstName} ${owner.user.lastName}`,
+      active: owner.status === "ACTIVE",
+    })),
+    currencies: currencies.map((row) => row.currency).filter((code): code is string => Boolean(code)),
+  };
+}
+
+/**
+ * The group list's filter options, drawn from the leads the reader can already
+ * see in each company they read. An owner is one company's membership, so it
+ * carries its company.
+ */
+export async function leadFilterOptionsInGroup(contexts: UserContext[]) {
+  const [owners, currencies] = await Promise.all([
+    prisma.companyMember.findMany({
+      where: {
+        OR: contexts.map((context) => ({
+          companyId: context.companyId,
+          ownedLeads: { some: buildLeadScopeWhere(context) },
+        })),
+      },
+      select: { ...OWNER_SELECT, companyId: true },
+      orderBy: [{ user: { lastName: "asc" } }, { user: { firstName: "asc" } }],
+    }),
+    prisma.lead.findMany({
+      where: { AND: [buildLeadUnionWhere(contexts), { currency: { not: null } }] },
+      select: { currency: true },
+      distinct: ["currency"],
+      orderBy: { currency: "asc" },
+    }),
+  ]);
+
+  return {
+    owners: owners.map((owner) => ({
+      memberId: owner.id,
+      companyId: owner.companyId,
       fullName: `${owner.user.firstName} ${owner.user.lastName}`,
       active: owner.status === "ACTIVE",
     })),

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import * as adjustments from "@/lib/modules/inventory/documents/adjustment.service";
 import * as issues from "@/lib/modules/inventory/documents/issue.service";
 import * as receipts from "@/lib/modules/inventory/documents/receipt.service";
@@ -104,7 +104,7 @@ function formValues(formData: FormData): {
 /* -------------------------------------------------------------------------- */
 
 export async function createItemAction(formData: FormData): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = itemSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -124,7 +124,7 @@ export async function updateItemAction(
   itemId: string,
   formData: FormData,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = itemSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -143,7 +143,7 @@ export async function itemLifecycleAction(
   itemId: string,
   action: "archive" | "restore",
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "archive") await items.archiveItem(context, itemId);
@@ -163,7 +163,7 @@ export async function itemLifecycleAction(
 export async function createWarehouseAction(
   formData: FormData,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = warehouseSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -183,7 +183,7 @@ export async function updateWarehouseAction(
   warehouseId: string,
   formData: FormData,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = warehouseSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -202,7 +202,7 @@ export async function warehouseLifecycleAction(
   warehouseId: string,
   action: "archive" | "restore",
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "archive") await warehouses.archiveWarehouse(context, warehouseId);
@@ -219,7 +219,7 @@ export async function createLocationAction(
   warehouseId: string,
   formData: FormData,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = locationSchema.safeParse({
     ...formValues(formData).values,
@@ -242,7 +242,7 @@ export async function archiveLocationAction(
   warehouseId: string,
   locationId: string,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await warehouses.archiveLocation(context, locationId);
@@ -264,7 +264,7 @@ export async function createDocumentAction(
   kind: DocumentKind,
   formData: FormData,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const { values, lines } = formValues(formData);
 
   let id: string;
@@ -303,7 +303,7 @@ export async function updateDocumentAction(
   documentId: string,
   formData: FormData,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const { values, lines } = formValues(formData);
 
   try {
@@ -349,7 +349,7 @@ export async function documentLifecycleAction(
   documentId: string,
   action: DocumentLifecycle,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (kind === "receipts") {
@@ -402,7 +402,7 @@ export async function postFromGoodsReceiptAction(
   goodsReceiptId: string,
   formData: FormData,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const { values, lines } = formValues(formData);
 
   const warehouseId = typeof values.warehouseId === "string" ? values.warehouseId : "";
@@ -442,7 +442,7 @@ export async function postFromGoodsReceiptAction(
 export async function createReservationAction(
   formData: FormData,
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = reservationSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -462,7 +462,7 @@ export async function reservationLifecycleAction(
   reservationId: string,
   action: "release" | "cancel",
 ): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "release") await reservations.release(context, reservationId);
@@ -477,7 +477,7 @@ export async function reservationLifecycleAction(
 
 /** Releases every reservation whose date has passed (PRD #20 §163). */
 export async function expireReservationsAction(): Promise<InventoryActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   let released: number;
   try {

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import type { DuplicateMatch } from "@/lib/modules/clients/client.duplicate";
 import {
   createClientSchema,
@@ -62,7 +62,7 @@ function formValues(formData: FormData): Record<string, unknown> {
 }
 
 export async function createClientAction(formData: FormData): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createClientSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -89,7 +89,7 @@ export async function updateClientAction(
   clientId: string,
   formData: FormData,
 ): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateClientSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -111,7 +111,7 @@ export async function updateClientAction(
 }
 
 export async function archiveClientAction(clientId: string): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await clients.archiveClient(context, clientId);
   } catch (error) {
@@ -122,7 +122,7 @@ export async function archiveClientAction(clientId: string): Promise<ClientActio
 }
 
 export async function restoreClientAction(clientId: string): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await clients.restoreClient(context, clientId);
   } catch (error) {
@@ -140,7 +140,7 @@ export async function createContactAction(
   clientId: string,
   formData: FormData,
 ): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createContactSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -166,7 +166,7 @@ export async function updateContactAction(
   contactId: string,
   formData: FormData,
 ): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateContactSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -191,7 +191,7 @@ export async function makePrimaryContactAction(
   clientId: string,
   contactId: string,
 ): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await clients.makePrimaryContact(context, clientId, contactId);
   } catch (error) {
@@ -205,7 +205,7 @@ export async function archiveContactAction(
   clientId: string,
   contactId: string,
 ): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await clients.archiveContact(context, clientId, contactId);
   } catch (error) {
@@ -219,7 +219,7 @@ export async function restoreContactAction(
   clientId: string,
   contactId: string,
 ): Promise<ClientActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await clients.restoreContact(context, clientId, contactId);
   } catch (error) {

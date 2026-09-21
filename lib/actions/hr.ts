@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import * as compensation from "@/lib/modules/hr/compensation/compensation.service";
 import * as employees from "@/lib/modules/hr/employees/employee.service";
@@ -80,7 +80,7 @@ function formValues(formData: FormData): Record<string, unknown> {
 export async function createEmployeeProfileAction(
   formData: FormData,
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createEmployeeProfileSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -101,7 +101,7 @@ export async function updateEmployeeProfileAction(
   employeeId: string,
   formData: FormData,
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateEmployeeProfileSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -124,7 +124,7 @@ export async function updateEmployeeProfileAction(
  * employment (E-04 §105, ADR 0006).
  */
 export async function employmentChangeAction(employeeId: string, input: unknown): Promise<HrActionResult & { outcome?: EmploymentChangeResultDTO }> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = employmentChangeSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
@@ -146,7 +146,7 @@ export async function employmentChangeAction(employeeId: string, input: unknown)
 }
 
 export async function cancelScheduledChangeAction(employeeId: string, changeId: string, reason?: string): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const parsed = cancelScheduledChangeSchema.safeParse({ reason });
   if (!parsed.success) return invalid(parsed.error);
 
@@ -162,7 +162,7 @@ export async function cancelScheduledChangeAction(employeeId: string, changeId: 
 
 /** A correction of one history row, with its reason (E-03 §42-§44, §76, §224). */
 export async function correctEmploymentHistoryAction(employeeId: string, input: unknown): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = correctionSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
@@ -183,7 +183,7 @@ export async function progressAction(
   kind: "onboarding" | "offboarding",
   status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "NOT_REQUIRED",
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await employees.setProgress(context, employeeId, kind, status);
@@ -203,7 +203,7 @@ export async function recordCompensationAction(
   employeeId: string,
   formData: FormData,
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createCompensationSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -223,7 +223,7 @@ export async function recordCompensationAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createLeaveAction(formData: FormData): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createLeaveSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -243,7 +243,7 @@ export async function updateLeaveAction(
   leaveId: string,
   formData: FormData,
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateLeaveSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -265,7 +265,7 @@ export async function leaveLifecycleAction(
   action: LeaveAction,
   note?: string,
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await leave.submitLeave(context, leaveId);
@@ -283,7 +283,7 @@ export async function rejectLeaveAction(
   leaveId: string,
   reason: string,
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await leave.rejectLeave(context, leaveId, reason);
@@ -299,7 +299,7 @@ export async function setLeaveBalanceAction(
   employeeId: string,
   formData: FormData,
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = leaveBalanceSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -319,7 +319,7 @@ export async function setLeaveBalanceAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createAttendanceAction(formData: FormData): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createAttendanceSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -339,7 +339,7 @@ export async function updateAttendanceAction(
   attendanceId: string,
   formData: FormData,
 ): Promise<HrActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateAttendanceSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);

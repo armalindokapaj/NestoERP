@@ -13,9 +13,13 @@ type Params = { params: Promise<{ projectId: string }> };
  */
 export async function POST(_request: Request, { params }: Params) {
   const { projectId } = await params;
-  return withContext(async (session) => {
-    const context = await contextForProject(session, projectId);
-    await projects.archiveProject(context, projectId);
-    return new Response(null, { status: 204 });
-  });
+  // `group: "any"`: the card menu in the Group workspace archives in the project's own company.
+  return withContext(
+    async (session) => {
+      const context = await contextForProject(session, projectId);
+      await projects.archiveProject(context, projectId);
+      return new Response(null, { status: 204 });
+    },
+    { group: "any" },
+  );
 }

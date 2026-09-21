@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { ParentGroupStatus } from "@prisma/client";
 
+import type { WorkspaceScopeType } from "@/config/workspace";
 import { prisma } from "@/lib/database/prisma";
 import { SESSION_TTL_MS } from "./constants";
 
@@ -21,6 +22,14 @@ export async function createSession(input: {
   /** Both null for a Platform Admin, who signs in to no company (E-06 §19). */
   membershipId: string | null;
   companyId: string | null;
+  /**
+   * Where the session starts (Workspace Context §16, §17). `DEFAULT` leaves it
+   * for the context resolver to decide from the person's standing — the Group
+   * workspace for somebody with group-level standing, their company otherwise —
+   * which is what every real sign-in asks for, so a user change never carries a
+   * workspace over. Omitted means their company.
+   */
+  workspaceScope?: WorkspaceScopeType | "DEFAULT";
   userAgent?: string | null;
   ipAddress?: string | null;
 }): Promise<{ id: string; expiresAt: Date }> {
@@ -30,6 +39,7 @@ export async function createSession(input: {
       userId: input.userId,
       ...(input.membershipId ? { membershipId: input.membershipId } : {}),
       ...(input.companyId ? { currentCompanyId: input.companyId } : {}),
+      workspaceScope: input.workspaceScope === "DEFAULT" ? null : (input.workspaceScope ?? "COMPANY"),
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
       userAgent: input.userAgent ?? null,
       ipAddress: input.ipAddress ?? null,
@@ -71,11 +81,60 @@ export async function moveSessionToMembership(input: {
   });
   if (!membership) return { moved: false, companyId: null };
 
+  // A company is a company workspace: moving into one leaves the Group workspace
+  // (Workspace Context §31). The group is entered again only by asking for it.
   const { count } = await prisma.session.updateMany({
     where: { id: input.sessionId, userId: input.userId, expiresAt: { gt: new Date() } },
-    data: { membershipId: membership.id, currentCompanyId: membership.companyId },
+    data: { membershipId: membership.id, currentCompanyId: membership.companyId, workspaceScope: "COMPANY" },
   });
   return { moved: count === 1, companyId: membership.companyId };
+}
+
+/**
+ * Sets the workspace scope of one of the person's own live sessions, leaving the
+ * home company where it is (Workspace Context §15, §80). The caller has already
+ * validated that the person may work in the Group workspace; this only records
+ * it, for this session and this user, so a stale id moves nothing.
+ */
+export async function setSessionWorkspaceScope(input: {
+  sessionId: string;
+  userId: string;
+  scope: WorkspaceScopeType;
+}): Promise<boolean> {
+  const { count } = await prisma.session.updateMany({
+    where: { id: input.sessionId, userId: input.userId, expiresAt: { gt: new Date() } },
+    data: { workspaceScope: input.scope },
+  });
+  return count === 1;
+}
+
+/**
+ * §82 — the workspace a session sits in is gone: the membership was
+ * deactivated, or its company was. A person who still works somewhere else in
+ * the group is moved there rather than signed out, and the workspace is left
+ * unchosen so the next request picks their default again (the Group if they may
+ * use it, otherwise that company). Somebody with nowhere left to go is not
+ * moved, and the caller ends the session instead.
+ */
+export async function relocateSessionToUsableMembership(input: { sessionId: string; userId: string }): Promise<boolean> {
+  const next = await prisma.companyMember.findFirst({
+    where: {
+      userId: input.userId,
+      status: "ACTIVE",
+      user: { status: "ACTIVE" },
+      company: { status: "ACTIVE", parentGroup: { status: { in: USABLE_GROUP_STATUSES } } },
+    },
+    // Stable and explainable: the first company of the group, by name.
+    orderBy: [{ company: { name: "asc" } }],
+    select: { id: true, companyId: true },
+  });
+  if (!next) return false;
+
+  const { count } = await prisma.session.updateMany({
+    where: { id: input.sessionId, userId: input.userId, expiresAt: { gt: new Date() } },
+    data: { membershipId: next.id, currentCompanyId: next.companyId, workspaceScope: null },
+  });
+  return count === 1;
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {
@@ -118,7 +177,7 @@ export async function revokeSessionsForUser(
  * commits with the change that caused it.
  */
 export async function revokeSessions(
-  client: Pick<typeof prisma, "session">,
+  client: Pick<typeof prisma, "session" | "companyMember">,
   target: {
     userId?: string;
     membershipId?: string;
@@ -126,20 +185,56 @@ export async function revokeSessions(
     parentGroupId?: string;
     exceptSessionId?: string;
     sessionId?: string;
+    /**
+     * §82 — this revocation is one workspace being taken away, not the person
+     * losing their account. Anyone who still works elsewhere in the group is
+     * moved there and stays signed in; the rest are ended as usual. The caller
+     * asks for this only where the access really is gone: deactivating or
+     * removing a membership, or closing a company — never for a role change,
+     * which ends the session precisely so the next one is built afresh.
+     */
+    relocate?: boolean;
   },
 ): Promise<number> {
   if (!target.userId && !target.membershipId && !target.companyId && !target.parentGroupId && !target.sessionId) {
     throw new Error("revokeSessions needs a user, membership, company, parent group or session");
   }
-  const { count } = await client.session.deleteMany({
-    where: {
-      ...(target.sessionId ? { id: target.sessionId } : {}),
-      ...(target.userId ? { userId: target.userId } : {}),
-      ...(target.membershipId ? { membershipId: target.membershipId } : {}),
-      ...(target.companyId ? { currentCompanyId: target.companyId } : {}),
-      ...(target.parentGroupId ? { company: { parentGroupId: target.parentGroupId } } : {}),
-      ...(target.exceptSessionId ? { id: { not: target.exceptSessionId } } : {}),
-    },
-  });
+  const where = {
+    ...(target.sessionId ? { id: target.sessionId } : {}),
+    ...(target.userId ? { userId: target.userId } : {}),
+    ...(target.membershipId ? { membershipId: target.membershipId } : {}),
+    ...(target.companyId ? { currentCompanyId: target.companyId } : {}),
+    ...(target.parentGroupId ? { company: { parentGroupId: target.parentGroupId } } : {}),
+    ...(target.exceptSessionId ? { id: { not: target.exceptSessionId } } : {}),
+  };
+
+  if (target.relocate) {
+    // Runs in the caller's transaction, so "somewhere else they may work" is
+    // read after the deactivation it accompanies: the membership being taken
+    // away is already inactive here and cannot be the fallback.
+    for (const session of await client.session.findMany({ where, select: { id: true, userId: true } })) {
+      const next = await client.companyMember.findFirst({
+        where: {
+          userId: session.userId,
+          status: "ACTIVE",
+          user: { status: "ACTIVE" },
+          company: { status: "ACTIVE", parentGroup: { status: { in: USABLE_GROUP_STATUSES } } },
+          ...(target.membershipId ? { id: { not: target.membershipId } } : {}),
+          ...(target.companyId ? { companyId: { not: target.companyId } } : {}),
+        },
+        orderBy: [{ company: { name: "asc" } }],
+        select: { id: true, companyId: true },
+      });
+      if (!next) continue;
+      // The workspace is left unchosen: the next request picks their default
+      // again — the Group if they may use it, otherwise this company (§16, §82).
+      await client.session.updateMany({
+        where: { id: session.id },
+        data: { membershipId: next.id, currentCompanyId: next.companyId, workspaceScope: null },
+      });
+    }
+  }
+
+  const { count } = await client.session.deleteMany({ where });
   return count;
 }

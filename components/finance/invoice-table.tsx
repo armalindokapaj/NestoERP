@@ -1,4 +1,5 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows";
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -22,20 +23,33 @@ const SETTLEMENT_TONES = {
 } as const;
 
 export function InvoiceTable({ invoices }: { invoices: InvoiceSummaryDTO[] }) {
+  // Rows read in the Group workspace name their company and open through it.
+  const grouped = invoices.some((invoice) => invoice.company);
+
   const columns: TableColumn<InvoiceSummaryDTO>[] = [
     {
       key: "number",
       label: "Invoice",
       primary: true,
-      render: (invoice) => (
-        <span className="min-w-0">
-          <span className="block truncate">{invoice.invoiceNumber}</span>
-          <span className="block truncate text-meta font-normal text-fg-subtle">
-            {invoice.client.name}
+      render: (invoice) => {
+        const label = (
+          <span className="min-w-0">
+            <span className="block truncate">{invoice.invoiceNumber}</span>
+            <span className="block truncate text-meta font-normal text-fg-subtle">
+              {invoice.client.name}
+            </span>
           </span>
-        </span>
-      ),
+        );
+        return grouped && invoice.company ? (
+          <GroupRecordLink company={invoice.company} href={`/finance/invoices/${invoice.id}`}>
+            {label}
+          </GroupRecordLink>
+        ) : (
+          label
+        );
+      },
     },
+    ...(grouped ? [companyColumn<InvoiceSummaryDTO>()] : []),
     {
       key: "project",
       label: "Project",
@@ -100,7 +114,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceSummaryDTO[] }) {
       columns={columns}
       records={invoices}
       rowKey={(invoice) => invoice.id}
-      rowHref={(invoice) => `/finance/invoices/${invoice.id}`}
+      rowHref={grouped ? undefined : (invoice) => `/finance/invoices/${invoice.id}`}
     />
   );
 }
