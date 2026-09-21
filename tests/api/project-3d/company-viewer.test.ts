@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as getStorageObject } from "@/app/api/storage/objects/[...key]/route";
@@ -183,6 +183,32 @@ describe("Company Project 3D viewer", () => {
     expect(serialized).not.toContain(sourceStorageKey);
     expect(serialized).not.toContain("diagnostic-must-not-leak");
     expect(serialized).not.toContain("draft-must-not-leak");
+  });
+
+  it("resolves current canonical Unit and Sales facts without republishing", async () => {
+    const activeBefore = await prisma.project3DConfig.findUniqueOrThrow({ where: { projectId }, select: { activeReleaseId: true } });
+    await prisma.projectUnit.update({ where: { id: unitId }, data: { name: "Corner residence", internalArea: new Prisma.Decimal("80.00"), saleableArea: new Prisma.Decimal("100.00"), bedrooms: 2, bathrooms: 2 } });
+    await prisma.unitCommercialProfile.update({ where: { unitId }, data: { status: "SOLD", askingPrice: new Prisma.Decimal("250000.00"), currency: "EUR" } });
+
+    const bootstrap = await getProject3DViewerBootstrap(owner, projectId);
+    expect(bootstrap.release.id).toBe(activeBefore.activeReleaseId);
+    expect(bootstrap.units[0]).toMatchObject({
+      id: unitId,
+      name: "Corner residence",
+      status: "sold",
+      building: { name: "Viewer tower" },
+      floor: { name: "Floor 1", number: 1 },
+      internalArea: "80.00",
+      saleableArea: "100.00",
+      bedrooms: 2,
+      bathrooms: 2,
+      commercial: { askingPrice: "250000.00", currency: "EUR", pricePerSqm: "2500.00" },
+    });
+
+    const withoutSales = { ...owner, permissions: owner.permissions.filter((permission) => permission !== "project.unit.sales.view") };
+    const restricted = await getProject3DViewerBootstrap(withoutSales, projectId);
+    expect(restricted.units[0]?.commercial).toBeNull();
+    expect(restricted.capabilities.commercial).toBe(false);
   });
 
   it("binds runtime asset grants to the exact key and expiry", async () => {

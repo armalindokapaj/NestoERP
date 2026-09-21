@@ -9,6 +9,7 @@ import { project3DReleaseManifestSchema } from "@/lib/3d/shared/release.schema";
 import type { UserContext } from "@/lib/context/types";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
+import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { isProject3DEntitlementActive } from "./project-3d.entitlement";
 import { assertProject3DStorageKey } from "./project-3d.storage";
 
@@ -132,13 +133,37 @@ export async function getProject3DViewerBootstrap(
   }
 
   const unitIds = [...new Set(manifest.models.flatMap((model) => model.unitBindings.map((binding) => binding.unitId)))];
+  const unitDetails = can(context, "project.structure.view");
+  const commercialVisible = can(context, "project.unit.sales.view");
+  const filesVisible = canAccessModule(context, "documents") && can(context, "document.view");
   const unitRows = unitIds.length === 0 ? [] : await prisma.projectUnit.findMany({
     where: { id: { in: unitIds }, projectId: project.id, companyId: project.companyId },
-    select: { id: true, unitCode: true, commercialProfile: { select: { status: true } } },
+    select: {
+      id: true, unitCode: true, name: true, internalArea: true, saleableArea: true, rooms: true, bedrooms: true, bathrooms: true, salesPlanDocumentId: true,
+      unitType: { select: { id: true, name: true, category: true } },
+      floor: { select: { id: true, name: true, number: true, building: { select: { id: true, name: true, code: true } } } },
+      commercialProfile: { select: { status: true } },
+    },
   });
   if (unitRows.length !== unitIds.length) {
     throw new AccessError("CONFLICT", "The published 3D release is unavailable.", { code: "UNIT_REFERENCE_MISMATCH" });
   }
+
+  const readableDocuments = filesVisible ? await buildDocumentAccessWhere(context) : null;
+  const salesPlanIds = unitRows.map((unit) => unit.salesPlanDocumentId).filter((id): id is string => Boolean(id));
+  const [commercialRows, salesPlanRows, mediaRows] = await Promise.all([
+    commercialVisible && unitIds.length ? prisma.unitCommercialProfile.findMany({ where: { unitId: { in: unitIds }, projectId: project.id, companyId: project.companyId }, select: { unitId: true, askingPrice: true, currency: true } }) : [],
+    readableDocuments && salesPlanIds.length ? prisma.document.findMany({ where: { AND: [readableDocuments, { id: { in: salesPlanIds }, companyId: project.companyId, status: "ACTIVE", storageStatus: "AVAILABLE" }] }, select: { id: true, name: true } }) : [],
+    readableDocuments && unitIds.length ? prisma.unitMedia.findMany({
+      where: { companyId: project.companyId, projectId: project.id, unitId: { in: unitIds }, document: { is: { AND: [readableDocuments, { status: "ACTIVE", storageStatus: "AVAILABLE" }] } } },
+      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, unitId: true, category: true, caption: true, isPrimary: true },
+    }) : [],
+  ]);
+  const commercialByUnit = new Map(commercialRows.map((row) => [row.unitId, row]));
+  const salesPlans = new Map(salesPlanRows.map((row) => [row.id, row]));
+  const mediaByUnit = new Map<string, typeof mediaRows>();
+  for (const media of mediaRows) mediaByUnit.set(media.unitId, [...(mediaByUnit.get(media.unitId) ?? []), media]);
 
   const provider = storageProvider();
   const models = await Promise.all(manifest.models.map(async (model) => {
@@ -180,14 +205,33 @@ export async function getProject3DViewerBootstrap(
     release: { id: release.id, number: release.releaseNumber, publishedAt: release.publishedAt.toISOString() },
     experience,
     models,
-    units: unitRows.map((unit) => ({
-      id: unit.id,
-      code: unit.unitCode,
-      status: viewerUnitStatus(unit.commercialProfile?.status ?? null),
-    })),
+    units: unitRows.map((unit) => {
+      const commercial = commercialByUnit.get(unit.id);
+      const salesPlan = unit.salesPlanDocumentId ? salesPlans.get(unit.salesPlanDocumentId) : null;
+      const pricePerSqm = commercial?.askingPrice && unit.saleableArea && unit.saleableArea.greaterThan(0) ? commercial.askingPrice.dividedBy(unit.saleableArea).toFixed(2) : null;
+      return {
+        id: unit.id,
+        code: unit.unitCode,
+        name: unitDetails ? unit.name : null,
+        status: viewerUnitStatus(unit.commercialProfile?.status ?? null),
+        building: unitDetails ? unit.floor.building : null,
+        floor: unitDetails ? { id: unit.floor.id, name: unit.floor.name, number: unit.floor.number } : null,
+        type: unitDetails ? unit.unitType : null,
+        internalArea: unitDetails ? unit.internalArea?.toFixed(2) ?? null : null,
+        saleableArea: unitDetails ? unit.saleableArea?.toFixed(2) ?? null : null,
+        rooms: unitDetails ? unit.rooms : null,
+        bedrooms: unitDetails ? unit.bedrooms : null,
+        bathrooms: unitDetails ? unit.bathrooms : null,
+        commercial: commercialVisible ? { askingPrice: commercial?.askingPrice?.toFixed(2) ?? null, currency: commercial?.currency ?? null, pricePerSqm } : null,
+        salesPlan: salesPlan ? { documentId: salesPlan.id, name: salesPlan.name, href: `/documents/${salesPlan.id}` } : null,
+        media: (mediaByUnit.get(unit.id) ?? []).slice(0, 6).map((media) => ({ id: media.id, category: media.category, caption: media.caption, isPrimary: media.isPrimary, thumbnailHref: `/api/project-units/${unit.id}/media/${media.id}/thumbnail` })),
+      };
+    }),
     capabilities: {
       mapbox: Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN),
-      unitDetails: can(context, "project.structure.view"),
+      unitDetails,
+      commercial: commercialVisible,
+      files: filesVisible,
     },
   });
 }

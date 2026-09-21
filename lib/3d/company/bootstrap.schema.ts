@@ -42,9 +42,21 @@ export const project3DBootstrapSchema = z.object({
   units: z.array(z.object({
     id: z.string().min(1),
     code: z.string().min(1),
+    name: z.string().nullable(),
     status: z.enum(["available", "reserved", "sold"]),
+    building: z.object({ id: z.string().min(1), name: z.string().min(1), code: z.string().nullable() }).nullable(),
+    floor: z.object({ id: z.string().min(1), name: z.string().min(1), number: z.number().int().nullable() }).nullable(),
+    type: z.object({ id: z.string().min(1), name: z.string().min(1), category: z.string().min(1) }).nullable(),
+    internalArea: z.string().nullable(),
+    saleableArea: z.string().nullable(),
+    rooms: z.number().int().nullable(),
+    bedrooms: z.number().int().nullable(),
+    bathrooms: z.number().int().nullable(),
+    commercial: z.object({ askingPrice: z.string().nullable(), currency: z.string().nullable(), pricePerSqm: z.string().nullable() }).nullable(),
+    salesPlan: z.object({ documentId: z.string().min(1), name: z.string().min(1), href: z.string().min(1) }).nullable(),
+    media: z.array(z.object({ id: z.string().min(1), category: z.string().min(1), caption: z.string().nullable(), isPrimary: z.boolean(), thumbnailHref: z.string().min(1) })),
   })),
-  capabilities: z.object({ mapbox: z.boolean(), unitDetails: z.boolean() }),
+  capabilities: z.object({ mapbox: z.boolean(), unitDetails: z.boolean(), commercial: z.boolean(), files: z.boolean() }),
 });
 
 export type Project3DBootstrap = z.infer<typeof project3DBootstrapSchema>;

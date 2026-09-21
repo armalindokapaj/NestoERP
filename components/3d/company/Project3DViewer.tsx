@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import * as React from "react";
-import { Box, Expand, Home, RefreshCw, Search, X } from "lucide-react";
+import { Bath, BedDouble, Box, Expand, FileText, Home, MapPin, Maximize2, RefreshCw, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,9 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
   const [modelStatus, setModelStatus] = React.useState<ModelLoadStatus>({ state: "loading" });
   const [selectedUnitId, setSelectedUnitId] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
+  const [buildingId, setBuildingId] = React.useState("");
+  const [floorId, setFloorId] = React.useState("");
+  const [unitStatus, setUnitStatus] = React.useState("");
   const viewerRef = React.useRef<ThreeProjectViewerHandle>(null);
   const shellRef = React.useRef<HTMLDivElement>(null);
 
@@ -88,6 +91,7 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
       if (!parsed.success) throw new Error("The published 3D release could not be read.");
       setBootstrap(parsed.data);
       setSelectedUnitId(null);
+      setBuildingId(""); setFloorId(""); setUnitStatus("");
     } catch (failure) {
       if (failure instanceof DOMException && failure.name === "AbortError") return;
       setBootstrap(null);
@@ -104,11 +108,13 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
   }, [load]);
 
   const selectedUnit = bootstrap?.units.find((unit) => unit.id === selectedUnitId) ?? null;
+  const buildings = React.useMemo(() => bootstrap ? Array.from(new Map(bootstrap.units.flatMap((unit) => unit.building ? [[unit.building.id, unit.building] as const] : [])).values()) : [], [bootstrap]);
+  const floors = React.useMemo(() => bootstrap ? Array.from(new Map(bootstrap.units.flatMap((unit) => unit.floor && (!buildingId || unit.building?.id === buildingId) ? [[unit.floor.id, unit.floor] as const] : [])).values()) : [], [bootstrap, buildingId]);
   const filteredUnits = React.useMemo(() => {
     if (!bootstrap) return [];
     const term = search.trim().toLocaleLowerCase();
-    return term ? bootstrap.units.filter((unit) => unit.code.toLocaleLowerCase().includes(term)) : bootstrap.units;
-  }, [bootstrap, search]);
+    return bootstrap.units.filter((unit) => (!term || `${unit.code} ${unit.name ?? ""} ${unit.type?.name ?? ""}`.toLocaleLowerCase().includes(term)) && (!buildingId || unit.building?.id === buildingId) && (!floorId || unit.floor?.id === floorId) && (!unitStatus || unit.status === unitStatus));
+  }, [bootstrap, search, buildingId, floorId, unitStatus]);
 
   if (loading && !bootstrap) return <ViewerLoading message="Opening the published 3D experience…" />;
   if (bootstrapError || !bootstrap) {
@@ -203,22 +209,29 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
             </div>
           ) : null}
           {selectedUnit ? (
-            <div className="absolute bottom-4 left-4 right-4 max-w-sm rounded-lg border border-white/10 bg-neutral-950/95 p-4 shadow-xl">
+            <div className="absolute bottom-4 left-4 right-4 max-w-md overflow-hidden rounded-lg border border-white/10 bg-neutral-950/95 shadow-xl">
+              {selectedUnit.media[0] ? <div className="h-28 bg-cover bg-center" style={{ backgroundImage: `linear-gradient(to top, rgba(10,10,10,.72), transparent), url(${JSON.stringify(selectedUnit.media[0].thumbnailHref)})` }} /> : null}
+              <div className="p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Selected unit</p>
-                  <p className="mt-1 truncate text-lg font-semibold">{selectedUnit.code}</p>
-                  <p className="mt-1 text-xs text-neutral-400">{unitStatusLabel(selectedUnit.status)}</p>
+                  <p className="mt-1 truncate text-lg font-semibold">{selectedUnit.code}{selectedUnit.name ? ` · ${selectedUnit.name}` : ""}</p>
+                  <p className="mt-1 text-xs text-neutral-400">{unitStatusLabel(selectedUnit.status)}{selectedUnit.type ? ` · ${selectedUnit.type.name}` : ""}</p>
                 </div>
                 <button type="button" aria-label="Clear selected unit" className="rounded p-1 text-neutral-500 hover:bg-white/10 hover:text-white" onClick={() => selectUnit(null)}>
                   <X className="size-4" aria-hidden="true" />
                 </button>
               </div>
+              {selectedUnit.building && selectedUnit.floor ? <p className="mt-3 flex items-center gap-1.5 text-xs text-neutral-300"><MapPin className="size-3.5 text-neutral-500" />{selectedUnit.building.name} · {selectedUnit.floor.name}</p> : null}
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">{selectedUnit.saleableArea ? <UnitFact icon={<Maximize2 />} value={`${selectedUnit.saleableArea} m²`} /> : null}{selectedUnit.bedrooms !== null ? <UnitFact icon={<BedDouble />} value={`${selectedUnit.bedrooms} bed`} /> : null}{selectedUnit.bathrooms !== null ? <UnitFact icon={<Bath />} value={`${selectedUnit.bathrooms} bath`} /> : null}</div>
+              {selectedUnit.commercial?.askingPrice ? <div className="mt-3 rounded-md bg-white/5 px-3 py-2"><p className="text-sm font-semibold text-white">{formatMoney(selectedUnit.commercial.askingPrice, selectedUnit.commercial.currency)}</p>{selectedUnit.commercial.pricePerSqm ? <p className="text-[11px] text-neutral-500">{formatMoney(selectedUnit.commercial.pricePerSqm, selectedUnit.commercial.currency)} / m²</p> : null}</div> : null}
+              <div className="mt-3 flex gap-2">{selectedUnit.salesPlan ? <Button asChild size="sm" variant="secondary" className="flex-1"><Link href={selectedUnit.salesPlan.href}><FileText />Sales plan</Link></Button> : null}
               {bootstrap.capabilities.unitDetails ? (
-                <Button asChild size="sm" className="mt-3 w-full">
+                <Button asChild size="sm" className="flex-1">
                   <Link href={`/projects/${bootstrap.project.id}/units/${selectedUnit.id}`}>Open canonical unit</Link>
                 </Button>
-              ) : null}
+              ) : null}</div>
+              </div>
             </div>
           ) : null}
         </div>
@@ -234,6 +247,11 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
               className="border-neutral-800 bg-neutral-900 pl-8 text-neutral-100 placeholder:text-neutral-600"
             />
           </div>
+          {bootstrap.capabilities.unitDetails ? <div className="mt-2 grid gap-2">
+            <select aria-label="Filter by building" value={buildingId} onChange={(event) => { setBuildingId(event.target.value); setFloorId(""); }} className="h-9 rounded-md border border-neutral-800 bg-neutral-900 px-2 text-xs text-neutral-300"><option value="">All buildings</option>{buildings.map((building) => <option key={building.id} value={building.id}>{building.name}</option>)}</select>
+            <select aria-label="Filter by floor" value={floorId} onChange={(event) => setFloorId(event.target.value)} className="h-9 rounded-md border border-neutral-800 bg-neutral-900 px-2 text-xs text-neutral-300"><option value="">All floors</option>{floors.map((floor) => <option key={floor.id} value={floor.id}>{floor.name}</option>)}</select>
+          </div> : null}
+          <select aria-label="Filter by availability" value={unitStatus} onChange={(event) => setUnitStatus(event.target.value)} className="mt-2 h-9 w-full rounded-md border border-neutral-800 bg-neutral-900 px-2 text-xs text-neutral-300"><option value="">All availability</option><option value="available">Available</option><option value="reserved">Reserved</option><option value="sold">Sold</option></select>
           <div className="mt-3 max-h-[550px] space-y-1 overflow-y-auto">
             {filteredUnits.map((unit) => (
               <button
@@ -250,7 +268,7 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
               >
                 <span className={cn("size-2 shrink-0 rounded-full", unit.status === "sold" ? "bg-red-500" : unit.status === "reserved" ? "bg-amber-400" : "bg-emerald-500")} aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate font-medium">{unit.code}</span>
-                <span className="text-[10px] text-neutral-600">{unitStatusLabel(unit.status)}</span>
+                <span className="text-right text-[10px] text-neutral-600">{unit.floor?.name ?? unitStatusLabel(unit.status)}{unit.saleableArea ? <span className="block">{unit.saleableArea} m²</span> : null}</span>
               </button>
             ))}
             {filteredUnits.length === 0 ? <p className="px-2 py-6 text-center text-xs text-neutral-600">No mapped units found.</p> : null}
@@ -259,4 +277,16 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
       </div>
     </div>
   );
+}
+
+function UnitFact({ icon, value }: { icon: React.ReactNode; value: string }) {
+  return <span className="flex items-center gap-1 rounded bg-white/5 px-2 py-1.5 text-neutral-300"><span className="text-neutral-500 [&_svg]:size-3.5">{icon}</span>{value}</span>;
+}
+
+function formatMoney(value: string, currency: string | null) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return value;
+  if (!currency) return new Intl.NumberFormat("en", { maximumFractionDigits: 0 }).format(amount);
+  try { return new Intl.NumberFormat("en", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount); }
+  catch { return `${new Intl.NumberFormat("en", { maximumFractionDigits: 0 }).format(amount)} ${currency}`; }
 }

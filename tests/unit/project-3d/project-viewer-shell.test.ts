@@ -59,8 +59,8 @@ function bootstrap(withBinding = true): Project3DBootstrap {
       nodeOverrides: [],
       unitBindings: withBinding ? [{ meshName: "Unit_CV-101", unitId: "unit-1", unitCode: "CV-101", poiYawDeg: 0, poiEnabled: true, poiDistanceOverride: null, poiHeightOverride: null }] : [],
     }],
-    units: withBinding ? [{ id: "unit-1", code: "CV-101", status: "available" }] : [],
-    capabilities: { mapbox: false, unitDetails: true },
+    units: withBinding ? [{ id: "unit-1", code: "CV-101", name: "Corner residence", status: "available", building: { id: "building-1", name: "Tower A", code: "A" }, floor: { id: "floor-1", name: "Floor 1", number: 1 }, type: { id: "type-1", name: "Apartment", category: "RESIDENTIAL" }, internalArea: "80.00", saleableArea: "100.00", rooms: 4, bedrooms: 2, bathrooms: 2, commercial: { askingPrice: "250000.00", currency: "EUR", pricePerSqm: "2500.00" }, salesPlan: null, media: [] }] : [],
+    capabilities: { mapbox: false, unitDetails: true, commercial: true, files: false },
   };
 }
 
