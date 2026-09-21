@@ -2301,6 +2301,10 @@ model Project3DConfig {
   id                String  @id @default(cuid())
   companyId         String
   projectId         String  @unique
+  /// Platform-facing label and notes for the Experience library. Project,
+  /// Company and Group ownership still come only from the canonical Project.
+  experienceName    String  @default("")
+  internalNotes     String?
   schemaVersion     Int     @default(1)
   authoringDocument Json
   activeReleaseId   String? @unique

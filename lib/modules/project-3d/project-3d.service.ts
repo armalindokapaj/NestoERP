@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
 import type { PlatformContext } from "@/lib/context/platform-context";
@@ -6,10 +6,203 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { defaultProject3DExperience } from "@/lib/3d/shared/experience";
+import { readAuthorizedDocumentThumbnail, type Thumbnail } from "@/lib/modules/documents/storage/thumbnail.service";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
-import type { Project3DEntitlementUpdate } from "./project-3d.schema";
+import type { Project3DEntitlementUpdate, Project3DExperienceCreate, Project3DExperienceListQuery, Project3DExperienceMetadata } from "./project-3d.schema";
 
 const EMPTY_EXPERIENCE = defaultProject3DExperience() as unknown as Prisma.InputJsonObject;
+
+function modelReadiness(slots: Array<{ versions: Array<{ status: string; validationStatus: string; runtimeStorageKey: string | null }> }>): "READY" | "PROCESSING" | "NEEDS_MODEL" | "FAILED" {
+  const versions = slots.flatMap((slot) => slot.versions);
+  if (versions.some((version) => version.status === "FAILED" || version.validationStatus === "BLOCKED")) return "FAILED";
+  if (versions.some((version) => ["UPLOADED", "PROCESSING"].includes(version.status))) return "PROCESSING";
+  if (slots.length > 0 && slots.every((slot) => slot.versions.some((version) => ["READY", "PUBLISHED"].includes(version.status) && Boolean(version.runtimeStorageKey)))) return "READY";
+  return "NEEDS_MODEL";
+}
+
+/** Canonical Group → Company → Project choices for Experience provisioning. */
+export async function listProject3DProvisioningOptions(context: PlatformContext) {
+  assertProject3DPlatformPermission(context, "platform.3d.configure");
+  return prisma.parentGroup.findMany({
+    where: { isTestFixture: false },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      companies: {
+        where: { status: "ACTIVE" },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          projects: {
+            where: { archivedAt: null },
+            orderBy: { name: "asc" },
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              coverImageDocumentId: true,
+              project3DConfig: { select: { id: true } },
+              _count: { select: { buildings: true, floors: true, units: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/** Only provisioned Experiences. Non-provisioned ERP Projects stay in the creation flow. */
+export async function listProject3DExperiences(context: PlatformContext, query: Project3DExperienceListQuery = {}) {
+  assertProject3DPlatformPermission(context, "platform.3d.view");
+  const q = query.q?.trim();
+  const projectWhere: Prisma.ProjectWhereInput = {
+    company: {
+      parentGroup: { isTestFixture: false, ...(query.group ? { id: query.group } : {}) },
+      ...(query.company ? { id: query.company } : {}),
+    },
+    ...(query.entitlement ? { project3DEntitlement: { is: { status: query.entitlement } } } : {}),
+  };
+  const rows = await prisma.project3DConfig.findMany({
+    where: {
+      project: projectWhere,
+      ...(q ? { OR: [{ experienceName: { contains: q, mode: "insensitive" } }, { project: { name: { contains: q, mode: "insensitive" } } }, { project: { code: { contains: q, mode: "insensitive" } } }] } : {}),
+      ...(query.publication === "PUBLISHED" ? { activeReleaseId: { not: null } } : query.publication === "DRAFT" ? { activeReleaseId: null } : {}),
+    },
+    orderBy: [{ updatedAt: "desc" }, { project: { name: "asc" } }],
+    select: {
+      id: true,
+      projectId: true,
+      experienceName: true,
+      internalNotes: true,
+      activeReleaseId: true,
+      updatedAt: true,
+      activeRelease: { select: { id: true, releaseNumber: true, publishedAt: true } },
+      project: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          status: true,
+          coverImageDocumentId: true,
+          coverImage: { select: { status: true, storageStatus: true, detectedMimeType: true, mimeType: true } },
+          company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true } } } },
+          project3DEntitlement: { select: { status: true, viewerEnabled: true, expiresAt: true } },
+          _count: { select: { buildings: true, floors: true, units: true } },
+        },
+      },
+      slots: {
+        where: { isActive: true },
+        select: { versions: { where: { deletedAt: null }, orderBy: { version: "desc" }, select: { status: true, validationStatus: true, runtimeStorageKey: true } } },
+      },
+      _count: { select: { releases: true, slots: true } },
+    },
+  });
+  return rows
+    .map((row) => {
+      const readiness = modelReadiness(row.slots);
+      const publishedAt = row.activeRelease?.publishedAt ?? null;
+      const publicationState = row.activeReleaseId ? (publishedAt && row.updatedAt > publishedAt ? "DRAFT_CHANGES" : "PUBLISHED") : "DRAFT";
+      const cover = row.project.coverImage;
+      return {
+        id: row.id,
+        projectId: row.projectId,
+        experienceName: row.experienceName || `${row.project.name} 3D Experience`,
+        internalNotes: row.internalNotes,
+        project: { id: row.project.id, code: row.project.code, name: row.project.name, status: row.project.status, company: row.project.company },
+        structure: row.project._count,
+        models: { slots: row._count.slots, readiness },
+        releases: row._count.releases,
+        publicationState,
+        activeRelease: row.activeRelease ? { ...row.activeRelease, publishedAt: row.activeRelease.publishedAt.toISOString() } : null,
+        entitlement: row.project.project3DEntitlement ? { ...row.project.project3DEntitlement, expiresAt: row.project.project3DEntitlement.expiresAt?.toISOString() ?? null } : null,
+        coverUrl: row.project.coverImageDocumentId && cover?.status === "ACTIVE" && cover.storageStatus === "AVAILABLE" ? `/api/platform/3d/projects/${row.projectId}/cover` : null,
+        updatedAt: row.updatedAt.toISOString(),
+      };
+    })
+    .filter((row) => !query.state || row.models.readiness === query.state);
+}
+
+export async function createProject3DExperience(context: PlatformContext, input: Project3DExperienceCreate) {
+  assertProject3DPlatformPermission(context, "platform.3d.configure");
+  const project = assertFound(await prisma.project.findFirst({
+    where: {
+      id: input.projectId,
+      companyId: input.companyId,
+      company: { id: input.companyId, parentGroupId: input.parentGroupId, parentGroup: { id: input.parentGroupId, isTestFixture: false } },
+      archivedAt: null,
+    },
+    select: { id: true, name: true, companyId: true, project3DConfig: { select: { id: true } }, project3DEntitlement: { select: { id: true } }, _count: { select: { buildings: true, floors: true, units: true } } },
+  }));
+  if (project.project3DConfig) throw new AccessError("CONFLICT", "This Project already has a 3D Experience.", { code: "EXPERIENCE_EXISTS" });
+  if (input.structureMode === "USE_EXISTING" && project._count.buildings + project._count.floors + project._count.units === 0) {
+    throw new AccessError("VALIDATION_ERROR", "This Project has no structure to reuse.", { structureMode: ["Choose Create now or Create later."] });
+  }
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const entitlement = project.project3DEntitlement
+        ? await tx.project3DEntitlement.update({ where: { id: project.project3DEntitlement.id }, data: { status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId } })
+        : await tx.project3DEntitlement.create({ data: { companyId: project.companyId, projectId: project.id, status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId, planKey: "PREMIUM_3D" } });
+      const config = await tx.project3DConfig.create({
+        data: { companyId: project.companyId, projectId: project.id, experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
+        select: { id: true },
+      });
+      await recordPlatformAction(context, input.parentGroupId, {
+        actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_CHANGED,
+        entity: { type: "Project3DConfig", id: config.id, label: input.experienceName },
+        projectId: project.id,
+        before: null,
+        after: { projectId: project.id, configurationId: config.id, schemaVersion: 1, experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, entitlementStatus: entitlement.status },
+        reason: input.reason,
+        metadata: { structureMode: input.structureMode, existingStructure: project._count },
+      }, { tx });
+      return { id: config.id, projectId: project.id, openPath: input.structureMode === "CREATE_NOW" ? `/platform-admin/3d/projects/${project.id}/structure` : `/platform-admin/3d/projects/${project.id}` };
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new AccessError("CONFLICT", "This Project already has a 3D Experience.", { code: "EXPERIENCE_EXISTS" });
+    throw error;
+  }
+}
+
+export async function updateProject3DExperienceMetadata(context: PlatformContext, projectId: string, input: Project3DExperienceMetadata) {
+  assertProject3DPlatformPermission(context, "platform.3d.configure");
+  const config = assertFound(await prisma.project3DConfig.findFirst({
+    where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
+    select: { id: true, experienceName: true, internalNotes: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
+  }));
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.project3DConfig.update({ where: { id: config.id }, data: { experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, updatedByUserId: context.userId } });
+    await recordPlatformAction(context, config.project.company.parentGroupId, {
+      actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_CHANGED,
+      entity: { type: "Project3DConfig", id: config.id, label: input.experienceName }, projectId,
+      before: { projectId, configurationId: config.id, experienceName: config.experienceName || `${config.project.name} 3D Experience`, internalNotes: config.internalNotes },
+      after: { projectId, configurationId: config.id, experienceName: updated.experienceName, internalNotes: updated.internalNotes }, reason: input.reason,
+    }, { tx });
+    return { id: updated.id, experienceName: updated.experienceName, internalNotes: updated.internalNotes };
+  });
+}
+
+export async function readProject3DExperienceCover(context: PlatformContext, projectId: string): Promise<Thumbnail> {
+  assertProject3DPlatformPermission(context, "platform.3d.view");
+  const row = assertFound(await prisma.project3DConfig.findFirst({
+    where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
+    select: { companyId: true, project: { select: { coverImage: { select: { id: true, updatedAt: true, storageKey: true, thumbnailStorageKey: true, detectedMimeType: true, mimeType: true, status: true, storageStatus: true } } } } },
+  }));
+  const document = row.project.coverImage;
+  if (!document || document.status !== "ACTIVE" || document.storageStatus !== "AVAILABLE") throw new AccessError("NOT_FOUND");
+  return readAuthorizedDocumentThumbnail(row.companyId, document);
+}
+
+export async function listProject3DModels(context: PlatformContext) {
+  assertProject3DPlatformPermission(context, "platform.3d.view");
+  return prisma.project3DModelVersion.findMany({
+    where: { deletedAt: null, project: { company: { parentGroup: { isTestFixture: false } } } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, version: true, originalFileName: true, status: true, validationStatus: true, sourceSizeBytes: true, runtimeSizeBytes: true, triangleCount: true, meshCount: true, createdAt: true, slot: { select: { id: true, displayName: true, role: true } }, project: { select: { id: true, name: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } } },
+  });
+}
 
 function entitlementSnapshot(value: {
   status: string;
@@ -113,7 +306,7 @@ export async function getProject3DWorkspace(context: PlatformContext, projectId:
           releases: { orderBy: { releaseNumber: "desc" } },
         },
       },
-      _count: { select: { units: true } },
+      _count: { select: { buildings: true, floors: true, units: true } },
     },
   }));
   return project;
@@ -158,7 +351,7 @@ export async function updateProject3DEntitlement(context: PlatformContext, proje
     await tx.project3DConfig.upsert({
       where: { projectId: project.id },
       update: { updatedByUserId: context.userId },
-      create: { companyId: project.companyId, projectId: project.id, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
+      create: { companyId: project.companyId, projectId: project.id, experienceName: `${project.name} 3D Experience`, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
     });
     await recordPlatformAction(context, project.company.parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_ENTITLEMENT_CHANGED,
