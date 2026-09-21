@@ -16,6 +16,8 @@ const VERSION_ID = "project_e2e_3d_version";
 const RELEASE_ID = "project_e2e_3d_release";
 const SOURCE_KEY = `companies/${COMPANY_ID}/projects/${PROJECT_ID}/3d/source/e2e-source.glb`;
 const RUNTIME_KEY = `companies/${COMPANY_ID}/projects/${PROJECT_ID}/3d/runtime/e2e-runtime.glb`;
+let groupName = "";
+let companyName = "";
 
 function emptyGlb(): Uint8Array {
   const json = new TextEncoder().encode(JSON.stringify({ asset: { version: "2.0" }, scene: 0, scenes: [{}], nodes: [] }));
@@ -127,7 +129,12 @@ async function publishFixture() {
 
 test.beforeAll(async () => {
   await removeFixture();
-  const platformUser = await db.user.findUniqueOrThrow({ where: { username: "platform-admin" }, select: { id: true } });
+  const [platformUser, company] = await Promise.all([
+    db.user.findUniqueOrThrow({ where: { username: "platform-admin" }, select: { id: true } }),
+    db.company.findUniqueOrThrow({ where: { id: COMPANY_ID }, select: { name: true, parentGroup: { select: { name: true } } } }),
+  ]);
+  groupName = company.parentGroup.name;
+  companyName = company.name;
   await db.project.create({ data: { id: PROJECT_ID, companyId: COMPANY_ID, code: PROJECT_CODE, name: PROJECT_NAME, status: "ACTIVE", createdBy: platformUser.id } });
 });
 
@@ -138,15 +145,21 @@ test.afterAll(async () => {
 
 test("Platform Admin provisions the native Project 3D workspace", async ({ page }) => {
   await signIn(page, "PLATFORM_ADMIN", { to: `/platform-admin/3d?q=${encodeURIComponent(PROJECT_CODE)}` });
-  await expect(page.getByRole("heading", { name: "3D Platform" })).toBeVisible();
-  const row = page.getByRole("row").filter({ hasText: PROJECT_NAME });
-  await expect(row).toContainText("NOT PROVISIONED");
-  await row.getByLabel("Provision reason").fill("E2E native 3D verification");
-  await row.getByRole("button", { name: "Provision 3D" }).click();
-  await expect(row.getByRole("link", { name: "Open workspace" })).toBeVisible();
-  await row.getByRole("link", { name: "Open workspace" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: `${PROJECT_NAME} · 3D` })).toBeVisible();
-  await expect(page.getByText("Platform authoring workspace")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "3D Experiences", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "New Experience" }).click();
+  await expect(page.getByRole("heading", { name: "New 3D Experience" })).toBeVisible();
+  await page.getByLabel("Group").selectOption({ label: groupName });
+  await page.getByLabel("Company").selectOption({ label: companyName });
+  await page.getByLabel("Project").selectOption({ label: `${PROJECT_CODE} · ${PROJECT_NAME}` });
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByLabel("Experience name")).toHaveValue(`${PROJECT_NAME} 3D Experience`);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByLabel(/Create structure now/).check();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Create Experience" }).click();
+  await expect(page).toHaveURL(new RegExp(`/platform-admin/3d/projects/${PROJECT_ID}/structure$`));
+  await expect(page.getByRole("heading", { level: 1, name: `${PROJECT_NAME} 3D Experience` })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "3D Experience workspace" })).toBeVisible();
 });
 
 test("Company sees only the active read-only release", async ({ page }) => {
