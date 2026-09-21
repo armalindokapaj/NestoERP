@@ -18,6 +18,36 @@ export const project3DEntitlementUpdateSchema = z
 
 export type Project3DEntitlementUpdate = z.infer<typeof project3DEntitlementUpdateSchema>;
 
+export const project3DExperienceCreateSchema = z.object({
+  parentGroupId: z.string().trim().min(1).max(128),
+  companyId: z.string().trim().min(1).max(128),
+  projectId: z.string().trim().min(1).max(128),
+  experienceName: z.string().trim().min(2).max(160),
+  internalNotes: z.string().trim().max(2_000).nullable().optional(),
+  activateEntitlement: z.literal(true),
+  structureMode: z.enum(["USE_EXISTING", "CREATE_NOW", "CREATE_LATER"]),
+  reason,
+});
+
+export const project3DExperienceMetadataSchema = z.object({
+  experienceName: z.string().trim().min(2).max(160),
+  internalNotes: z.string().trim().max(2_000).nullable().optional(),
+  reason,
+});
+
+export const project3DExperienceListQuerySchema = z.object({
+  q: z.string().trim().max(120).optional(),
+  group: z.string().trim().max(128).optional(),
+  company: z.string().trim().max(128).optional(),
+  state: z.enum(["READY", "PROCESSING", "NEEDS_MODEL", "FAILED"]).optional(),
+  publication: z.enum(["PUBLISHED", "DRAFT"]).optional(),
+  entitlement: z.enum(["ACTIVE", "SUSPENDED", "INACTIVE", "EXPIRED"]).optional(),
+});
+
+export type Project3DExperienceCreate = z.infer<typeof project3DExperienceCreateSchema>;
+export type Project3DExperienceMetadata = z.infer<typeof project3DExperienceMetadataSchema>;
+export type Project3DExperienceListQuery = z.infer<typeof project3DExperienceListQuerySchema>;
+
 export const project3DSlotCreateSchema = z.object({
   kind: z.enum(["MAP", "DETAIL"]).default("DETAIL"),
   role: z.enum(["BUILDING", "UNITS", "SURROUNDINGS", "CONTEXT", "CUSTOM"]),
