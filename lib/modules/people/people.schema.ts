@@ -8,6 +8,14 @@ import { DEFAULT_LIMIT } from "@/lib/modules/shared/list-query";
  * verification or a permission: those come from the reader's context (§132).
  */
 
+/**
+ * The company filter's "every company" choice. It is not a company id, so it
+ * can never widen anything but this directory, which is the whole group's by
+ * design (E-01 §103): a company workspace opens on its own company and this
+ * asks for the group back (Workspace Context §85, §86).
+ */
+export const ALL_COMPANIES = "all";
+
 /** Absent leaves the field as it is; empty or null clears it. */
 const optionalText = (max: number) =>
   z
@@ -20,7 +28,11 @@ const optionalText = (max: number) =>
 
 export const directoryQuerySchema = z.object({
   q: z.string().trim().max(120).optional().catch(undefined),
-  /** The company somebody works in, by id; one of the reader's group. */
+  /**
+   * The company somebody works in, by id; one of the reader's group. In a
+   * company workspace it defaults to that company and `ALL_COMPANIES` widens it
+   * back to the whole group's directory (E-01 §103, Workspace Context §85, §86).
+   */
   company: z.string().trim().max(64).optional().catch(undefined),
   /** The group department, by key (`finance`). */
   department: z.string().trim().max(40).optional().catch(undefined),

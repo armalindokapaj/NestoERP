@@ -14,10 +14,15 @@ import * as projects from "@/lib/modules/projects/project.service";
  * interface and refusing the request are never out of step (PRD #5 §102).
  */
 export async function GET(request: Request) {
-  return withContext(async (context) => {
-    const url = new URL(request.url);
-    return apiOk(await listPortfolioProjects(context, parsePortfolioQuery(url.searchParams)));
-  });
+  // `group: "read"`: in the Group workspace this is every company's projects, each
+  // authorised by that company's own scope (Workspace Context §30, §83).
+  return withContext(
+    async (context) => {
+      const url = new URL(request.url);
+      return apiOk(await listPortfolioProjects(context, parsePortfolioQuery(url.searchParams)));
+    },
+    { group: "read" },
+  );
 }
 
 export async function POST(request: Request) {

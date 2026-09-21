@@ -5,11 +5,19 @@ import { ArrowRight, Files } from "lucide-react";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
+import { CompanyTag } from "@/components/workspace/company-tag";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import * as documents from "@/lib/modules/documents/document.service";
 import type { DocumentSummaryDTO } from "@/lib/modules/documents/document.types";
+import {
+  getDocumentOverviewForWorkspace,
+  listMyUploadsForWorkspace,
+  listRecentForWorkspace,
+  workspaceExperience,
+} from "@/lib/modules/documents/document.workspace";
 import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Documents" };
@@ -18,16 +26,20 @@ export const metadata: Metadata = { title: "Documents" };
  * Documents module overview (PRD #13 §9, §10).
  *
  * Counts are scoped: a reader is never told how many documents exist that they
- * cannot open (PRD #13 §10, §167).
+ * cannot open (PRD #13 §10, §167). In the Group workspace they are the sum of
+ * what each company lets this person open, and only the sections that answer
+ * for the whole group are offered — archive and new documents belong to one
+ * company (Workspace Context §35, §25).
  */
 export default async function DocumentsOverviewPage() {
   const context = await requireModule("documents");
-  const experience = resolveModuleExperience(context, "documents");
+  const group = inGroupWorkspace(context);
+  const experience = workspaceExperience(context, resolveModuleExperience(context, "documents"));
 
   const [stats, recent, mine] = await Promise.all([
-    documents.getDocumentOverview(context),
-    documents.listRecent(context, 6),
-    documents.listMyUploads(context, 6),
+    getDocumentOverviewForWorkspace(context),
+    listRecentForWorkspace(context, 6),
+    listMyUploadsForWorkspace(context, 6),
   ]);
 
   const cards = [
@@ -38,7 +50,7 @@ export default async function DocumentsOverviewPage() {
       value: stats.projectDocuments,
       href: "/documents/all?context=project",
     },
-    { label: "Archived", value: stats.archived, href: "/documents/archived" },
+    ...(group ? [] : [{ label: "Archived", value: stats.archived, href: "/documents/archived" }]),
   ];
 
   return (
@@ -46,7 +58,7 @@ export default async function DocumentsOverviewPage() {
       experience={experience}
       activeSection="overview"
       actions={
-        can(context, "document.create") ? (
+        !group && can(context, "document.create") ? (
           <Button asChild size="sm">
             <Link href="/documents/new">Add document</Link>
           </Button>
@@ -54,7 +66,7 @@ export default async function DocumentsOverviewPage() {
       }
     >
       <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={group ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid gap-4 sm:grid-cols-2 xl:grid-cols-4"}>
           {cards.map((card) => (
             <Link
               key={card.label}
@@ -70,10 +82,10 @@ export default async function DocumentsOverviewPage() {
         {recent.length === 0 ? (
           <EmptyState
             icon={<Files />}
-            title="No documents yet."
+            title={group ? "No accessible data for this module." : "No documents yet."}
             description="Documents you can access will appear here."
             action={
-              can(context, "document.create")
+              !group && can(context, "document.create")
                 ? { label: "Add document", href: "/documents/new" }
                 : undefined
             }
@@ -93,6 +105,8 @@ export default async function DocumentsOverviewPage() {
     </ModulePage>
   );
 }
+
+const LINK_CLASS = "block truncate text-table font-medium text-fg transition-colors hover:text-accent";
 
 function DocumentPanel({
   title,
@@ -127,15 +141,26 @@ function DocumentPanel({
               className="flex items-center justify-between gap-3 py-2.5 first:pt-0"
             >
               <div className="min-w-0">
-                <Link
-                  href={`/documents/${document.id}`}
-                  className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
-                >
-                  {document.name}
-                </Link>
+                {/* A row of the Group workspace names its company, and opening it
+                    enters that company first (Workspace Context §31, §45). */}
+                {document.company ? (
+                  <CompanyRecordLink
+                    companyId={document.company.id}
+                    companyName={document.company.name}
+                    href={`/documents/${document.id}`}
+                    className={LINK_CLASS}
+                  >
+                    {document.name}
+                  </CompanyRecordLink>
+                ) : (
+                  <Link href={`/documents/${document.id}`} className={LINK_CLASS}>
+                    {document.name}
+                  </Link>
+                )}
                 <p className="truncate text-meta text-fg-subtle">
                   {document.typeLabel} · {document.context.relatedRecordName ?? document.context.label}
                 </p>
+                {document.company ? <CompanyTag name={document.company.name} className="mt-1" /> : null}
               </div>
               <span className="shrink-0 text-meta tabular-nums text-fg-muted">
                 {formatDate(document.updatedAt)}

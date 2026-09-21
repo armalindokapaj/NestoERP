@@ -6,8 +6,8 @@ import { AttentionList } from "@/components/notifications/attention-list";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireUserContext } from "@/lib/context/current-user";
-import { listReadableAttention } from "@/lib/core/notifications/attention.service";
-import { listNotifications } from "@/lib/core/notifications/notification.service";
+import { listReadableAttentionForWorkspace } from "@/lib/core/notifications/attention.service";
+import { listNotificationsForWorkspace } from "@/lib/core/notifications/notification.service";
 import { getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
@@ -25,7 +25,10 @@ type Tab = (typeof TABS)[number];
  * The notification centre (PRD #38 §72, §86).
  *
  * Always the reader's own: every query is keyed on the current membership, so
- * there is nothing here to authorise beyond the session.
+ * there is nothing here to authorise beyond the session. In the Group workspace
+ * "own" is the person's notifications in every company they may use, each row
+ * naming its company and following through the company's own workspace
+ * (Workspace Context §45).
  */
 export default async function NotificationsPage({ searchParams }: Params) {
   const context = await requireUserContext();
@@ -34,8 +37,8 @@ export default async function NotificationsPage({ searchParams }: Params) {
   const t = await getTranslations("notificationCenter");
 
   const [page, attention] = await Promise.all([
-    tab === "attention" ? null : listNotifications(context, { readState: tab === "unread" ? "UNREAD" : undefined, limit: 20 }),
-    tab === "attention" ? listReadableAttention(context, 50) : null,
+    tab === "attention" ? null : listNotificationsForWorkspace(context, { readState: tab === "unread" ? "UNREAD" : undefined, limit: 20 }),
+    tab === "attention" ? listReadableAttentionForWorkspace(context, 50) : null,
   ]);
 
   return (

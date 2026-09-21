@@ -3,9 +3,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ShieldQuestion } from "lucide-react";
 
+import { EnterCompany } from "@/components/notifications/enter-company";
 import { AccessError } from "@/lib/access/guards";
 import { requireUserContext } from "@/lib/context/current-user";
-import { openNotification, type OpenedNotification } from "@/lib/core/notifications/notification.service";
+import { openNotificationForWorkspace, type OpenedInWorkspace } from "@/lib/core/notifications/notification.service";
 import { getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,22 +23,32 @@ type Params = { params: Promise<{ notificationId: string }> };
  * access has gone the page says so in the same words whatever the reason —
  * deleted, archived out of scope, module switched off, role changed — so the
  * answer reveals nothing about the record.
+ *
+ * From the Group workspace the notification is found among the person's own in
+ * any company they may use and read again in that company's context; the
+ * record is a company page, so the company's workspace is entered before going
+ * on (Workspace Context §31, §45).
  */
 export default async function OpenNotificationPage({ params }: Params) {
   const { notificationId } = await params;
   const context = await requireUserContext();
 
-  let opened: OpenedNotification;
+  let opened: OpenedInWorkspace;
   try {
-    opened = await openNotification(context, notificationId);
+    opened = await openNotificationForWorkspace(context, notificationId);
   } catch (error) {
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   }
 
-  if ("href" in opened) redirect(opened.href);
-
   const t = await getTranslations("notificationCenter");
+  if ("href" in opened) {
+    if (opened.company) {
+      return <EnterCompany companyId={opened.company.id} companyName={opened.company.name} href={opened.href} backHref="/notifications" backLabel={t("back")} />;
+    }
+    redirect(opened.href);
+  }
+
   return (
     <div className="mx-auto max-w-lg py-10">
       <section className="nesto-card p-8 text-center" data-testid="notification-unavailable">

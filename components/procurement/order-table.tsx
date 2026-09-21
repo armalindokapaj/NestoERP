@@ -2,6 +2,7 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import type { OrderSummaryDTO } from "@/lib/modules/procurement/procurement.types";
 import { formatDate } from "@/lib/utils/format";
+import { companyColumn, isGroupRows, RecordLink } from "./company-cells";
 import { dueLabel, formatAmount, receivedLabel } from "./procurement-format";
 
 /**
@@ -22,20 +23,25 @@ export function OrderTable({
   showSupplier?: boolean;
   caption?: string;
 }) {
+  const grouped = isGroupRows(orders);
+
   const columns: TableColumn<OrderSummaryDTO>[] = [
     {
       key: "poNumber",
       label: "Order",
       primary: true,
       render: (row) => (
-        <span className="flex flex-col">
-          <span className="font-medium text-fg">{row.poNumber}</span>
-          <span className="text-meta text-fg-subtle">
-            {row.itemCount} line{row.itemCount === 1 ? "" : "s"}
+        <RecordLink company={row.company} href={`/procurement/orders/${row.id}`}>
+          <span className="flex flex-col">
+            <span className="font-medium text-fg">{row.poNumber}</span>
+            <span className="text-meta text-fg-subtle">
+              {row.itemCount} line{row.itemCount === 1 ? "" : "s"}
+            </span>
           </span>
-        </span>
+        </RecordLink>
       ),
     },
+    ...(grouped ? [companyColumn<OrderSummaryDTO>()] : []),
     ...(showSupplier
       ? [
           {
@@ -105,7 +111,7 @@ export function OrderTable({
       columns={columns}
       records={orders}
       rowKey={(row) => row.id}
-      rowHref={(row) => `/procurement/orders/${row.id}`}
+      rowHref={grouped ? undefined : (row) => `/procurement/orders/${row.id}`}
       caption={caption}
     />
   );

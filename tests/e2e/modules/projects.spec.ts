@@ -252,7 +252,8 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
   });
 
   test("gives every cover the 3:4 shape, image or placeholder (E-05A §7.1, §8)", async ({ page }) => {
-    await signIn(page, "OWNER");
+    // Two companies' projects on one page is the Group workspace (Workspace Context §83).
+    await signIn(page, "OWNER", { workspace: "GROUP" });
     await page.goto("/projects");
 
     for (const name of ["Riverside Residences", "Central Office Tower"]) {
@@ -270,9 +271,9 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
 
     const code = `PRJ-E2E-${Date.now().toString().slice(-6)}`;
 
-    // The Owner creates in five companies, so the company is chosen first (E-05A §31).
+    // A project is created in the workspace's company, so the form opens on it
+    // with nothing to choose (Workspace Context §29; E-05A §31 as the workspace reads it).
     await page.goto("/projects/new");
-    await page.getByTestId("new-project-companies").getByRole("link", { name: /Aurelia Construction/ }).click();
     await expect(page.getByTestId("project-form-company")).toContainText("Aurelia Construction");
     await page.getByLabel("Project name").fill("End-to-end Test Project");
     await page.getByLabel("Project code").fill(code);
@@ -316,7 +317,8 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
   });
 
   test("stars a project to the top, without opening it (E-05A §13, §14, §25)", async ({ page }) => {
-    await signIn(page, "OWNER");
+    // Logistics Hub is Terra's, so the list that holds it is the group's (§83).
+    await signIn(page, "OWNER", { workspace: "GROUP" });
     await page.goto("/projects");
 
     const hub = card(page, "Logistics Hub");
@@ -338,7 +340,8 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
   });
 
   test("remembers the list view (E-05A §22, §23)", async ({ page }) => {
-    await signIn(page, "OWNER");
+    // Marina Apartments is Forma's, so this is the group's list (§83).
+    await signIn(page, "OWNER", { workspace: "GROUP" });
     await page.goto("/projects");
 
     // Scoped to the main region: after a reload the list streams in, and for a

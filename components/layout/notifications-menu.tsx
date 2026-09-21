@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CompanyTag } from "@/components/workspace/company-tag";
 import type { NotificationListItemDTO, NotificationPage, UnreadCountDTO } from "@/lib/core/notifications/notification.service";
 import { cn } from "@/lib/utils/cn";
 
@@ -25,6 +26,11 @@ import { cn } from "@/lib/utils/cn";
  * `/notifications/:id/open`, which reads the record again at the moment it is
  * followed, so a notification about something the reader has since lost access
  * to opens onto "no longer available", never onto the record.
+ *
+ * In the Group workspace the bell follows the workspace: the count and the list
+ * are the person's own across every company they may use, each entry naming its
+ * company. Following one still goes through the open route, which enters that
+ * company's workspace before it goes on (Workspace Context §31, §45).
  */
 
 const POLL_MS = 60_000;
@@ -225,6 +231,7 @@ export function NotificationsMenu() {
                       </span>
                       {item.body ? <span className="line-clamp-2 block text-meta text-fg-muted">{item.body}</span> : null}
                       <span className="mt-0.5 flex items-center gap-2 text-micro text-fg-subtle">
+                        {item.company ? <CompanyTag name={item.company.name} /> : null}
                         <time dateTime={item.createdAt}>{relativeTime(item.createdAt, locale)}</time>
                         {item.priority === "CRITICAL" ? <span className="font-semibold text-danger-strong">{t("critical")}</span> : null}
                         {item.priority === "HIGH" ? <span className="font-medium text-warning-strong">{t("high")}</span> : null}

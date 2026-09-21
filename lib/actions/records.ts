@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import { findRecordSection } from "@/lib/modules/records/registry";
 
 /**
@@ -18,7 +18,7 @@ export async function decideRecordAction(
   recordId: string,
   decision: "APPROVE" | "REJECT",
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const definition = findRecordSection(moduleKey, section);
 
   if (!definition?.decide) {

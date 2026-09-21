@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
@@ -8,6 +9,7 @@ import { currencyTotals, toSupplierRef } from "../procurement.dto";
 import { buildOrderScopeWhere, buildRfqScopeWhere } from "../procurement.scope";
 import { categoryLabels } from "../procurement.status";
 import * as orders from "../orders/order.service";
+import { companyRef, groupProcurementContexts, mergeCurrencyTotals } from "../procurement.workspace";
 import type {
   DeliveryPerformanceRow,
   OutstandingReceiptRow,
@@ -35,6 +37,8 @@ export type ProcurementReports = {
   outstandingReceipts: OutstandingReceiptRow[];
   deliveryPerformance: DeliveryPerformanceRow[];
   rfqSummary: { status: string; count: number }[];
+  /** Group workspace only: committed spend company by company, each in its own currencies (Workspace Context §72). */
+  spendByCompany?: SpendRow[];
 };
 
 /** Orders that count as committed spend (PRD #19 §179). */
@@ -115,6 +119,101 @@ export async function procurementReports(context: UserContext): Promise<Procurem
     outstandingReceipts: await outstandingReceipts(context),
     deliveryPerformance: deliveryPerformance(committed),
     rfqSummary: rfqRows.map((row) => ({ status: row.status, count: row._count._all })),
+  };
+}
+
+/**
+ * The reports the active workspace shows (Workspace Context §41, §72).
+ *
+ * A company workspace is `procurementReports`, untouched. The Group workspace
+ * asks each authorised company for its own report — built from that person's
+ * own order scope there — and combines them:
+ *
+ *   - suppliers, projects and delivery performance are company-owned rows, so
+ *     they stay one row per company's record, each labelled with its company;
+ *   - categories are one shared list, so a category's figures add across
+ *     companies;
+ *   - money adds per currency and never across two: euro of two companies is
+ *     one figure, a lek total beside it is another (§72);
+ *   - a company-by-company breakdown of what was committed comes with it (§73).
+ */
+export async function procurementReportsForWorkspace(session: UserContext): Promise<ProcurementReports> {
+  if (!inGroupWorkspace(session)) return procurementReports(session);
+
+  const contexts = await groupProcurementContexts(session, "procurement.report.view");
+  const perCompany = (
+    await Promise.all(contexts.map(async (context) => ({ context, reports: await procurementReports(context) })))
+  ).sort((a, b) => a.context.company.name.localeCompare(b.context.company.name));
+
+  const byWeight = (a: SpendRow, b: SpendRow) =>
+    b.count - a.count || a.label.localeCompare(b.label) || a.key.localeCompare(b.key);
+
+  const tagged = (pick: (reports: ProcurementReports) => SpendRow[], key: (company: string, row: SpendRow) => string) =>
+    perCompany
+      .flatMap(({ context, reports }) =>
+        pick(reports).map((row): SpendRow => ({ ...row, key: key(context.companyId, row), company: companyRef(context) })),
+      )
+      .sort(byWeight);
+
+  const categories = new Map<string, { label: string; count: number; totals: SpendRow["totals"][] }>();
+  for (const { reports } of perCompany) {
+    for (const row of reports.spendByCategory) {
+      const group = categories.get(row.key) ?? { label: row.label, count: 0, totals: [] };
+      group.count += row.count;
+      group.totals.push(row.totals);
+      categories.set(row.key, group);
+    }
+  }
+
+  const rfqStatuses = new Map<string, number>();
+  for (const { reports } of perCompany) {
+    for (const row of reports.rfqSummary) rfqStatuses.set(row.status, (rfqStatuses.get(row.status) ?? 0) + row.count);
+  }
+
+  return {
+    // A supplier is one company's record: the same legal entity in two companies is two rows.
+    spendBySupplier: tagged((reports) => reports.spendBySupplier, (_company, row) => row.key),
+    // "No project" is every company's own bucket, so it cannot share a key across them.
+    spendByProject: tagged((reports) => reports.spendByProject, (company, row) => `${company}:${row.key}`),
+    spendByCategory: [...categories.entries()]
+      .map(([key, group]) => ({ key, label: group.label, count: group.count, totals: mergeCurrencyTotals(...group.totals) }))
+      .sort(byWeight),
+    openOrders: {
+      count: perCompany.reduce((total, { reports }) => total + reports.openOrders.count, 0),
+      totals: mergeCurrencyTotals(...perCompany.map(({ reports }) => reports.openOrders.totals)),
+    },
+    outstandingReceipts: perCompany
+      .flatMap(({ context, reports }) =>
+        reports.outstandingReceipts.map((row): OutstandingReceiptRow => ({
+          ...row,
+          order: { ...row.order, company: companyRef(context) },
+        })),
+      )
+      .sort((a, b) => {
+        // The register's own order: earliest delivery date first, none last.
+        const [x, y] = [a.order.requiredDate, b.order.requiredDate];
+        if (x === y) return a.order.id.localeCompare(b.order.id);
+        if (x === null) return 1;
+        if (y === null) return -1;
+        return x.localeCompare(y);
+      })
+      .slice(0, 25),
+    deliveryPerformance: perCompany
+      .flatMap(({ context, reports }) =>
+        reports.deliveryPerformance.map((row): DeliveryPerformanceRow => ({ ...row, company: companyRef(context) })),
+      )
+      .sort((a, b) => b.orders - a.orders || a.supplier.name.localeCompare(b.supplier.name) || a.supplier.id.localeCompare(b.supplier.id)),
+    rfqSummary: [...rfqStatuses.entries()].map(([status, count]) => ({ status, count })),
+    spendByCompany: perCompany
+      .map(({ context, reports }): SpendRow => ({
+        key: context.companyId,
+        label: context.company.name,
+        // Every committed order has exactly one supplier, so the supplier rows partition them.
+        count: reports.spendBySupplier.reduce((total, row) => total + row.count, 0),
+        totals: mergeCurrencyTotals(...reports.spendBySupplier.map((row) => row.totals)),
+        company: companyRef(context),
+      }))
+      .sort(byWeight),
   };
 }
 

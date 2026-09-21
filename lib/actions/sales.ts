@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import { DuplicateLeadError } from "@/lib/modules/sales/leads/lead.service";
 import * as leads from "@/lib/modules/sales/leads/lead.service";
 import * as opportunities from "@/lib/modules/sales/opportunities/opportunity.service";
@@ -113,7 +113,7 @@ function lineItems(formData: FormData): Record<string, string>[] {
 /* -------------------------------------------------------------------------- */
 
 export async function createLeadAction(formData: FormData): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const values = formValues(formData);
   const parsed = createLeadSchema.safeParse(values);
@@ -137,7 +137,7 @@ export async function updateLeadAction(
   leadId: string,
   formData: FormData,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateLeadSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -162,7 +162,7 @@ export async function leadLifecycleAction(
   leadId: string,
   action: LeadLifecycleAction,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "contacted") await leads.markLeadContacted(context, leadId);
@@ -181,7 +181,7 @@ export async function disqualifyLeadAction(
   leadId: string,
   reason: string,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = disqualifyLeadSchema.safeParse({ reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -200,7 +200,7 @@ export async function assignLeadAction(
   leadId: string,
   ownerMemberId: string,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = assignLeadSchema.safeParse({ ownerMemberId });
   if (!parsed.success) return invalid(parsed.error);
@@ -219,7 +219,7 @@ export async function convertLeadAction(
   leadId: string,
   formData: FormData,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = convertLeadSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -244,7 +244,7 @@ export async function convertLeadAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createOpportunityAction(formData: FormData): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createOpportunitySchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -264,7 +264,7 @@ export async function updateOpportunityAction(
   opportunityId: string,
   formData: FormData,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateOpportunitySchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -283,7 +283,7 @@ export async function changeStageAction(
   opportunityId: string,
   stage: string,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = opportunityStageSchema.safeParse({ stage });
   if (!parsed.success) return invalid(parsed.error);
@@ -302,7 +302,7 @@ export async function assignOpportunityAction(
   opportunityId: string,
   ownerMemberId: string,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = assignOpportunitySchema.safeParse({ ownerMemberId });
   if (!parsed.success) return invalid(parsed.error);
@@ -321,7 +321,7 @@ export async function markWonAction(
   opportunityId: string,
   formData: FormData,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = opportunityWonSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -343,7 +343,7 @@ export async function markLostAction(
   opportunityId: string,
   formData: FormData,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = opportunityLostSchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -364,7 +364,7 @@ export async function opportunityLifecycleAction(
   opportunityId: string,
   action: OpportunityLifecycleAction,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "reopen") await opportunities.reopenOpportunity(context, opportunityId);
@@ -382,7 +382,7 @@ export async function linkProjectAction(
   opportunityId: string,
   projectId: string,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = linkProjectSchema.safeParse({ projectId });
   if (!parsed.success) return invalid(parsed.error);
@@ -402,7 +402,7 @@ export async function linkProjectAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createProposalAction(formData: FormData): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createProposalSchema.safeParse({
     ...formValues(formData),
@@ -425,7 +425,7 @@ export async function updateProposalAction(
   proposalId: string,
   formData: FormData,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateProposalSchema.safeParse({
     ...formValues(formData),
@@ -458,7 +458,7 @@ export async function proposalLifecycleAction(
   action: ProposalLifecycleAction,
   note?: string,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await proposals.submitProposal(context, proposalId);
@@ -482,7 +482,7 @@ export async function rejectProposalAction(
   proposalId: string,
   reason: string,
 ): Promise<SalesActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = proposalRejectionSchema.safeParse({ note: reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -509,7 +509,7 @@ const duplicateInputSchema = z.object({
 export async function checkLeadDuplicatesAction(
   input: z.infer<typeof duplicateInputSchema>,
 ): Promise<LeadDuplicateMatch[]> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const parsed = duplicateInputSchema.safeParse(input);
   if (!parsed.success) return [];
 

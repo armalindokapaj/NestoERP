@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import * as actions from "@/lib/modules/qaqc/corrective-actions/action.service";
 import * as defects from "@/lib/modules/qaqc/defects/defect.service";
 import * as inspections from "@/lib/modules/qaqc/inspections/inspection.service";
@@ -106,7 +106,7 @@ function checked(value: string | undefined): boolean {
 /* -------------------------------------------------------------------------- */
 
 export async function createRequestAction(formData: FormData): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = requestSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -126,7 +126,7 @@ export async function updateRequestAction(
   requestId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = requestSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -145,7 +145,7 @@ export async function assignRequestAction(
   requestId: string,
   memberId: string,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await requests.assignRequest(context, requestId, memberId);
@@ -161,7 +161,7 @@ export async function cancelRequestAction(
   requestId: string,
   reason: string,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await requests.cancelRequest(context, requestId, reason);
@@ -193,7 +193,7 @@ function templateInput(formData: FormData) {
 }
 
 export async function createTemplateAction(formData: FormData): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = templateSchema.safeParse(templateInput(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -213,7 +213,7 @@ export async function updateTemplateAction(
   templateId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = templateSchema.safeParse(templateInput(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -235,7 +235,7 @@ export async function templateLifecycleAction(
   templateId: string,
   action: "archive" | "restore",
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "archive") await templates.archiveTemplate(context, templateId);
@@ -253,7 +253,7 @@ export async function templateLifecycleAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createInspectionAction(formData: FormData): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = inspectionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -273,7 +273,7 @@ export async function updateInspectionAction(
   inspectionId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = inspectionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -292,7 +292,7 @@ export async function assignInspectionAction(
   inspectionId: string,
   memberId: string,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await inspections.assignInspection(context, inspectionId, memberId);
@@ -309,7 +309,7 @@ export async function saveChecklistAction(
   inspectionId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const { rows } = formValues(formData, "answers");
 
   const parsed = checklistSchema.safeParse({ answers: rows });
@@ -329,7 +329,7 @@ export async function submitInspectionAction(
   inspectionId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = submitInspectionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -351,7 +351,7 @@ export async function inspectionLifecycleAction(
   action: InspectionDecision,
   note: string | null,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "approve") await inspections.approveInspection(context, inspectionId, note);
@@ -381,7 +381,7 @@ export async function createReinspectionAction(
   parentInspectionId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = reinspectionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -405,7 +405,7 @@ export async function recordMaterialDecisionAction(
   inspectionId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = materialDecisionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -424,7 +424,7 @@ export async function removeMaterialDecisionAction(
   inspectionId: string,
   goodsReceiptItemId: string,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await materials.removeDecision(context, inspectionId, goodsReceiptItemId);
@@ -440,7 +440,7 @@ export async function releaseMaterialAction(
   inspectionId: string,
   notes: string | null,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await materials.releaseMaterial(context, inspectionId, notes);
@@ -457,7 +457,7 @@ export async function revokeReleaseAction(
   inspectionId: string,
   reason: string,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await materials.revokeRelease(context, inspectionId, reason);
@@ -475,7 +475,7 @@ export async function revokeReleaseAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createDefectAction(formData: FormData): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = defectSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -495,7 +495,7 @@ export async function updateDefectAction(
   defectId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = defectSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -514,7 +514,7 @@ export async function assignDefectAction(
   defectId: string,
   memberId: string,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await defects.assignDefect(context, defectId, memberId);
@@ -533,7 +533,7 @@ export async function defectLifecycleAction(
   action: DefectDecision,
   note: string | null,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "resolve") {
@@ -561,7 +561,7 @@ export async function escalateDefectAction(
   defectId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   const { values } = formValues(formData);
 
   // Validated against the enum rather than cast to it, so a hand-crafted form
@@ -590,7 +590,7 @@ export async function escalateDefectAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createNcrAction(formData: FormData): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = ncrSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -610,7 +610,7 @@ export async function updateNcrAction(
   ncrId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = ncrSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -629,7 +629,7 @@ export async function assignNcrAction(
   ncrId: string,
   memberId: string,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await ncrs.assignNcr(context, ncrId, memberId);
@@ -655,7 +655,7 @@ export async function ncrLifecycleAction(
   action: NcrDecision,
   note: string | null,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "open") await ncrs.openNcr(context, ncrId);
@@ -686,7 +686,7 @@ export async function ncrLifecycleAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createActionAction(formData: FormData): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = correctiveActionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -706,7 +706,7 @@ export async function updateActionAction(
   actionId: string,
   formData: FormData,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = correctiveActionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -725,7 +725,7 @@ export async function assignActionAction(
   actionId: string,
   memberId: string,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await actions.assignAction(context, actionId, memberId);
@@ -744,7 +744,7 @@ export async function actionLifecycleAction(
   action: ActionDecision,
   note: string | null,
 ): Promise<QaqcActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "complete") {

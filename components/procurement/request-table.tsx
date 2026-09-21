@@ -4,6 +4,7 @@ import { PersonLink } from "@/components/people/person-link";
 import type { RequestSummaryDTO } from "@/lib/modules/procurement/procurement.types";
 import { priorityLabels } from "@/lib/modules/procurement/procurement.status";
 import { formatDate } from "@/lib/utils/format";
+import { companyColumn, isGroupRows, RecordLink } from "./company-cells";
 import { dueLabel, formatAmount } from "./procurement-format";
 
 /**
@@ -22,18 +23,23 @@ export function RequestTable({
   showProject?: boolean;
   caption?: string;
 }) {
+  const grouped = isGroupRows(requests);
+
   const columns: TableColumn<RequestSummaryDTO>[] = [
     {
       key: "requestNumber",
       label: "Request",
       primary: true,
       render: (row) => (
-        <span className="flex flex-col">
-          <span className="font-medium text-fg">{row.requestNumber}</span>
-          <span className="text-meta text-fg-subtle">{row.title}</span>
-        </span>
+        <RecordLink company={row.company} href={`/procurement/requests/${row.id}`}>
+          <span className="flex flex-col">
+            <span className="font-medium text-fg">{row.requestNumber}</span>
+            <span className="text-meta text-fg-subtle">{row.title}</span>
+          </span>
+        </RecordLink>
       ),
     },
+    ...(grouped ? [companyColumn<RequestSummaryDTO>()] : []),
     ...(showProject
       ? [
           {
@@ -98,7 +104,7 @@ export function RequestTable({
       columns={columns}
       records={requests}
       rowKey={(row) => row.id}
-      rowHref={(row) => `/procurement/requests/${row.id}`}
+      rowHref={grouped ? undefined : (row) => `/procurement/requests/${row.id}`}
       caption={caption}
     />
   );

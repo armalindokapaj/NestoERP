@@ -11,12 +11,16 @@ import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as suppliers from "@/lib/modules/procurement/suppliers/supplier.service";
 import { supplierListQuerySchema } from "@/lib/modules/procurement/procurement.schema";
+import {
+  canReadProcurement,
+  resolveProcurementExperience,
+} from "@/lib/modules/procurement/procurement.workspace";
 import {
   SUPPLIER_STATUSES,
   SUPPLIER_TYPES,
@@ -28,16 +32,24 @@ export const metadata: Metadata = { title: "Suppliers" };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** The supplier directory (PRD #19 §32–§35). */
+/**
+ * The supplier directory (PRD #19 §32–§35).
+ *
+ * In the Group workspace it lists the suppliers of every company the reader may
+ * read them in. A supplier is a company's own record, so the same legal entity
+ * known to two companies appears twice, once under each, and is never merged
+ * (Workspace Context §38, §45). A new supplier needs a company, so the control
+ * is not offered there.
+ */
 export default async function SuppliersPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("procurement");
-  if (!can(context, "procurement.supplier.view")) redirect("/access-denied");
+  if (!(await canReadProcurement(context, "procurement.supplier.view"))) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "procurement");
+  const experience = await resolveProcurementExperience(context);
   const params = await searchParams;
 
   return (
@@ -45,7 +57,7 @@ export default async function SuppliersPage({
       experience={experience}
       activeSection="suppliers"
       actions={
-        can(context, "procurement.supplier.create") ? (
+        !inGroupWorkspace(context) && can(context, "procurement.supplier.create") ? (
           <Button asChild size="sm">
             <Link href="/procurement/suppliers/new">New supplier</Link>
           </Button>
@@ -76,7 +88,11 @@ async function SupplierList({
     ?.split(",")
     .filter((value) => (SUPPLIER_TYPES as readonly string[]).includes(value));
 
+  const group = inGroupWorkspace(context);
+
   const query = supplierListQuerySchema.parse({
+    // The Group `company` filter; a company workspace never reads it (§86, §87).
+    companyId: group ? read("company") : undefined,
     search: read("search"),
     status: statuses?.length ? statuses : undefined,
     supplierType: types?.length ? types : undefined,
@@ -86,15 +102,22 @@ async function SupplierList({
   });
 
   const [result, options] = await Promise.all([
-    suppliers.listSuppliers(context, query),
-    suppliers.supplierFilterOptions(context),
+    suppliers.listSuppliersForWorkspace(context, query),
+    suppliers.supplierFilterOptionsForWorkspace(context),
   ]);
 
   const hasFilters = Boolean(
-    query.search || query.status?.length || query.supplierType?.length || query.country,
+    query.companyId ||
+      query.search ||
+      query.status?.length ||
+      query.supplierType?.length ||
+      query.country,
   );
 
   const filters: FilterConfig[] = [
+    ...(group && options.companies.length > 1
+      ? [{ param: "company", label: "Company", options: options.companies }]
+      : []),
     {
       param: "status",
       label: "Status",
@@ -155,9 +178,13 @@ async function SupplierList({
           <EmptyState
             icon={<Factory />}
             title="No suppliers yet."
-            description="A supplier is who the company buys from — separate from a client, who is who it sells to."
+            description={
+              group
+                ? "No company you can read has a supplier yet. Adding one is done inside a company."
+                : "A supplier is who the company buys from — separate from a client, who is who it sells to."
+            }
             action={
-              can(context, "procurement.supplier.create")
+              !group && can(context, "procurement.supplier.create")
                 ? { label: "New supplier", href: "/procurement/suppliers/new" }
                 : undefined
             }

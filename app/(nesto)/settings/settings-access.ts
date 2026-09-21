@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { findSettingsSection } from "@/config/settings";
 import { can, canAccessModule } from "@/lib/access/can";
-import { requireUserContext } from "@/lib/context/current-user";
+import { companyRequiredHref, requireUserContext } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 
 /**
@@ -20,6 +20,14 @@ export async function requireSettingsSection(slug: string): Promise<UserContext>
   const context = await requireUserContext();
 
   if (section.personal) return context;
+
+  // Every other section is one company's own — its details, its modules, its
+  // numbering, its people. The Group workspace has no company to settle them
+  // for, so it asks which (Workspace Context §25, §29). Personal settings are
+  // above this: they belong to the person and open in either workspace.
+  if (context.workspace.scopeType === "GROUP") {
+    redirect(companyRequiredHref("settings", `/settings/${slug}`));
+  }
 
   if (!canAccessModule(context, "settings") || !can(context, section.permission)) {
     redirect("/access-denied");

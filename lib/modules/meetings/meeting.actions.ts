@@ -232,33 +232,36 @@ export async function convertActionToTask(context: UserContext, meetingId: strin
 /* Actions across meetings — the Actions section and "My open actions"         */
 /* -------------------------------------------------------------------------- */
 
-export async function listActionItems(context: UserContext, query: ActionListQuery): Promise<{ data: MyActionItemDTO[]; pagination: ReturnType<typeof paginationMeta> }> {
-  assertModule(context, MODULE);
-  assertPermission(context, "meeting.view");
+/**
+ * The `where` of an action list for one company's context. Its own function so
+ * the Group workspace can put one per company in a union — each company
+ * answering with its own rules (Workspace Context §34, §58).
+ */
+export function actionListWhere(context: UserContext, query: ActionListQuery): Prisma.MeetingActionItemWhereInput {
   // A project filter goes through the project's own door, like the meeting list's (PRD #47 §175).
   const projectDoor = canAccessModule(context, "projects") && can(context, "project.view") ? buildProjectScopeWhere(context) : null;
   const byProject: Prisma.MeetingWhereInput = query.projectId ? (projectDoor ? { projectId: query.projectId, project: { is: projectDoor } } : { id: { in: [] } }) : {};
-  const where: Prisma.MeetingActionItemWhereInput = {
+  return {
     companyId: context.companyId,
     meeting: { AND: [readableMeetingWhere(context), { archivedAt: null }, byProject] },
     ...(query.mine ? { ownerMemberId: context.membershipId } : {}),
     ...(query.status === "open" ? { status: { in: OPEN } } : query.status === "done" ? { status: "DONE" } : {}),
   };
-  const [rows, total] = await Promise.all([
-    prisma.meetingActionItem.findMany({
-      where,
-      orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-      include: {
-        owner: { select: { id: true, status: true, user: { select: { firstName: true, lastName: true, avatarUrl: true } } } },
-        linkedTask: { select: { id: true, title: true, status: true } },
-        meeting: { select: { id: true, title: true, startsAt: true, timezone: true, project: { select: { id: true, name: true } } } },
-      },
-    }),
-    prisma.meetingActionItem.count({ where }),
-  ]);
+}
 
+export const ACTION_LIST_ORDER: Prisma.MeetingActionItemOrderByWithRelationInput[] = [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }];
+
+export const ACTION_LIST_INCLUDE = {
+  owner: { select: { id: true, status: true, user: { select: { firstName: true, lastName: true, avatarUrl: true } } } },
+  linkedTask: { select: { id: true, title: true, status: true } },
+  meeting: { select: { id: true, title: true, startsAt: true, timezone: true, project: { select: { id: true, name: true } } } },
+} satisfies Prisma.MeetingActionItemInclude;
+
+export type ActionListRow = Prisma.MeetingActionItemGetPayload<{ include: typeof ACTION_LIST_INCLUDE }>;
+
+/** The action rows of one company as this reader sees them: linked tasks and projects only where they may open them. */
+export async function actionListDTOs(context: UserContext, rows: ActionListRow[]): Promise<MyActionItemDTO[]> {
+  const projectDoor = canAccessModule(context, "projects") && can(context, "project.view") ? buildProjectScopeWhere(context) : null;
   const taskIds = rows.map((row) => row.linkedTaskId).filter((id): id is string => Boolean(id));
   const readableTasks =
     taskIds.length && canAccessModule(context, "tasks") && can(context, "task.view")
@@ -283,19 +286,34 @@ export async function listActionItems(context: UserContext, query: ActionListQue
       ? new Set((await prisma.project.findMany({ where: { AND: [projectDoor, { id: { in: projectIds } }] }, select: { id: true } })).map((row) => row.id))
       : new Set<string>();
 
-  return {
-    data: rows.map((row) => ({
-      ...actionDTO(context, row, {
-        today: todayInZone(row.meeting.timezone),
-        readableTasks,
-        // Managing an action is decided on its meeting's page; the list offers the owner's own moves only.
-        canManage: false,
-        canConvert: false,
-        minutesFinal: true,
-      }),
-      meeting: { id: row.meeting.id, title: row.meeting.title, startsAt: row.meeting.startsAt.toISOString(), href: `/meetings/${row.meeting.id}` },
-      project: row.meeting.project && openProjects.has(row.meeting.project.id) ? row.meeting.project : null,
-    })),
-    pagination: paginationMeta(total, query.page, query.limit),
-  };
+  return rows.map((row) => ({
+    ...actionDTO(context, row, {
+      today: todayInZone(row.meeting.timezone),
+      readableTasks,
+      // Managing an action is decided on its meeting's page; the list offers the owner's own moves only.
+      canManage: false,
+      canConvert: false,
+      minutesFinal: true,
+    }),
+    meeting: { id: row.meeting.id, title: row.meeting.title, startsAt: row.meeting.startsAt.toISOString(), href: `/meetings/${row.meeting.id}` },
+    project: row.meeting.project && openProjects.has(row.meeting.project.id) ? row.meeting.project : null,
+  }));
+}
+
+export async function listActionItems(context: UserContext, query: ActionListQuery): Promise<{ data: MyActionItemDTO[]; pagination: ReturnType<typeof paginationMeta> }> {
+  assertModule(context, MODULE);
+  assertPermission(context, "meeting.view");
+  const where = actionListWhere(context, query);
+  const [rows, total] = await Promise.all([
+    prisma.meetingActionItem.findMany({
+      where,
+      orderBy: ACTION_LIST_ORDER,
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
+      include: ACTION_LIST_INCLUDE,
+    }),
+    prisma.meetingActionItem.count({ where }),
+  ]);
+
+  return { data: await actionListDTOs(context, rows), pagination: paginationMeta(total, query.page, query.limit) };
 }

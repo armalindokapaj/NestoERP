@@ -140,7 +140,7 @@ export async function setCompanyStatus(context: PlatformContext, companyId: stri
   if (company.status === status) return;
   await prisma.$transaction(async (tx) => {
     assertUpdated(await tx.company.updateMany({ where: { id: company.id, status: company.status }, data: { status, configVersion: { increment: 1 } } }));
-    if (status !== "ACTIVE") await revokeSessions(tx, { companyId: company.id });
+    if (status !== "ACTIVE") await revokeSessions(tx, { companyId: company.id, relocate: true });
     await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_STATUS_CHANGED, entity: { type: "Company", id: company.id, label: company.name }, before: { status: company.status }, after: { status }, reason }, { tx });
   });
 }
@@ -190,7 +190,8 @@ export async function updateMembership(context: PlatformContext, membershipId: s
   const status = input.status ?? member.status;
   await prisma.$transaction(async (tx) => {
     assertUpdated(await tx.companyMember.updateMany({ where: { id: member.id, status: member.status }, data: { roleId, status, accessVersion: { increment: 1 }, deactivatedAt: status === "ACTIVE" ? null : new Date(), deactivatedByMemberId: null } }));
-    if (status !== "ACTIVE" || input.roleKey) await revokeSessions(tx, { membershipId: member.id });
+    // A role change ends the session so the next one is built afresh; only losing the membership relocates (§82).
+    if (status !== "ACTIVE" || input.roleKey) await revokeSessions(tx, { membershipId: member.id, relocate: status !== "ACTIVE" });
     await recordPlatformAction(context, member.company.parentGroupId, { actionKey: AuditAction.PLATFORM_MEMBERSHIP_CHANGED, entity: { type: "CompanyMember", id: member.id, label: `${member.user.firstName} ${member.user.lastName} · ${member.company.name}` }, before: { companyId: member.company.id, userId: member.userId, roleKey: member.role.key, status: member.status }, after: { companyId: member.company.id, userId: member.userId, roleKey: input.roleKey ?? member.role.key, status }, reason: input.reason }, { tx });
   });
 }
@@ -201,7 +202,7 @@ export async function repairBrokenMembership(context: PlatformContext, membershi
   if (!member.user.personProfile || member.user.personProfile.parentGroupId === member.company.parentGroupId) throw new AccessError("CONFLICT", "This membership has no repairable parent-group mismatch.");
   await prisma.$transaction(async (tx) => {
     assertUpdated(await tx.companyMember.updateMany({ where: { id: member.id, status: member.status }, data: { status: "INACTIVE", accessVersion: { increment: 1 }, deactivatedAt: new Date(), deactivatedByMemberId: null } }));
-    await revokeSessions(tx, { membershipId: member.id });
+    await revokeSessions(tx, { membershipId: member.id, relocate: true });
     await recordPlatformAction(context, member.company.parentGroupId, { actionKey: AuditAction.PLATFORM_MEMBERSHIP_CHANGED, entity: { type: "CompanyMember", id: member.id, label: `${member.user.firstName} ${member.user.lastName} · ${member.company.name}` }, before: { companyId: member.company.id, userId: member.userId, roleKey: member.role.key, status: member.status }, after: { companyId: member.company.id, userId: member.userId, roleKey: member.role.key, status: "INACTIVE" }, reason }, { tx });
   });
 }

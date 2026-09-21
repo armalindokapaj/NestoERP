@@ -79,7 +79,16 @@ for (const file of routeFiles) {
 
 /* 2. Server actions -------------------------------------------------------- */
 
-const CONTEXT_RESOLVERS = new Set(["requireUserContext", "getUserContext", "resolveUserContext", "requireModule", "requirePermission"]);
+const CONTEXT_RESOLVERS = new Set([
+  "requireUserContext",
+  // A business write belongs to one company, so it refuses in the Group
+  // workspace before it does anything (Workspace Context §59).
+  "requireCompanyContext",
+  "getUserContext",
+  "resolveUserContext",
+  "requireModule",
+  "requirePermission",
+]);
 
 /**
  * Actions that run without a workspace context, and what protects each instead.
@@ -186,6 +195,12 @@ const SCHEMA_FIELD_EXCEPTIONS: Record<string, string> = {
     "immutable server-built release manifest validation; this schema is never used to accept a request body",
   "lib/modules/platform/platform-control.schema.ts#roleKey":
     "the target membership role chosen by a separately authorized Platform Admin, never the caller's role",
+  "lib/workspace/workspace.service.ts#companyId":
+    "the workspace being switched to: a request, re-checked against the caller's own active membership and standing before the session moves, and answered the same whether it is somebody else's company or none (Workspace Context §14, §80, §81)",
+  "lib/modules/sales/leads/lead.schema.ts#companyId":
+    "Group workspace list filter; narrowToCompany intersects it with the companies the person already reads and ignores any other (Workspace Context §86, §87)",
+  "lib/modules/sales/opportunities/opportunity.schema.ts#companyId":
+    "Group workspace list filter; narrowToCompany intersects it with the companies the person already reads and ignores any other (Workspace Context §86, §87)",
 };
 
 for (const file of walk("lib", (candidate) => candidate.endsWith(".ts"))) {

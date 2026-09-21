@@ -4,6 +4,7 @@ import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { DocumentTable } from "@/components/documents/document-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { fileTypeGroupLabels, FILE_TYPE_GROUPS } from "@/lib/modules/documents/document.files";
@@ -11,8 +12,12 @@ import {
   parseDocumentListQuery,
   type DocumentQueryDefaults,
 } from "@/lib/modules/documents/document.query";
-import { documentFilterOptions } from "@/lib/modules/documents/document.repository";
-import * as documents from "@/lib/modules/documents/document.service";
+import {
+  documentFilterOptionsForWorkspace,
+  listDocumentCompanies,
+  listDocumentsForWorkspace,
+  resolveDocumentReaders,
+} from "@/lib/modules/documents/document.workspace";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -31,6 +36,12 @@ const VARIANT_DEFAULTS: Record<DocumentListVariant, DocumentQueryDefaults> = {
  * Filter options are supplied already narrowed to what the reader can
  * discover, so a Context dropdown never names Finance to somebody without
  * Finance access (PRD #13 §79, §231).
+ *
+ * In the Group workspace the list is every company's documents this person may
+ * read, each row carrying its company, with a Company filter to narrow it —
+ * a filter, not the workspace (Workspace Context §35, §45, §87). What the
+ * reader may do is asked of each company they read, never of the session's home
+ * company alone.
  */
 export async function DocumentsList({
   context,
@@ -44,14 +55,19 @@ export async function DocumentsList({
   basePath: string;
 }) {
   const query = parseDocumentListQuery(searchParams, VARIANT_DEFAULTS[variant]);
+  const group = inGroupWorkspace(context);
 
-  const [result, options] = await Promise.all([
-    documents.listDocuments(context, query),
-    documentFilterOptions(context),
+  // The company workspace's own context, or one per company the group reads.
+  const readers = await resolveDocumentReaders(context);
+  const [result, options, companies] = await Promise.all([
+    listDocumentsForWorkspace(context, query),
+    documentFilterOptionsForWorkspace(context, query.companyId),
+    listDocumentCompanies(context),
   ]);
 
   const hasFilters = Boolean(
-    query.search ||
+    (group && query.companyId) ||
+      query.search ||
       query.fileType?.length ||
       query.context?.length ||
       query.projectId ||
@@ -64,13 +80,18 @@ export async function DocumentsList({
   const contextOptions = [
     { value: "project", label: "Project" },
     ...(options.clients.length > 0 ? [{ value: "client", label: "Client" }] : []),
-    ...(can(context, "task.view") ? [{ value: "task", label: "Task" }] : []),
-    ...(can(context, "document.company.view")
+    ...(readers.some((reader) => can(reader, "task.view")) ? [{ value: "task", label: "Task" }] : []),
+    ...(readers.some((reader) => can(reader, "document.company.view"))
       ? [{ value: "company", label: "Company" }]
       : []),
   ];
 
   const filters: FilterConfig[] = [
+    // The Group workspace's company filter: only companies this person reads
+    // are offered, and one company has nothing to narrow (§86, §87).
+    ...(group && companies.length > 1
+      ? [{ param: "company", label: "Company", options: companies.map((company) => ({ value: company.id, label: company.name })) }]
+      : []),
     {
       param: "fileType",
       label: "File type",
@@ -147,10 +168,10 @@ export async function DocumentsList({
         ) : (
           <EmptyState
             icon={<Files />}
-            title={EMPTY_TITLE[variant]}
+            title={group ? "No accessible data for this module." : EMPTY_TITLE[variant]}
             description={EMPTY_DESCRIPTION[variant]}
             action={
-              variant !== "archived" && can(context, "document.create")
+              !group && variant !== "archived" && can(context, "document.create")
                 ? { label: "Add document", href: "/documents/new" }
                 : undefined
             }
@@ -158,7 +179,7 @@ export async function DocumentsList({
         )
       ) : (
         <>
-          <DocumentTable documents={result.data} showStatus={variant === "archived"} />
+          <DocumentTable documents={result.data} showStatus={variant === "archived"} group={group} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

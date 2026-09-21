@@ -6,5 +6,5 @@ import { getAccessPortfolio } from "@/lib/modules/organization/access-portfolio.
  * and delegated access this person works with across their group (E-06 §16, §95).
  */
 export async function GET() {
-  return withContext(async (session) => apiOk({ data: await getAccessPortfolio(session) }));
+  return withContext(async (session) => apiOk({ data: await getAccessPortfolio(session) }), { group: "any" });
 }

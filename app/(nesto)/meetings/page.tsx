@@ -6,9 +6,10 @@ import { Plus } from "lucide-react";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { meetingExperience } from "@/lib/modules/meetings/meeting.workspace";
 import { MeetingsSection } from "./meetings-section";
 
 export const metadata: Metadata = { title: "Meetings" };
@@ -16,7 +17,7 @@ export const metadata: Metadata = { title: "Meetings" };
 /** Upcoming meetings, soonest first — the default view (PRD #40 §91). */
 export default async function MeetingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const context = await requireModule("meetings");
-  const experience = resolveModuleExperience(context, "meetings");
+  const experience = meetingExperience(context);
   const params = await searchParams;
 
   return (
@@ -24,7 +25,8 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
       experience={experience}
       activeSection="upcoming"
       actions={
-        can(context, "meeting.create") ? (
+        // Scheduling needs a company; the Group workspace only reads (Workspace Context §34).
+        !inGroupWorkspace(context) && can(context, "meeting.create") ? (
           <Button asChild size="sm">
             <Link href="/meetings/new">
               <Plus aria-hidden="true" />

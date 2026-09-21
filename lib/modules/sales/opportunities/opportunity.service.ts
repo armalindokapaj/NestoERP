@@ -1,5 +1,6 @@
 import { Prisma, type OpportunityStage } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
@@ -14,12 +15,19 @@ import { createClientRecord } from "@/lib/modules/clients/client.service";
 import type { CreateClientInput } from "@/lib/modules/clients/client.schema";
 import { createProjectRecord } from "@/lib/modules/projects/project.service";
 import { contactFullName, loadMemberRef, toMemberRef } from "../sales.dto";
+import { companyRefs, groupCompanies, groupReaders } from "../sales.workspace";
 import {
   buildSalesClientWhere,
   buildSalesOwnerWhere,
   buildSalesProjectWhere,
 } from "../sales.scope";
-import type { OpportunityDetailDTO, OpportunitySummaryDTO } from "../sales.types";
+import type {
+  ClientOption,
+  CompanyRef,
+  OpportunityDetailDTO,
+  OpportunitySummaryDTO,
+  OwnerOption,
+} from "../sales.types";
 import * as repository from "./opportunity.repository";
 import type {
   CreateOpportunityInput,
@@ -68,11 +76,17 @@ export async function listOpportunities(context: UserContext, query: Opportunity
 
   const { rows, total } = await repository.listOpportunities(context, query);
 
-  let data = rows.map(toSummaryDTO);
+  return { data: refinePage(rows.map(toSummaryDTO), query), pagination: paginationMeta(total, query.page, query.limit) };
+}
 
-  // Probability and weighted value are derived, so they cannot be SQL filters
-  // or SQL sorts. Applying them after the page is read narrows the page rather
-  // than the query — honest about what it is, and correct for what is shown.
+/**
+ * Probability and weighted value are derived, so they cannot be SQL filters or
+ * SQL sorts. Applying them after the page is read narrows the page rather than
+ * the query — honest about what it is, and correct for what is shown.
+ */
+function refinePage(rows: OpportunitySummaryDTO[], query: OpportunityListQuery): OpportunitySummaryDTO[] {
+  let data = rows;
+
   if (query.minProbability !== undefined) {
     data = data.filter((row) => Number.parseFloat(row.probability) >= query.minProbability!);
   }
@@ -89,6 +103,30 @@ export async function listOpportunities(context: UserContext, query: Opportunity
       (a, b) => Number.parseFloat(b.probability) - Number.parseFloat(a.probability),
     );
   }
+
+  return data;
+}
+
+/**
+ * The list for the active workspace (Workspace Context §37).
+ *
+ * A company workspace is the company list, untouched. The Group workspace is
+ * the union of the deals each authorised company's own scope lets the reader
+ * open, read in one query so search, filters, sort and paging see one list, each
+ * row naming its company. The `company` filter only narrows within them.
+ */
+export async function listOpportunitiesForWorkspace(session: UserContext, query: OpportunityListQuery) {
+  if (!inGroupWorkspace(session)) return listOpportunities(session, query);
+
+  const readers = await groupReaders(session, "sales.opportunity.view", query.companyId);
+  if (readers.length === 0) return { data: [] as OpportunitySummaryDTO[], pagination: paginationMeta(0, query.page, query.limit) };
+
+  const { rows, total } = await repository.listOpportunitiesInGroup(readers, query);
+  const companies = companyRefs(readers);
+  const data = refinePage(
+    rows.map((row) => ({ ...toSummaryDTO(row), company: companies.get(row.companyId) })),
+    query,
+  );
 
   return { data, pagination: paginationMeta(total, query.page, query.limit) };
 }
@@ -135,6 +173,43 @@ export async function opportunityFilterOptions(context: UserContext) {
   assertModule(context, MODULE);
   assertPermission(context, "sales.opportunity.view");
   return repository.opportunityFilterOptions(context);
+}
+
+export type WorkspaceOpportunityOptions = {
+  owners: OwnerOption[];
+  clients: ClientOption[];
+  currencies: string[];
+  /** Every company the reader may read, for the group's `company` filter; empty in a company. */
+  companies: CompanyRef[];
+};
+
+/**
+ * The filter options for the workspace. In the group they come from the
+ * narrowed companies, and the company filter itself lists every company the
+ * reader may read, so choosing one never hides the others from the menu.
+ */
+export async function opportunityFilterOptionsForWorkspace(
+  session: UserContext,
+  companyId?: string,
+): Promise<WorkspaceOpportunityOptions> {
+  if (!inGroupWorkspace(session)) return { ...(await opportunityFilterOptions(session)), companies: [] };
+
+  const [readers, companies] = await Promise.all([
+    groupReaders(session, "sales.opportunity.view", companyId),
+    groupCompanies(session, "sales.opportunity.view"),
+  ]);
+  const options =
+    readers.length > 0
+      ? await repository.opportunityFilterOptionsInGroup(readers)
+      : { owners: [], clients: [], currencies: [] };
+  const names = new Map(companies.map((company) => [company.id, company.name]));
+
+  return {
+    owners: options.owners.map((owner) => ({ ...owner, company: names.get(owner.companyId) })),
+    clients: options.clients.map((client) => ({ ...client, company: names.get(client.companyId) })),
+    currencies: options.currencies,
+    companies,
+  };
 }
 
 /* -------------------------------------------------------------------------- */

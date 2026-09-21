@@ -11,12 +11,16 @@ import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as requests from "@/lib/modules/procurement/requests/request.service";
 import { requestListQuerySchema } from "@/lib/modules/procurement/procurement.schema";
+import {
+  canReadProcurement,
+  resolveProcurementExperience,
+} from "@/lib/modules/procurement/procurement.workspace";
 import {
   CATEGORIES,
   PRIORITIES,
@@ -30,16 +34,22 @@ export const metadata: Metadata = { title: "Purchase requests" };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** The purchase request register (PRD #19 §249–§251). */
+/**
+ * The purchase request register (PRD #19 §249–§251).
+ *
+ * In the Group workspace it lists the requests of every company the reader may
+ * read them in, each labelled with its company (Workspace Context §38, §45); a
+ * new request needs a company, so the control is not offered there.
+ */
 export default async function RequestsPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("procurement");
-  if (!can(context, "procurement.request.view")) redirect("/access-denied");
+  if (!(await canReadProcurement(context, "procurement.request.view"))) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "procurement");
+  const experience = await resolveProcurementExperience(context);
   const params = await searchParams;
 
   return (
@@ -47,7 +57,7 @@ export default async function RequestsPage({
       experience={experience}
       activeSection="requests"
       actions={
-        can(context, "procurement.request.create") ? (
+        !inGroupWorkspace(context) && can(context, "procurement.request.create") ? (
           <Button asChild size="sm">
             <Link href="/procurement/requests/new">New request</Link>
           </Button>
@@ -78,7 +88,11 @@ async function RequestList({
     return values.length > 0 ? values : undefined;
   };
 
+  const group = inGroupWorkspace(context);
+
   const query = requestListQuerySchema.parse({
+    // The Group `company` filter; a company workspace never reads it (§86, §87).
+    companyId: group ? read("company") : undefined,
     search: read("search"),
     view: read("view") ?? "all",
     status: list("status", REQUEST_STATUSES),
@@ -92,12 +106,13 @@ async function RequestList({
   });
 
   const [result, options] = await Promise.all([
-    requests.listRequests(context, query),
-    requests.requestFilterOptions(context),
+    requests.listRequestsForWorkspace(context, query),
+    requests.requestFilterOptionsForWorkspace(context),
   ]);
 
   const hasFilters = Boolean(
-    query.search ||
+    query.companyId ||
+      query.search ||
       query.status?.length ||
       query.priority?.length ||
       query.category?.length ||
@@ -107,6 +122,9 @@ async function RequestList({
   );
 
   const filters: FilterConfig[] = [
+    ...(group && options.companies.length > 1
+      ? [{ param: "company", label: "Company", options: options.companies }]
+      : []),
     {
       param: "status",
       label: "Status",
@@ -132,7 +150,7 @@ async function RequestList({
             label: "Project",
             options: options.projects.map((project) => ({
               value: project.id,
-              label: `${project.code} — ${project.name}`,
+              label: `${project.code} — ${project.name}${project.company ? ` · ${project.company.name}` : ""}`,
             })),
           },
         ]
@@ -144,7 +162,7 @@ async function RequestList({
             label: "Raised by",
             options: options.requesters.map((member) => ({
               value: member.id,
-              label: `${member.user.firstName} ${member.user.lastName}`,
+              label: `${member.user.firstName} ${member.user.lastName}${member.company ? ` · ${member.company.name}` : ""}`,
             })),
           },
         ]
@@ -189,9 +207,13 @@ async function RequestList({
           <EmptyState
             icon={<ClipboardList />}
             title="No purchase requests yet."
-            description="A request is somebody asking to buy something. Nothing is committed until an order is issued."
+            description={
+              group
+                ? "No company you can read has a purchase request yet. Raising one is done inside a company."
+                : "A request is somebody asking to buy something. Nothing is committed until an order is issued."
+            }
             action={
-              can(context, "procurement.request.create")
+              !group && can(context, "procurement.request.create")
                 ? { label: "New request", href: "/procurement/requests/new" }
                 : undefined
             }

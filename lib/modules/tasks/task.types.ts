@@ -26,6 +26,8 @@ export type TaskSummaryDTO = {
   /** Derived, never stored (PRD #11 §142). */
   isOverdue: boolean;
   updatedAt: string;
+  /** Present only in the Group workspace, where a row must say which company it is (Workspace Context §32, §45). */
+  company?: { id: string; name: string };
 };
 
 export type TaskDetailDTO = {

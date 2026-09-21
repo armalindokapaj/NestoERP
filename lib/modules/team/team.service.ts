@@ -476,7 +476,7 @@ async function changeMembershipStatus(
     // carry company access, so deleting them is the revocation
     // (PRD #14 §242, §243).
     if (next !== "ACTIVE") {
-      await revokeSessions(tx, { membershipId: memberId });
+      await revokeSessions(tx, { membershipId: memberId, relocate: true });
 
       // A pending invitation is access waiting to be claimed. Removing the
       // membership it would activate withdraws the invitation with it, so the

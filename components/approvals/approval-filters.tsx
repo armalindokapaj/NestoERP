@@ -13,6 +13,7 @@ import {
   DUE_STATE_LABELS,
   DUE_STATES,
   STATUS_LABELS,
+  type ApprovalCompany,
   type ApprovalPriority,
   type ApprovalProviderSummary,
   type ApprovalTab,
@@ -26,7 +27,8 @@ import {
  * Only filters that mean something on the current tab appear: status is the
  * tab itself on Approved, Rejected and Returned. Project and requester choices
  * are the ones present in what this reader can already see — a filter list is
- * never a directory of things they cannot open.
+ * never a directory of things they cannot open. In the Group workspace, and only
+ * there, Company is a filter too, chosen among the companies they may read (§87).
  */
 
 export type ApprovalFilters = {
@@ -36,6 +38,8 @@ export type ApprovalFilters = {
   dueState: DueState[];
   projectId: string | null;
   requesterId: string | null;
+  /** Group workspace only. */
+  company: string | null;
   from: string | null;
   to: string | null;
   amountMin: string | null;
@@ -49,6 +53,7 @@ export const EMPTY_FILTERS: ApprovalFilters = {
   dueState: [],
   projectId: null,
   requesterId: null,
+  company: null,
   from: null,
   to: null,
   amountMin: null,
@@ -67,6 +72,7 @@ export function activeFilterCount(filters: ApprovalFilters): number {
     filters.dueState.length +
     (filters.projectId ? 1 : 0) +
     (filters.requesterId ? 1 : 0) +
+    (filters.company ? 1 : 0) +
     (filters.from || filters.to ? 1 : 0) +
     (filters.amountMin || filters.amountMax ? 1 : 0)
   );
@@ -82,6 +88,7 @@ export function FilterDrawer({
   providers,
   projects,
   requesters,
+  companies,
   onApply,
 }: {
   open: boolean;
@@ -91,6 +98,8 @@ export function FilterDrawer({
   providers: ApprovalProviderSummary[];
   projects: Option[];
   requesters: Option[];
+  /** Present only in the Group workspace: the companies whose approvals this person may read. */
+  companies?: ApprovalCompany[];
   onApply: (filters: ApprovalFilters) => void;
 }) {
   const [draft, setDraft] = React.useState(filters);
@@ -127,6 +136,19 @@ export function FilterDrawer({
           }}
         >
           <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+            {companies && companies.length > 1 ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="filter-company">Company</Label>
+                <select id="filter-company" className={selectClass} value={draft.company ?? ""} onChange={(event) => setDraft({ ...draft, company: event.target.value || null })}>
+                  <option value="">All companies</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             {providers.length > 1 ? (
               <Group legend="Module">
                 {providers.map((provider) => (
@@ -233,15 +255,18 @@ export function FilterChips({
   providers,
   projects,
   requesters,
+  companies,
   onChange,
 }: {
   filters: ApprovalFilters;
   providers: ApprovalProviderSummary[];
   projects: Option[];
   requesters: Option[];
+  companies?: ApprovalCompany[];
   onChange: (filters: ApprovalFilters) => void;
 }) {
   const chips: Array<{ key: string; label: string; clear: () => ApprovalFilters }> = [];
+  if (filters.company) chips.push({ key: "company", label: companies?.find((company) => company.id === filters.company)?.name ?? "Company", clear: () => ({ ...filters, company: null }) });
   for (const key of filters.provider) chips.push({ key: `provider:${key}`, label: providers.find((provider) => provider.key === key)?.label ?? key, clear: () => ({ ...filters, provider: filters.provider.filter((entry) => entry !== key) }) });
   for (const status of filters.status) chips.push({ key: `status:${status}`, label: STATUS_LABELS[status], clear: () => ({ ...filters, status: filters.status.filter((entry) => entry !== status) }) });
   for (const priority of filters.priority) chips.push({ key: `priority:${priority}`, label: `${PRIORITY_LABELS[priority]} priority`, clear: () => ({ ...filters, priority: filters.priority.filter((entry) => entry !== priority) }) });

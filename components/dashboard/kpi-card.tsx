@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getIcon } from "@/components/layout/nav-icon";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import type { ResolvedKpi } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
 
@@ -10,6 +11,10 @@ import { cn } from "@/lib/utils/cn";
  * Label, figure, and a route into the records behind it. Values are resolved
  * server-side against the user's own scope, so the same card shows a Project
  * Manager their projects and an Owner the company's (PRD #4 §20).
+ *
+ * A figure summed across the group's companies carries "View by company": each
+ * company's own number, and following one enters that company and goes to the
+ * records behind the card (Workspace Context §73, §74).
  */
 export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
   const Icon = getIcon(kpi.definition.icon);
@@ -33,13 +38,47 @@ export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
     </>
   );
 
-  if (!kpi.definition.href) {
+  const breakdown = kpi.breakdown && kpi.breakdown.length > 1 ? kpi.breakdown : null;
+  const href = kpi.definition.href;
+
+  if (breakdown) {
+    return (
+      <div className="nesto-card p-4 md:p-5" data-testid="kpi-by-company">
+        {href ? (
+          <Link href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
+            {body}
+          </Link>
+        ) : (
+          body
+        )}
+        <details className="mt-3 border-t border-line pt-2">
+          <summary className="cursor-pointer text-meta font-medium text-accent-strong">View by company</summary>
+          <ul className="mt-2 space-y-1">
+            {breakdown.map((row) => (
+              <li key={row.companyId} className="flex items-baseline justify-between gap-3 text-meta">
+                {href ? (
+                  <CompanyRecordLink companyId={row.companyId} companyName={row.company} href={href} className="truncate text-fg-muted transition-colors hover:text-accent">
+                    {row.company}
+                  </CompanyRecordLink>
+                ) : (
+                  <span className="truncate text-fg-muted">{row.company}</span>
+                )}
+                <span className="shrink-0 font-medium tabular-nums text-fg">{row.value}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      </div>
+    );
+  }
+
+  if (!href) {
     return <div className="nesto-card p-4 md:p-5">{body}</div>;
   }
 
   return (
     <Link
-      href={kpi.definition.href}
+      href={href}
       className={cn(
         "nesto-card block p-4 transition-colors hover:border-line-strong md:p-5",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",

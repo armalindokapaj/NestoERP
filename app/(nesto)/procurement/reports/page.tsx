@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
-import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
+import { CompanyTag } from "@/components/workspace/company-tag";
+import { inGroupWorkspace } from "@/config/workspace";
 import { requireModule } from "@/lib/context/current-user";
-import { procurementReports } from "@/lib/modules/procurement/reports/reports.service";
+import { procurementReportsForWorkspace } from "@/lib/modules/procurement/reports/reports.service";
+import {
+  canReadProcurement,
+  resolveProcurementExperience,
+} from "@/lib/modules/procurement/procurement.workspace";
 import { rfqStatusLabels } from "@/lib/modules/procurement/procurement.status";
+import type { CompanyRef, CurrencyTotal } from "@/lib/modules/procurement/procurement.types";
 import { totalsLabel } from "@/components/procurement/procurement-format";
 import type { RFQStatus } from "@prisma/client";
 
@@ -19,13 +24,19 @@ export const metadata: Metadata = { title: "Procurement reports" };
  * different totals and both are right. "Spend" here means committed — what was
  * ordered — and says so, because what was actually paid lives in Finance
  * (PRD #19 §179).
+ *
+ * In the Group workspace the same report is built from every company the reader
+ * may read it in (Workspace Context §41): a figure is added per currency and
+ * never across two (§72), suppliers and projects stay each company's own rows
+ * with the company shown, and committed spend is also broken down by company.
  */
 export default async function ReportsPage() {
   const context = await requireModule("procurement");
-  if (!can(context, "procurement.report.view")) redirect("/access-denied");
+  if (!(await canReadProcurement(context, "procurement.report.view"))) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "procurement");
-  const reports = await procurementReports(context);
+  const group = inGroupWorkspace(context);
+  const experience = await resolveProcurementExperience(context);
+  const reports = await procurementReportsForWorkspace(context);
 
   return (
     <ModulePage experience={experience} activeSection="reports">
@@ -38,10 +49,14 @@ export default async function ReportsPage() {
           <p className="mt-1 text-meta text-fg-subtle">
             Across {reports.openOrders.count} order
             {reports.openOrders.count === 1 ? "" : "s"} still being delivered. Committed, not paid.
+            {group ? " Added per currency across companies, never between currencies." : ""}
           </p>
         </section>
 
         <div className="grid gap-4 lg:grid-cols-2">
+          {reports.spendByCompany ? (
+            <SpendPanel title="Committed spend by company" rows={reports.spendByCompany} showCompany={false} />
+          ) : null}
           <SpendPanel title="Committed spend by supplier" rows={reports.spendBySupplier} />
           <SpendPanel title="Committed spend by project" rows={reports.spendByProject} />
           <SpendPanel title="Committed spend by category" rows={reports.spendByCategory} />
@@ -60,6 +75,7 @@ export default async function ReportsPage() {
                 <thead>
                   <tr className="text-left text-meta text-fg-subtle">
                     <th scope="col" className="pb-2 font-medium">Supplier</th>
+                    {group ? <th scope="col" className="pb-2 font-medium">Company</th> : null}
                     <th scope="col" className="pb-2 text-right font-medium">Orders</th>
                     <th scope="col" className="pb-2 text-right font-medium">On time</th>
                   </tr>
@@ -68,6 +84,9 @@ export default async function ReportsPage() {
                   {reports.deliveryPerformance.map((row) => (
                     <tr key={row.supplier.id}>
                       <td className="py-2 text-fg">{row.supplier.name}</td>
+                      {group ? (
+                        <td className="py-2">{row.company ? <CompanyTag name={row.company.name} /> : null}</td>
+                      ) : null}
                       <td className="py-2 text-right tabular-nums text-fg-muted">{row.orders}</td>
                       <td className="py-2 text-right tabular-nums text-fg">
                         {row.onTimeRate === null
@@ -105,9 +124,12 @@ export default async function ReportsPage() {
 function SpendPanel({
   title,
   rows,
+  showCompany = true,
 }: {
   title: string;
-  rows: { key: string; label: string; count: number; totals: { currency: string; count: number; value: string }[] }[];
+  rows: { key: string; label: string; count: number; totals: CurrencyTotal[]; company?: CompanyRef }[];
+  /** A row that is one company's own record names it; the by-company panel already does by its label. */
+  showCompany?: boolean;
 }) {
   return (
     <section className="nesto-card p-5">
@@ -118,9 +140,10 @@ function SpendPanel({
         <dl className="mt-4 space-y-2.5">
           {rows.slice(0, 8).map((row) => (
             <div key={row.key} className="flex items-baseline justify-between gap-3">
-              <dt className="min-w-0 truncate text-table text-fg-muted">
-                {row.label}
-                <span className="ml-2 text-meta text-fg-subtle">
+              <dt className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-table text-fg-muted">
+                <span className="min-w-0 truncate">{row.label}</span>
+                {showCompany && row.company ? <CompanyTag name={row.company.name} /> : null}
+                <span className="text-meta text-fg-subtle">
                   {row.count} order{row.count === 1 ? "" : "s"}
                 </span>
               </dt>

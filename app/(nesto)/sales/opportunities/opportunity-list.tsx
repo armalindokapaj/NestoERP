@@ -6,6 +6,7 @@ import { Pagination } from "@/components/data/pagination";
 import { OpportunityTable } from "@/components/sales/opportunity-table";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import {
@@ -33,10 +34,11 @@ export async function OpportunityList({
   searchParams: SearchParams;
 }) {
   const query = parseOpportunityQuery(searchParams);
+  const grouped = inGroupWorkspace(context);
 
   const [result, options] = await Promise.all([
-    opportunities.listOpportunities(context, query),
-    opportunities.opportunityFilterOptions(context),
+    opportunities.listOpportunitiesForWorkspace(context, query),
+    opportunities.opportunityFilterOptionsForWorkspace(context, query.companyId),
   ]);
 
   const hasFilters = Boolean(
@@ -45,10 +47,19 @@ export async function OpportunityList({
       query.outcome?.length ||
       query.ownerMemberId ||
       query.clientId ||
-      query.currency,
+      query.currency ||
+      (grouped && query.companyId),
   );
 
+  // Group workspace only: narrows the companies already read (§86, §87). A menu
+  // of one company is not a choice, so it is offered from two.
+  const companyFilter: FilterConfig[] =
+    grouped && options.companies.length > 1
+      ? [{ param: "company", label: "Company", options: options.companies.map((company) => ({ value: company.id, label: company.name })) }]
+      : [];
+
   const filters: FilterConfig[] = [
+    ...companyFilter,
     {
       param: "stage",
       label: "Stage",
@@ -68,13 +79,13 @@ export async function OpportunityList({
       label: "Owner",
       options: options.owners.map((owner) => ({
         value: owner.memberId,
-        label: owner.active ? owner.fullName : `${owner.fullName} (inactive)`,
+        label: `${owner.active ? owner.fullName : `${owner.fullName} (inactive)`}${owner.company ? ` · ${owner.company}` : ""}`,
       })),
     },
     {
       param: "clientId",
       label: "Client",
-      options: options.clients.map((client) => ({ value: client.id, label: client.name })),
+      options: options.clients.map((client) => ({ value: client.id, label: client.company ? `${client.name} · ${client.company}` : client.name })),
     },
     ...(options.currencies.length > 1
       ? [
@@ -129,6 +140,13 @@ export async function OpportunityList({
             description="Adjust or clear the filters to see more."
             action={{ label: "Clear filters", href: "/sales/opportunities" }}
           />
+        ) : grouped ? (
+          // Nothing to read is not an error in the group (Workspace Context §76).
+          <EmptyState
+            icon={<Target />}
+            title="No accessible data for this module."
+            description="None of the companies you can open holds opportunities you may read."
+          />
         ) : (
           <EmptyState
             icon={<Target />}
@@ -143,7 +161,7 @@ export async function OpportunityList({
         )
       ) : (
         <>
-          <OpportunityTable opportunities={result.data} />
+          <OpportunityTable opportunities={result.data} grouped={grouped} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

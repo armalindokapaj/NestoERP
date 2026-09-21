@@ -116,6 +116,12 @@ export const taskListQuerySchema = z.object({
   openOnly: z.boolean().default(false),
   /** Only completed tasks (PRD #11 §29). */
   completedOnly: z.boolean().default(false),
+  /**
+   * A refinement of the Group workspace's list to one company (Workspace
+   * Context §86, §87): a filter, never the workspace. It is checked against the
+   * companies the person may read there, and a company workspace ignores it.
+   */
+  company: z.string().trim().max(64).optional(),
 });
 
 export type TaskListQuery = z.infer<typeof taskListQuerySchema>;

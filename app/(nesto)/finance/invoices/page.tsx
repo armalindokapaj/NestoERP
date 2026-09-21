@@ -6,9 +6,10 @@ import { redirect } from "next/navigation";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { financeExperience } from "@/lib/modules/finance/finance.workspace";
 import { InvoicesList } from "./invoices-list";
 
 export const metadata: Metadata = { title: "Invoices" };
@@ -21,10 +22,12 @@ export default async function InvoicesPage({
   const context = await requireModule("finance");
 
   // The section's own permission, not just the module's: an Architect reaches
-  // Finance but never its invoices (PRD #15 §15).
-  if (!can(context, "finance.invoice.view")) redirect("/access-denied");
+  // Finance but never its invoices (PRD #15 §15). In the Group workspace the
+  // list asks each company for it and says so when none has it (§76).
+  const group = inGroupWorkspace(context);
+  if (!group && !can(context, "finance.invoice.view")) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "finance");
+  const experience = await financeExperience(context);
   const params = await searchParams;
   const archived = params.archived === "1";
 
@@ -39,7 +42,7 @@ export default async function InvoicesPage({
               {archived ? "Active invoices" : "Archived"}
             </Link>
           </Button>
-          {can(context, "finance.invoice.create") ? (
+          {!group && can(context, "finance.invoice.create") ? (
             <Button asChild size="sm">
               <Link href="/finance/invoices/new">New invoice</Link>
             </Button>

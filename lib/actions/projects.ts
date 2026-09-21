@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import {
   addProjectMemberSchema,
   createProjectSchema,
@@ -54,7 +54,7 @@ function formValues(formData: FormData): Record<string, unknown> {
 }
 
 export async function createProjectAction(formData: FormData): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = createProjectSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -81,7 +81,7 @@ export async function updateProjectAction(
   projectId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateProjectSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -103,7 +103,7 @@ export async function updateProjectAction(
 }
 
 export async function archiveProjectAction(projectId: string): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await projects.archiveProject(context, projectId);
@@ -116,7 +116,7 @@ export async function archiveProjectAction(projectId: string): Promise<ActionRes
 }
 
 export async function restoreProjectAction(projectId: string): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await projects.restoreProject(context, projectId);
@@ -132,7 +132,7 @@ export async function addProjectMemberAction(
   projectId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = addProjectMemberSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -154,7 +154,7 @@ export async function updateProjectMemberAction(
   projectMemberId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateProjectMemberSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -175,7 +175,7 @@ export async function removeProjectMemberAction(
   projectId: string,
   projectMemberId: string,
 ): Promise<ActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await projects.removeMember(context, projectId, projectMemberId);

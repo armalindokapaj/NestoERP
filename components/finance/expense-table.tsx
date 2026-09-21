@@ -1,4 +1,5 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows";
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -14,21 +15,34 @@ const SETTLEMENT_TONES = {
 } as const;
 
 export function ExpenseTable({ expenses }: { expenses: ExpenseSummaryDTO[] }) {
+  // Rows read in the Group workspace name their company and open through it.
+  const grouped = expenses.some((expense) => expense.company);
+
   const columns: TableColumn<ExpenseSummaryDTO>[] = [
     {
       key: "description",
       label: "Expense",
       primary: true,
-      render: (expense) => (
-        <span className="min-w-0">
-          <span className="block truncate">{expense.description}</span>
-          <span className="block truncate text-meta font-normal text-fg-subtle">
-            {expense.expenseNumber ? `${expense.expenseNumber} · ` : ""}
-            {orDash(expense.payeeName)}
+      render: (expense) => {
+        const label = (
+          <span className="min-w-0">
+            <span className="block truncate">{expense.description}</span>
+            <span className="block truncate text-meta font-normal text-fg-subtle">
+              {expense.expenseNumber ? `${expense.expenseNumber} · ` : ""}
+              {orDash(expense.payeeName)}
+            </span>
           </span>
-        </span>
-      ),
+        );
+        return grouped && expense.company ? (
+          <GroupRecordLink company={expense.company} href={`/finance/expenses/${expense.id}`}>
+            {label}
+          </GroupRecordLink>
+        ) : (
+          label
+        );
+      },
     },
+    ...(grouped ? [companyColumn<ExpenseSummaryDTO>()] : []),
     {
       key: "category",
       label: "Category",
@@ -88,7 +102,7 @@ export function ExpenseTable({ expenses }: { expenses: ExpenseSummaryDTO[] }) {
       columns={columns}
       records={expenses}
       rowKey={(expense) => expense.id}
-      rowHref={(expense) => `/finance/expenses/${expense.id}`}
+      rowHref={grouped ? undefined : (expense) => `/finance/expenses/${expense.id}`}
     />
   );
 }

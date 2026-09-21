@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 import { STRUCTURE_SEED } from "../structure-fixtures";
 
 /**
@@ -12,10 +12,11 @@ import { STRUCTURE_SEED } from "../structure-fixtures";
 
 test("finds the reserved units and opens a release from a card on a phone", async ({ page }) => {
   await signIn(page, "SALES", { to: `/projects/${STRUCTURE_SEED.riverside}/sales` });
-  await expect(page.getByTestId("sales-table")).toBeHidden();
+  // Scoped to the main region: the list streams, and for a moment React's parked copy is in the document too (see mainRegion).
+  await expect(mainRegion(page).getByTestId("sales-table")).toBeHidden();
 
-  await page.getByTestId("sales-quick-filter").and(page.locator('[data-status="RESERVED"]')).click();
-  const cards = page.getByTestId("sales-cards").getByTestId("sales-card");
+  await mainRegion(page).getByTestId("sales-quick-filter").and(page.locator('[data-status="RESERVED"]')).click();
+  const cards = mainRegion(page).getByTestId("sales-cards").getByTestId("sales-card");
   // Riverside's seeded reservations: A-102 and A-203.
   await expect(cards).toHaveCount(2);
   for (const card of await cards.all()) await expect(card.getByTestId("commercial-status")).toHaveText("Reserved");

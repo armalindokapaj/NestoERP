@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
 import * as quotes from "@/lib/modules/procurement/quotes/quote.service";
 import * as receipts from "@/lib/modules/procurement/receipts/receipt.service";
@@ -116,7 +116,7 @@ function formValues(formData: FormData): {
 /* -------------------------------------------------------------------------- */
 
 export async function createSupplierAction(formData: FormData): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = supplierSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -137,7 +137,7 @@ export async function updateSupplierAction(
   supplierId: string,
   formData: FormData,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = supplierSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -156,7 +156,7 @@ export async function supplierLifecycleAction(
   supplierId: string,
   action: "archive" | "restore",
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "archive") await suppliers.archiveSupplier(context, supplierId);
@@ -174,7 +174,7 @@ export async function supplierLifecycleAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createRequestAction(formData: FormData): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, items } = formValues(formData);
   const parsed = requestSchema.safeParse({ ...values, items });
@@ -196,7 +196,7 @@ export async function updateRequestAction(
   requestId: string,
   formData: FormData,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, items } = formValues(formData);
   const parsed = requestSchema.safeParse({ ...values, items });
@@ -224,7 +224,7 @@ export async function requestLifecycleAction(
   action: RequestLifecycleAction,
   note?: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await requests.submitRequest(context, requestId);
@@ -244,7 +244,7 @@ export async function rejectRequestAction(
   requestId: string,
   reason: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = procurementReasonSchema.safeParse({ note: reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -263,7 +263,7 @@ export async function cancelRequestAction(
   requestId: string,
   note: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await requests.cancelRequest(context, requestId, note.trim() === "" ? null : note);
@@ -280,7 +280,7 @@ export async function cancelRequestAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createRfqAction(formData: FormData): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, items } = formValues(formData);
   const supplierIds = formData.getAll("supplierIds").filter((v): v is string => typeof v === "string");
@@ -303,7 +303,7 @@ export async function updateRfqAction(
   rfqId: string,
   formData: FormData,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, items } = formValues(formData);
   const supplierIds = formData.getAll("supplierIds").filter((v): v is string => typeof v === "string");
@@ -327,7 +327,7 @@ export async function rfqLifecycleAction(
   action: RfqLifecycleAction,
   note?: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "issue") await rfqs.issueRfq(context, rfqId);
@@ -345,7 +345,7 @@ export async function inviteSupplierAction(
   rfqId: string,
   supplierId: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await rfqs.inviteSupplier(context, rfqId, supplierId);
@@ -361,7 +361,7 @@ export async function recordQuoteAction(
   rfqId: string,
   formData: FormData,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, items } = formValues(formData);
   const parsed = quoteSchema.safeParse({ ...values, items });
@@ -383,7 +383,7 @@ export async function selectQuoteAction(
   rfqId: string,
   quoteId: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await quotes.selectQuote(context, quoteId);
@@ -400,7 +400,7 @@ export async function disqualifyQuoteAction(
   quoteId: string,
   reason: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = quoteDisqualifySchema.safeParse({ reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -417,7 +417,7 @@ export async function disqualifyQuoteAction(
 
 /** Raises the order the winning quote priced (PRD #19 §106). */
 export async function orderFromQuoteAction(quoteId: string): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   let id: string;
   try {
@@ -436,7 +436,7 @@ export async function orderFromQuoteAction(quoteId: string): Promise<Procurement
 /* -------------------------------------------------------------------------- */
 
 export async function createOrderAction(formData: FormData): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, items } = formValues(formData);
   const parsed = orderSchema.safeParse({ ...values, items });
@@ -458,7 +458,7 @@ export async function updateOrderAction(
   orderId: string,
   formData: FormData,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, items } = formValues(formData);
   const parsed = orderSchema.safeParse({ ...values, items });
@@ -487,7 +487,7 @@ export async function orderLifecycleAction(
   action: OrderLifecycleAction,
   note?: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await orders.submitOrder(context, orderId);
@@ -508,7 +508,7 @@ export async function rejectOrderAction(
   orderId: string,
   reason: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = procurementReasonSchema.safeParse({ note: reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -527,7 +527,7 @@ export async function cancelOrderAction(
   orderId: string,
   note: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await orders.cancelOrder(context, orderId, note.trim() === "" ? null : note);
@@ -547,7 +547,7 @@ export async function recordReceiptAction(
   orderId: string,
   formData: FormData,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, items } = formValues(formData);
   const parsed = receiptSchema.safeParse({
@@ -573,7 +573,7 @@ export async function voidReceiptAction(
   receiptId: string,
   reason: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = receiptVoidSchema.safeParse({ reason });
   if (!parsed.success) return invalid(parsed.error);
@@ -599,7 +599,7 @@ export async function decideApprovalAction(
   decision: "approve" | "reject",
   note?: string,
 ): Promise<ProcurementActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (recordType === "PURCHASE_REQUEST") {

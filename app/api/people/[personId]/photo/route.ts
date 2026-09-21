@@ -11,19 +11,23 @@ type Params = { params: Promise<{ personId: string }> };
  */
 export async function GET(_request: Request, { params }: Params) {
   const { personId } = await params;
-  return withContext(async (context) => {
-    const photo = await readPhoto(context, personId);
-    return new Response(Buffer.from(photo.body), {
-      status: 200,
-      headers: {
-        "Content-Type": photo.contentType,
-        "Content-Disposition": "inline",
-        "Cache-Control": "private, max-age=86400",
-        ETag: photo.etag,
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
-  });
+  // `group: "read"`: every avatar on a group list is this request (Workspace Context §45).
+  return withContext(
+    async (context) => {
+      const photo = await readPhoto(context, personId);
+      return new Response(Buffer.from(photo.body), {
+        status: 200,
+        headers: {
+          "Content-Type": photo.contentType,
+          "Content-Disposition": "inline",
+          "Cache-Control": "private, max-age=86400",
+          ETag: photo.etag,
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    },
+    { group: "read" },
+  );
 }
 
 /** PUT /api/people/:personId/photo — sets somebody's photo: those who keep person records, within reach (E-08 §93). */

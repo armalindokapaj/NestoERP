@@ -4,6 +4,7 @@ import { ArrowRight, Building2, MapPin, TriangleAlert } from "lucide-react";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { widgetSpanClasses } from "@/components/dashboard/dashboard-grid";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import type { AlertPriority, ResolvedWidget } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
 
@@ -26,6 +27,25 @@ const ALERT_STYLES: Record<AlertPriority, string> = {
   WARNING: "border-l-warning bg-warning-soft/40",
   INFO: "border-l-info bg-info-soft/40",
 };
+
+/**
+ * A link that, on a group widget, enters the company the row is about before it
+ * goes on (Workspace Context §74); an ordinary link everywhere else.
+ */
+function RowLink({ href, companyId, className, children }: { href: string; companyId?: string; className?: string; children: React.ReactNode }) {
+  if (companyId) {
+    return (
+      <CompanyRecordLink companyId={companyId} href={href} className={className}>
+        {children}
+      </CompanyRecordLink>
+    );
+  }
+  return (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
+  );
+}
 
 export function DashboardWidget({ widget }: { widget: ResolvedWidget }) {
   const { definition, payload } = widget;
@@ -91,12 +111,13 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
                 {item.person ? (
                   <PersonLink {...item.person} name={item.title} detail={item.subtitle} className="block truncate text-table" />
                 ) : item.href ? (
-                  <Link
+                  <RowLink
                     href={item.href}
+                    companyId={item.companyId}
                     className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
                   >
                     {item.title}
-                  </Link>
+                  </RowLink>
                 ) : (
                   <p className="truncate text-table font-medium text-fg">{item.title}</p>
                 )}
@@ -124,12 +145,13 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
             <li key={item.label}>
               <div className="flex items-baseline justify-between gap-3">
                 {item.href ? (
-                  <Link
+                  <RowLink
                     href={item.href}
+                    companyId={item.companyId}
                     className="truncate text-table text-fg-muted transition-colors hover:text-accent"
                   >
                     {item.status ? <StatusBadge status={item.status} /> : item.label}
-                  </Link>
+                  </RowLink>
                 ) : (
                   <span className="truncate text-table text-fg-muted">
                     {item.status ? <StatusBadge status={item.status} /> : item.label}
@@ -164,6 +186,8 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
               >
                 <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-muted" />
                 <div className="min-w-0">
+                  {/* On the group's list every alert names its company (Workspace Context §45, §71). */}
+                  {item.company ? <p className="text-micro font-medium text-fg-subtle" data-testid="alert-company">{item.company}</p> : null}
                   <p className="text-table font-medium text-fg">{item.title}</p>
                   <p className="text-meta text-fg-muted">{item.detail}</p>
                 </div>
@@ -173,9 +197,9 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
             return (
               <li key={item.id}>
                 {item.href ? (
-                  <Link href={item.href} className="block transition-opacity hover:opacity-85">
+                  <RowLink href={item.href} companyId={item.companyId} className="block transition-opacity hover:opacity-85">
                     {content}
-                  </Link>
+                  </RowLink>
                 ) : (
                   content
                 )}

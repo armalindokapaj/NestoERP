@@ -1,8 +1,10 @@
 import type { Prisma } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
 import type { RecordSummary } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 
@@ -179,7 +181,11 @@ export async function suppressModuleAttention(companyId: string, moduleKey: stri
   return result.count;
 }
 
-export type ReadableAttentionDTO = AttentionItemDTO & { href: string };
+export type ReadableAttentionDTO = AttentionItemDTO & {
+  href: string;
+  /** The company the condition is in, named in the Group workspace only (Workspace Context §45). */
+  company?: { id: string; name: string };
+};
 
 const APPROVAL_CONDITIONS = new Set(["PENDING_APPROVAL", "PROCUREMENT_ACTION_REQUIRED", "APPROVAL_OVERDUE"]);
 
@@ -275,4 +281,49 @@ export async function countReadableAttention(context: UserContext): Promise<{ ac
     if (item.priority === "CRITICAL") critical += 1;
   }
   return { active, critical };
+}
+
+/* -------------------------------------------------------------------------- */
+/* The active workspace (Workspace Context §45)                                */
+/* -------------------------------------------------------------------------- */
+
+const PRIORITY_RANK: Record<string, number> = { LOW: 0, NORMAL: 1, HIGH: 2, CRITICAL: 3 };
+
+/**
+ * The attention the person can act on in the active workspace. In the Group
+ * workspace it is each company's own list — this person's items there, each
+ * record read again in that company's context — merged most urgent first, then
+ * oldest unresolved (§156), every item naming its company.
+ */
+export async function listReadableAttentionForWorkspace(session: UserContext, limit = 25): Promise<ReadableAttentionDTO[]> {
+  if (!inGroupWorkspace(session)) return listReadableAttention(session, limit);
+  const contexts = await resolveWorkspaceContexts(session, {});
+  const lists = await Promise.all(
+    contexts.map(async (context) => {
+      const company = { id: context.companyId, name: context.company.name };
+      return (await listReadableAttention(context, limit)).map((item) => ({ ...item, company }));
+    }),
+  );
+  return lists
+    .flat()
+    .sort(
+      (a, b) =>
+        (PRIORITY_RANK[b.priority] ?? 0) - (PRIORITY_RANK[a.priority] ?? 0) ||
+        a.firstDetectedAt.localeCompare(b.firstDetectedAt) ||
+        a.id.localeCompare(b.id),
+    )
+    .slice(0, limit);
+}
+
+/** Dismisses one of the person's own items, in the company it belongs to, by that company's own rules (a critical condition still cannot be waved away). */
+export async function dismissAttentionForWorkspace(session: UserContext, id: string): Promise<void> {
+  if (!inGroupWorkspace(session)) return dismissAttention(session, id);
+  const contexts = await resolveWorkspaceContexts(session, {});
+  const item = await prisma.attentionItem.findFirst({
+    where: { id, OR: contexts.map((context) => ({ companyId: context.companyId, recipientMemberId: context.membershipId })) },
+    select: { companyId: true },
+  });
+  const owner = contexts.find((context) => context.companyId === item?.companyId);
+  if (!owner) throw new AccessError("NOT_FOUND");
+  await dismissAttention(owner, id);
 }

@@ -13,7 +13,17 @@ export type GlobalSearchQuery = {
   text: string;
   limitPerProvider: number;
   moduleKeys?: string[];
+  /**
+   * The company a Group-workspace search was narrowed to, already validated
+   * against the companies the reader may use (Workspace Context §86, §87). Only
+   * providers whose records belong to the group rather than to a company read
+   * it; a company's own provider is simply asked for that company alone.
+   */
+  companyId?: string;
 };
+
+/** The company a result belongs to, present on company-scoped rows in the Group workspace (§40, §45). */
+export type GlobalSearchCompany = { id: string; name: string };
 
 export type GlobalSearchResultDTO = {
   moduleKey: string;
@@ -25,12 +35,27 @@ export type GlobalSearchResultDTO = {
   href: string;
   score: number;
   status?: string | null;
+  /**
+   * The company the record lives in — set in the Group workspace only, on every
+   * row of a company-scoped provider (§40). Its `href` is a company page, so it
+   * is opened through the enter-company hop; a row without a company (a group's
+   * person) opens as it is.
+   */
+  company?: GlobalSearchCompany;
 };
 
 export type GlobalSearchProvider = {
   moduleKey: ModuleKey;
   entityTypes: string[];
   search(context: UserContext, query: GlobalSearchQuery): Promise<GlobalSearchResultDTO[]>;
+  /**
+   * For a provider whose answer belongs to the group, not to a company — the
+   * directory of people. The Group workspace asks it once, through the first
+   * company where `readableBy` holds, instead of once per company, so a person
+   * is found once and carries no company (§46). Anything without it is
+   * company-scoped and is asked in every company the reader may use.
+   */
+  groupWide?: { readableBy(context: UserContext): boolean };
 };
 
 export type GlobalSearchResponseDTO = {

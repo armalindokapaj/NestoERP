@@ -9,12 +9,12 @@ import { Topbar } from "@/components/layout/topbar";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MODULE_KEYS, modules } from "@/config/modules";
-import { resolveNavigation } from "@/config/navigation";
 import { isDevMode } from "@/lib/auth/dev-mode";
 import { grantsInCompany, loadOrganizationAccessFor } from "@/lib/context/organization-access";
 import { announcementShellState } from "@/lib/modules/announcements/announcement.service";
 import type { UserContext } from "@/lib/context/types";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
+import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
 
 /**
  * The one NESTO application shell (PRD #3 §2, §97).
@@ -39,14 +39,12 @@ export async function AppShell({
   const cookieStore = await cookies();
   const sidebarState = readSidebarState(cookieStore.get(SIDEBAR_COOKIE)?.value);
 
-  const navigation = resolveNavigation({
-    permissions: context.permissions,
-    enabledModules: context.enabledModules,
-  });
-
+  // Resolved once, here, for the active workspace, and handed to the sidebar and
+  // the drawer alike (Workspace Context §24). Never kept across a workspace change.
   // Unread count and the one critical banner, read in this member's audience (PRD #45 §67, §122).
   // The access debugger's grants are read only where it is shown.
-  const [announcements, organization] = await Promise.all([
+  const [navigation, announcements, organization] = await Promise.all([
+    resolveWorkspaceNavigation(context),
     announcementShellState(context).catch(() => ({ unread: 0, banner: null })),
     isDevMode ? loadOrganizationAccessFor(context.parentGroupId, context.userId).catch(() => null) : null,
   ]);

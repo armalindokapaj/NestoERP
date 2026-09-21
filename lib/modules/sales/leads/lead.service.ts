@@ -2,6 +2,7 @@ import { Prisma, type LeadStatus } from "@prisma/client";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
 import { linkIntegration } from "@/lib/core/integrations/integration.service";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
@@ -15,7 +16,14 @@ import { createClientRecord } from "@/lib/modules/clients/client.service";
 import type { CreateClientInput } from "@/lib/modules/clients/client.schema";
 import { loadMemberRef, toMemberRef } from "../sales.dto";
 import { buildSalesOwnerWhere } from "../sales.scope";
-import type { LeadDetailDTO, LeadDuplicateMatch, LeadSummaryDTO } from "../sales.types";
+import type {
+  CompanyRef,
+  LeadDetailDTO,
+  LeadDuplicateMatch,
+  LeadSummaryDTO,
+  OwnerOption,
+} from "../sales.types";
+import { companyRefs, groupCompanies, groupReaders } from "../sales.workspace";
 import { findLeadDuplicates } from "./lead.duplicate";
 import * as repository from "./lead.repository";
 import type {
@@ -77,6 +85,27 @@ export async function listLeads(context: UserContext, query: LeadListQuery) {
   };
 }
 
+/**
+ * The list for the active workspace (Workspace Context §37): a company's own
+ * list untouched, or in the Group workspace the union of the leads each
+ * authorised company's scope lets the reader open, every row naming its
+ * company. The `company` filter only narrows within those.
+ */
+export async function listLeadsForWorkspace(session: UserContext, query: LeadListQuery) {
+  if (!inGroupWorkspace(session)) return listLeads(session, query);
+
+  const readers = await groupReaders(session, "sales.lead.view", query.companyId);
+  if (readers.length === 0) return { data: [] as LeadSummaryDTO[], pagination: paginationMeta(0, query.page, query.limit) };
+
+  const { rows, total } = await repository.listLeadsInGroup(readers, query);
+  const companies = companyRefs(readers);
+
+  return {
+    data: rows.map((row) => ({ ...toSummaryDTO(row), company: companies.get(row.companyId) })),
+    pagination: paginationMeta(total, query.page, query.limit),
+  };
+}
+
 export async function getLead(context: UserContext, leadId: string): Promise<LeadDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "sales.lead.view");
@@ -105,6 +134,31 @@ export async function leadFilterOptions(context: UserContext) {
   assertModule(context, MODULE);
   assertPermission(context, "sales.lead.view");
   return repository.leadFilterOptions(context);
+}
+
+export type WorkspaceLeadOptions = {
+  owners: OwnerOption[];
+  currencies: string[];
+  /** Every company the reader may read, for the group's `company` filter; empty in a company. */
+  companies: CompanyRef[];
+};
+
+/** The filter options for the workspace; see `opportunityFilterOptionsForWorkspace`. */
+export async function leadFilterOptionsForWorkspace(session: UserContext, companyId?: string): Promise<WorkspaceLeadOptions> {
+  if (!inGroupWorkspace(session)) return { ...(await leadFilterOptions(session)), companies: [] };
+
+  const [readers, companies] = await Promise.all([
+    groupReaders(session, "sales.lead.view", companyId),
+    groupCompanies(session, "sales.lead.view"),
+  ]);
+  const options = readers.length > 0 ? await repository.leadFilterOptionsInGroup(readers) : { owners: [], currencies: [] };
+  const names = new Map(companies.map((company) => [company.id, company.name]));
+
+  return {
+    owners: options.owners.map((owner) => ({ ...owner, company: names.get(owner.companyId) })),
+    currencies: options.currencies,
+    companies,
+  };
 }
 
 export async function checkLeadDuplicates(

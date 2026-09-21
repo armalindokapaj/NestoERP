@@ -18,6 +18,7 @@ import { QUALIFICATION_TYPE_RULES, type PersonQualificationsDTO } from "@/lib/mo
 import { portfolioProjectWhere, resolveProjectPortfolio } from "@/lib/modules/projects/project.portfolio";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import type { PersonDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
+import { ALL_COMPANIES } from "./people.schema";
 import type { DirectoryQuery, ManagedWorkProfileInput, OwnWorkProfileInput } from "./people.schema";
 import type {
   AccessSummaryDTO,
@@ -262,6 +263,13 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
   assertPermission(context, "people.directory.view");
   const group = context.parentGroupId;
   const includeFormer = query.status === "all" && seesFormerPeople(context);
+  // The workspace is the directory's *default* scope, not a wall (Workspace
+  // Context §46, §85): a company workspace opens on that company's people, and
+  // the company filter still widens to the whole group, because the directory
+  // is the group's for everyone who works in it (E-01 §103). The Group
+  // workspace opens on the group, which the same filter may narrow (§86, §87).
+  const workspaceCompany = context.workspace.scopeType === "COMPANY" ? context.companyId : null;
+  const companyFilter = query.company === ALL_COMPANIES ? undefined : (query.company ?? workspaceCompany ?? undefined);
 
   const and: Prisma.PersonProfileWhereInput[] = [includeFormer ? everWorkedWhere(group) : workingPeopleWhere(group)];
   // Every word must match a name, a title or a work contact (E-01 §37).
@@ -280,11 +288,11 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
       ],
     });
   }
-  if (query.company) {
+  if (companyFilter) {
     and.push({
       OR: [
-        { user: { is: { memberships: { some: { companyId: query.company, company: { parentGroupId: group }, ...(includeFormer ? {} : { status: "ACTIVE" }) } } } } },
-        { employments: { some: { companyId: query.company, company: { parentGroupId: group }, ...(includeFormer ? {} : { employmentStatus: { in: WORKING } }) } } },
+        { user: { is: { memberships: { some: { companyId: companyFilter, company: { parentGroupId: group }, ...(includeFormer ? {} : { status: "ACTIVE" }) } } } } },
+        { employments: { some: { companyId: companyFilter, company: { parentGroupId: group }, ...(includeFormer ? {} : { employmentStatus: { in: WORKING } }) } } },
       ],
     });
   }
@@ -327,7 +335,10 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
   if (query.role) {
     and.push({ user: { is: { memberships: { some: { status: "ACTIVE", company: { parentGroupId: group }, role: { key: query.role } } } } } });
   }
-  if (query.view === "company") {
+  if (query.view === "company" && workspaceCompany === null) {
+    // The reader's own company has no meaning in the Group workspace, which has none (§4).
+    and.push({ id: { in: [] } });
+  } else if (query.view === "company") {
     and.push({
       OR: [
         { user: { is: { memberships: { some: { companyId: context.companyId, status: "ACTIVE" } } } } },
@@ -380,6 +391,8 @@ export async function directoryFilterOptions(context: UserContext): Promise<Dire
   assertModule(context, MODULE);
   assertPermission(context, "people.directory.view");
   const [companies, departments, roles] = await Promise.all([
+    // Offered in either workspace: a company workspace opens on its own company
+    // and the filter is how somebody widens to the group's directory (§85, §86).
     prisma.company.findMany({ where: { parentGroupId: context.parentGroupId, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.groupDepartment.findMany({ where: { parentGroupId: context.parentGroupId, status: "ACTIVE" }, select: { key: true, name: true }, orderBy: { name: "asc" } }),
     // The roles somebody in the group holds today (§41), not every role NESTO knows.

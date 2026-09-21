@@ -4053,6 +4053,14 @@ model CompanyInvite {
 // Authentication
 // ---------------------------------------------------------------------------
 
+/// Which organizational level a session works at (Workspace Context §3, §4).
+/// Runtime state, not an organization model: the group and the companies are
+/// ParentGroup and Company (§48, §108).
+enum WorkspaceScope {
+  GROUP
+  COMPANY
+}
+
 /// A server-side session record. The signed cookie carries only this row's id,
 /// so revoking access is a delete rather than a wait for a token to expire
 /// (PRD #6 §51, §113).
@@ -4064,6 +4072,14 @@ model Session {
   /// company and has no membership to point at (E-06 §6.1, §19, §116).
   membershipId     String?
   currentCompanyId String?
+  /// The workspace the session works in (Workspace Context §4, §15). COMPANY is
+  /// one company, the membership above. GROUP is the parent group: the
+  /// membership stays as the home company that keeps the operational context
+  /// valid, while what the person sees is each authorised company's own answer.
+  /// NULL: not chosen yet. A new sign-in starts there, and the context resolver
+  /// — the one place that can read a person's standing — fills in the default
+  /// (§16). Server state only: nothing a browser sends is read for it (§14, §15).
+  workspaceScope   WorkspaceScope?
   expiresAt        DateTime
   userAgent        String?
   ipAddress        String?

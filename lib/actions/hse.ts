@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
 import * as environment from "@/lib/modules/hse/environment/environment.service";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
@@ -129,7 +129,7 @@ function text(value: FormDataEntryValue | null): string {
 /* -------------------------------------------------------------------------- */
 
 export async function createTemplateAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, rows } = formValues(formData);
   const parsed = templateSchema.safeParse({
@@ -158,7 +158,7 @@ export async function updateTemplateAction(
   templateId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, rows } = formValues(formData);
   const parsed = templateSchema.safeParse({
@@ -186,7 +186,7 @@ export async function updateTemplateAction(
 }
 
 export async function archiveTemplateAction(templateId: string): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await templates.archiveTemplate(context, templateId);
@@ -199,7 +199,7 @@ export async function archiveTemplateAction(templateId: string): Promise<HseActi
 }
 
 export async function restoreTemplateAction(templateId: string): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await templates.restoreTemplate(context, templateId);
@@ -216,7 +216,7 @@ export async function restoreTemplateAction(templateId: string): Promise<HseActi
 /* -------------------------------------------------------------------------- */
 
 export async function createInspectionAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = inspectionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -236,7 +236,7 @@ export async function updateInspectionAction(
   inspectionId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = inspectionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -255,7 +255,7 @@ export async function assignInspectionAction(
   inspectionId: string,
   memberId: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await inspections.assignInspection(context, inspectionId, memberId);
@@ -268,7 +268,7 @@ export async function assignInspectionAction(
 }
 
 export async function startInspectionAction(inspectionId: string): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await inspections.startInspection(context, inspectionId);
@@ -284,7 +284,7 @@ export async function executeInspectionAction(
   inspectionId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const { values, rows } = formValues(formData, "answers");
   const parsed = executeInspectionSchema.safeParse({
@@ -312,7 +312,7 @@ export async function submitInspectionAction(
   inspectionId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = submitInspectionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -331,7 +331,7 @@ export async function approveInspectionAction(
   inspectionId: string,
   decisionNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await inspections.approveInspection(context, inspectionId, decisionNote || null);
@@ -347,7 +347,7 @@ export async function rejectInspectionAction(
   inspectionId: string,
   decisionNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!decisionNote.trim()) {
     return { ok: false, error: "Say why it is being sent back." };
@@ -367,7 +367,7 @@ export async function closeInspectionAction(
   inspectionId: string,
   disposition: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await inspections.closeInspection(context, inspectionId, disposition || null);
@@ -383,7 +383,7 @@ export async function cancelInspectionAction(
   inspectionId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await inspections.cancelInspection(context, inspectionId, reason || null);
@@ -400,7 +400,7 @@ export async function cancelInspectionAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createHazardAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = hazardSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -420,7 +420,7 @@ export async function updateHazardAction(
   hazardId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = hazardSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -439,7 +439,7 @@ export async function assignHazardAction(
   hazardId: string,
   memberId: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await hazards.assignHazard(context, hazardId, memberId);
@@ -455,7 +455,7 @@ export async function assessHazardAction(
   hazardId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = hazardAssessSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -474,7 +474,7 @@ export async function controlHazardAction(
   hazardId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = hazardControlSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -493,7 +493,7 @@ export async function closeHazardAction(
   hazardId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = hazardCloseSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -512,7 +512,7 @@ export async function reopenHazardAction(
   hazardId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!reason.trim()) return { ok: false, error: "Say why it is being reopened." };
 
@@ -530,7 +530,7 @@ export async function cancelHazardAction(
   hazardId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await hazards.cancelHazard(context, hazardId, reason || null);
@@ -560,7 +560,7 @@ function incidentValues(formData: FormData) {
 }
 
 export async function createIncidentAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = incidentSchema.safeParse(incidentValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -580,7 +580,7 @@ export async function updateIncidentAction(
   incidentId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = incidentSchema.safeParse(incidentValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -599,7 +599,7 @@ export async function assignInvestigatorAction(
   incidentId: string,
   memberId: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await incidents.assignInvestigator(context, incidentId, memberId);
@@ -614,7 +614,7 @@ export async function assignInvestigatorAction(
 export async function startInvestigationAction(
   incidentId: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await incidents.startInvestigation(context, incidentId);
@@ -630,7 +630,7 @@ export async function recordInvestigationAction(
   incidentId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = investigationSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -649,7 +649,7 @@ export async function submitIncidentCloseAction(
   incidentId: string,
   closureNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!closureNote.trim()) return { ok: false, error: "Write a closure note." };
 
@@ -667,7 +667,7 @@ export async function closeIncidentAction(
   incidentId: string,
   decisionNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await incidents.closeIncident(context, incidentId, decisionNote || null);
@@ -683,7 +683,7 @@ export async function reopenIncidentAction(
   incidentId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!reason.trim()) return { ok: false, error: "Say why it is being reopened." };
 
@@ -701,7 +701,7 @@ export async function cancelIncidentAction(
   incidentId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await incidents.cancelIncident(context, incidentId, reason || null);
@@ -734,7 +734,7 @@ function riskValues(formData: FormData) {
 export async function createRiskAssessmentAction(
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = riskAssessmentSchema.safeParse(riskValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -754,7 +754,7 @@ export async function updateRiskAssessmentAction(
   assessmentId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = riskAssessmentSchema.safeParse(riskValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -775,7 +775,7 @@ export async function updateRiskAssessmentAction(
 export async function submitRiskAssessmentAction(
   assessmentId: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await risk.submitRiskAssessment(context, assessmentId);
@@ -791,7 +791,7 @@ export async function approveRiskAssessmentAction(
   assessmentId: string,
   decisionNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await risk.approveRiskAssessment(context, assessmentId, decisionNote || null);
@@ -807,7 +807,7 @@ export async function rejectRiskAssessmentAction(
   assessmentId: string,
   decisionNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!decisionNote.trim()) return { ok: false, error: "Say why it is being sent back." };
 
@@ -824,7 +824,7 @@ export async function rejectRiskAssessmentAction(
 export async function archiveRiskAssessmentAction(
   assessmentId: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await risk.archiveRiskAssessment(context, assessmentId);
@@ -841,7 +841,7 @@ export async function archiveRiskAssessmentAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createHseActionAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = actionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -861,7 +861,7 @@ export async function updateHseActionAction(
   actionId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = actionSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -880,7 +880,7 @@ export async function assignHseActionAction(
   actionId: string,
   memberId: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await actionService.assignAction(context, actionId, memberId);
@@ -896,7 +896,7 @@ export async function completeHseActionAction(
   actionId: string,
   completionNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!completionNote.trim()) return { ok: false, error: "Record what was done." };
 
@@ -914,7 +914,7 @@ export async function verifyHseActionAction(
   actionId: string,
   verificationNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await actionService.verifyAction(context, actionId, verificationNote || null);
@@ -930,7 +930,7 @@ export async function rejectHseActionAction(
   actionId: string,
   verificationNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!verificationNote.trim()) return { ok: false, error: "Say what is still wrong." };
 
@@ -948,7 +948,7 @@ export async function reopenHseActionAction(
   actionId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!reason.trim()) return { ok: false, error: "Say why it is being reopened." };
 
@@ -966,7 +966,7 @@ export async function cancelHseActionAction(
   actionId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await actionService.cancelAction(context, actionId, reason || null);
@@ -998,7 +998,7 @@ function toolboxValues(formData: FormData) {
 }
 
 export async function createToolboxTalkAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = toolboxSchema.safeParse(toolboxValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -1018,7 +1018,7 @@ export async function updateToolboxTalkAction(
   talkId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = toolboxSchema.safeParse(toolboxValues(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -1034,7 +1034,7 @@ export async function updateToolboxTalkAction(
 }
 
 export async function completeToolboxTalkAction(talkId: string): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await toolbox.completeToolboxTalk(context, talkId);
@@ -1050,7 +1050,7 @@ export async function cancelToolboxTalkAction(
   talkId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await toolbox.cancelToolboxTalk(context, talkId, reason || null);
@@ -1067,7 +1067,7 @@ export async function cancelToolboxTalkAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createPermitAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = permitSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -1087,7 +1087,7 @@ export async function updatePermitAction(
   permitId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = permitSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -1103,7 +1103,7 @@ export async function updatePermitAction(
 }
 
 export async function submitPermitAction(permitId: string): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await permits.submitPermit(context, permitId);
@@ -1119,7 +1119,7 @@ export async function approvePermitAction(
   permitId: string,
   decisionNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await permits.approvePermit(context, permitId, decisionNote || null);
@@ -1135,7 +1135,7 @@ export async function rejectPermitAction(
   permitId: string,
   decisionNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!decisionNote.trim()) return { ok: false, error: "Say why it is being refused." };
 
@@ -1150,7 +1150,7 @@ export async function rejectPermitAction(
 }
 
 export async function activatePermitAction(permitId: string): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await permits.activatePermit(context, permitId);
@@ -1166,7 +1166,7 @@ export async function suspendPermitAction(
   permitId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!reason.trim()) return { ok: false, error: "Say why it is being suspended." };
 
@@ -1181,7 +1181,7 @@ export async function suspendPermitAction(
 }
 
 export async function closePermitAction(permitId: string): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await permits.closePermit(context, permitId);
@@ -1197,7 +1197,7 @@ export async function cancelPermitAction(
   permitId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await permits.cancelPermit(context, permitId, reason || null);
@@ -1214,7 +1214,7 @@ export async function cancelPermitAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createPpeCheckAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = ppeCheckSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -1233,7 +1233,7 @@ export async function updatePpeCheckAction(
   checkId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = ppeCheckSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -1253,7 +1253,7 @@ export async function updatePpeCheckAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createObservationAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = observationSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -1273,7 +1273,7 @@ export async function updateObservationAction(
   observationId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = observationSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -1292,7 +1292,7 @@ export async function closeObservationAction(
   observationId: string,
   closureNote: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!closureNote.trim()) return { ok: false, error: "Write a closure note." };
 
@@ -1310,7 +1310,7 @@ export async function reopenObservationAction(
   observationId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!reason.trim()) return { ok: false, error: "Say why it is being reopened." };
 
@@ -1329,7 +1329,7 @@ export async function reopenObservationAction(
 /* -------------------------------------------------------------------------- */
 
 export async function createStopWorkAction(formData: FormData): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = stopWorkSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
@@ -1349,7 +1349,7 @@ export async function releaseStopWorkAction(
   stopWorkId: string,
   releaseReason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   if (!releaseReason.trim()) return { ok: false, error: "Say why it is safe to resume." };
 
@@ -1367,7 +1367,7 @@ export async function cancelStopWorkAction(
   stopWorkId: string,
   reason: string,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     await stopWork.cancelStopWork(context, stopWorkId, reason || null);
@@ -1393,7 +1393,7 @@ export async function createHseTaskAction(
   actionId: string,
   formData: FormData,
 ): Promise<HseActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const title = text(formData.get("title")).trim();
   if (!title) return { ok: false, error: "Give the task a title." };

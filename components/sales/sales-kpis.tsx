@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { isGroupRoute } from "@/config/workspace";
 import type { CurrencyTotal, SalesOverviewDTO } from "@/lib/modules/sales/sales.types";
 import { totalsLabel, weightedTotalsLabel } from "./sales-format";
 
@@ -9,8 +10,12 @@ import { totalsLabel, weightedTotalsLabel } from "./sales-format";
  * Every figure comes from the same scope service the lists use, so an assigned
  * rep's "open pipeline" is their pipeline. A KPI computed from a wider query
  * than the list beneath it is a leak with a number on it (PRD #17 §412, §413).
+ *
+ * In the Group workspace (`grouped`) a card links only to a section the group
+ * answers; one that would ask "choose a company" (proposals) is a plain figure
+ * (Workspace Context §25, §29).
  */
-export function SalesKpiGrid({ overview }: { overview: SalesOverviewDTO }) {
+export function SalesKpiGrid({ overview, grouped = false }: { overview: SalesOverviewDTO; grouped?: boolean }) {
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
   if (overview.visible.opportunities) {
@@ -65,6 +70,7 @@ export function SalesKpiGrid({ overview }: { overview: SalesOverviewDTO }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => {
+        const href = card.href && (!grouped || isGroupRoute("sales", card.href.split("?")[0])) ? card.href : undefined;
         const body = (
           <>
             <p className="text-table text-fg-muted">{card.label}</p>
@@ -73,10 +79,10 @@ export function SalesKpiGrid({ overview }: { overview: SalesOverviewDTO }) {
           </>
         );
 
-        return card.href ? (
+        return href ? (
           <Link
             key={card.label}
-            href={card.href}
+            href={href}
             className="nesto-card p-4 transition-colors hover:border-line-strong"
           >
             {body}

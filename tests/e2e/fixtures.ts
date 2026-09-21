@@ -58,15 +58,21 @@ export type DemoRole = keyof typeof DEMO_USERNAME;
  * opening `to`: group roles land in Aurelia, their oldest membership, and a
  * record that lives in a sibling company is only reachable from there
  * (E-06 §3.4, §96).
+ *
+ * `workspace: "GROUP"` asks for the Group workspace instead. Without it a
+ * sign-in always ends in a company workspace, even for somebody whose real
+ * default is the Group (Workspace Context §16): these specs are about one
+ * company's modules, and the Group workspace has its own
+ * (`workspace-context.spec.ts`).
  */
-export async function signIn(page: Page, role: DemoRole, options: { to?: string; company?: string } = {}) {
+export async function signIn(page: Page, role: DemoRole, options: { to?: string; company?: string; workspace?: "GROUP" } = {}) {
   if (options.company) {
     await signIn(page, role);
     await switchCompany(page, options.company);
     if (options.to) await page.goto(options.to);
     return;
   }
-  await page.goto(options.to ? `/login?callbackUrl=${encodeURIComponent(options.to)}` : "/login");
+  await page.goto("/login");
   await page.getByLabel("Username").fill(DEMO_USERNAME[role]);
   await page.getByLabel("Password").fill(DEMO_PASSWORD);
   // Scoped to the form: in a development build the login page also carries the
@@ -74,12 +80,52 @@ export async function signIn(page: Page, role: DemoRole, options: { to?: string;
   // this locator ambiguous.
   await page.locator("form").getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+
+  // The workspace is settled before the spec's own page is opened, so a spec
+  // never asserts against a page rendered for the workspace it is leaving.
+  // A Platform Admin signs in to the platform area and has no membership, so no
+  // workspace: there is nothing to choose.
+  type Me = { workspace?: { scopeType: string }; company?: { id: string } };
+  const response = await page.request.get("/api/me");
+  const body = response.ok() ? ((await response.json()) as Me & { data?: Me }) : {};
+  const me = "data" in body && body.data ? body.data : (body as Me);
+  const scope = me.workspace?.scopeType;
+  let switched = false;
+  if (scope) {
+    if (options.workspace === "GROUP") {
+      if (scope !== "GROUP") {
+        await switchToGroup(page);
+        switched = true;
+      }
+    } else if (scope === "GROUP" && me.company?.id) {
+      // `company` is the home company even in the Group workspace, so this lands
+      // them where a company employee starts.
+      await switchCompany(page, me.company.id);
+      switched = true;
+    }
+  } else if (options.workspace === "GROUP") {
+    throw new Error(`${role} has no workspace to switch: /api/me returned ${response.status()}`);
+  }
+
+  // The workspace decides the navigation and every list, so the page in front of
+  // the spec is always one rendered for the workspace it ends up in.
+  if (options.to) await page.goto(options.to);
+  else if (switched) await page.reload();
 }
 
-/** Works in another of the signed-in person's companies from the next request on. */
+/**
+ * Works in another of the signed-in person's companies from the next request on:
+ * the company workspace, which is what the switcher posts (Workspace Context §78).
+ */
 export async function switchCompany(page: Page, companyId: string) {
-  const response = await page.request.post("/api/me/company-context", { data: { companyId } });
+  const response = await page.request.post("/api/workspace", { data: { scopeType: "COMPANY", companyId } });
   expect(response.ok(), `switching to ${companyId}`).toBe(true);
+}
+
+/** The Group workspace, for somebody whose standing allows it (§80). */
+export async function switchToGroup(page: Page) {
+  const response = await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } });
+  expect(response.ok(), "switching to the group").toBe(true);
 }
 
 export async function signOut(page: Page) {

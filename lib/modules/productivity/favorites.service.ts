@@ -1,11 +1,14 @@
 import { Prisma } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
 import { canNavigate, resolveNavigable, type NavigableEntityDTO } from "./navigable.registry";
 import { resolveProductivitySettings } from "./productivity.settings";
 import type { EntityRef } from "./productivity.schema";
+import { contextOpening, narrowedTo, type InCompany } from "./productivity.workspace";
 
 /**
  * Favorites (PRD #45 §69-§93, §161, §250, §253, §256).
@@ -18,7 +21,7 @@ import type { EntityRef } from "./productivity.schema";
 
 export const FAVORITES_LIMIT = 100;
 
-export type FavoriteItemDTO = NavigableEntityDTO & { favoritedAt: string };
+export type FavoriteItemDTO = NavigableEntityDTO & InCompany & { favoritedAt: string };
 
 function fail(code: string, message: string, status: "VALIDATION_ERROR" | "NOT_FOUND" | "CONFLICT" | "FORBIDDEN" = "VALIDATION_ERROR") {
   return new AccessError(status, message, { code });
@@ -83,5 +86,55 @@ export async function addFavorite(context: UserContext, ref: EntityRef): Promise
  */
 export async function removeFavorite(context: UserContext, ref: EntityRef): Promise<boolean> {
   const { count } = await prisma.userFavorite.deleteMany({ where: { companyId: context.companyId, memberId: context.membershipId, entityType: ref.entityType, entityId: ref.entityId } });
+  return count > 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* The active workspace (Workspace Context §44)                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The person's favorites in the active workspace (§44).
+ *
+ * A favorite stays one record tied to the user's membership in the record's own
+ * company — starring never copies it. A company workspace shows that company's
+ * favorites, which is the company-relevant set. The Group workspace shows all of
+ * them: each company's own list, resolved in that company's own context so a
+ * favorite is shown only where the person can still open it, then merged newest
+ * first, every row naming its company. `companyId` is a filter, ignored when it
+ * is not one of the companies the person may use (§57, §87).
+ */
+export async function listFavoritesForWorkspace(session: UserContext, options: { limit?: number; companyId?: string | null } = {}): Promise<FavoriteItemDTO[]> {
+  if (!inGroupWorkspace(session)) return listFavorites(session, options);
+  const contexts = narrowedTo(await resolveWorkspaceContexts(session, {}), options.companyId);
+  const lists = await Promise.all(
+    contexts.map(async (context) => {
+      const company = { id: context.companyId, name: context.company.name };
+      return (await listFavorites(context, { limit: options.limit })).map((item) => ({ ...item, company }));
+    }),
+  );
+  return lists
+    .flat()
+    .sort((a, b) => b.favoritedAt.localeCompare(a.favoritedAt) || `${a.entityType}:${a.entityId}`.localeCompare(`${b.entityType}:${b.entityId}`))
+    .slice(0, options.limit ?? Number.POSITIVE_INFINITY);
+}
+
+/**
+ * Stars a record. In the Group workspace the record decides the company: the
+ * favorite is written for the person's membership in the company it lives in,
+ * never for whichever company the session happens to be anchored in.
+ */
+export async function addFavoriteForWorkspace(session: UserContext, ref: EntityRef): Promise<FavoriteItemDTO> {
+  if (!inGroupWorkspace(session)) return addFavorite(session, ref);
+  const owner = await contextOpening(session, ref);
+  if (!owner) throw fail("FAVORITE_NOT_FOUND", "That record could not be found.", "NOT_FOUND");
+  return { ...(await addFavorite(owner, ref)), company: { id: owner.companyId, name: owner.company.name } };
+}
+
+/** Un-stars a record, in whichever of the person's memberships it was starred; only their own are ever touched (PRD #47 §75). */
+export async function removeFavoriteForWorkspace(session: UserContext, ref: EntityRef): Promise<boolean> {
+  if (!inGroupWorkspace(session)) return removeFavorite(session, ref);
+  const own = (await resolveWorkspaceContexts(session, {})).map((context) => ({ companyId: context.companyId, memberId: context.membershipId }));
+  const { count } = await prisma.userFavorite.deleteMany({ where: { OR: own, entityType: ref.entityType, entityId: ref.entityId } });
   return count > 0;
 }

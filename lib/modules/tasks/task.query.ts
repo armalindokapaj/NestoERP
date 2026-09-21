@@ -65,6 +65,7 @@ export function parseTaskListQuery(
     projectId: read(params, "projectId") || undefined,
     assigneeMemberId: read(params, "assignee") || undefined,
     createdByMemberId: read(params, "createdBy") || undefined,
+    company: read(params, "company") || undefined,
     moduleKey: read(params, "module") || undefined,
     entityType: read(params, "entityType") || undefined,
     entityId: read(params, "entityId") || undefined,

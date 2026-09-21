@@ -9,12 +9,17 @@ import { parseLeadQuery } from "@/lib/modules/sales/sales.query";
  *
  * `acceptDuplicate` is read separately from the validated body: the duplicate
  * check is a warning a person answers, not a field of the lead (PRD #17 §44).
+ *
+ * The list reads the active workspace (Workspace Context §37): a company's own,
+ * or in the Group workspace the union of every authorised company's, each row
+ * naming its company. Capturing a lead belongs to one company and is refused
+ * there.
  */
 export async function GET(request: Request) {
   return withContext(async (context) => {
     const url = new URL(request.url);
-    return apiOk(await leads.listLeads(context, parseLeadQuery(url.searchParams)));
-  });
+    return apiOk(await leads.listLeadsForWorkspace(context, parseLeadQuery(url.searchParams)));
+  }, { group: "read" });
 }
 
 export async function POST(request: Request) {

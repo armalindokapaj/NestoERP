@@ -19,7 +19,7 @@ import { createProjectSchema, portfolioQuerySchema } from "@/lib/modules/project
 import * as projects from "@/lib/modules/projects/project.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { seedStoredDocument } from "../../../prisma/seed/document-objects";
-import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, grantGroupStanding, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
  * The Projects page (E-05A §63-§69).
@@ -28,7 +28,17 @@ import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMem
  * sessions — the multi-company person is `multicompany`, an Architect in
  * Aurelia on Riverside Residences and in Forma on Marina Apartments. The Owner
  * belongs to all five demo companies; the fixture tenant is another group.
+ *
+ * What the Projects page lists is what the active workspace reads (Workspace
+ * Context §30, §83): every authorised company's projects in the Group workspace,
+ * one company's in a company workspace. The cross-company mechanics below are
+ * therefore run in the Group workspace — the Owner has standing by role, and the
+ * multi-company Architect is given it by a group-scope grant for these cases —
+ * and "the company workspace lists one company" has its own cases at the end.
  */
+
+/** The Group workspace, which the resolver grants only to somebody with group-level standing. */
+const GROUP = { workspace: "GROUP" } as const;
 
 const COMPANY_A = COMPANY.a;
 const COMPANY_B = COMPANY.b;
@@ -36,6 +46,13 @@ const COMPANY_D = COMPANY.d;
 const COMPANY_E = COMPANY.e;
 const MULTI_A = "member_multicompany_a";
 const MULTI_D = "member_multicompany_d";
+
+let undoStanding: (() => Promise<void>) | null = null;
+
+beforeAll(async () => {
+  const multi = await prisma.user.findFirstOrThrow({ where: { email: DEMO_EMAIL.multiCompany } });
+  undoStanding = await grantGroupStanding(multi.id);
+});
 
 const tempProjects: string[] = [];
 const tempTypes: string[] = [];
@@ -74,6 +91,7 @@ afterEach(async () => {
 
 afterAll(async () => {
   await cleanupSessions();
+  await undoStanding?.();
   await prisma.$disconnect();
 });
 
@@ -148,8 +166,8 @@ async function tempMembership(userId: string, companyId: string, roleKey: string
 
 describe("authorisation across companies (E-05A §63)", () => {
   it("shows the multi-company person their assigned projects in both companies, whichever company the session is in", async () => {
-    const inA = await loginAsMembership(MULTI_A);
-    const inD = await loginAsMembership(MULTI_D);
+    const inA = await loginAsMembership(MULTI_A, GROUP);
+    const inD = await loginAsMembership(MULTI_D, GROUP);
 
     expect((await ids(inA)).sort()).toEqual([PROJECT.a, PROJECT.d].sort());
     expect((await ids(inD)).sort()).toEqual([PROJECT.a, PROJECT.d].sort());
@@ -167,7 +185,7 @@ describe("authorisation across companies (E-05A §63)", () => {
   });
 
   it("gives a company-scope Owner every live project in their companies and none in another", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     expect((await ids(owner)).sort()).toEqual([PROJECT.a, PROJECT.b, PROJECT.c, PROJECT.d, PROJECT.e].sort());
 
     const works = await loginAsEmail(DEMO_EMAIL.fixtureOwner);
@@ -178,13 +196,13 @@ describe("authorisation across companies (E-05A §63)", () => {
   });
 
   it("never names a company, role or place the person cannot see in the filter options", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const options = await portfolioFilterOptions(owner);
     expect(options.companies.map((company) => company.id).sort()).toEqual([COMPANY.a, COMPANY.b, COMPANY.c, COMPANY.d, COMPANY.e]);
     expect(options.locations.cities.map((city) => city.value)).not.toContain("city:Munich");
     expect(options.locations.cities.map((city) => city.value)).not.toContain("city:Fier");
 
-    const multi = await loginAsMembership(MULTI_A);
+    const multi = await loginAsMembership(MULTI_A, GROUP);
     const multiOptions = await portfolioFilterOptions(multi);
     expect(multiOptions.companies.map((company) => company.id).sort()).toEqual([COMPANY_A, COMPANY_D]);
     expect(multiOptions.roles.map((role) => role.label)).toEqual(["Architect"]);
@@ -192,11 +210,11 @@ describe("authorisation across companies (E-05A §63)", () => {
   });
 
   it("searches inside the authorised set only (E-05A §16, §73)", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     expect(await ids(owner, { q: "Munich" })).toEqual([]);
     expect(await ids(owner, { companyId: COMPANY.tenant })).toEqual([]);
 
-    const multi = await loginAsMembership(MULTI_A);
+    const multi = await loginAsMembership(MULTI_A, GROUP);
     expect(await ids(multi, { q: "Durrës" })).toEqual([]);
     expect(await ids(multi, { q: "Vlorë" })).toEqual([PROJECT.d]);
     expect(await ids(multi, { q: "Forma Engineering" })).toEqual([PROJECT.d]);
@@ -209,10 +227,8 @@ describe("authorisation across companies (E-05A §63)", () => {
 
 describe("opening a project in its own company (E-05A §26, §63.7)", () => {
   it("moves the session to the project's company, and only then", async () => {
-    const session = await loginAsMembership(MULTI_A);
-
-    const here = await openPortfolioProject(session, PROJECT.a);
-    expect(here).toMatchObject({ switched: false, company: { id: COMPANY_A } });
+    // In the Group workspace no company is current, so a project is entered through its own company.
+    const session = await loginAsMembership(MULTI_A, GROUP);
 
     const there = await openPortfolioProject(session, PROJECT.d);
     expect(there).toMatchObject({ switched: true, company: { id: COMPANY_D } });
@@ -220,16 +236,30 @@ describe("opening a project in its own company (E-05A §26, §63.7)", () => {
     const resolved = await resolveContextForSession(session.sessionId, { expectedUserId: session.userId });
     expect(resolved.ok && resolved.context.companyId).toBe(COMPANY_D);
     expect(resolved.ok && resolved.context.membershipId).toBe(MULTI_D);
+    // Opening a project enters a company workspace, and leaves the group's (Workspace Context §31).
+    expect(resolved.ok && resolved.context.workspace).toEqual({ parentGroupId: "group_demo_nesto", scopeType: "COMPANY", companyId: COMPANY_D });
+
+    // A project in the company the session is now in changes nothing.
+    if (!resolved.ok) throw new Error(resolved.reason);
+    expect(await openPortfolioProject(resolved.context, PROJECT.d)).toMatchObject({ switched: false, company: { id: COMPANY_D } });
 
     const event = await prisma.authEvent.findFirst({
       where: { sessionId: session.sessionId, type: "COMPANY_CONTEXT_SWITCHED" },
       orderBy: { createdAt: "desc" },
     });
-    expect(event?.metadata).toMatchObject({ fromCompanyId: COMPANY_A, toCompanyId: COMPANY_D, projectId: PROJECT.d });
+    expect(event?.metadata).toMatchObject({
+      fromCompanyId: COMPANY_A,
+      toCompanyId: COMPANY_D,
+      projectId: PROJECT.d,
+      event: "WORKSPACE_CHANGED",
+      previousScopeType: "GROUP",
+      nextScopeType: "COMPANY",
+      nextCompanyId: COMPANY_D,
+    });
   });
 
   it("refuses a project the person cannot open in any company, and moves nothing", async () => {
-    const session = await loginAsMembership(MULTI_A);
+    const session = await loginAsMembership(MULTI_A, GROUP);
     const unassignedInD = await tempProject({ companyId: COMPANY_D });
     await expectError(openPortfolioProject(session, unassignedInD), "NOT_FOUND");
     await expectError(openPortfolioProject(session, PROJECT.b), "NOT_FOUND");
@@ -241,9 +271,33 @@ describe("opening a project in its own company (E-05A §26, §63.7)", () => {
   });
 });
 
+describe("a company workspace lists one company (Workspace Context §30, §83)", () => {
+  it("shows the multi-company person the company they work in, and the other one after they switch", async () => {
+    const inA = await loginAsMembership(MULTI_A);
+    const inD = await loginAsMembership(MULTI_D);
+    expect(await ids(inA)).toEqual([PROJECT.a]);
+    expect(await ids(inD)).toEqual([PROJECT.d]);
+    expect((await listPortfolioProjects(inA, query())).meta).toMatchObject({ visibleProjectCount: 1, visibleCompanyCount: 1 });
+    expect((await portfolioFilterOptions(inA)).companies.map((company) => company.id)).toEqual([COMPANY_A]);
+  });
+
+  it("gives an Owner in a company workspace that company's projects, and the group's five in the Group workspace", async () => {
+    const inCompany = await loginAs("OWNER");
+    expect(inCompany.workspace.scopeType).toBe("COMPANY");
+    expect(await ids(inCompany)).toEqual([PROJECT.a]);
+    expect((await ids(await loginAs("OWNER", GROUP))).sort()).toEqual([PROJECT.a, PROJECT.b, PROJECT.c, PROJECT.d, PROJECT.e].sort());
+  });
+
+  it("does not find another company's project from a company workspace — entering it is the way in", async () => {
+    const inA = await loginAsMembership(MULTI_A);
+    await expectError(openPortfolioProject(inA, PROJECT.d), "NOT_FOUND");
+    expect((await contextForProject(await loginAsMembership(MULTI_A, GROUP), PROJECT.d)).companyId).toBe(COMPANY_D);
+  });
+});
+
 describe("ordering (E-05A §14, §65)", () => {
   it("puts favorites first, each group by latest activity", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const label = `Ordering ${Date.now()}`;
     const september = (day: number) => new Date(Date.UTC(2026, 8, day, 12));
 
@@ -280,7 +334,7 @@ describe("ordering (E-05A §14, §65)", () => {
   });
 
   it("keeps a favorite Finished project at the top (E-05A §14)", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const label = `Finished ${Date.now()}`;
     const finished = await tempProject({ name: `${label} old`, status: "FINISHED", lastActivityAt: new Date(Date.UTC(2020, 0, 1)) });
     const recent = await tempProject({ name: `${label} new`, lastActivityAt: new Date() });
@@ -289,7 +343,7 @@ describe("ordering (E-05A §14, §65)", () => {
   });
 
   it("rejects a cursor that does not belong to the sort", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const page = await listPortfolioProjects(owner, query({ limit: 1, sort: "name-asc" }));
     await expectError(listPortfolioProjects(owner, query({ limit: 1, cursor: page.pageInfo.nextCursor })), "VALIDATION_ERROR");
     await expectError(listPortfolioProjects(owner, query({ cursor: "not-a-cursor" })), "VALIDATION_ERROR");
@@ -298,7 +352,7 @@ describe("ordering (E-05A §14, §65)", () => {
 
 describe("filters and search (E-05A §17, §18, §66)", () => {
   it("narrows by status, type, place and role, and combines them with AND", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     // Every demo project is Active, so the other states are made here.
     const pendingInB = await tempProject({ companyId: COMPANY_B, status: "PENDING", projectType: "Commercial" });
     const finishedInD = await tempProject({ companyId: COMPANY_D, status: "FINISHED", city: "Vlorë" });
@@ -311,7 +365,7 @@ describe("filters and search (E-05A §17, §18, §66)", () => {
     expect(await ids(owner, { q: "other" })).toEqual([]);
     expect(await ids(owner, { q: "industrial" })).toEqual([PROJECT.c]);
 
-    const multi = await loginAsMembership(MULTI_A);
+    const multi = await loginAsMembership(MULTI_A, GROUP);
     const managedInD = await tempProject({ companyId: COMPANY_D, managerMemberId: MULTI_D });
     expect((await ids(multi, { role: "Architect" })).sort()).toEqual([PROJECT.a, PROJECT.d].sort());
     expect(await ids(multi, { role: "project manager" })).toEqual([managedInD]);
@@ -321,7 +375,7 @@ describe("filters and search (E-05A §17, §18, §66)", () => {
   });
 
   it("filters and searches by a type name across companies, each with its own list (E-05A §30, §62)", async () => {
-    const multi = await loginAsMembership(MULTI_A);
+    const multi = await loginAsMembership(MULTI_A, GROUP);
     const label = `Types ${Date.now()}`;
     const inA = await tempProject({ companyId: COMPANY_A, name: `${label} A`, projectType: "Residential", memberIds: [MULTI_A], memberRole: "Architect" });
 
@@ -342,14 +396,14 @@ describe("filters and search (E-05A §17, §18, §66)", () => {
   });
 
   it("filters favorites per person — one person's star is nobody else's", async () => {
-    const multi = await loginAsMembership(MULTI_A);
+    const multi = await loginAsMembership(MULTI_A, GROUP);
     await addFavorite(await contextForProject(multi, PROJECT.d), { entityType: "project", entityId: PROJECT.d });
 
     expect(await ids(multi, { favorites: true })).toEqual([PROJECT.d]);
     const favorite = await prisma.userFavorite.findFirst({ where: { entityType: "project", entityId: PROJECT.d, memberId: MULTI_D } });
     expect(favorite?.companyId).toBe(COMPANY_D);
 
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     expect(await ids(owner, { favorites: true })).toEqual([]);
     expect((await listPortfolioProjects(owner, query())).items.every((item) => !item.isFavorite)).toBe(true);
   });
@@ -363,10 +417,12 @@ describe("filters and search (E-05A §17, §18, §66)", () => {
 
 describe("what each card says and allows (E-05A §7, §33, §52)", () => {
   it("shows the effective project role and permissions decided in the project's own company", async () => {
-    const multi = await loginAsMembership(MULTI_A);
+    const before = await loginAsMembership(MULTI_A, GROUP);
     // Seeded, they are an Architect in both companies; a Project Manager membership in Nova sets one company apart.
-    const managerInE = await tempMembership(multi.userId, COMPANY_E, "PROJECT_MANAGER");
+    const managerInE = await tempMembership(before.userId, COMPANY_E, "PROJECT_MANAGER");
     const hotelId = await tempProject({ companyId: COMPANY_E, managerMemberId: managerInE, memberIds: [managerInE] });
+    // A request resolves the group's companies once; the new membership is read by the next one.
+    const multi = await loginAsMembership(MULTI_A, GROUP);
     const { items } = await listPortfolioProjects(multi, query());
     const riverside = items.find((item) => item.id === PROJECT.a)!;
     const hotel = items.find((item) => item.id === hotelId)!;
@@ -381,7 +437,7 @@ describe("what each card says and allows (E-05A §7, §33, §52)", () => {
   });
 
   it("shows a second role as +1, and the same role twice as one (E-05A §56)", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const label = `Roles ${Date.now()}`;
     const twoRoles = await tempProject({ name: `${label} lead`, managerMemberId: owner.membershipId, memberIds: [owner.membershipId], memberRole: "Lead Architect" });
     const oneRole = await tempProject({ name: `${label} pm`, managerMemberId: owner.membershipId, memberIds: [owner.membershipId], memberRole: "project manager" });
@@ -392,7 +448,7 @@ describe("what each card says and allows (E-05A §7, §33, §52)", () => {
   });
 
   it("offers a cover only to a reader who can open its document, as a 3:4 thumbnail", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const projectId = await tempProject({ name: `Cover ${Date.now()}`, memberIds: [owner.membershipId] });
     const documentId = `e05a_cover_${Date.now().toString(36)}`;
     await seedStoredDocument(prisma, { id: documentId, companyId: COMPANY_A, name: "render.jpg", projectId, uploadedByMemberId: owner.membershipId, createdBy: owner.userId });
@@ -480,7 +536,7 @@ describe("status (E-05A §11, §12, §68)", () => {
   });
 
   it("lets only one of two simultaneous moves land", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const projectId = await tempProject({ status: "ACTIVE" });
     const outcomes = await Promise.allSettled([
       projects.changeProjectStatus(owner, projectId, { status: "FINISHED" }),
@@ -519,7 +575,7 @@ describe("create (E-05A §29-§31, §67)", () => {
   it("refuses the Project Manager, the Architect and the multi-company person by default", async () => {
     await expectError(projects.createProject(await loginAs("PROJECT_MANAGER"), input()), "FORBIDDEN");
     await expectError(projects.createProject(await loginAs("ARCHITECT"), input()), "FORBIDDEN");
-    const multi = await loginAsMembership(MULTI_A);
+    const multi = await loginAsMembership(MULTI_A, GROUP);
     expect(await creatableCompanies(multi)).toEqual([]);
   });
 
@@ -538,7 +594,7 @@ describe("create (E-05A §29-§31, §67)", () => {
   });
 
   it("enforces a project code once per company, not across companies (E-05A §14)", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const code = `E05A-DUP-${Date.now().toString(36)}`;
     const first = await projects.createProject(owner, input({ code }));
     tempProjects.push(first.id);
@@ -550,7 +606,7 @@ describe("create (E-05A §29-§31, §67)", () => {
   });
 
   it("offers and accepts only the company's types in use, and keeps a retired one on its project (E-05A §62)", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const retired = await prisma.projectType.create({ data: { companyId: COMPANY_A, name: `Retired ${Date.now()}`, isActive: false } });
     tempTypes.push(retired.id);
 
@@ -566,21 +622,28 @@ describe("create (E-05A §29-§31, §67)", () => {
   });
 
   it("refuses a company named in the body where the person cannot create", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     await expectError(projects.createProject(owner, input({ companyId: COMPANY.tenant })), "FORBIDDEN");
-    await expectError(projects.createProject(await loginAsMembership(MULTI_A), input({ companyId: COMPANY_D })), "FORBIDDEN");
+    await expectError(projects.createProject(await loginAsMembership(MULTI_A, GROUP), input({ companyId: COMPANY_D })), "FORBIDDEN");
     await expectError(projects.createProject(owner, input({ companyId: "company_that_does_not_exist" })), "FORBIDDEN");
   });
 
-  it("creates in the chosen company for somebody who may create in two", async () => {
+  it("creates in the workspace's company for somebody who may create in two (Workspace Context §29, §57)", async () => {
     const ceo = await loginAs("CEO");
-    await tempMembership(ceo.userId, COMPANY_B, "CEO");
+    const membershipInB = await tempMembership(ceo.userId, COMPANY_B, "CEO");
 
-    expect((await creatableCompanies(ceo)).map((company) => company.id).sort()).toEqual([COMPANY_A, COMPANY_B]);
+    // The workspace decides where a project is created. Working in Company A,
+    // a CEO of both is offered A alone and cannot reach B by naming it.
+    expect((await creatableCompanies(ceo)).map((company) => company.id)).toEqual([COMPANY_A]);
+    await expectError(projects.createProject(ceo, input({ companyId: COMPANY_B, projectTypeId: await typeId(COMPANY_B, "Hospital") })), "FORBIDDEN");
+
+    // In Company B's workspace, the same person creates there.
+    const ceoInB = await loginAsMembership(membershipInB);
+    expect((await creatableCompanies(ceoInB)).map((company) => company.id)).toEqual([COMPANY_B]);
 
     // A type is the chosen company's own: Company A's Hospital is not Company B's.
-    await expectError(projects.createProject(ceo, input({ companyId: COMPANY_B })), "VALIDATION_ERROR");
-    const created = await projects.createProject(ceo, input({ companyId: COMPANY_B, projectTypeId: await typeId(COMPANY_B, "Hospital") }));
+    await expectError(projects.createProject(ceoInB, input({ companyId: COMPANY_B })), "VALIDATION_ERROR");
+    const created = await projects.createProject(ceoInB, input({ companyId: COMPANY_B, projectTypeId: await typeId(COMPANY_B, "Hospital") }));
     tempProjects.push(created.id);
     expect(created.company.id).toBe(COMPANY_B);
     const row = await prisma.project.findUniqueOrThrow({ where: { id: created.id } });
@@ -592,7 +655,7 @@ describe("create (E-05A §29-§31, §67)", () => {
 
 describe("activity (E-05A §15)", () => {
   it("moves lastActivityAt on project work without touching updatedAt, at most once a minute", async () => {
-    const owner = await loginAs("OWNER");
+    const owner = await loginAs("OWNER", GROUP);
     const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const projectId = await tempProject({ lastActivityAt: hourAgo });
     const before = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });

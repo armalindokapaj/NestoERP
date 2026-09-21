@@ -2,18 +2,18 @@ import { Suspense } from "react";
 
 import { AnnouncementsIndicator } from "@/components/announcements/shell";
 import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
-import { CompanySwitcher } from "@/components/layout/company-switcher";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
+import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import type { NavigationGroup } from "@/config/navigation";
 import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
-import { listCompanyContexts } from "@/lib/modules/organization/company-context.service";
+import { listWorkspaces } from "@/lib/workspace/workspace.service";
 
 /**
  * Universal top bar (PRD #3 §16, §76). Identical for every role.
@@ -40,12 +40,14 @@ export async function Topbar({
   /** Live announcements addressed to this member and not yet opened (PRD #45 §121-§123). */
   announcementsUnread?: number;
 }) {
-  const [t, companies] = await Promise.all([getTranslations("roles"), listCompanyContexts(context)]);
+  const [t, workspaces] = await Promise.all([getTranslations("roles"), listWorkspaces(context)]);
+  // The workspace names itself: the group above, or the company (Workspace Context §10).
+  const workspaceName = context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name;
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface/85 px-4 backdrop-blur-md md:h-16 md:px-6 xl:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <MobileHeader navigation={navigation} companyName={context.company.name} />
+        <MobileHeader navigation={navigation} companyName={workspaceName} />
 
         {/* The navigation collapse control sits out here rather than in the
             sidebar: the rail header has one slot and the mark already owns it
@@ -79,8 +81,9 @@ export async function Topbar({
             Demo data
           </span>
         ) : null}
-        {/* Only for somebody who works in more than one company (E-06 §3.4). */}
-        <CompanySwitcher companies={companies} />
+        {/* The group and the companies this person may work in; shown only when
+            there is a choice to make (Workspace Context §5, §9). */}
+        <WorkspaceSwitcher workspaces={workspaces} />
         {context.enabledModules.includes("announcements") && context.permissions.includes("announcement.view") ? <AnnouncementsIndicator unread={announcementsUnread} /> : null}
         <NotificationsMenu />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
@@ -90,7 +93,7 @@ export async function Topbar({
             lastName: context.lastName,
             avatarUrl: context.avatarUrl,
             roleLabel: t(`${context.role}.label`),
-            companyName: context.company.name,
+            companyName: workspaceName,
           }}
         />
       </div>

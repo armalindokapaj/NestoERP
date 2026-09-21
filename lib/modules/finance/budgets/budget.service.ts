@@ -5,6 +5,7 @@ import { applyTransition } from "@/lib/core/state/transition";
 import { can } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
+import { inGroupWorkspace } from "@/config/workspace";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -16,6 +17,7 @@ import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { toAmountString } from "../finance.money";
 import { buildBudgetScopeWhere, buildFinanceProjectWhere } from "../finance.scope";
 import { baseCurrency } from "../finance.settings";
+import { companyOf, financeContexts, narrowToCompany } from "../finance.workspace";
 import type {
   BudgetDetailDTO,
   BudgetSummaryDTO,
@@ -98,10 +100,8 @@ const ORDER: Record<string, Prisma.ProjectBudgetOrderByWithRelationInput[]> = {
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listBudgets(context: UserContext, query: BudgetListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "finance.budget.view");
-
+/** One company's list clause: its scope, the archive rule, the search and the filters. */
+function buildBudgetListWhere(context: UserContext, query: BudgetListQuery): Prisma.ProjectBudgetWhereInput {
   const filters: Prisma.ProjectBudgetWhereInput[] = [buildBudgetScopeWhere(context)];
 
   filters.push(
@@ -127,7 +127,14 @@ export async function listBudgets(context: UserContext, query: BudgetListQuery) 
   if (query.currency) filters.push({ currency: query.currency });
   if (query.currentOnly) filters.push({ isCurrent: true });
 
-  const where: Prisma.ProjectBudgetWhereInput = { AND: filters };
+  return { AND: filters };
+}
+
+export async function listBudgets(context: UserContext, query: BudgetListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "finance.budget.view");
+
+  const where = buildBudgetListWhere(context, query);
 
   const [rows, total] = await Promise.all([
     prisma.projectBudget.findMany({
@@ -148,6 +155,54 @@ export async function listBudgets(context: UserContext, query: BudgetListQuery) 
 
   return {
     data: rows.map((row) => toSummaryDTO(row, numbers.get(row.projectId))),
+    pagination: paginationMeta(total, query.page, query.limit),
+  };
+}
+
+/**
+ * The budget list of the active workspace (Workspace Context §36, §45): a
+ * company workspace is `listBudgets`, untouched; the Group workspace is every
+ * company the reader may open budgets in, each row naming its company and
+ * measured in its own currency — a budget is never converted or added to
+ * another's (PRD #15 §36). `options.company` narrows only within those
+ * companies (§57, §86).
+ */
+export async function listBudgetsForWorkspace(
+  session: UserContext,
+  query: BudgetListQuery,
+  options: { company?: string | null } = {},
+) {
+  if (!inGroupWorkspace(session)) return listBudgets(session, query);
+
+  // Nothing readable is an empty answer, not an error (§76).
+  const readable = narrowToCompany(await financeContexts(session, "finance.budget.view"), options.company);
+  if (readable.length === 0) return { data: [], pagination: paginationMeta(0, query.page, query.limit) };
+
+  const where: Prisma.ProjectBudgetWhereInput = { OR: readable.map((context) => buildBudgetListWhere(context, query)) };
+  const [rows, total] = await Promise.all([
+    prisma.projectBudget.findMany({
+      where,
+      // `id` breaks ties so a page holds still across companies.
+      orderBy: [...(ORDER[query.sort] ?? ORDER["updated-desc"]), { id: "asc" }],
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+      select: { ...SUMMARY_SELECT, companyId: true },
+    }),
+    prisma.projectBudget.count({ where }),
+  ]);
+
+  // Each company's projects are measured against that company's own base currency.
+  const numbers = new Map<string, ProjectFinanceNumbers>();
+  await Promise.all(
+    readable.map(async (context) => {
+      const projectIds = [...new Set(rows.filter((row) => row.companyId === context.companyId).map((row) => row.projectId))];
+      for (const [projectId, figures] of await projectFinanceNumbers(projectIds, await baseCurrency(context.companyId))) numbers.set(projectId, figures);
+    }),
+  );
+  const companies = new Map(readable.map((context) => [context.companyId, companyOf(context)]));
+
+  return {
+    data: rows.map((row) => ({ ...toSummaryDTO(row, numbers.get(row.projectId)), company: companies.get(row.companyId)! })),
     pagination: paginationMeta(total, query.page, query.limit),
   };
 }

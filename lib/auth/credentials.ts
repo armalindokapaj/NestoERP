@@ -148,6 +148,8 @@ export async function authenticateCredentials(
     userId: user.id,
     membershipId: membership?.id ?? null,
     companyId: membership?.companyId ?? null,
+    // Where it starts is the context resolver's to decide (Workspace Context §16).
+    workspaceScope: "DEFAULT",
     userAgent,
     ipAddress,
   });

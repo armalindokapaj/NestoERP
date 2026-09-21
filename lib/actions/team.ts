@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 import { signIn } from "@/lib/auth";
 import { AccessError } from "@/lib/access/guards";
-import { requireUserContext } from "@/lib/context/current-user";
+import { requireCompanyContext } from "@/lib/context/current-user";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import { clientAddress, hitThrottle } from "@/lib/core/security/throttle";
 import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
@@ -68,7 +68,7 @@ export async function updateMemberAction(
   memberId: string,
   formData: FormData,
 ): Promise<TeamActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = updateMemberSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -93,7 +93,7 @@ export async function memberStatusAction(
   memberId: string,
   action: "deactivate" | "reactivate" | "suspend" | "unsuspend",
 ): Promise<TeamActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     if (action === "deactivate") await team.deactivateMember(context, memberId);
@@ -117,7 +117,7 @@ export type InviteActionResult =
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
 
 export async function inviteMemberAction(formData: FormData): Promise<InviteActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   const parsed = inviteMemberSchema.safeParse(formValues(formData));
   if (!parsed.success) {
@@ -144,7 +144,7 @@ export async function inviteMemberAction(formData: FormData): Promise<InviteActi
 }
 
 export async function resendInvitationAction(inviteId: string): Promise<InviteActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
 
   try {
     const result = await invitations.resendInvitation(context, inviteId);
@@ -161,7 +161,7 @@ export async function resendInvitationAction(inviteId: string): Promise<InviteAc
 }
 
 export async function cancelInvitationAction(inviteId: string): Promise<TeamActionResult> {
-  const context = await requireUserContext();
+  const context = await requireCompanyContext();
   try {
     await invitations.cancelInvitation(context, inviteId);
   } catch (error) {

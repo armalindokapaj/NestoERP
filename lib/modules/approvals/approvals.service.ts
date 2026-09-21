@@ -12,6 +12,7 @@ import { approvalError, providerUnavailable, type ApprovalProvider, type Provide
 import { approvalProviders, type ApprovalProviderRegistry } from "./approvals.registry";
 import type { ApprovalQuery } from "./approvals.schema";
 import type {
+  ApprovalCompany,
   ApprovalCounts,
   ApprovalDecision,
   ApprovalDecisionResult,
@@ -44,7 +45,7 @@ function assertCenter(context: UserContext): void {
   assertPermission(context, "approvals.view");
 }
 
-function summary(provider: ApprovalProvider): ApprovalProviderSummary {
+export function summary(provider: ApprovalProvider): ApprovalProviderSummary {
   return { key: provider.key, label: provider.label, moduleKey: provider.moduleKey };
 }
 
@@ -62,18 +63,28 @@ async function bounded<T, R>(items: T[], limit: number, run: (item: T) => Promis
   return results;
 }
 
-async function askProviders(
-  context: UserContext,
-  providers: ApprovalProvider[],
+/**
+ * One source to ask: a provider, read as one company's own context. A company
+ * workspace asks each provider once, as the session; the Group workspace asks
+ * each provider once per company the person may read, as their own context in
+ * that company, and marks what comes back with that company (Workspace Context
+ * §45, §57). The provider is never told to look beyond the context it is given.
+ */
+export type Source = { context: UserContext; provider: ApprovalProvider; company?: ApprovalCompany };
+
+/** Answers are aligned with `sources`, so a caller can tell which company a list came from. */
+export async function askSources(
+  sources: Source[],
   query: ProviderQuery,
 ): Promise<{ items: ProviderItem[][]; failed: ApprovalProviderSummary[] }> {
   const failed: ApprovalProviderSummary[] = [];
-  const items = await bounded(providers, PROVIDER_CONCURRENCY, async (provider) => {
+  const items = await bounded(sources, PROVIDER_CONCURRENCY, async ({ context, provider, company }) => {
     const started = Date.now();
     try {
-      return await provider.queue(context, query);
+      const rows = await provider.queue(context, query);
+      return company ? rows.map((row) => ({ ...row, company })) : rows;
     } catch (error) {
-      failed.push(summary(provider));
+      failed.push(company ? { ...summary(provider), company } : summary(provider));
       incrementCounter(Metric.APPROVALS_PROVIDER_FAILURE, { provider: provider.key });
       logger.error("approvals.provider.failed", {
         providerKey: provider.key,
@@ -90,11 +101,22 @@ async function askProviders(
   return { items, failed };
 }
 
-function waitingQuery(now: Date): ProviderQuery {
+async function askProviders(
+  context: UserContext,
+  providers: ApprovalProvider[],
+  query: ProviderQuery,
+): Promise<{ items: ProviderItem[][]; failed: ApprovalProviderSummary[] }> {
+  return askSources(
+    providers.map((provider) => ({ context, provider })),
+    query,
+  );
+}
+
+export function waitingQuery(now: Date): ProviderQuery {
   return { tab: "waiting", statuses: [], returned: "all", order: "desc", after: null, limit: WINDOW, now };
 }
 
-function countsOf(items: UnifiedApprovalItem[], capped: boolean): ApprovalCounts {
+export function countsOf(items: UnifiedApprovalItem[], capped: boolean): ApprovalCounts {
   return {
     waiting: items.length,
     overdue: items.filter((item) => item.dueState === "overdue").length,
@@ -112,24 +134,44 @@ export async function getApprovalCounts(context: UserContext, options: Options =
   return { ...countsOf(items.flat().map((item) => completeItem(item, now)), items.some((list) => list.length >= WINDOW)), failedProviders: failed };
 }
 
-export async function listApprovals(context: UserContext, query: ApprovalQuery, options: Options = {}): Promise<ApprovalQueueResult> {
-  assertCenter(context);
-  const started = Date.now();
-  const registry = options.registry ?? approvalProviders;
-  const now = options.now ?? new Date();
-  const enabled = registry.getEnabledProviders(context);
-  const canViewHistory = can(context, "approvals.history.view");
-  const selected = query.provider.length > 0 ? enabled.filter((provider) => query.provider.includes(provider.key)) : enabled;
+/** Whether a query is exactly "what waits on me", so the header counts can be read off the list itself. */
+export function isUnfilteredWaiting(query: ApprovalQuery): boolean {
+  return (
+    query.tab === "waiting" &&
+    !query.cursor &&
+    query.provider.length === 0 &&
+    query.priority.length === 0 &&
+    query.dueState.length === 0 &&
+    !query.projectId &&
+    !query.requesterId &&
+    !query.q &&
+    !query.from &&
+    !query.to &&
+    query.amountMin === undefined &&
+    query.amountMax === undefined
+  );
+}
 
-  const base = {
-    providers: enabled.map(summary),
-    canViewHistory,
-    canManageDelegation: can(context, "approvals.delegation.manage"),
-  };
-  if (query.tab === "history" && !canViewHistory) {
-    return { ...base, items: [], nextCursor: null, counts: await getApprovalCounts(context, options), failedProviders: [], windowed: false };
-  }
+export type QueueRead = {
+  /** The page asked for, in the list's own order. */
+  page: UnifiedApprovalItem[];
+  nextCursor: string | null;
+  /** Everything read, after the in-memory filters and before the cursor and page size. */
+  items: UnifiedApprovalItem[];
+  /** Which sources filled their window, in the order of the sources asked. */
+  saturated: boolean[];
+  windowed: boolean;
+  failed: ApprovalProviderSummary[];
+};
 
+/**
+ * Asks the sources for one view and merges what they answer into one ordered,
+ * paged list. Every source contributes items ordered by the same total key
+ * (date or urgency, then provider key, then approval id — ids are row ids, so
+ * unique across companies as well), which is what lets one cursor resume the
+ * merged list from any position, in one company or across several.
+ */
+export async function readQueue(sources: Source[], query: ApprovalQuery, now: Date): Promise<QueueRead> {
   const dateSorted = query.sort === "newest" || query.sort === "oldest";
   const filteredInMemory = query.priority.length > 0 || query.dueState.length > 0;
   // Date order with no in-memory filter merges exactly, page by page; anything else
@@ -154,36 +196,51 @@ export async function listApprovals(context: UserContext, query: ApprovalQuery, 
     now,
   };
 
-  const { items: perProvider, failed } = await askProviders(context, selected, providerQuery);
-  const windowed = !exact && perProvider.some((items) => items.length >= WINDOW);
+  const { items: perSource, failed } = await askSources(sources, providerQuery);
+  const saturated = perSource.map((rows) => !exact && rows.length >= WINDOW);
+  const windowed = saturated.some(Boolean);
 
-  let items = perProvider.flat().map((item) => completeItem(item, now));
+  let items = perSource.flat().map((item) => completeItem(item, now));
   if (query.priority.length > 0) items = items.filter((item) => query.priority.includes(item.priority));
   if (query.dueState.length > 0) items = items.filter((item) => query.dueState.includes(item.dueState));
   const ordered = afterCursor(sortItems(items, query.sort), query.sort, cursor);
   const page = ordered.slice(0, query.limit);
   const nextCursor = ordered.length > query.limit ? encodeCursor(query.tab, query.sort, sortKey(page[page.length - 1], query.sort)) : null;
+  return { page, nextCursor, items, saturated, windowed, failed };
+}
+
+export async function listApprovals(context: UserContext, query: ApprovalQuery, options: Options = {}): Promise<ApprovalQueueResult> {
+  assertCenter(context);
+  const started = Date.now();
+  const registry = options.registry ?? approvalProviders;
+  const now = options.now ?? new Date();
+  const enabled = registry.getEnabledProviders(context);
+  const canViewHistory = can(context, "approvals.history.view");
+  const selected = query.provider.length > 0 ? enabled.filter((provider) => query.provider.includes(provider.key)) : enabled;
+
+  const base = {
+    providers: enabled.map(summary),
+    canViewHistory,
+    canManageDelegation: can(context, "approvals.delegation.manage"),
+  };
+  if (query.tab === "history" && !canViewHistory) {
+    return { ...base, items: [], nextCursor: null, counts: await getApprovalCounts(context, options), failedProviders: [], windowed: false };
+  }
+
+  const read = await readQueue(
+    selected.map((provider) => ({ context, provider })),
+    query,
+    now,
+  );
 
   // The header counts are always the unfiltered "waiting for me" (§96): reuse this
   // read when it was exactly that, otherwise ask for it.
-  const unfilteredWaiting =
-    query.tab === "waiting" &&
-    !query.cursor &&
-    query.provider.length === 0 &&
-    !filteredInMemory &&
-    !query.projectId &&
-    !query.requesterId &&
-    !query.q &&
-    !query.from &&
-    !query.to &&
-    query.amountMin === undefined &&
-    query.amountMax === undefined;
-  const counts = unfilteredWaiting ? countsOf(items, windowed) : await getApprovalCounts(context, options);
+  const counts = isUnfilteredWaiting(query) ? countsOf(read.items, read.windowed) : await getApprovalCounts(context, options);
 
   incrementCounter(Metric.APPROVALS_QUEUE, { tab: query.tab });
   incrementCounter(Metric.APPROVALS_QUEUE_DURATION_MS, { tab: query.tab }, Date.now() - started);
 
-  return { ...base, items: page, nextCursor, counts, failedProviders: failed, windowed };
+  return { ...base, items: read.page, nextCursor: read.nextCursor, counts, failedProviders: read.failed, windowed: read.windowed };
 }
 
 export async function getApprovalDetail(context: UserContext, providerKey: string, approvalId: string, options: Options = {}): Promise<UnifiedApprovalDetail> {

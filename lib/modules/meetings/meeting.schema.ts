@@ -256,6 +256,12 @@ export const meetingListQuerySchema = z.object({
   participantId: id.optional(),
   organizerId: id.optional(),
   q: z.string().trim().max(100).optional(),
+  /**
+   * A refinement of the Group workspace's list to one company (Workspace
+   * Context §86, §87): checked against the companies the reader may open
+   * Meetings in, and ignored in a company workspace.
+   */
+  company: z.string().trim().max(64).optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
@@ -265,6 +271,8 @@ export const actionListQuerySchema = z.object({
   mine: z.enum(["true", "false"]).optional().transform((value) => value !== "false"),
   status: z.enum(["open", "done", "all"]).default("open"),
   projectId: id.optional(),
+  /** As on the meeting list: a Group-workspace refinement, never authority (Workspace Context §86, §87). */
+  company: z.string().trim().max(64).optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });

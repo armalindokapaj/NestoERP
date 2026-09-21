@@ -6,10 +6,16 @@ import { ModulePage } from "@/components/modules/module-page";
 import { PriorityBadge } from "@/components/modules/status-badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
+import { CompanyTag } from "@/components/workspace/company-tag";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import * as tasks from "@/lib/modules/tasks/task.service";
+import {
+  priorityTasksForWorkspace,
+  taskExperience,
+  taskOverviewForWorkspace,
+} from "@/lib/modules/tasks/task.workspace";
 
 export const metadata: Metadata = { title: "Tasks" };
 
@@ -20,14 +26,20 @@ export const metadata: Metadata = { title: "Tasks" };
  * describes the work in view, scoped to what this user may see. Every counter
  * is a link, because a number nobody can drill into is decoration
  * (PRD #11 §92, §141).
+ *
+ * In the Group workspace the counters and the priority list are the sum and the
+ * union of every company the person may open Tasks in, each priority task
+ * naming its company; a task opens through its company (Workspace Context §32).
  */
 export default async function TasksOverviewPage() {
   const context = await requireModule("tasks");
-  const experience = resolveModuleExperience(context, "tasks");
+  const experience = taskExperience(context);
+  const group = inGroupWorkspace(context);
+  const canCreate = !group && can(context, "task.create");
 
   const [stats, priority] = await Promise.all([
-    tasks.getTaskOverview(context),
-    tasks.listPriorityTasks(context, 6),
+    taskOverviewForWorkspace(context),
+    priorityTasksForWorkspace(context, 6),
   ]);
 
   const cards = [
@@ -44,7 +56,7 @@ export default async function TasksOverviewPage() {
       experience={experience}
       activeSection="overview"
       actions={
-        can(context, "task.create") ? (
+        canCreate ? (
           <Button asChild size="sm">
             <Link href="/tasks/new">New task</Link>
           </Button>
@@ -69,10 +81,8 @@ export default async function TasksOverviewPage() {
           <EmptyState
             icon={<SquareCheckBig />}
             title="No tasks yet."
-            description="Tasks you can see will appear here."
-            action={
-              can(context, "task.create") ? { label: "New task", href: "/tasks/new" } : undefined
-            }
+            description={group ? "No accessible data for this module." : "Tasks you can see will appear here."}
+            action={canCreate ? { label: "New task", href: "/tasks/new" } : undefined}
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
@@ -99,15 +109,35 @@ export default async function TasksOverviewPage() {
                       className="flex items-center justify-between gap-3 py-2.5 first:pt-0"
                     >
                       <div className="min-w-0">
-                        <Link
-                          href={`/tasks/${task.id}`}
-                          className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
-                        >
-                          {task.title}
-                        </Link>
-                        <p className="truncate text-meta text-fg-subtle">
-                          {task.project ? task.project.name : "Personal task"}
-                        </p>
+                        {task.company ? (
+                          <CompanyRecordLink
+                            companyId={task.company.id}
+                            companyName={task.company.name}
+                            href={`/tasks/${task.id}`}
+                            className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                          >
+                            {task.title}
+                          </CompanyRecordLink>
+                        ) : (
+                          <Link
+                            href={`/tasks/${task.id}`}
+                            className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                          >
+                            {task.title}
+                          </Link>
+                        )}
+                        {task.company ? (
+                          <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                            <CompanyTag name={task.company.name} className="shrink-0" />
+                            <p className="truncate text-meta text-fg-subtle">
+                              {task.project ? task.project.name : "Personal task"}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="truncate text-meta text-fg-subtle">
+                            {task.project ? task.project.name : "Personal task"}
+                          </p>
+                        )}
                       </div>
                       <PriorityBadge priority={task.priority} />
                     </li>

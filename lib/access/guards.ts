@@ -17,6 +17,8 @@ export type ApiErrorCode =
   | "UNAUTHENTICATED"
   | "MEMBERSHIP_INACTIVE"
   | "COMPANY_INACTIVE"
+  /** The Group workspace is active and this needs one company (Workspace Context §25, §29). */
+  | "WORKSPACE_COMPANY_REQUIRED"
   | "FORBIDDEN"
   | "MODULE_UNAVAILABLE"
   | "NOT_FOUND"
@@ -28,6 +30,7 @@ const STATUS: Record<ApiErrorCode, number> = {
   UNAUTHENTICATED: 401,
   MEMBERSHIP_INACTIVE: 403,
   COMPANY_INACTIVE: 403,
+  WORKSPACE_COMPANY_REQUIRED: 409,
   FORBIDDEN: 403,
   MODULE_UNAVAILABLE: 403,
   NOT_FOUND: 404,
@@ -40,6 +43,7 @@ const MESSAGES: Record<ApiErrorCode, string> = {
   UNAUTHENTICATED: "You are not signed in.",
   MEMBERSHIP_INACTIVE: "Your workspace is unavailable.",
   COMPANY_INACTIVE: "Your workspace is unavailable.",
+  WORKSPACE_COMPANY_REQUIRED: "Choose a company to do this.",
   FORBIDDEN: "You do not have permission to perform this action.",
   MODULE_UNAVAILABLE: "This module is not enabled for your company.",
   NOT_FOUND: "The requested record could not be found.",

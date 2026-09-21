@@ -4,12 +4,15 @@ import * as account from "@/lib/modules/account/account.service";
 
 /** The signed-in person's own profile (PRD #38 §20). */
 export async function GET() {
-  return withContext(async (context) => apiOk({ data: await account.getProfile(context) }));
+  return withContext(async (context) => apiOk({ data: await account.getProfile(context) }), { group: "any" });
 }
 
 export async function PATCH(request: Request) {
-  return withContext(async (context) => {
-    const input = updateProfileSchema.parse(await readJson(request));
-    return apiOk({ data: await account.updateProfile(context, input) });
-  });
+  return withContext(
+    async (context) => {
+      const input = updateProfileSchema.parse(await readJson(request));
+      return apiOk({ data: await account.updateProfile(context, input) });
+    },
+    { group: "any" },
+  );
 }

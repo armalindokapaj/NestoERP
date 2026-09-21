@@ -22,9 +22,9 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 /**
  * Projects (E-05A §1, §4, §5).
  *
- * One continuous collection of every project this person may open, in every
- * company they belong to — favorites first, then whatever was worked on most
- * recently. No separate sections for recent, finished or starred work: those
+ * One continuous collection of every project this person may open in the active
+ * workspace — the company's, or in the Group workspace every company's (Workspace
+ * Context §30) — favorites first, then whatever was worked on most recently. No separate sections for recent, finished or starred work: those
  * are filters on the one collection.
  */
 export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -50,10 +50,13 @@ async function ProjectsBody({ session, params }: { session: UserContext; params:
   ]);
 
   const { visibleProjectCount: projects, visibleCompanyCount: companies } = result.meta;
+  const inGroup = session.workspace.scopeType === "GROUP";
   const description =
     projects === 0
-      ? "Projects you can open, in every company you work for."
-      : `${projects} ${projects === 1 ? "project" : "projects"}${companies > 1 ? ` across ${companies} companies` : ""}`;
+      ? inGroup
+        ? `Projects you can open across ${session.parentGroup.name}.`
+        : `Projects you can open in ${session.company.name}.`
+      : `${projects} ${projects === 1 ? "project" : "projects"}${inGroup && companies > 1 ? ` across ${companies} companies` : ""}`;
 
   return (
     <ProjectsFrame
@@ -88,7 +91,8 @@ async function ProjectsBody({ session, params }: { session: UserContext; params:
  * access sees the page without them.
  */
 function ProjectsFrame({ session, description, actions, children }: { session: UserContext; description: string; actions?: React.ReactNode; children: React.ReactNode }) {
-  if (isModuleEnabled(session, "projects") && canAccessModule(session, "projects")) {
+  // The Group workspace has no company whose sections these would be (Workspace Context §25).
+  if (session.workspace.scopeType === "COMPANY" && isModuleEnabled(session, "projects") && canAccessModule(session, "projects")) {
     return (
       <ModulePage experience={resolveModuleExperience(session, "projects")} activeSection="portfolio" description={description} actions={actions}>
         {children}

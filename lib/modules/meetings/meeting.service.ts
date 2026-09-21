@@ -199,10 +199,13 @@ function stakeholders(organizerMemberId: string, participants: ParticipantInput[
 
 const LIVE: MeetingStatus[] = ["DRAFT", "SCHEDULED", "IN_PROGRESS"];
 
-export async function listMeetings(context: UserContext, query: MeetingListQuery): Promise<{ data: MeetingListItemDTO[]; pagination: ReturnType<typeof paginationMeta> }> {
-  assertModule(context, MODULE);
-  assertPermission(context, "meeting.view");
-  const now = new Date();
+/**
+ * The whole `where` of a meeting list, for one company's context: what the
+ * reader may open there, then the section and the filters. Its own function so
+ * the Group workspace can put one of these per company in a union — each
+ * company answering with its own rules (Workspace Context §34, §58).
+ */
+export function meetingListWhere(context: UserContext, query: MeetingListQuery, now: Date = new Date()): Prisma.MeetingWhereInput {
   const me = context.membershipId;
 
   const filters: Prisma.MeetingWhereInput[] = [readableMeetingWhere(context), { archivedAt: null }];
@@ -255,12 +258,23 @@ export async function listMeetings(context: UserContext, query: MeetingListQuery
     });
   }
 
-  const where: Prisma.MeetingWhereInput = { AND: filters };
+  return { AND: filters };
+}
+
+/** Upcoming work reads soonest first, history newest first. */
+export function meetingListOrder(query: Pick<MeetingListQuery, "section">): Prisma.MeetingOrderByWithRelationInput[] {
   const ascending = query.section === "upcoming" || query.section === "mine";
+  return [{ startsAt: ascending ? "asc" : "desc" }, { id: "asc" }];
+}
+
+export async function listMeetings(context: UserContext, query: MeetingListQuery): Promise<{ data: MeetingListItemDTO[]; pagination: ReturnType<typeof paginationMeta> }> {
+  assertModule(context, MODULE);
+  assertPermission(context, "meeting.view");
+  const where = meetingListWhere(context, query);
   const [rows, total] = await Promise.all([
     prisma.meeting.findMany({
       where,
-      orderBy: [{ startsAt: ascending ? "asc" : "desc" }, { id: "asc" }],
+      orderBy: meetingListOrder(query),
       skip: (query.page - 1) * query.limit,
       take: query.limit,
       select: LIST_SELECT,

@@ -2,13 +2,17 @@ import { ReceiptText } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
+import { NoAccessibleData } from "@/components/finance/group-rows";
 import { InvoiceTable } from "@/components/finance/invoice-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseInvoiceQuery } from "@/lib/modules/finance/finance.query";
-import { invoiceFilterOptions } from "@/lib/modules/finance/invoices/invoice.repository";
+import { companyFilterOptions, financeContexts } from "@/lib/modules/finance/finance.workspace";
+import { invoiceCurrenciesAcross, invoiceFilterOptions } from "@/lib/modules/finance/invoices/invoice.repository";
 import * as invoices from "@/lib/modules/finance/invoices/invoice.service";
+import { firstValue } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -18,6 +22,11 @@ type SearchParams = Record<string, string | string[] | undefined>;
  * Filter options come from the invoices this reader can already see, so a
  * dropdown can never name a client or project they have no access to
  * (PRD #15 §175).
+ *
+ * In the Group workspace it is the invoices of every company the reader may
+ * open Finance in, with a Company filter over those companies (§36, §86). A
+ * client or a project belongs to one company, so those filters are a company
+ * workspace's; search reaches both.
  */
 export async function InvoicesList({
   context,
@@ -31,10 +40,16 @@ export async function InvoicesList({
   basePath: string;
 }) {
   const query = parseInvoiceQuery(searchParams, archived ? { archived: true } : {});
+  const group = inGroupWorkspace(context);
+  const company = group ? firstValue(searchParams.company) : undefined;
+  const readable = group ? await financeContexts(context, "finance.invoice.view") : [];
+  if (group && readable.length === 0) return <NoAccessibleData />;
 
   const [result, options] = await Promise.all([
-    invoices.listInvoices(context, query),
-    invoiceFilterOptions(context),
+    invoices.listInvoicesForWorkspace(context, query, { company }),
+    group
+      ? invoiceCurrenciesAcross(readable).then((currencies) => ({ clients: [], projects: [], currencies }))
+      : invoiceFilterOptions(context),
   ]);
 
   const hasFilters = Boolean(
@@ -43,10 +58,12 @@ export async function InvoicesList({
       query.settlement?.length ||
       query.clientId ||
       query.projectId ||
-      query.currency,
+      query.currency ||
+      company,
   );
 
   const filters: FilterConfig[] = [
+    ...(group ? [{ param: "company", label: "Company", options: companyFilterOptions(readable) }] : []),
     ...(archived
       ? []
       : [
@@ -73,16 +90,20 @@ export async function InvoicesList({
         { value: "OVERDUE", label: "Overdue" },
       ],
     },
-    {
-      param: "clientId",
-      label: "Client",
-      options: options.clients.map((client) => ({ value: client.id, label: client.name })),
-    },
-    {
-      param: "projectId",
-      label: "Project",
-      options: options.projects.map((project) => ({ value: project.id, label: project.name })),
-    },
+    ...(group
+      ? []
+      : [
+          {
+            param: "clientId",
+            label: "Client",
+            options: options.clients.map((client) => ({ value: client.id, label: client.name })),
+          },
+          {
+            param: "projectId",
+            label: "Project",
+            options: options.projects.map((project) => ({ value: project.id, label: project.name })),
+          },
+        ]),
     ...(options.currencies.length > 1
       ? [
           {
@@ -137,7 +158,7 @@ export async function InvoicesList({
                 : "Invoices you can see will appear here."
             }
             action={
-              !archived && can(context, "finance.invoice.create")
+              !archived && !group && can(context, "finance.invoice.create")
                 ? { label: "New invoice", href: "/finance/invoices/new" }
                 : undefined
             }

@@ -15,9 +15,14 @@ type Params = { params: Promise<{ projectId: string }> };
  */
 export async function PATCH(request: Request, { params }: Params) {
   const { projectId } = await params;
-  return withContext(async (session) => {
-    const input = changeProjectStatusSchema.parse(await readJson(request));
-    const context = await contextForProject(session, projectId);
-    return apiOk({ data: await projects.changeProjectStatus(context, projectId, input) });
-  });
+  // `group: "any"`: a card on the Projects page in the Group workspace. The write
+  // never runs as the session's own company: the project's company decides it.
+  return withContext(
+    async (session) => {
+      const input = changeProjectStatusSchema.parse(await readJson(request));
+      const context = await contextForProject(session, projectId);
+      return apiOk({ data: await projects.changeProjectStatus(context, projectId, input) });
+    },
+    { group: "any" },
+  );
 }

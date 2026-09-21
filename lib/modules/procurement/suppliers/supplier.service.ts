@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
@@ -9,6 +10,12 @@ import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import { buildSupplierWhere } from "../procurement.scope";
 import type { SupplierDetailDTO, SupplierSummaryDTO } from "../procurement.types";
+import {
+  companyFilterOptions,
+  groupProcurementContexts,
+  narrowToCompany,
+  unionWhere,
+} from "../procurement.workspace";
 import type { SupplierInput, SupplierListQuery } from "../procurement.schema";
 import { supplierStatusLabels } from "../procurement.status";
 import { supplierMachine } from "./supplier.machine";
@@ -52,7 +59,15 @@ const SUPPLIER_SELECT = {
   updatedAt: true,
 } satisfies Prisma.SupplierSelect;
 
-type SupplierRow = Prisma.SupplierGetPayload<{ select: typeof SUPPLIER_SELECT }>;
+/** What a Group list adds: the company each supplier belongs to (Workspace Context §45). */
+const GROUP_SUPPLIER_SELECT = {
+  ...SUPPLIER_SELECT,
+  company: { select: { id: true, name: true } },
+} satisfies Prisma.SupplierSelect;
+
+type SupplierRow = Prisma.SupplierGetPayload<{ select: typeof SUPPLIER_SELECT }> & {
+  company?: { id: string; name: string };
+};
 
 /** Matches the seed's own normaliser, so duplicate detection agrees with it. */
 export function normalizeSupplierName(name: string): string {
@@ -67,8 +82,33 @@ export async function listSuppliers(context: UserContext, query: SupplierListQue
   assertModule(context, MODULE);
   assertPermission(context, "procurement.supplier.view");
 
+  const where = buildListWhere([context], query);
+
+  const [rows, total, openOrders] = await Promise.all([
+    prisma.supplier.findMany({
+      where,
+      orderBy: orderFor(query.sort),
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+      select: SUPPLIER_SELECT,
+    }),
+    prisma.supplier.count({ where }),
+    openOrderCounts([context]),
+  ]);
+
+  return {
+    data: rows.map((row) => toSummaryDTO(row, openOrders.get(row.id) ?? 0)),
+    pagination: paginationMeta(total, query.page, query.limit),
+  };
+}
+
+/** The directory's `where`, for one company or for every company a Group read spans. */
+function buildListWhere(
+  contexts: UserContext[],
+  query: SupplierListQuery,
+): Prisma.SupplierWhereInput {
   const filters: Prisma.SupplierWhereInput[] = [
-    buildSupplierWhere(context),
+    unionWhere(contexts, buildSupplierWhere),
     // The archive is a separate view rather than a filter people forget is on.
     query.status?.length ? { status: { in: query.status } } : { status: { not: "ARCHIVED" } },
   ];
@@ -86,20 +126,37 @@ export async function listSuppliers(context: UserContext, query: SupplierListQue
   ]);
   if (search) filters.push(search);
 
-  const where: Prisma.SupplierWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy = orderFor(query.sort);
+/**
+ * The directory the active workspace shows (Workspace Context §38).
+ *
+ * A company workspace is `listSuppliers`, untouched. In the Group workspace a
+ * supplier is still one company's record: the same legal entity in two
+ * companies is two rows, each labelled with its company, and they are never
+ * merged (the company owns the relationship, PRD #19 §3).
+ */
+export async function listSuppliersForWorkspace(session: UserContext, query: SupplierListQuery) {
+  if (!inGroupWorkspace(session)) return listSuppliers(session, query);
+
+  const contexts = narrowToCompany(
+    await groupProcurementContexts(session, "procurement.supplier.view"),
+    query.companyId,
+  );
+  const where = buildListWhere(contexts, query);
 
   const [rows, total, openOrders] = await Promise.all([
     prisma.supplier.findMany({
       where,
-      orderBy,
+      // The list's own sort first; the id keeps a page boundary stable when rows tie.
+      orderBy: [...orderFor(query.sort), { id: "asc" }],
       skip: skipFor(query.page, query.limit),
       take: query.limit,
-      select: SUPPLIER_SELECT,
+      select: GROUP_SUPPLIER_SELECT,
     }),
     prisma.supplier.count({ where }),
-    openOrderCounts(context),
+    openOrderCounts(contexts),
   ]);
 
   return {
@@ -126,17 +183,20 @@ function orderFor(sort: SupplierListQuery["sort"]): Prisma.SupplierOrderByWithRe
 /**
  * Open orders per supplier, in one grouped query (PRD #19 §303).
  *
- * A directory of twelve suppliers must not become thirteen queries.
+ * A directory of twelve suppliers must not become thirteen queries. A company
+ * whose orders the reader may not see contributes no counts, in the Group
+ * workspace exactly as in its own.
  */
-async function openOrderCounts(context: UserContext): Promise<Map<string, number>> {
-  if (!can(context, "procurement.order.view")) return new Map();
+async function openOrderCounts(contexts: UserContext[]): Promise<Map<string, number>> {
+  const viewing = contexts.filter((context) => can(context, "procurement.order.view"));
+  if (viewing.length === 0) return new Map();
 
   const rows = await prisma.purchaseOrder.groupBy({
     by: ["supplierId"],
-    where: {
+    where: unionWhere<Prisma.PurchaseOrderWhereInput>(viewing, (context) => ({
       companyId: context.companyId,
       status: { in: ["ISSUED", "PARTIALLY_RECEIVED"] },
-    },
+    })),
     _count: { _all: true },
   });
 
@@ -215,6 +275,32 @@ export async function supplierFilterOptions(context: UserContext) {
   });
 
   return { countries: countries.map((row) => row.country!).filter(Boolean) };
+}
+
+export type SupplierFilterOptions = {
+  countries: string[];
+  /** The Group `company` filter's choices; empty in a company workspace, where the filter is locked (§86). */
+  companies: { value: string; label: string }[];
+};
+
+/** The directory's filter choices: a company's own, or the union across the Group's companies. */
+export async function supplierFilterOptionsForWorkspace(session: UserContext): Promise<SupplierFilterOptions> {
+  if (!inGroupWorkspace(session)) {
+    return { ...(await supplierFilterOptions(session)), companies: [] };
+  }
+
+  const contexts = await groupProcurementContexts(session, "procurement.supplier.view");
+  const countries = await prisma.supplier.findMany({
+    where: { AND: [unionWhere(contexts, buildSupplierWhere), { country: { not: null } }] },
+    select: { country: true },
+    distinct: ["country"],
+    orderBy: { country: "asc" },
+  });
+
+  return {
+    countries: countries.map((row) => row.country!).filter(Boolean),
+    companies: companyFilterOptions(contexts),
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -551,6 +637,7 @@ function toSummaryDTO(row: SupplierRow, openOrders: number): SupplierSummaryDTO 
     defaultCurrency: row.defaultCurrency,
     openOrders,
     updatedAt: row.updatedAt.toISOString(),
+    ...(row.company ? { company: row.company } : {}),
   };
 }
 

@@ -1,5 +1,6 @@
 import { Prisma, type PurchaseRequestStatus } from "@prisma/client";
 
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
@@ -25,6 +26,12 @@ import {
   buildRequestScopeWhere,
 } from "../procurement.scope";
 import type { RequestInput, RequestListQuery } from "../procurement.schema";
+import {
+  companyFilterOptions,
+  groupProcurementContexts,
+  narrowToCompany,
+  unionWhere,
+} from "../procurement.workspace";
 import {
   acceptsSourcing,
   canTransitionRequestStatus,
@@ -109,7 +116,15 @@ const DETAIL_SELECT = {
   },
 } satisfies Prisma.PurchaseRequestSelect;
 
-type ListRow = Prisma.PurchaseRequestGetPayload<{ select: typeof LIST_SELECT }>;
+/** What a Group list adds: the company each row belongs to (Workspace Context §45). */
+const GROUP_LIST_SELECT = {
+  ...LIST_SELECT,
+  company: { select: { id: true, name: true } },
+} satisfies Prisma.PurchaseRequestSelect;
+
+type ListRow = Prisma.PurchaseRequestGetPayload<{ select: typeof LIST_SELECT }> & {
+  company?: { id: string; name: string };
+};
 type DetailRow = Prisma.PurchaseRequestGetPayload<{ select: typeof DETAIL_SELECT }>;
 
 /* -------------------------------------------------------------------------- */
@@ -120,7 +135,7 @@ export async function listRequests(context: UserContext, query: RequestListQuery
   assertModule(context, MODULE);
   assertPermission(context, "procurement.request.view");
 
-  const where = buildListWhere(context, query);
+  const where = buildListWhere([context], query);
 
   const [rows, total] = await Promise.all([
     prisma.purchaseRequest.findMany({
@@ -140,17 +155,29 @@ export async function listRequests(context: UserContext, query: RequestListQuery
   };
 }
 
+/**
+ * The register's `where`, for one company's context or for every company a
+ * Group read spans. Each company's own scope is unioned in the database before
+ * any filter, sort or page, so a page of the group list is a page of exactly
+ * what the companies would each have shown (Workspace Context §57).
+ */
 function buildListWhere(
-  context: UserContext,
+  contexts: UserContext[],
   query: RequestListQuery,
 ): Prisma.PurchaseRequestWhereInput {
-  const filters: Prisma.PurchaseRequestWhereInput[] = [buildRequestScopeWhere(context)];
+  const filters: Prisma.PurchaseRequestWhereInput[] = [unionWhere(contexts, buildRequestScopeWhere)];
 
   // The named views are the same list with a different default filter, so
   // /procurement/requests/pending and ?status=PENDING_APPROVAL cannot disagree.
   switch (query.view) {
     case "mine":
-      filters.push({ requestedByMemberId: context.membershipId, archivedAt: null });
+      // Raised by the person, as whichever membership they hold in each company.
+      filters.push(
+        unionWhere<Prisma.PurchaseRequestWhereInput>(contexts, (context) => ({
+          requestedByMemberId: context.membershipId,
+          archivedAt: null,
+        })),
+      );
       break;
     case "drafts":
       filters.push({ status: { in: ["DRAFT", "REJECTED"] }, archivedAt: null });
@@ -219,6 +246,42 @@ function orderFor(
     default:
       return [{ updatedAt: "desc" }];
   }
+}
+
+/**
+ * The register the active workspace shows (Workspace Context §38).
+ *
+ * A company workspace is `listRequests`, untouched. The Group workspace is one
+ * query over the union of each authorised company's own request scope, every
+ * row labelled with its company; the `company` filter may narrow it to one of
+ * those companies and is ignored for any other (§86).
+ */
+export async function listRequestsForWorkspace(session: UserContext, query: RequestListQuery) {
+  if (!inGroupWorkspace(session)) return listRequests(session, query);
+
+  const contexts = narrowToCompany(
+    await groupProcurementContexts(session, "procurement.request.view"),
+    query.companyId,
+  );
+  const where = buildListWhere(contexts, query);
+
+  const [rows, total] = await Promise.all([
+    prisma.purchaseRequest.findMany({
+      where,
+      // The list's own sort first; the id keeps a page boundary stable when rows tie.
+      orderBy: [...orderFor(query.sort), { id: "asc" }],
+      skip: skipFor(query.page, query.limit),
+      take: query.limit,
+      select: GROUP_LIST_SELECT,
+    }),
+    prisma.purchaseRequest.count({ where }),
+  ]);
+
+  const today = new Date();
+  return {
+    data: rows.map((row) => toSummaryDTO(row, today)),
+    pagination: paginationMeta(total, query.page, query.limit),
+  };
 }
 
 export async function getRequest(
@@ -358,6 +421,67 @@ export async function requestFilterOptions(context: UserContext) {
   ]);
 
   return { projects, departments, requesters };
+}
+
+type InCompany = { company?: { name: string } };
+
+export type RequestFilterOptions = {
+  projects: ({ id: string; code: string; name: string } & InCompany)[];
+  departments: ({ id: string; name: string } & InCompany)[];
+  requesters: ({ id: string; user: { firstName: string; lastName: string } } & InCompany)[];
+  /** The Group `company` filter's choices; empty in a company workspace, where the filter is locked (§86). */
+  companies: { value: string; label: string }[];
+};
+
+/**
+ * The filter choices for the workspace's register: a company's own, or in the
+ * Group workspace the union across companies, each named with its company so
+ * two projects that share a code stay distinguishable (Workspace Context §45).
+ */
+export async function requestFilterOptionsForWorkspace(session: UserContext): Promise<RequestFilterOptions> {
+  if (!inGroupWorkspace(session)) {
+    return { ...(await requestFilterOptions(session)), companies: [] };
+  }
+
+  const contexts = await groupProcurementContexts(session, "procurement.request.view");
+  const inCompany = { select: { name: true } } as const;
+
+  const [projects, departments, requesters] = await Promise.all([
+    prisma.project.findMany({
+      where: {
+        OR: contexts.map((context) => ({
+          AND: [
+            buildProcurementProjectWhere(context),
+            { purchaseRequests: { some: buildRequestScopeWhere(context) } },
+          ],
+        })),
+      },
+      select: { id: true, code: true, name: true, company: inCompany },
+      orderBy: [{ code: "asc" }, { id: "asc" }],
+    }),
+    prisma.department.findMany({
+      where: {
+        OR: contexts.map((context) => ({
+          companyId: context.companyId,
+          purchaseRequests: { some: buildRequestScopeWhere(context) },
+        })),
+      },
+      select: { id: true, name: true, company: inCompany },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    }),
+    prisma.companyMember.findMany({
+      where: {
+        OR: contexts.map((context) => ({
+          companyId: context.companyId,
+          requestedPurchases: { some: buildRequestScopeWhere(context) },
+        })),
+      },
+      select: { id: true, user: { select: { firstName: true, lastName: true } }, company: inCompany },
+      orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }, { id: "asc" }],
+    }),
+  ]);
+
+  return { projects, departments, requesters, companies: companyFilterOptions(contexts) };
 }
 
 /**
@@ -1045,6 +1169,7 @@ export function toSummaryDTO(row: ListRow, today: Date): RequestSummaryDTO {
       unsourced: row.status === "APPROVED",
     },
     updatedAt: row.updatedAt.toISOString(),
+    ...(row.company ? { company: row.company } : {}),
   };
 }
 

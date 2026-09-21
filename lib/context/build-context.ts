@@ -5,7 +5,7 @@ import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import { isMutatingPermission, type Permission } from "@/config/permissions";
 import { defaultAccessFor, grantPermissions } from "@/config/role-defaults";
 import { isMembershipRoleKey, roleLabel, roles, type PositionLevel, type RoleKey } from "@/config/roles";
-import { USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
+import { relocateSessionToUsableMembership, setSessionWorkspaceScope, USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
 import { prisma } from "@/lib/database/prisma";
 import {
   assignmentsInCompany,
@@ -14,6 +14,7 @@ import {
   positionFor,
   type ContextAssignment,
   type ContextGrant,
+  type OrganizationAccess,
 } from "./organization-access";
 import type { ContextResult, ModuleAccess, UserContext } from "./types";
 
@@ -27,7 +28,8 @@ import type { ContextResult, ModuleAccess, UserContext } from "./types";
  */
 export async function resolveContextForSession(
   sessionId: string,
-  options: { expectedUserId?: string } = {},
+  /** `relocated` is set by the one retry below, so a fallback is never chased twice. */
+  options: { expectedUserId?: string; relocated?: boolean } = {},
 ): Promise<ContextResult> {
   // The signed cookie carries only a session id. Validity, membership and
   // company are re-read from the database on every request, so revoking a
@@ -72,17 +74,23 @@ export async function resolveContextForSession(
   }
 
   if (record.user.status !== "ACTIVE") return { ok: false, reason: "USER_INACTIVE" };
-  if (record.membership.status !== "ACTIVE") {
-    return { ok: false, reason: "MEMBERSHIP_INACTIVE" };
-  }
-  if (record.membership.company.status !== "ACTIVE") {
-    return { ok: false, reason: "COMPANY_UNAVAILABLE" };
-  }
-  // A suspended or archived group takes every company in it down with it
-  // (E-06 §8, §117). A group still being implemented is usable: the people
-  // validating it have to be able to sign in (§21).
-  if (!isParentGroupUsable(record.membership.company.parentGroup.status)) {
-    return { ok: false, reason: "COMPANY_UNAVAILABLE" };
+
+  // The workspace this session sits in may have been taken away while it was
+  // open: the membership deactivated, the company closed, or the whole group
+  // suspended — a suspended or archived group takes every company in it down
+  // with it (E-06 §8, §117; a group still being implemented is usable, because
+  // the people validating it have to be able to sign in, §21).
+  //
+  // §82: that invalidates the workspace, not necessarily the session. Somebody
+  // who still works elsewhere in the group is moved there and the request
+  // carries on; only somebody with nowhere left to go is turned away.
+  const membershipGone = record.membership.status !== "ACTIVE";
+  const companyGone = record.membership.company.status !== "ACTIVE" || !isParentGroupUsable(record.membership.company.parentGroup.status);
+  if (membershipGone || companyGone) {
+    if (!options.relocated && (await relocateSessionToUsableMembership({ sessionId, userId: record.userId }))) {
+      return resolveContextForSession(sessionId, { ...options, relocated: true });
+    }
+    return { ok: false, reason: membershipGone ? "MEMBERSHIP_INACTIVE" : "COMPANY_UNAVAILABLE" };
   }
 
   // The role stored on the membership, and nothing else (C-01 §6, §31).
@@ -99,7 +107,7 @@ export async function resolveContextForSession(
     loadOrganizationAccessFor(record.membership.company.parentGroupId, record.userId),
   ]);
 
-  const context = assembleContext({
+  const company = assembleContext({
     user: record.user,
     membership: record.membership,
     sessionId: record.id,
@@ -109,6 +117,35 @@ export async function resolveContextForSession(
     grants: organization.grants,
   });
 
+  if (record.workspaceScope === "COMPANY") return { ok: true, context: company };
+
+  // A fresh session (null) starts in the Group workspace when the person has
+  // group-level standing, in their company otherwise (§16). A session that asks
+  // for the group holds it only while that standing lasts: access taken away in
+  // the meantime drops them to their company on this very request (§82).
+  const members = await loadGroupMemberContexts({
+    userId: record.userId,
+    parentGroupId: record.membership.company.parentGroupId,
+    sessionId: record.id,
+    organization,
+  });
+  // Asked for (or still holding) the group: allowed while they may enter it at
+  // all. Chosen for a fresh session only for group-level standing — somebody
+  // who simply works in two companies starts in their own (§16).
+  const mayEnter = mayEnterGroupWorkspace(members);
+  if (!mayEnter || (record.workspaceScope === null && !hasGroupStanding(members))) {
+    await setSessionWorkspaceScope({ sessionId: record.id, userId: record.userId, scope: "COMPANY" });
+    return { ok: true, context: company };
+  }
+  if (record.workspaceScope === null) {
+    await setSessionWorkspaceScope({ sessionId: record.id, userId: record.userId, scope: "GROUP" });
+  }
+
+  const context: UserContext = {
+    ...company,
+    workspace: { parentGroupId: company.parentGroupId, scopeType: "GROUP", companyId: null },
+  };
+  groupMemberContexts.set(context, members);
   return { ok: true, context };
 }
 
@@ -199,7 +236,120 @@ export function assembleContext(input: {
     permissions,
     moduleAccess,
     enabledModules,
+    // A context assembled here is always one company's: the person working in it.
+    // The Group workspace is stated by the session resolver, above (§4).
+    workspace: { parentGroupId: company.parentGroupId, scopeType: "COMPANY", companyId: company.id },
   };
+}
+
+/**
+ * The other contexts a Group workspace reads, kept beside the session's own
+ * context for the length of the request that resolved it. A WeakMap: the
+ * contexts are per request and per person, never a cache across either, so
+ * nothing outlives the context object they were built for (§69).
+ */
+const groupMemberContexts = new WeakMap<UserContext, UserContext[]>();
+
+/** The per-company contexts resolved with this Group-workspace context, if they were. */
+export function groupMemberContextsOf(context: UserContext): UserContext[] | undefined {
+  return groupMemberContexts.get(context);
+}
+
+/**
+ * One person's context in every usable company of one group (§13, §57).
+ *
+ * The same `assembleContext` the session uses, once per active membership, so
+ * "what may this person do in that company?" has one answer whichever way it is
+ * asked. Batched — one membership query, one module query — because a Group
+ * workspace asks it on every request. A suspended company, an inactive
+ * membership and a group that is not usable yield no context: they are not
+ * places the person can work in (§51).
+ */
+export async function loadGroupMemberContexts(input: {
+  userId: string;
+  parentGroupId: string;
+  sessionId: string;
+  organization?: OrganizationAccess;
+}): Promise<UserContext[]> {
+  const [memberships, organization] = await Promise.all([
+    prisma.companyMember.findMany({
+      where: {
+        userId: input.userId,
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+        company: { parentGroupId: input.parentGroupId, status: "ACTIVE" },
+      },
+      include: { user: true, role: true, company: { include: { parentGroup: true } }, department: true },
+    }),
+    input.organization ? Promise.resolve(input.organization) : loadOrganizationAccessFor(input.parentGroupId, input.userId),
+  ]);
+  const usable = memberships.filter(
+    (membership) => isParentGroupUsable(membership.company.parentGroup.status) && isMembershipRoleKey(membership.role.key),
+  );
+  if (usable.length === 0) return [];
+
+  const switches = await prisma.companyModule.findMany({
+    where: { companyId: { in: usable.map((membership) => membership.companyId) }, enabled: true },
+    select: { companyId: true, module: { select: { key: true } } },
+  });
+  const enabledByCompany = new Map<string, Set<string>>();
+  for (const row of switches) {
+    const keys = enabledByCompany.get(row.companyId) ?? new Set<string>();
+    keys.add(row.module.key);
+    enabledByCompany.set(row.companyId, keys);
+  }
+
+  return usable
+    .map((membership) => {
+      const switchedOn = enabledByCompany.get(membership.companyId) ?? new Set<string>();
+      return assembleContext({
+        user: membership.user,
+        membership,
+        sessionId: input.sessionId,
+        role: membership.role.key as RoleKey,
+        // Dashboard is part of the shell rather than a switchable module.
+        enabledModules: MODULE_KEYS.filter((key) => key === "dashboard" || switchedOn.has(key)),
+        assignments: organization.assignments,
+        grants: organization.grants,
+      });
+    })
+    .sort((a, b) => a.company.name.localeCompare(b.company.name));
+}
+
+/**
+ * Whether this person may work in the Group workspace (§7, §63).
+ *
+ * Group-level standing is not a role label. It is the access model's own group
+ * scope: a module they hold over the whole group — the Owner's and Group IT's
+ * organization access, a group department head's, or anything delegated to
+ * them with group scope — in at least one company they can enter. Derived from
+ * the contexts, so an Owner reads "group" the same way an administrator's
+ * grant does, and a company-only employee never does.
+ */
+export function hasGroupStanding(contexts: readonly UserContext[]): boolean {
+  return contexts.some((context) =>
+    Object.values(context.moduleAccess).some(
+      // The people directory is group-wide for everybody who works in a company
+      // (E-01 §103): knowing the group's people is not standing in the group.
+      (access) => access.module !== "people" && access.scope === "GROUP" && access.accessLevel !== "NONE",
+    ),
+  );
+}
+
+/**
+ * Whether the Group workspace is offered at all (§7, §8, §91).
+ *
+ * Group-level standing is one way in. Working in more than one company of the
+ * group is the other: the Group workspace then unions the companies they
+ * already belong to and shows what they may already read in each, so it grants
+ * nothing — it is the one page that answers "my projects, my tasks" for
+ * somebody whose work is split between two companies (E-05A §26).
+ *
+ * What §7 and §91 refuse is a *company-only* employee, and one company is
+ * exactly what they have: they are never offered it.
+ */
+export function mayEnterGroupWorkspace(contexts: readonly UserContext[]): boolean {
+  return contexts.length > 1 || hasGroupStanding(contexts);
 }
 
 /** Company-level module activation (PRD #7 §59). */

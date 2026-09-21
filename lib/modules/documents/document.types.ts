@@ -42,6 +42,12 @@ export type DocumentSummaryDTO = {
   uploadedBy: { memberId: string; fullName: string } | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * The company the file belongs to. Present only on a Group workspace list,
+   * where rows of several companies sit together (Workspace Context §45); the
+   * company workspace's rows are unchanged.
+   */
+  company?: { id: string; name: string };
 };
 
 export type DocumentDetailDTO = {

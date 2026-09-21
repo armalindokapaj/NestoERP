@@ -7,12 +7,17 @@ import { TriangleAlert, X } from "lucide-react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
+import { CompanyTag } from "@/components/workspace/company-tag";
 import type { ReadableAttentionDTO } from "@/lib/core/notifications/attention.service";
 import { cn } from "@/lib/utils/cn";
 
 /**
  * Attention items (PRD #38 §83-§86): conditions, not messages. They leave when
- * the condition does; dismissing is offered only where the item allows it.
+ * the condition does; dismissing is offered only where the item allows it. In
+ * the Group workspace an item names its company and its record opens through
+ * the enter-company hop, because the record is a company page (Workspace
+ * Context §31, §45).
  */
 export function AttentionList({ initial, compact = false }: { initial: ReadableAttentionDTO[]; compact?: boolean }) {
   const t = useTranslations("notificationCenter");
@@ -51,11 +56,18 @@ export function AttentionList({ initial, compact = false }: { initial: ReadableA
             )}
           />
           <div className="min-w-0 flex-1">
-            <Link href={item.href} className="block text-table font-medium text-fg hover:text-accent-strong">
-              {item.title}
-            </Link>
+            {item.company ? (
+              <CompanyRecordLink companyId={item.company.id} companyName={item.company.name} href={item.href} className="block text-table font-medium text-fg hover:text-accent-strong">
+                {item.title}
+              </CompanyRecordLink>
+            ) : (
+              <Link href={item.href} className="block text-table font-medium text-fg hover:text-accent-strong">
+                {item.title}
+              </Link>
+            )}
             {item.body && !compact ? <p className="text-table text-fg-muted">{item.body}</p> : null}
             <p className="text-meta text-fg-subtle">
+              {item.company ? <CompanyTag name={item.company.name} className="mr-2 align-middle" /> : null}
               {item.priority === "CRITICAL" ? <span className="mr-2 font-semibold text-danger-strong">{t("critical")}</span> : null}
               {item.priority === "HIGH" ? <span className="mr-2 font-medium text-warning-strong">{t("high")}</span> : null}
               {t("since", { date: date.format(new Date(item.firstDetectedAt)) })}

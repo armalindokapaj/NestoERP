@@ -41,6 +41,15 @@ export type WidgetDefinition = {
   /** Where the widget's "view all" leads (PRD #4 §21). */
   href?: string;
   emptyMessage: string;
+  /**
+   * The widget contract (Workspace Context §75): which workspaces the widget
+   * belongs to. A group widget asks each authorised company in turn (`module`
+   * and `permission` are what one company must grant for it to count) and is
+   * hidden in a company workspace; a company widget is hidden in the group
+   * unless it says it supports it. Defaults: company yes, group no.
+   */
+  supportsGroupContext?: boolean;
+  supportsCompanyContext?: boolean;
 };
 
 export const widgets: Record<string, WidgetDefinition> = {
@@ -48,7 +57,9 @@ export const widgets: Record<string, WidgetDefinition> = {
   groupCompanies: {
     key: "groupCompanies",
     module: "organization",
-    permission: "department.group.view",
+    permission: "organization.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Group Companies",
     description: "Every company of the group, its active projects and its people.",
     kind: "list",
@@ -61,7 +72,9 @@ export const widgets: Record<string, WidgetDefinition> = {
   keyProjects: {
     key: "keyProjects",
     module: "projects",
-    permission: "department.group.view",
+    permission: "project.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Key Projects",
     description: "The projects the group follows most closely.",
     kind: "projects",
@@ -74,7 +87,9 @@ export const widgets: Record<string, WidgetDefinition> = {
   portfolioStatus: {
     key: "portfolioStatus",
     module: "projects",
-    permission: "department.group.view",
+    permission: "project.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Portfolio",
     description: "Projects by status across the group.",
     kind: "breakdown",
@@ -86,7 +101,9 @@ export const widgets: Record<string, WidgetDefinition> = {
   projectTypes: {
     key: "projectTypes",
     module: "projects",
-    permission: "department.group.view",
+    permission: "project.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Project Types",
     description: "Projects by type across the group.",
     kind: "breakdown",
@@ -97,7 +114,9 @@ export const widgets: Record<string, WidgetDefinition> = {
   groupDepartments: {
     key: "groupDepartments",
     module: "organization",
-    permission: "department.group.view",
+    permission: "organization.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Group Departments",
     description: "People in each department, across the companies.",
     kind: "breakdown",
@@ -109,7 +128,9 @@ export const widgets: Record<string, WidgetDefinition> = {
   groupMilestones: {
     key: "groupMilestones",
     module: "projects",
-    permission: "department.group.view",
+    permission: "project.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Upcoming Milestones",
     description: "Late first, then the next thirty days, across the group's projects.",
     kind: "list",
@@ -120,7 +141,9 @@ export const widgets: Record<string, WidgetDefinition> = {
   groupActivity: {
     key: "groupActivity",
     module: "dashboard",
-    permission: "department.group.view",
+    permission: "dashboard.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Recent Activity",
     description: "Across the group's companies, where you could open the record.",
     kind: "activity",
@@ -132,6 +155,8 @@ export const widgets: Record<string, WidgetDefinition> = {
     key: "groupFinance",
     module: "finance",
     permission: "finance.invoice.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Finance by Company",
     description: "Invoices awaiting approval, sent and overdue in each company you work in.",
     kind: "list",
@@ -144,6 +169,8 @@ export const widgets: Record<string, WidgetDefinition> = {
     key: "groupPipeline",
     module: "sales",
     permission: "sales.opportunity.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     title: "Pipeline by Company",
     description: "Open deals in each company you work in, by currency.",
     kind: "list",
@@ -151,6 +178,51 @@ export const widgets: Record<string, WidgetDefinition> = {
     priority: 3,
     href: "/sales/opportunities",
     emptyMessage: "No company's pipeline is visible to you.",
+  },
+  /*
+   * Group-only views built from each company's own answers (Workspace Context §19, §33, §71).
+   * A row that leads somewhere carries its company: opening it enters that company (§74).
+   */
+  groupAttention: {
+    key: "groupAttention",
+    module: "dashboard",
+    permission: "dashboard.view",
+    title: "Needs Attention",
+    description: "What waits on you in each company, most urgent first.",
+    kind: "alerts",
+    size: "FULL",
+    priority: 0,
+    emptyMessage: "Nothing needs your attention in any company right now.",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
+  },
+  groupApprovals: {
+    key: "groupApprovals",
+    module: "approvals",
+    permission: "dashboard.view",
+    title: "Approvals by Company",
+    description: "What waits for a decision in each company you can decide in.",
+    kind: "list",
+    size: "MEDIUM",
+    priority: 2,
+    href: "/approvals",
+    emptyMessage: "Nothing is waiting for a decision.",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
+  },
+  groupTasks: {
+    key: "groupTasks",
+    module: "tasks",
+    permission: "task.view",
+    title: "Tasks by Company",
+    description: "Open, overdue and blocked tasks in each company.",
+    kind: "list",
+    size: "MEDIUM",
+    priority: 3,
+    href: "/tasks",
+    emptyMessage: "No company has open tasks in your view.",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
   },
   myProjects: {
     key: "myProjects",

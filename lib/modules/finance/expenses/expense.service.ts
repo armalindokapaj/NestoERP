@@ -6,6 +6,7 @@ import { allocateNumber } from "@/lib/core/numbering/numbering.service";
 import { can } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
+import { inGroupWorkspace } from "@/config/workspace";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
@@ -18,6 +19,7 @@ import { businessDateString } from "../finance.fields";
 import { toAmountString } from "../finance.money";
 import { hasCompanyFinanceScope } from "../finance.scope";
 import { paidByExpense, settlementFor } from "../finance.settlement";
+import { companyOf, financeContexts, narrowToCompany } from "../finance.workspace";
 import { PAYMENT_SELECT, toSummaryDTO as paymentSummaryDTO } from "../payments/payment.service";
 import type { ExpenseDetailDTO, ExpenseSummaryDTO, RecordCapabilities } from "../finance.types";
 import { calculateExpenseTotal } from "../invoices/invoice.calculation";
@@ -60,6 +62,35 @@ export async function listExpenses(context: UserContext, query: ExpenseListQuery
   const paid = await paidByExpense(rows.map((row) => row.id));
 
   let data = rows.map((row) => toSummaryDTO(row, paid.get(row.id)));
+
+  if (query.settlement?.length) {
+    const wanted = new Set(query.settlement);
+    data = data.filter((expense) => wanted.has(expense.settlementStatus));
+  }
+
+  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+}
+
+/**
+ * The expense list of the active workspace (Workspace Context §36, §45): a
+ * company workspace is `listExpenses`, untouched; the Group workspace is every
+ * company the reader may open Finance in, each row naming its company, narrowed
+ * by `options.company` only within those companies (§57, §86).
+ */
+export async function listExpensesForWorkspace(
+  session: UserContext,
+  query: ExpenseListQuery,
+  options: { company?: string | null } = {},
+) {
+  if (!inGroupWorkspace(session)) return listExpenses(session, query);
+
+  // Nothing readable is an empty answer, not an error (§76).
+  const readable = narrowToCompany(await financeContexts(session, "finance.expense.view"), options.company);
+  const { rows, total } = await repository.listExpensesAcross(readable, query);
+  const paid = await paidByExpense(rows.map((row) => row.id));
+  const companies = new Map(readable.map((context) => [context.companyId, companyOf(context)]));
+
+  let data = rows.map((row) => ({ ...toSummaryDTO(row, paid.get(row.id)), company: companies.get(row.companyId)! }));
 
   if (query.settlement?.length) {
     const wanted = new Set(query.settlement);

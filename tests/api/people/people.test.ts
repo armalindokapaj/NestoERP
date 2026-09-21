@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { UserContext } from "@/lib/context/types";
 import { globalSearch } from "@/lib/core/search/search.service";
-import { directoryQuerySchema, managedWorkProfileSchema, ownWorkProfileSchema } from "@/lib/modules/people/people.schema";
+import { ALL_COMPANIES, directoryQuerySchema, managedWorkProfileSchema, ownWorkProfileSchema } from "@/lib/modules/people/people.schema";
 import { getEmploymentView, getPrivateProfile, getWorkProfile, listPeople, updateManagedWorkProfile, updateOwnWorkProfile } from "@/lib/modules/people/people.service";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, prisma } from "../../helpers";
 
@@ -50,7 +50,13 @@ afterAll(async () => {
 
 describe("the directory (E-01 §35-§40, §180-§183)", () => {
   it("lists the group's people across its companies, and nobody from another group or still a candidate", async () => {
-    const all = await directory(pm, { limit: 50 });
+    // A company workspace opens on its own company (Workspace Context §46) and
+    // the filter widens to the group's directory, which is everyone's (E-01 §103, §85).
+    const own = await directory(pm, { limit: 50 });
+    expect(own.data.map((row) => row.personId)).toContain(person.pmA);
+    expect(own.data.map((row) => row.personId)).not.toContain(person.ceoB);
+
+    const all = await directory(pm, { company: ALL_COMPANIES, limit: 50 });
     expect(all.data.map((row) => row.personId)).toEqual(expect.arrayContaining([person.pmA, person.ceoB, person.ceoC]));
     const ids = all.data.map((row) => row.personId);
     expect(ids).not.toContain(person.tenantOwner);
@@ -89,12 +95,13 @@ describe("the directory (E-01 §35-§40, §180-§183)", () => {
   });
 
   it("includes former and planned people only for those who keep person records", async () => {
-    const withFormer = await directory(hr, { status: "all", limit: 100 });
+    // Adrian is a planned employee of a third company, so this reads the group.
+    const withFormer = await directory(hr, { status: "all", company: ALL_COMPANIES, limit: 100 });
     expect(withFormer.canIncludeInactive).toBe(true);
     expect(withFormer.data.map((row) => row.personId)).toContain(person.adrian);
     expect(withFormer.data.map((row) => row.personId)).not.toContain(person.elira);
 
-    const asked = await directory(pm, { status: "all", limit: 100 });
+    const asked = await directory(pm, { status: "all", company: ALL_COMPANIES, limit: 100 });
     expect(asked.data.map((row) => row.personId)).not.toContain(person.adrian);
   });
 

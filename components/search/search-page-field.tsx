@@ -13,7 +13,7 @@ import { SearchField } from "@/components/ui/search-field";
  * is a form: pressing Enter searches, which is what the keyboard expects, and
  * it works with JavaScript disabled.
  */
-export function SearchPageField({ defaultValue }: { defaultValue: string }) {
+export function SearchPageField({ defaultValue, company }: { defaultValue: string; company?: string }) {
   const router = useRouter();
   const [value, setValue] = React.useState(defaultValue);
 
@@ -27,7 +27,8 @@ export function SearchPageField({ defaultValue }: { defaultValue: string }) {
       onSubmit={(event) => {
         event.preventDefault();
         const term = value.trim();
-        router.push(term ? `/search?q=${encodeURIComponent(term)}` : "/search");
+        // The Group workspace's company filter survives a new search (§87).
+        router.push(term ? `/search?q=${encodeURIComponent(term)}${company ? `&company=${encodeURIComponent(company)}` : ""}` : "/search");
       }}
     >
       <SearchField

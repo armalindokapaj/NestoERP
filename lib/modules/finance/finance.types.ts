@@ -22,6 +22,14 @@ import type { BudgetRisk } from "./budgets/budget.status";
  */
 
 export type ProjectRef = { id: string; code: string; name: string };
+/**
+ * The company a row belongs to. Present only on rows read in the Group
+ * workspace, where without it a row from one company reads like any other
+ * (Workspace Context §45); a company workspace's rows never carry it.
+ */
+export type CompanyRef = { id: string; name: string };
+/** A row of a group report: what the company's own report says, with the company saying it. */
+export type WithCompany<T> = T & { company: CompanyRef };
 export type ClientRef = { id: string; name: string };
 export type MemberRef = { memberId: string; fullName: string };
 
@@ -39,6 +47,7 @@ export type InvoiceSummaryDTO = {
   status: InvoiceStatus;
   settlementStatus: SettlementStatus;
   updatedAt: string;
+  company?: CompanyRef;
 };
 
 export type InvoiceLineDTO = {
@@ -99,6 +108,7 @@ export type ExpenseSummaryDTO = {
   status: ExpenseStatus;
   settlementStatus: ExpenseSettlementStatus;
   updatedAt: string;
+  company?: CompanyRef;
 };
 
 export type ExpenseDetailDTO = ExpenseSummaryDTO & {
@@ -130,6 +140,7 @@ export type BudgetSummaryDTO = {
   utilizationPercent: string | null;
   risk: BudgetRisk | null;
   updatedAt: string;
+  company?: CompanyRef;
 };
 
 export type BudgetLineDTO = {
@@ -258,6 +269,28 @@ export type FinanceOverviewDTO = {
     approvals: boolean;
     projectBudgets: boolean;
   };
+};
+
+/**
+ * The Finance overview of the Group workspace (Workspace Context §36, §72).
+ *
+ * Every company the reader may open Finance in answers as itself — the same
+ * overview its own page gives — and the group is those answers side by side.
+ * `totals` adds only what can be added: an amount is summed with the same
+ * currency in another company, never with another currency (PRD #15 §36), so a
+ * group holding EUR and USD lists both. Counts are summed; they are the same
+ * kind of thing in every company.
+ */
+export type GroupFinanceOverviewDTO = {
+  scope: "GROUP";
+  companies: Array<{ company: CompanyRef; overview: FinanceOverviewDTO }>;
+  totals: Pick<
+    FinanceOverviewDTO,
+    "receivables" | "overdueReceivables" | "payables" | "cashIn" | "cashOut" | "netCashflow" | "openCommitments"
+  >;
+  counts: FinanceOverviewDTO["counts"];
+  /** A panel shows when it is visible in at least one company; a company where it is not contributes nothing to it. */
+  visible: FinanceOverviewDTO["visible"];
 };
 
 export type ProjectFinanceSummaryDTO = {

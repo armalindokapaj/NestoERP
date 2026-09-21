@@ -2,6 +2,7 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import type { SupplierSummaryDTO } from "@/lib/modules/procurement/procurement.types";
 import { supplierTypeLabels } from "@/lib/modules/procurement/procurement.status";
+import { companyColumn, isGroupRows, RecordLink } from "./company-cells";
 
 /** The supplier directory (PRD #19 §32). */
 export function SupplierTable({
@@ -11,18 +12,23 @@ export function SupplierTable({
   suppliers: SupplierSummaryDTO[];
   caption?: string;
 }) {
+  const grouped = isGroupRows(suppliers);
+
   const columns: TableColumn<SupplierSummaryDTO>[] = [
     {
       key: "name",
       label: "Supplier",
       primary: true,
       render: (row) => (
-        <span className="flex flex-col">
-          <span className="font-medium text-fg">{row.name}</span>
-          {row.code ? <span className="text-meta text-fg-subtle">{row.code}</span> : null}
-        </span>
+        <RecordLink company={row.company} href={`/procurement/suppliers/${row.id}`}>
+          <span className="flex flex-col">
+            <span className="font-medium text-fg">{row.name}</span>
+            {row.code ? <span className="text-meta text-fg-subtle">{row.code}</span> : null}
+          </span>
+        </RecordLink>
       ),
     },
+    ...(grouped ? [companyColumn<SupplierSummaryDTO>()] : []),
     {
       key: "supplierType",
       label: "Type",
@@ -65,7 +71,7 @@ export function SupplierTable({
       columns={columns}
       records={suppliers}
       rowKey={(row) => row.id}
-      rowHref={(row) => `/procurement/suppliers/${row.id}`}
+      rowHref={grouped ? undefined : (row) => `/procurement/suppliers/${row.id}`}
       caption={caption}
     />
   );

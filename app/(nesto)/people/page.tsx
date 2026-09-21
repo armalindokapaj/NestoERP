@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import { directoryQuerySchema } from "@/lib/modules/people/people.schema";
+import { ALL_COMPANIES, directoryQuerySchema } from "@/lib/modules/people/people.schema";
 import { directoryFilterOptions, listPeople } from "@/lib/modules/people/people.service";
 import type { PersonCardDTO } from "@/lib/modules/people/people.types";
 
@@ -46,30 +46,40 @@ export default async function PeoplePage({ searchParams }: Props) {
     page: one(params.page),
   });
   const [directory, options] = await Promise.all([listPeople(context, query), directoryFilterOptions(context)]);
-  const pageHref = (page: number) => {
+  const directoryHref = (overrides: { page?: number; company?: string } = {}) => {
     const next = new URLSearchParams();
-    for (const [key, value] of Object.entries({ q: query.q, company: query.company, department: query.department, title: query.title, location: query.location, project: query.project, manager: query.manager, role: query.role, view: query.view, status: query.status === "all" ? "all" : undefined })) {
+    for (const [key, value] of Object.entries({ q: query.q, company: overrides.company ?? query.company, department: query.department, title: query.title, location: query.location, project: query.project, manager: query.manager, role: query.role, view: query.view, status: query.status === "all" ? "all" : undefined })) {
       if (value) next.set(key, value);
     }
-    if (page > 1) next.set("page", String(page));
+    if (overrides.page && overrides.page > 1) next.set("page", String(overrides.page));
     const text = next.toString();
     return text ? `/people?${text}` : "/people";
   };
+  const pageHref = (page: number) => directoryHref({ page });
   const filtered = Boolean(query.q || query.company || query.department || query.title || query.location || query.project || query.manager || query.role || query.view || query.status === "all");
   // The directory's views (E-08 §11): everybody, or the reader's own company, department or project colleagues.
-  const VIEWS = [
-    { key: undefined, label: "Everyone" },
-    { key: "company", label: "My company" },
-    { key: "department", label: "My department" },
-    { key: "projects", label: "My projects" },
-  ] as const;
+  const inGroup = context.workspace.scopeType === "GROUP";
+  // In the Group workspace there is no "my company", department or project — those belong to the
+  // session's company — so only the whole directory is offered; in a company workspace "everyone"
+  // already is the company (Workspace Context §46).
+  const VIEWS = (inGroup
+    ? [{ key: undefined, label: "Everyone" }]
+    : [
+        { key: undefined, label: `Everyone in ${context.company.name}` },
+        { key: "department", label: "My department" },
+        { key: "projects", label: "My projects" },
+      ]) as ReadonlyArray<{ key: "company" | "department" | "projects" | undefined; label: string }>;
 
   return (
     <ModulePage
       experience={resolveModuleExperience(context, "people")}
       activeSection=""
       title="People"
-      description={`Everyone who works in ${context.parentGroup.name}, across its companies.`}
+      description={
+        inGroup || query.company === ALL_COMPANIES
+          ? `Everyone who works in ${context.parentGroup.name}, across its companies.`
+          : `Everyone who works in ${context.company.name}.`
+      }
       actions={
         <Button asChild size="sm" variant="secondary">
           <Link href="/people/me">Your profile</Link>
@@ -98,10 +108,15 @@ export default async function PeoplePage({ searchParams }: Props) {
             Search
             <Input name="q" type="search" defaultValue={query.q ?? ""} placeholder="Name, title, email or phone" />
           </label>
+          {/*
+            The workspace is the default, not a wall: a company workspace opens on
+            its own company and "Every company" widens to the group's directory,
+            which everyone who works in the group may read (E-01 §103, §85, §86).
+          */}
           <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
             Company
-            <select name="company" defaultValue={query.company ?? ""} className={selectClass}>
-              <option value="">Every company</option>
+            <select name="company" defaultValue={query.company ?? (inGroup ? ALL_COMPANIES : context.companyId)} className={selectClass}>
+              <option value={ALL_COMPANIES}>Every company</option>
               {options.companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
@@ -167,7 +182,22 @@ export default async function PeoplePage({ searchParams }: Props) {
         </p>
 
         {directory.data.length === 0 ? (
-          <EmptyState title="Nobody matches" description="Try another name, or fewer filters." />
+          // The workspace's company is the default, not a wall: somebody looking
+          // for a colleague in another company is told where to find them rather
+          // than left with an empty page (E-01 §103, Workspace Context §85, §86).
+          <EmptyState
+            title="Nobody matches"
+            description={
+              !inGroup && query.company !== ALL_COMPANIES
+                ? `Nobody in ${context.company.name} matches. The directory covers the whole group.`
+                : "Try another name, or fewer filters."
+            }
+            action={
+              !inGroup && query.company !== ALL_COMPANIES
+                ? { label: "Search every company", href: directoryHref({ company: ALL_COMPANIES }) }
+                : undefined
+            }
+          />
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="People">
             {directory.data.map((person) => (

@@ -18,6 +18,15 @@ export type KpiDefinition = {
   href?: string;
   /** Rendered as currency rather than a plain count. */
   currency?: boolean;
+  /**
+   * The widget contract (Workspace Context §75). A KPI is declared for the
+   * workspaces it means something in: a group figure is computed company by
+   * company, as the reader in each (`permission` is what one company must grant
+   * for it to count), and is never shown in a company workspace, where the
+   * company's own figures are. Defaults: company yes, group no.
+   */
+  supportsGroupContext?: boolean;
+  supportsCompanyContext?: boolean;
 };
 
 export const kpis: Record<string, KpiDefinition> = {
@@ -25,7 +34,9 @@ export const kpis: Record<string, KpiDefinition> = {
   groupCompanyCount: {
     key: "groupCompanyCount",
     module: "organization",
-    permission: "department.group.view",
+    permission: "organization.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     label: "Group Companies",
     icon: "Building2",
     href: "/organization/companies",
@@ -33,7 +44,9 @@ export const kpis: Record<string, KpiDefinition> = {
   groupActiveProjects: {
     key: "groupActiveProjects",
     module: "projects",
-    permission: "department.group.view",
+    permission: "project.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     label: "Active Projects",
     icon: "FolderKanban",
     href: "/projects?status=ACTIVE",
@@ -41,25 +54,66 @@ export const kpis: Record<string, KpiDefinition> = {
   groupEmployees: {
     key: "groupEmployees",
     module: "hr",
-    permission: "department.group.view",
+    permission: "hr.employee.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     label: "Employees",
     icon: "UsersRound",
     href: "/people",
   },
   groupExternalCompanies: {
     key: "groupExternalCompanies",
-    module: "procurement",
-    permission: "department.group.view",
+    module: "organization",
+    permission: "organization.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     label: "External Companies",
     icon: "Handshake",
   },
   groupPortfolioValue: {
     key: "groupPortfolioValue",
     module: "finance",
-    permission: "department.group.view",
+    permission: "finance.budget.view",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
     label: "Portfolio Value",
     icon: "Landmark",
     currency: true,
+  },
+  /*
+   * Counts summed across the companies the reader may read them in, each company's own
+   * figure kept beside the total (Workspace Context §72, §73). Only counts: a value that
+   * is money is per currency and is never added across companies here.
+   */
+  groupPendingApprovals: {
+    key: "groupPendingApprovals",
+    module: "approvals",
+    permission: "dashboard.view",
+    label: "Pending Approvals",
+    icon: "Stamp",
+    href: "/approvals",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
+  },
+  groupOpenTasks: {
+    key: "groupOpenTasks",
+    module: "tasks",
+    permission: "task.view",
+    label: "Open Tasks",
+    icon: "ListChecks",
+    href: "/tasks",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
+  },
+  groupOverdueTasks: {
+    key: "groupOverdueTasks",
+    module: "tasks",
+    permission: "task.view",
+    label: "Overdue Tasks",
+    icon: "CalendarClock",
+    href: "/tasks/overdue",
+    supportsGroupContext: true,
+    supportsCompanyContext: false,
   },
   activeProjects: {
     key: "activeProjects",

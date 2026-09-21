@@ -2,6 +2,7 @@ import { apiOk, apiError, withContext } from "@/lib/api/respond";
 import { parseDocumentListQuery } from "@/lib/modules/documents/document.query";
 import { createDocumentSchema } from "@/lib/modules/documents/document.schema";
 import * as documents from "@/lib/modules/documents/document.service";
+import { listDocumentsForWorkspace } from "@/lib/modules/documents/document.workspace";
 
 /**
  * GET  /api/documents — scoped, filtered, paginated list (PRD #13 §141).
@@ -17,12 +18,20 @@ import * as documents from "@/lib/modules/documents/document.service";
  * parent access, type and size validation, quota, object write, HEAD
  * verification, magic-byte detection, checksum and the scan gate
  * (PRD #29 §233).
+ *
+ * The list is the one read that also answers in the Group workspace: there it is
+ * the union of the documents the person may read in each company, every row
+ * naming its company, and `?company=` narrows it to one they may read
+ * (Workspace Context §35, §86, §87). The upload above stays a company write.
  */
 export async function GET(request: Request) {
-  return withContext(async (context) => {
-    const url = new URL(request.url);
-    return apiOk(await documents.listDocuments(context, parseDocumentListQuery(url.searchParams)));
-  });
+  return withContext(
+    async (context) => {
+      const url = new URL(request.url);
+      return apiOk(await listDocumentsForWorkspace(context, parseDocumentListQuery(url.searchParams)));
+    },
+    { group: "read" },
+  );
 }
 
 export async function POST(request: Request) {

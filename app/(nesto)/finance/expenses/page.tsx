@@ -6,9 +6,10 @@ import { redirect } from "next/navigation";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
-import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { financeExperience } from "@/lib/modules/finance/finance.workspace";
 import { ExpensesList } from "./expenses-list";
 
 export const metadata: Metadata = { title: "Expenses" };
@@ -20,9 +21,12 @@ export default async function ExpensesPage({
 }) {
   const context = await requireModule("finance");
 
-  if (!can(context, "finance.expense.view")) redirect("/access-denied");
+  // In the Group workspace the list asks each company for it and says so when
+  // none has it (Workspace Context §76).
+  const group = inGroupWorkspace(context);
+  if (!group && !can(context, "finance.expense.view")) redirect("/access-denied");
 
-  const experience = resolveModuleExperience(context, "finance");
+  const experience = await financeExperience(context);
   const params = await searchParams;
   const archived = params.archived === "1";
 
@@ -37,7 +41,7 @@ export default async function ExpensesPage({
               {archived ? "Active expenses" : "Archived"}
             </Link>
           </Button>
-          {can(context, "finance.expense.create") ? (
+          {!group && can(context, "finance.expense.create") ? (
             <Button asChild size="sm">
               <Link href="/finance/expenses/new">New expense</Link>
             </Button>

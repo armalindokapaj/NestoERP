@@ -113,7 +113,8 @@ test("the project manager is told, returns it, and reviews and locks the correct
   const engineerContext = await browser.newContext();
   const engineer = await engineerContext.newPage();
   await signIn(engineer, "ENGINEER", { to: `/projects/${PROJECT}/daily-logs/${logId}` });
-  await expect(engineer.getByTestId("daily-log-banner")).toContainText("Add the pump crew to the workforce.");
+  // Scoped to the main region: the list streams, and for a moment React's parked copy is in the document too (see mainRegion).
+  await expect(mainRegion(engineer).getByTestId("daily-log-banner")).toContainText("Add the pump crew to the workforce.");
   await addEntry(engineer, "workforce", async (entry) => {
     await entry.getByLabel("Company or crew").fill("Alba pump crew");
     await entry.getByLabel("Headcount").fill("2");

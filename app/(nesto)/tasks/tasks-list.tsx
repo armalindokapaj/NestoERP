@@ -4,11 +4,11 @@ import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseTaskListQuery, type TaskQueryDefaults } from "@/lib/modules/tasks/task.query";
-import { taskFilterOptions } from "@/lib/modules/tasks/task.repository";
-import * as tasks from "@/lib/modules/tasks/task.service";
+import { listTasksForWorkspace, taskFilterOptionsForWorkspace } from "@/lib/modules/tasks/task.workspace";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -41,10 +41,14 @@ export async function TasksList({
   basePath: string;
 }) {
   const query = parseTaskListQuery(searchParams, VARIANT_DEFAULTS[variant]);
+  // The Group workspace reads every company the person may open Tasks in; the
+  // list is the same, its rows name their company and creation is not offered
+  // (Workspace Context §32, §45).
+  const group = inGroupWorkspace(context);
 
   const [result, options] = await Promise.all([
-    tasks.listTasks(context, query),
-    taskFilterOptions(context),
+    listTasksForWorkspace(context, query),
+    taskFilterOptionsForWorkspace(context),
   ]);
 
   const hasFilters = Boolean(
@@ -53,10 +57,21 @@ export async function TasksList({
       query.priority?.length ||
       query.projectId ||
       query.assigneeMemberId ||
+      (group && query.company) ||
       (query.due && variant !== "overdue"),
   );
 
   const filters: FilterConfig[] = [
+    // Group only: a refinement of the list, not the workspace (Workspace Context §86, §87).
+    ...(group
+      ? [
+          {
+            param: "company",
+            label: "Company",
+            options: options.companies.map((company) => ({ value: company.id, label: company.name })),
+          },
+        ]
+      : []),
     ...(variant === "completed" || variant === "archived"
       ? []
       : [
@@ -88,7 +103,7 @@ export async function TasksList({
       label: "Project",
       options: options.projects.map((project) => ({ value: project.id, label: project.name })),
     },
-    ...(variant === "mine"
+    ...(variant === "mine" || group
       ? []
       : [
           {
@@ -158,9 +173,9 @@ export async function TasksList({
           <EmptyState
             icon={<SquareCheckBig />}
             title={EMPTY_TITLE[variant]}
-            description={EMPTY_DESCRIPTION[variant]}
+            description={group ? "No accessible data for this module." : EMPTY_DESCRIPTION[variant]}
             action={
-              variant !== "archived" && variant !== "completed" && can(context, "task.create")
+              variant !== "archived" && variant !== "completed" && !group && can(context, "task.create")
                 ? { label: "New task", href: "/tasks/new" }
                 : undefined
             }

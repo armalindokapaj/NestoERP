@@ -8,7 +8,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { resolveContextForSession } from "@/lib/context/build-context";
 import type { UserContext } from "@/lib/context/types";
 import { resolveDashboard } from "@/lib/modules/dashboard/dashboard.service";
-import { switchCompanyContext } from "@/lib/modules/organization/company-context.service";
+import { switchWorkspace } from "@/lib/workspace/workspace.service";
 import { projectListQuerySchema } from "@/lib/modules/projects/project.schema";
 import { getProject, listProjects } from "@/lib/modules/projects/project.service";
 import { prisma } from "../../helpers";
@@ -216,7 +216,8 @@ describe("company switching is still a different thing (C-01 §10, §55, §75)",
   it("moves Endri's own session to another of his companies, then a switch away and back starts him where sign-in does", async () => {
     const endri = await signInOnTheForm("arvela.finance");
     const first = await contextNow();
-    const moved = await switchCompanyContext(first, companyId("VELAR_NDERTIM"));
+    // Working in a company is a workspace switch: the same person and session, another place (Workspace Context §11).
+    const moved = await switchWorkspace(first, { scopeType: "COMPANY", companyId: companyId("VELAR_NDERTIM") });
     expect(moved.switched).toBe(true);
     expect(browser.user).toEqual(endri);
     const there = await contextNow();

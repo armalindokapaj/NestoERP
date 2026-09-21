@@ -3,13 +3,13 @@ import { cache } from "react";
 import { z } from "zod";
 
 import type { Permission } from "@/config/permissions";
-import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
+import { can, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { recordAuthEvent } from "@/lib/auth/events";
 import { moveSessionToMembership } from "@/lib/auth/session-store";
-import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
+import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { isThumbnailableMimeType } from "@/lib/modules/documents/storage/thumbnail.service";
@@ -24,72 +24,59 @@ import type {
 } from "./project.types";
 
 /**
- * A person's projects, across every company they belong to (E-05A §1, §26-§28,
- * §42).
+ * A person's projects, across the companies the active workspace reads
+ * (E-05A §1, §26-§28, §42; Workspace Context §30, §83).
  *
  * NESTO resolves one company per request: the session points at one membership
  * and every scope builder starts from that membership's company. The Projects
- * page is the one place that has to look past it — an architect assigned in two
- * companies must find both projects without switching first.
+ * page is the one place that has to look past it — in the Group workspace it is
+ * every project the person may open in every company of the group; in a company
+ * workspace it is that company's, and nothing else.
  *
- * It does so without a second authorisation model. Each of the person's active
- * memberships is resolved into the same `UserContext` a signed-in request in
- * that company would get (`buildMemberContexts`, which the session resolver
- * shares), and a project is authorised when *that* context's own project scope
- * contains it. The page's query is the union of those scopes, applied in the
- * database before search, filters, sort and pagination (§42). Nothing here
- * decides access on its own; it only asks each company's rules in turn.
+ * It does so without a second authorisation model. The workspace resolver
+ * (`resolveWorkspaceContexts`) gives the same `UserContext` a signed-in request
+ * in each company would get, and a project is authorised when *that* context's
+ * own project scope contains it. The page's query is the union of those scopes,
+ * applied in the database before search, filters, sort and pagination (§42).
+ * Nothing here decides access on its own; it only asks each company's rules in
+ * turn — and never a company outside the person's group.
  *
- * The memberships' contexts carry the caller's session id, because every write
- * made through them is this person, in this session — the audit trail should
- * say so. They are never used to act on the session itself.
+ * The contexts carry the caller's session id, because every write made through
+ * them is this person, in this session — the audit trail should say so. They are
+ * never used to act on the session itself.
  */
 
 export type PortfolioMembership = {
   companyId: string;
   company: { id: string; name: string; logoUrl: string | null };
   context: UserContext;
+  /**
+   * The company the session works in. In the Group workspace there is none: the
+   * session's company is only where the person is anchored, so every project
+   * goes through the enter-company step before it opens (Workspace Context §31).
+   */
   isCurrent: boolean;
 };
 
-const opensProjects = (context: UserContext) =>
-  isModuleEnabled(context, "projects") && canAccessModule(context, "projects") && can(context, "project.view");
-
 /**
- * Every membership in which this person can open projects, current company first.
+ * Every membership in which this person can open projects in the active
+ * workspace, current company first.
  *
  * Memoised per request against the session context, which the resolver itself
  * memoises — a page that lists, counts and builds filters resolves it once.
  */
 export const resolveProjectPortfolio = cache(async (session: UserContext): Promise<PortfolioMembership[]> => {
-  const others = await prisma.companyMember.findMany({
-    where: {
-      userId: session.userId,
-      id: { not: session.membershipId },
-      status: "ACTIVE",
-      company: { status: "ACTIVE" },
-      user: { status: "ACTIVE" },
-    },
-    select: { id: true, companyId: true },
-  });
+  const contexts = await resolveWorkspaceContexts(session, { module: "projects", permission: "project.view" });
+  const inCompany = session.workspace.scopeType === "COMPANY";
 
-  const contexts = await Promise.all(
-    others.map(async (membership) => {
-      const context = (await buildMemberContexts(membership.companyId, [membership.id])).get(membership.id);
-      return context ? { ...context, sessionId: session.sessionId } : null;
-    }),
-  );
-
-  const portfolio = [session, ...contexts.filter((context): context is UserContext => context !== null)]
-    .filter(opensProjects)
+  return contexts
     .map((context) => ({
       companyId: context.companyId,
       company: { id: context.company.id, name: context.company.name, logoUrl: context.company.logoUrl },
       context,
-      isCurrent: context.membershipId === session.membershipId,
-    }));
-
-  return portfolio.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || a.company.name.localeCompare(b.company.name));
+      isCurrent: inCompany && context.membershipId === session.membershipId,
+    }))
+    .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || a.company.name.localeCompare(b.company.name));
 });
 
 /**
@@ -223,7 +210,18 @@ export async function openPortfolioProject(
     sessionId: session.sessionId,
     ipAddress: request.ipAddress ?? null,
     userAgent: request.userAgent ?? null,
-    metadata: { fromCompanyId: session.companyId, toCompanyId: membership.companyId, projectId },
+    metadata: {
+      fromCompanyId: session.companyId,
+      toCompanyId: membership.companyId,
+      projectId,
+      // The central event (Workspace Context §67): opening a project enters its company.
+      event: "WORKSPACE_CHANGED",
+      previousScopeType: session.workspace.scopeType,
+      previousCompanyId: session.workspace.companyId,
+      nextScopeType: "COMPANY",
+      nextCompanyId: membership.companyId,
+      parentGroupId: session.parentGroupId,
+    },
   });
 
   return { projectId, company, switched: true };

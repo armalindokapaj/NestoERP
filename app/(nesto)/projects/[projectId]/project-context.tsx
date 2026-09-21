@@ -24,7 +24,11 @@ export async function loadProject(
   projectId: string,
 ): Promise<{ context: UserContext; project: ProjectDetailDTO }> {
   const session = await requireUserContext();
-  const opensHere = isModuleEnabled(session, "projects") && canAccessModule(session, "projects");
+  const inGroup = session.workspace.scopeType === "GROUP";
+  // In the Group workspace the session's company is only where the person is
+  // anchored, so a project — the home company's included — is entered through its
+  // own company, never read under the group's header (Workspace Context §29, §31).
+  const opensHere = !inGroup && isModuleEnabled(session, "projects") && canAccessModule(session, "projects");
 
   if (opensHere) {
     try {
@@ -40,7 +44,7 @@ export async function loadProject(
     redirect(`/projects/${projectId}/open?next=${encodeURIComponent(requested)}`);
   }
 
-  if (!opensHere) await requireModule("projects");
+  if (!opensHere && !inGroup) await requireModule("projects");
   notFound();
 }
 

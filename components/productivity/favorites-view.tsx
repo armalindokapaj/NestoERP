@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { CompanyRecordLink } from "@/components/workspace/company-record-link";
+import { CompanyTag } from "@/components/workspace/company-tag";
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import type { FavoriteItemDTO } from "@/lib/modules/productivity/favorites.service";
 import { NAVIGABLE_LABELS, NAVIGABLE_TYPES, type NavigableType } from "@/lib/modules/productivity/navigable.types";
@@ -48,20 +50,33 @@ export function relativeTime(iso: string, now = Date.now()): string {
 
 type Sort = "recent" | "alphabetical" | "type";
 
-function Row({ icon: Icon, title, subtitle, href, trailing, testId }: { icon: LucideIcon; title: string; subtitle?: string; href: string; trailing: React.ReactNode; testId: string }) {
+function Row({ icon: Icon, title, subtitle, href, company, trailing, testId }: { icon: LucideIcon; title: string; subtitle?: string; href: string; company?: { id: string; name: string }; trailing: React.ReactNode; testId: string }) {
+  const content = (
+    <>
+      <span className="block truncate text-table font-medium text-fg hover:text-accent-strong">{title}</span>
+      {subtitle ? <span className="block truncate text-meta text-fg-muted">{subtitle}</span> : null}
+    </>
+  );
   return (
     <li className="flex items-center gap-3 px-4 py-2.5" data-testid={testId}>
       <Icon aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
-      <Link href={href} className="min-w-0 flex-1">
-        <span className="block truncate text-table font-medium text-fg hover:text-accent-strong">{title}</span>
-        {subtitle ? <span className="block truncate text-meta text-fg-muted">{subtitle}</span> : null}
-      </Link>
+      {company ? (
+        // A company's record is a company page: the Group workspace enters the company first (Workspace Context §31).
+        <CompanyRecordLink companyId={company.id} companyName={company.name} href={href} className="min-w-0 flex-1">
+          {content}
+        </CompanyRecordLink>
+      ) : (
+        <Link href={href} className="min-w-0 flex-1">
+          {content}
+        </Link>
+      )}
+      {company ? <CompanyTag name={company.name} className="shrink-0" /> : null}
       {trailing}
     </li>
   );
 }
 
-export function FavoritesView({ initialFavorites, initialRecent, tab: initialTab, favoritesEnabled, recentEnabled }: { initialFavorites: FavoriteItemDTO[]; initialRecent: RecentWorkItemDTO[]; tab: "favorites" | "recent"; favoritesEnabled: boolean; recentEnabled: boolean }) {
+export function FavoritesView({ initialFavorites, initialRecent, tab: initialTab, favoritesEnabled, recentEnabled, inGroup = false }: { initialFavorites: FavoriteItemDTO[]; initialRecent: RecentWorkItemDTO[]; tab: "favorites" | "recent"; favoritesEnabled: boolean; recentEnabled: boolean; inGroup?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = React.useState(initialTab);
@@ -132,7 +147,7 @@ export function FavoritesView({ initialFavorites, initialRecent, tab: initialTab
 
       {tab === "favorites" ? (
         !favoritesEnabled ? (
-          <EmptyState icon={<Star />} title="Favorites are switched off." description="Your company has turned favorites off." />
+          <EmptyState icon={<Star />} title="Favorites are switched off." description={inGroup ? "Your companies have turned favorites off." : "Your company has turned favorites off."} />
         ) : !favorites.length ? (
           <EmptyState icon={<Star />} title="No favorites yet." description="Star a project, task, meeting or document from its page to keep it here." />
         ) : (
@@ -162,6 +177,7 @@ export function FavoritesView({ initialFavorites, initialRecent, tab: initialTab
                       title={item.title}
                       subtitle={item.subtitle}
                       href={item.href}
+                      company={item.company}
                       testId="favorite-row"
                       trailing={
                         <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${item.title} from favorites`} onClick={() => void unfavorite(item)}>
@@ -177,7 +193,7 @@ export function FavoritesView({ initialFavorites, initialRecent, tab: initialTab
           </>
         )
       ) : !recentEnabled ? (
-        <EmptyState icon={<History />} title="Recent work is switched off." description="Your company has turned recent work off." />
+        <EmptyState icon={<History />} title="Recent work is switched off." description={inGroup ? "Your companies have turned recent work off." : "Your company has turned recent work off."} />
       ) : !recent.length ? (
         <EmptyState icon={<CalendarClock />} title="Nothing recent." description="Projects, tasks, meetings and documents you open appear here. Only you can see this list." />
       ) : (
@@ -196,6 +212,7 @@ export function FavoritesView({ initialFavorites, initialRecent, tab: initialTab
                 title={item.title}
                 subtitle={item.subtitle}
                 href={item.href}
+                company={item.company}
                 testId="recent-row"
                 trailing={
                   <span className="flex shrink-0 items-center gap-1">

@@ -4,17 +4,23 @@ import { createInvoiceSchema } from "@/lib/modules/finance/invoices/invoice.sche
 import * as invoices from "@/lib/modules/finance/invoices/invoice.service";
 
 /**
- * GET  /api/finance/invoices — scoped, filtered, paginated (PRD #15 §221).
+ * GET  /api/finance/invoices — scoped, filtered, paginated (PRD #15 §221). In the
+ *      Group workspace: the invoices of every company the caller may read, each
+ *      naming its company, narrowed by `?company=` only within those (§36, §86).
  * POST /api/finance/invoices — create a draft, requiring finance.invoice.create.
  *
  * Totals are absent from the request body: the server calculates them from the
  * lines, so there is nothing here for a caller to inflate (PRD #15 §220).
  */
 export async function GET(request: Request) {
-  return withContext(async (context) => {
-    const url = new URL(request.url);
-    return apiOk(await invoices.listInvoices(context, parseInvoiceQuery(url.searchParams)));
-  });
+  return withContext(
+    async (context) => {
+      const url = new URL(request.url);
+      const query = parseInvoiceQuery(url.searchParams);
+      return apiOk(await invoices.listInvoicesForWorkspace(context, query, { company: url.searchParams.get("company") }));
+    },
+    { group: "read" },
+  );
 }
 
 export async function POST(request: Request) {

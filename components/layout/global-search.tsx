@@ -31,8 +31,11 @@ import {
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
+import { CompanyTag } from "@/components/workspace/company-tag";
 import type { ModuleKey } from "@/config/modules";
-import type { GlobalSearchResponseDTO, GlobalSearchResultDTO } from "@/lib/core/search/search.types";
+import type { GlobalSearchCompany, GlobalSearchResponseDTO, GlobalSearchResultDTO } from "@/lib/core/search/search.types";
+import { requestWorkspaceSwitch } from "@/lib/workspace/client";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -43,6 +46,13 @@ import { cn } from "@/lib/utils/cn";
  * scope, so this component never decides what a person may find — it only
  * shows what the server returned. Results the server did not return leave no
  * trace here, not even a count.
+ *
+ * In the Group workspace the same palette searches every company the person
+ * may use (Workspace Context §40, §99). A row whose record lives in a company
+ * says which, and opening it enters that company's workspace first — a
+ * record's page is a company page (§31) — the way a link from a group list
+ * does. A row without a company (a person, who belongs to the group) opens as
+ * it is.
  */
 
 const MIN_QUERY = 2;
@@ -72,9 +82,9 @@ const ENTITY_ICONS: Record<string, LucideIcon> = {
   announcement: Megaphone,
 };
 
-/** A favorite or recent record, already resolved against access by the server (PRD #45 §119, §319). */
-type Shortcut = { entityType: string; entityId: string; title: string; subtitle?: string; href: string };
-type Option = { key: string; kind: "favorite" | "recent" | "result"; entityType: string; title: string; subtitle?: string; href: string; status?: string; moduleKey?: string };
+/** A favorite or recent record, already resolved against access by the server (PRD #45 §119, §319). `company` is set in the Group workspace. */
+type Shortcut = { entityType: string; entityId: string; title: string; subtitle?: string; href: string; company?: GlobalSearchCompany };
+type Option = { key: string; kind: "favorite" | "recent" | "result"; entityType: string; title: string; subtitle?: string; href: string; status?: string; moduleKey?: string; company?: GlobalSearchCompany };
 
 const SHORTCUT_LIMIT = 6;
 
@@ -92,8 +102,11 @@ export function GlobalSearch() {
   const [state, setState] = React.useState<State>({ status: "idle" });
   const [active, setActive] = React.useState(0);
   const [shortcuts, setShortcuts] = React.useState<{ favorites: Shortcut[]; recent: Shortcut[] } | null>(null);
+  const [entering, setEntering] = React.useState(false);
   const t = useTranslations("search");
   const tModules = useTranslations("modules");
+  const tWorkspace = useTranslations("workspace");
+  const toast = useToast();
   const listId = React.useId();
 
   React.useEffect(() => {
@@ -183,14 +196,14 @@ export function GlobalSearch() {
           return true;
         })
         .slice(0, text ? 4 : SHORTCUT_LIMIT)
-        .map((item): Option => ({ key: `${kind}:${item.entityType}:${item.entityId}`, kind, entityType: item.entityType, title: item.title, subtitle: item.subtitle, href: item.href }));
+        .map((item): Option => ({ key: `${kind}:${item.entityType}:${item.entityId}`, kind, entityType: item.entityType, title: item.title, subtitle: item.subtitle, href: item.href, company: item.company }));
     const favorites = take(shortcuts?.favorites ?? [], "favorite");
     const recent = take(shortcuts?.recent ?? [], "recent");
     const searched = groups.map(([moduleKey, rows]) => ({
       moduleKey,
       rows: rows
         .filter((result) => !seen.has(`${result.entityType}:${result.entityId}`))
-        .map((result): Option => ({ key: `result:${result.entityType}:${result.entityId}`, kind: "result", entityType: result.entityType, title: result.title, subtitle: [result.subtitle, result.meta].filter(Boolean).join(" · ") || undefined, href: result.href, status: result.status ?? undefined, moduleKey })),
+        .map((result): Option => ({ key: `result:${result.entityType}:${result.entityId}`, kind: "result", entityType: result.entityType, title: result.title, subtitle: [result.subtitle, result.meta].filter(Boolean).join(" · ") || undefined, href: result.href, status: result.status ?? undefined, moduleKey, company: result.company })),
     }));
     return { favorites, recent, searched: searched.filter((group) => group.rows.length) };
   }, [query, shortcuts, groups]);
@@ -205,10 +218,22 @@ export function GlobalSearch() {
     }
   }
 
-  function openResult(result: Option | undefined) {
-    if (!result) return;
-    onOpenChange(false);
-    router.push(result.href);
+  async function openResult(result: Option | undefined) {
+    if (!result || entering) return;
+    if (!result.company) {
+      onOpenChange(false);
+      router.push(result.href);
+      return;
+    }
+    // A company's record is a company page: enter that company's workspace, then go on (§31).
+    setEntering(true);
+    const entered = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId: result.company.id });
+    if (!entered.ok) {
+      setEntering(false);
+      toast({ title: tWorkspace("switchFailed", { name: result.company.name }), tone: "danger" });
+      return;
+    }
+    window.location.assign(result.href);
   }
 
   function onInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -221,7 +246,7 @@ export function GlobalSearch() {
       setActive((index) => (index - 1 + ordered.length) % ordered.length);
     } else if (event.key === "Enter") {
       event.preventDefault();
-      openResult(ordered[active]);
+      void openResult(ordered[active]);
     }
   }
 
@@ -312,7 +337,7 @@ export function GlobalSearch() {
                             role="option"
                             aria-selected={selected}
                             onMouseMove={() => setActive(position)}
-                            onClick={() => openResult(option)}
+                            onClick={() => void openResult(option)}
                             className={cn("flex cursor-pointer items-center gap-3 rounded-md px-2 py-2", selected ? "bg-hover" : "hover:bg-hover")}
                           >
                             <Icon aria-hidden="true" className={cn("size-4 shrink-0", option.kind === "favorite" ? "fill-warning text-warning" : "text-fg-subtle")} />
@@ -320,6 +345,7 @@ export function GlobalSearch() {
                               <span className="block truncate text-table text-fg">{option.title}</span>
                               {option.subtitle ? <span className="block truncate text-meta text-fg-subtle">{option.subtitle}</span> : null}
                             </span>
+                            {option.company ? <CompanyTag name={option.company.name} className="shrink-0" /> : null}
                             {starred ? <Star aria-label="Favorite" className="size-3.5 shrink-0 fill-warning text-warning" /> : null}
                             {option.status ? <span className="shrink-0 text-micro text-fg-subtle">{option.status.replaceAll("_", " ").toLowerCase()}</span> : null}
                           </div>

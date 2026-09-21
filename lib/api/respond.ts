@@ -69,15 +69,31 @@ function withRequestHeaders(response: Response): Response {
  */
 export async function withContext(
   handler: (context: UserContext) => Promise<Response>,
+  options: WithContextOptions = {},
 ): Promise<Response> {
   return runWithRequestContext(
     { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
-    () => handleRequest(handler),
+    () => handleRequest(handler, options),
   );
 }
 
+/**
+ * What an endpoint does while the Group workspace is active (Workspace Context
+ * §14, §85, §105). The default is nothing: an endpoint reads and writes one
+ * company's records, and in the Group workspace the session's company is only
+ * where the person is anchored, so answering would put one company's data under
+ * a group header. An endpoint says what it does there, in the route file:
+ *
+ * - `read`  — a GET whose answer is the union of the companies the person may
+ *             read, or a read that does not depend on a company at all;
+ * - `any`   — the person's own affairs (notifications, their account), which
+ *             have no company to get wrong.
+ */
+export type WithContextOptions = { group?: "read" | "any" };
+
 async function handleRequest(
   handler: (context: UserContext) => Promise<Response>,
+  options: WithContextOptions,
 ): Promise<Response> {
   const result = await resolveUserContext();
 
@@ -117,6 +133,13 @@ async function handleRequest(
   }
   const method = requestHeaders.get("x-nesto-request-method") ?? "GET";
   const requestPath = requestHeaders.get("x-nesto-request-path") ?? "";
+  if (result.context.workspace.scopeType === "GROUP") {
+    const reads = ["GET", "HEAD", "OPTIONS"].includes(method);
+    if (options.group !== "any" && !(options.group === "read" && reads)) {
+      recordAuthorizationDenial({ code: "WORKSPACE_COMPANY_REQUIRED", reason: "SCOPE_DENIED" });
+      return apiError("WORKSPACE_COMPANY_REQUIRED");
+    }
+  }
   if (maintenance.enabled) return apiError("COMPANY_INACTIVE", "NESTO is temporarily unavailable for maintenance.");
   if (maintenance.readOnly && !["GET", "HEAD", "OPTIONS"].includes(method)) return apiError("CONFLICT", "NESTO is currently in read-only mode.");
   if (maintenance.disableUploads && !["GET", "HEAD", "OPTIONS"].includes(method) && /upload|document-version/.test(requestPath)) return apiError("CONFLICT", "Uploads are temporarily disabled.");
