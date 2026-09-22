@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, Boxes, Building2, ChevronDown, Database, Flag, Gauge,
+  Activity, BadgeEuro, Boxes, Building2, ChevronDown, Database, Flag, Gauge,
   History, LayoutDashboard, Menu, Orbit, SearchCheck, Settings, ShieldCheck,
   SlidersHorizontal, Users, Wrench, X,
 } from "lucide-react";
@@ -25,7 +25,7 @@ const groups: NavGroup[] = [
     { label: "People", href: "/platform-admin/people" }, { label: "User Accounts", href: "/platform-admin/access/users" }, { label: "Memberships", href: "/platform-admin/access/memberships" }, { label: "Roles", href: "/platform-admin/access/roles" }, { label: "Permissions", href: "/platform-admin/access/permissions" }, { label: "Access Grants", href: "/platform-admin/access/grants" }, { label: "Access Inspector", href: "/platform-admin/access/inspector", icon: SearchCheck }, { label: "Sessions", href: "/platform-admin/access/sessions" },
   ] },
   { label: "Product", icon: Boxes, items: [
-    { label: "Modules", href: "/platform-admin/product/modules" }, { label: "Feature Flags", href: "/platform-admin/product/feature-flags", icon: Flag }, { label: "Templates", href: "/platform-admin/product/templates" },
+    { label: "Modules", href: "/platform-admin/product/modules" }, { label: "Feature Flags", href: "/platform-admin/product/feature-flags", icon: Flag }, { label: "Templates", href: "/platform-admin/product/templates" }, { label: "Pricing", href: "/platform-admin/pricing", icon: BadgeEuro },
   ] },
   { label: "3D Platform", icon: Orbit, items: [
     { label: "3D Experiences", href: "/platform-admin/3d" }, { label: "Model Library", href: "/platform-admin/3d/models" }, { label: "Publishing", href: "/platform-admin/3d/publishing" }, { label: "Diagnostics", href: "/platform-admin/3d/diagnostics" },

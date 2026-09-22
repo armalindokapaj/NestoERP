@@ -5,6 +5,7 @@ import {
   isDeadSessionReason,
   isPublicRoute,
   PUBLIC_OPERATIONAL_ROUTES,
+  PUBLIC_PRICING_ROUTES,
   redirectsWhenAuthenticated,
 } from "@/lib/permissions/route-access";
 
@@ -51,6 +52,12 @@ describe("isPublicRoute", () => {
     for (const path of ["/api/health", "/api/documents", "/api/projects", "/api/health/ready/x"]) {
       expect(isPublicRoute(path), path).toBe(false);
     }
+  });
+
+  it("admits only the three public pricing endpoints", () => {
+    for (const path of PUBLIC_PRICING_ROUTES) expect(isPublicRoute(path), path).toBe(true);
+    expect(isPublicRoute("/api/public/pricing/admin")).toBe(false);
+    expect(isPublicRoute("/api/public/pricing/calculate/extra")).toBe(false);
   });
 });
 

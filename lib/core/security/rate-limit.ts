@@ -19,7 +19,9 @@ export type RateLimitCategory =
   | "EXPORT"
   | "UPLOAD"
   | "DOWNLOAD_GRANT"
-  | "GENERAL_API";
+  | "GENERAL_API"
+  | "PUBLIC_PRICING"
+  | "PUBLIC_PRICING_LEAD";
 
 type Rule = { limit: number; windowMs: number; failClosed: boolean };
 
@@ -32,6 +34,8 @@ const RULES: Record<RateLimitCategory, Rule> = {
   UPLOAD: { limit: 50, windowMs: 60_000, failClosed: false },
   DOWNLOAD_GRANT: { limit: 120, windowMs: 60_000, failClosed: false },
   GENERAL_API: { limit: 300, windowMs: 5 * 60_000, failClosed: false },
+  PUBLIC_PRICING: { limit: 120, windowMs: 5 * 60_000, failClosed: false },
+  PUBLIC_PRICING_LEAD: { limit: 10, windowMs: 60 * 60_000, failClosed: true },
 };
 
 type Counter = { count: number; resetAt: number };

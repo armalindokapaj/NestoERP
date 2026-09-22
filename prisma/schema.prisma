@@ -4069,8 +4069,8 @@ enum WorkspaceScope {
 /// so revoking access is a delete rather than a wait for a token to expire
 /// (PRD #6 §51, §113).
 model Session {
-  id               String   @id @default(cuid())
-  sessionToken     String   @unique
+  id               String          @id @default(cuid())
+  sessionToken     String          @unique
   userId           String
   /// Both null for a platform session: the Platform Admin works outside every
   /// company and has no membership to point at (E-06 §6.1, §19, §116).
@@ -12613,4 +12613,149 @@ model EngineeringSettings {
   updatedAt DateTime @updatedAt
 
   @@map("engineering_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Public pricing configurator
+// ---------------------------------------------------------------------------
+
+enum PricingVersionStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum PricingPromotionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PricingQuoteStatus {
+  CALCULATED
+  LEAD_SUBMITTED
+  PROPOSAL_REQUESTED
+  EXPIRED
+  CONVERTED
+}
+
+enum PricingLeadRequestType {
+  FORMAL_PROPOSAL
+  TALK_TO_SALES
+  THREE_D_PRODUCTION
+}
+
+enum PricingAuditAction {
+  PRICE_VERSION_CREATED
+  PRICE_VERSION_UPDATED
+  PRICE_VERSION_PUBLISHED
+  PRICE_VERSION_RETIRED
+  PROMOTION_CREATED
+  PROMOTION_UPDATED
+  QUOTE_CALCULATED
+  QUOTE_LEAD_SUBMITTED
+}
+
+/// An immutable commercial price book once published. New calculations always
+/// resolve the single ACTIVE version; old quotes keep their original snapshot.
+model PricingVersion {
+  id                String               @id @default(cuid())
+  versionCode       String               @unique
+  currency          String               @default("EUR")
+  status            PricingVersionStatus @default(DRAFT)
+  configJson        Json
+  effectiveFrom     DateTime
+  effectiveUntil    DateTime?
+  createdByUserId   String?
+  publishedByUserId String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  publishedAt       DateTime?
+
+  quotes PricingQuote[]
+
+  @@index([status, effectiveFrom])
+  @@map("pricing_versions")
+}
+
+/// Promotions are configuration, never component logic. The engine validates
+/// product, term and availability before applying their schedule.
+model PricingPromotion {
+  id              String                 @id @default(cuid())
+  code            String                 @unique
+  name            String
+  status          PricingPromotionStatus @default(INACTIVE)
+  configJson      Json
+  startsAt        DateTime?
+  endsAt          DateTime?
+  createdByUserId String?
+  updatedByUserId String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([status, startsAt, endsAt])
+  @@map("pricing_promotions")
+}
+
+/// A saved, immutable calculator result. Pricing and configuration snapshots
+/// make the commercial result reproducible after a new price book is published.
+model PricingQuote {
+  id                      String             @id @default(cuid())
+  reference               String             @unique
+  pricingVersionId        String
+  pricingVersionCode      String
+  productMode             String
+  configurationJson       Json
+  calculatedResultJson    Json
+  currency                String             @default("EUR")
+  standardMonthlyCents    BigInt
+  contractMonths          Int
+  preIndexationValueCents BigInt
+  promotionCode           String?
+  status                  PricingQuoteStatus @default(CALCULATED)
+  createdAt               DateTime           @default(now())
+  expiresAt               DateTime
+
+  pricingVersion PricingVersion @relation(fields: [pricingVersionId], references: [id], onDelete: Restrict)
+  leads          PricingLead[]
+
+  @@index([pricingVersionCode, createdAt])
+  @@index([status, expiresAt])
+  @@map("pricing_quotes")
+}
+
+model PricingLead {
+  id            String                 @id @default(cuid())
+  quoteId       String
+  requestType   PricingLeadRequestType @default(FORMAL_PROPOSAL)
+  fullName      String
+  companyName   String
+  businessEmail String
+  phone         String?
+  message       String?
+  consentAt     DateTime
+  createdAt     DateTime               @default(now())
+
+  quote PricingQuote @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+
+  @@index([quoteId, createdAt])
+  @@index([businessEmail, createdAt])
+  @@map("pricing_leads")
+}
+
+/// Focused commercial audit evidence. Public actors are intentionally null;
+/// no anonymous audit row contains network identifiers or personal form data.
+model PricingAuditLog {
+  id             String             @id @default(cuid())
+  actorUserId    String?
+  action         PricingAuditAction
+  entityType     String
+  entityId       String
+  pricingVersion String?
+  beforeJson     Json?
+  afterJson      Json?
+  createdAt      DateTime           @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([action, createdAt])
+  @@map("pricing_audit_logs")
 }
