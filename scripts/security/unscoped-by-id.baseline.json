@@ -76,6 +76,7 @@
   "lib/modules/meetings/meeting.task-sync.ts": 2,
   "lib/modules/people/people.service.ts": 1,
   "lib/modules/platform/platform-control.service.ts": 9,
+  "lib/modules/pricing/pricing.service.ts": 8,
   "lib/modules/procurement/approvals/approval.service.ts": 2,
   "lib/modules/procurement/orders/order.service.ts": 5,
   "lib/modules/procurement/procurement.dto.ts": 1,

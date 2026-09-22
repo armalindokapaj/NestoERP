@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**833 route handlers, 257 server actions.** AUTHENTICATED 29 · COMPANY_SCOPED 1017 · PLATFORM 32 · PUBLIC 7 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**849 route handlers, 257 server actions.** AUTHENTICATED 29 · COMPANY_SCOPED 1017 · PLATFORM 45 · PUBLIC 10 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/announcements
 
@@ -632,7 +632,11 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
+| PATCH | `/api/platform/3d/experiences/[projectId]` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
+| GET | `/api/platform/3d/experiences` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
+| POST | `/api/platform/3d/experiences` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | PUT | `/api/platform/3d/projects/[projectId]/config` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
+| GET | `/api/platform/3d/projects/[projectId]/cover` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | PUT | `/api/platform/3d/projects/[projectId]/entitlement` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | POST | `/api/platform/3d/projects/[projectId]/releases/[releaseId]/activate` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | `stateDenied` | security |
 | GET | `/api/platform/3d/projects/[projectId]/releases` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
@@ -640,6 +644,10 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/platform/3d/projects/[projectId]` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | POST | `/api/platform/3d/projects/[projectId]/slots/[slotId]/uploads` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | POST | `/api/platform/3d/projects/[projectId]/slots` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
+| PATCH | `/api/platform/3d/projects/[projectId]/structure/[kind]/[recordId]` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound`, `requireStructureProject` | — | security |
+| DELETE | `/api/platform/3d/projects/[projectId]/structure/[kind]/[recordId]` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound`, `requireStructureProject` | — | security |
+| GET | `/api/platform/3d/projects/[projectId]/structure` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound`, `requireStructureProject` | — | security |
+| POST | `/api/platform/3d/projects/[projectId]/structure` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound`, `requireStructureProject` | — | security |
 | GET | `/api/platform/3d/projects/[projectId]/versions/[versionId]/bindings` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound`, `requireVersion` | — | security |
 | PUT | `/api/platform/3d/projects/[projectId]/versions/[versionId]/bindings` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound`, `requireVersion` | `stateDenied` | security |
 | POST | `/api/platform/3d/projects/[projectId]/versions/[versionId]/complete` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
@@ -664,6 +672,11 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | PATCH | `/api/platform/parent-groups/[groupId]` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | GET | `/api/platform/parent-groups` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
 | POST | `/api/platform/parent-groups` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
+| PATCH | `/api/platform/pricing/promotions/[promotionId]` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
+| POST | `/api/platform/pricing/versions/[versionId]/publish` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
+| PATCH | `/api/platform/pricing/versions/[versionId]` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
+| GET | `/api/platform/pricing/versions` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
+| POST | `/api/platform/pricing/versions` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
 
 ## /api/platform-admin
 
@@ -811,7 +824,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
 | GET | `/api/projects/[projectId]/3d-experience` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere` | `assertFound` | — | sweep |
-| GET | `/api/projects/[projectId]/3d/bootstrap` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere` | `assertFound` | — | sweep |
+| GET | `/api/projects/[projectId]/3d/bootstrap` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +723 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound` | — | sweep |
 | GET | `/api/projects/[projectId]/activity` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere` | `assertFound`, `findProjectInScope` | — | sweep |
 | POST | `/api/projects/[projectId]/archive` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere` | `assertFound`, `findProjectInScope` | `applyTransition` | sweep |
 | POST | `/api/projects/[projectId]/buildings/reorder` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `structureProjectDoor` | — | — | sweep |
@@ -890,6 +903,14 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | POST | `/api/projects/unit-types/reorder` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | — | — | — | sweep |
 | GET | `/api/projects/unit-types` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | — | — | — | sweep |
 | POST | `/api/projects/unit-types` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | — | — | — | sweep |
+
+## /api/public
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| POST | `/api/public/pricing/calculate` | PUBLIC | — | — | — | — | — | security |
+| GET | `/api/public/pricing/config` | PUBLIC | — | — | — | — | — | security |
+| POST | `/api/public/pricing/lead` | PUBLIC | — | — | — | — | — | security |
 
 ## /api/qaqc
 

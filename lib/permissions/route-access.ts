@@ -46,6 +46,13 @@ export const PUBLIC_OPERATIONAL_ROUTES = [
   "/api/health/ready",
 ] as const;
 
+/** Public configurator endpoints validate, rate-limit, and sanitize their own payloads. */
+export const PUBLIC_PRICING_ROUTES = [
+  "/api/public/pricing/config",
+  "/api/public/pricing/calculate",
+  "/api/public/pricing/lead",
+] as const;
+
 /**
  * Machine endpoints that carry their own credential (PRD #38 §97, §105).
  *
@@ -95,6 +102,7 @@ export function isDeadSessionReason(reason: string | null | undefined): boolean 
 export function isPublicRoute(pathname: string): boolean {
   if ((PUBLIC_ROUTES as readonly string[]).includes(pathname)) return true;
   if ((PUBLIC_OPERATIONAL_ROUTES as readonly string[]).includes(pathname)) return true;
+  if ((PUBLIC_PRICING_ROUTES as readonly string[]).includes(pathname)) return true;
   if ((TOKEN_AUTHENTICATED_ROUTES as readonly string[]).includes(pathname)) return true;
   // An invitation stays reachable while signed in: somebody with an existing
   // account accepts it from their own session (PRD #14 §75).
