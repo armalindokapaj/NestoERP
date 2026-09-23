@@ -197,6 +197,8 @@ export type DemoAccountTarget =
       platform: boolean;
       /** Where a normal sign-in of this account lands (C-01 §26, §27). */
       landing: "/platform-admin" | "/dashboard";
+      /** The demo password this account was seeded with. Server-side only. */
+      password: string;
     }
   | { allowed: false; reason: DemoAccountRefusal };
 
@@ -238,7 +240,17 @@ export async function resolveDemoAccountTarget(input: string): Promise<DemoAccou
   const workspace = signInWorkspace(account);
   if (!workspace) return { allowed: false, reason: "NO_WORKSPACE" };
   const lapsed = account.temporaryPasswordExpiresAt !== null && account.temporaryPasswordExpiresAt.getTime() <= Date.now();
-  if (lapsed || !(await verifyPassword(DEMO_PASSWORD, account.passwordHash))) return { allowed: false, reason: "PASSWORD_REFUSED" };
+  // A demo tenant may be seeded with a password of its own, held in a
+  // `<TENANT>_DEMO_PASSWORD` variable on a hosted demo (D-01 §87); the tenant
+  // is data, so the variable is found by its suffix, never by its name (§92).
+  let password: string | null = null;
+  if (!lapsed) {
+    const tenantPasswords = Object.entries(process.env).filter(([key]) => key.endsWith("_DEMO_PASSWORD")).map(([, value]) => value);
+    for (const candidate of new Set([DEMO_PASSWORD, ...tenantPasswords].filter((value): value is string => !!value))) {
+      if (await verifyPassword(candidate, account.passwordHash)) { password = candidate; break; }
+    }
+  }
+  if (password === null) return { allowed: false, reason: "PASSWORD_REFUSED" };
 
   return {
     allowed: true,
@@ -247,5 +259,6 @@ export async function resolveDemoAccountTarget(input: string): Promise<DemoAccou
     name: nameOf(account),
     platform: workspace.platform,
     landing: workspace.platform ? "/platform-admin" : "/dashboard",
+    password,
   };
 }
