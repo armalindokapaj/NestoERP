@@ -1,3 +1,4 @@
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -86,7 +87,12 @@ export default async function RequestDetailPage({ params }: Params) {
             value: request.requiredDate ? formatDate(request.requiredDate) : "No date",
           },
         ]}
-        actions={<RequestActions request={request} />}
+        actions={
+          <>
+            <RecordFavorite context={context} entityType="purchase_request" entityId={request.id} />
+            <RequestActions request={request} />
+          </>
+        }
       />
 
       {request.archivedAt ? (

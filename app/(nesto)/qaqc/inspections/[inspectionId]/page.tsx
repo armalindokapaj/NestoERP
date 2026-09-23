@@ -50,7 +50,7 @@ export default async function InspectionPage({ params }: Params) {
       inspection.capabilities.canRelease);
 
   return (
-    <InspectionPageShell inspection={inspection} tab="overview">
+    <InspectionPageShell context={context} inspection={inspection} tab="overview">
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">

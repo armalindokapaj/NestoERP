@@ -85,12 +85,13 @@ describe("favorites (§69-§93, §315)", () => {
 });
 
 describe("recent work (§94-§115, §316)", () => {
-  it("records meaningful access at most every ten minutes, newest first, only for records the member can open", async () => {
+  it("records every open as one row per record (Fast Re-entry §21, §205), newest first, only for records the member can open", async () => {
     const now = new Date();
     expect(await recordRecentAccess(architect, "task", "task_004", { now })).toBe(true);
-    expect(await recordRecentAccess(architect, "task", "task_004", { now: new Date(now.getTime() + 60_000) })).toBe(false);
+    expect(await recordRecentAccess(architect, "task", "task_004", { now: new Date(now.getTime() + 60_000) })).toBe(true);
     expect(await recordRecentAccess(architect, "task", "task_004", { now: new Date(now.getTime() + 11 * 60_000) })).toBe(true);
-    expect((await prisma.recentItem.findFirstOrThrow({ where: { memberId: architect.membershipId, entityId: "task_004" } })).accessCount).toBe(2);
+    expect((await prisma.recentItem.findFirstOrThrow({ where: { memberId: architect.membershipId, entityId: "task_004" } })).accessCount).toBe(3);
+    expect(await prisma.recentItem.count({ where: { memberId: architect.membershipId, entityId: "task_004" } })).toBe(1);
 
     expect(await recordRecentAccess(architect, "project_milestone", "milestone_riverside_roof", { now: new Date(now.getTime() + 12 * 60_000) })).toBe(true);
     expect((await listRecentWork(architect)).map((item) => item.entityId)).toEqual(["milestone_riverside_roof", "task_004"]);

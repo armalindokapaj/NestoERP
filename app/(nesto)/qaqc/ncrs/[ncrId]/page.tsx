@@ -1,3 +1,4 @@
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -82,7 +83,12 @@ export default async function NcrPage({ params }: Params) {
           },
           { label: "Due", value: ncr.dueDate ? formatDate(ncr.dueDate) : "No date" },
         ]}
-        actions={<NcrActions ncr={ncr} />}
+        actions={
+          <>
+            <RecordFavorite context={context} entityType="non_conformance_report" entityId={ncr.id} />
+            <NcrActions ncr={ncr} />
+          </>
+        }
       />
 
       {live ? <ClosureGaps gaps={ncr.closureGaps} /> : null}

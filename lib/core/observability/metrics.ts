@@ -98,6 +98,14 @@ export const Metric = {
   UNIT_INSTALLMENTS_DUE_SOON: "unit_installments_due_soon_notified_count",
   COMPLIANCE_EXPIRED: "contractor_compliance_expired_count",
   RECENT_WORK_PRUNED: "recent_work_pruned_count",
+  // Fast Re-entry §176; Quick Create §85; Activity Center §176.
+  RECENT_TOUCH_ERROR: "recent_touch_error_total",
+  FAVORITE_TOGGLE_ERROR: "favorite_toggle_error_total",
+  RECORD_ROUTE_RESOLUTION_FAILURE: "record_route_resolution_failure_total",
+  SEARCH_HOME_LOAD_MS: "search_home_load_ms",
+  MY_WORK_LOAD_MS: "my_work_load_ms",
+  QUICK_CREATE_LAUNCH_DENIED: "quick_create_launch_denied_total",
+  ACTIVITY_CENTER_LOAD_MS: "activity_center_load_ms",
   // Authorization (PRD #47 §196)
   AUTHORIZATION_DENIED: "authorization_denied_total",
   CROSS_COMPANY_DENIED: "cross_company_denied_total",

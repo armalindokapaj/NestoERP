@@ -1,3 +1,4 @@
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -67,7 +68,12 @@ export default async function RfqDetailPage({ params }: Params) {
             value: rfq.responseDueDate ? formatDate(rfq.responseDueDate) : "No date",
           },
         ]}
-        actions={<RfqActions rfq={rfq} />}
+        actions={
+          <>
+            <RecordFavorite context={context} entityType="rfq" entityId={rfq.id} />
+            <RfqActions rfq={rfq} />
+          </>
+        }
       />
 
       <div className="grid gap-4 lg:grid-cols-3">

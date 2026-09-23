@@ -1,28 +1,26 @@
 import { Prisma } from "@prisma/client";
 
-import { inGroupWorkspace } from "@/config/workspace";
 import type { UserContext } from "@/lib/context/types";
-import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
 import { jobStopRequested } from "@/lib/core/jobs/job.context";
 import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { canNavigate, isNavigableType, resolveNavigable, type NavigableEntityDTO } from "./navigable.registry";
 import { resolveProductivitySettings } from "./productivity.settings";
-import { contextOpening, narrowedTo, type InCompany } from "./productivity.workspace";
+import { contextOpening, narrowedTo, personalContexts, type InCompany } from "./productivity.workspace";
 
 /**
  * Recent Work (PRD #45 §94-§115, §162, §251, §254-§259).
  *
  * The meaningful records a member opened lately — projects, tasks, meetings,
- * logs, documents — never pages, filters or searches. Written at most once per
- * record per member every ten minutes, resolved against current access every
- * time it is shown, kept for the company's retention and capped at a hundred.
+ * logs, documents — never pages, filters or searches. Every open moves the record to the
+ * top (one row per record, Fast Re-entry §21, §72), resolved against current access every
+ * time it is shown, kept for the company's retention and capped at two hundred.
  * It is personal: not audit, not activity, not a measure of anybody's work.
  */
 
-export const RECENT_CAP = 100;
-export const RECENT_DEBOUNCE_MS = 10 * 60_000;
+/** The newest unique records kept per member, whichever comes first with the retention days (Fast Re-entry §68). */
+export const RECENT_CAP = 200;
 
 export type RecentWorkItemDTO = NavigableEntityDTO & InCompany & { lastAccessedAt: string };
 
@@ -35,22 +33,18 @@ export async function recordRecentAccess(context: UserContext, entityType: strin
   try {
     if (!isNavigableType(entityType)) return false;
     const now = options.now ?? new Date();
-    const key = { memberId_entityType_entityId: { memberId: context.membershipId, entityType, entityId } };
-    const existing = await prisma.recentItem.findUnique({ where: key, select: { lastAccessedAt: true } });
-    if (existing && now.getTime() - existing.lastAccessedAt.getTime() < RECENT_DEBOUNCE_MS) return false;
     if (!(await resolveProductivitySettings(context.companyId)).recentWorkEnabled) return false;
     if (!options.verified && !(await canNavigate(context, entityType, entityId))) return false;
-    if (existing) {
-      await prisma.recentItem.update({ where: key, data: { lastAccessedAt: now, accessCount: { increment: 1 } } });
-    } else {
-      try {
-        await prisma.recentItem.create({ data: { companyId: context.companyId, memberId: context.membershipId, entityType, entityId, lastAccessedAt: now } });
-      } catch (error) {
-        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
-      }
-    }
+    // One statement, INSERT … ON CONFLICT: two tabs opening the same record update one row (Fast Re-entry §183, §184).
+    await prisma.recentItem.upsert({
+      where: { memberId_entityType_entityId: { memberId: context.membershipId, entityType, entityId } },
+      create: { companyId: context.companyId, memberId: context.membershipId, entityType, entityId, lastAccessedAt: now },
+      update: { lastAccessedAt: now, accessCount: { increment: 1 } },
+    });
     return true;
-  } catch {
+  } catch (error) {
+    // A lost race on the unique key is the same open; anything else is counted, never thrown (§134).
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) incrementCounter(Metric.RECENT_TOUCH_ERROR, {});
     return false;
   }
 }
@@ -92,8 +86,7 @@ export async function clearRecentWork(context: UserContext): Promise<number> {
  * `companyId` is a filter, ignored unless it is a company the person may use.
  */
 export async function listRecentWorkForWorkspace(session: UserContext, options: { limit?: number; companyId?: string | null } = {}): Promise<RecentWorkItemDTO[]> {
-  if (!inGroupWorkspace(session)) return listRecentWork(session, options);
-  const contexts = narrowedTo(await resolveWorkspaceContexts(session, {}), options.companyId);
+  const contexts = narrowedTo(await personalContexts(session), options.companyId);
   const lists = await Promise.all(
     contexts.map(async (context) => {
       const company = { id: context.companyId, name: context.company.name };
@@ -109,7 +102,6 @@ export async function listRecentWorkForWorkspace(session: UserContext, options: 
 
 /** Records an open. In the Group workspace the record's own company keeps it — the person's membership there — never the company the session is anchored in. */
 export async function recordRecentAccessForWorkspace(session: UserContext, entityType: string, entityId: string): Promise<boolean> {
-  if (!inGroupWorkspace(session)) return recordRecentAccess(session, entityType, entityId);
   if (!isNavigableType(entityType)) return false;
   const owner = await contextOpening(session, { entityType, entityId });
   return owner ? recordRecentAccess(owner, entityType, entityId, { verified: true }) : false;
@@ -117,17 +109,15 @@ export async function recordRecentAccessForWorkspace(session: UserContext, entit
 
 /** The person's own recent rows across the memberships the Group workspace reads; nobody else's is ever named. */
 async function ownRecentWhere(session: UserContext) {
-  return (await resolveWorkspaceContexts(session, {})).map((context) => ({ companyId: context.companyId, memberId: context.membershipId }));
+  return (await personalContexts(session)).map((context) => ({ companyId: context.companyId, memberId: context.membershipId }));
 }
 
 export async function removeRecentItemForWorkspace(session: UserContext, entityType: string, entityId: string): Promise<boolean> {
-  if (!inGroupWorkspace(session)) return removeRecentItem(session, entityType, entityId);
   const { count } = await prisma.recentItem.deleteMany({ where: { OR: await ownRecentWhere(session), entityType, entityId } });
   return count > 0;
 }
 
 export async function clearRecentWorkForWorkspace(session: UserContext): Promise<number> {
-  if (!inGroupWorkspace(session)) return clearRecentWork(session);
   return (await prisma.recentItem.deleteMany({ where: { OR: await ownRecentWhere(session) } })).count;
 }
 

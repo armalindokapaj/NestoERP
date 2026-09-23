@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
+import { publishMyWorkChange, subscribeMyWork } from "@/lib/productivity/client";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -19,6 +20,10 @@ export function FavoriteButton({ entityType, entityId, initial, compact = false 
   const [pending, setPending] = React.useState(false);
 
   React.useEffect(() => setFavorite(initial), [initial]);
+  // The same star in another tab follows this one (Fast Re-entry §88, §216).
+  React.useEffect(() => subscribeMyWork((change) => {
+    if (change.kind === "favorite" && change.entityType === entityType && change.entityId === entityId) setFavorite(change.favorite);
+  }), [entityType, entityId]);
 
   async function toggle() {
     const next = !favorite;
@@ -27,9 +32,10 @@ export function FavoriteButton({ entityType, entityId, initial, compact = false 
     try {
       if (next) await announcementApi("/api/favorites", { body: { entityType, entityId } });
       else await announcementApi(`/api/favorites/${entityType}/${entityId}`, { method: "DELETE" });
+      publishMyWorkChange({ kind: "favorite", entityType, entityId, favorite: next });
     } catch (error) {
       setFavorite(!next);
-      toast({ title: failureMessage(error, "Favorites could not be updated."), tone: "danger" });
+      toast({ title: failureMessage(error, "Could not update Favorite."), tone: "danger" });
     } finally {
       setPending(false);
     }
@@ -37,7 +43,7 @@ export function FavoriteButton({ entityType, entityId, initial, compact = false 
 
   const label = favorite ? "Favorited" : "Favorite";
   return (
-    <Button type="button" variant={compact ? "ghost" : "secondary"} size={compact ? "icon-sm" : "sm"} onClick={() => void toggle()} disabled={pending} aria-pressed={favorite} aria-label={compact ? label : undefined} title={favorite ? "Remove from favorites" : "Add to favorites"} data-testid="favorite-button">
+    <Button type="button" variant={compact ? "ghost" : "secondary"} size={compact ? "icon-sm" : "sm"} onClick={() => void toggle()} disabled={pending} aria-pressed={favorite} aria-label={favorite ? "Remove from favorites" : "Add to favorites"} title={favorite ? "Remove from favorites" : "Add to favorites"} data-testid="favorite-button">
       <Star aria-hidden="true" className={cn("transition-colors", favorite ? "fill-warning text-warning" : "text-fg-subtle")} />
       {compact ? null : <span>{label}</span>}
     </Button>

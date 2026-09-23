@@ -1,3 +1,4 @@
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -58,10 +59,12 @@ export async function loadInspectionPage(
 }
 
 export function InspectionPageShell({
+  context,
   inspection,
   tab,
   children,
 }: {
+  context: UserContext;
   inspection: InspectionDetailDTO;
   tab: InspectionTabKey;
   children: React.ReactNode;
@@ -111,7 +114,12 @@ export function InspectionPageShell({
             value: inspection.project ? inspection.project.code : "Company",
           },
         ]}
-        actions={<InspectionActions inspection={inspection} />}
+        actions={
+          <>
+            <RecordFavorite context={context} entityType="quality_inspection" entityId={inspection.id} />
+            <InspectionActions inspection={inspection} />
+          </>
+        }
       />
 
       <nav aria-label="Inspection sections" className="border-b border-line">

@@ -196,6 +196,12 @@ const NAVIGABLE_MODELS: Record<(typeof NAVIGABLE_TYPES)[number], string> = {
   contract: "Contract",
   purchase_order: "PurchaseOrder",
   invoice: "Invoice",
+  project_unit: "ProjectUnit",
+  purchase_request: "PurchaseRequest",
+  rfq: "RFQ",
+  quality_inspection: "QualityInspection",
+  non_conformance_report: "NonConformanceReport",
+  incident: "HseIncident",
 };
 
 /**

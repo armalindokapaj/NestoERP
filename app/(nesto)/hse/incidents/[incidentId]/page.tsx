@@ -1,3 +1,4 @@
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -90,6 +91,7 @@ export default async function IncidentPage({ params }: Params) {
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <RecordFavorite context={context} entityType="incident" entityId={incident.id} />
             {may.canAssign ? <AssignControl kind="incident" recordId={incident.id} /> : null}
             <IncidentActions incident={incident} />
           </div>

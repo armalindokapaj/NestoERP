@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Boxes, Building2, CalendarClock, FileSignal, FileText, Flag, FolderKanban, History, NotebookPen, Presentation, ReceiptText, Search, ShoppingCart, SquareCheckBig, Star, X, type LucideIcon } from "lucide-react";
+import { Boxes, Building2, CalendarClock, ClipboardCheck, FileSignal, FileText, Flag, FolderKanban, HardHat, History, NotebookPen, Presentation, ReceiptText, Search, ShoppingCart, SquareCheckBig, Star, X, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -36,6 +36,12 @@ export const ENTITY_ICON: Record<NavigableType, LucideIcon> = {
   contract: FileSignal,
   purchase_order: ShoppingCart,
   invoice: ReceiptText,
+  project_unit: Boxes,
+  purchase_request: ShoppingCart,
+  rfq: ShoppingCart,
+  quality_inspection: ClipboardCheck,
+  non_conformance_report: ClipboardCheck,
+  incident: HardHat,
 };
 
 export function relativeTime(iso: string, now = Date.now()): string {

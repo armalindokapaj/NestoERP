@@ -17,12 +17,12 @@ type Params = { params: Promise<{ inspectionId: string }> };
  */
 export default async function ExecuteInspectionPage({ params }: Params) {
   const { inspectionId } = await params;
-  const { inspection } = await loadInspectionPage(inspectionId, "execute");
+  const { context, inspection } = await loadInspectionPage(inspectionId, "execute");
 
   const editable = inspection.capabilities.canExecute;
 
   return (
-    <InspectionPageShell inspection={inspection} tab="execute">
+    <InspectionPageShell context={context} inspection={inspection} tab="execute">
       <div className="space-y-5">
         {!editable ? (
           <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
