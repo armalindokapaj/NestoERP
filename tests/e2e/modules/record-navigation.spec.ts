@@ -27,6 +27,13 @@ test("record breadcrumbs expose workspace hierarchy and keep browser-style histo
   await header.getByRole("button", { name: "Go forward" }).click();
   await expect(page).toHaveURL(/\/projects\/[^/]+\/units$/);
 
+  // Native browser controls and shortcuts must keep the app history cursor in sync.
+  await page.goBack();
+  await expect(page).toHaveURL(detailUrl);
+  await expect(mainRegion(page).getByRole("button", { name: "Go forward" })).toBeEnabled();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/units$/);
+
   await mainRegion(page).getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Projects" }).click();
   await expect(page).toHaveURL(/\/projects$/);
 });
