@@ -11,8 +11,22 @@ import { PrismaClient } from "@prisma/client";
  */
 function resolveDatasourceUrl(): string | undefined {
   const configured = process.env.DATABASE_URL;
-  if (configured && /^postgres(ql)?:\/\//.test(configured)) return undefined;
-  return process.env.POSTGRES_PRISMA_URL || undefined;
+  const url = configured && /^postgres(ql)?:\/\//.test(configured) ? configured : process.env.POSTGRES_PRISMA_URL;
+  return url ? withServerlessPool(url) : undefined;
+}
+
+/**
+ * Prisma's default pool is `num_cpus * 2 + 1` — five on a Vercel function —
+ * and a dashboard fans out more queries than that at once, so requests timed
+ * out waiting for a connection. Behind the pooler a function can hold more.
+ * Anything the URL already says wins.
+ */
+function withServerlessPool(url: string): string {
+  if (!process.env.VERCEL) return url;
+  const parsed = new URL(url);
+  if (!parsed.searchParams.has("connection_limit")) parsed.searchParams.set("connection_limit", "20");
+  if (!parsed.searchParams.has("pool_timeout")) parsed.searchParams.set("pool_timeout", "30");
+  return parsed.toString();
 }
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
