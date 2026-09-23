@@ -25,6 +25,8 @@ export type NavigableEntityDTO = {
   title: string;
   subtitle?: string;
   href: string;
+  /** The module the record belongs to, resolved server-side — never a label the browser sent (Fast Re-entry §16, §93). */
+  moduleKey: ModuleKey;
   iconKey: string;
   status?: string;
   project?: { id: string; name: string };
@@ -34,7 +36,7 @@ type Provider = {
   key: NavigableType;
   moduleKey: ModuleKey;
   permissions: Permission[];
-  resolveMany(context: UserContext, ids: string[]): Promise<NavigableEntityDTO[]>;
+  resolveMany(context: UserContext, ids: string[]): Promise<Array<Omit<NavigableEntityDTO, "moduleKey">>>;
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -176,6 +178,71 @@ const PROVIDERS: Provider[] = [
       return rows.map((row) => ({ entityType: "invoice", entityId: row.id, title: `Invoice ${row.invoiceNumber}`, subtitle: row.client?.name ?? "Invoice", href: `/finance/invoices/${row.id}`, iconKey: "invoice", status: row.status, project: projectRef(row.project, open) }));
     },
   },
+  {
+    key: "project_unit",
+    moduleKey: "projects",
+    permissions: ["project.view", "project.structure.view"],
+    async resolveMany(context, ids) {
+      const { readableUnitWhere } = await import("@/lib/modules/project-structure/structure.permissions");
+      const rows = await prisma.projectUnit.findMany({ where: { AND: [readableUnitWhere(context), inIds(ids)] }, select: { id: true, unitCode: true, publicationStatus: true, projectId: true, project: { select: { name: true } } } });
+      return rows.map((row) => ({ entityType: "project_unit", entityId: row.id, title: row.unitCode, subtitle: `Unit · ${row.project.name}`, href: `/projects/${row.projectId}/units/${row.id}`, iconKey: "unit", status: row.publicationStatus, project: { id: row.projectId, name: row.project.name } }));
+    },
+  },
+  {
+    key: "purchase_request",
+    moduleKey: "procurement",
+    permissions: ["procurement.request.view"],
+    async resolveMany(context, ids) {
+      const { buildRequestScopeWhere } = await import("@/lib/modules/procurement/procurement.scope");
+      const rows = await prisma.purchaseRequest.findMany({ where: { AND: [buildRequestScopeWhere(context), inIds(ids)] }, select: { id: true, requestNumber: true, title: true, status: true, project: { select: { id: true, name: true } } } });
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => ({ entityType: "purchase_request", entityId: row.id, title: row.requestNumber ?? row.title, subtitle: ["Purchase request", row.requestNumber ? row.title : null].filter(Boolean).join(" · "), href: `/procurement/requests/${row.id}`, iconKey: "purchase_request", status: row.status, project: projectRef(row.project, open) }));
+    },
+  },
+  {
+    key: "rfq",
+    moduleKey: "procurement",
+    permissions: ["procurement.rfq.view"],
+    async resolveMany(context, ids) {
+      const { buildRfqScopeWhere } = await import("@/lib/modules/procurement/procurement.scope");
+      const rows = await prisma.rFQ.findMany({ where: { AND: [buildRfqScopeWhere(context), inIds(ids)] }, select: { id: true, rfqNumber: true, title: true, status: true, project: { select: { id: true, name: true } } } });
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => ({ entityType: "rfq", entityId: row.id, title: row.rfqNumber ?? row.title, subtitle: ["RFQ", row.rfqNumber ? row.title : null].filter(Boolean).join(" · "), href: `/procurement/rfqs/${row.id}`, iconKey: "rfq", status: row.status, project: projectRef(row.project, open) }));
+    },
+  },
+  {
+    key: "quality_inspection",
+    moduleKey: "qaqc",
+    permissions: ["qaqc.inspection.view"],
+    async resolveMany(context, ids) {
+      const { buildInspectionScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
+      const rows = await prisma.qualityInspection.findMany({ where: { AND: [buildInspectionScopeWhere(context), inIds(ids)] }, select: { id: true, inspectionNumber: true, status: true, project: { select: { id: true, name: true } } } });
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => ({ entityType: "quality_inspection", entityId: row.id, title: `Inspection ${row.inspectionNumber}`, subtitle: "QA/QC inspection", href: `/qaqc/inspections/${row.id}`, iconKey: "quality_inspection", status: row.status, project: projectRef(row.project, open) }));
+    },
+  },
+  {
+    key: "non_conformance_report",
+    moduleKey: "qaqc",
+    permissions: ["qaqc.ncr.view"],
+    async resolveMany(context, ids) {
+      const { buildNcrScopeWhere } = await import("@/lib/modules/qaqc/qaqc.scope");
+      const rows = await prisma.nonConformanceReport.findMany({ where: { AND: [buildNcrScopeWhere(context), inIds(ids)] }, select: { id: true, ncrNumber: true, title: true, status: true, project: { select: { id: true, name: true } } } });
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => ({ entityType: "non_conformance_report", entityId: row.id, title: row.ncrNumber ?? row.title, subtitle: ["NCR", row.ncrNumber ? row.title : null].filter(Boolean).join(" · "), href: `/qaqc/ncrs/${row.id}`, iconKey: "ncr", status: row.status, project: projectRef(row.project, open) }));
+    },
+  },
+  {
+    key: "incident",
+    moduleKey: "hse",
+    permissions: ["hse.incident.view"],
+    async resolveMany(context, ids) {
+      const { buildIncidentScopeWhere } = await import("@/lib/modules/hse/hse.scope");
+      const rows = await prisma.hseIncident.findMany({ where: { AND: [buildIncidentScopeWhere(context), inIds(ids)] }, select: { id: true, incidentNumber: true, title: true, status: true, project: { select: { id: true, name: true } } } });
+      const open = await openProjectIds(context, rows.map((row) => row.project?.id));
+      return rows.map((row) => ({ entityType: "incident", entityId: row.id, title: row.incidentNumber ?? row.title, subtitle: ["HSE incident", row.incidentNumber ? row.title : null].filter(Boolean).join(" · "), href: `/hse/incidents/${row.id}`, iconKey: "hse_incident", status: row.status, project: projectRef(row.project, open) }));
+    },
+  },
 ];
 
 const BY_KEY = new Map(PROVIDERS.map((provider) => [provider.key, provider]));
@@ -200,7 +267,7 @@ export async function resolveNavigable(context: UserContext, refs: Array<{ entit
     [...byType.entries()].map(async ([type, ids]) => {
       const provider = BY_KEY.get(type)!;
       if (!doorOpen(context, provider)) return;
-      for (const item of await provider.resolveMany(context, [...new Set(ids)])) resolved.set(`${item.entityType}:${item.entityId}`, item);
+      for (const item of await provider.resolveMany(context, [...new Set(ids)])) resolved.set(`${item.entityType}:${item.entityId}`, { ...item, moduleKey: provider.moduleKey });
     }),
   );
   return refs.map((ref) => resolved.get(`${ref.entityType}:${ref.entityId}`)).filter((item): item is NavigableEntityDTO => Boolean(item));

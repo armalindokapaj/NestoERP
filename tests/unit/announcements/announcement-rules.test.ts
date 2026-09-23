@@ -92,7 +92,7 @@ describe("validation (§18, §19, §156, §178, §290)", () => {
   });
 
   it("accepts only registered record types for favorites and recent work (§163, §317)", () => {
-    expect(NAVIGABLE_TYPES).toEqual(["project", "project_milestone", "task", "meeting", "daily_log", "client", "document", "contract", "purchase_order", "invoice"]);
+    expect(NAVIGABLE_TYPES).toEqual(["project", "project_milestone", "task", "meeting", "daily_log", "client", "document", "contract", "purchase_order", "invoice", "project_unit", "purchase_request", "rfq", "quality_inspection", "non_conformance_report", "incident"]);
     expect(isNavigableType("employee")).toBe(false);
     expect(entityRefSchema.safeParse({ entityType: "leave_request", entityId: "leave_1" }).success).toBe(false);
     expect(entityRefSchema.safeParse({ entityType: "project", entityId: "../../etc" }).success).toBe(false);

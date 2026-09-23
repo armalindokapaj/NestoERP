@@ -1,3 +1,4 @@
+import { RecordFavorite } from "@/components/productivity/record-favorite";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -107,6 +108,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
         ]}
         actions={
           <>
+            <RecordFavorite context={page.context} entityType="project_unit" entityId={unit.id} />
             <PublishingActions unitId={unit.id} unitCode={unit.unitCode} version={unit.version} publishing={publishing} />
             {structure ? <UnitActions unit={unit} types={structure.unitTypes} buildings={structure.buildings} /> : null}
           </>

@@ -13,7 +13,7 @@ export default async function InspectionDocumentsPage({ params }: Params) {
   const { context, inspection } = await loadInspectionPage(inspectionId, "documents");
 
   return (
-    <InspectionPageShell inspection={inspection} tab="documents">
+    <InspectionPageShell context={context} inspection={inspection} tab="documents">
       <QaqcRecordDocuments
         context={context}
         entityType="quality_inspection"
