@@ -11,6 +11,7 @@ import {
 
 const HISTORY_KEY = "nesto-record-navigation-v1";
 const HISTORY_LIMIT = 75;
+const BROWSER_INDEX_KEY = "__nestoNavigationIndex";
 
 export type NavigationWorkspace = {
   key: string;
@@ -63,6 +64,16 @@ function writeHistory(value: StoredHistory): void {
   }
 }
 
+function browserHistoryIndex(): number | null {
+  const value = window.history.state?.[BROWSER_INDEX_KEY];
+  return Number.isInteger(value) ? value : null;
+}
+
+function tagBrowserHistory(index: number): void {
+  const current = window.history.state;
+  window.history.replaceState({ ...(current && typeof current === "object" ? current : {}), [BROWSER_INDEX_KEY]: index }, "");
+}
+
 export function RecordNavigationProvider({
   workspace,
   children,
@@ -80,8 +91,17 @@ export function RecordNavigationProvider({
 
   React.useEffect(() => {
     const stored = readHistory();
+    const browserIndex = browserHistoryIndex();
+    const browserEntry = browserIndex === null ? undefined : stored.entries[browserIndex];
+    if (browserIndex !== null && browserEntry?.route === route && browserEntry.workspaceKey === workspace.key) {
+      const restored = { ...stored, index: browserIndex };
+      writeHistory(restored);
+      setHistory(restored);
+      return;
+    }
     const current = stored.entries[stored.index];
     if (current?.route === route && current.workspaceKey === workspace.key) {
+      tagBrowserHistory(stored.index);
       setHistory(stored);
       return;
     }
@@ -96,6 +116,7 @@ export function RecordNavigationProvider({
     const limited = entries.slice(-HISTORY_LIMIT);
     const next = { entries: limited, index: limited.length - 1 };
     writeHistory(next);
+    tagBrowserHistory(next.index);
     setHistory(next);
   // The route-change effect below owns subsequent entries.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,6 +130,7 @@ export function RecordNavigationProvider({
       navigating.current = false;
       const next = { ...history, index };
       writeHistory(next);
+      tagBrowserHistory(next.index);
       setHistory(next);
       return;
     }
@@ -126,6 +148,7 @@ export function RecordNavigationProvider({
     const limited = entries.slice(-HISTORY_LIMIT);
     const next = { entries: limited, index: limited.length - 1 };
     writeHistory(next);
+    tagBrowserHistory(next.index);
     setHistory(next);
     navigating.current = false;
   }, [route, workspace.key]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -149,11 +172,15 @@ export function RecordNavigationProvider({
     }
 
     movingTo.current = targetIndex;
+    const nextHistory = { ...history, index: targetIndex };
+    writeHistory(nextHistory);
+    setHistory(nextHistory);
     const destination = result.data.navigation.destination;
     const sameWorkspace = target.workspaceKey === workspace.key;
     const exact = destination === target.route;
     if (sameWorkspace && exact) {
-      router.push(destination);
+      if (direction < 0) router.back();
+      else router.forward();
     } else {
       router.replace(destination);
     }
