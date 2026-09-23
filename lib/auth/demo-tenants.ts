@@ -156,11 +156,14 @@ export async function demoRosters(): Promise<DemoRosterOption[]> {
       .catch(() => []),
   ]);
   const curatedNames = new Map(curated.map((user) => [user.username, nameOf(user)]));
+  // Once the database is readable, a curated persona it does not hold is not offered.
+  const seeded = curated.length > 0 ? PRIMARY_DEMO_ACCOUNTS.filter((account) => curatedNames.has(account.username)) : PRIMARY_DEMO_ACCOUNTS;
   const sections = new Map<DemoAccountSection, DemoAccountOption[]>();
-  for (const account of PRIMARY_DEMO_ACCOUNTS) {
+  for (const account of seeded) {
     const entry = option(account.role, account.username, curatedNames.get(account.username) ?? "", account.assignment);
     sections.set(account.section, [...(sections.get(account.section) ?? []), entry]);
   }
+  const platformOnly = [...sections.keys()].every((section) => section === "platform");
   return [
     ...tenants.map((tenant) => ({
       name: tenant.name,
@@ -174,12 +177,16 @@ export async function demoRosters(): Promise<DemoRosterOption[]> {
         })),
       ],
     })),
-    {
-      name: "Five-company demo",
-      summary: "Aurelia Construction and four other companies",
-      sections: [...sections].map(([section, accounts]) => ({ name: DEMO_ACCOUNT_SECTIONS[section], accounts })),
-      folded: tenants.length > 0,
-    },
+    ...(sections.size === 0
+      ? []
+      : [
+          {
+            name: platformOnly ? "Platform" : "Five-company demo",
+            summary: platformOnly ? "Platform administrator" : "Aurelia Construction and four other companies",
+            sections: [...sections].map(([section, accounts]) => ({ name: DEMO_ACCOUNT_SECTIONS[section], accounts })),
+            folded: tenants.length > 0,
+          },
+        ]),
   ];
 }
 
