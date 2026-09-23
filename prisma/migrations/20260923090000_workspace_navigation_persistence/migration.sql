@@ -1,0 +1,2 @@
+ALTER TABLE "sessions"
+ADD COLUMN "workspaceVersion" INTEGER NOT NULL DEFAULT 0;

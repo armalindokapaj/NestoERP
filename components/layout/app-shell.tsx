@@ -15,6 +15,7 @@ import { announcementShellState } from "@/lib/modules/announcements/announcement
 import type { UserContext } from "@/lib/context/types";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
+import { WorkspaceSync } from "@/components/workspace/workspace-sync";
 
 /**
  * The one NESTO application shell (PRD #3 §2, §97).
@@ -52,6 +53,7 @@ export async function AppShell({
   return (
     <TooltipProvider delayDuration={200}>
       <ToastProvider>
+        <WorkspaceSync />
         <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
           <Sidebar navigation={navigation} />
 

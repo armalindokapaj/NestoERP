@@ -67,6 +67,8 @@ export const en = {
     current: "Current workspace",
     switching: "Switching to {name}…",
     switchFailed: "That workspace could not be opened. You are still in {name}.",
+    recordFallback: "Switched to {name}. The previous record is not available here.",
+    moduleFallback: "Switched to {name}. The previous page is not available in this workspace.",
     groupWorkspaceName: "Group Company",
     acrossGroup: "Across {group}",
     companyRequiredTitle: "Choose a company to continue",

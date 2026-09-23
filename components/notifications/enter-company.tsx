@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
@@ -20,6 +21,7 @@ import { requestWorkspaceSwitch } from "@/lib/workspace/client";
  */
 export function EnterCompany({ companyId, companyName, href, backHref, backLabel }: { companyId: string; companyName: string; href: string; backHref: string; backLabel: string }) {
   const t = useTranslations("workspace");
+  const router = useRouter();
   const [attempt, setAttempt] = React.useState(0);
   const [failed, setFailed] = React.useState(false);
 
@@ -28,13 +30,13 @@ export function EnterCompany({ companyId, companyName, href, backHref, backLabel
     setFailed(false);
     void requestWorkspaceSwitch({ scopeType: "COMPANY", companyId }).then((result) => {
       if (cancelled) return;
-      if (result.ok) window.location.assign(href);
+      if (result.ok) router.replace(href);
       else setFailed(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [companyId, href, attempt]);
+  }, [companyId, href, attempt, router]);
 
   return (
     <div className="mx-auto max-w-lg py-10">

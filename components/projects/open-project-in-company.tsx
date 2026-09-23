@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Building2, Loader2 } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
@@ -11,9 +12,8 @@ import { Button } from "@/components/ui/button";
  * Moves the session into the project's company, then opens the project
  * (E-05A §26).
  *
- * A full page load follows rather than a client navigation: the navigation,
- * permissions and everything cached in the browser belonged to the other
- * company, and none of it should survive the move.
+ * The server commits the new workspace before client navigation opens the
+ * project, so the next server component payload is resolved in that company.
  */
 export function OpenProjectInCompany({
   projectId,
@@ -26,6 +26,7 @@ export function OpenProjectInCompany({
   companyName: string;
   destination: string;
 }) {
+  const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
   const started = React.useRef(false);
 
@@ -33,9 +34,9 @@ export function OpenProjectInCompany({
     if (started.current) return;
     started.current = true;
     announcementApi(`/api/projects/${projectId}/open`, { method: "POST" })
-      .then(() => window.location.replace(destination))
+      .then(() => router.replace(destination))
       .catch((failure) => setError(failureMessage(failure, "This project could not be opened.")));
-  }, [projectId, destination]);
+  }, [projectId, destination, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center py-24 text-center" data-testid="open-project-in-company">

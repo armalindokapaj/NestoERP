@@ -129,12 +129,85 @@ describe("the workspaces a person may enter (§5-§9, §77)", () => {
 });
 
 describe("switching workspace (§11, §13, §80, §89-§91)", () => {
+  it("preserves a valid collection and normalizes workspace-bound filters", async () => {
+    const owner = await signIn("owner");
+    const switched = await switchWorkspace(owner, {
+      scopeType: "COMPANY",
+      companyId: COMPANY.b,
+      currentPathname: "/finance/invoices",
+      currentSearch: "?status=OVERDUE&projectId=old-project&page=4&view=table",
+    });
+
+    expect(switched.navigation).toMatchObject({
+      resolution: "KEEP_EXACT",
+      destination: "/finance/invoices?status=OVERDUE&page=1&view=table",
+      reason: "VALID",
+    });
+  });
+
+  it("falls an unavailable record back to its nearest collection", async () => {
+    const owner = await signIn("owner");
+    const switched = await switchWorkspace(owner, {
+      scopeType: "COMPANY",
+      companyId: COMPANY.b,
+      currentPathname: "/projects/project-from-another-workspace",
+    });
+
+    expect(switched.navigation).toMatchObject({
+      resolution: "KEEP_PARENT",
+      destination: "/projects",
+      reason: "RECORD_NOT_AVAILABLE",
+    });
+  });
+
+  it("keeps supported Group collections and falls Group mutations back to their collection", async () => {
+    const owner = await signIn("owner");
+    const inCompany = await switchWorkspace(owner, { scopeType: "COMPANY", companyId: COMPANY.b });
+    const companyContext = await resolveContextForSession(owner.sessionId, { expectedUserId: owner.userId });
+    if (!companyContext.ok) throw new Error(companyContext.reason);
+
+    const collection = await switchWorkspace(companyContext.context, {
+      scopeType: "GROUP",
+      currentPathname: "/finance/invoices",
+      currentSearch: "?status=OVERDUE",
+    });
+    expect(collection.navigation).toMatchObject({ resolution: "KEEP_EXACT", destination: "/finance/invoices?status=OVERDUE", reason: "VALID" });
+
+    const groupContext = await resolveContextForSession(owner.sessionId, { expectedUserId: owner.userId });
+    if (!groupContext.ok) throw new Error(groupContext.reason);
+    await switchWorkspace(groupContext.context, { scopeType: "COMPANY", companyId: COMPANY.b });
+    const companyAgain = await resolveContextForSession(owner.sessionId, { expectedUserId: owner.userId });
+    if (!companyAgain.ok) throw new Error(companyAgain.reason);
+    const mutation = await switchWorkspace(companyAgain.context, {
+      scopeType: "GROUP",
+      currentPathname: "/finance/invoices/new",
+    });
+    expect(mutation.navigation).toMatchObject({ resolution: "KEEP_PARENT", destination: "/finance/invoices", reason: "MUTATION_ROUTE_UNSUPPORTED" });
+    expect(inCompany.context.effectiveModules).toContain("finance");
+  });
+
+  it("does not let an older transition overwrite a newer workspace choice", async () => {
+    const owner = await signIn("owner");
+    await switchWorkspace(owner, { scopeType: "COMPANY", companyId: COMPANY.b, transitionId: 2_000_000 });
+
+    await expect(switchWorkspace(owner, {
+      scopeType: "COMPANY",
+      companyId: COMPANY.c,
+      transitionId: 1_000_000,
+    })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const current = await resolveContextForSession(owner.sessionId, { expectedUserId: owner.userId });
+    if (!current.ok) throw new Error(current.reason);
+    expect(current.context.workspace).toMatchObject({ scopeType: "COMPANY", companyId: COMPANY.b });
+  });
+
   it("moves the same person from the group to a company and back, without changing who they are", async () => {
     const owner = await signIn("owner");
 
     const toCompany = await switchWorkspace(owner, { scopeType: "COMPANY", companyId: COMPANY.b });
     expect(toCompany.switched).toBe(true);
-    expect(toCompany.change).toEqual({ previousScopeType: "GROUP", previousCompanyId: null, nextScopeType: "COMPANY", nextCompanyId: COMPANY.b, parentGroupId: GROUP_ID });
+    expect(toCompany.change).toMatchObject({ previousScopeType: "GROUP", previousCompanyId: null, nextScopeType: "COMPANY", nextCompanyId: COMPANY.b, parentGroupId: GROUP_ID, workspaceKey: `COMPANY:${COMPANY.b}` });
+    expect(toCompany.workspaceVersion).toBeGreaterThan(0);
     expect(toCompany.context).toMatchObject({ scopeType: "COMPANY", companyId: COMPANY.b, accessibleCompanyIds: [COMPANY.b] });
 
     const inCompany = (await resolveContextForSession(owner.sessionId, { expectedUserId: owner.userId }));

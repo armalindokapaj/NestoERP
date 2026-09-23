@@ -1,25 +1,84 @@
 import { WORKSPACE_CHANGED, type WorkspaceChange, type WorkspaceScopeType } from "@/config/workspace";
+import type { WorkspaceNavigationResult } from "@/lib/workspace/route-resolver";
 
-/**
- * The browser's half of a workspace switch (Workspace Context §67, §78).
- *
- * Client-safe: no server imports. The server decides; this only asks it and
- * announces the answer. Whatever is asked here is a request — the session is
- * the state (§14, §15).
- */
+export const WORKSPACE_CHANNEL = "nesto-workspace";
+export const WORKSPACE_DIRTY_STATE_CHANGED = "NESTO_WORKSPACE_DIRTY_STATE_CHANGED";
 
-export type WorkspaceRequest = { scopeType: WorkspaceScopeType; companyId: string | null };
+export type WorkspaceRequest = {
+  scopeType: WorkspaceScopeType;
+  companyId: string | null;
+  currentPathname?: string;
+  currentSearch?: string;
+};
 
-export async function requestWorkspaceSwitch(request: WorkspaceRequest): Promise<{ ok: true } | { ok: false }> {
+export type WorkspaceSwitchData = {
+  switched: boolean;
+  change: WorkspaceChange;
+  navigation: WorkspaceNavigationResult;
+  workspaceVersion: number;
+  workspaceKey: string;
+  effectiveModuleKeys: string[];
+};
+
+export type WorkspaceSwitchResult =
+  | { ok: true; data: WorkspaceSwitchData }
+  | { ok: false; stale?: boolean };
+
+let dirty = false;
+let transitionId = 0;
+let activeRequest: AbortController | null = null;
+
+/** Forms use this shared contract instead of inventing per-page switch prompts. */
+export function setWorkspaceDirtyState(isDirty: boolean): void {
+  dirty = isDirty;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(WORKSPACE_DIRTY_STATE_CHANGED, { detail: { isDirty } }));
+  }
+}
+
+export function hasWorkspaceDirtyState(): boolean {
+  return dirty;
+}
+
+function confirmDiscard(): boolean {
+  if (!dirty || typeof window === "undefined") return true;
+  return window.confirm("You have unsaved changes. Discard them and switch workspace?");
+}
+
+function publish(change: WorkspaceChange): void {
+  window.dispatchEvent(new CustomEvent(WORKSPACE_CHANGED, { detail: change }));
+  if (typeof BroadcastChannel !== "undefined") {
+    const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
+    channel.postMessage(change);
+    channel.close();
+  }
+}
+
+/** Only the newest response may commit in this tab. */
+export async function requestWorkspaceSwitch(request: WorkspaceRequest): Promise<WorkspaceSwitchResult> {
+  if (!confirmDiscard()) return { ok: false };
+
+  const mine = ++transitionId;
+  const serverTransitionId = Date.now() * 1000 + (mine % 1000);
+  activeRequest?.abort();
+  const controller = new AbortController();
+  activeRequest = controller;
+  const currentPathname = request.currentPathname ?? (typeof window === "undefined" ? "/dashboard" : window.location.pathname);
+  const currentSearch = request.currentSearch ?? (typeof window === "undefined" ? "" : window.location.search);
+
   const response = await fetch("/api/workspace", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(request),
+    body: JSON.stringify({ ...request, currentPathname, currentSearch, transitionId: serverTransitionId }),
+    signal: controller.signal,
   }).catch(() => null);
-  if (!response?.ok) return { ok: false };
 
-  const body = (await response.json().catch(() => null)) as { data?: { change?: WorkspaceChange } } | null;
-  // The central event, for anything that must coordinate before the page reloads.
-  if (body?.data?.change) window.dispatchEvent(new CustomEvent(WORKSPACE_CHANGED, { detail: body.data.change }));
-  return { ok: true };
+  if (mine !== transitionId) return { ok: false, stale: true };
+  if (!response?.ok) return { ok: false };
+  const body = (await response.json().catch(() => null)) as { data?: WorkspaceSwitchData } | null;
+  if (!body?.data?.change || !body.data.navigation) return { ok: false };
+
+  dirty = false;
+  publish(body.data.change);
+  return { ok: true, data: body.data };
 }

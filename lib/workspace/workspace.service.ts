@@ -6,6 +6,7 @@ import {
   supportsGroupWorkspace,
   WORKSPACE_CHANGED,
   WORKSPACE_SCOPE_TYPES,
+  workspaceKey,
   type WorkspaceChange,
   type WorkspaceScopeType,
 } from "@/config/workspace";
@@ -16,7 +17,9 @@ import { moveSessionToMembership, setSessionWorkspaceScope, USABLE_GROUP_STATUSE
 import { hasGroupStanding, mayEnterGroupWorkspace, resolveContextForSession } from "@/lib/context/build-context";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { resolveGroupContexts } from "@/lib/context/workspace-access";
+import { resolveWorkspaceRoute, type WorkspaceNavigationResult } from "@/lib/workspace/route-resolver";
 
 /**
  * The workspaces a person can work in, and moving the session between them
@@ -33,6 +36,9 @@ export const switchWorkspaceSchema = z
   .object({
     scopeType: z.enum(WORKSPACE_SCOPE_TYPES),
     companyId: z.string().trim().min(1).max(64).nullish(),
+    currentPathname: z.string().trim().startsWith("/").max(2048).default("/dashboard"),
+    currentSearch: z.string().trim().max(4096).default(""),
+    transitionId: z.number().int().positive().safe().optional(),
   })
   .refine((body) => (body.scopeType === "COMPANY" ? Boolean(body.companyId) : !body.companyId), {
     message: "A company workspace names its company; the Group workspace names none.",
@@ -133,12 +139,18 @@ export type WorkspaceContextDTO = {
   accessibleCompanyIds: string[];
   effectiveModules: ModuleKey[];
   effectiveRoleLabels: string[];
+  workspaceKey: string;
+  workspaceVersion: number;
 };
 
 /** §79 — the effective context of the active workspace: what it lets this person reach. */
 export async function getWorkspaceContext(session: UserContext): Promise<WorkspaceContextDTO> {
   const isGroup = session.workspace.scopeType === "GROUP";
-  const contexts = isGroup ? await resolveGroupContexts(session) : [session];
+  const [contexts, stored] = await Promise.all([
+    isGroup ? resolveGroupContexts(session) : Promise.resolve([session]),
+    prisma.session.findUnique({ where: { id: session.sessionId }, select: { workspaceVersion: true } }),
+  ]);
+  if (!stored) throw new AccessError("FORBIDDEN");
 
   const modules = new Set<ModuleKey>();
   for (const context of contexts) {
@@ -155,6 +167,8 @@ export async function getWorkspaceContext(session: UserContext): Promise<Workspa
     accessibleCompanyIds: contexts.map((context) => context.companyId),
     effectiveModules: MODULE_KEYS.filter((key) => modules.has(key)),
     effectiveRoleLabels: [...new Set(contexts.map((context) => context.roleLabel))].sort(),
+    workspaceKey: workspaceKey(session.workspace),
+    workspaceVersion: stored.workspaceVersion,
   };
 }
 
@@ -162,6 +176,10 @@ export type SwitchWorkspaceResult = {
   switched: boolean;
   change: WorkspaceChange;
   context: WorkspaceContextDTO;
+  navigation: WorkspaceNavigationResult;
+  workspaceVersion: number;
+  workspaceKey: string;
+  effectiveModuleKeys: ModuleKey[];
 };
 
 /**
@@ -174,10 +192,13 @@ export type SwitchWorkspaceResult = {
  */
 export async function switchWorkspace(
   session: UserContext,
-  body: z.infer<typeof switchWorkspaceSchema>,
+  body: z.input<typeof switchWorkspaceSchema>,
   request: { ipAddress?: string | null; userAgent?: string | null } = {},
 ): Promise<SwitchWorkspaceResult> {
   const previous = { scopeType: session.workspace.scopeType, companyId: session.workspace.companyId };
+  const transitionId = body.transitionId !== undefined
+    ? BigInt(body.transitionId)
+    : BigInt(Date.now()) * BigInt(1000);
   let next: { scopeType: WorkspaceScopeType; companyId: string | null; parentGroupId: string };
 
   if (body.scopeType === "GROUP") {
@@ -185,8 +206,12 @@ export async function switchWorkspace(
     if (!mayEnterGroupWorkspace(await resolveGroupContexts(session))) throw new AccessError("FORBIDDEN", undefined, undefined, "SCOPE_DENIED");
     next = { scopeType: "GROUP", companyId: null, parentGroupId: session.parentGroupId };
     if (previous.scopeType !== "GROUP") {
-      const saved = await setSessionWorkspaceScope({ sessionId: session.sessionId, userId: session.userId, scope: "GROUP" });
-      if (!saved) throw new AccessError("FORBIDDEN");
+      const saved = await setSessionWorkspaceScope({ sessionId: session.sessionId, userId: session.userId, scope: "GROUP", transitionId });
+      if (!saved) {
+        const latest = await prisma.session.findFirst({ where: { id: session.sessionId, userId: session.userId }, select: { workspaceTransitionId: true } });
+        if (latest && latest.workspaceTransitionId >= transitionId) incrementCounter(Metric.WORKSPACE_SWITCH_STALE_RESPONSE);
+        throw new AccessError("FORBIDDEN");
+      }
     }
   } else {
     const companyId = body.companyId!;
@@ -215,20 +240,41 @@ export async function switchWorkspace(
         sessionId: session.sessionId,
         userId: session.userId,
         membershipId: membership.id,
+        transitionId,
       });
       // The membership or the session ended in between: nothing moved, nothing changed (§89).
-      if (!moved) throw new AccessError("FORBIDDEN", undefined, undefined, "SCOPE_DENIED");
+      if (!moved) {
+        const latest = await prisma.session.findFirst({ where: { id: session.sessionId, userId: session.userId }, select: { workspaceTransitionId: true } });
+        if (latest && latest.workspaceTransitionId >= transitionId) incrementCounter(Metric.WORKSPACE_SWITCH_STALE_RESPONSE);
+        throw new AccessError("FORBIDDEN", undefined, undefined, "SCOPE_DENIED");
+      }
     }
   }
 
+  const switched = previous.scopeType !== next.scopeType || previous.companyId !== next.companyId;
+
+  // Read the context back from the session row, as the next request will: the
+  // answer the caller gets is the state that was stored, not the state it asked for.
+  const resolved = await resolveContextForSession(session.sessionId, { expectedUserId: session.userId });
+  if (!resolved.ok) throw new AccessError("FORBIDDEN");
+  const [context, navigation] = await Promise.all([
+    getWorkspaceContext(resolved.context),
+    resolveWorkspaceRoute({
+      context: resolved.context,
+      currentPathname: body.currentPathname ?? "/dashboard",
+      currentSearch: body.currentSearch ?? "",
+    }),
+  ]);
+  const key = workspaceKey(resolved.context.workspace);
   const change: WorkspaceChange = {
     previousScopeType: previous.scopeType,
     previousCompanyId: previous.companyId,
-    nextScopeType: next.scopeType,
-    nextCompanyId: next.companyId,
-    parentGroupId: next.parentGroupId,
+    nextScopeType: resolved.context.workspace.scopeType,
+    nextCompanyId: resolved.context.workspace.companyId,
+    parentGroupId: resolved.context.workspace.parentGroupId,
+    workspaceKey: key,
+    workspaceVersion: context.workspaceVersion,
   };
-  const switched = previous.scopeType !== next.scopeType || previous.companyId !== next.companyId;
 
   if (switched) {
     await recordAuthEvent({
@@ -238,14 +284,17 @@ export async function switchWorkspace(
       sessionId: session.sessionId,
       ipAddress: request.ipAddress ?? null,
       userAgent: request.userAgent ?? null,
-      // The central event (§67), carried where the audit trail can find it.
-      metadata: { event: WORKSPACE_CHANGED, ...change },
+      metadata: { event: WORKSPACE_CHANGED, resolution: navigation.resolution, ...change },
     });
   }
 
-  // Read the context back from the session row, as the next request will: the
-  // answer the caller gets is the state that was stored, not the state it asked for.
-  const resolved = await resolveContextForSession(session.sessionId, { expectedUserId: session.userId });
-  if (!resolved.ok) throw new AccessError("FORBIDDEN");
-  return { switched, change, context: await getWorkspaceContext(resolved.context) };
+  return {
+    switched,
+    change,
+    context,
+    navigation,
+    workspaceVersion: context.workspaceVersion,
+    workspaceKey: key,
+    effectiveModuleKeys: context.effectiveModules,
+  };
 }

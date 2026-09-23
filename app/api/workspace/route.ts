@@ -1,6 +1,7 @@
 import { apiOk, readJson, withContext } from "@/lib/api/respond";
 import { clientAddress, userAgentOf } from "@/lib/core/security/throttle";
 import { switchWorkspace, switchWorkspaceSchema } from "@/lib/workspace/workspace.service";
+import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 
 /**
  * POST /api/workspace — work in the parent group, or in one company (Workspace
@@ -15,12 +16,23 @@ import { switchWorkspace, switchWorkspaceSchema } from "@/lib/workspace/workspac
 export async function POST(request: Request) {
   return withContext(
     async (session) => {
-      const body = switchWorkspaceSchema.parse(await readJson(request));
-      const result = await switchWorkspace(session, body, {
-        ipAddress: clientAddress(request.headers),
-        userAgent: userAgentOf(request.headers),
-      });
-      return apiOk({ data: result });
+      const started = performance.now();
+      try {
+        const body = switchWorkspaceSchema.parse(await readJson(request));
+        const result = await switchWorkspace(session, body, {
+          ipAddress: clientAddress(request.headers),
+          userAgent: userAgentOf(request.headers),
+        });
+        incrementCounter(Metric.WORKSPACE_SWITCH_SUCCESS, { resolution: result.navigation.resolution });
+        if (result.navigation.resolution === "KEEP_PARENT") incrementCounter(Metric.WORKSPACE_SWITCH_FALLBACK_PARENT);
+        if (result.navigation.resolution === "DASHBOARD") incrementCounter(Metric.WORKSPACE_SWITCH_FALLBACK_DASHBOARD);
+        return apiOk({ data: result });
+      } catch (error) {
+        incrementCounter(Metric.WORKSPACE_SWITCH_FAILURE);
+        throw error;
+      } finally {
+        incrementCounter(Metric.WORKSPACE_SWITCH_DURATION_MS, {}, Math.max(0, performance.now() - started));
+      }
     },
     { group: "any" },
   );

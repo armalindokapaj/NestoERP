@@ -30,7 +30,15 @@ export type WorkspaceChange = {
   nextScopeType: WorkspaceScopeType;
   nextCompanyId: string | null;
   parentGroupId: string;
+  workspaceKey: string;
+  workspaceVersion: number;
 };
+
+export function workspaceKey(workspace: Pick<WorkspaceContext, "parentGroupId" | "scopeType" | "companyId">): string {
+  return workspace.scopeType === "GROUP"
+    ? `GROUP:${workspace.parentGroupId}`
+    : `COMPANY:${workspace.companyId ?? "unavailable"}`;
+}
 
 /**
  * What a module does when the Group workspace is active (§25, §39, §75).

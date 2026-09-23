@@ -104,6 +104,14 @@ export const Metric = {
   CROSS_PROJECT_DENIED: "cross_project_denied_total",
   MODULE_DISABLED_DENIED: "module_disabled_denied_total",
   PERMISSION_DENIED: "permission_denied_total",
+  // Workspace navigation persistence (Workspace Switching Completion §106)
+  WORKSPACE_SWITCH_SUCCESS: "workspace_switch_success_total",
+  WORKSPACE_SWITCH_FAILURE: "workspace_switch_failure_total",
+  WORKSPACE_SWITCH_FALLBACK_PARENT: "workspace_switch_fallback_parent_total",
+  WORKSPACE_SWITCH_FALLBACK_DASHBOARD: "workspace_switch_fallback_dashboard_total",
+  WORKSPACE_SWITCH_DURATION_MS: "workspace_switch_duration_ms",
+  WORKSPACE_SWITCH_RECORD_VALIDATION_MS: "workspace_switch_record_validation_ms",
+  WORKSPACE_SWITCH_STALE_RESPONSE: "workspace_switch_stale_response_total",
   // Transaction integrity (PRD #48 §180-§182)
   TRANSACTION_SUCCESS: "transaction_success_total",
   TRANSACTION_FAILURE: "transaction_failure_total",

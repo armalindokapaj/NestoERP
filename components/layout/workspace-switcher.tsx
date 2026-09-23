@@ -3,6 +3,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Building2, Check, ChevronDown, Layers, Loader2 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
@@ -39,6 +40,9 @@ type Option =
 export function WorkspaceSwitcher({ workspaces }: { workspaces: WorkspacesDTO }) {
   const t = useTranslations("workspace");
   const toast = useToast();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState(0);
@@ -51,6 +55,10 @@ export function WorkspaceSwitcher({ workspaces }: { workspaces: WorkspacesDTO })
   const currentCompany = workspaces.companies.find((company) => company.id === current.companyId)
     ?? workspaces.otherGroups.flatMap((group) => group.companies).find((company) => company.id === current.companyId);
   const currentName = inGroup ? parentGroup.name : (currentCompany?.name ?? parentGroup.name);
+
+  React.useEffect(() => {
+    setSwitchingTo(null);
+  }, [current.scopeType, current.companyId]);
 
   const options = React.useMemo<Option[]>(() => {
     const words = fold(query).split(/\s+/).filter(Boolean);
@@ -87,16 +95,30 @@ export function WorkspaceSwitcher({ workspaces }: { workspaces: WorkspacesDTO })
       return;
     }
     setSwitchingTo(option.name);
-    const result = await requestWorkspaceSwitch({ scopeType: option.scopeType, companyId: option.companyId });
+    const result = await requestWorkspaceSwitch({
+      scopeType: option.scopeType,
+      companyId: option.companyId,
+      currentPathname: pathname,
+      currentSearch: searchParams.size ? `?${searchParams.toString()}` : "",
+    });
     if (!result.ok) {
+      if (result.stale) return;
       setSwitchingTo(null);
       setOpen(false);
       toast({ title: t("switchFailed", { name: currentName }), tone: "danger" });
       return;
     }
-    // A new page, not a patched one: the dashboard, the navigation and every
-    // list belong to the workspace just left (§29, §93).
-    window.location.assign("/dashboard");
+    setOpen(false);
+    const navigation = result.data.navigation;
+    if (navigation.reason === "RECORD_NOT_AVAILABLE") {
+      toast({ title: t("recordFallback", { name: option.name }) });
+    } else if (navigation.resolution !== "KEEP_EXACT") {
+      toast({ title: t("moduleFallback", { name: option.name }) });
+    }
+
+    const currentDestination = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`;
+    if (navigation.destination === currentDestination) router.refresh();
+    else router.replace(navigation.destination);
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
