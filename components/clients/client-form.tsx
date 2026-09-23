@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ClientActionResult } from "@/lib/actions/clients";
 import type { DuplicateMatch } from "@/lib/modules/clients/client.duplicate";
+import { setWorkspaceDirtyState } from "@/lib/workspace/client";
 
 /**
  * Create / edit client form (PRD #12 §41, §53, §66).
@@ -86,6 +87,11 @@ export function ClientForm({
     const handler = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  React.useEffect(() => {
+    setWorkspaceDirtyState(dirty);
+    return () => setWorkspaceDirtyState(false);
   }, [dirty]);
 
   function submit(formData: FormData, acceptDuplicate: boolean) {

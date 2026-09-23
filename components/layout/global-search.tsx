@@ -233,7 +233,8 @@ export function GlobalSearch() {
       toast({ title: tWorkspace("switchFailed", { name: result.company.name }), tone: "danger" });
       return;
     }
-    window.location.assign(result.href);
+    onOpenChange(false);
+    router.replace(result.href);
   }
 
   function onInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {

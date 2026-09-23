@@ -68,6 +68,7 @@ export async function moveSessionToMembership(input: {
   sessionId: string;
   userId: string;
   membershipId: string;
+  transitionId?: bigint;
 }): Promise<{ moved: boolean; companyId: string | null }> {
   const membership = await prisma.companyMember.findFirst({
     where: {
@@ -84,8 +85,19 @@ export async function moveSessionToMembership(input: {
   // A company is a company workspace: moving into one leaves the Group workspace
   // (Workspace Context §31). The group is entered again only by asking for it.
   const { count } = await prisma.session.updateMany({
-    where: { id: input.sessionId, userId: input.userId, expiresAt: { gt: new Date() } },
-    data: { membershipId: membership.id, currentCompanyId: membership.companyId, workspaceScope: "COMPANY" },
+    where: {
+      id: input.sessionId,
+      userId: input.userId,
+      expiresAt: { gt: new Date() },
+      ...(input.transitionId !== undefined ? { workspaceTransitionId: { lt: input.transitionId } } : {}),
+    },
+    data: {
+      membershipId: membership.id,
+      currentCompanyId: membership.companyId,
+      workspaceScope: "COMPANY",
+      workspaceVersion: { increment: 1 },
+      ...(input.transitionId !== undefined ? { workspaceTransitionId: input.transitionId } : {}),
+    },
   });
   return { moved: count === 1, companyId: membership.companyId };
 }
@@ -100,10 +112,20 @@ export async function setSessionWorkspaceScope(input: {
   sessionId: string;
   userId: string;
   scope: WorkspaceScopeType;
+  transitionId?: bigint;
 }): Promise<boolean> {
   const { count } = await prisma.session.updateMany({
-    where: { id: input.sessionId, userId: input.userId, expiresAt: { gt: new Date() } },
-    data: { workspaceScope: input.scope },
+    where: {
+      id: input.sessionId,
+      userId: input.userId,
+      expiresAt: { gt: new Date() },
+      ...(input.transitionId !== undefined ? { workspaceTransitionId: { lt: input.transitionId } } : {}),
+    },
+    data: {
+      workspaceScope: input.scope,
+      workspaceVersion: { increment: 1 },
+      ...(input.transitionId !== undefined ? { workspaceTransitionId: input.transitionId } : {}),
+    },
   });
   return count === 1;
 }
@@ -132,7 +154,12 @@ export async function relocateSessionToUsableMembership(input: { sessionId: stri
 
   const { count } = await prisma.session.updateMany({
     where: { id: input.sessionId, userId: input.userId, expiresAt: { gt: new Date() } },
-    data: { membershipId: next.id, currentCompanyId: next.companyId, workspaceScope: null },
+    data: {
+      membershipId: next.id,
+      currentCompanyId: next.companyId,
+      workspaceScope: null,
+      workspaceVersion: { increment: 1 },
+    },
   });
   return count === 1;
 }
@@ -230,7 +257,12 @@ export async function revokeSessions(
       // again — the Group if they may use it, otherwise this company (§16, §82).
       await client.session.updateMany({
         where: { id: session.id },
-        data: { membershipId: next.id, currentCompanyId: next.companyId, workspaceScope: null },
+        data: {
+          membershipId: next.id,
+          currentCompanyId: next.companyId,
+          workspaceScope: null,
+          workspaceVersion: { increment: 1 },
+        },
       });
     }
   }

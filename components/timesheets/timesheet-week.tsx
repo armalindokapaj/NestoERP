@@ -15,6 +15,7 @@ import { addLocalDays, dayLabel, formatMinutes, weekLabel } from "@/lib/modules/
 import { WORK_LOG_TYPE_LABELS, type TimesheetFormOptions, type TimesheetWeekDTO, type WorkLogDTO } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
+import { setWorkspaceDirtyState } from "@/lib/workspace/client";
 import { TimesheetEntryDrawer, type EntryDraft } from "./timesheet-entry-drawer";
 import { TimesheetGrid, type CellCommit, type RowTemplate } from "./timesheet-grid";
 import { TimesheetHistory } from "./timesheet-history";
@@ -71,6 +72,11 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
+  }, [pendingSaves]);
+
+  React.useEffect(() => {
+    setWorkspaceDirtyState(pendingSaves);
+    return () => setWorkspaceDirtyState(false);
   }, [pendingSaves]);
 
   const refresh = React.useCallback(async () => {

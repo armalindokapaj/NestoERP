@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useToast } from "@/components/ui/toast";
@@ -27,6 +28,7 @@ export function CompanyRecordLink({
 }: Omit<React.ComponentProps<"a">, "href" | "onClick"> & { companyId: string; companyName?: string; href: string }) {
   const t = useTranslations("workspace");
   const toast = useToast();
+  const router = useRouter();
   const [pending, setPending] = React.useState(false);
 
   async function open(event: React.MouseEvent<HTMLAnchorElement>) {
@@ -40,7 +42,7 @@ export function CompanyRecordLink({
       toast({ title: t("switchFailed", { name: companyName ?? "" }), tone: "danger" });
       return;
     }
-    window.location.assign(href);
+    router.replace(href);
   }
 
   return (

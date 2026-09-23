@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
+import { setWorkspaceDirtyState } from "@/lib/workspace/client";
 
 /**
  * The shared create/edit form shell (PRD #7 §43, PRD #10 §151).
@@ -132,6 +133,11 @@ export function RecordForm({
     const handler = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  React.useEffect(() => {
+    setWorkspaceDirtyState(dirty);
+    return () => setWorkspaceDirtyState(false);
   }, [dirty]);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {

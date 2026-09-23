@@ -32,13 +32,11 @@ test("switching to a company changes the header, the list and nothing about who 
   await page.getByTestId("workspace-option").filter({ hasText: "Aurelia Construction" }).click();
 
   await expect(page.getByTestId(switcher)).toHaveAccessibleName(/Aurelia Construction/);
-  // A switch lands on the dashboard: every list belongs to the workspace just
-  // left, so the browser loads a new page rather than patching one (§29, §93).
-  await expect(page).toHaveURL(/\/dashboard$/);
+  // The organizational context changes while the deepest valid location stays.
+  await expect(page).toHaveURL(/\/projects$/);
   // The same person, still: only where they work has changed (§11).
   await expect(page.getByRole("button", { name: /open user menu/i })).toBeVisible();
 
-  await page.goto("/projects");
   await expect(mainRegion(page).getByTestId("project-card").first()).toBeVisible();
   const inCompany = await mainRegion(page).getByTestId("project-card").count();
   expect(inCompany).toBeLessThan(inGroup);

@@ -4084,6 +4084,12 @@ model Session {
   /// — the one place that can read a person's standing — fills in the default
   /// (§16). Server state only: nothing a browser sends is read for it (§14, §15).
   workspaceScope   WorkspaceScope?
+  /// Monotonic context generation. Every successful workspace transition
+  /// increments it so stale browser responses and other tabs can be rejected.
+  workspaceVersion Int             @default(0)
+  /// Client transition ordering for this session. A late older request cannot
+  /// overwrite a workspace selected more recently.
+  workspaceTransitionId BigInt     @default(0)
   expiresAt        DateTime
   userAgent        String?
   ipAddress        String?

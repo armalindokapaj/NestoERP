@@ -57,6 +57,8 @@ export const sq: Messages = {
     current: "Hapësira aktuale",
     switching: "Duke kaluar te {name}…",
     switchFailed: "Ajo hapësirë pune nuk mund të hapej. Jeni ende te {name}.",
+    recordFallback: "Kalimi te {name} u krye. Regjistrimi i mëparshëm nuk është i disponueshëm këtu.",
+    moduleFallback: "Kalimi te {name} u krye. Faqja e mëparshme nuk është e disponueshme në këtë hapësirë pune.",
     groupWorkspaceName: "Kompania e grupit",
     acrossGroup: "Në të gjithë {group}",
     companyRequiredTitle: "Zgjidhni një kompani për të vazhduar",
