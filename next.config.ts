@@ -40,21 +40,6 @@ const nextConfig: NextConfig = {
    */
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
 
-  /**
-   * sharp's native binary lives in an optional `@img/*` package that pnpm
-   * links from `.pnpm`, where file tracing does not follow it. Without these
-   * the Vercel function has sharp but not its binary, and loading it throws.
-   */
-  serverExternalPackages: ["sharp"],
-  // Only the routes that encode images carry it; every function carrying it
-  // took the deployment past Vercel's size limit.
-  outputFileTracingIncludes: Object.fromEntries(
-    ["/api/projects/**", "/api/project-units/**", "/api/platform/3d/**", "/api/documents/**"].map((route) => [
-      route,
-      ["./node_modules/.pnpm/@img+sharp-*linux-x64*/**/*", "./node_modules/.pnpm/sharp@*/**/*"],
-    ]),
-  ),
-
   // The floating dev badge sits on top of the sidebar footer; the build output
   // and error overlay are unaffected.
   devIndicators: false,
