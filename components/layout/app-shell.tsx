@@ -16,6 +16,9 @@ import type { UserContext } from "@/lib/context/types";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
 import { WorkspaceSync } from "@/components/workspace/workspace-sync";
+import { RecordNavigationProvider } from "@/components/navigation/record-navigation-provider";
+import { workspaceKey } from "@/config/workspace";
+import { listWorkspaces } from "@/lib/workspace/workspace.service";
 
 /**
  * The one NESTO application shell (PRD #3 §2, §97).
@@ -44,10 +47,11 @@ export async function AppShell({
   // the drawer alike (Workspace Context §24). Never kept across a workspace change.
   // Unread count and the one critical banner, read in this member's audience (PRD #45 §67, §122).
   // The access debugger's grants are read only where it is shown.
-  const [navigation, announcements, organization] = await Promise.all([
+  const [navigation, announcements, organization, workspaces] = await Promise.all([
     resolveWorkspaceNavigation(context),
     announcementShellState(context).catch(() => ({ unread: 0, banner: null })),
     isDevMode ? loadOrganizationAccessFor(context.parentGroupId, context.userId).catch(() => null) : null,
+    listWorkspaces(context),
   ]);
 
   return (
@@ -58,13 +62,25 @@ export async function AppShell({
           <Sidebar navigation={navigation} />
 
           <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-            <Topbar context={context} navigation={navigation} announcementsUnread={announcements.unread} />
+            <Topbar context={context} navigation={navigation} workspaces={workspaces} announcementsUnread={announcements.unread} />
             <CriticalAnnouncementBanner banner={announcements.banner} />
             <main
               id="nesto-main"
               className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-6 md:py-8 xl:px-8"
             >
-              {children}
+              <RecordNavigationProvider
+                workspace={{
+                  key: workspaceKey(context.workspace),
+                  scopeType: context.workspace.scopeType,
+                  companyId: context.workspace.companyId,
+                  group: { name: context.parentGroup.name, canEnter: workspaces.parentGroup.groupViewAllowed },
+                  company: context.workspace.scopeType === "COMPANY"
+                    ? { id: context.workspace.companyId!, name: context.company.name }
+                    : null,
+                }}
+              >
+                {children}
+              </RecordNavigationProvider>
             </main>
           </div>
 

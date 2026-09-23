@@ -40,9 +40,9 @@ export function hasWorkspaceDirtyState(): boolean {
   return dirty;
 }
 
-function confirmDiscard(): boolean {
+export function confirmWorkspaceNavigation(message = "You have unsaved changes. Discard them and continue?"): boolean {
   if (!dirty || typeof window === "undefined") return true;
-  return window.confirm("You have unsaved changes. Discard them and switch workspace?");
+  return window.confirm(message);
 }
 
 function publish(change: WorkspaceChange): void {
@@ -55,8 +55,11 @@ function publish(change: WorkspaceChange): void {
 }
 
 /** Only the newest response may commit in this tab. */
-export async function requestWorkspaceSwitch(request: WorkspaceRequest): Promise<WorkspaceSwitchResult> {
-  if (!confirmDiscard()) return { ok: false };
+export async function requestWorkspaceSwitch(
+  request: WorkspaceRequest,
+  options: { publishChange?: boolean } = {},
+): Promise<WorkspaceSwitchResult> {
+  if (!confirmWorkspaceNavigation()) return { ok: false };
 
   const mine = ++transitionId;
   const serverTransitionId = Date.now() * 1000 + (mine % 1000);
@@ -79,6 +82,6 @@ export async function requestWorkspaceSwitch(request: WorkspaceRequest): Promise
   if (!body?.data?.change || !body.data.navigation) return { ok: false };
 
   dirty = false;
-  publish(body.data.change);
+  if (options.publishChange !== false) publish(body.data.change);
   return { ok: true, data: body.data };
 }

@@ -13,7 +13,7 @@ import type { NavigationGroup } from "@/config/navigation";
 import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
-import { listWorkspaces } from "@/lib/workspace/workspace.service";
+import type { WorkspacesDTO } from "@/lib/workspace/workspace.service";
 
 /**
  * Universal top bar (PRD #3 §16, §76). Identical for every role.
@@ -33,14 +33,16 @@ import { listWorkspaces } from "@/lib/workspace/workspace.service";
 export async function Topbar({
   context,
   navigation,
+  workspaces,
   announcementsUnread = 0,
 }: {
   context: UserContext;
   navigation: NavigationGroup[];
+  workspaces: WorkspacesDTO;
   /** Live announcements addressed to this member and not yet opened (PRD #45 §121-§123). */
   announcementsUnread?: number;
 }) {
-  const [t, workspaces] = await Promise.all([getTranslations("roles"), listWorkspaces(context)]);
+  const t = await getTranslations("roles");
   // The workspace names itself: the group above, or the company (Workspace Context §10).
   const workspaceName = context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name;
 

@@ -8,6 +8,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { getProject3DAvailability } from "@/lib/modules/project-3d/project-3d.viewer";
 import { listProjectMedia } from "@/lib/modules/project-media/project-media.service";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
@@ -76,9 +77,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-table text-fg-subtle">
-          {projectBreadcrumbs(project).map((crumb, index, crumbs) => <span key={`${crumb.label}:${index}`} className="flex items-center gap-2">{crumb.href ? <Link href={crumb.href} className="hover:text-fg">{crumb.label}</Link> : <span className={index === crumbs.length - 1 ? "text-fg" : ""}>{crumb.label}</span>}{index < crumbs.length - 1 ? <span aria-hidden="true">/</span> : null}</span>)}
-        </nav>
+        <Breadcrumbs items={projectBreadcrumbs(project)} className="min-w-0 flex-1" />
         <div className="flex items-center gap-2"><RecordFavorite context={context} entityType="project" entityId={project.id} /><ProjectActions projectId={project.id} projectName={project.name} archived={archived} canUpdate={actions.canUpdate} canArchive={actions.canArchive} canRestore={actions.canRestore} canManageMedia={actions.canManageMedia} canManageTeam={actions.canManageMembers} /></div>
       </div>
 

@@ -112,6 +112,12 @@ export const Metric = {
   WORKSPACE_SWITCH_DURATION_MS: "workspace_switch_duration_ms",
   WORKSPACE_SWITCH_RECORD_VALIDATION_MS: "workspace_switch_record_validation_ms",
   WORKSPACE_SWITCH_STALE_RESPONSE: "workspace_switch_stale_response_total",
+  // Unified record navigation (Record Navigation §141)
+  BREADCRUMB_RESOLUTION_ERROR: "breadcrumb_resolution_error_total",
+  HISTORY_NAVIGATION_INVALID_ENTRY: "history_navigation_invalid_entry_total",
+  BREADCRUMB_CLICK: "breadcrumb_click_total",
+  NAVIGATION_BACK_CLICK: "back_click_total",
+  NAVIGATION_FORWARD_CLICK: "forward_click_total",
   // Transaction integrity (PRD #48 §180-§182)
   TRANSACTION_SUCCESS: "transaction_success_total",
   TRANSACTION_FAILURE: "transaction_failure_total",
