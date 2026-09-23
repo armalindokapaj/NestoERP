@@ -201,6 +201,8 @@ const SCHEMA_FIELD_EXCEPTIONS: Record<string, string> = {
     "Group workspace list filter; narrowToCompany intersects it with the companies the person already reads and ignores any other (Workspace Context §86, §87)",
   "lib/modules/sales/opportunities/opportunity.schema.ts#companyId":
     "Group workspace list filter; narrowToCompany intersects it with the companies the person already reads and ignores any other (Workspace Context §86, §87)",
+  "lib/modules/project-3d/project-3d.schema.ts#companyId":
+    "Platform Admin 3D provisioning (platform.3d.configure): the company of the Project being provisioned, used only together with projectId and parentGroupId, all three of which must match one real Project of a non-fixture group or the request is not found",
   "lib/modules/activity/activity-center.schema.ts#companyId":
     "Activity Center filter; narrowed to the person's own memberships, and a company they may not use is refused with 403 (Activity Center §38, §142)",
   "lib/modules/productivity/productivity.schema.ts#companyId":

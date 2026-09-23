@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import { ProjectTabs } from "./project-tabs";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -15,6 +16,9 @@ import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.
 import * as projects from "@/lib/modules/projects/project.service";
 import { projectMyWork, projectUpcoming, type ProjectUpcomingItem, type ProjectWorkItem } from "@/lib/modules/projects/project-workspace.service";
 import type { ProjectActivityDTO } from "@/lib/modules/projects/project.types";
+import { can } from "@/lib/access/can";
+import { prisma } from "@/lib/database/prisma";
+import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { loadProject, projectBreadcrumbs } from "./project-context";
 
@@ -71,6 +75,14 @@ export default async function ProjectOverviewPage({ params }: Params) {
   const upcoming: ProjectUpcomingItem[] = upcomingResult.status === "fulfilled" ? upcomingResult.value : [];
   const activity: ProjectActivityDTO[] = activityResult.status === "fulfilled" && activityResult.value ? activityResult.value.data : [];
   const progress = projectProgress(planning);
+  /*
+   * The deal this project came from (PRD #17 §267, §385) — only for somebody who
+   * may see Sales records, resolved through the Sales scope, so a project manager
+   * without Sales access never sees the commercial value behind their job (§365, §416).
+   */
+  const sourceOpportunity = can(context, "sales.opportunity.view")
+    ? await prisma.opportunity.findFirst({ where: { AND: [buildOpportunityScopeWhere(context), { convertedProjectId: project.id }] }, select: { id: true, name: true } })
+    : null;
   const coverUrl = media.cover?.thumbnailUrl ?? (media.capabilities.canView && project.coverImageDocumentId ? `/api/projects/${project.id}/cover` : null);
   const experiences = Number(Boolean(threeD)) + Number(media.counts.renders > 0) + Number(media.counts.animations > 0);
 
@@ -99,6 +111,34 @@ export default async function ProjectOverviewPage({ params }: Params) {
         {experiences ? <div className="grid sm:grid-cols-2">{threeD?.viewerUrl ? <ExperienceTile href={threeD.viewerUrl} title="View in 3D" detail="Published Project Explorer" icon={<Box className="size-5" />} large newTab /> : null}{media.counts.renders ? <ExperienceTile href={`/projects/${project.id}/media?type=renders`} title="View renders" detail={`${media.counts.renders} ${media.counts.renders === 1 ? "render" : "renders"}`} icon={<ImageIcon className="size-5" />} large={!threeD && !media.counts.animations} /> : null}{media.counts.animations ? <ExperienceTile href={`/projects/${project.id}/media?type=animations`} title="View animations" detail={`${media.counts.animations} ${media.counts.animations === 1 ? "animation" : "animations"}`} icon={<Film className="size-5" />} large={!threeD && !media.counts.renders} /> : null}</div> : null}
       </section>
 
+      {/* The way into every section of the project — the overview is where people land, so it carries the same tabs as its sections. */}
+      <ProjectTabs
+        projectId={project.id}
+        active="overview"
+        show={{
+          threeD: Boolean(threeD),
+          planning: actions.canViewPlanning,
+          units: actions.canViewUnits,
+          sales: actions.canViewUnitSales,
+          contractors: actions.canViewContractors,
+          engineering: actions.canViewEngineering,
+          tasks: actions.canViewTasks,
+          calendar: actions.canViewCalendar,
+          meetings: actions.canViewMeetings,
+          dailyLogs: actions.canViewDailyLogs,
+          workforce: actions.canViewWorkforce,
+          team: actions.canViewMembers,
+          finance: actions.canViewFinance,
+          unitFinance: actions.canViewUnitFinance,
+          contracts: actions.canViewContracts,
+          inventory: actions.canViewInventory,
+          qaqc: actions.canViewQaqc,
+          hse: actions.canViewHse,
+          documents: actions.canViewDocuments,
+          activity: actions.canViewActivity,
+        }}
+      />
+
       <section className="nesto-card p-5 sm:p-6" aria-labelledby="summary-title">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,2fr)]">
           <div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">Project</p><h2 id="summary-title" className="mt-1 text-section font-semibold text-fg">Project summary</h2>{project.description ? <p className="mt-3 line-clamp-5 max-w-2xl text-body leading-6 text-fg-muted">{project.description}</p> : <p className="mt-3 text-body text-fg-subtle">No project description.</p>}</div>
@@ -109,6 +149,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
             <Summary label="Project type" value={project.projectType?.name ?? "Not set"} />
             <Summary label="Total area" value={project.builtArea === null ? "Not set" : `${project.builtArea.toLocaleString("en-US")} m²`} />
             <Summary label="Progress" value={progress === null ? "Not set" : `${progress}%`} />
+            {sourceOpportunity ? <Summary label="From opportunity" value={<Link href={`/sales/opportunities/${sourceOpportunity.id}`} className="text-fg transition-colors hover:text-accent">{sourceOpportunity.name}</Link>} /> : null}
           </dl>
         </div>
       </section>

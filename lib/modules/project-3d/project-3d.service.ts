@@ -134,7 +134,7 @@ export async function createProject3DExperience(context: PlatformContext, input:
       company: { id: input.companyId, parentGroupId: input.parentGroupId, parentGroup: { id: input.parentGroupId, isTestFixture: false } },
       archivedAt: null,
     },
-    select: { id: true, name: true, companyId: true, project3DConfig: { select: { id: true } }, project3DEntitlement: { select: { id: true } }, _count: { select: { buildings: true, floors: true, units: true } } },
+    select: { id: true, name: true, companyId: true, project3DConfig: { select: { id: true } }, project3DEntitlement: { select: { id: true, status: true } }, _count: { select: { buildings: true, floors: true, units: true } } },
   }));
   if (project.project3DConfig) throw new AccessError("CONFLICT", "This Project already has a 3D Experience.", { code: "EXPERIENCE_EXISTS" });
   if (input.structureMode === "USE_EXISTING" && project._count.buildings + project._count.floors + project._count.units === 0) {
@@ -143,7 +143,7 @@ export async function createProject3DExperience(context: PlatformContext, input:
   try {
     return await prisma.$transaction(async (tx) => {
       const entitlement = project.project3DEntitlement
-        ? await tx.project3DEntitlement.update({ where: { id: project.project3DEntitlement.id }, data: { status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId } })
+        ? await tx.project3DEntitlement.update({ where: { id: project.project3DEntitlement.id, status: project.project3DEntitlement.status }, data: { status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId } })
         : await tx.project3DEntitlement.create({ data: { companyId: project.companyId, projectId: project.id, status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId, planKey: "PREMIUM_3D" } });
       const config = await tx.project3DConfig.create({
         data: { companyId: project.companyId, projectId: project.id, experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },

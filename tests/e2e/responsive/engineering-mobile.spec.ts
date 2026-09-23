@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { db } from "../db";
 import { ENGINEERING_SEED, PROJECT, restoreContractorsEngineering } from "../engineering-fixtures";
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 
 /**
  * Engineering review on a phone (PRD #46 §313, §317, §318): the engineer opens
@@ -32,7 +32,8 @@ async function expectNoSidewaysScroll(page: Page) {
 test("the engineer answers an RFI and reviews a submittal from the phone", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, "ENGINEER", { to: `/projects/${PROJECT}/engineering` });
-  const nav = page.getByTestId("engineering-nav");
+  // Scoped to main: a streamed page briefly keeps a hidden copy of itself outside it (React Suspense reveal).
+  const nav = mainRegion(page).getByTestId("engineering-nav");
   await expect(nav).toBeVisible();
   await expectNoSidewaysScroll(page);
 

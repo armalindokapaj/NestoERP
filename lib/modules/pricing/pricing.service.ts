@@ -164,7 +164,8 @@ export async function submitPricingLead(input: PricingLeadInput, now = new Date(
       },
     });
     const status = input.requestType === "FORMAL_PROPOSAL" ? "PROPOSAL_REQUESTED" : "LEAD_SUBMITTED";
-    await tx.pricingQuote.update({ where: { id: quote.id }, data: { status } });
+    // Moves from the state it was read in; a quote that moved meanwhile is not overwritten (PRD #49 state integrity).
+    await tx.pricingQuote.update({ where: { id: quote.id, status: quote.status }, data: { status } });
     await tx.pricingAuditLog.create({
       data: {
         action: "QUOTE_LEAD_SUBMITTED",
@@ -239,7 +240,7 @@ export async function publishPricingVersion(context: PlatformContext, id: string
     for (const version of retired) {
       await tx.pricingAuditLog.create({ data: { actorUserId: context.userId, action: "PRICE_VERSION_RETIRED", entityType: "PricingVersion", entityId: version.id, pricingVersion: version.versionCode, afterJson: toJson({ reason }) } });
     }
-    const published = await tx.pricingVersion.update({ where: { id }, data: { status: "ACTIVE", effectiveFrom: now, effectiveUntil: null, publishedAt: now, publishedByUserId: context.userId } });
+    const published = await tx.pricingVersion.update({ where: { id, status: "DRAFT" }, data: { status: "ACTIVE", effectiveFrom: now, effectiveUntil: null, publishedAt: now, publishedByUserId: context.userId } });
     await tx.pricingAuditLog.create({ data: { actorUserId: context.userId, action: "PRICE_VERSION_PUBLISHED", entityType: "PricingVersion", entityId: id, pricingVersion: currentTarget.versionCode, afterJson: toJson({ reason }) } });
     return { id: published.id, versionCode: published.versionCode, status: published.status };
   }, { isolationLevel: "Serializable" });
@@ -254,7 +255,7 @@ export async function updatePricingPromotion(context: PlatformContext, id: strin
   delete promotionConfig.displayName;
   const config = pricingPromotionConfigSchema.parse({ ...promotionConfig, code: existing.code });
   return prisma.$transaction(async (tx) => {
-    const updated = await tx.pricingPromotion.update({ where: { id }, data: { name: input.name, status: input.status, configJson: toJson(config), startsAt: input.startsAt, endsAt: input.endsAt, updatedByUserId: context.userId } });
+    const updated = await tx.pricingPromotion.update({ where: { id, status: existing.status }, data: { name: input.name, status: input.status, configJson: toJson(config), startsAt: input.startsAt, endsAt: input.endsAt, updatedByUserId: context.userId } });
     await tx.pricingAuditLog.create({ data: { actorUserId: context.userId, action: "PROMOTION_UPDATED", entityType: "PricingPromotion", entityId: id, pricingVersion: null, beforeJson: existing.configJson as Prisma.InputJsonValue, afterJson: toJson(config) } });
     return { id: updated.id, code: updated.code, status: updated.status };
   });

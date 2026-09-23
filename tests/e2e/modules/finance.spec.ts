@@ -184,7 +184,7 @@ test.describe("Project Manager (PRD #15 §374)", () => {
   test("sees budget and forecast on its own project, and no invoices", async ({ page }) => {
     await page.goto("/projects/project_a/finance");
 
-    await expect(page.getByText("Budget vs actual")).toBeVisible();
+    await expect(mainRegion(page).getByText("Budget vs actual")).toBeVisible();
     await expect(page.getByText("Open commitments").first()).toBeVisible();
     // Company receivables are not a project manager's business (PRD #15 §286).
     await expect(mainRegion(page).getByText("Invoices")).toHaveCount(0);
@@ -209,7 +209,7 @@ test.describe("Architect (PRD #15 §375)", () => {
   test("sees the project budget summary and nothing operational", async ({ page }) => {
     await page.goto("/projects/project_a/finance");
 
-    await expect(page.getByText("Budget vs actual")).toBeVisible();
+    await expect(mainRegion(page).getByText("Budget vs actual")).toBeVisible();
 
     // Budget, actual summary and commitment summary — never a payee, an
     // invoice or a payment reference (PRD #15 §184).

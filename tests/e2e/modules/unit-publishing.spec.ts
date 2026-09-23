@@ -142,7 +142,8 @@ test("a publisher is told what an incomplete unit is missing instead of a dead b
 
 test("the seeded units show every publishing state in the unit list", async ({ page }) => {
   await signIn(page, "ARCHITECTURE_HEAD", { to: `/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}` });
-  const rows = page.getByTestId("unit-table").getByTestId("unit-row");
+  // Scoped to main: a streamed page briefly keeps a hidden copy of itself outside it (React Suspense reveal).
+  const rows = mainRegion(page).getByTestId("unit-table").getByTestId("unit-row");
   await expect(rows.filter({ hasText: "A-101" })).toContainText("Published v1");
   await expect(rows.filter({ hasText: "A-102" })).toContainText("Changed");
   await expect(rows.filter({ hasText: "A-103" })).toContainText("Ready for Publishing");
