@@ -4,7 +4,6 @@ import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
-import { DEMO_PASSWORD } from "@/config/demo-accounts";
 import { auth, signIn, signOut } from "@/lib/auth";
 import { DEMO_ACCOUNT_REFUSALS, resolveDemoAccountTarget } from "@/lib/auth/demo-tenants";
 import { isDevMode } from "@/lib/auth/dev-mode";
@@ -39,7 +38,7 @@ export async function signInAsDemoAccountAction(
   try {
     await signIn("credentials", {
       username: target.username,
-      password: DEMO_PASSWORD,
+      password: target.password,
       redirectTo: target.landing,
     });
   } catch (error) {
@@ -99,7 +98,7 @@ export async function switchDemoUserAction(username: string): Promise<DemoUserSw
   await signOut({ redirect: false });
 
   try {
-    await signIn("credentials", { username: target.username, password: DEMO_PASSWORD, redirect: false });
+    await signIn("credentials", { username: target.username, password: target.password, redirect: false });
   } catch (error) {
     if (!(error instanceof AuthError)) throw error;
     // Signed out already: never act on as the previous user (§46).
