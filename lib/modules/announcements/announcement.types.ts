@@ -8,12 +8,12 @@ export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
 export const ANNOUNCEMENT_PRIORITIES = ["NORMAL", "IMPORTANT", "CRITICAL"] as const;
 export type AnnouncementPriority = (typeof ANNOUNCEMENT_PRIORITIES)[number];
 
-export const AUDIENCE_TYPES = ["COMPANY", "DEPARTMENT", "PROJECT", "SELECTED_MEMBERS"] as const;
+export const AUDIENCE_TYPES = ["GROUP", "COMPANY", "DEPARTMENT", "PROJECT", "SELECTED_MEMBERS"] as const;
 export type AudienceType = (typeof AUDIENCE_TYPES)[number];
 
 export const STATUS_LABELS: Record<AnnouncementStatus, string> = { DRAFT: "Draft", SCHEDULED: "Scheduled", PUBLISHED: "Published", EXPIRED: "Expired", ARCHIVED: "Archived" };
 export const PRIORITY_LABELS: Record<AnnouncementPriority, string> = { NORMAL: "Normal", IMPORTANT: "Important", CRITICAL: "Critical" };
-export const AUDIENCE_LABELS: Record<AudienceType, string> = { COMPANY: "Company", DEPARTMENT: "Department", PROJECT: "Project", SELECTED_MEMBERS: "Selected members" };
+export const AUDIENCE_LABELS: Record<AudienceType, string> = { GROUP: "Group", COMPANY: "Company", DEPARTMENT: "Department", PROJECT: "Project", SELECTED_MEMBERS: "Selected members" };
 
 export const FEED_TABS = ["for_me", "pinned", "unread", "acknowledge", "history", "manage"] as const;
 export type FeedTab = (typeof FEED_TABS)[number];

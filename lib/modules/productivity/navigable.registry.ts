@@ -277,3 +277,43 @@ export async function canNavigate(context: UserContext, entityType: string, enti
   const [item] = await resolveNavigable(context, [{ entityType, entityId }]);
   return item ?? null;
 }
+
+/** The table behind each navigable type — existence only, for housekeeping; never an access decision. */
+const EXISTS: Record<NavigableType, (ids: string[]) => Promise<Array<{ id: string }>>> = {
+  project: (ids) => prisma.project.findMany({ where: inIds(ids), select: { id: true } }),
+  project_milestone: (ids) => prisma.projectMilestone.findMany({ where: inIds(ids), select: { id: true } }),
+  task: (ids) => prisma.task.findMany({ where: inIds(ids), select: { id: true } }),
+  meeting: (ids) => prisma.meeting.findMany({ where: inIds(ids), select: { id: true } }),
+  daily_log: (ids) => prisma.dailyLog.findMany({ where: inIds(ids), select: { id: true } }),
+  client: (ids) => prisma.client.findMany({ where: inIds(ids), select: { id: true } }),
+  document: (ids) => prisma.document.findMany({ where: inIds(ids), select: { id: true } }),
+  contract: (ids) => prisma.contract.findMany({ where: inIds(ids), select: { id: true } }),
+  purchase_order: (ids) => prisma.purchaseOrder.findMany({ where: inIds(ids), select: { id: true } }),
+  invoice: (ids) => prisma.invoice.findMany({ where: inIds(ids), select: { id: true } }),
+  project_unit: (ids) => prisma.projectUnit.findMany({ where: inIds(ids), select: { id: true } }),
+  purchase_request: (ids) => prisma.purchaseRequest.findMany({ where: inIds(ids), select: { id: true } }),
+  rfq: (ids) => prisma.rFQ.findMany({ where: inIds(ids), select: { id: true } }),
+  quality_inspection: (ids) => prisma.qualityInspection.findMany({ where: inIds(ids), select: { id: true } }),
+  non_conformance_report: (ids) => prisma.nonConformanceReport.findMany({ where: inIds(ids), select: { id: true } }),
+  incident: (ids) => prisma.hseIncident.findMany({ where: inIds(ids), select: { id: true } }),
+};
+
+/**
+ * Of these references, the ones whose record is permanently gone, or whose
+ * type is no longer navigable (Fast Re-entry §119, §177). A record the reader
+ * merely cannot open is *not* gone — that is decided on every read instead.
+ */
+export async function missingReferences(refs: Array<{ entityType: string; entityId: string }>): Promise<Array<{ entityType: string; entityId: string }>> {
+  const missing: Array<{ entityType: string; entityId: string }> = [];
+  const byType = new Map<string, string[]>();
+  for (const ref of refs) byType.set(ref.entityType, [...(byType.get(ref.entityType) ?? []), ref.entityId]);
+  for (const [type, ids] of byType) {
+    if (!isNavigableType(type)) {
+      missing.push(...ids.map((entityId) => ({ entityType: type, entityId })));
+      continue;
+    }
+    const found = new Set((await EXISTS[type]([...new Set(ids)])).map((row) => row.id));
+    missing.push(...ids.filter((id) => !found.has(id)).map((entityId) => ({ entityType: type, entityId })));
+  }
+  return missing;
+}

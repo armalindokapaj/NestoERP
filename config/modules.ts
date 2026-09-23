@@ -103,6 +103,12 @@ export type ModuleDefinition = {
   sections: ModuleSectionConfig[];
   /** Section rendered at the module root. */
   defaultSection?: string;
+  /**
+   * `false` keeps the module out of the sidebar while its routes, permissions
+   * and switches stay as they are — for what the shell reaches another way
+   * (Announcements, through the Activity Center bell: Activity Center §4, §81).
+   */
+  inNavigation?: false;
 };
 
 export const modules: Record<ModuleKey, ModuleDefinition> = {
@@ -143,9 +149,9 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     sections: [],
   },
   /**
-   * Intentional internal communication (PRD #45 §6, §58). Its tabs — For Me,
-   * Pinned, Unread, To Acknowledge, History and Manage — are URL state on the
-   * one route, like Approvals.
+   * Intentional internal communication (PRD #45 §6, §58). Readers consume it in
+   * the Activity Center (Activity Center §4, §81), so it is not a sidebar item;
+   * its detail pages and Manage tab stay on this route, reached from the bell.
    */
   announcements: {
     key: "announcements",
@@ -157,6 +163,7 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     permission: "announcement.view",
     writePermission: "announcement.create",
     sections: [],
+    inNavigation: false,
   },
   projects: {
     key: "projects",

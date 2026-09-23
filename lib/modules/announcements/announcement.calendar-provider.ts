@@ -2,7 +2,7 @@ import { prisma } from "@/lib/database/prisma";
 import type { CalendarProvider } from "@/lib/modules/calendar/calendar.types";
 import { overlaps } from "@/lib/modules/calendar/calendar.time";
 import { projectRef, SOURCE_LIMIT, wants } from "@/lib/modules/calendar/providers/provider.helpers";
-import { announcementsOpen, audienceWhere } from "./announcement.permissions";
+import { announcementsOpen, reachWhere } from "./announcement.permissions";
 
 /**
  * Announcement events on the calendar (PRD #45 §40-§43, §129, §284).
@@ -21,11 +21,10 @@ export const announcementCalendarProvider: CalendarProvider = {
     if (!wants(input, "COMPANY") || filters.myOnly || filters.memberIds?.length) return [];
     const rows = await prisma.announcement.findMany({
       where: {
-        companyId: context.companyId,
         status: { in: ["PUBLISHED", "EXPIRED"] },
         eventStartsAt: { not: null, lt: range.to },
         OR: [{ eventEndsAt: { gte: range.from } }, { eventEndsAt: null, eventStartsAt: { gte: new Date(range.from.getTime() - 86_400_000) } }],
-        AND: [audienceWhere(context), filters.projectIds?.length ? { projectId: { in: filters.projectIds } } : {}],
+        AND: [reachWhere(context), filters.projectIds?.length ? { projectId: { in: filters.projectIds } } : {}],
       },
       orderBy: { eventStartsAt: "asc" },
       take: SOURCE_LIMIT,

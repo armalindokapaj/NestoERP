@@ -1,10 +1,9 @@
 import type { Prisma } from "@prisma/client";
 
-import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
-import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
+import { resolvePersonalContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
 import { currentRequestContext } from "@/lib/core/observability/request-context";
 import { loadRecord } from "@/lib/core/records/record.registry";
@@ -107,12 +106,13 @@ export async function listNotifications(
  * company they may use. Both, always — a notification belongs to one member in
  * one company — and each company's own module door narrows its own rows.
  */
-function ownRows(contexts: UserContext[]): Prisma.NotificationWhereInput {
+export function ownRows(contexts: UserContext[]): Prisma.NotificationWhereInput {
   const own = (context: UserContext): Prisma.NotificationWhereInput => ({ companyId: context.companyId, recipientMemberId: context.membershipId });
   return contexts.length === 1 ? own(contexts[0]) : { OR: contexts.map(own) };
 }
 
-function readableRows(contexts: UserContext[]): Prisma.NotificationWhereInput {
+/** The person's own rows, narrowed to modules they can open in each company — shared with the Activity Center (§77, §143). */
+export function readableRows(contexts: UserContext[]): Prisma.NotificationWhereInput {
   // The panel agrees with the badge: nothing from a module this reader
   // cannot open any more (PRD #25 §279, PRD #47 §26) — in each company, by that company's own switches.
   const readable = (context: UserContext): Prisma.NotificationWhereInput => ({
@@ -198,8 +198,7 @@ export async function listNotificationsForWorkspace(
   session: UserContext,
   options: { readState?: "UNREAD" | "READ"; before?: string; limit?: number } = {},
 ): Promise<NotificationPage> {
-  if (!inGroupWorkspace(session)) return listNotifications(session, options);
-  return pageOfNotifications(await resolveWorkspaceContexts(session, {}), options, true);
+  return pageOfNotifications(await resolvePersonalContexts(session), options, true);
 }
 
 export type OpenedNotification = { href: string } | { unavailable: true };
@@ -215,7 +214,7 @@ export type OpenedNotification = { href: string } | { unavailable: true };
 export async function openNotification(context: UserContext, id: string): Promise<OpenedNotification> {
   const notification = await prisma.notification.findFirst({
     where: { id, companyId: context.companyId, recipientMemberId: context.membershipId },
-    select: { id: true, entityType: true, entityId: true, readState: true, eventType: true },
+    select: { id: true, entityType: true, entityId: true, readState: true, eventType: true, metadataJson: true },
   });
   if (!notification) throw new AccessError("NOT_FOUND");
 
@@ -231,7 +230,9 @@ export async function openNotification(context: UserContext, id: string): Promis
   if (APPROVAL_EVENTS.has(notification.eventType) && can(context, "approvals.view")) {
     return { href: approvalLink(record.type, record.id) };
   }
-  return { href: record.href };
+  // A mention lands on its comment; the record page scrolls to it (Activity Center §43).
+  const commentId = (notification.metadataJson as { commentId?: unknown } | null)?.commentId;
+  return { href: typeof commentId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(commentId) ? `${record.href}#comment-${commentId}` : record.href };
 }
 
 /** Notifications about an approval, which open in the Approvals Center. */
@@ -323,12 +324,14 @@ export type OpenedInWorkspace = OpenedNotification & { company?: { id: string; n
  * would belong to.
  */
 export async function openNotificationForWorkspace(session: UserContext, id: string): Promise<OpenedInWorkspace> {
-  if (!inGroupWorkspace(session)) return openNotification(session, id);
-  const contexts = await resolveWorkspaceContexts(session, {});
+  const contexts = await resolvePersonalContexts(session);
   const owner = await prisma.notification.findFirst({ where: { AND: [{ id }, ownRows(contexts)] }, select: { companyId: true } });
   const context = contexts.find((candidate) => candidate.companyId === owner?.companyId);
   if (!context) throw new AccessError("NOT_FOUND");
-  return { ...(await openNotification(context, id)), company: { id: context.companyId, name: context.company.name } };
+  const opened = await openNotification(context, id);
+  // Already working in that company: open in place (Fast Re-entry §127 — the same rule).
+  if (session.workspace.scopeType === "COMPANY" && session.companyId === context.companyId) return opened;
+  return { ...opened, company: { id: context.companyId, name: context.company.name } };
 }
 
 /**
@@ -337,8 +340,7 @@ export async function openNotificationForWorkspace(session: UserContext, id: str
  * off does not count, and one they may open elsewhere does.
  */
 export async function getUnreadCountForWorkspace(session: UserContext): Promise<UnreadCountDTO> {
-  if (!inGroupWorkspace(session)) return getUnreadCount(session);
-  const contexts = await resolveWorkspaceContexts(session, {});
+  const contexts = await resolvePersonalContexts(session);
   const unreadWhere: Prisma.NotificationWhereInput = { AND: [readableRows(contexts), { readState: "UNREAD" }] };
   const [unread, criticalUnread, attention] = await Promise.all([
     prisma.notification.count({ where: unreadWhere }),
@@ -355,16 +357,25 @@ export async function getUnreadCountForWorkspace(session: UserContext): Promise<
 
 /** Marks one of the person's own notifications read or unread, in whichever of their companies it was sent (PRD #25 §157, §165). */
 export async function markReadForWorkspace(session: UserContext, id: string, read: boolean): Promise<void> {
-  if (!inGroupWorkspace(session)) return markRead(session, id, read);
-  return writeReadState({ AND: [{ id }, ownRows(await resolveWorkspaceContexts(session, {}))] }, read);
+  return writeReadState({ AND: [{ id }, ownRows(await resolvePersonalContexts(session))] }, read);
 }
 
 /** "All" is the person's own unread rows across the companies the Group workspace reads, and nobody else's. */
 export async function markAllReadForWorkspace(session: UserContext): Promise<number> {
-  if (!inGroupWorkspace(session)) return markAllRead(session);
   const result = await prisma.notification.updateMany({
-    where: { AND: [ownRows(await resolveWorkspaceContexts(session, {})), { readState: "UNREAD" }] },
+    where: { AND: [ownRows(await resolvePersonalContexts(session)), { readState: "UNREAD" }] },
     data: { readState: "READ", readAt: new Date() },
   });
+  return result.count;
+}
+
+/**
+ * Reads the person's own notifications about these records — used when the
+ * record itself was seen elsewhere, as an announcement is in the Activity
+ * Center (Activity Center §60, §61). Only the person's own rows move.
+ */
+export async function markRecordNotificationsRead(contexts: UserContext[], entityType: string, entityIds: string[]): Promise<number> {
+  if (entityIds.length === 0 || contexts.length === 0) return 0;
+  const result = await prisma.notification.updateMany({ where: { AND: [ownRows(contexts), { entityType, entityId: { in: entityIds }, readState: "UNREAD" }] }, data: { readState: "READ", readAt: new Date() } });
   return result.count;
 }

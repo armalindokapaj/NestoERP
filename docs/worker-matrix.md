@@ -32,6 +32,7 @@ and `docs/worker-operations.md`.
 | `storage.orphans` | documents | RECONCILIATION | every 1 day, `documents` group | per work item's company; suspended included | read-only; nothing to deduplicate | 3 attempts, 5 min doubling to 2 h | 45 min (lease 2 min, extended while running) | LOW | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `storage.usage` | documents | MANUAL | manual, `documents` | per company; suspended included | company; a recompute from source, so a second run writes the same numbers | 3 attempts, 5 min doubling to 2 h | 30 min (lease 2 min, extended while running) | LOW | `WorkerJobFailed` (ticket) |
 | `recentwork.prune` | productivity | SCHEDULED | every 1 day, `scheduled` group | per company; suspended included | member's recent list; deleting what is already gone deletes nothing | 3 attempts, 5 min doubling to 2 h | 30 min (lease 2 min, extended while running) | LOW | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
+| `productivity.stale-references` | productivity | SCHEDULED | every 1 day, `scheduled` group | per company; suspended included | reference; deleting a reference to a record that is gone deletes nothing the second time | 3 attempts, 5 min doubling to 2 h | 30 min (lease 2 min, extended while running) | LOW | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `retention.run` | core/retention | SCHEDULED | every 1 day, `scheduled` group | platform (no company data) | policy + cutoff; rows already deleted are not candidates | 3 attempts, 5 min doubling to 2 h | 1 h (lease 2 min, extended while running) | LOW | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 | `security.throttle-purge` | core/security | SCHEDULED | every 1 h, `scheduled` group | platform (no company data) | bucket key; a closed window is deleted once | 4 attempts, 1 min doubling to 30 min | 5 min (lease 2 min, extended while running) | LOW | `WorkerJobFailed`, `WorkerJobStale` (ticket) |
 
@@ -267,6 +268,16 @@ Drops recent-work entries past the company's retention and past the hundred newe
 - **Dry run:** supported — `pnpm worker --run=recentwork.prune --dry-run`.
 - **Manual run:** `pnpm worker --run=recentwork.prune` (add `--company=<id>` for one company).
 - **Contract tests:** `tests/api/jobs/recentwork.prune.test.ts` — idempotency, failure, company isolation, suspended company.
+
+### `productivity.stale-references`
+
+Removes favorites and recent items whose record no longer exists or whose type is no longer navigable.
+
+- **Missed runs:** State-based: the next run removes every stale reference there is.
+- **Stale after:** 49 h without a success.
+- **Dry run:** supported — `pnpm worker --run=productivity.stale-references --dry-run`.
+- **Manual run:** `pnpm worker --run=productivity.stale-references` (add `--company=<id>` for one company).
+- **Contract tests:** `tests/api/jobs/productivity.stale-references.test.ts` — idempotency, failure, company isolation, suspended company.
 
 ### `retention.run`
 

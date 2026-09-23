@@ -110,6 +110,12 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     const result = await pruneRecentWork(now, { dryRun });
     return { processed: result.pruned, detail: result };
   },
+  "productivity.stale-references": async ({ dryRun }) => {
+    // Favorites and recent items pointing at records that are gone (Fast Re-entry §119, §177).
+    const { pruneStaleReferences } = await import("@/lib/modules/productivity/recent-work.service");
+    const result = await pruneStaleReferences({ dryRun });
+    return { processed: result.removed, detail: result };
+  },
   "planning.milestones": async ({ now }) => {
     // Due-soon and overdue reminders, once per milestone per target date (PRD #44 §74, §166, §167).
     const { runMilestoneReminders } = await import("@/lib/modules/project-planning/planning.attention");

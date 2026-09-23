@@ -4,6 +4,7 @@
  * Only actions the user may actually perform are offered. A Viewer sees none —
  * not a greyed-out row of them (PRD #4 §22, PRD #5 §32).
  */
+import { QUICK_CREATE_BY_KEY } from "./quick-create";
 import type { ModuleKey } from "./modules";
 import type { Permission } from "./permissions";
 
@@ -17,47 +18,23 @@ export type QuickActionDefinition = {
   permission: Permission;
 };
 
+/**
+ * A dashboard tile for a create action takes its route, module and permission
+ * from the Quick Create registry, so the two surfaces cannot drift apart (Quick
+ * Create §126-§128). Only the tile's wording and icon are its own.
+ */
+function fromQuickCreate(key: string, actionKey: string, label: string, icon: string): QuickActionDefinition {
+  const action = QUICK_CREATE_BY_KEY.get(actionKey);
+  if (!action) throw new Error(`Quick Create action ${actionKey} is not registered`);
+  return { key, label, href: action.route, icon, module: action.moduleKey, permission: action.permission };
+}
+
 export const quickActions: Record<string, QuickActionDefinition> = {
-  newProject: {
-    key: "newProject",
-    label: "New project",
-    href: "/projects/new",
-    icon: "FolderKanban",
-    module: "projects",
-    permission: "project.create",
-  },
-  newTask: {
-    key: "newTask",
-    label: "New task",
-    href: "/tasks/new",
-    icon: "ListChecks",
-    module: "tasks",
-    permission: "task.create",
-  },
-  newClient: {
-    key: "newClient",
-    label: "Add client",
-    href: "/clients/new",
-    icon: "Users",
-    module: "clients",
-    permission: "client.create",
-  },
-  uploadDocument: {
-    key: "uploadDocument",
-    label: "Add document",
-    href: "/documents/new",
-    icon: "Upload",
-    module: "documents",
-    permission: "document.create",
-  },
-  newInvoice: {
-    key: "newInvoice",
-    label: "Create invoice",
-    href: "/finance/invoices/new",
-    icon: "ReceiptText",
-    module: "finance",
-    permission: "finance.invoice.create",
-  },
+  newProject: fromQuickCreate("newProject", "projects.project.create", "New project", "FolderKanban"),
+  newTask: fromQuickCreate("newTask", "tasks.task.create", "New task", "ListChecks"),
+  newClient: fromQuickCreate("newClient", "clients.client.create", "Add client", "Users"),
+  uploadDocument: fromQuickCreate("uploadDocument", "documents.document.create", "Add document", "Upload"),
+  newInvoice: fromQuickCreate("newInvoice", "finance.invoice.create", "Create invoice", "ReceiptText"),
   requestLeave: {
     key: "requestLeave",
     label: "Request leave",
@@ -74,14 +51,7 @@ export const quickActions: Record<string, QuickActionDefinition> = {
     module: "sales",
     permission: "sales.lead.create",
   },
-  newOpportunity: {
-    key: "newOpportunity",
-    label: "New opportunity",
-    href: "/sales/opportunities/new",
-    icon: "Target",
-    module: "sales",
-    permission: "sales.opportunity.create",
-  },
+  newOpportunity: fromQuickCreate("newOpportunity", "sales.opportunity.create", "New opportunity", "Target"),
   newContract: {
     key: "newContract",
     label: "New contract",
@@ -90,14 +60,7 @@ export const quickActions: Record<string, QuickActionDefinition> = {
     module: "contracts",
     permission: "legal.contract.create",
   },
-  newPurchaseRequest: {
-    key: "newPurchaseRequest",
-    label: "Purchase request",
-    href: "/procurement/requests/new",
-    icon: "ShoppingCart",
-    module: "procurement",
-    permission: "procurement.request.create",
-  },
+  newPurchaseRequest: fromQuickCreate("newPurchaseRequest", "procurement.purchase_request.create", "Purchase request", "ShoppingCart"),
   newMovement: {
     key: "newMovement",
     label: "Record movement",
@@ -114,14 +77,7 @@ export const quickActions: Record<string, QuickActionDefinition> = {
     module: "qaqc",
     permission: "qaqc.inspection.create",
   },
-  reportIncident: {
-    key: "reportIncident",
-    label: "Report incident",
-    href: "/hse/incidents/new",
-    icon: "TriangleAlert",
-    module: "hse",
-    permission: "hse.incident.create",
-  },
+  reportIncident: fromQuickCreate("reportIncident", "hse.incident.create", "Report incident", "TriangleAlert"),
   /*
    * Reporting a hazard is one tap from wherever somebody is standing, on
    * purpose: a critical report form buried three levels down is a report that

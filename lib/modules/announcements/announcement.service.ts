@@ -8,11 +8,10 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
 import { prisma } from "@/lib/database/prisma";
-import { documentListQuerySchema } from "@/lib/modules/documents/document.schema";
-import { listDocuments } from "@/lib/modules/documents/document.service";
+import { listRecordAttachments, readRecordAttachment } from "@/lib/modules/documents/document.service";
 import { resolveProductivitySettings } from "@/lib/modules/productivity/productivity.settings";
 import { excerpt } from "./announcement.body";
-import { announcementsOpen, audienceWhere, canAddress, managedWhere, MODULE, projectDoor, readableAnnouncementWhere, RECORD } from "./announcement.permissions";
+import { addressableAudiences, announcementsOpen, canAddress, managedWhere, MODULE, projectDoor, reachWhere, readableAnnouncementWhere, RECORD } from "./announcement.permissions";
 import type { CreateAnnouncementInput, FeedQuery, UpdateAnnouncementInput } from "./announcement.schema";
 import {
   AUDIENCE_LABELS,
@@ -139,6 +138,10 @@ export async function audienceMemberIds(tx: Tx | typeof prisma, row: Pick<Announ
       return (await tx.companyMember.findMany({ where: { ...active, departmentId: row.departmentId ?? "" }, select: { id: true } })).map((member) => member.id);
     case "PROJECT":
       return (await tx.companyMember.findMany({ where: { ...active, OR: [{ projectMemberships: { some: { projectId: row.projectId ?? "", status: "ACTIVE" } } }, { managedProjects: { some: { id: row.projectId ?? "" } } }] }, select: { id: true } })).map((member) => member.id);
+    case "GROUP": {
+      // Every active member, with the grant to read, of every active company of the author's group (§16).
+      return (await tx.companyMember.findMany({ where: { status: "ACTIVE", role: active.role, company: { status: "ACTIVE", parentGroup: { companies: { some: { id: row.companyId } } } } }, select: { id: true } })).map((member) => member.id);
+    }
     case "SELECTED_MEMBERS": {
       const selected = await tx.announcementAudienceMember.findMany({ where: { announcementId: row.id }, select: { memberId: true } });
       return (await tx.companyMember.findMany({ where: { ...active, id: { in: selected.map((entry) => entry.memberId) } }, select: { id: true } })).map((member) => member.id);
@@ -159,10 +162,10 @@ export async function toCards(context: UserContext, rows: AnnouncementRow[]): Pr
   const ids = rows.map((row) => row.id);
   if (!ids.length) return [];
   const [authors, reads, acks, attachments] = await Promise.all([
-    prisma.companyMember.findMany({ where: { companyId: context.companyId, id: { in: [...new Set(rows.map((row) => row.authorMemberId))] } }, select: { id: true, user: { select: { firstName: true, lastName: true } } } }),
+    prisma.companyMember.findMany({ where: { companyId: { in: [...new Set(rows.map((row) => row.companyId))] }, id: { in: [...new Set(rows.map((row) => row.authorMemberId))] } }, select: { id: true, user: { select: { firstName: true, lastName: true } } } }),
     prisma.announcementRead.findMany({ where: { memberId: context.membershipId, announcementId: { in: ids } }, select: { announcementId: true } }),
     prisma.announcementAcknowledgment.findMany({ where: { memberId: context.membershipId, announcementId: { in: ids } }, select: { announcementId: true, acknowledgedAt: true } }),
-    prisma.document.groupBy({ by: ["entityId"], where: { companyId: context.companyId, entityType: RECORD, entityId: { in: ids }, status: "ACTIVE" }, _count: { _all: true } }),
+    prisma.document.groupBy({ by: ["entityId"], where: { companyId: { in: [...new Set(rows.map((row) => row.companyId))] }, entityType: RECORD, entityId: { in: ids }, status: "ACTIVE" }, _count: { _all: true } }),
   ]);
   const author = new Map(authors.map((row) => [row.id, { memberId: row.id, name: `${row.user.firstName} ${row.user.lastName}` }]));
   const read = new Set(reads.map((row) => row.announcementId));
@@ -366,14 +369,14 @@ export async function duplicateAnnouncement(context: UserContext, announcementId
 /* Feed and detail                                                             */
 /* -------------------------------------------------------------------------- */
 
-const live = (now: Date): Prisma.AnnouncementWhereInput => ({ status: "PUBLISHED", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
+export const live = (now: Date): Prisma.AnnouncementWhereInput => ({ status: "PUBLISHED", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
 
 export async function listAnnouncements(context: UserContext, query: FeedQuery): Promise<AnnouncementFeedDTO> {
   assertModule(context, MODULE);
   if (!announcementsOpen(context)) throw new AccessError("FORBIDDEN", "You cannot open announcements.");
   const now = new Date();
   const me = context.membershipId;
-  const visible: Prisma.AnnouncementWhereInput = { companyId: context.companyId, AND: [audienceWhere(context)] };
+  const visible: Prisma.AnnouncementWhereInput = reachWhere(context);
   const tabWhere: Record<FeedQuery["tab"], Prisma.AnnouncementWhereInput> = {
     for_me: { AND: [visible, live(now)] },
     pinned: { AND: [visible, live(now), { pinned: true }] },
@@ -413,11 +416,11 @@ export async function getAnnouncement(context: UserContext, announcementId: stri
     row.managed && row.audienceType === "SELECTED_MEMBERS" ? prisma.announcementAudienceMember.findMany({ where: { announcementId: row.id }, select: { memberId: true } }) : Promise.resolve(null),
   ]);
   const people = selected?.length ? await prisma.companyMember.findMany({ where: { companyId: context.companyId, id: { in: selected.map((entry) => entry.memberId) } }, select: { id: true, user: { select: { firstName: true, lastName: true } } } }) : [];
-  let documents: AnnouncementDetailDTO["documents"] = null;
-  if (canAccessModule(context, "documents") && can(context, "document.view")) {
-    const { data } = await listDocuments(context, documentListQuerySchema.parse({ entityType: RECORD, entityId: row.id, limit: 50 })).catch(() => ({ data: [] }));
-    documents = data.map((document) => ({ documentId: document.id, name: document.name, extension: document.extension, size: document.sizeBytes === null || document.sizeBytes === undefined ? null : Number(document.sizeBytes), href: `/documents/${document.id}`, previewable: document.storageStatus === "AVAILABLE" }));
-  }
+  // Announcement files are read by everybody who can read the announcement — the one exception to
+  // "a file belongs to the reader's company and needs the Documents grant" (Activity Center §47, §150).
+  // They open through the announcement, which re-checks the reader, never through /documents.
+  const attachments = await listRecordAttachments({ companyId: row.companyId, entityType: RECORD, entityId: row.id });
+  const documents: AnnouncementDetailDTO["documents"] = attachments.map((document) => ({ documentId: document.id, name: document.name, extension: document.extension, size: document.sizeBytes === null || document.sizeBytes === undefined ? null : Number(document.sizeBytes), href: `/api/announcements/${row.id}/files/${document.id}`, previewable: document.storageStatus === "AVAILABLE" }));
   return {
     ...card,
     body: row.body,
@@ -426,6 +429,16 @@ export async function getAnnouncement(context: UserContext, announcementId: stri
     documents,
     capabilities: capabilitiesFor(context, row, acknowledgedCount, Boolean(card.acknowledgedAt)),
   };
+}
+
+/**
+ * One file of an announcement the reader can read (Activity Center §47, §150).
+ * The reader is decided by the announcement's own audience rules; the file must
+ * be one of that announcement's own. Everything else answers "not found".
+ */
+export async function readAnnouncementFile(context: UserContext, announcementId: string, documentId: string, options: { inline?: boolean } = {}) {
+  const row = await findReadableAnnouncement(context, announcementId);
+  return readRecordAttachment({ companyId: row.companyId, entityType: RECORD, entityId: row.id }, documentId, options);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -445,6 +458,18 @@ export async function markRead(context: UserContext, announcementId: string): Pr
   return { readAt: now.toISOString() };
 }
 
+/**
+ * Seen, in bulk, for the Activity Center's "Mark all as read" (Activity Center
+ * §29, §186): each announcement for the one membership of the person it
+ * reaches them through. Never an acknowledgment. The caller has already
+ * resolved each pair in that member's own scope.
+ */
+export async function markSeenMany(pairs: Array<{ announcementId: string; memberId: string }>, now = new Date()): Promise<number> {
+  if (pairs.length === 0) return 0;
+  const created = await prisma.announcementRead.createMany({ data: pairs.map((pair) => ({ ...pair, firstReadAt: now, lastReadAt: now })), skipDuplicates: true });
+  return created.count;
+}
+
 /** "I have read this" — for the member asking, and only while the announcement is live (§159, §214, §299). */
 export async function acknowledgeAnnouncement(context: UserContext, announcementId: string): Promise<{ acknowledgedAt: string }> {
   assertPermission(context, "announcement.acknowledge");
@@ -453,7 +478,7 @@ export async function acknowledgeAnnouncement(context: UserContext, announcement
   if (!row.requiresAcknowledgment) throw fail("ANNOUNCEMENT_ACK_NOT_REQUIRED", "This announcement does not ask for acknowledgment.", "CONFLICT");
   if (row.status !== "PUBLISHED" || (row.expiresAt && row.expiresAt <= now)) throw fail("ANNOUNCEMENT_NOT_LIVE", "This announcement is no longer current.", "CONFLICT");
   // The member must be in the audience itself, not only a manager who can see it (§307).
-  const inAudience = await prisma.announcement.count({ where: { AND: [{ id: row.id, companyId: context.companyId }, audienceWhere(context)] } });
+  const inAudience = await prisma.announcement.count({ where: { AND: [{ id: row.id }, reachWhere(context)] } });
   if (!inAudience) throw new AccessError("FORBIDDEN", "This announcement is not addressed to you.", { code: "ANNOUNCEMENT_NOT_IN_AUDIENCE" });
   const acknowledgment = await prisma.$transaction(async (tx) => {
     await tx.announcementRead.upsert({
@@ -544,7 +569,7 @@ export async function announcementShellState(context: UserContext): Promise<Anno
   if (!announcementsOpen(context)) return { unread: 0, banner: null };
   const now = new Date();
   const me = context.membershipId;
-  const visible = { companyId: context.companyId, AND: [audienceWhere(context), live(now)] };
+  const visible = { AND: [reachWhere(context), live(now)] };
   const [unread, critical] = await Promise.all([
     prisma.announcement.count({ where: { ...visible, reads: { none: { memberId: me } }, acknowledgments: { none: { memberId: me } } } }),
     prisma.announcement.findFirst({
@@ -561,7 +586,7 @@ export async function dashboardAnnouncements(context: UserContext, limit = 5): P
   if (!announcementsOpen(context) || !(await resolveProductivitySettings(context.companyId)).announcementsEnabled) return [];
   const now = new Date();
   const rows = await prisma.announcement.findMany({
-    where: { companyId: context.companyId, AND: [audienceWhere(context), live(now)] },
+    where: { AND: [reachWhere(context), live(now)] },
     orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }],
     take: 30,
     select: ROW_SELECT,
@@ -573,6 +598,19 @@ export async function dashboardAnnouncements(context: UserContext, limit = 5): P
 
 export async function resolveAnnouncementAttentionFor(companyId: string, announcementId: string) {
   await resolveAttentionForRecord(prisma, companyId, RECORD, announcementId, ["ANNOUNCEMENT_ACK_REQUIRED"]);
+}
+
+/**
+ * How many people an audience would reach, before it is published (Activity
+ * Center §90, §91): the same validation as a save, then a head count — never
+ * a name, and nothing for an audience this author may not address (§144).
+ */
+export async function estimateAudience(context: UserContext, input: { audienceType: AudienceType; projectId?: string | null; departmentId?: string | null; selectedMemberIds?: string[] }): Promise<{ recipients: number }> {
+  assertModule(context, MODULE);
+  const audience = await validateAudience(context, { audienceType: input.audienceType, projectId: input.projectId ?? null, departmentId: input.departmentId ?? null, selectedMemberIds: input.selectedMemberIds ?? [] });
+  if (audience.audienceType === "SELECTED_MEMBERS") return { recipients: audience.selectedMemberIds.filter((id) => id !== context.membershipId).length };
+  const members = await audienceMemberIds(prisma, { id: "", companyId: context.companyId, ...audience });
+  return { recipients: members.filter((id) => id !== context.membershipId).length };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -591,7 +629,7 @@ export type AnnouncementOptionsDTO = {
 /** Only what this author could address: the server refuses anything else anyway (§35, §36). */
 export async function announcementOptions(context: UserContext): Promise<AnnouncementOptionsDTO> {
   assertModule(context, MODULE);
-  const audiences = (["COMPANY", "DEPARTMENT", "PROJECT", "SELECTED_MEMBERS"] as const).filter((type) => canAddress(context, type));
+  const audiences = addressableAudiences(context);
   const door = projectDoor(context);
   const [projects, departments, members] = await Promise.all([
     audiences.includes("PROJECT") && door ? prisma.project.findMany({ where: { AND: [door, { archivedAt: null, status: { in: ["ACTIVE", "PENDING"] } }] }, orderBy: { name: "asc" }, take: 200, select: { id: true, name: true, code: true } }) : [],

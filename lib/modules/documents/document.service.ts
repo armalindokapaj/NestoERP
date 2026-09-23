@@ -12,7 +12,7 @@ import { assertTransition, fileTypeLabel, storageStatusMessage } from "@/lib/cor
 import { applyTransition } from "@/lib/core/state/transition";
 import { documentMachine } from "./document.machine";
 import { attachDocumentFromBytes } from "./storage/upload.service";
-import { readDocumentBytes } from "./storage/download.service";
+import { readDocumentBytes, readRecordAttachmentBytes } from "./storage/download.service";
 import { frozenFileReason } from "./storage/version.promote";
 import * as repository from "./document.repository";
 import { classifyDocumentParent, documentChangeAllowed, loadDocumentParentRecord } from "./document.parent-access";
@@ -37,6 +37,12 @@ import type {
  *
  *   document permission + parent permission + parent record access
  *   + company isolation = document access
+ *
+ * with one deliberate exception, decided by the product owner: an
+ * announcement's files are read by everybody who can read the announcement,
+ * across the companies of its group (Activity Center §47, §150). It is served
+ * only through `readRecordAttachment`, after the announcement has decided the
+ * reader — never through the document list, detail or download routes.
  *
  * A generic `document.view` never reaches a Finance or HR file, and archiving
  * never deletes a stored object (PRD #13 §4, §48, §112, §291).
@@ -154,6 +160,19 @@ export async function readDocumentFile(
   options: { inline?: boolean } = {},
 ): Promise<{ bytes: Uint8Array; fileName: string; mimeType: string; disposition: string }> {
   return readDocumentBytes(context, documentId, options);
+}
+
+/**
+ * Files attached to a record whose owner lets everybody who can read the record
+ * read its files — the announcement exception (Activity Center §47, §150). The
+ * owner decides the reader first; these only find and serve.
+ */
+export async function listRecordAttachments(parent: { companyId: string; entityType: string; entityId: string }) {
+  return repository.listRecordAttachments(parent);
+}
+
+export async function readRecordAttachment(parent: { companyId: string; entityType: string; entityId: string }, documentId: string, options: { inline?: boolean } = {}) {
+  return readRecordAttachmentBytes(parent, documentId, options);
 }
 
 /* -------------------------------------------------------------------------- */

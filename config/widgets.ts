@@ -317,7 +317,7 @@ export const widgets: Record<string, WidgetDefinition> = {
     kind: "list",
     size: "MEDIUM",
     priority: 1,
-    href: "/announcements",
+    href: "/activity?type=announcements",
     emptyMessage: "No current announcements.",
   },
   rfisAssignedToMe: {
@@ -377,7 +377,7 @@ export const widgets: Record<string, WidgetDefinition> = {
     kind: "list",
     size: "MEDIUM",
     priority: 2,
-    href: "/favorites",
+    href: "/my-work?tab=favorites",
     emptyMessage: "Star a project, task or document to keep it here.",
   },
   recentWork: {
@@ -389,7 +389,7 @@ export const widgets: Record<string, WidgetDefinition> = {
     kind: "list",
     size: "MEDIUM",
     priority: 2,
-    href: "/favorites?tab=recent",
+    href: "/my-work?tab=recent",
     emptyMessage: "Records you open will appear here.",
   },
   upcomingMilestones: {

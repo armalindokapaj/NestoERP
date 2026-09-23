@@ -273,6 +273,7 @@ export function AnnouncementEditor({
               {errors.selectedMemberIds ? <p className="px-3 pb-2 text-meta text-danger-strong">{errors.selectedMemberIds}</p> : null}
             </div>
           ) : null}
+          <AudienceEstimate audienceType={values.audienceType} projectId={values.projectId} departmentId={values.departmentId} selectedMemberIds={values.selectedMemberIds} />
         </fieldset>
 
         <fieldset className="space-y-2">
@@ -389,5 +390,40 @@ export function AnnouncementEditor({
         </article>
       </aside>
     </form>
+  );
+}
+
+/**
+ * "Reaches about 42 people" — asked of the server as the audience changes
+ * (Activity Center §90, §91). Silent when the audience is not complete yet.
+ */
+function AudienceEstimate({ audienceType, projectId, departmentId, selectedMemberIds }: { audienceType: AudienceType; projectId: string; departmentId: string; selectedMemberIds: string[] }) {
+  const [recipients, setRecipients] = React.useState<number | null>(null);
+  const members = selectedMemberIds.join(",");
+  React.useEffect(() => {
+    setRecipients(null);
+    if ((audienceType === "PROJECT" && !projectId) || (audienceType === "DEPARTMENT" && !departmentId) || (audienceType === "SELECTED_MEMBERS" && !members)) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void fetch("/api/announcements/audience-estimate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ audienceType, projectId: projectId || null, departmentId: departmentId || null, selectedMemberIds: members ? members.split(",") : [] }),
+        signal: controller.signal,
+      })
+        .then(async (response) => (response.ok ? ((await response.json()) as { data: { recipients: number } }).data.recipients : null))
+        .then((count) => setRecipients(count))
+        .catch(() => undefined);
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [audienceType, projectId, departmentId, members]);
+  if (recipients === null) return null;
+  return (
+    <p className="text-meta text-fg-muted" aria-live="polite" data-testid="announcement-audience-estimate">
+      Reaches {recipients === 1 ? "1 person" : `about ${recipients} people`}{audienceType === "GROUP" ? " across the group" : ""}.
+    </p>
   );
 }

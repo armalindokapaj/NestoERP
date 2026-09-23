@@ -8,7 +8,15 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**849 route handlers, 257 server actions.** AUTHENTICATED 29 · COMPANY_SCOPED 1017 · PLATFORM 45 · PUBLIC 10 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**868 route handlers, 257 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1035 · PLATFORM 45 · PUBLIC 10 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+
+## /api/activity-center
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| POST | `/api/activity-center/mark-all-read` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `projectDoor` | — | — | sweep |
+| GET | `/api/activity-center` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `projectDoor` | — | — | sweep |
+| GET | `/api/activity-center/unread-count` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `projectDoor` | `loadRecord` | — | sweep |
 
 ## /api/announcements
 
@@ -18,15 +26,18 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/announcements/[announcementId]/acknowledgments` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | POST | `/api/announcements/[announcementId]/archive` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | POST | `/api/announcements/[announcementId]/duplicate` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
+| GET | `/api/announcements/[announcementId]/files/[documentId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | GET | `/api/announcements/[announcementId]/metrics` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | POST | `/api/announcements/[announcementId]/pin` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | POST | `/api/announcements/[announcementId]/publish` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | POST | `/api/announcements/[announcementId]/read` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
-| GET | `/api/announcements/[announcementId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +723 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +3 | `findReadableAnnouncement` | — | sweep |
+| GET | `/api/announcements/[announcementId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | PATCH | `/api/announcements/[announcementId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | POST | `/api/announcements/[announcementId]/schedule` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
+| POST | `/api/announcements/[announcementId]/seen` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | POST | `/api/announcements/[announcementId]/unpin` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
 | POST | `/api/announcements/[announcementId]/unschedule` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableAnnouncement` | — | sweep |
+| POST | `/api/announcements/audience-estimate` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` | — | — | sweep |
 | GET | `/api/announcements/options` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` | — | — | sweep |
 | GET | `/api/announcements` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` | — | — | sweep |
 | POST | `/api/announcements` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildProjectScopeWhere`, `projectDoor` | — | — | sweep |
@@ -546,11 +557,25 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/meetings` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `readableMeetingWhere` | — | — | sweep |
 | POST | `/api/meetings` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` +2 | `loadRecord`, `requireDepartment` +3 | — | sweep |
 
+## /api/my-work
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| DELETE | `/api/my-work/favorites/[entityType]/[entityId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| GET | `/api/my-work/favorites` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| POST | `/api/my-work/favorites` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| DELETE | `/api/my-work/recent/[entityType]/[entityId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| GET | `/api/my-work/recent` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| DELETE | `/api/my-work/recent` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| POST | `/api/my-work/recent/touch` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| GET | `/api/my-work` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+
 ## /api/notifications
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
 | POST | `/api/notifications/[notificationId]/read` | AUTHENTICATED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| POST | `/api/notifications/[notificationId]/unread` | AUTHENTICATED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
 | POST | `/api/notifications/attention/[attentionId]/dismiss` | AUTHENTICATED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
 | GET | `/api/notifications/attention` | AUTHENTICATED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `loadRecord` | — | sweep |
 | GET | `/api/notifications/preferences` | AUTHENTICATED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +725 | — | — | — | sweep |
@@ -919,6 +944,14 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/qaqc/assignable` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
 | GET | `/api/qaqc/export` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildCorrectiveActionScopeWhere`, `buildDefectScopeWhere` +4 | — | — | sweep |
 
+## /api/quick-create
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| GET | `/api/quick-create/actions` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `loadRecord` | — | sweep |
+| POST | `/api/quick-create/launch` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `loadRecord` | — | sweep |
+| GET | `/api/quick-create/projects` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere` | — | — | sweep |
+
 ## /api/recent-work
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
@@ -1003,6 +1036,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
+| GET | `/api/search/home` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
 | GET | `/api/search` (reviewed: each search provider applies its module, permission and scope (lib/core/search/search.providers.ts)) | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
 
 ## /api/settings
@@ -1176,7 +1210,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
 | GET | `/api/workspace/context` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
-| POST | `/api/workspace` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+| POST | `/api/workspace` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | `buildBudgetScopeWhere`, `buildClientScopeWhere` +14 | — | — | sweep |
 
 ## /api/workspaces
 

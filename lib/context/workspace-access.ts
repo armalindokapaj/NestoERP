@@ -44,6 +44,20 @@ export const resolveGroupContexts = cache(async (session: UserContext): Promise<
   );
 });
 
+/**
+ * Everything personal and user-global — the bell, favorites, recent work, My
+ * Work (Activity Center §31, §78; Fast Re-entry §38): every company of the
+ * person's group they may use, as their own context there, whatever the active
+ * workspace. Never another group's (Fast Re-entry §191). The session's own
+ * company comes first.
+ */
+export async function resolvePersonalContexts(session: UserContext): Promise<UserContext[]> {
+  const contexts = await resolveGroupContexts(session);
+  const own = contexts.find((context) => context.companyId === session.companyId);
+  if (!own) return contexts.length > 0 ? contexts : [session];
+  return [own, ...contexts.filter((context) => context !== own)];
+}
+
 function satisfies(context: UserContext, request: WorkspaceAccessRequest): boolean {
   if (request.module && !(isModuleEnabled(context, request.module) && canAccessModule(context, request.module))) return false;
   if (request.permission && !can(context, request.permission)) return false;

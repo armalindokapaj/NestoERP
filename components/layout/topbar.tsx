@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 
-import { AnnouncementsIndicator } from "@/components/announcements/shell";
 import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { MobileHeader } from "@/components/layout/mobile-header";
-import { NotificationsMenu } from "@/components/layout/notifications-menu";
+import { ActivityCenterMenu } from "@/components/layout/activity-center-menu";
+import { QuickCreate } from "@/components/layout/quick-create";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
@@ -34,13 +34,10 @@ export async function Topbar({
   context,
   navigation,
   workspaces,
-  announcementsUnread = 0,
 }: {
   context: UserContext;
   navigation: NavigationGroup[];
   workspaces: WorkspacesDTO;
-  /** Live announcements addressed to this member and not yet opened (PRD #45 §121-§123). */
-  announcementsUnread?: number;
 }) {
   const t = await getTranslations("roles");
   // The workspace names itself: the group above, or the company (Workspace Context §10).
@@ -59,8 +56,8 @@ export async function Topbar({
         {/* Up to 420px. The margin separates it from the wordmark at tablet
             width; from lg nothing precedes it but the toggle, whose own
             padding already does that, so it lines up with the page gutter. */}
-        <div className="hidden w-full min-w-0 max-w-[420px] md:ml-2 md:block lg:ml-0">
-          <GlobalSearch />
+        <div className="ml-auto min-w-0 md:ml-2 md:w-full md:max-w-[420px] lg:ml-0">
+          <GlobalSearch userKey={context.userId} />
         </div>
       </div>
 
@@ -86,8 +83,10 @@ export async function Topbar({
         {/* The group and the companies this person may work in; shown only when
             there is a choice to make (Workspace Context §5, §9). */}
         <WorkspaceSwitcher workspaces={workspaces} />
-        {context.enabledModules.includes("announcements") && context.permissions.includes("announcement.view") ? <AnnouncementsIndicator unread={announcementsUnread} /> : null}
-        <NotificationsMenu />
+        {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). */}
+        {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150). */}
+        <QuickCreate userKey={context.userId} />
+        <ActivityCenterMenu userKey={context.userId} canManageAnnouncements={context.permissions.includes("announcement.create")} />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
         <UserMenu
           user={{

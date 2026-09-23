@@ -55,7 +55,18 @@ async function publishInTransaction(tx: Tx, row: AnnouncementRow, actor: Actor, 
     : row.priority === "IMPORTANT" || settings.notifyNormalAnnouncements ? NotificationEvent.ANNOUNCEMENT_PUBLISHED
     : null;
   if (eventType && audience.length) {
-    await enqueueNotificationEvent(tx, { companyId: row.companyId, eventType, moduleKey: MODULE, entityType: RECORD, entityId: row.id, actorMemberId: "context" in actor ? actor.context.membershipId : null, projectId: row.projectId, payload });
+    // A notification belongs to one member in one company: a Group announcement is sent in each
+    // recipient's own company, where the dispatcher re-checks them by that company's rules (Activity Center §16, §140).
+    const byCompany = new Map<string, string[]>([[row.companyId, audience]]);
+    if (row.audienceType === "GROUP") {
+      byCompany.clear();
+      for (const member of await tx.companyMember.findMany({ where: { id: { in: audience } }, select: { id: true, companyId: true } })) {
+        byCompany.set(member.companyId, [...(byCompany.get(member.companyId) ?? []), member.id]);
+      }
+    }
+    for (const [companyId, memberIds] of byCompany) {
+      await enqueueNotificationEvent(tx, { companyId, eventType, moduleKey: MODULE, entityType: RECORD, entityId: row.id, actorMemberId: "context" in actor && companyId === row.companyId ? actor.context.membershipId : null, projectId: companyId === row.companyId ? row.projectId : null, payload: { ...payload, memberIds } });
+    }
   }
 
   const audit = { actionKey: AuditAction.ANNOUNCEMENT_PUBLISHED, entity: { type: RECORD, id: row.id, label: row.title }, projectId: row.projectId, after: { status: "PUBLISHED", priority: row.priority, audienceType: row.audienceType, targets: row.requiresAcknowledgment ? audience.length : 0 } };

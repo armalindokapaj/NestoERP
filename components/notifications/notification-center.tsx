@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Check, CheckCheck, Loader2, RotateCcw } from "lucide-react";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { relativeTime } from "@/components/layout/notifications-menu";
+import { relativeTime } from "@/lib/activity/client";
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { CompanyTag } from "@/components/workspace/company-tag";

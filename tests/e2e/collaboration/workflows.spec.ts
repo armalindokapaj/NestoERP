@@ -27,7 +27,7 @@ async function runJob(job: string) {
 
 async function openBell(page: Page) {
   await page.getByTestId("notification-bell").click();
-  return page.getByRole("menu");
+  return page.getByTestId("activity-panel");
 }
 
 test.afterAll(async () => {
@@ -67,10 +67,11 @@ test("PM mentions the Engineer on a task, and the bell takes the Engineer there 
   await signIn(page, "ENGINEER", { to: "/dashboard" });
   await expect(page.getByTestId("notification-badge")).toBeVisible();
   const menu = await openBell(page);
-  const item = menu.getByRole("menuitem", { name: /Alex Morgan mentioned you/ }).first();
+  const item = menu.getByRole("button", { name: /Alex Morgan mentioned you/ }).first();
   await expect(item).toBeVisible();
   await item.click();
-  await page.waitForURL(/\/tasks\/task_006$/);
+  // A mention opens at its comment (Activity Center §43).
+  await page.waitForURL(/\/tasks\/task_006#comment-[A-Za-z0-9_-]+$/);
   await expect(mainRegion(page).getByText(MARKER)).toBeVisible();
 
   // The mention notification, once followed, is read.
@@ -126,7 +127,7 @@ test("Legal sends a contract document for review and the Owner approves it (§59
 
     await signIn(page, "OWNER", { to: "/dashboard" });
     const menu = await openBell(page);
-    await menu.getByRole("menuitem", { name: /asked you to review/ }).first().click();
+    await menu.getByRole("button", { name: /asked you to review/ }).first().click();
     // A review opens in the Approvals Center's drawer first, with the document one link away (PRD #41 §42).
     await page.waitForURL(/\/approvals\?approval=documents%3A/);
     await page.getByTestId("approval-detail").getByRole("link", { name: "Open full document" }).click();
@@ -187,7 +188,7 @@ test("the dashboard shows the Engineer their own overdue work, linked (§83, §8
   await link.click();
   await page.waitForURL(/\/tasks\/task_024$/);
 
-  await page.goto("/notifications?tab=attention");
+  await page.goto("/activity");
   await expect(mainRegion(page).getByTestId("attention-item").filter({ hasText: "Technical issue response" })).toBeVisible();
 });
 
