@@ -1,4 +1,3 @@
-import sharp from "sharp";
 
 import type { UserContext } from "@/lib/context/types";
 import { buildDerivedKey, StorageError } from "@/lib/core/storage";
@@ -84,6 +83,9 @@ export async function readAuthorizedDocumentThumbnail(
 
   let body: Uint8Array;
   try {
+    // Loaded on use, so a host without the native binary fails one thumbnail
+    // rather than every page that imports this module.
+    const { default: sharp } = await import("sharp");
     body = await sharp(original, { limitInputPixels: MAX_INPUT_PIXELS })
       .rotate()
       .resize({ width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT, fit: "cover", position: "attention", withoutEnlargement: false })
