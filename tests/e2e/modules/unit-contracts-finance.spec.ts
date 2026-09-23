@@ -99,28 +99,28 @@ const day = (offset: number) => {
   const date = new Date(Date.now() + offset * 86_400_000);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 };
-const contractStatus = (page: Page) => page.getByTestId("unit-contract").getByTestId("contract-status");
+const contractStatus = (page: Page) => mainRegion(page).getByTestId("unit-contract").getByTestId("contract-status");
 
 test("Sales asks for the contract, and Legal drafts it from its queue with the parking and sends it for review", async ({ page }) => {
   await signIn(page, "SALES", { to: unitUrl(HOME, "legal") });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("H-101");
-  await page.getByTestId("unit-legal-actions").getByRole("button", { name: "Request contract" }).click();
+  await mainRegion(page).getByTestId("unit-legal-actions").getByRole("button", { name: "Request contract" }).click();
   const request = page.getByTestId("request-contract-dialog");
   await request.getByLabel("Notes for Legal").fill("Buyer takes the parking space too.");
   await request.getByRole("button", { name: "Request contract" }).click();
-  await expect(page.getByTestId("contract-request")).toContainText("asked Legal for this unit's contract");
-  await expect(page.getByTestId("contract-request-history")).toContainText("Waiting for Legal");
+  await expect(mainRegion(page).getByTestId("contract-request")).toContainText("asked Legal for this unit's contract");
+  await expect(mainRegion(page).getByTestId("contract-request-history")).toContainText("Waiting for Legal");
 
   // Sales cannot sell before the signature the company's rule asks for (§42, §122).
   await page.goto(unitUrl(HOME, "sales"));
-  await expect(page.getByTestId("sale-conditions")).toContainText("Signed contract");
-  await page.getByTestId("unit-sales-actions").getByRole("button", { name: "Mark Sold" }).click();
+  await expect(mainRegion(page).getByTestId("sale-conditions")).toContainText("Signed contract");
+  await mainRegion(page).getByTestId("unit-sales-actions").getByRole("button", { name: "Mark Sold" }).click();
   await expect(page.getByTestId("not-sellable-dialog")).toContainText("A signed contract");
   await page.getByTestId("not-sellable-dialog").getByRole("button", { name: "Close", exact: true }).first().click();
 
   await signOut(page);
   await signIn(page, "LEGAL", { to: "/contracts/requests" });
-  const row = page.getByTestId("contract-request-row").and(page.locator('[data-unit-code="H-101"]'));
+  const row = mainRegion(page).getByTestId("contract-request-row").and(page.locator('[data-unit-code="H-101"]'));
   await expect(row).toContainText("ACME Developments");
   await expect(row).toContainText("Buyer takes the parking space too.");
   await row.getByRole("link", { name: "Draft contract" }).click();
@@ -132,16 +132,16 @@ test("Sales asks for the contract, and Legal drafts it from its queue with the p
   await create.getByRole("button", { name: "Draft contract" }).click();
 
   await expect(contractStatus(page)).toHaveText("Draft");
-  await expect(page.getByTestId("contract-number")).toHaveText(NUMBER);
-  await expect(page.getByTestId("contract-value")).toHaveText("€300,000.00");
-  await expect(page.getByTestId("contract-units")).toContainText("H-P01");
-  await page.getByTestId("unit-contract-actions").getByRole("button", { name: "Send for review" }).click();
+  await expect(mainRegion(page).getByTestId("contract-number")).toHaveText(NUMBER);
+  await expect(mainRegion(page).getByTestId("contract-value")).toHaveText("€300,000.00");
+  await expect(mainRegion(page).getByTestId("contract-units")).toContainText("H-P01");
+  await mainRegion(page).getByTestId("unit-contract-actions").getByRole("button", { name: "Send for review" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Send for review" }).click();
   await expect(contractStatus(page)).toHaveText("Under review");
 
   // The parking's page shows the same contract (§88).
   await page.goto(unitUrl(PARKING, "legal"));
-  await expect(page.getByTestId("contract-number")).toHaveText(NUMBER);
+  await expect(mainRegion(page).getByTestId("contract-number")).toHaveText(NUMBER);
 });
 
 test("Finance puts a schedule in force on the signed contract, records a payment and sees the unit overdue", async ({ page }) => {
@@ -149,8 +149,8 @@ test("Finance puts a schedule in force on the signed contract, records a payment
   await db.contract.updateMany({ where: { contractNumber: NUMBER, companyId: COMPANY }, data: { status: "ACTIVE", signedDate: new Date(), effectiveDate: new Date() } });
 
   await signIn(page, "FINANCE", { to: unitUrl(HOME, "finance") });
-  await expect(page.getByTestId("unit-finance-summary").getByTestId("financial-status")).toHaveText("Payment pending");
-  await expect(page.getByTestId("finance-contract-value")).toHaveText("€300,000.00");
+  await expect(mainRegion(page).getByTestId("unit-finance-summary").getByTestId("financial-status")).toHaveText("Payment pending");
+  await expect(mainRegion(page).getByTestId("finance-contract-value")).toHaveText("€300,000.00");
 
   await page.getByRole("button", { name: "Create schedule" }).click();
   const schedule = page.getByTestId("schedule-dialog");
@@ -161,44 +161,44 @@ test("Finance puts a schedule in force on the signed contract, records a payment
   await rows.nth(1).getByLabel("Due").fill(day(90));
   await expect(schedule.getByTestId("schedule-total")).toContainText("€300,000.00 of €300,000.00 needed");
   await schedule.getByRole("button", { name: "Save as draft" }).click();
-  await expect(page.getByTestId("schedule-draft")).toBeVisible();
-  await page.getByTestId("schedule-draft").getByRole("button", { name: "Activate" }).click();
+  await expect(mainRegion(page).getByTestId("schedule-draft")).toBeVisible();
+  await mainRegion(page).getByTestId("schedule-draft").getByRole("button", { name: "Activate" }).click();
   await page.getByTestId("activate-schedule-dialog").getByRole("button", { name: "Activate" }).click();
   // The draft had the same two rows, so wait for it to be gone: until the
   // active schedule is on the page, a payment has nothing to be allocated to.
-  await expect(page.getByTestId("schedule-draft")).toHaveCount(0);
-  await expect(page.getByTestId("payment-schedule").getByTestId("installment-row")).toHaveCount(2);
+  await expect(mainRegion(page).getByTestId("schedule-draft")).toHaveCount(0);
+  await expect(mainRegion(page).getByTestId("payment-schedule").getByTestId("installment-row")).toHaveCount(2);
 
-  await page.getByTestId("unit-finance-actions").getByRole("button", { name: "Record payment" }).click();
+  await mainRegion(page).getByTestId("unit-finance-actions").getByRole("button", { name: "Record payment" }).click();
   const payment = page.getByTestId("record-payment-dialog");
   await payment.getByLabel("Amount").fill("10000");
   await payment.getByLabel("Reference").fill("TR-E2E-05F");
   await expect(payment.getByTestId("payment-unallocated")).toHaveText("Unallocated €0.00");
   await payment.getByRole("button", { name: "Record payment" }).click();
 
-  await expect(page.getByTestId("finance-paid")).toHaveText("€10,000.00");
-  await expect(page.getByTestId("finance-outstanding")).toHaveText("€290,000.00");
+  await expect(mainRegion(page).getByTestId("finance-paid")).toHaveText("€10,000.00");
+  await expect(mainRegion(page).getByTestId("finance-outstanding")).toHaveText("€290,000.00");
   // The deposit fell due three days ago and is only part paid (§37, §85).
-  await expect(page.getByTestId("finance-overdue")).toHaveText("€20,000.00");
-  await expect(page.getByTestId("unit-finance-summary").getByTestId("financial-status")).toHaveText("Overdue");
-  await expect(page.getByTestId("payment-schedule").getByTestId("installment-row").first().getByTestId("installment-status")).toHaveText("Overdue");
-  await expect(page.getByTestId("unit-payments")).toContainText("TR-E2E-05F");
-  await expect(page.getByTestId("finance-progress")).toHaveText("3.3%");
+  await expect(mainRegion(page).getByTestId("finance-overdue")).toHaveText("€20,000.00");
+  await expect(mainRegion(page).getByTestId("unit-finance-summary").getByTestId("financial-status")).toHaveText("Overdue");
+  await expect(mainRegion(page).getByTestId("payment-schedule").getByTestId("installment-row").first().getByTestId("installment-status")).toHaveText("Overdue");
+  await expect(mainRegion(page).getByTestId("unit-payments")).toContainText("TR-E2E-05F");
+  await expect(mainRegion(page).getByTestId("finance-progress")).toHaveText("3.3%");
 });
 
 test("the project's Finance units count the contract once and filter what is overdue", async ({ page }) => {
   await signIn(page, "FINANCE", { to: `/projects/${PROJECT}/finance/units?q=H-` });
-  const rows = page.getByTestId("finance-table").getByTestId("finance-row");
+  const rows = mainRegion(page).getByTestId("finance-table").getByTestId("finance-row");
   await expect(rows).toHaveCount(2);
-  await expect(page.getByTestId("finance-total-contracted")).toHaveText("€300,000.00");
-  await expect(page.getByTestId("finance-total-overdue")).toHaveText("€20,000.00");
-  await page.getByTestId("finance-quick-filter").and(page.locator('[data-status="OVERDUE"]')).click();
+  await expect(mainRegion(page).getByTestId("finance-total-contracted")).toHaveText("€300,000.00");
+  await expect(mainRegion(page).getByTestId("finance-total-overdue")).toHaveText("€20,000.00");
+  await mainRegion(page).getByTestId("finance-quick-filter").and(page.locator('[data-status="OVERDUE"]')).click();
   await expect(rows).toHaveCount(2);
   expect(new URL(page.url()).searchParams.get("financialStatus")).toBe("OVERDUE");
   await page.getByRole("searchbox", { name: "Search units" }).fill("TR-E2E-05F");
   await expect(rows).toHaveCount(2);
   await rows.first().getByRole("link", { name: "H-101" }).click();
-  await expect(page.getByTestId("unit-finance-summary")).toBeVisible();
+  await expect(mainRegion(page).getByTestId("unit-finance-summary")).toBeVisible();
 });
 
 test("an Architect sees neither the unit's contract nor its money", async ({ page }) => {

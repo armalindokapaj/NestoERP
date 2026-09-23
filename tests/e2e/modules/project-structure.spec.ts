@@ -26,7 +26,8 @@ test.afterAll(async () => {
 });
 
 const tree = (page: Page) => page.getByTestId("structure-tree");
-const heading = (page: Page) => page.getByTestId("structure-heading");
+// Scoped to main: a streamed page briefly keeps a hidden copy of itself outside it (React Suspense reveal).
+const heading = (page: Page) => mainRegion(page).getByTestId("structure-heading");
 
 async function chooseFloor(page: Page, name: string) {
   await tree(page).getByTestId("tree-floor").filter({ hasText: new RegExp(`^${name}\\s*\\d+$`) }).click();
@@ -142,11 +143,11 @@ test("the project manager sets up a project's buildings, floors and units", asyn
 test("sales reads the units without changing them (§80)", async ({ page }) => {
   await signIn(page, "SALES", { to: `/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}` });
   await expect(heading(page)).toHaveText("Floor 1 — Block A");
-  await expect(page.getByTestId("unit-table").getByTestId("unit-row")).toHaveCount(4);
+  await expect(mainRegion(page).getByTestId("unit-table").getByTestId("unit-row")).toHaveCount(4);
   await expect(mainRegion(page).getByRole("button", { name: "Add unit" })).toHaveCount(0);
   await expect(mainRegion(page).getByRole("button", { name: /^Actions for/ })).toHaveCount(0);
 
-  await page.getByTestId("unit-table").getByRole("link", { name: "A-104" }).click();
+  await mainRegion(page).getByTestId("unit-table").getByRole("link", { name: "A-104" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("A-104");
   await expect(mainRegion(page).getByRole("button", { name: "Edit" })).toHaveCount(0);
 });

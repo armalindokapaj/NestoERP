@@ -83,6 +83,8 @@
   "lib/modules/procurement/quotes/quote.service.ts": 1,
   "lib/modules/procurement/requests/request.service.ts": 2,
   "lib/modules/procurement/rfqs/rfq.service.ts": 2,
+  "lib/modules/project-3d/project-3d.service.ts": 2,
+  "lib/modules/project-3d/project-3d.structure.ts": 3,
   "lib/modules/project-planning/planning.blockers.ts": 1,
   "lib/modules/project-planning/planning.dependencies.ts": 1,
   "lib/modules/project-planning/planning.milestones.ts": 3,
@@ -111,5 +113,6 @@
   "lib/modules/timesheets/timesheet.approvers.ts": 2,
   "lib/modules/timesheets/timesheet.submission.ts": 1,
   "lib/modules/timesheets/timesheet.worklogs.ts": 2,
+  "lib/workspace/workspace.service.ts": 1,
   "app/(nesto)/projects/[projectId]/daily-logs/[dailyLogId]/print/page.tsx": 1
 }

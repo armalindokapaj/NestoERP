@@ -60,6 +60,8 @@ const OWNED: Record<string, string[]> = {
     "threeDProjectConfiguration",
     "threeDModelVersion",
   ],
+  // The public pricing configurator and its Platform Admin control plane (6be35d76).
+  pricing: ["pricingVersion", "pricingPromotion", "pricingQuote", "pricingLead", "pricingAuditLog"],
   "project-3d": [
     "project3DEntitlement",
     "project3DConfig",
@@ -282,6 +284,24 @@ export type OwnershipException = {
 } & ({ domain: string; file?: never } | { file: string; domain?: never });
 
 export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
+  {
+    model: "projectBuilding",
+    file: "lib/modules/project-3d/project-3d.structure.ts",
+    reason:
+      "Platform Admin authors a Project's canonical structure while provisioning its 3D Experience (feat(3d): manage canonical project structure). Platform Admin acts without a company membership, so Project Structure's company-scoped service has no context to run in; this file writes only projectBuilding rows of the one Project being provisioned, in one transaction with a platform audit entry; codes stay unique through Project Structure's own database constraints, whose violation this file answers as STRUCTURE_COLLISION.",
+  },
+  {
+    model: "projectFloor",
+    file: "lib/modules/project-3d/project-3d.structure.ts",
+    reason:
+      "Platform Admin authors a Project's canonical structure while provisioning its 3D Experience (feat(3d): manage canonical project structure). Platform Admin acts without a company membership, so Project Structure's company-scoped service has no context to run in; this file writes only projectFloor rows of the one Project being provisioned, in one transaction with a platform audit entry; codes stay unique through Project Structure's own database constraints, whose violation this file answers as STRUCTURE_COLLISION.",
+  },
+  {
+    model: "projectUnit",
+    file: "lib/modules/project-3d/project-3d.structure.ts",
+    reason:
+      "Platform Admin authors a Project's canonical structure while provisioning its 3D Experience (feat(3d): manage canonical project structure). Platform Admin acts without a company membership, so Project Structure's company-scoped service has no context to run in; this file writes only projectUnit rows of the one Project being provisioned, in one transaction with a platform audit entry; codes stay unique through Project Structure's own database constraints, whose violation this file answers as STRUCTURE_COLLISION.",
+  },
   /* Provisioning: the first rows of a company, before any module is in use --- */
   {
     model: "*",
