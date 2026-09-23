@@ -11625,6 +11625,8 @@ enum AnnouncementPriority {
 }
 
 enum AnnouncementAudienceType {
+  /// Every company of the author's parent group (Activity Center §14, §16).
+  GROUP
   COMPANY
   DEPARTMENT
   PROJECT

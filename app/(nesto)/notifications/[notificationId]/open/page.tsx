@@ -44,7 +44,7 @@ export default async function OpenNotificationPage({ params }: Params) {
   const t = await getTranslations("notificationCenter");
   if ("href" in opened) {
     if (opened.company) {
-      return <EnterCompany companyId={opened.company.id} companyName={opened.company.name} href={opened.href} backHref="/notifications" backLabel={t("back")} />;
+      return <EnterCompany companyId={opened.company.id} companyName={opened.company.name} href={opened.href} backHref="/activity" backLabel={t("back")} />;
     }
     redirect(opened.href);
   }
@@ -55,7 +55,7 @@ export default async function OpenNotificationPage({ params }: Params) {
         <ShieldQuestion aria-hidden="true" className="mx-auto size-8 text-fg-subtle" />
         <h1 className="mt-4 text-section font-semibold text-fg">{t("unavailableTitle")}</h1>
         <p className="mt-2 text-body text-fg-muted">{t("unavailableBody")}</p>
-        <Link href="/notifications" className="mt-6 inline-flex text-table font-medium text-accent-strong hover:underline">
+        <Link href="/activity" className="mt-6 inline-flex text-table font-medium text-accent-strong hover:underline">
           {t("back")}
         </Link>
       </section>

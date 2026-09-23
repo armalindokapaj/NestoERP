@@ -19,7 +19,8 @@ describe("resolveNavigation", () => {
   it("shows a role exactly the modules it can open", () => {
     for (const role of ROLE_KEYS) {
       const rendered = navigationFor(role).map((item) => item.module).sort();
-      const expected = accessibleModules(role).sort();
+      // A module reached another way (Announcements, through the Activity Center bell) is not a sidebar item.
+      const expected = accessibleModules(role).filter((key) => modules[key].inNavigation !== false).sort();
       expect(rendered, role).toEqual(expected);
     }
   });

@@ -231,6 +231,30 @@ export async function listDocumentsAcross(contexts: UserContext[], query: Docume
  * the fail-closed behaviour the registry promises (PRD #13 §45, §149,
  * PRD #38 §66).
  */
+/**
+ * The files attached to one record, found by the record rather than by the
+ * reader's company — for the one parent whose files everybody who can read it
+ * may read: an announcement, including a Group announcement read from another
+ * company of the group (Activity Center §47, §150). The caller has already
+ * decided the reader may read the record; nothing here decides access.
+ */
+export async function listRecordAttachments(parent: { companyId: string; entityType: string; entityId: string }) {
+  return prisma.document.findMany({
+    where: { companyId: parent.companyId, entityType: parent.entityType, entityId: parent.entityId, status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
+    take: 50,
+    select: SUMMARY_SELECT,
+  });
+}
+
+/** One file attached to that record, or null — the same condition as the list above. */
+export async function findRecordAttachment(parent: { companyId: string; entityType: string; entityId: string }, documentId: string): Promise<DocumentDetailRow | null> {
+  return prisma.document.findFirst({
+    where: { id: documentId, companyId: parent.companyId, entityType: parent.entityType, entityId: parent.entityId, status: "ACTIVE" },
+    select: DETAIL_SELECT,
+  });
+}
+
 export async function findDocumentInScope(
   context: UserContext,
   documentId: string,

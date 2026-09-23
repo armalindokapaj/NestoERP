@@ -8,7 +8,8 @@ import {
   StorageError,
 } from "@/lib/core/storage";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
-import { requireDownloadableDocument } from "./storage-access.service";
+import { findRecordAttachment } from "../document.repository";
+import { assertObjectReadable, requireDownloadableDocument } from "./storage-access.service";
 import type { DownloadGrant } from "./storage.types";
 
 /**
@@ -88,6 +89,34 @@ export async function readDocumentBytes(
   // caller asked (PRD #29 §44, §106).
   const inline = options.inline === true && document.previewStatus === "READY";
 
+  return {
+    bytes,
+    fileName,
+    mimeType: document.detectedMimeType ?? document.mimeType ?? "application/octet-stream",
+    disposition: contentDisposition(inline ? "inline" : "attachment", fileName),
+  };
+}
+
+/**
+ * Reads a file attached to a record whose owner has already decided the reader
+ * may read the record and its files — today only an announcement, whose files
+ * everybody who can read it may read, across the companies of the group
+ * (Activity Center §47, §150). The storage state is checked here exactly as on
+ * every other download: nothing unscanned, rejected or archived leaves.
+ */
+export async function readRecordAttachmentBytes(
+  parent: { companyId: string; entityType: string; entityId: string },
+  documentId: string,
+  options: { inline?: boolean } = {},
+): Promise<{ bytes: Uint8Array; fileName: string; mimeType: string; disposition: string }> {
+  const document = await findRecordAttachment(parent, documentId);
+  if (!document) throw new StorageError("DOCUMENT_NOT_FOUND");
+  assertObjectReadable(document);
+  const bytes = await storageProvider().getObject(document.storageKey!);
+  if (!bytes) throw new StorageError("STORAGE_OBJECT_MISSING");
+  const fileName = document.originalFileName ?? document.fileName ?? document.name;
+  const inline = options.inline === true && document.previewStatus === "READY";
+  logger.info("storage.attachment.read", { documentId, entityType: parent.entityType });
   return {
     bytes,
     fileName,

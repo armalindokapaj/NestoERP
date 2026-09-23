@@ -1,5 +1,7 @@
 "use client";
 
+import { clearActivityCache } from "@/lib/activity/client";
+import { clearSearchHomeCache } from "@/lib/productivity/client";
 import { useMemo, useState, useTransition } from "react";
 import { Check, FlaskConical, Loader2, TriangleAlert } from "lucide-react";
 
@@ -76,6 +78,8 @@ export function DevUserSwitcherDialog({ rosters, currentUsername }: { rosters: D
         // A full load, not a client navigation: nothing of the previous user's
         // pages, cache or state comes along (§47-§49). The row stays busy until
         // it lands. A switch that failed after signing out lands on sign-in (§46).
+        clearSearchHomeCache();
+        clearActivityCache();
         window.location.assign(result.landing);
         return;
       }

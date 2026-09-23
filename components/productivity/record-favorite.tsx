@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { after } from "next/server";
 
 import type { UserContext } from "@/lib/context/types";
@@ -14,7 +15,11 @@ import { FavoriteButton } from "./favorite-button";
  * and never slows or fails the page.
  */
 export async function RecordFavorite({ context, entityType, entityId, compact = false }: { context: UserContext; entityType: NavigableType; entityId: string; compact?: boolean }) {
-  after(() => recordRecentAccess(context, entityType, entityId, { verified: true }));
+  // A prefetch is the router guessing where the person might go, not an open (Fast Re-entry §100):
+  // recording it would move a record to the top of Recent Work without anybody opening it.
+  const request = await headers();
+  const prefetch = request.get("next-router-prefetch") === "1" || /prefetch/i.test(request.get("purpose") ?? "") || /prefetch/i.test(request.get("sec-purpose") ?? "");
+  if (!prefetch) after(() => recordRecentAccess(context, entityType, entityId, { verified: true }));
   const [settings, favorite] = await Promise.all([resolveProductivitySettings(context.companyId), isFavorite(context, entityType, entityId)]);
   if (!settings.favoritesEnabled) return null;
   return <FavoriteButton entityType={entityType} entityId={entityId} initial={favorite} compact={compact} />;

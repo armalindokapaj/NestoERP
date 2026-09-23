@@ -317,9 +317,19 @@ function CommentItem({
   // the reader's clock (and a mismatch is a hydration warning).
   const [relative, setRelative] = React.useState<string | null>(null);
   React.useEffect(() => setRelative(formatRelativeTime(comment.createdAt)), [comment.createdAt]);
+  // A mention notification opens at its comment (Activity Center §43): scrolled to and briefly highlighted.
+  const itemRef = React.useRef<HTMLLIElement>(null);
+  const [targeted, setTargeted] = React.useState(false);
+  React.useEffect(() => {
+    if (window.location.hash !== `#comment-${comment.id}`) return;
+    itemRef.current?.scrollIntoView({ block: "center" });
+    setTargeted(true);
+    const timer = window.setTimeout(() => setTargeted(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [comment.id]);
 
   return (
-    <li className="flex gap-3" data-testid="comment">
+    <li ref={itemRef} id={`comment-${comment.id}`} className={cn("flex gap-3 rounded-md transition-colors", targeted && "bg-accent-soft/60 ring-2 ring-accent/40")} data-testid="comment" data-targeted={targeted || undefined}>
       <Avatar firstName={first} lastName={rest.join(" ")} src={comment.author.avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">

@@ -5,7 +5,7 @@ import { jobStopRequested } from "@/lib/core/jobs/job.context";
 import { assertEveryCompanySucceeded, forEachCompany } from "@/lib/core/jobs/system-context";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
-import { canNavigate, isNavigableType, resolveNavigable, type NavigableEntityDTO } from "./navigable.registry";
+import { canNavigate, isNavigableType, missingReferences, resolveNavigable, type NavigableEntityDTO } from "./navigable.registry";
 import { resolveProductivitySettings } from "./productivity.settings";
 import { contextOpening, narrowedTo, personalContexts, type InCompany } from "./productivity.workspace";
 
@@ -127,7 +127,7 @@ const PRUNE_BATCH = 500;
 
 /**
  * Job `recentwork.prune` (§104, §105): older than the company's retention, and
- * past the hundred newest per member.
+ * past the newest `RECENT_CAP` per member (Fast Re-entry §68, §178).
  *
  * Housekeeping, so suspended companies are pruned too. A record a member opens
  * while the job runs is never what it removes: each delete is bound to the
@@ -155,6 +155,50 @@ export async function pruneRecentWork(now = new Date(), options: { dryRun?: bool
   if (pruned && !dryRun) incrementCounter(Metric.RECENT_WORK_PRUNED, {}, pruned);
   assertEveryCompanySucceeded(PRUNE_JOB, companyRun);
   return { pruned, dryRun };
+}
+
+const STALE_JOB = "productivity.stale-references";
+
+/**
+ * Job `productivity.stale-references` (Fast Re-entry §118, §119, §177, §179):
+ * favorites and recent items whose record no longer exists, or whose type is
+ * no longer navigable. They were already invisible — every read resolves
+ * access afresh — so this only stops them taking space. A record the person
+ * merely cannot open is never removed here: access can come back (§118).
+ * Housekeeping, so suspended companies are included.
+ */
+export async function pruneStaleReferences(options: { dryRun?: boolean } = {}): Promise<{ removed: number; dryRun: boolean }> {
+  const dryRun = options.dryRun ?? false;
+  let removed = 0;
+  const run = await forEachCompany(STALE_JOB, async ({ companyId }) => {
+    removed += await pruneMissing(companyId, dryRun);
+  }, { includeInactive: true });
+  assertEveryCompanySucceeded(STALE_JOB, run);
+  return { removed, dryRun };
+}
+
+/** One company's stale references, in recent work and favorites, walked by id in batches. */
+async function pruneMissing(companyId: string, dryRun: boolean): Promise<number> {
+  let removed = 0;
+  for (const table of ["recent", "favorite"] as const) {
+    let after = "";
+    while (!jobStopRequested()) {
+      const batch =
+        table === "recent"
+          ? await prisma.recentItem.findMany({ where: { companyId, id: { gt: after } }, orderBy: { id: "asc" }, take: PRUNE_BATCH, select: { id: true, entityType: true, entityId: true } })
+          : await prisma.userFavorite.findMany({ where: { companyId, id: { gt: after } }, orderBy: { id: "asc" }, take: PRUNE_BATCH, select: { id: true, entityType: true, entityId: true } });
+      if (batch.length === 0) break;
+      after = batch[batch.length - 1].id;
+      const missing = new Set((await missingReferences(batch)).map((ref) => `${ref.entityType}:${ref.entityId}`));
+      const ids = batch.filter((row) => missing.has(`${row.entityType}:${row.entityId}`)).map((row) => row.id);
+      if (ids.length) {
+        if (dryRun) removed += ids.length;
+        else removed += (table === "recent" ? await prisma.recentItem.deleteMany({ where: { companyId, id: { in: ids } } }) : await prisma.userFavorite.deleteMany({ where: { companyId, id: { in: ids } } })).count;
+      }
+      if (batch.length < PRUNE_BATCH) break;
+    }
+  }
+  return removed;
 }
 
 async function pruneExpired(companyId: string, cutoff: Date, dryRun: boolean): Promise<number> {

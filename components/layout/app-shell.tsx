@@ -62,7 +62,7 @@ export async function AppShell({
           <Sidebar navigation={navigation} />
 
           <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-            <Topbar context={context} navigation={navigation} workspaces={workspaces} announcementsUnread={announcements.unread} />
+            <Topbar context={context} navigation={navigation} workspaces={workspaces} />
             <CriticalAnnouncementBanner banner={announcements.banner} />
             <main
               id="nesto-main"

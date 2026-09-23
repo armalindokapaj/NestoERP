@@ -110,6 +110,8 @@ const GLOBAL_ROUTES = [
   "/settings/notifications",
   "/notifications",
   "/favorites",
+  "/my-work",
+  "/activity",
 ] as const;
 
 const MUTATION_SEGMENTS = new Set(["new", "edit", "revise", "execute", "assess", "close", "control", "investigation"]);

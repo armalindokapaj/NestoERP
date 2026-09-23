@@ -48,7 +48,7 @@ export type NavigationInput = {
   enabledModules: readonly ModuleKey[];
 };
 
-const ALL_ITEMS: NavigationItem[] = moduleList.map((definition) => ({
+const ALL_ITEMS: NavigationItem[] = moduleList.filter((definition) => definition.inNavigation !== false).map((definition) => ({
   key: definition.key,
   label: definition.label,
   href: definition.route,

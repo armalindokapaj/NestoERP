@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOutAction } from "@/lib/actions/auth";
+import { clearActivityCache } from "@/lib/activity/client";
+import { clearSearchHomeCache } from "@/lib/productivity/client";
 import { fullName } from "@/lib/utils/format";
 
 /**
@@ -90,6 +92,9 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
           disabled={isPending}
           onSelect={(event) => {
             event.preventDefault();
+            // Nothing personal outlives the session in this browser (Fast Re-entry §87).
+            clearSearchHomeCache();
+            clearActivityCache();
             startTransition(() => {
               void signOutAction();
             });

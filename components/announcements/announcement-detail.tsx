@@ -91,9 +91,10 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
   return (
     <div className={cn("grid gap-8", managerPanel && "xl:grid-cols-[minmax(0,1fr)_20rem]")}>
       <article className="mx-auto w-full max-w-3xl pb-24 md:pb-0" data-testid="announcement-detail">
-        <Link href="/announcements" className="inline-flex items-center gap-1.5 text-table text-fg-muted hover:text-fg">
+        {/* Activity Center / Announcements / this one (Activity Center §167). */}
+        <Link href="/activity?type=announcements" className="inline-flex items-center gap-1.5 text-table text-fg-muted hover:text-fg">
           <ArrowLeft aria-hidden="true" className="size-4" />
-          Announcements
+          Activity Center · Announcements
         </Link>
         <div className="mt-6 flex flex-wrap items-center gap-2 text-meta text-fg-muted">
           <span className="font-medium uppercase tracking-[0.1em] text-fg-subtle" data-testid="announcement-scope">
@@ -147,11 +148,12 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
             <ul className="mt-2 divide-y divide-line rounded-lg border border-line bg-surface">
               {item.documents.map((document) => (
                 <li key={document.documentId}>
-                  <Link href={document.href} className="flex items-center gap-3 px-4 py-3 text-table hover:bg-row-hover" data-testid="announcement-attachment">
+                  {/* A file, served by the announcement to everybody who can read it (Activity Center §47, §150): a plain link, opened in a new tab. */}
+                  <a href={`${document.href}?inline=1`} target="_blank" rel="noopener" className="flex items-center gap-3 px-4 py-3 text-table hover:bg-row-hover" data-testid="announcement-attachment">
                     <FileText aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
                     <span className="min-w-0 flex-1 truncate text-fg">{document.name}</span>
                     {document.extension ? <span className="shrink-0 text-meta uppercase text-fg-subtle">{document.extension}</span> : null}
-                  </Link>
+                  </a>
                 </li>
               ))}
               {!item.documents.length ? <li className="px-4 py-3 text-table text-fg-subtle">No attachments.</li> : null}

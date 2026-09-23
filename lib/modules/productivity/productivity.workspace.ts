@@ -1,5 +1,5 @@
 import type { UserContext } from "@/lib/context/types";
-import { resolveGroupContexts } from "@/lib/context/workspace-access";
+import { resolvePersonalContexts } from "@/lib/context/workspace-access";
 import { canNavigate } from "./navigable.registry";
 import type { EntityRef } from "./productivity.schema";
 import { resolveProductivitySettings } from "./productivity.settings";
@@ -18,17 +18,8 @@ import { resolveProductivitySettings } from "./productivity.settings";
 /** The company a record lives in — named on every row, since every row may be another company's (§53, §162). */
 export type InCompany = { company?: { id: string; name: string } };
 
-/**
- * Every company of the person's group they may use, as their own context
- * there, whatever the active workspace (§38). The session's own company comes
- * first, so a record it can open is resolved there without asking the others.
- */
-export async function personalContexts(session: UserContext): Promise<UserContext[]> {
-  const contexts = await resolveGroupContexts(session);
-  const own = contexts.find((context) => context.companyId === session.companyId);
-  if (!own) return contexts.length > 0 ? contexts : [session];
-  return [own, ...contexts.filter((context) => context !== own)];
-}
+/** Every company of the person's group they may use, whatever the workspace (§38); see `resolvePersonalContexts`. */
+export const personalContexts = resolvePersonalContexts;
 
 /** The contexts a filter narrows to; a company the person may not use is no filter at all (§63, §168). */
 export function narrowedTo(contexts: UserContext[], companyId?: string | null): UserContext[] {

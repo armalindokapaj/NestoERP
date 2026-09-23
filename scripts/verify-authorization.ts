@@ -201,6 +201,12 @@ const SCHEMA_FIELD_EXCEPTIONS: Record<string, string> = {
     "Group workspace list filter; narrowToCompany intersects it with the companies the person already reads and ignores any other (Workspace Context §86, §87)",
   "lib/modules/sales/opportunities/opportunity.schema.ts#companyId":
     "Group workspace list filter; narrowToCompany intersects it with the companies the person already reads and ignores any other (Workspace Context §86, §87)",
+  "lib/modules/activity/activity-center.schema.ts#companyId":
+    "Activity Center filter; narrowed to the person's own memberships, and a company they may not use is refused with 403 (Activity Center §38, §142)",
+  "lib/modules/productivity/productivity.schema.ts#companyId":
+    "My Work filter; applied only when it names a company among the person's own visible rows, otherwise dropped (Fast Re-entry §63, §168)",
+  "lib/modules/quick-create/quick-create.schema.ts#companyId":
+    "the company a Quick Create launch targets; re-checked against the person's own group memberships and the create permission there, refused otherwise (Quick Create §140, §147)",
 };
 
 for (const file of walk("lib", (candidate) => candidate.endsWith(".ts"))) {

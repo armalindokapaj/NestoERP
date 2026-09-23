@@ -394,6 +394,8 @@ async function dispatchOne(row: ClaimedRow): Promise<{ created: number; emailed:
           projectId: event.projectId,
           actorMemberId: event.actorMemberId,
           dedupeKey,
+          // Where in the record it points — only an id, never content (Activity Center §43).
+          ...(typeof payload.commentId === "string" ? { metadataJson: { commentId: payload.commentId } } : {}),
         },
         select: { id: true },
       });

@@ -25,17 +25,17 @@ for (const role of ROLE_KEYS.filter((key) => key !== "PLATFORM_ADMIN")) {
   test(`${role}: the collaboration and notification surfaces work within the role's access`, async ({ page }) => {
     await signIn(page, role, { to: "/dashboard" });
 
-    // The bell is real for every role and opens onto their own list.
+    // The bell is real for every role and opens the one Activity Center (Activity Center §3, §9).
     await page.getByTestId("notification-bell").click();
-    await expect(page.getByRole("menu").getByText("Notifications", { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole("menu").getByRole("menuitem", { name: "View all notifications" })).toBeVisible();
+    const panel = page.getByRole("dialog", { name: "Activity Center" });
+    await expect(panel.getByRole("tab", { name: "Notifications" })).toBeVisible();
+    await expect(panel.getByRole("link", { name: "View all activity" })).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // Notification centre and attention tab.
+    // The old notification centre now lands on the Activity Center (§164).
     await page.goto("/notifications");
-    await expect(page.getByRole("heading", { level: 1, name: "Notifications" })).toBeVisible();
-    await page.goto("/notifications?tab=attention");
-    await expect(mainRegion(page).getByText(/Nothing needs your attention right now|These stay until the underlying condition is resolved/).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/activity\?type=notifications/);
+    await expect(page.getByRole("heading", { level: 1, name: "Activity Center" })).toBeVisible();
 
     // Preferences are personal: every role has them, and the safety lock holds.
     await page.goto("/settings/notifications");

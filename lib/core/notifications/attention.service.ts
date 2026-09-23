@@ -1,10 +1,9 @@
 import type { Prisma } from "@prisma/client";
 
-import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
-import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
+import { resolvePersonalContexts } from "@/lib/context/workspace-access";
 import type { RecordSummary } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 
@@ -296,8 +295,8 @@ const PRIORITY_RANK: Record<string, number> = { LOW: 0, NORMAL: 1, HIGH: 2, CRIT
  * oldest unresolved (§156), every item naming its company.
  */
 export async function listReadableAttentionForWorkspace(session: UserContext, limit = 25): Promise<ReadableAttentionDTO[]> {
-  if (!inGroupWorkspace(session)) return listReadableAttention(session, limit);
-  const contexts = await resolveWorkspaceContexts(session, {});
+  // User-global like the bell that counts it (Activity Center §31, §78).
+  const contexts = await resolvePersonalContexts(session);
   const lists = await Promise.all(
     contexts.map(async (context) => {
       const company = { id: context.companyId, name: context.company.name };
@@ -317,8 +316,7 @@ export async function listReadableAttentionForWorkspace(session: UserContext, li
 
 /** Dismisses one of the person's own items, in the company it belongs to, by that company's own rules (a critical condition still cannot be waved away). */
 export async function dismissAttentionForWorkspace(session: UserContext, id: string): Promise<void> {
-  if (!inGroupWorkspace(session)) return dismissAttention(session, id);
-  const contexts = await resolveWorkspaceContexts(session, {});
+  const contexts = await resolvePersonalContexts(session);
   const item = await prisma.attentionItem.findFirst({
     where: { id, OR: contexts.map((context) => ({ companyId: context.companyId, recipientMemberId: context.membershipId })) },
     select: { companyId: true },

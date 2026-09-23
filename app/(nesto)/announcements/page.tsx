@@ -36,9 +36,12 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
   const params = await searchParams;
   const audiences = addressableAudiences(context);
   const canManage = audiences.length > 0 || (await prisma.announcement.count({ where: { companyId: context.companyId, AND: [managedWhere(context)] } })) > 0;
-  const tabs = FEED_TABS.filter((tab) => tab !== "manage" || canManage);
+  // Reading happens in the Activity Center (Activity Center §4, §164); this route keeps what authors
+  // and managers need — the Manage tab — reached from the bell's "Manage announcements" (§82, §83, §151).
   const requested = one(params.tab) as FeedTab | undefined;
-  const tab: FeedTab = requested && tabs.includes(requested) ? requested : "for_me";
+  if (requested !== "manage" || !canManage) redirect("/activity?type=announcements");
+  const tabs: FeedTab[] = FEED_TABS.filter((tab): boolean => tab === "manage");
+  const tab = "manage" as FeedTab;
   const query = feedQuerySchema.parse({ tab, priority: one(params.priority), audienceType: one(params.audience), status: tab === "manage" ? one(params.status) : undefined, q: one(params.q) });
   const [settings, company] = await Promise.all([resolveProductivitySettings(context.companyId), ensureCompanySettings(context.companyId)]);
   const feed = settings.announcementsEnabled || tab === "manage" ? await listAnnouncements(context, query) : null;
@@ -54,8 +57,8 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-page font-semibold tracking-tight text-fg">Announcements</h1>
-          <p className="mt-1.5 text-body text-fg-muted">Notices from the company, your department and your projects.</p>
+          <h1 className="text-page font-semibold tracking-tight text-fg">Manage announcements</h1>
+          <p className="mt-1.5 text-body text-fg-muted">Drafts, schedules and published notices you write or manage. Readers see them in the Activity Center.</p>
         </div>
         {audiences.length && can(context, "announcement.create") ? (
           <Button asChild size="sm">

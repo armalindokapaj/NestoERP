@@ -3,29 +3,18 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Megaphone, TriangleAlert, X } from "lucide-react";
+import { TriangleAlert, X } from "lucide-react";
 
 import { announcementApi } from "./announcement-api";
 
 /**
  * The announcement layer in the app shell (PRD #45 §67, §68, §121-§124).
  *
- * A small megaphone beside the bell, with a dot while something addressed to
- * this person is unread — intentional communication, kept apart from system
- * notifications. And one banner, only for a critical announcement still
+ * Unread announcements are counted by the one bell (Activity Center §10); the
+ * shell adds one banner, only for a critical announcement still
  * waiting on them: dismissible when it asks for no acknowledgment, otherwise
  * there until they acknowledge it. Never a stack.
  */
-
-export function AnnouncementsIndicator({ unread }: { unread: number }) {
-  const label = unread ? `Announcements, ${unread} unread` : "Announcements";
-  return (
-    <Link href="/announcements" aria-label={label} title={label} className="relative inline-flex size-9 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg" data-testid="announcements-indicator">
-      <Megaphone aria-hidden="true" className="size-[18px]" />
-      {unread ? <span aria-hidden="true" className="absolute right-2 top-2 size-2 rounded-full bg-accent ring-2 ring-surface" data-testid="announcements-unread-dot" /> : null}
-    </Link>
-  );
-}
 
 export function CriticalAnnouncementBanner({ banner }: { banner: { id: string; title: string; requiresAcknowledgment: boolean; href: string } | null }) {
   const pathname = usePathname();

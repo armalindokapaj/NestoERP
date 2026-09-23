@@ -48,8 +48,11 @@ test("reads and acknowledges a critical notice, then opens its attachment", asyn
   await expect(page.getByTestId("announcement-acknowledgment")).toContainText("Acknowledged •");
   await expect(page.getByTestId("announcement-sticky-ack")).toHaveCount(0);
 
-  await page.getByTestId("announcement-attachment").filter({ hasText: "Storm inspection notice" }).click();
-  await expect(page).toHaveURL(/\/documents\/document_e2e_storm_notice$/);
+  // Announcement files are served by the announcement to everybody who can read it (Activity Center §47, §150).
+  const attachment = page.getByTestId("announcement-attachment").filter({ hasText: "Storm inspection notice" });
+  await expect(attachment).toHaveAttribute("href", `/api/announcements/${ID}/files/document_e2e_storm_notice?inline=1`);
+  const file = await page.request.get(`/api/announcements/${ID}/files/document_e2e_storm_notice`);
+  expect(file.status()).toBe(200);
   await page.goto("/dashboard");
   await expect(page.getByTestId("critical-announcement-banner")).toHaveCount(0);
 });

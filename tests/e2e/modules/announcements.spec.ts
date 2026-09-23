@@ -25,7 +25,11 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-const card = (page: Page, title: string) => page.getByTestId("announcement-card").filter({ hasText: title });
+/** Readers see announcements in the Activity Center (Activity Center §4, §164); writers manage them on /announcements?tab=manage. */
+const READER = "/activity?type=announcements";
+const MANAGE = "/announcements?tab=manage";
+const card = (page: Page, title: string) => page.getByTestId("activity-row").filter({ hasText: title });
+const open = (page: Page, title: string) => card(page, title).getByRole("button").first().click();
 
 /** Another person, in a browser context of their own. */
 async function as(browser: Browser, role: Parameters<typeof signIn>[1], to: string): Promise<Page> {
@@ -42,7 +46,7 @@ async function write(page: Page, title: string, body: string) {
 }
 
 test("the Owner drafts and publishes a company announcement, and the Engineer reads it (§321)", async ({ page }) => {
-  await signIn(page, "OWNER", { to: "/announcements" });
+  await signIn(page, "OWNER", { to: MANAGE });
   await write(page, "New site canteen opens Monday", "The **new canteen** opens on Monday at the Riverside compound.\n\n- Breakfast from 06:30\n- Lunch from 12:00");
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page).toHaveURL(/\/announcements\/c[a-z0-9]+$/);
@@ -53,21 +57,22 @@ test("the Owner drafts and publishes a company announcement, and the Engineer re
 });
 
 test("the Engineer sees it unread, opens it, and it is read (§321)", async ({ page }) => {
-  await signIn(page, "ENGINEER", { to: "/announcements" });
+  await signIn(page, "ENGINEER", { to: READER });
   const item = card(page, "New site canteen opens Monday");
   await expect(item).toBeVisible();
-  await expect(item.getByLabel("Unread")).toBeVisible();
-  await expect(page.getByTestId("announcements-unread-dot")).toBeVisible();
-  await item.click();
+  await expect(item).toHaveAttribute("data-read", "UNREAD");
+  // One bell counts it; the megaphone is gone (Activity Center §10).
+  await expect(page.getByTestId("notification-badge")).toBeVisible();
+  await open(page, "New site canteen opens Monday");
   await expect(page.getByTestId("announcement-title")).toHaveText("New site canteen opens Monday");
   await expect(page.getByTestId("announcement-manage")).toHaveCount(0);
   await expect.poll(async () => db.announcementRead.count({ where: { memberId: await memberIdFor("engineer@nesto.test"), announcement: { title: "New site canteen opens Monday" } } })).toBe(1);
-  await page.goto("/announcements");
-  await expect(card(page, "New site canteen opens Monday").getByLabel("Unread")).toHaveCount(0);
+  await page.goto(READER);
+  await expect(card(page, "New site canteen opens Monday")).toHaveAttribute("data-read", "READ");
 });
 
 test("HR asks the company to acknowledge a policy; the Engineer acknowledges and HR sees it (§322)", async ({ page, browser }) => {
-  await signIn(page, "HR", { to: "/announcements" });
+  await signIn(page, "HR", { to: MANAGE });
   await write(page, "Hot works permit policy", "## Summary\n\nEvery hot work needs a permit issued the same day.\n\nPlease acknowledge below.");
   await page.locator("label").filter({ hasText: /^Important$/ }).click();
   await page.getByRole("button", { name: "Dates, pinning and acknowledgment" }).click();
@@ -76,13 +81,13 @@ test("HR asks the company to acknowledge a policy; the Engineer acknowledges and
   await expect(page.getByTestId("announcement-title")).toHaveText("Hot works permit policy");
   await reconcileAttention({ companyId: "company_demo_a" });
 
-  const engineer = await as(browser, "ENGINEER", "/notifications?tab=attention");
+  const engineer = await as(browser, "ENGINEER", "/activity");
   await expect(engineer.getByTestId("attention-item").filter({ hasText: "Acknowledge: Hot works permit policy" })).toBeVisible();
-  await engineer.goto("/announcements?tab=acknowledge");
-  await card(engineer, "Hot works permit policy").click();
+  await engineer.goto(READER);
+  await open(engineer, "Hot works permit policy");
   await engineer.getByTestId("announcement-acknowledgment").getByRole("button", { name: "I have read this" }).click();
   await expect(engineer.getByTestId("announcement-acknowledgment")).toContainText("Acknowledged •");
-  await engineer.goto("/notifications?tab=attention");
+  await engineer.goto("/activity");
   await expect(engineer.getByTestId("attention-item").filter({ hasText: "Acknowledge: Hot works permit policy" })).toHaveCount(0);
   await engineer.close();
 
@@ -93,8 +98,8 @@ test("HR asks the company to acknowledge a policy; the Engineer acknowledges and
 });
 
 test("the Project Manager announces to Riverside; its people see it and others do not (§323)", async ({ page, browser }) => {
-  await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
-  await mainRegion(page).getByRole("link", { name: "Announce" }).click();
+  // The project page no longer carries an "Announce" link (project workspace, 2c66b584); the create page takes the project directly.
+  await signIn(page, "PROJECT_MANAGER", { to: "/announcements/new?projectId=project_a" });
   await expect(page).toHaveURL(/\/announcements\/new\?projectId=project_a/);
   await expect(page.getByRole("combobox", { name: "Project" })).toHaveValue("project_a");
   await page.getByLabel("Title").fill("Concrete pour on Block C tomorrow");
@@ -103,11 +108,11 @@ test("the Project Manager announces to Riverside; its people see it and others d
   await expect(page.getByTestId("announcement-scope")).toHaveText("Project · Riverside Residences");
   const url = page.url();
 
-  const engineer = await as(browser, "ENGINEER", "/announcements");
+  const engineer = await as(browser, "ENGINEER", READER);
   await expect(card(engineer, "Concrete pour on Block C tomorrow")).toBeVisible();
   await engineer.close();
-  const inventory = await as(browser, "INVENTORY", "/announcements");
-  await expect(inventory.getByTestId("announcement-feed")).toBeVisible();
+  const inventory = await as(browser, "INVENTORY", READER);
+  await expect(inventory.getByTestId("activity-filters")).toBeVisible();
   await expect(card(inventory, "Concrete pour on Block C tomorrow")).toHaveCount(0);
   await inventory.goto(url);
   await expect(inventory.getByText("404")).toBeVisible();
@@ -115,7 +120,7 @@ test("the Project Manager announces to Riverside; its people see it and others d
 });
 
 test("Group IT schedules a notice; the worker publishes it and the audience is told (§324)", async ({ page, browser }) => {
-  await signIn(page, "GROUP_IT", { to: "/announcements" });
+  await signIn(page, "GROUP_IT", { to: MANAGE });
   await write(page, "Network maintenance on Saturday", "Email and NESTO may be slow on Saturday morning.");
   await page.locator("label").filter({ hasText: /^Important$/ }).click();
   await page.getByRole("button", { name: "Save draft" }).click();
@@ -132,7 +137,7 @@ test("Group IT schedules a notice; the worker publishes it and the audience is t
   expect((await db.announcement.findUniqueOrThrow({ where: { id: scheduled.id } })).status).toBe("PUBLISHED");
   expect(await db.notificationEventOutbox.count({ where: { entityId: scheduled.id, eventType: "ANNOUNCEMENT_PUBLISHED" } })).toBe(1);
 
-  const engineer = await as(browser, "ENGINEER", "/announcements");
+  const engineer = await as(browser, "ENGINEER", READER);
   await expect(card(engineer, "Network maintenance on Saturday")).toBeVisible();
   await engineer.close();
 });
@@ -166,15 +171,24 @@ test("a favorite shows on the dashboard and in the palette, and disappears with 
 });
 
 test("recent work puts the last record opened first (§326)", async ({ page }) => {
+  // Other specs run in parallel as the same Engineer and open their own records, so this one compares
+  // only the two records it opens itself: whichever was opened last comes first (e2e-shared-database).
+  const engineer = await memberIdFor("engineer@nesto.test");
+  const rows = () => page.getByTestId("recent-row");
+  const position = async (text: string) => (await rows().allTextContents()).findIndex((row) => row.includes(text));
+
   await signIn(page, "ENGINEER", { to: "/tasks/task_006" });
   await expect(mainRegion(page).getByTestId("favorite-button")).toBeVisible();
-  await page.goto("/favorites?tab=recent");
-  await expect(page.getByTestId("recent-row").first()).toContainText("Review structural detail S-204");
+  await expect.poll(async () => db.recentItem.count({ where: { memberId: engineer, entityId: "task_006" } })).toBe(1);
 
   await page.goto(`/projects/project_a/planning?milestone=milestone_riverside_facade`);
   await expect(page.getByTestId("milestone-drawer").getByTestId("drawer-milestone-name")).toHaveText("Façade Complete");
-  await expect.poll(async () => db.recentItem.count({ where: { memberId: await memberIdFor("engineer@nesto.test"), entityId: "milestone_riverside_facade" } })).toBe(1);
-  await page.goto("/favorites?tab=recent");
-  await expect(page.getByTestId("recent-row").first()).toContainText("Façade Complete");
+  await expect.poll(async () => db.recentItem.count({ where: { memberId: engineer, entityId: "milestone_riverside_facade" } })).toBe(1);
+
+  await page.goto("/my-work?tab=recent");
+  await expect(rows().filter({ hasText: "Façade Complete" })).toBeVisible();
+  const [milestone, task] = [await position("Façade Complete"), await position("Review structural detail S-204")];
+  expect(milestone).toBeGreaterThanOrEqual(0);
+  expect(task === -1 || milestone < task).toBe(true);
   expect(ANNOUNCEMENT_SEED.company).toBeTruthy();
 });

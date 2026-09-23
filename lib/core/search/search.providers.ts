@@ -921,11 +921,11 @@ const announcementProvider: GlobalSearchProvider = {
   entityTypes: ["announcement"],
   async search(context, query) {
     if (!available(context, "announcements", "announcement.view")) return [];
-    const { audienceWhere } = await import("@/lib/modules/announcements/announcement.permissions");
+    const { reachWhere } = await import("@/lib/modules/announcements/announcement.permissions");
     const { excerpt } = await import("@/lib/modules/announcements/announcement.body");
     const term = { contains: query.text, mode: "insensitive" as const };
     const rows = await prisma.announcement.findMany({
-      where: { companyId: context.companyId, status: { in: ["PUBLISHED", "EXPIRED"] }, AND: [audienceWhere(context), { OR: [{ title: term }, { body: term }, { project: { is: { name: term } } }, { department: { is: { name: term } } }] }] },
+      where: { status: { in: ["PUBLISHED", "EXPIRED"] }, AND: [reachWhere(context), { OR: [{ title: term }, { body: term }, { project: { is: { name: term } } }, { department: { is: { name: term } } }] }] },
       orderBy: { publishedAt: "desc" },
       take: query.limitPerProvider,
       select: { id: true, title: true, body: true, status: true, audienceType: true, publishedAt: true, project: { select: { name: true } }, department: { select: { name: true } } },
