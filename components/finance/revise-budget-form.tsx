@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";

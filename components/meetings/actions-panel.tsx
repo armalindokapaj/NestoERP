@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ArrowUpRight, ListPlus, Loader2, Plus, SquareCheckBig } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";

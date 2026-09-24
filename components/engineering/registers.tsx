@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { DraftingCompass, FileStack, MessageSquareText, Send } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";

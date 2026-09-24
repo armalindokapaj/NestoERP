@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ArrowRight, FileText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";

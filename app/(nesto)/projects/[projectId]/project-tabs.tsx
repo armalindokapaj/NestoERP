@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { requireUserContext } from "@/lib/context/current-user";
 import { hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
@@ -114,7 +114,7 @@ export async function ProjectTabs({
         {visible.map((tab) => {
           const isActive = tab.key === active;
           return (
-            <Link
+            <Link navSource="tab"
               key={tab.key}
               href={tab.href}
               aria-current={isActive ? "page" : undefined}

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -46,7 +46,7 @@ export function EmployeeTabs({
           const isActive = tab.key === active;
           return (
             <li key={tab.key}>
-              <Link
+              <Link navSource="tab"
                 href={`/hr/employees/${employeeId}${tab.suffix}`}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(

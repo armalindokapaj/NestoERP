@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
 import { CancelScheduledChange, CorrectHistoryRow } from "@/components/hr/employment-history-actions";

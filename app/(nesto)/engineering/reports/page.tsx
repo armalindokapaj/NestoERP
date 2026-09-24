@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { EmptyNote, Metric, MetricStrip, Panel } from "@/components/engineering/engineering-ui";
 import { counted, one, orNotFound, type SearchParams } from "@/components/engineering/page-helpers";

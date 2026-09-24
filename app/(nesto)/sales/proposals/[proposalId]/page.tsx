@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { SalesContractHandoff } from "@/components/contracts/sales-handoff";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";

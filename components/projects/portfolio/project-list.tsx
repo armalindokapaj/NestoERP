@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import type { PortfolioProjectDTO } from "@/lib/modules/projects/project.types";
 import { formatDate } from "@/lib/utils/format";

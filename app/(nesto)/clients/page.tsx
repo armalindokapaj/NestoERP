@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ArrowRight, Users } from "lucide-react";
 
 import { ModulePage } from "@/components/modules/module-page";

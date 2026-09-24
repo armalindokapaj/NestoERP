@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ArrowRight, Building2, MapPin, TriangleAlert } from "lucide-react";
 
 import { StatusBadge } from "@/components/modules/status-badge";
@@ -41,7 +41,7 @@ function RowLink({ href, companyId, className, children }: { href: string; compa
     );
   }
   return (
-    <Link href={href} className={className}>
+    <Link navSource="dashboard" href={href} className={className}>
       {children}
     </Link>
   );
@@ -75,7 +75,7 @@ export function DashboardWidget({ widget }: { widget: ResolvedWidget }) {
         </div>
 
         {definition.href && !isEmpty ? (
-          <Link
+          <Link navSource="dashboard"
             href={definition.href}
             className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong transition-opacity hover:opacity-80"
           >
@@ -214,7 +214,7 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
         <ul className="divide-y divide-line">
           {payload.items.map((item) => (
             <li key={item.id} className="py-2.5 first:pt-0">
-              <Link href={item.href} className="group block">
+              <Link navSource="dashboard" href={item.href} className="group block">
                 <p className="truncate text-table font-medium text-fg transition-colors group-hover:text-accent">
                   {item.title}
                 </p>
@@ -250,7 +250,7 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {payload.items.map((project) => (
             <li key={project.id} className="min-w-0">
-              <Link href={project.href} className="group block overflow-hidden rounded-lg border border-line transition-colors hover:border-line-strong" data-testid="key-project">
+              <Link navSource="dashboard" href={project.href} className="group block overflow-hidden rounded-lg border border-line transition-colors hover:border-line-strong" data-testid="key-project">
                 <div className="relative aspect-[4/3] bg-hover">
                   {project.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- an authorised thumbnail route, not a static asset

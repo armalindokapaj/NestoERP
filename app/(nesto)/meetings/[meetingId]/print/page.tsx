@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { meetingClock, meetingDay, PlainText } from "@/components/meetings/meeting-ui";
 import { PrintButton } from "@/components/meetings/print-button";

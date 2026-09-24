@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { isGroupRoute } from "@/config/workspace";
 import type { CurrencyTotal, SalesOverviewDTO } from "@/lib/modules/sales/sales.types";

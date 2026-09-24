@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { SidebarNav } from "@/components/layout/sidebar-nav";

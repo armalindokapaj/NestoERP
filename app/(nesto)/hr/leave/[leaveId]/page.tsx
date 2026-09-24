@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { LeaveActions } from "@/components/hr/leave-actions";
 import { HrRecordDocuments } from "@/components/hr/record-documents";

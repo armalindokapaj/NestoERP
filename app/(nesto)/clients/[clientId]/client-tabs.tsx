@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import type { ClientDetailDTO } from "@/lib/modules/clients/client.types";
 import { cn } from "@/lib/utils/cn";
@@ -61,7 +61,7 @@ export function ClientTabs({
           const isActive = tab.key === active;
           return (
             <li key={tab.key}>
-              <Link
+              <Link navSource="tab"
                 href={`/clients/${clientId}${tab.suffix}`}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(

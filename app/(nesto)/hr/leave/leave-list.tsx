@@ -6,7 +6,7 @@ import { DateRangeFilter } from "@/components/hr/date-range-filter";
 import { LeaveTable } from "@/components/hr/leave-table";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseLeaveQuery } from "@/lib/modules/hr/hr.query";

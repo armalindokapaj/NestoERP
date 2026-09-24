@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { EmploymentChanges } from "@/components/hr/employment-changes";

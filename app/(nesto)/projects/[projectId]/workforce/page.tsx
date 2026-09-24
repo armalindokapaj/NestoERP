@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";

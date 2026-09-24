@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Files } from "lucide-react";
 
 import { DocumentTable } from "@/components/documents/document-table";

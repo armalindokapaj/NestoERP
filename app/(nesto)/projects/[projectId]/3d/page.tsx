@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
 import { Project3DViewer } from "@/components/3d/company/Project3DViewer";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { AlertTriangle } from "lucide-react";
 
 import type { HseAttentionDTO, HseKpiDTO } from "@/lib/modules/hse/hse.types";

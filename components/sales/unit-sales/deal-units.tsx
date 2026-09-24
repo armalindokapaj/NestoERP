@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import type { UserContext } from "@/lib/context/types";
 import { listDealUnits } from "@/lib/modules/sales/units/unit-sales.service";

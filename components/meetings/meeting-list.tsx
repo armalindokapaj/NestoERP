@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Presentation, Repeat, Video } from "lucide-react";
 
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";

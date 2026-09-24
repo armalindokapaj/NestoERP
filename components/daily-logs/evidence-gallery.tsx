@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Camera, FileText, ImageIcon, Loader2, Pencil, Upload } from "lucide-react";
 
 import { useUploadQueue } from "@/components/documents/upload-queue";

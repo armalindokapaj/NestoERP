@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ChevronRight, Languages } from "lucide-react";
 
 import { getIcon } from "@/components/layout/nav-icon";

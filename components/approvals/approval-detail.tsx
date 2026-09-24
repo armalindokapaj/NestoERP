@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ArrowLeft, ArrowUpRight, CircleAlert, Eye, EyeOff, FileText, Info, MessageSquare, RotateCw, TriangleAlert, UserRoundCheck, X } from "lucide-react";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";

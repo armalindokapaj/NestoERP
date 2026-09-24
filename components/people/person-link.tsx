@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils/cn";

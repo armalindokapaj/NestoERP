@@ -1,5 +1,5 @@
-import Link from "next/link";
-
+import { TabPendingDot } from "@/components/modules/tab-pending-dot";
+import Link from "@/components/navigation/nav-link";
 import { sectionRoute } from "@/config/modules";
 import type { ResolvedModuleExperience } from "@/lib/access/module-access";
 import { cn } from "@/lib/utils/cn";
@@ -35,15 +35,17 @@ export function ModuleTabs({
             <Link
               key={section.key}
               href={sectionRoute(experience.module, section.key)}
+              navSource="tab"
               aria-current={active ? "page" : undefined}
               className={cn(
-                "-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors",
+                "relative -mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors",
                 active
                   ? "border-accent text-fg"
                   : "border-transparent text-fg-muted hover:text-fg",
               )}
             >
               {section.label}
+              <TabPendingDot href={sectionRoute(experience.module, section.key)} />
             </Link>
           );
         })}

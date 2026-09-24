@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { TriangleAlert, X } from "lucide-react";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";

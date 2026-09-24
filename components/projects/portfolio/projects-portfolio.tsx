@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import { FolderKanban, Star } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
@@ -42,6 +43,7 @@ export function ProjectsPortfolio({
   initialView: ProjectsView;
 }) {
   const router = useRouter();
+  const feedback = useNavigationFeedback();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const toast = useToast();
@@ -66,12 +68,13 @@ export function ProjectsPortfolio({
   const navigate = React.useCallback(
     (update: PortfolioUrlUpdate, mode: "push" | "replace" = "push") => {
       const href = portfolioHref(pathname, new URLSearchParams(searchParams.toString()), update);
+      feedback?.begin(href, "record");
       startNavigation(() => {
         if (mode === "replace") router.replace(href, { scroll: false });
         else router.push(href, { scroll: false });
       });
     },
-    [pathname, router, searchParams],
+    [pathname, router, searchParams, feedback],
   );
 
   function changeView(next: ProjectsView) {

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Building2, HardHat, Package } from "lucide-react";
 
 import { Due, Person, Ref, ReviewBadge } from "@/components/engineering/engineering-ui";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ListTodo } from "lucide-react";
 
 import { PersonLink } from "@/components/people/person-link";

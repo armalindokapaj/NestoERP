@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { OpportunityStage } from "@prisma/client";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { useRouter } from "next/navigation";
 
 import { selectClass } from "@/components/forms/record-form";

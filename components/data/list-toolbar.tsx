@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
+import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import { SlidersHorizontal, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,7 @@ export function ListToolbar({
   className?: string;
 }) {
   const router = useRouter();
+  const feedback = useNavigationFeedback();
   const searchParams = useSearchParams();
   const [open, setOpen] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
@@ -63,9 +66,11 @@ export function ListToolbar({
       // reader lands on an empty page 3 of a shorter list.
       next.delete("page");
       const query = next.toString();
+      // A query change is a navigation too: it is marked until the new query commits (NAV-01 N05).
+      feedback?.begin(query ? `?${query}` : "?", "record");
       startTransition(() => router.push(query ? `?${query}` : "?", { scroll: false }));
     },
-    [router, searchParams],
+    [router, searchParams, feedback],
   );
 
   const [searchValue, setSearchValue] = React.useState(current(searchParam));
@@ -80,6 +85,7 @@ export function ListToolbar({
     next.delete(searchParam);
     next.delete("page");
     const query = next.toString();
+    feedback?.begin(query ? `?${query}` : "?", "record");
     startTransition(() => router.push(query ? `?${query}` : "?", { scroll: false }));
   }
 

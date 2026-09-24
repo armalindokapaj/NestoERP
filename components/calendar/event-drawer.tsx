@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Archive, ArrowUpRight, Bell, Clock, FolderKanban, Loader2, MapPin, Pencil, Users, X } from "lucide-react";
 
 import { PersonLink } from "@/components/people/person-link";

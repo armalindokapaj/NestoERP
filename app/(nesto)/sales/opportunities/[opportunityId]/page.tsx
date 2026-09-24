@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { RecordHeader } from "@/components/modules/record-header";
 import { OpportunityActions } from "@/components/sales/opportunity-actions";

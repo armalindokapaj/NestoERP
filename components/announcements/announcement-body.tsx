@@ -1,5 +1,5 @@
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { parseBody, type Inline } from "@/lib/modules/announcements/announcement.body";
 import { cn } from "@/lib/utils/cn";

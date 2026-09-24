@@ -1,5 +1,5 @@
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";

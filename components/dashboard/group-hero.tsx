@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Building2, Info } from "lucide-react";
 
 import type { GroupIdentity } from "@/lib/modules/dashboard/dashboard.group";
@@ -28,7 +28,7 @@ export function GroupHero({ identity }: { identity: GroupIdentity }) {
           </h2>
           {facts.length ? <p className="mt-1 text-table text-fg-muted">{facts.join(" · ")}</p> : null}
         </div>
-        <Link
+        <Link navSource="dashboard"
           href="/organization/companies"
           className="inline-flex shrink-0 items-center gap-2 rounded-md border border-line px-3 py-2 text-table text-fg transition-colors hover:border-line-strong"
         >

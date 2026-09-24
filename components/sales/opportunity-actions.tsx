@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Archive, PenLine, RotateCcw, Trophy, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 

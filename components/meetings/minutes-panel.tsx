@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { FileCheck2, Loader2, LockOpen, Plus, Printer, Trash2 } from "lucide-react";
 
 import { PersonLink } from "@/components/people/person-link";
