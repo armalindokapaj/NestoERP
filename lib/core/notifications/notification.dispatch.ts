@@ -13,6 +13,7 @@ import { classifyJobError, JobError, type ClassifiedError } from "@/lib/core/job
 import { markFailuresRetried, recordJobFailure } from "@/lib/core/jobs/job.failures";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
+import { runWithRequestScope } from "@/lib/core/observability/request-scope";
 import { newCorrelationId, newRequestId, runWithRequestContext } from "@/lib/core/observability/request-context";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
 import { sendMail } from "@/lib/mail";
@@ -217,7 +218,7 @@ export async function dispatchNotifications(limit = 100, workerId = workerIdenti
     const correlationId = row.correlationId ?? currentJobRun()?.correlationId ?? newCorrelationId();
     await runWithRequestContext(
       { requestId: newRequestId(), correlationId, startedAt: Date.now(), route: `job:${JOB_KEY}`, companyId: row.companyId, jobKey: JOB_KEY, workerId },
-      async () => {
+      () => runWithRequestScope(async () => {
         if (row.previousOwner) {
           logger.warn("notification.dispatch.lease_recovered", { outboxId: row.id, attempt: row.attemptCount, previousOwner: row.previousOwner });
           await recordJobFailure({
@@ -267,7 +268,7 @@ export async function dispatchNotifications(limit = 100, workerId = workerIdenti
           });
           result.failed += 1;
         }
-      },
+      }),
     );
   }
 

@@ -18,6 +18,7 @@ import { hasGroupStanding, mayEnterGroupWorkspace, resolveContextForSession } fr
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
+import { invalidateRequestScope } from "@/lib/core/observability/request-scope";
 import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { resolveWorkspaceRoute, type WorkspaceNavigationResult } from "@/lib/workspace/route-resolver";
 import { quickCreateShellSummary, type QuickCreateShellDTO } from "@/lib/modules/quick-create/context-key";
@@ -260,6 +261,8 @@ export async function switchWorkspace(
   }
 
   const switched = previous.scopeType !== next.scopeType || previous.companyId !== next.companyId;
+  // The session row has moved: this request's context is the one it came in with (NAV-02 CTX-04).
+  if (switched) invalidateRequestScope("user-context");
 
   // Read the context back from the session row, as the next request will: the
   // answer the caller gets is the state that was stored, not the state it asked for.

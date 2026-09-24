@@ -4,6 +4,7 @@ import { AccessError, assertFound } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { prisma } from "@/lib/database/prisma";
+import { invalidateRequestScope, invalidatingRequestScope } from "@/lib/core/observability/request-scope";
 import { followMembership } from "@/lib/modules/hr/employment/employment.history";
 import { clearBranchManager, moveHome, nameBranchManager, placeHomeIfUnplaced } from "@/lib/modules/team/departments/branch.doors";
 
@@ -83,7 +84,8 @@ export async function appointGroupHead(actor: DepartmentActor, groupDepartmentId
   const roleKey = (memberships.find((membership) => membership.companyId === preferred) ?? memberships[0]).role.key;
   assertWorksAs(roleKey, department);
 
-  return prisma
+  // Access has changed: nothing later in this request answers from before it (NAV-02 CTX-04).
+  return invalidatingRequestScope(prisma
     .$transaction(async (tx) => {
       const current = await tx.departmentAssignment.findFirst({
         where: { groupDepartmentId: department.id, positionLevel: "GROUP_HEAD", status: "ACTIVE" },
@@ -112,7 +114,7 @@ export async function appointGroupHead(actor: DepartmentActor, groupDepartmentId
       }
       return { assignmentId: assignment.id };
     })
-    .catch(raced);
+    .catch(raced));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -137,7 +139,8 @@ export async function appointCompanyManager(actor: DepartmentActor, branchId: st
   }
   assertWorksAs(membership.role.key, branch.groupDepartment);
 
-  return prisma
+  // Access has changed: nothing later in this request answers from before it (NAV-02 CTX-04).
+  return invalidatingRequestScope(prisma
     .$transaction(async (tx) => {
       const current = await tx.departmentAssignment.findFirst({
         where: { companyDepartmentId: branch.id, positionLevel: "COMPANY_MANAGER", status: "ACTIVE" },
@@ -171,7 +174,7 @@ export async function appointCompanyManager(actor: DepartmentActor, branchId: st
       }
       return { assignmentId: assignment.id };
     })
-    .catch(raced);
+    .catch(raced));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -207,7 +210,8 @@ export async function addDepartmentMember(actor: DepartmentActor, branchId: stri
   const person = await loadPerson(prisma, parentGroupId, input.personId);
   const { membership, roleKey } = await placeEligibility(prisma, parentGroupId, person, branch.companyId);
 
-  return prisma
+  // Access has changed: nothing later in this request answers from before it (NAV-02 CTX-04).
+  return invalidatingRequestScope(prisma
     .$transaction(async (tx) => {
       const row = await createMemberRow(tx, { actor, acting, parentGroupId, branch, userId: person.userId, roleKey, placeHome: membership !== null });
       await auditDepartment(tx, actor, acting, {
@@ -218,7 +222,7 @@ export async function addDepartmentMember(actor: DepartmentActor, branchId: stri
       await notifyPerson(tx, { parentGroupId, userId: person.userId, companyId: branch.companyId, groupDepartmentId: branch.groupDepartment.id, actorMemberId: actorMember(actor, acting), notice: { event: "MEMBER", companyName: branch.company.name } });
       return { assignmentId: row.id };
     })
-    .catch(raced);
+    .catch(raced));
 }
 
 async function loadLiveAssignment(parentGroupId: string, assignmentId: string) {
@@ -262,7 +266,8 @@ export async function moveDepartmentMember(actor: DepartmentActor, assignmentId:
   const person = await loadPerson(prisma, parentGroupId, assertFound(assignment.user.personProfileId));
   const { membership, roleKey } = await placeEligibility(prisma, parentGroupId, person, to.companyId);
 
-  return prisma
+  // Access has changed: nothing later in this request answers from before it (NAV-02 CTX-04).
+  return invalidatingRequestScope(prisma
     .$transaction(async (tx) => {
       await endRow(tx, assignment.id, actor);
       await rehome(tx, { userId: assignment.userId, companyId: from.companyId, fromBranchId: from.id, actor: memberActor(actor, leaving, from.companyId) });
@@ -276,7 +281,7 @@ export async function moveDepartmentMember(actor: DepartmentActor, assignmentId:
       await notifyPerson(tx, { parentGroupId, userId: assignment.userId, companyId: to.companyId, groupDepartmentId: to.groupDepartment.id, actorMemberId: actorMember(actor, joining ?? leaving), notice: { event: "CHANGED", change: `You moved from ${from.company.name} to ${to.company.name}.`, companyName: to.company.name } });
       return { assignmentId: row.id };
     })
-    .catch(raced);
+    .catch(raced));
 }
 
 /**
@@ -331,4 +336,5 @@ export async function endDepartmentAssignment(actor: DepartmentActor, assignment
           : `You are no longer in ${department.name} in ${assignment.company?.name}.`;
     await notifyPerson(tx, { parentGroupId, userId: assignment.userId, companyId: assignment.companyId, groupDepartmentId: department.id, actorMemberId: actorMember(actor, acting), notice: { event: "CHANGED", change } });
   });
+  invalidateRequestScope();
 }

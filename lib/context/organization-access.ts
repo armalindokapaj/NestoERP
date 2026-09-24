@@ -3,7 +3,9 @@ import type { AccessLevel, AccessScopeType, DepartmentPositionLevel } from "@pri
 import { rolesOfFunction } from "@/config/group-departments";
 import { isModuleKey, type ModuleKey } from "@/config/modules";
 import type { PositionLevel, RoleKey } from "@/config/roles";
+import { Metric, recordDuration } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { scoped } from "@/lib/core/observability/request-scope";
 
 /**
  * The organizational half of a person's access (E-06 §13, §18, §73).
@@ -125,8 +127,20 @@ export async function loadOrganizationAccess(
   return result;
 }
 
-export async function loadOrganizationAccessFor(parentGroupId: string, userId: string): Promise<OrganizationAccess> {
-  return (await loadOrganizationAccess(parentGroupId, [userId])).get(userId) ?? EMPTY;
+/**
+ * One person's organization access in one group, read once per request
+ * (NAV-02 QUERY-01): the session resolver, the group's company contexts and the
+ * development access panel all ask for it, and all get the same snapshot. The
+ * key is the group and the user, so another person's access is never answered
+ * with this one's. Callers treat the result as read-only.
+ */
+export function loadOrganizationAccessFor(parentGroupId: string, userId: string): Promise<OrganizationAccess> {
+  return scoped(`org:${parentGroupId}:${userId}`, async () => {
+    const startedAt = performance.now();
+    const access = (await loadOrganizationAccess(parentGroupId, [userId])).get(userId) ?? EMPTY;
+    recordDuration(Metric.ORGANIZATION_LOAD_MS, Metric.ORGANIZATION_LOAD, startedAt);
+    return access;
+  });
 }
 
 /** The assignments that concern one company: the group's heads and that company's own. */

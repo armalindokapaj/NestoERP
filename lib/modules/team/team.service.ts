@@ -7,6 +7,7 @@ import { Prisma, type MembershipStatus } from "@prisma/client";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { invalidateRequestScope } from "@/lib/core/observability/request-scope";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
@@ -335,6 +336,8 @@ export async function updateMember(
       );
     }
   });
+  // A role or placement changed: nothing later in this request answers from before it (NAV-02 CTX-04).
+  invalidateRequestScope();
 
   return getMember(context, memberId);
 }
@@ -520,6 +523,7 @@ async function changeMembershipStatus(
       { tx },
     );
   });
+  invalidateRequestScope();
 }
 
 /** Which audit action a membership transition records (PRD #28 §95). */

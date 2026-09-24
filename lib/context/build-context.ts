@@ -6,6 +6,7 @@ import { isMutatingPermission, type Permission } from "@/config/permissions";
 import { defaultAccessFor, grantPermissions } from "@/config/role-defaults";
 import { isMembershipRoleKey, roleLabel, roles, type PositionLevel, type RoleKey } from "@/config/roles";
 import { relocateSessionToUsableMembership, setSessionWorkspaceScope, USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
+import { Metric, recordDuration } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import {
   assignmentsInCompany,
@@ -16,6 +17,7 @@ import {
   type ContextGrant,
   type OrganizationAccess,
 } from "./organization-access";
+import { peekScoped, scoped, seedScoped } from "@/lib/core/observability/request-scope";
 import type { ContextResult, ModuleAccess, UserContext } from "./types";
 
 /**
@@ -264,6 +266,11 @@ export function groupMemberContextsOf(context: UserContext): UserContext[] | und
  * workspace asks it on every request. A suspended company, an inactive
  * membership and a group that is not usable yield no context: they are not
  * places the person can work in (§51).
+ *
+ * Within a request it reuses what the request already read (NAV-02 QUERY-01,
+ * QUERY-02): the person's organization access, and the modules of any company
+ * already resolved — the session's own, usually. Only the companies still
+ * unknown are batched.
  */
 export async function loadGroupMemberContexts(input: {
   userId: string;
@@ -271,6 +278,7 @@ export async function loadGroupMemberContexts(input: {
   sessionId: string;
   organization?: OrganizationAccess;
 }): Promise<UserContext[]> {
+  const startedAt = performance.now();
   const [memberships, organization] = await Promise.all([
     prisma.companyMember.findMany({
       where: {
@@ -288,32 +296,68 @@ export async function loadGroupMemberContexts(input: {
   );
   if (usable.length === 0) return [];
 
-  const switches = await prisma.companyModule.findMany({
-    where: { companyId: { in: usable.map((membership) => membership.companyId) }, enabled: true },
-    select: { companyId: true, module: { select: { key: true } } },
-  });
-  const enabledByCompany = new Map<string, Set<string>>();
-  for (const row of switches) {
-    const keys = enabledByCompany.get(row.companyId) ?? new Set<string>();
-    keys.add(row.module.key);
-    enabledByCompany.set(row.companyId, keys);
-  }
+  const enabledByCompany = await enabledModulesFor(usable.map((membership) => membership.companyId));
 
-  return usable
-    .map((membership) => {
-      const switchedOn = enabledByCompany.get(membership.companyId) ?? new Set<string>();
-      return assembleContext({
+  const contexts = usable
+    .map((membership) =>
+      assembleContext({
         user: membership.user,
         membership,
         sessionId: input.sessionId,
         role: membership.role.key as RoleKey,
-        // Dashboard is part of the shell rather than a switchable module.
-        enabledModules: MODULE_KEYS.filter((key) => key === "dashboard" || switchedOn.has(key)),
+        enabledModules: enabledByCompany.get(membership.companyId) ?? ["dashboard"],
         assignments: organization.assignments,
         grants: organization.grants,
-      });
-    })
+      }),
+    )
     .sort((a, b) => a.company.name.localeCompare(b.company.name));
+  recordDuration(Metric.COMPANY_CONTEXTS_MS, Metric.COMPANY_CONTEXTS, startedAt);
+  return contexts;
+}
+
+/**
+ * The modules of several companies (QUERY-02): those this request has already
+ * read are reused, the rest are read in one batch and remembered for the rest
+ * of the request. A company in the batch with no switch on is loaded and
+ * disabled — its answer is the Dashboard alone, never "not loaded".
+ */
+async function enabledModulesFor(companyIds: readonly string[]): Promise<Map<string, ModuleKey[]>> {
+  const unique = [...new Set(companyIds)];
+  const known = unique.map((companyId) => [companyId, peekScoped<ModuleKey[]>(moduleKeyFor(companyId))] as const);
+  const unresolved = known.filter(([, pending]) => !pending).map(([companyId]) => companyId);
+
+  const result = new Map<string, ModuleKey[]>();
+  if (unresolved.length > 0) {
+    const switches = await prisma.companyModule.findMany({
+      where: { companyId: { in: unresolved }, enabled: true },
+      select: { companyId: true, module: { select: { key: true } } },
+    });
+    const enabledByCompany = new Map<string, Set<string>>();
+    for (const row of switches) {
+      const keys = enabledByCompany.get(row.companyId) ?? new Set<string>();
+      keys.add(row.module.key);
+      enabledByCompany.set(row.companyId, keys);
+    }
+    for (const companyId of unresolved) {
+      const switchedOn = enabledByCompany.get(companyId) ?? new Set<string>();
+      const enabled = enabledModuleList(switchedOn);
+      result.set(companyId, enabled);
+      seedScoped(moduleKeyFor(companyId), enabled);
+    }
+  }
+  for (const [companyId, pending] of known) {
+    if (pending) result.set(companyId, await pending);
+  }
+  return result;
+}
+
+function moduleKeyFor(companyId: string): string {
+  return `modules:${companyId}`;
+}
+
+/** Dashboard is part of the shell rather than a switchable module. */
+function enabledModuleList(switchedOn: ReadonlySet<string>): ModuleKey[] {
+  return MODULE_KEYS.filter((key) => key === "dashboard" || switchedOn.has(key));
 }
 
 /**
@@ -359,16 +403,15 @@ export function mayEnterGroupWorkspace(contexts: readonly UserContext[]): boolea
  * own. Two module-access rules that can disagree is how a notification tells
  * somebody about a module their company switched off.
  */
-export async function resolveEnabledModules(companyId: string): Promise<ModuleKey[]> {
-  const rows = await prisma.companyModule.findMany({
-    where: { companyId, enabled: true },
-    include: { module: true },
+export function resolveEnabledModules(companyId: string): Promise<ModuleKey[]> {
+  // Once per company per request (NAV-02 QUERY-02); the next request reads again.
+  return scoped(moduleKeyFor(companyId), async () => {
+    const rows = await prisma.companyModule.findMany({
+      where: { companyId, enabled: true },
+      include: { module: true },
+    });
+    return enabledModuleList(new Set(rows.map((row) => row.module.key)));
   });
-
-  const enabled = new Set(rows.map((row) => row.module.key));
-
-  // Dashboard is part of the shell rather than a switchable module.
-  return MODULE_KEYS.filter((key) => key === "dashboard" || enabled.has(key));
 }
 
 export function buildModuleAccess(

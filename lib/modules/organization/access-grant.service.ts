@@ -14,6 +14,7 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { invalidateRequestScope } from "@/lib/core/observability/request-scope";
 
 /**
  * Delegated access (E-06 §18, §73, §78).
@@ -277,6 +278,8 @@ export async function grantAccess(context: UserContext, input: GrantAccessInput)
     );
     return grant.id;
   });
+  // Access has changed: nothing later in this request answers from before it (NAV-02 CTX-04).
+  invalidateRequestScope();
   return { grantId };
 }
 
@@ -305,6 +308,7 @@ export async function revokeAccessGrant(context: UserContext, grantId: string, i
       { tx },
     );
   });
+  invalidateRequestScope();
 }
 
 /** The Owner, the head of the function the module belongs to, or whoever made it. Taking access away is always safe. */

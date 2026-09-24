@@ -1,4 +1,5 @@
 import { logger, serialiseError } from "@/lib/core/observability/logger";
+import { runWithRequestScope } from "@/lib/core/observability/request-scope";
 import { currentRequestContext, newCorrelationId, newRequestId, runWithRequestContext } from "@/lib/core/observability/request-context";
 import { prisma } from "@/lib/database/prisma";
 import { currentJobRun } from "./job.context";
@@ -86,7 +87,7 @@ export async function forEachCompany<T>(
       workerId: jobRun?.workerId,
     };
     try {
-      report.results.push({ companyId: company.id, result: await runWithRequestContext(requestContext, () => run(context)) });
+      report.results.push({ companyId: company.id, result: await runWithRequestContext(requestContext, () => runWithRequestScope(() => run(context))) });
     } catch (error) {
       logger.error("worker.job.company_failed", { job: jobName, companyId: company.id, correlationId, ...serialiseError(error) });
       report.failed.push({ companyId: company.id, error: error instanceof Error ? error.message : String(error) });

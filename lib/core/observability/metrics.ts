@@ -136,13 +136,41 @@ export const Metric = {
   TRANSITION_APPLIED: "transition_applied_total",
   TRANSITION_CONFLICT: "transition_conflict_total",
   TRANSITION_REPLAY: "transition_replay_total",
+  // Faster server loading (NAV-02 §16). Durations are totals with a matching
+  // count; percentiles come from benchmark samples, not from these.
+  REQUEST_SCOPE_REUSE: "request_scope_reuse_total",
+  CONTEXT_RESOLVE_MS: "context_resolve_ms_total",
+  CONTEXT_RESOLVE: "context_resolve_total",
+  ORGANIZATION_LOAD_MS: "organization_load_ms_total",
+  ORGANIZATION_LOAD: "organization_load_total",
+  COMPANY_CONTEXTS_MS: "company_contexts_ms_total",
+  COMPANY_CONTEXTS: "company_contexts_total",
+  MAINTENANCE_DECISION_MS: "maintenance_decision_ms_total",
+  MAINTENANCE_DECISION: "maintenance_decision_total",
+  MAINTENANCE_PAGE_CACHE: "maintenance_page_cache_total",
+  MAINTENANCE_READ_FAILURE: "maintenance_read_failure_total",
+  MAINTENANCE_INVALIDATION_FAILURE: "maintenance_invalidation_failure_total",
+  SHELL_CORE_READY_MS: "shell_core_ready_ms_total",
+  SHELL_CORE_READY: "shell_core_ready_total",
+  SHELL_SLOT: "shell_slot_total",
+  SHELL_SLOT_MS: "shell_slot_ms_total",
 } as const;
+
+/** Adds one timed run of a stage: its duration to `total`, one to `count`. */
+export function recordDuration(total: MetricName, count: MetricName, startedAt: number, labels: Labels = {}): void {
+  incrementCounter(total, labels, Math.max(0, Math.round(performance.now() - startedAt)));
+  incrementCounter(count, labels);
+}
 
 export type MetricName = (typeof Metric)[keyof typeof Metric];
 
 type Labels = Record<string, string>;
 
-const counters = new Map<string, { name: MetricName; labels: Labels; value: number }>();
+// Per process, not per module copy: a server bundle loads this module once for
+// its pages and again for its route handlers, and the metrics endpoint must
+// see what both counted (NAV-02 §16).
+const processMetrics = globalThis as unknown as { __nestoCounters?: Map<string, { name: MetricName; labels: Labels; value: number }> };
+const counters = (processMetrics.__nestoCounters ??= new Map<string, { name: MetricName; labels: Labels; value: number }>());
 
 function seriesKey(name: string, labels: Labels): string {
   const parts = Object.keys(labels)
