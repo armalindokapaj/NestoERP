@@ -1,0 +1,39 @@
+{
+  "label": "before",
+  "statements_per_workspaces_call": {
+    "median": 27.15,
+    "rounds": [
+      27.15,
+      27.25,
+      26.25
+    ]
+  },
+  "dashboard_load_without_prefetch": {
+    "statements": 731,
+    "prefetches": 0,
+    "rounds": [
+      731,
+      747,
+      720
+    ]
+  },
+  "dashboard_load_with_prefetch": {
+    "statements": 767,
+    "prefetches": 23,
+    "rounds": [
+      767,
+      735,
+      860
+    ]
+  },
+  "statements_per_prefetch": 1.6,
+  "ten_navigations": {
+    "statements": 1935,
+    "requests": {
+      "quickCreate": 10,
+      "prefetch": 70,
+      "navigation": 11,
+      "document": 0
+    }
+  }
+}
