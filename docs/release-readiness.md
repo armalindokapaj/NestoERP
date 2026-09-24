@@ -2753,3 +2753,60 @@ migration, `20260920190000_workspace_scope`.
 - **Sessions from before the migration** carry `workspaceScope NULL` and get
   their default on the next request — the Group for a group-level person, their
   employing company for everyone else.
+
+## 35. NAV-01 — Immediate navigation response
+
+NAV-01 is phase 1 of 3 of navigation performance. A click now paints at once,
+before the destination has rendered. `+ Create` asks for its menu only when
+somebody opens it. Neither weakens an authorization answer.
+[ADR 0012](adr/0012-nav-01-immediate-navigation-response.md) records the
+decisions. The release evidence §17 asks for is in
+[NAV-01-release-evidence.md](navigation/NAV-01-release-evidence.md), and the
+route inventory is in
+[NAV-01-route-inventory.md](navigation/NAV-01-route-inventory.md). There is no
+migration.
+
+### 35.1 What changed
+
+| Before | Now |
+| --- | --- |
+| One `loading.tsx`, the dashboard's. A click held the old page, its highlight and its URL until the whole destination had rendered | 46 boundaries from one set of data-free skeletons, and an in-shell `error.tsx`. All 459 authenticated pages have a loading ancestor, and a unit test keeps it so |
+| A missing record answered 404 because nothing streamed | Streaming fixes the status early. The ten routes whose specs assert a document 404 run their own cached loader in the (nesto) layout, before streaming. Everything else may stream a refusal under a 200, which is never evidence of access |
+| No feedback before the destination arrived | `NavLink`, a drop-in `next/link` in 343 files, and `useFeedbackRouter` start one shell-level ticket for navigations the app accepted. The clicked item gets a pending dot, a top bar fades in after 150 ms, one status line is announced, and after 10 s a "taking longer" note appears |
+| `+ Create` fetched its menu on every route change | The shell summary (`canOpen`, `contextKey`), derived from contexts already resolved, draws the button and the `C` shortcut. The menu loads on open into a 30 s, 10-entry, generation-fenced cache |
+| A switch in this tab reloaded the page it was leaving, which raced the navigation that followed | Every switch-then-go flow suppresses its own echo and loads its destination as a document. One unsaved-changes prompt per action |
+| On a phone, the `+ Create` sheet hung from the top bar, almost all of it above the screen, because the bar's backdrop blur held its fixed children | The blur is on a layer behind the bar, and the sheet rests on the bottom of the screen |
+
+### 35.2 The evidence
+
+See [NAV-01-release-evidence.md](navigation/NAV-01-release-evidence.md) for the
+test results, timings, network and query counts, the pictures and the waits
+left for Phase 2.
+
+### 35.3 Limits
+
+- **A hard load of a denied record on one of the ten contract routes** shows
+  the root not-found page, without the shell. Client-side navigation keeps the
+  in-shell one.
+- **Other routes may answer 200** to a document request for a record that does
+  not exist, and stream the not-found screen. That is intended (§2.1). API
+  statuses are unchanged.
+- **vercel/next.js#86151.** Next.js 15.5 sometimes leaves a soft navigation
+  holding a page it already has. `components/navigation/reveal-watchdog.tsx`
+  wakes it, and should be removed with the Next.js upgrade that fixes the bug.
+- **A skeleton holds fast content for about 300 ms. This is an accepted
+  deviation from §14.2.**
+  - React reveals content no sooner than 300 ms after a fallback appeared.
+  - So a prefetched transition to a fast page shows its content later than
+    before: Dashboard → Projects 124 → 413 ms median, Clients → client
+    152 → 358 ms, Tasks → task 231 → 419 ms.
+  - Units and Invoices, whose pages already streamed, got 22 % faster, and
+    feedback is immediate everywhere.
+  - The product owner accepted the deviation on 24 September 2026. NAV-03's
+    selective prefetch, or a React fix, removes it (evidence §3).
+- **Each prefetch now runs the (nesto) layout:** about 12 statements against
+  2–6 before, measured in evidence §5. It is NAV-02's and NAV-03's to make
+  cheaper and rarer.
+- **Parent-layout waits are Phase 2's.** Cold entry and a workspace switch
+  still wait for the (nesto) layout and the shell's reads before the first
+  byte. They are measured in the evidence.

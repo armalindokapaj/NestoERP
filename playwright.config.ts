@@ -58,7 +58,8 @@ export default defineConfig({
     ...(process.env.E2E_ALL_BROWSERS
       ? [
           { name: "firefox", use: { ...devices["Desktop Firefox"] }, testMatch: /auth\/.*\.spec\.ts/ },
-          { name: "webkit", use: { ...devices["Desktop Safari"] }, testMatch: /auth\/.*\.spec\.ts/ },
+          // Plus NAV-01's critical navigation and Create flows (NAV-01 §15.4).
+          { name: "webkit", use: { ...devices["Desktop Safari"] }, testMatch: /(auth\/.*|shell\/navigation-response)\.spec\.ts/ },
           {
             name: "mobile-safari",
             use: { ...devices["iPhone 14 Pro"] },

@@ -1,0 +1,317 @@
+{
+  "label": "after",
+  "profile": "desktop",
+  "conditions": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "latency": 100,
+    "down": 10,
+    "up": 5,
+    "cpu": 1
+  },
+  "samples": 30,
+  "commit": "ff9df580",
+  "browser": "153.0.8010.12",
+  "category": "transitions start on a document-loaded origin; warm = default prefetch arrived, uncached = no prefetch",
+  "report": {
+    "Dashboard \u2192 Projects (warm)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 1,
+        "p95": 2
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 7,
+        "p95": 9
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 413,
+        "p95": 431
+      },
+      "prefetch_requests": 861
+    },
+    "Projects \u2192 project detail (warm)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 1,
+        "p95": 1
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 51,
+        "p95": 63
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 357,
+        "p95": 378
+      },
+      "prefetch_requests": 799
+    },
+    "Project \u2192 Units (warm)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 1,
+        "p95": 1
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 41,
+        "p95": 65
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 345,
+        "p95": 374
+      },
+      "prefetch_requests": 1208
+    },
+    "Finance \u2192 Invoices (warm)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 1,
+        "p95": 1
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 57,
+        "p95": 71
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 364,
+        "p95": 381
+      },
+      "prefetch_requests": 820
+    },
+    "Clients \u2192 client detail (warm)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 1,
+        "p95": 1
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 56,
+        "p95": 71
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 358,
+        "p95": 379
+      },
+      "prefetch_requests": 847
+    },
+    "Tasks \u2192 task detail (warm)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 1,
+        "p95": 2
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 116,
+        "p95": 121
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 419,
+        "p95": 435
+      },
+      "prefetch_requests": 1358
+    },
+    "Dashboard \u2192 Projects (uncached)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 2,
+        "p95": 3
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 121,
+        "p95": 126
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 128,
+        "p95": 429
+      },
+      "prefetch_requests": 0
+    },
+    "Projects \u2192 project detail (uncached)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 2,
+        "p95": 3
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 117,
+        "p95": 122
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 139,
+        "p95": 434
+      },
+      "prefetch_requests": 0
+    },
+    "Project \u2192 Units (uncached)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 2,
+        "p95": 3
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 120,
+        "p95": 128
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 148,
+        "p95": 429
+      },
+      "prefetch_requests": 0
+    },
+    "Finance \u2192 Invoices (uncached)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 2,
+        "p95": 4
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 119,
+        "p95": 126
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 130,
+        "p95": 429
+      },
+      "prefetch_requests": 0
+    },
+    "Clients \u2192 client detail (uncached)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 3,
+        "p95": 3
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 120,
+        "p95": 129
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 128,
+        "p95": 141
+      },
+      "prefetch_requests": 0
+    },
+    "Tasks \u2192 task detail (uncached)": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 2,
+        "p95": 4
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 118,
+        "p95": 125
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 125,
+        "p95": 137
+      },
+      "prefetch_requests": 0
+    },
+    "Quick Create cold open": {
+      "quick_create_visible": {
+        "n": 30,
+        "median": 10,
+        "p95": 11
+      },
+      "quick_create_ready": {
+        "n": 30,
+        "median": 209,
+        "p95": 242
+      }
+    },
+    "Quick Create cached reopen": {
+      "quick_create_visible": {
+        "n": 30,
+        "median": 6,
+        "p95": 15
+      },
+      "actions_requests_total": 30
+    },
+    "Group record \u2192 company record": {
+      "feedback_visible": {
+        "n": 30,
+        "median": 41,
+        "p95": 89
+      },
+      "route_committed": {
+        "n": 30,
+        "median": 254,
+        "p95": 263
+      },
+      "content_usable": {
+        "n": 30,
+        "median": 308,
+        "p95": 321
+      },
+      "landed_on_record": "30/30"
+    },
+    "Cold entry /dashboard": {
+      "content_usable": {
+        "n": 30,
+        "median": 314,
+        "p95": 353
+      },
+      "first_byte": {
+        "n": 30,
+        "median": 35,
+        "p95": 44
+      }
+    },
+    "Cold entry /projects": {
+      "content_usable": {
+        "n": 30,
+        "median": 229,
+        "p95": 258
+      },
+      "first_byte": {
+        "n": 30,
+        "median": 21,
+        "p95": 29
+      }
+    },
+    "Cold entry /finance/invoices": {
+      "content_usable": {
+        "n": 30,
+        "median": 260,
+        "p95": 280
+      },
+      "first_byte": {
+        "n": 30,
+        "median": 22,
+        "p95": 31
+      }
+    },
+    "Workspace switch \u2192 dashboard usable": {
+      "content_usable": {
+        "n": 30,
+        "median": 268,
+        "p95": 308
+      }
+    }
+  }
+}
