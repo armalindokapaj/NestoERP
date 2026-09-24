@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { PlatformContext } from "@/lib/context/platform-context";
 import { resolvePlatformContextForSession } from "@/lib/context/platform-context";
+import { authorizeProject3DEditor, canOpenProject3DEditor, getProject3DExperienceState, openProject3DEditor, updateProject3DExperience } from "@/lib/modules/project-3d/project-3d.editor";
 import { getProject3DWorkspace, updateProject3DEntitlement } from "@/lib/modules/project-3d/project-3d.service";
 import { cleanupSessions, loginAs, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
 
@@ -75,6 +76,43 @@ describe("Platform 3D authorization", () => {
       project3DConfig: { schemaVersion: 1, activeReleaseId: null },
     });
     expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, projectId, actionKey: "PLATFORM_THREE_D_ENTITLEMENT_CHANGED" } })).toBe(1);
+  });
+
+  it("opens the Experience Editor only with the 3D authoring permission, refused before any lookup", async () => {
+    const viewOnly = { ...admin, permissions: ["platform.3d.view"] } as PlatformContext;
+    expect(canOpenProject3DEditor(admin)).toBe(true);
+    expect(canOpenProject3DEditor(viewOnly)).toBe(false);
+    await expect(openProject3DEditor(viewOnly, projectId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // The same answer for an address that does not exist: a refused session learns nothing.
+    await expect(openProject3DEditor(viewOnly, `missing-${suffix}`)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(openProject3DEditor(admin, `missing-${suffix}`)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    // The tab's pre-stream check answers the same way.
+    await expect(authorizeProject3DEditor(viewOnly, `missing-${suffix}`)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(authorizeProject3DEditor(admin, `missing-${suffix}`)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(authorizeProject3DEditor(admin, projectId)).resolves.toBeUndefined();
+  });
+
+  it("gives the editor tab a compact payload: context, permissions and the draft revision", async () => {
+    const workspace = await openProject3DEditor(admin, projectId);
+    expect(workspace).toMatchObject({
+      project: { id: projectId, name: "Project 3D", company: { id: companyId, name: "Project 3D Company", parentGroup: { id: groupId } } },
+      config: { experienceName: "Project 3D 3D Experience", activeRelease: null, document: { revision: 1 } },
+      permissions: { configure: true, manageModels: true, manageBindings: true },
+      slots: [],
+      units: [],
+    });
+    await expect(getProject3DExperienceState(admin, projectId)).resolves.toMatchObject({ revision: 1, activeReleaseId: null });
+  });
+
+  it("saves the editor draft as a new revision without publishing, and refuses a stale tab's save", async () => {
+    const { config } = (await openProject3DEditor(admin, projectId)).config.document;
+    const saved = await updateProject3DExperience(admin, projectId, { expectedRevision: 1, config: { ...config, skyEnabled: !config.skyEnabled }, reason: "Author the draft in the editor" });
+    expect(saved.document.revision).toBe(2);
+    expect(await prisma.project3DRelease.count({ where: { projectId } })).toBe(0);
+    await expect(getProject3DExperienceState(admin, projectId)).resolves.toMatchObject({ revision: 2, activeReleaseId: null });
+    await expect(updateProject3DExperience(admin, projectId, { expectedRevision: 1, config: { ...config }, reason: "A second tab still on revision 1" }))
+      .rejects.toMatchObject({ code: "CONFLICT", details: { code: "EXPERIENCE_RACED" } });
+    expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, projectId, actionKey: "PLATFORM_THREE_D_EXPERIENCE_CHANGED" } })).toBe(1);
   });
 
   it("checks the configure permission in the service, independently of route auth", async () => {

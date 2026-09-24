@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { db } from "../db";
@@ -186,4 +186,252 @@ test("Company sees only the active read-only release", async ({ page }) => {
 
   const platformApi = await page.request.get("/api/platform/3d/projects");
   expect(platformApi.status()).toBe(403);
+});
+
+/* ---- The Experience Editor in its own tab (3D Editor PRD §218-§243) ---- */
+
+const EDITOR_URL = `/platform-admin/3d/projects/${PROJECT_ID}/editor`;
+const TOOLS = ["Scene", "Materials", "Environment", "Lighting", "Rendering", "Camera", "Shots", "Sections", "Performance", "Unit binding"];
+
+async function authoring() {
+  const config = await db.project3DConfig.findUniqueOrThrow({ where: { projectId: PROJECT_ID }, select: { authoringDocument: true, activeReleaseId: true } });
+  const document = config.authoringDocument as { revision: number; config: Record<string, unknown> };
+  return { revision: document.revision, config: document.config, activeReleaseId: config.activeReleaseId };
+}
+
+async function releasedExperience() {
+  const release = await db.project3DRelease.findUniqueOrThrow({ where: { id: RELEASE_ID }, select: { manifest: true } });
+  return (release.manifest as { experience: Record<string, unknown> }).experience;
+}
+
+/*
+ * Scoped to a landmark: while React holds a streamed segment back (its reveal
+ * hold), a hidden copy sits at the end of <body>, and text or test-id locators
+ * would match both.
+ */
+function saveStatus(editor: Page) {
+  return editor.getByRole("banner").getByTestId("editor-save-status");
+}
+
+function draftState(page: Page) {
+  return page.getByRole("main").getByTestId("experience-draft-state");
+}
+
+function tool(editor: Page, name: string) {
+  return editor.getByRole("navigation", { name: "Editor tools" }).getByRole("button", { name, exact: true });
+}
+
+test("Experience detail opens the editor in its own tab, with no Platform Admin shell around it", async ({ page }) => {
+  await signIn(page, "PLATFORM_ADMIN", { to: `/platform-admin/3d/projects/${PROJECT_ID}` });
+  await expect(page.getByRole("navigation", { name: "3D Experience workspace" }).getByRole("link")).toHaveText(["Overview", "Project Structure", "Models", "Unit Binding", "Releases"]);
+  const open = page.getByRole("link", { name: "Open Experience Editor" });
+  await expect(open).toHaveAttribute("href", EDITOR_URL);
+  await expect(open).toHaveAttribute("target", "_blank");
+  await expect(open).toHaveAttribute("rel", "noopener noreferrer");
+
+  const editorOpened = page.waitForEvent("popup");
+  await open.click();
+  const editor = await editorOpened;
+  await expect(editor).toHaveURL(new RegExp(`${EDITOR_URL}$`));
+  await expect(editor.getByRole("heading", { level: 1, name: `${PROJECT_NAME} 3D Experience` })).toBeVisible();
+  await expect(editor).toHaveTitle(`${PROJECT_NAME} 3D Experience — 3D Experience Editor · NESTO`);
+  await expect(editor.getByRole("banner").getByText(`${groupName} · ${companyName} · ${PROJECT_CODE}`)).toBeVisible();
+  await expect(saveStatus(editor)).toHaveText("Saved");
+  await expect(editor.getByRole("banner").getByText("Live: Release 1")).toBeVisible();
+
+  // Only the editor: scene tree, viewport, properties and its tools.
+  await expect(editor.getByRole("complementary", { name: "Scene" })).toBeVisible();
+  await expect(editor.getByRole("main", { name: "3D viewport" })).toBeVisible();
+  await expect(editor.getByRole("complementary", { name: "Properties" })).toBeVisible();
+  await expect(editor.getByRole("navigation", { name: "Editor tools" }).getByRole("button")).toHaveText(TOOLS);
+  await expect(editor.getByRole("navigation", { name: "Platform administration" })).toHaveCount(0);
+  await expect(editor.getByRole("navigation", { name: "3D Experience workspace" })).toHaveCount(0);
+  await expect(editor.getByLabel("Search NESTO Platform")).toHaveCount(0);
+  await expect(editor.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+
+  // The editor fills the window, and the page itself never scrolls.
+  const frame = await editor.evaluate(() => {
+    const box = document.querySelector("[data-experience-editor]")!.getBoundingClientRect();
+    const root = document.scrollingElement!;
+    return { width: box.width, height: box.height, innerWidth, innerHeight, scrollWidth: root.scrollWidth, scrollHeight: root.scrollHeight };
+  });
+  expect(frame.width).toBe(frame.innerWidth);
+  expect(frame.height).toBe(frame.innerHeight);
+  expect(frame.scrollWidth).toBeLessThanOrEqual(frame.innerWidth);
+  expect(frame.scrollHeight).toBeLessThanOrEqual(frame.innerHeight);
+
+  // Panels collapse and resize, and the renderer's canvas follows the viewport.
+  const viewport = editor.getByRole("main", { name: "3D viewport" });
+  const canvas = viewport.locator("canvas").first();
+  await expect(canvas).toBeAttached({ timeout: 30_000 });
+  const narrow = (await viewport.boundingBox())!.width;
+  await editor.getByRole("button", { name: "Hide scene panel" }).click();
+  await expect.poll(async () => (await viewport.boundingBox())!.width).toBeGreaterThan(narrow + 150);
+  const wide = (await viewport.boundingBox())!.width;
+  await expect.poll(async () => Math.round((await canvas.boundingBox())!.width)).toBe(Math.round(wide));
+  await editor.getByRole("button", { name: "Show scene panel" }).click();
+  const splitter = editor.getByRole("separator", { name: "Resize properties panel" });
+  await splitter.focus();
+  await editor.keyboard.press("ArrowLeft");
+  await expect(splitter).toHaveAttribute("aria-valuenow", "336");
+
+  // The management tab is still where it was.
+  await expect(page).toHaveURL(new RegExp(`/platform-admin/3d/projects/${PROJECT_ID}$`));
+});
+
+test("Save keeps a draft: unsaved work is guarded, a reason is required, and the live release does not change", async ({ page, browser }) => {
+  await signIn(page, "PLATFORM_ADMIN", { to: `/platform-admin/3d/projects/${PROJECT_ID}` });
+  await expect(draftState(page)).toContainText("Draft revision 1");
+  const editorOpened = page.waitForEvent("popup");
+  await page.getByRole("link", { name: "Open Experience Editor" }).click();
+  const editor = await editorOpened;
+  const status = saveStatus(editor);
+  await expect(status).toHaveText("Saved");
+  const released = await releasedExperience();
+
+  await tool(editor, "Environment").click();
+  await editor.getByRole("checkbox", { name: "Sky", exact: true }).click();
+  await expect(status).toHaveText("Unsaved changes");
+
+  // Closing a tab with unsaved changes asks first.
+  const warning = editor.waitForEvent("dialog");
+  await editor.close({ runBeforeUnload: true });
+  const dialog = await warning;
+  expect(dialog.type()).toBe("beforeunload");
+  await dialog.dismiss();
+  await expect(status).toHaveText("Unsaved changes");
+
+  // Save needs a reason; Ctrl/Cmd+S saves from the reason field.
+  await editor.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(editor.getByText("Give a reason for these changes before saving.")).toBeVisible();
+  const reason = editor.getByLabel("Reason for this change");
+  await expect(reason).toBeFocused();
+  await reason.fill("Draft the sky for the next release");
+  await reason.press("ControlOrMeta+s");
+  await expect(status).toHaveText("Saved");
+
+  const draft = await authoring();
+  expect(draft.revision).toBe(2);
+  expect(draft.config.skyEnabled).toBe(!released.skyEnabled);
+  // Save is not Publish: the active release, and what it serves, are unchanged.
+  expect(draft.activeReleaseId).toBe(RELEASE_ID);
+  expect(await releasedExperience()).toEqual(released);
+  expect(await db.project3DRelease.count({ where: { projectId: PROJECT_ID } })).toBe(1);
+  const tenant = await browser.newContext();
+  const tenantPage = await tenant.newPage();
+  await signIn(tenantPage, "OWNER");
+  const bootstrap = await tenantPage.request.get(`/api/projects/${PROJECT_ID}/3d/bootstrap`);
+  expect(bootstrap.status()).toBe(200);
+  expect((await bootstrap.json()).data.experience.skyEnabled).toBe(released.skyEnabled);
+  await tenant.close();
+
+  // The management tab hears about the save and reads again.
+  await expect(draftState(page)).toContainText("Draft revision 2");
+
+  // A clean tab closes without a warning.
+  let warnedAgain = false;
+  editor.on("dialog", (again) => { warnedAgain = true; void again.dismiss(); });
+  await editor.close({ runBeforeUnload: true });
+  await expect.poll(() => editor.isClosed()).toBe(true);
+  expect(warnedAgain).toBe(false);
+});
+
+test("Reset defaults asks first and only changes this tab's draft", async ({ page }) => {
+  // The address works on its own, in the same session.
+  await signIn(page, "PLATFORM_ADMIN", { to: EDITOR_URL });
+  const status = saveStatus(page);
+  await expect(status).toHaveText("Saved");
+  const reset = page.getByRole("button", { name: "Reset defaults" });
+  const dialog = page.getByRole("dialog", { name: "Reset this Experience to default editor settings?" });
+
+  await reset.click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(status).toHaveText("Saved");
+
+  await reset.click();
+  await dialog.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(status).toHaveText("Unsaved changes");
+  expect((await authoring()).revision).toBe(2);
+});
+
+test("A save from another tab is noticed, and the stale tab cannot overwrite it", async ({ page, context }) => {
+  await signIn(page, "PLATFORM_ADMIN", { to: EDITOR_URL });
+  const second = await context.newPage();
+  await second.goto(EDITOR_URL);
+  await expect(saveStatus(page)).toHaveText("Saved");
+  await expect(saveStatus(second)).toHaveText("Saved");
+  const before = await authoring();
+
+  await tool(second, "Environment").click();
+  await second.getByRole("checkbox", { name: "Fog", exact: true }).click();
+  await second.getByLabel("Reason for this change").fill("Fog from the second tab");
+  await second.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(saveStatus(second)).toHaveText("Saved");
+
+  // The first tab is told at once.
+  await expect(page.getByText(`This Experience was updated in another session (draft revision ${before.revision + 1}).`)).toBeVisible();
+
+  // Saving there anyway is refused rather than silently applied.
+  await tool(page, "Environment").click();
+  await page.getByRole("checkbox", { name: "Clouds", exact: true }).click();
+  await page.getByLabel("Reason for this change").fill("Clouds from the stale tab");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(saveStatus(page)).toHaveText("Save failed");
+  const after = await authoring();
+  expect(after.revision).toBe(before.revision + 1);
+  expect(after.config.fogEnabled).toBe(!before.config.fogEnabled);
+  expect(after.config.cloudsEnabled).toBe(before.config.cloudsEnabled);
+
+  // Reload latest discards this tab's changes without asking twice.
+  await page.getByRole("button", { name: "Reload latest" }).click();
+  await expect(saveStatus(page)).toHaveText("Saved");
+  await expect(page.getByText(/updated in another session/)).toHaveCount(0);
+  await tool(page, "Environment").click();
+  await expect(page.getByRole("checkbox", { name: "Fog", exact: true })).toBeChecked({ checked: after.config.fogEnabled as boolean });
+  await second.close();
+});
+
+test("A model that fails to load stays a local error with a retry", async ({ page }) => {
+  const runtimeModel = `**/api/storage/objects/**/${RUNTIME_KEY.split("/").pop()}*`;
+  await page.context().route(runtimeModel, (route) => route.fulfill({ status: 500, body: "" }));
+  await signIn(page, "PLATFORM_ADMIN", { to: EDITOR_URL });
+  const failure = page.getByRole("alert").filter({ hasText: "A model failed to load." });
+  await expect(failure).toBeVisible({ timeout: 30_000 });
+
+  // The rest of the editor keeps working.
+  await tool(page, "Lighting").click();
+  await page.getByRole("checkbox", { name: "Shadows", exact: true }).click();
+  await expect(saveStatus(page)).toHaveText("Unsaved changes");
+
+  await page.context().unroute(runtimeModel);
+  await failure.getByRole("button", { name: "Retry" }).click();
+  await expect(failure).toHaveCount(0);
+  await expect(saveStatus(page)).toHaveText("Unsaved changes");
+});
+
+test("The editor address checks access for itself", async ({ page, browser }) => {
+  // Signed out: to sign in, and back here afterwards.
+  await page.goto(EDITOR_URL);
+  await expect(page).toHaveURL(/\/login\?callbackUrl=/);
+
+  // A missing Experience is a real 404, answered inside the editor frame.
+  await signIn(page, "PLATFORM_ADMIN");
+  const missing = await page.goto(`/platform-admin/3d/projects/missing-${Date.now()}/editor`);
+  expect(missing?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "This 3D Experience does not exist." })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Platform administration" })).toHaveCount(0);
+
+  // A company session never reaches authoring, by address or by API, and is never linked to it.
+  const tenant = await browser.newContext();
+  const tenantPage = await tenant.newPage();
+  await signIn(tenantPage, "OWNER");
+  await tenantPage.goto(EDITOR_URL);
+  await expect(tenantPage).not.toHaveURL(/\/editor/);
+  await expect(saveStatus(tenantPage)).toHaveCount(0);
+  expect((await tenantPage.request.get(`/api/platform/3d/projects/${PROJECT_ID}/config`)).status()).toBe(403);
+  await tenantPage.goto(`/projects/${PROJECT_ID}`);
+  await expect(tenantPage.getByRole("link", { name: "View in 3D" })).toBeVisible();
+  await expect(tenantPage.locator('a[href*="/editor"]')).toHaveCount(0);
+  await tenant.close();
 });

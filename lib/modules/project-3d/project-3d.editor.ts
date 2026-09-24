@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { AccessError, assertFound } from "@/lib/access/guards";
 import type { Project3DSceneNode } from "@/lib/3d/shared/contracts";
 import { parseProject3DExperience } from "@/lib/3d/shared/experience";
-import type { PlatformContext } from "@/lib/context/platform-context";
+import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
@@ -26,6 +26,57 @@ function experience(value: Prisma.JsonValue) {
   }
 }
 
+/**
+ * What this Platform session may do inside the Experience Editor. The editor
+ * greys out what is missing; every save still re-checks on the server.
+ */
+export function project3DEditorPermissions(context: PlatformContext) {
+  return {
+    configure: canPlatform(context, "platform.3d.configure"),
+    manageModels: canPlatform(context, "platform.3d.model.manage"),
+    manageBindings: canPlatform(context, "platform.3d.binding.manage"),
+  };
+}
+
+/** The 3D Studio authoring right: seeing Experiences and changing them. */
+export function canOpenProject3DEditor(context: PlatformContext): boolean {
+  return canPlatform(context, "platform.3d.view") && canPlatform(context, "platform.3d.configure");
+}
+
+/**
+ * The editor tab's own check, never trusted from the link that opened it. The
+ * permission is refused before the Experience is looked up, so an address
+ * cannot be used to probe which Experiences exist. Cheap on purpose: the tab
+ * runs it before anything streams, so a refusal keeps its status.
+ */
+export async function authorizeProject3DEditor(context: PlatformContext, projectId: string): Promise<void> {
+  if (!canOpenProject3DEditor(context)) throw new AccessError("FORBIDDEN");
+  assertFound(await prisma.project3DConfig.findFirst({
+    where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
+    select: { id: true },
+  }));
+}
+
+/** The dedicated editor tab's payload, behind the same permission. */
+export async function openProject3DEditor(context: PlatformContext, projectId: string) {
+  if (!canOpenProject3DEditor(context)) throw new AccessError("FORBIDDEN");
+  return getProject3DEditorWorkspace(context, projectId);
+}
+
+/**
+ * The saved draft's revision, read by an open editor when its tab regains
+ * focus: a newer revision means another session saved, and a refusal means
+ * the session or the access behind it has ended.
+ */
+export async function getProject3DExperienceState(context: PlatformContext, projectId: string) {
+  assertProject3DPlatformPermission(context, "platform.3d.view");
+  const config = assertFound(await prisma.project3DConfig.findFirst({
+    where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
+    select: { authoringDocument: true, updatedAt: true, activeReleaseId: true },
+  }));
+  return { revision: experience(config.authoringDocument).revision, updatedAt: config.updatedAt.toISOString(), activeReleaseId: config.activeReleaseId };
+}
+
 export async function getProject3DEditorWorkspace(context: PlatformContext, projectId: string) {
   assertProject3DPlatformPermission(context, "platform.3d.view");
   const project = assertFound(await prisma.project.findFirst({
@@ -36,6 +87,7 @@ export async function getProject3DEditorWorkspace(context: PlatformContext, proj
       project3DEntitlement: true,
       project3DConfig: {
         include: {
+          activeRelease: { select: { id: true, releaseNumber: true } },
           slots: {
             where: { isActive: true },
             orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -122,7 +174,15 @@ export async function getProject3DEditorWorkspace(context: PlatformContext, proj
   return {
     project: { id: project.id, code: project.code, name: project.name, company: project.company },
     entitlement: project.project3DEntitlement,
-    config: { id: config.id, activeReleaseId: config.activeReleaseId, updatedAt: config.updatedAt.toISOString(), document: experience(config.authoringDocument) },
+    config: {
+      id: config.id,
+      experienceName: config.experienceName || `${project.name} 3D Experience`,
+      activeReleaseId: config.activeReleaseId,
+      activeRelease: config.activeRelease,
+      updatedAt: config.updatedAt.toISOString(),
+      document: experience(config.authoringDocument),
+    },
+    permissions: project3DEditorPermissions(context),
     slots,
     units: project.units,
   };
