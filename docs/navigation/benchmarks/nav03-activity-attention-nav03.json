@@ -1,0 +1,84 @@
+{
+  "label": "nav03",
+  "role": "PROJECT_MANAGER",
+  "visible_10min": {
+    "count": 14,
+    "list": 0
+  },
+  "hidden_5min": {
+    "count": 0,
+    "list": 0
+  },
+  "log": [
+    {
+      "at": 2125,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 44597,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 87465,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 131092,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 176018,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 219096,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 263504,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 307537,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 350493,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 394712,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 438674,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 480471,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 521785,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 565521,
+      "kind": "count",
+      "phase": "visible"
+    }
+  ]
+}

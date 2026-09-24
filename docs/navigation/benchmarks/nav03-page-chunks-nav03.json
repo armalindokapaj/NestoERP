@@ -1,0 +1,30 @@
+{
+  "label": "nav03",
+  "pages": {
+    "/dashboard": {
+      "files": 23,
+      "transfer": 261486,
+      "decoded": 819106
+    },
+    "/clients": {
+      "files": 23,
+      "transfer": 261127,
+      "decoded": 818406
+    },
+    "/tasks": {
+      "files": 23,
+      "transfer": 261572,
+      "decoded": 819340
+    },
+    "/finance": {
+      "files": 23,
+      "transfer": 261572,
+      "decoded": 819340
+    },
+    "/projects/project_a": {
+      "files": 29,
+      "transfer": 284069,
+      "decoded": 876952
+    }
+  }
+}

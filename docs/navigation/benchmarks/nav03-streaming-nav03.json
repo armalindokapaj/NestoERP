@@ -1,0 +1,66 @@
+{
+  "label": "nav03",
+  "page": "/tasks",
+  "held": "section-tasks-stats=1500",
+  "budget_ms": 150,
+  "document": {
+    "primary_ready": {
+      "none": {
+        "n": 30,
+        "median": 62,
+        "p95": 84
+      },
+      "slow_counters": {
+        "n": 30,
+        "median": 79,
+        "p95": 104
+      }
+    },
+    "counters_ready": {
+      "none": {
+        "n": 30,
+        "median": 62,
+        "p95": 70
+      },
+      "slow_counters": {
+        "n": 30,
+        "median": 1541,
+        "p95": 1551
+      }
+    },
+    "added_to_primary_ms": {
+      "median": 17,
+      "p95": 20
+    }
+  },
+  "spa": {
+    "primary_ready": {
+      "none": {
+        "n": 30,
+        "median": 330,
+        "p95": 344
+      },
+      "slow_counters": {
+        "n": 30,
+        "median": 326,
+        "p95": 348
+      }
+    },
+    "counters_ready": {
+      "none": {
+        "n": 30,
+        "median": 330,
+        "p95": 344
+      },
+      "slow_counters": {
+        "n": 30,
+        "median": 1527,
+        "p95": 1573
+      }
+    },
+    "added_to_primary_ms": {
+      "median": -4,
+      "p95": 4
+    }
+  }
+}

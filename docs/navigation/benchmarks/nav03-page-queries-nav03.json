@@ -1,0 +1,11 @@
+{
+  "label": "nav03",
+  "loads_per_page": 3,
+  "statements_per_document_load": {
+    "/dashboard": 647.3,
+    "/clients": 89.7,
+    "/tasks": 54,
+    "/finance": 111.3,
+    "/projects/project_a": 616.3
+  }
+}
