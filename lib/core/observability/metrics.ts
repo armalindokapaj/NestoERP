@@ -153,6 +153,13 @@ export const Metric = {
   SHELL_CORE_READY_MS: "shell_core_ready_ms_total",
   SHELL_CORE_READY: "shell_core_ready_total",
   SHELL_SLOT: "shell_slot_total",
+  // Navigation telemetry (NAV-03 §11). Outcome counters keep failures, timeouts,
+  // abandoned and superseded stages in the denominators the histograms leave out.
+  NAVIGATION_OUTCOME: "navigation_outcome_total",
+  PANEL_OUTCOME: "panel_outcome_total",
+  REQUEST_SUMMARY: "browser_request_total",
+  TELEMETRY_BATCH: "telemetry_batch_total",
+  TELEMETRY_EVENT_DROPPED: "telemetry_event_dropped_total",
   SHELL_SLOT_MS: "shell_slot_ms_total",
 } as const;
 
@@ -236,5 +243,116 @@ export function renderPrometheus(gauges: GaugeSample[] = []): string {
     lines.push(`${gauge.name}${formatLabels(gauge.labels)} ${gauge.value}`);
   }
 
-  return `${lines.join("\n")}\n`;
+  return `${lines.join("\n")}\n${renderHistograms()}`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Histograms (NAV-03 TELEMETRY-04)                                            */
+/* -------------------------------------------------------------------------- */
+
+/** Millisecond buckets for every duration histogram. */
+export const DURATION_BUCKETS_MS = [25, 50, 100, 150, 250, 500, 750, 1000, 1500, 2500, 5000, 10000, 30000, 60000] as const;
+/** Cumulative Layout Shift is dimensionless. */
+export const CLS_BUCKETS = [0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.5, 1] as const;
+
+const ROUTE = ["dashboard", "projects", "clients", "tasks", "finance", "other"] as const;
+
+/**
+ * Every histogram family, with each label's allowed values spelled out: a
+ * value outside them is dropped rather than creating a series, so browser
+ * input can never widen what is exported. The product of the sets is the
+ * family's series count, checked against the budget in the tests.
+ */
+export const HISTOGRAMS = {
+  navigation_duration_ms: {
+    help: "Navigation stage durations reported by sampled browsers, successful stages only.",
+    buckets: DURATION_BUCKETS_MS,
+    labels: { route: ROUTE, stage: ["feedback", "commit", "core", "primary", "settled"], kind: ["document", "spa", "history", "workspace"] },
+  },
+  panel_ready_ms: {
+    help: "Top-bar panel readiness reported by sampled browsers.",
+    buckets: DURATION_BUCKETS_MS,
+    labels: { panel: ["search", "quick_create", "activity", "workspace"], cache: ["cold", "warm", "unknown"] },
+  },
+  web_vital: {
+    help: "Document Web Vitals: milliseconds, except CLS (see web_vital_cls).",
+    buckets: DURATION_BUCKETS_MS,
+    labels: { metric: ["LCP", "INP", "FCP", "TTFB"], device: ["compact", "wide"] },
+  },
+  web_vital_cls: {
+    help: "Document Cumulative Layout Shift.",
+    buckets: CLS_BUCKETS,
+    labels: { device: ["compact", "wide"] },
+  },
+  activity_read_ms: {
+    help: "Server time for the bell's count and list reads.",
+    buckets: DURATION_BUCKETS_MS,
+    labels: { family: ["count", "list"], outcome: ["success", "failure"] },
+  },
+} as const satisfies Record<string, { help: string; buckets: readonly number[]; labels: Record<string, readonly string[]> }>;
+
+export type HistogramName = keyof typeof HISTOGRAMS;
+export type HistogramLabels<N extends HistogramName> = { [K in keyof (typeof HISTOGRAMS)[N]["labels"]]: (typeof HISTOGRAMS)[N]["labels"][K] extends readonly (infer V)[] ? V : never };
+
+/** The exported series a family can ever have: label combinations × (buckets + +Inf + sum + count). */
+export function histogramSeriesBudget(name: HistogramName): number {
+  const definition = HISTOGRAMS[name];
+  const combinations = Object.values(definition.labels).reduce((product, values) => product * (values as readonly string[]).length, 1);
+  return combinations * (definition.buckets.length + 3);
+}
+
+type HistogramSeries = { name: HistogramName; labels: Labels; buckets: number[]; sum: number; count: number };
+const processHistograms = globalThis as unknown as { __nestoHistograms?: Map<string, HistogramSeries> };
+const histograms = (processHistograms.__nestoHistograms ??= new Map<string, HistogramSeries>());
+
+/** Records one observation; false when a label or the value is not allowed (nothing is recorded). */
+export function observeHistogram<N extends HistogramName>(name: N, labels: HistogramLabels<N>, value: number): boolean {
+  const definition = HISTOGRAMS[name];
+  if (!Number.isFinite(value) || value < 0) return false;
+  const allowed = definition.labels as Record<string, readonly string[]>;
+  const given = labels as Record<string, string>;
+  if (Object.keys(given).length !== Object.keys(allowed).length) return false;
+  for (const [key, values] of Object.entries(allowed)) if (!values.includes(given[key])) return false;
+  const key = seriesKey(name, given);
+  let series = histograms.get(key);
+  if (!series) {
+    series = { name, labels: { ...given }, buckets: definition.buckets.map(() => 0), sum: 0, count: 0 };
+    histograms.set(key, series);
+  }
+  definition.buckets.forEach((bound, index) => {
+    if (value <= bound) series!.buckets[index] += 1;
+  });
+  series.sum += value;
+  series.count += 1;
+  return true;
+}
+
+export function histogramSeries(): HistogramSeries[] {
+  return [...histograms.values()].map((series) => ({ ...series, labels: { ...series.labels }, buckets: [...series.buckets] }));
+}
+
+/** Test seam. */
+export function resetHistograms(): void {
+  histograms.clear();
+}
+
+/** Prometheus histogram text: cumulative `le` buckets, `+Inf`, `_sum` and `_count`. */
+export function renderHistograms(): string {
+  const lines: string[] = [];
+  const byName = new Map<HistogramName, HistogramSeries[]>();
+  for (const series of histograms.values()) byName.set(series.name, [...(byName.get(series.name) ?? []), series]);
+  for (const [name, all] of byName) {
+    const definition = HISTOGRAMS[name];
+    lines.push(`# HELP ${name} ${definition.help}`);
+    lines.push(`# TYPE ${name} histogram`);
+    for (const series of all) {
+      definition.buckets.forEach((bound, index) => {
+        lines.push(`${name}_bucket${formatLabels({ ...series.labels, le: String(bound) })} ${series.buckets[index]}`);
+      });
+      lines.push(`${name}_bucket${formatLabels({ ...series.labels, le: "+Inf" })} ${series.count}`);
+      lines.push(`${name}_sum${formatLabels(series.labels)} ${series.sum}`);
+      lines.push(`${name}_count${formatLabels(series.labels)} ${series.count}`);
+    }
+  }
+  return lines.length ? `${lines.join("\n")}\n` : "";
 }
