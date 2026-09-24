@@ -7,7 +7,7 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { resolvePlatformContext, type PlatformContext } from "@/lib/context/platform-context";
 import { runWithRequestScope } from "@/lib/core/observability/request-scope";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
-import type { UserContext } from "@/lib/context/types";
+import type { ContextResult, UserContext } from "@/lib/context/types";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { headers } from "next/headers";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
@@ -101,7 +101,20 @@ async function handleRequest(
   handler: (context: UserContext) => Promise<Response>,
   options: WithContextOptions,
 ): Promise<Response> {
-  const result = await resolveUserContext();
+  // The enforcement read, fresh for this request, beside authentication
+  // (NAV-02 PAR-01, MAINT-01). Authentication decides first; the maintenance
+  // promise is observed at once so a failure while it waits is never unhandled.
+  const maintenanceRead = getMaintenanceState();
+  maintenanceRead.catch(() => undefined);
+
+  // Reads that fail before the handler runs get the same sanitized envelope as
+  // the handler's own failures (MAINT-03, V05).
+  let result: ContextResult;
+  try {
+    result = await resolveUserContext();
+  } catch (error) {
+    return translateError(error);
+  }
 
   if (!result.ok) {
     if (result.reason === "UNAUTHENTICATED" || result.reason === "SESSION_EXPIRED") {
@@ -128,7 +141,14 @@ async function handleRequest(
     memberId: result.context.membershipId,
   });
 
-  const maintenance = await getMaintenanceState();
+  let maintenance: Awaited<typeof maintenanceRead>;
+  try {
+    maintenance = await maintenanceRead;
+  } catch (error) {
+    // Unable to read the policy, which is not the policy refusing: the logs say which (MAINT-03).
+    logger.error("api.maintenance_unreadable", serialiseError(error));
+    return apiError("INTERNAL_ERROR");
+  }
   // Direct route invocation in the security matrix has no Next request store.
   // It still exercises authorization; live HTTP requests provide these values.
   let requestHeaders: Pick<Headers, "get"> = new Headers();

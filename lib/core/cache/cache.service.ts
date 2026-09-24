@@ -39,6 +39,17 @@ export function cacheKey(
 }
 
 /**
+ * Platform-wide state that belongs to no company (NAV-02 CACHE-01):
+ * `v1:{namespace}:{discriminator}`. Never access data: sessions, permissions,
+ * memberships, grants and module enablement are read live (CACHE-05).
+ */
+export type PlatformCacheNamespace = "platform-maintenance";
+
+export function platformCacheKey(namespace: PlatformCacheNamespace, ...parts: Array<string | number>): string {
+  return ["v1", namespace, ...parts.map(String)].join(":");
+}
+
+/**
  * A compact stand-in for "who is asking", so one member's cached report can
  * never be served to another (PRD #31 §96, §97, §213 of #27).
  */

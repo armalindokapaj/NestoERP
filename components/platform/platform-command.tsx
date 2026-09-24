@@ -34,8 +34,9 @@ export function PlatformCommandButton({ label, title, description, action, fixed
   const toast = useToast();
 
   async function submit(payload: Record<string, unknown>) {
-    await engineeringApi("/api/platform-admin/command", { body: { action, ...fixed, ...clean(payload) } });
-    toast({ title: success, tone: "success" });
+    const result = await engineeringApi<{ pageRefresh?: "complete" | "pending" } | undefined>("/api/platform-admin/command", { body: { action, ...fixed, ...clean(payload) } });
+    // A maintenance change is saved even when pages have not caught up yet (NAV-02 CACHE-02).
+    toast(result?.pageRefresh === "pending" ? { title: "Setting saved. Page updates may take up to five seconds.", tone: "success" } : { title: success, tone: "success" });
     router.refresh();
   }
 

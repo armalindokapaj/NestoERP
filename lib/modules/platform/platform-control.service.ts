@@ -12,6 +12,9 @@ import { canPlatform, type PlatformContext } from "@/lib/context/platform-contex
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordGlobalPlatformAction, recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { invalidateMaintenanceSnapshot } from "@/lib/core/maintenance/platform-maintenance";
+import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
+import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { CORE_MODULES, DEPENDENCIES, SHARED_MODULES } from "@/lib/modules/settings/module-toggle.service";
 import type { AccessInspectorInput } from "./platform-control.schema";
 import { inspectAccess } from "./platform-control.query";
@@ -321,13 +324,32 @@ export async function savePlatformSetting(context: PlatformContext, input: { key
   });
 }
 
-export async function saveMaintenanceSetting(context: PlatformContext, input: { key: string; enabled: boolean; reason: string }) {
+/** What saving a maintenance setting reports (NAV-02 CACHE-02): the policy is committed; page snapshots follow. */
+export type MaintenanceSaveResult = { ok: true; policyCommitted: true; pageRefresh: "complete" | "pending" };
+
+/**
+ * Saves one maintenance switch (NAV-02 CACHE-02). The setting and its audit
+ * event commit together; only then is this process's page snapshot dropped, so
+ * a rolled-back change never reaches a page. Enforcement reads the database
+ * either way. If dropping the snapshot fails, the save still succeeded: the
+ * result says page updates are pending — they follow within five seconds — so
+ * nobody repeats an audited change that already happened.
+ */
+export async function saveMaintenanceSetting(context: PlatformContext, input: { key: string; enabled: boolean; reason: string }): Promise<MaintenanceSaveResult> {
   assertPlatform(context, "platform.maintenance.manage");
   await prisma.$transaction(async (tx) => {
     const before = await tx.platformSetting.findUnique({ where: { key: input.key }, select: { value: true } });
     await tx.platformSetting.upsert({ where: { key: input.key }, update: { value: input.enabled, updatedByUserId: context.userId, reason: input.reason, category: "maintenance" }, create: { key: input.key, value: input.enabled, updatedByUserId: context.userId, reason: input.reason, category: "maintenance" } });
     await recordGlobalPlatformAction(context, { actionKey: AuditAction.PLATFORM_MAINTENANCE_CHANGED, entity: { type: "PlatformSetting", id: input.key, label: input.key }, before: { key: input.key, enabled: before?.value === true }, after: { key: input.key, enabled: input.enabled }, reason: input.reason }, { tx });
   });
+  try {
+    invalidateMaintenanceSnapshot();
+    return { ok: true, policyCommitted: true, pageRefresh: "complete" };
+  } catch (error) {
+    incrementCounter(Metric.MAINTENANCE_INVALIDATION_FAILURE);
+    logger.error("maintenance.page_snapshot.invalidation_failed", { key: input.key, ...serialiseError(error) });
+    return { ok: true, policyCommitted: true, pageRefresh: "pending" };
+  }
 }
 
 export async function createSupportAccess(context: PlatformContext, input: { parentGroupId?: string; companyId?: string; projectId?: string; targetUserId?: string; reason: string; durationMinutes: number }) {
