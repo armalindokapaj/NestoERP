@@ -38,6 +38,8 @@ function NavItem({
     <Link
       href={item.href}
       navSource={dense ? "mobile" : "sidebar"}
+      // The five approved module destinations are prepared on deliberate intent (NAV-03 §7).
+      intent
       // Only an accepted navigation closes the drawer; a modified click leaves it open (N02).
       onNavigate={() => onNavigate?.()}
       aria-current={active ? "page" : undefined}

@@ -58,6 +58,8 @@ test.describe("loading and pending feedback (L01, N01, N03, N04, N06)", () => {
     const nav = sidebar(page);
     const target = nav.locator('a[href="/finance"]');
     await expect(target).toBeVisible();
+    // A sidebar module link is prepared on deliberate intent, not on sight (NAV-03 PREFETCH-01).
+    await target.hover();
     await prefetched(page, "/finance");
     const release = await holdNavigation(page, "/finance");
 

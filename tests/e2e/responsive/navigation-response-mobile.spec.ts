@@ -37,8 +37,11 @@ test("the loading surface fits a 320px screen without horizontal scroll (L06)", 
   await signIn(page, "FINANCE", { to: "/dashboard" });
   let release!: () => void;
   const held = new Promise<void>((resolve) => (release = resolve));
+  // Calendar keeps its default prefetch; the five approved module links are prepared only on
+  // deliberate intent, and a tap is not intent (NAV-03 PREFETCH-03), so their skeleton does not
+  // precede the response.
   await page.route(
-    (url) => url.pathname === "/finance",
+    (url) => url.pathname === "/calendar",
     async (route) => {
       const headers = route.request().headers();
       if (headers.rsc === "1" && !headers["next-router-prefetch"]) await held;
@@ -46,12 +49,13 @@ test("the loading surface fits a 320px screen without horizontal scroll (L06)", 
     },
   );
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("dialog").locator('a[href="/finance"]').click();
+  await page.waitForTimeout(800); // the drawer's default prefetch brings the boundary
+  await page.getByRole("dialog").locator('a[href="/calendar"]').click();
   await expect(mainRegion(page).getByTestId("page-skeleton")).toBeVisible();
   const whileLoading = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(whileLoading).toBeLessThanOrEqual(0);
   release();
-  await expect(page).toHaveURL(/\/finance$/);
+  await expect(page).toHaveURL(/\/calendar$/);
 });
 
 test("+ Create's loading and retry states are reachable in the sheet (Q24)", async ({ page }) => {
