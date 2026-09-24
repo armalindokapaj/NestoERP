@@ -1,4 +1,4 @@
-import { apiOk, withContext } from "@/lib/api/respond";
+import { apiOk, withContext, withMeta } from "@/lib/api/respond";
 import { activityFilters, activityQuerySchema } from "@/lib/modules/activity/activity-center.schema";
 import { listActivity } from "@/lib/modules/activity/activity-center.service";
 
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   return withContext(
     async (context) => {
       const input = activityQuerySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
-      return apiOk({ data: await listActivity(context, activityFilters(input)) });
+      return apiOk(await withMeta(context, listActivity(context, activityFilters(input))));
     },
     { group: "read" },
   );

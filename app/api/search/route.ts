@@ -1,6 +1,7 @@
 import { apiError, apiOk, withContext } from "@/lib/api/respond";
 import { checkRateLimit } from "@/lib/core/security/rate-limit";
 import { globalSearchForWorkspace } from "@/lib/core/search/search.service";
+import { shellContextKey } from "@/lib/workspace/shell-core";
 
 /**
  * GET /api/search — cross-module discovery (PRD #26 §166, §169).
@@ -26,15 +27,18 @@ export async function GET(request: Request) {
       const params = new URL(request.url).searchParams;
       const modules = params.getAll("module");
 
-      return apiOk(
-        await globalSearchForWorkspace(context, params.get("q") ?? "", {
+      const [result, contextKey] = await Promise.all([
+        globalSearchForWorkspace(context, params.get("q") ?? "", {
           moduleKeys: modules.length > 0 ? modules : undefined,
           // Passed as written; the service clamps both, so no caller can widen them (PRD #47 §175).
           limitPerProvider: params.get("limitPerProvider"),
           totalLimit: params.get("limit"),
           companyId: params.get("company"),
         }),
-      );
+        shellContextKey(context),
+      ]);
+      // `meta.contextKey` lets the palette drop an answer drawn for another context (NAV-03 §12).
+      return apiOk({ ...result, meta: { contextKey } });
     },
     { group: "read" },
   );

@@ -60,3 +60,14 @@ export async function resolveShellCore(session: UserContext): Promise<ShellCoreD
     groupEntry: inGroup ? { status: "ready", canEnter: true } : { status: "pending" },
   };
 }
+
+/**
+ * The shell's context key, for API answers the shell's controllers must match
+ * to the page they are on (NAV-03 RUNTIME-02, §12). The same function over the
+ * same request-scoped contexts as `resolveShellCore`, so it adds no query of
+ * its own. A routing aid for the browser, never authority.
+ */
+export async function shellContextKey(session: UserContext): Promise<string> {
+  const groupContexts = session.workspace.scopeType === "GROUP" ? await resolveGroupContexts(session) : [];
+  return quickCreateShellSummary(session, quickCreateCandidates(session, groupContexts)).contextKey;
+}

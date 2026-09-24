@@ -1,4 +1,4 @@
-import { apiOk, withContext } from "@/lib/api/respond";
+import { apiOk, withContext, withMeta } from "@/lib/api/respond";
 import { activityCounts } from "@/lib/modules/activity/activity-center.service";
 
 /**
@@ -7,5 +7,5 @@ import { activityCounts } from "@/lib/modules/activity/activity-center.service";
  * Polled, so it loads no bodies. Group workspace: `read`; user-global.
  */
 export async function GET() {
-  return withContext(async (context) => apiOk({ data: await activityCounts(context) }), { group: "read" });
+  return withContext(async (context) => apiOk(await withMeta(context, activityCounts(context))), { group: "read" });
 }
