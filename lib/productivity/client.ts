@@ -1,16 +1,21 @@
 /**
- * Browser side of Fast Re-entry (PRD §87, §88, §128, §215).
+ * Browser side of Fast Re-entry (PRD §87, §88, §128, §215; NAV-03 PANEL-04).
  *
- * The search panel keeps the last Favorites/Recent answer in sessionStorage so
- * it can paint at once and refresh behind; the key carries the user, so one
- * demo user never sees another's (§84, §85), and sign-out clears it (§87).
- * A star toggled in one tab is broadcast to the others, which drop their copy.
+ * Search Home keeps one answer in this tab's memory, for the context it was
+ * read in, reusable for 30 seconds: reopening the panel may paint it while one
+ * fresh read runs. Nothing about Favorites or Recent Work is written to
+ * sessionStorage or localStorage; entries older versions left there are
+ * removed once. A star toggled in one tab is broadcast to the others, which
+ * drop their copy.
  */
 
 export const MY_WORK_CHANNEL = "nesto-my-work";
-const CACHE_PREFIX = "nesto-search-home:";
+const LEGACY_CACHE_PREFIX = "nesto-search-home:";
+export const SEARCH_HOME_TTL_MS = 30_000;
 
 export type MyWorkChange = { kind: "favorite"; entityType: string; entityId: string; favorite: boolean } | { kind: "recent" };
+
+let home: { key: string; value: unknown; at: number } | null = null;
 
 export function publishMyWorkChange(change: MyWorkChange): void {
   clearSearchHomeCache();
@@ -24,32 +29,35 @@ export function subscribeMyWork(listener: (change: MyWorkChange) => void): () =>
   if (typeof BroadcastChannel === "undefined") return () => undefined;
   const channel = new BroadcastChannel(MY_WORK_CHANNEL);
   channel.onmessage = (event: MessageEvent<MyWorkChange>) => {
-    if (event.data?.kind) listener(event.data);
+    if (event.data?.kind) {
+      home = null;
+      listener(event.data);
+    }
   };
   return () => channel.close();
 }
 
-export function readSearchHomeCache<T>(userKey: string): T | null {
+/** The last Home answer for this context, if it is under 30 seconds old. */
+export function readSearchHomeCache<T>(contextKey: string, now = Date.now()): T | null {
+  if (!home || home.key !== contextKey || now - home.at >= SEARCH_HOME_TTL_MS) return null;
+  return home.value as T;
+}
+
+export function writeSearchHomeCache(contextKey: string, value: unknown, now = Date.now()): void {
+  home = { key: contextKey, value, at: now };
+}
+
+/** Removes the payloads older versions kept in sessionStorage. */
+export function removeLegacySearchHomeCache(): void {
   try {
-    return JSON.parse(sessionStorage.getItem(CACHE_PREFIX + userKey) ?? "null") as T | null;
+    for (const key of Object.keys(sessionStorage)) if (key.startsWith(LEGACY_CACHE_PREFIX)) sessionStorage.removeItem(key);
   } catch {
-    return null;
+    // Nothing stored, or storage blocked.
   }
 }
 
-export function writeSearchHomeCache(userKey: string, value: unknown): void {
-  try {
-    sessionStorage.setItem(CACHE_PREFIX + userKey, JSON.stringify(value));
-  } catch {
-    // Storage full or blocked: the panel simply loads fresh next time.
-  }
-}
-
-/** Every user's cached panel — on sign-out, a user switch, or a change made in any tab. */
+/** Sign-out, a user switch, or a change made in any tab. */
 export function clearSearchHomeCache(): void {
-  try {
-    for (const key of Object.keys(sessionStorage)) if (key.startsWith(CACHE_PREFIX)) sessionStorage.removeItem(key);
-  } catch {
-    // Nothing cached, or nothing reachable.
-  }
+  home = null;
+  removeLegacySearchHomeCache();
 }

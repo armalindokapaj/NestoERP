@@ -4,7 +4,7 @@ import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { MobileHeader } from "@/components/layout/mobile-header";
-import { ActivityCenterMenu } from "@/components/layout/activity-center-menu";
+import { ActivityBell } from "@/components/layout/activity-bell";
 import { QuickCreate } from "@/components/layout/quick-create";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -60,7 +60,7 @@ export async function Topbar({
             width; from lg nothing precedes it but the toggle, whose own
             padding already does that, so it lines up with the page gutter. */}
         <div className="ml-auto min-w-0 md:ml-2 md:w-full md:max-w-[420px] lg:ml-0">
-          <GlobalSearch userKey={context.userId} />
+          <GlobalSearch contextKey={core.contextKey} />
         </div>
       </div>
 
@@ -91,7 +91,7 @@ export async function Topbar({
         {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150).
             The button comes from the shell's summary; the menu loads only when opened (NAV-01 QC-01). */}
         <QuickCreate userKey={context.userId} summary={core.quickCreate} />
-        <ActivityCenterMenu userKey={context.userId} canManageAnnouncements={context.permissions.includes("announcement.create")} />
+        <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
         <UserMenu
           user={{

@@ -53,3 +53,4 @@ next-env.d.ts
 
 # Working notes and PRD attachments stay out of the repository.
 /prds/
+/.next-*/

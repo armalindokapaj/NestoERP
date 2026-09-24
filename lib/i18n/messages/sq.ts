@@ -14,6 +14,12 @@ export const sq: Messages = {
     mainNavigation: "Navigimi kryesor",
     bannerCheckFailed: "Njoftimet kritike nuk u kontrolluan.",
     bannerRetry: "Provo përsëri",
+    panelCodeFailed: "Ky panel nuk u ngarkua.",
+    panelDataFailed: "Nuk arritëm ta ngarkojmë këtë informacion.",
+    panelNewerVersion: "Mund të ketë një version më të ri.",
+    panelTryAgain: "Provo përsëri",
+    panelClose: "Mbyll",
+    panelReload: "Ringarko faqen",
     navigationTitle: "Navigimi i NESTO",
     openNavigation: "Hap navigimin",
     closeNavigation: "Mbyll navigimin",
@@ -123,6 +129,9 @@ export const sq: Messages = {
   },
 
   activity: {
+    stale: "Nuk u rifreskua; po shfaqet ajo që u ngarkua së fundi.",
+    close: "Mbyll",
+    countStale: "mund të mos jetë i përditësuar",
     title: "Qendra e aktivitetit",
     all: "Të gjitha",
     notifications: "Njoftimet",
@@ -157,6 +166,7 @@ export const sq: Messages = {
   },
 
   search: {
+    homeStale: "Nuk u rifreskua; po shfaqet ajo që u ngarkua së fundi.",
     recentWork: "Puna e fundit",
     noFavorites: "Ende pa të preferuara.",
     noFavoritesHint: "Shënoni me yll një regjistër për ta mbajtur këtu.",
