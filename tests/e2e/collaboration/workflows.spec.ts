@@ -209,7 +209,7 @@ test("a notification about a record the reader cannot open says only that it is 
   });
 
   await signIn(page, "VIEWER", { to: `/notifications/${row.id}/open` });
-  await expect(page.getByTestId("notification-unavailable")).toBeVisible();
+  await expect(mainRegion(page).getByTestId("notification-unavailable")).toBeVisible();
   await expect(page.getByText("Olivia Owner")).toHaveCount(0);
   expect(page.url()).toContain(`/notifications/${row.id}/open`);
 });

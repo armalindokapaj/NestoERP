@@ -62,9 +62,10 @@ test.describe("HR role (PRD #16 §296)", () => {
     const memberId = await memberIdFor("architect@nesto.test");
     await page.goto(`/hr/employees/${await employmentIdFor(memberId)}/compensation/new`);
 
-    await page.locator("#baseAmount").fill("4250.00");
-    await page.locator("#effectiveFrom").fill("2027-03-01");
-    await page.locator("#notes").fill(`${PREFIX} annual review`);
+    const form = mainRegion(page);
+    await form.locator("#baseAmount").fill("4250.00");
+    await form.locator("#effectiveFrom").fill("2027-03-01");
+    await form.locator("#notes").fill(`${PREFIX} annual review`);
     await page.getByRole("button", { name: "Record compensation" }).click();
 
     await page.waitForURL(/\/compensation$/);

@@ -1,5 +1,6 @@
+import { cache } from "react";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { notFound, redirect } from "next/navigation";
 
 import { RecordHeader } from "@/components/modules/record-header";
@@ -37,7 +38,7 @@ import { ProjectTabs } from "../../project-tabs";
 
 export type UnitSection = "overview" | "documents" | "media" | "publishing" | "sales" | "legal" | "finance" | "activity";
 
-export async function loadUnitPage(projectId: string, unitId: string) {
+export const loadUnitPage = cache(async function loadUnitPage(projectId: string, unitId: string) {
   const { context, project } = await loadProject(projectId);
   const actions = projects.projectActions(context);
   if (!actions.canViewUnits) redirect("/access-denied");
@@ -48,7 +49,7 @@ export async function loadUnitPage(projectId: string, unitId: string) {
   });
   const publishing = await getUnitPublishing(context, unit.id);
   return { context, project, actions, unit, publishing };
-}
+});
 
 type Page = Awaited<ReturnType<typeof loadUnitPage>>;
 

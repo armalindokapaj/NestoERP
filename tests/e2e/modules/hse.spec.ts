@@ -87,7 +87,7 @@ test.describe("HSE role (PRD #22 §403)", () => {
     await page.goto("/hse/inspections/hse_ins_006");
 
     await expect(
-      page.getByText(/Copied from HSE-FIRE.*version/i),
+      mainRegion(page).getByText(/Copied from HSE-FIRE.*version/i),
     ).toBeVisible();
     await expect(mainRegion(page).getByText("Escape routes are clear")).toBeVisible();
   });
@@ -108,8 +108,8 @@ test.describe("HSE role (PRD #22 §403)", () => {
   test("shows initial and residual risk side by side (§71, §315)", async ({ page }) => {
     await page.goto("/hse/hazards/hse_hz_001");
 
-    await expect(page.getByText("Before controls")).toBeVisible();
-    await expect(page.getByText("After controls")).toBeVisible();
+    await expect(mainRegion(page).getByText("Before controls")).toBeVisible();
+    await expect(mainRegion(page).getByText("After controls")).toBeVisible();
   });
 
   /*
@@ -305,7 +305,7 @@ test.describe("nobody signs off their own work (PRD #22 §52, §122, §182)", ()
     await signIn(page, "PROJECT_MANAGER");
     await page.goto("/hse/actions/hse_act_002");
 
-    await expect(page.getByText(/You completed this action, so somebody else/)).toBeVisible();
+    await expect(mainRegion(page).getByText(/You completed this action, so somebody else/)).toBeVisible();
     await expect(page.getByRole("button", { name: /^verify$/i })).toHaveCount(0);
   });
 });

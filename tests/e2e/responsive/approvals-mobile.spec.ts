@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { CHAIN, resetChainFixture } from "../approvals-fixtures";
 import { db } from "../db";
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 
 /**
  * The Approvals Center on a phone (PRD #41 §99-§101, §218, §282): the waiting
@@ -22,7 +22,7 @@ test.afterAll(async () => {
 test("reviews a purchase order in a full-screen sheet, opens its quote and approves it", async ({ page }) => {
   const started = new Date();
   await signIn(page, "CEO", { to: "/approvals" });
-  const item = page.locator(`[data-approval="procurement:${CHAIN.approval}"]`);
+  const item = mainRegion(page).locator(`[data-approval="procurement:${CHAIN.approval}"]`);
   await item.scrollIntoViewIfNeeded();
   await item.click();
 
@@ -55,7 +55,7 @@ test("reviews a purchase order in a full-screen sheet, opens its quote and appro
 
 test("keeps the queue inside the viewport", async ({ page }) => {
   await signIn(page, "CEO", { to: "/approvals" });
-  await expect(page.getByTestId("approval-list")).toBeVisible();
+  await expect(mainRegion(page).getByTestId("approval-list")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });

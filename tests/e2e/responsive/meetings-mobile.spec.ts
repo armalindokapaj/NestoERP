@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { db } from "../db";
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 import { removeMeetings } from "../meetings-cleanup";
 
 /**
@@ -63,7 +63,7 @@ test("views upcoming meetings, replies from the sticky bar, and reads final minu
 
   // Last week's seeded coordination: final minutes read as a record on a phone.
   await page.goto("/meetings/meeting_riverside_000?tab=minutes");
-  await expect(page.getByTestId("minutes-record")).toContainText("Level 3 slab pour confirmed");
+  await expect(mainRegion(page).getByTestId("minutes-record")).toContainText("Level 3 slab pour confirmed");
 });
 
 test("starts a meeting and adds an action from meeting mode, one pane at a time", async ({ page }) => {

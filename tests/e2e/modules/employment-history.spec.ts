@@ -86,7 +86,7 @@ test("HR moves somebody to another company of the group, and where they were sta
     await expect(dialog).toHaveCount(0);
 
     await page.goto("/people/person_hse?tab=employment");
-    const history = page.getByTestId("organization-history");
+    const history = mainRegion(page).getByTestId("organization-history");
     await expect(history).toContainText("Transferred to Meridian Developments");
     await expect(history).toContainText("Aurelia Construction");
   } finally {
@@ -97,7 +97,7 @@ test("HR moves somebody to another company of the group, and where they were sta
 test("an employee reads their own history, on a phone too (§222, §172)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, "ARCHITECT", { to: "/people/person_architect?tab=employment" });
-  const history = page.getByTestId("organization-history");
+  const history = mainRegion(page).getByTestId("organization-history");
   await expect(history).toContainText("Promoted to Lead Architect");
   await expect(history).not.toContainText("Recorded by");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

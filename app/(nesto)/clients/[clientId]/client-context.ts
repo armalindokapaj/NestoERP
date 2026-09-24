@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Crumb } from "@/components/ui/breadcrumbs";
 
@@ -13,7 +14,7 @@ import type { ClientDetailDTO } from "@/lib/modules/clients/client.types";
  * A client outside the caller's scope is a 404, not a 403, so the page itself
  * cannot be used to discover that it exists (PRD #12 §129).
  */
-export async function loadClient(
+export const loadClient = cache(async function loadClient(
   clientId: string,
 ): Promise<{ context: UserContext; client: ClientDetailDTO }> {
   const context = await requireModule("clients");
@@ -24,7 +25,7 @@ export async function loadClient(
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   }
-}
+});
 
 export function clientBreadcrumbs(client: ClientDetailDTO, trailing?: string): Crumb[] {
   const crumbs: Crumb[] = [

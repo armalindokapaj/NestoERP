@@ -1,6 +1,7 @@
 import { RecordFavorite } from "@/components/productivity/record-favorite";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 
 import { InspectionActions } from "@/components/qaqc/inspection-actions";
 import { ResultBadge } from "@/components/qaqc/qaqc-format";
@@ -33,7 +34,8 @@ const TABS = [
 
 export type InspectionTabKey = (typeof TABS)[number]["key"];
 
-export async function loadInspectionPage(
+/** Cached per request: the shell's pre-stream guard asks first, and the page reuses the answer (NAV-01 §2.1). */
+export const loadInspectionPage = cache(async function loadInspectionPage(
   inspectionId: string,
   tab: InspectionTabKey,
 ): Promise<{ context: UserContext; inspection: InspectionDetailDTO }> {
@@ -56,7 +58,7 @@ export async function loadInspectionPage(
   if (!allowed[tab]) notFound();
 
   return { context, inspection };
-}
+});
 
 export function InspectionPageShell({
   context,

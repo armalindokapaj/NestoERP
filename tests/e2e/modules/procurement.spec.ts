@@ -122,8 +122,8 @@ test.describe("Procurement role (PRD #19 §328)", () => {
   }) => {
     await page.goto("/procurement/orders/order_004/receipts");
 
-    await page.locator("#deliveryReference").fill(`${PREFIX}-DN-1`);
-    await page.locator("#items-0-received").fill("100");
+    await mainRegion(page).locator("#deliveryReference").fill(`${PREFIX}-DN-1`);
+    await mainRegion(page).locator("#items-0-received").fill("100");
     await page.getByRole("button", { name: "Record delivery" }).click();
 
     await expect(mainRegion(page).getByText(`${PREFIX}-DN-1`).first()).toBeVisible();

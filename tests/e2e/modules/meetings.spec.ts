@@ -95,15 +95,15 @@ test("runs a project meeting end to end: schedule, start, minutes, decision, act
   const engineerContext = await browser.newContext();
   const engineer = await engineerContext.newPage();
   await signIn(engineer, "ENGINEER", { to: `/meetings/${meetingId}?tab=actions` });
-  const engineerAction = engineer.getByTestId("meeting-action").filter({ hasText: "book the crane" });
+  const engineerAction = mainRegion(engineer).getByTestId("meeting-action").filter({ hasText: "book the crane" });
   await expect(engineerAction.getByRole("checkbox")).toBeDisabled();
   await engineerAction.getByTestId("action-task-link").click();
   await expect(engineer).toHaveURL(/\/tasks\/c[a-z0-9]+/);
-  await expect(engineer.getByTestId("task-parent-link")).toHaveText(title);
+  await expect(mainRegion(engineer).getByTestId("task-parent-link")).toHaveText(title);
   await engineer.getByRole("button", { name: "Complete", exact: true }).click();
   await expect(engineer.getByText("Task completed.", { exact: true })).toBeVisible();
   await engineer.goto(`/meetings/${meetingId}?tab=actions`);
-  await expect(engineer.getByTestId("meeting-action").filter({ hasText: "book the crane" }).getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
+  await expect(mainRegion(engineer).getByTestId("meeting-action").filter({ hasText: "book the crane" }).getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
   await engineerContext.close();
 
   // Only a role holding the reopen permission reopens final minutes, with a reason.

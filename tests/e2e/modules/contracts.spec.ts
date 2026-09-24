@@ -117,10 +117,11 @@ test.describe("Legal role (PRD #18 §453)", () => {
     await page.goto("/contracts/contract_014/edit");
     // The small correction form: owner and internal summary, and no contract
     // number, value or dates.
-    await expect(page.locator("#ownerMemberId")).toBeVisible();
-    await expect(page.locator("#contractNumber")).toHaveCount(0);
-    await expect(page.locator("#contractValue")).toHaveCount(0);
-    await expect(page.locator("#expiryDate")).toHaveCount(0);
+    const form = mainRegion(page);
+    await expect(form.locator("#ownerMemberId")).toBeVisible();
+    await expect(form.locator("#contractNumber")).toHaveCount(0);
+    await expect(form.locator("#contractValue")).toHaveCount(0);
+    await expect(form.locator("#expiryDate")).toHaveCount(0);
   });
 
   test("a cancelled contract is read-only (PRD #18 §500–§503)", async ({ page }) => {

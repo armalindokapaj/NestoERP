@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import type { Crumb } from "@/components/ui/breadcrumbs";
 
@@ -16,7 +17,7 @@ import type { EmployeeDetailDTO } from "@/lib/modules/hr/hr.types";
  * scope is a 404, not a 403, so the page cannot be used to discover that
  * somebody works here (PRD #16 §202).
  */
-export async function loadEmployee(
+export const loadEmployee = cache(async function loadEmployee(
   employeeId: string,
   suffix = "",
 ): Promise<{ context: UserContext; employee: EmployeeDetailDTO }> {
@@ -32,7 +33,7 @@ export async function loadEmployee(
     }
     throw error;
   }
-}
+});
 
 export function employeeBreadcrumbs(employee: EmployeeDetailDTO, trailing?: string): Crumb[] {
   const crumbs: Crumb[] = [
