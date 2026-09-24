@@ -54,9 +54,12 @@ describe("demo account sign-in", () => {
     };
     expect(arvela.heads[0]).toEqual({ username: "arvela.owner", name: "Arsen Lulaj", role: "OWNER", title: "Group Owner" });
     expect(arvela.heads.map((head) => head.username).sort()).toEqual(GROUP_PEOPLE.map((person) => person.username).sort());
-    expect(arvela.companies[0].name).toBe("ARVELA INFRASTRUKTURA");
-    expect(arvela.companies[0].personas[0]).toEqual({ username: "avi.director", name: nameOf("avi.director"), role: "CEO", title: "Company Director" });
-    expect(arvela.companies[0].personas).toContainEqual({ username: "avi.pm", name: nameOf("avi.pm"), role: "PROJECT_MANAGER", title: "Project Manager · Liqeni Park" });
+    // The busiest company first: VELAR - NDERTIM runs five of the group's projects.
+    expect(arvela.companies[0].name).toBe("VELAR - NDERTIM");
+    expect(arvela.companies[0].personas[0]).toEqual({ username: "velar.director", name: nameOf("velar.director"), role: "CEO", title: "Company Director" });
+    const avi = arvela.companies.find((company) => company.name === "ARVELA INFRASTRUKTURA")!;
+    expect(avi.personas[0]).toEqual({ username: "avi.director", name: nameOf("avi.director"), role: "CEO", title: "Company Director" });
+    expect(avi.personas).toContainEqual({ username: "avi.pm", name: nameOf("avi.pm"), role: "PROJECT_MANAGER", title: "Project Manager · Liqeni Park" });
     const companyName = new Map(COMPANY_FACTS.map((fact) => [fact.code, fact.name]));
     const expected = new Map<string, string[]>();
     for (const person of COMPANY_PEOPLE) {
