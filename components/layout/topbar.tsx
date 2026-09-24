@@ -44,7 +44,10 @@ export async function Topbar({
   const workspaceName = context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name;
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface/85 px-4 backdrop-blur-md md:h-16 md:px-6 xl:px-8">
+    // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
+    // element the box that `position: fixed` children are placed in, which pinned the phone's
+    // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line px-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-surface/85 before:backdrop-blur-md md:h-16 md:px-6 xl:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <MobileHeader navigation={navigation} companyName={workspaceName} />
 
@@ -84,8 +87,9 @@ export async function Topbar({
             there is a choice to make (Workspace Context §5, §9). */}
         <WorkspaceSwitcher workspaces={workspaces} />
         {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). */}
-        {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150). */}
-        <QuickCreate userKey={context.userId} />
+        {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150).
+            The button comes from the shell's summary; the menu loads only when opened (NAV-01 QC-01). */}
+        <QuickCreate userKey={context.userId} summary={workspaces.quickCreate} />
         <ActivityCenterMenu userKey={context.userId} canManageAnnouncements={context.permissions.includes("announcement.create")} />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
         <UserMenu

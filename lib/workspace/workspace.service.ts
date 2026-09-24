@@ -20,6 +20,8 @@ import { prisma } from "@/lib/database/prisma";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { resolveWorkspaceRoute, type WorkspaceNavigationResult } from "@/lib/workspace/route-resolver";
+import { quickCreateShellSummary, type QuickCreateShellDTO } from "@/lib/modules/quick-create/context-key";
+import { quickCreateCandidates } from "@/lib/modules/quick-create/eligibility";
 
 /**
  * The workspaces a person can work in, and moving the session between them
@@ -62,6 +64,11 @@ export type WorkspacesDTO = {
   otherGroups: Array<{ id: string; name: string; companies: WorkspaceCompanyDTO[] }>;
   active: { scopeType: WorkspaceScopeType; companyId: string | null };
   defaultWorkspace: { scopeType: WorkspaceScopeType; companyId: string | null };
+  /**
+   * Whether `+ Create` has anything to offer here, and its cache namespace —
+   * derived from the contexts above, with no query of its own (NAV-01 QC-01).
+   */
+  quickCreate: QuickCreateShellDTO;
 };
 
 const USABLE_MEMBERSHIP = {
@@ -129,6 +136,7 @@ export async function listWorkspaces(session: UserContext): Promise<WorkspacesDT
     defaultWorkspace: hasGroupStanding(contexts)
       ? { scopeType: "GROUP", companyId: null }
       : { scopeType: "COMPANY", companyId: session.companyId },
+    quickCreate: quickCreateShellSummary(session, quickCreateCandidates(session, contexts)),
   };
 }
 

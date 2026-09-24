@@ -17,6 +17,7 @@ import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
 import { WorkspaceSync } from "@/components/workspace/workspace-sync";
 import { RecordNavigationProvider } from "@/components/navigation/record-navigation-provider";
+import { NavigationFeedbackIndicator, NavigationFeedbackProvider } from "@/components/navigation/navigation-feedback";
 import { workspaceKey } from "@/config/workspace";
 import { listWorkspaces } from "@/lib/workspace/workspace.service";
 
@@ -58,72 +59,77 @@ export async function AppShell({
     <TooltipProvider delayDuration={200}>
       <ToastProvider>
         <WorkspaceSync />
-        <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
-          <Sidebar navigation={navigation} />
+        {/* Immediate navigation feedback (NAV-01 §7). Keyed by the opaque context
+            key, so nothing pending outlives the identity or workspace it began in. */}
+        <NavigationFeedbackProvider identityKey={workspaces.quickCreate.contextKey}>
+          <NavigationFeedbackIndicator />
+          <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
+            <Sidebar navigation={navigation} />
 
-          <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-            <Topbar context={context} navigation={navigation} workspaces={workspaces} />
-            <CriticalAnnouncementBanner banner={announcements.banner} />
-            <main
-              id="nesto-main"
-              className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-6 md:py-8 xl:px-8"
-            >
-              <RecordNavigationProvider
-                workspace={{
-                  key: workspaceKey(context.workspace),
-                  scopeType: context.workspace.scopeType,
-                  companyId: context.workspace.companyId,
-                  group: { name: context.parentGroup.name, canEnter: workspaces.parentGroup.groupViewAllowed },
-                  company: context.workspace.scopeType === "COMPANY"
-                    ? { id: context.workspace.companyId!, name: context.company.name }
-                    : null,
-                }}
+            <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
+              <Topbar context={context} navigation={navigation} workspaces={workspaces} />
+              <CriticalAnnouncementBanner banner={announcements.banner} />
+              <main
+                id="nesto-main"
+                className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-6 md:py-8 xl:px-8"
               >
-                {children}
-              </RecordNavigationProvider>
-            </main>
-          </div>
+                <RecordNavigationProvider
+                  workspace={{
+                    key: workspaceKey(context.workspace),
+                    scopeType: context.workspace.scopeType,
+                    companyId: context.workspace.companyId,
+                    group: { name: context.parentGroup.name, canEnter: workspaces.parentGroup.groupViewAllowed },
+                    company: context.workspace.scopeType === "COMPANY"
+                      ? { id: context.workspace.companyId!, name: context.company.name }
+                      : null,
+                  }}
+                >
+                  {children}
+                </RecordNavigationProvider>
+              </main>
+            </div>
 
-          {/* Development only: never mounted in a production build
-              (PRD #9 §211). */}
-          {isDevMode ? (
-            <DevAccessPanel
-              snapshot={{
-                user: context.fullName,
-                userId: context.userId,
-                sessionId: context.sessionId,
-                membershipId: context.membershipId,
-                company: context.company.name,
-                role: `${context.roleLabel} (${context.role})`,
-                position: context.position,
-                department: context.department?.name ?? "—",
-                assignments: context.assignments.map(
-                  (assignment) =>
-                    `${assignment.positionLevel} · ${assignment.groupDepartmentName}${assignment.companyId ? "" : " (group)"} · ${assignment.functionalRoleKey}`,
-                ),
-                grants: organization
-                  ? grantsInCompany(organization.grants, context.parentGroupId, context.companyId).map(
-                      (grant) => `${grant.moduleKey} ${grant.accessLevel} · ${grant.scopeType}`,
-                    )
-                  : [],
-                permissionCount: context.permissions.length,
-                modules: Object.fromEntries(
-                  MODULE_KEYS.map((key) => [
-                    key,
-                    {
-                      label: modules[key].label,
-                      accessLevel: context.moduleAccess[key].enabled
-                        ? context.moduleAccess[key].accessLevel
-                        : "DISABLED",
-                      scope: context.moduleAccess[key].scope,
-                      permissions: context.moduleAccess[key].permissions,
-                    },
-                  ]),
-                ),
-              }}
-            />
-          ) : null}
-        </SidebarProvider>
+            {/* Development only: never mounted in a production build
+                (PRD #9 §211). */}
+            {isDevMode ? (
+              <DevAccessPanel
+                snapshot={{
+                  user: context.fullName,
+                  userId: context.userId,
+                  sessionId: context.sessionId,
+                  membershipId: context.membershipId,
+                  company: context.company.name,
+                  role: `${context.roleLabel} (${context.role})`,
+                  position: context.position,
+                  department: context.department?.name ?? "—",
+                  assignments: context.assignments.map(
+                    (assignment) =>
+                      `${assignment.positionLevel} · ${assignment.groupDepartmentName}${assignment.companyId ? "" : " (group)"} · ${assignment.functionalRoleKey}`,
+                  ),
+                  grants: organization
+                    ? grantsInCompany(organization.grants, context.parentGroupId, context.companyId).map(
+                        (grant) => `${grant.moduleKey} ${grant.accessLevel} · ${grant.scopeType}`,
+                      )
+                    : [],
+                  permissionCount: context.permissions.length,
+                  modules: Object.fromEntries(
+                    MODULE_KEYS.map((key) => [
+                      key,
+                      {
+                        label: modules[key].label,
+                        accessLevel: context.moduleAccess[key].enabled
+                          ? context.moduleAccess[key].accessLevel
+                          : "DISABLED",
+                        scope: context.moduleAccess[key].scope,
+                        permissions: context.moduleAccess[key].permissions,
+                      },
+                    ]),
+                  ),
+                }}
+              />
+            ) : null}
+          </SidebarProvider>
+        </NavigationFeedbackProvider>
       </ToastProvider>
     </TooltipProvider>
   );

@@ -3,7 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { QUICK_CREATE_ACTIONS } from "@/config/quick-create";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
+import { canOpenQuickCreate } from "@/lib/modules/quick-create/eligibility";
 import { listAvailableActions, projectChoices, resolveLaunch } from "@/lib/modules/quick-create/quick-create.service";
+import { listWorkspaces } from "@/lib/workspace/workspace.service";
 import { cleanupSessions, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
@@ -115,5 +117,32 @@ describe("safe context prefill (§21-§28, §171-§173)", () => {
     expect(choices.length).toBeGreaterThan(0);
     const launch = await resolveLaunch(pm, { actionKey: log.key, projectId: choices[0].id });
     expect(launch.href).toBe(`/projects/${choices[0].id}/daily-logs/new`);
+  });
+});
+
+describe("the shell's trigger summary (NAV-01 QC-01, QC-02, Q05, Q06, A08)", () => {
+  it("opens exactly when the server would draw a menu, with the menu's own context key", async () => {
+    for (const context of [finance, viewer, pm, inGroup]) {
+      const [{ quickCreate }, menu] = await Promise.all([listWorkspaces(context), listAvailableActions(context)]);
+      expect(quickCreate.canOpen, context.role).toBe(menu.actions.length > 0);
+      expect(quickCreate.contextKey, context.role).toBe(menu.contextKey);
+    }
+    expect((await listWorkspaces(viewer)).quickCreate.canOpen).toBe(false);
+  });
+
+  it("is keyed by identity and workspace, and never carries the session id", async () => {
+    const keys = await Promise.all([finance, pm, inGroup].map(async (context) => (await listWorkspaces(context)).quickCreate.contextKey));
+    expect(new Set(keys).size).toBe(3);
+    for (const [index, context] of [finance, pm, inGroup].entries()) {
+      expect(keys[index]).not.toContain(context.sessionId);
+      expect(keys[index]).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    }
+  });
+
+  it("counts every company of the group, not the home company alone (Q06)", () => {
+    // A home company that allows nothing, and another company that allows a task.
+    const home: UserContext = { ...viewer, workspace: { ...viewer.workspace, scopeType: "GROUP", companyId: null } };
+    expect(canOpenQuickCreate("GROUP", [home])).toBe(false);
+    expect(canOpenQuickCreate("GROUP", [home, pm])).toBe(QUICK_CREATE_ACTIONS.some((action) => action.supportsGroupWorkspace && isModuleEnabled(pm, action.moduleKey) && canAccessModule(pm, action.moduleKey) && can(pm, action.permission)));
   });
 });
