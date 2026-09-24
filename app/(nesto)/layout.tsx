@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { requireUserContext } from "@/lib/context/current-user";
-import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
+import { admitPage, getPageMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import { redirect } from "next/navigation";
 
 import { runPreStreamGuard } from "./pre-stream-guards";
@@ -16,11 +16,19 @@ import { runPreStreamGuard } from "./pre-stream-guards";
  * This layout sits outside `loading.tsx` beside it (NAV-01 §2.1): sign-in,
  * the workspace, maintenance and the few routes with a pre-stream status
  * contract are all settled before anything streams.
+ *
+ * Maintenance is read beside authentication, from this process's page
+ * snapshot when one is younger than five seconds (NAV-02 PAR-01, MAINT-01).
+ * Authentication decides first: a signed-out visitor goes to sign-in whatever
+ * maintenance says, and a maintenance read that fails meanwhile is handled,
+ * never left unhandled. The snapshot's age is checked again when it is used.
  */
 export default async function NestoLayout({ children }: { children: React.ReactNode }) {
+  const maintenanceCandidate = getPageMaintenanceState();
+  maintenanceCandidate.catch(() => undefined);
   const context = await requireUserContext();
   // In parallel; maintenance still wins over a route's own refusal.
-  const [maintenance, guard] = await Promise.allSettled([getMaintenanceState(), runPreStreamGuard()]);
+  const [maintenance, guard] = await Promise.allSettled([admitPage(maintenanceCandidate), runPreStreamGuard()]);
   if (maintenance.status === "rejected") throw maintenance.reason;
   if (maintenance.value.enabled) redirect("/maintenance");
   if (guard.status === "rejected") throw guard.reason;

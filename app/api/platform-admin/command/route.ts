@@ -151,8 +151,8 @@ export async function POST(request: Request) {
       }
       case "maintenance.save": {
         const input = maintenanceSettingSchema.parse(body);
-        await saveMaintenanceSetting(context, input);
-        return apiOk({ data: { ok: true } });
+        // `ok` stays for older callers; the rest says whether pages have caught up (NAV-02 CACHE-02).
+        return apiOk({ data: await saveMaintenanceSetting(context, input) });
       }
       case "support.create": {
         const input = supportAccessSchema.parse(body);
