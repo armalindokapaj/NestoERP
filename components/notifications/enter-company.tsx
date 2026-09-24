@@ -1,12 +1,11 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/components/navigation/nav-link";
 import { Loader2 } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { requestWorkspaceSwitch } from "@/lib/workspace/client";
+import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
 
 /**
  * Enters a company's workspace and goes on (Workspace Context §31, §74).
@@ -21,22 +20,21 @@ import { requestWorkspaceSwitch } from "@/lib/workspace/client";
  */
 export function EnterCompany({ companyId, companyName, href, backHref, backLabel }: { companyId: string; companyName: string; href: string; backHref: string; backLabel: string }) {
   const t = useTranslations("workspace");
-  const router = useRouter();
   const [attempt, setAttempt] = React.useState(0);
   const [failed, setFailed] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
     setFailed(false);
-    void requestWorkspaceSwitch({ scopeType: "COMPANY", companyId }).then((result) => {
+    void requestWorkspaceSwitch({ scopeType: "COMPANY", companyId }, { echoToThisTab: false }).then((result) => {
       if (cancelled) return;
-      if (result.ok) router.replace(href);
+      if (result.ok) openInSwitchedWorkspace(href, { replace: true });
       else setFailed(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [companyId, href, attempt, router]);
+  }, [companyId, href, attempt]);
 
   return (
     <div className="mx-auto max-w-lg py-10">

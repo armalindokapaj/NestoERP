@@ -3,12 +3,12 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Building2, Check, ChevronDown, Layers, Loader2 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { requestWorkspaceSwitch } from "@/lib/workspace/client";
+import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
 import type { WorkspaceCompanyDTO, WorkspacesDTO } from "@/lib/workspace/workspace.service";
 import { cn } from "@/lib/utils/cn";
 
@@ -40,7 +40,6 @@ type Option =
 export function WorkspaceSwitcher({ workspaces }: { workspaces: WorkspacesDTO }) {
   const t = useTranslations("workspace");
   const toast = useToast();
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = React.useState(false);
@@ -100,7 +99,7 @@ export function WorkspaceSwitcher({ workspaces }: { workspaces: WorkspacesDTO })
       companyId: option.companyId,
       currentPathname: pathname,
       currentSearch: searchParams.size ? `?${searchParams.toString()}` : "",
-    });
+    }, { echoToThisTab: false });
     if (!result.ok) {
       if (result.stale) return;
       setSwitchingTo(null);
@@ -116,9 +115,7 @@ export function WorkspaceSwitcher({ workspaces }: { workspaces: WorkspacesDTO })
       toast({ title: t("moduleFallback", { name: option.name }) });
     }
 
-    const currentDestination = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`;
-    if (navigation.destination === currentDestination) router.refresh();
-    else router.replace(navigation.destination);
+    openInSwitchedWorkspace(navigation.destination, { replace: true });
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {

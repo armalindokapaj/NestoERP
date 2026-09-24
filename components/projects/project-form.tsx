@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils/cn";
 import type { ActionResult } from "@/lib/actions/projects";
-import { setWorkspaceDirtyState } from "@/lib/workspace/client";
+import { isLeavingForWorkspaceSwitch, setWorkspaceDirtyState } from "@/lib/workspace/client";
 
 /**
  * Create / edit project form (PRD #10 §31, §32, §41).
@@ -127,7 +127,9 @@ export function ProjectForm({
   // Browser-level protection; the in-app guard is the confirm below.
   React.useEffect(() => {
     if (!dirty) return;
-    const handler = (event: BeforeUnloadEvent) => event.preventDefault();
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!isLeavingForWorkspaceSwitch()) event.preventDefault();
+    };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
