@@ -222,6 +222,57 @@
     animation: nesto-pulse 1.6s var(--nesto-ease) infinite;
   }
 
+  /*
+   * Navigation feedback (NAV-01 §5.1). The dot is there the moment a click is
+   * accepted and only starts to pulse after 150 ms; the top bar fades in after
+   * 150 ms, so a fast route goes straight to content without a flash. Neither
+   * moves the shell: the bar is fixed and the dot sits in space the link has.
+   */
+  .nesto-pending-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: nesto-pulse 1.2s var(--nesto-ease) 150ms infinite;
+  }
+
+  .nesto-nav-progress {
+    opacity: 0;
+    animation: nesto-fade-in-to 120ms linear 150ms forwards;
+  }
+
+  .nesto-nav-progress-bar {
+    animation: nesto-nav-progress 1.4s var(--nesto-ease) 150ms infinite;
+  }
+
+  /* A pending generic link: a wait cursor and a dotted underline, not colour alone. */
+  a[data-nav-pending] {
+    cursor: progress;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nesto-skeleton,
+    .nesto-pending-dot {
+      animation: none;
+    }
+
+    .nesto-nav-progress {
+      animation: none;
+      opacity: 1;
+    }
+
+    .nesto-nav-progress-bar {
+      animation: none;
+      width: 100%;
+      opacity: 0.6;
+    }
+  }
+
   /* Navigation labels collapse away with the rail; icons never do (§14). */
   .nesto-rail .nesto-nav-label,
   .nesto-rail .nesto-nav-group-label {
@@ -286,6 +337,21 @@
 }
 
 /* Drawer, dialog, dropdown and toast motion — §39, §52, §53. */
+@keyframes nesto-fade-in-to {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nesto-nav-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
 @keyframes nesto-fade-in {
   from {
     opacity: 0;
