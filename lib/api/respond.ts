@@ -248,3 +248,15 @@ export async function readJson(request: Request): Promise<Record<string, unknown
   }
   throw new AccessError("VALIDATION_ERROR", "Expected a JSON object body.");
 }
+
+/**
+ * `{ data, meta: { contextKey } }` for answers the shell's controllers keep
+ * (NAV-03 RUNTIME-02, §12): the key is the shell's own, over the same
+ * request-scoped contexts, so a browser can drop an answer drawn for another
+ * identity or workspace. It is never read back as authority.
+ */
+export async function withMeta<T>(context: UserContext, data: Promise<T>): Promise<{ data: T; meta: { contextKey: string } }> {
+  const { shellContextKey } = await import("@/lib/workspace/shell-core");
+  const [value, contextKey] = await Promise.all([data, shellContextKey(context)]);
+  return { data: value, meta: { contextKey } };
+}
