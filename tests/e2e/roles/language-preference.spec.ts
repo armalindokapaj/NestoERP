@@ -28,8 +28,9 @@ test("an Engineer switches NESTO to Albanian and back from Settings", async ({ p
 
   await page.getByRole("button", { name: "Hap menunë e përdoruesit" }).click();
   await expect(page.getByRole("menuitem", { name: "Cilësimet" })).toBeVisible();
-  // Profile is reached from the Settings page, not from the menu.
-  await expect(page.getByRole("menuitem", { name: /^(Profile|Profili)$/ })).toHaveCount(0);
+  // The identity block opens the person's own Profile, and says so in Albanian too.
+  await expect(page.getByTestId("user-menu-profile")).toHaveAccessibleName(/Profili im$/);
+  await expect(page.getByRole("menuitem", { name: "Dil" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   // It survives a full load of another page.

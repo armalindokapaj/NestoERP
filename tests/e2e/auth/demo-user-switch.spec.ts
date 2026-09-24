@@ -71,6 +71,12 @@ test.describe("demo user switcher (C-01)", () => {
     await expect(userMenu(page)).toContainText("Edvin Gace");
     await expect(userMenu(page)).toContainText("Finance");
     await expect(userMenu(page)).not.toContainText("Armand Lilo");
+    // The open menu's identity follows as well: name, role and workspace (Profile Menu §106).
+    await userMenu(page).click();
+    await expect(page.getByTestId("user-menu-name")).toHaveText("Edvin Gace");
+    await expect(page.getByTestId("user-menu-context")).toContainText("Finance");
+    await expect(page.getByTestId("user-menu")).not.toContainText("Armand Lilo");
+    await page.keyboard.press("Escape");
     await expect(mainRegion(page).getByText(dashboardForRole("FINANCE", "GROUP_HEAD").focus)).toBeVisible();
     await expect(page.getByText("Viewing as")).toHaveCount(0);
     await expect(sidebar(page).getByRole("link", { name: "Finance", exact: true })).toBeVisible();

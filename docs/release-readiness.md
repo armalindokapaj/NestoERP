@@ -2940,3 +2940,62 @@ the acceptance-case mapping and the test results.
 - **One Vitest file does not load:** `demo-user-switch.test.ts`. Its
   `next/cache` mock predates `730220c4`'s `unstable_cache`, which came from
   outside NAV-03.
+
+## 38. Top-bar profile menu, Profile entry and destructive Logout
+
+The Profile Menu PRD reworks the top-bar account dropdown. No migration and no
+data change: only code.
+
+### 38.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Name, role and company on three rows, none of them clickable | Two lines, the name, then `Role · Company` (`roleAndCompany` in `lib/utils/format.ts`). The dot appears only between two values. In the Group workspace the second line names the group, for example `Legal · ARMAAR GROUP` |
+| Profile only through the Settings page | The whole identity block, with the avatar, is one Radix menu item rendered as a link to `/settings/profile`. That page reads the session, never a parameter. Its accessible name ends in "My profile" ("Profili im"), so it is never confused with Settings |
+| Logout grey until highlighted | `DropdownMenuItem variant="destructive"`: `danger-strong` text and icon by default, `danger-soft` tint when highlighted, a divider above it |
+| `signOutAction` redirected in place, and a failure was an unhandled rejection | `endSessionAction` revokes the session row, records `LOGOUT` and clears the cookie, then returns `{ ok }`. The menu then empties the user-scoped client caches (`resetUserScopedClientState`, which the demo switch shares) and does a full load of `/login`. On failure it shows a toast and the item can be used again. While it runs the item is disabled and reads "Signing out…". `signOutAction` wraps the same function for pages without the shell |
+| Focus visible only as a background | The ring is drawn inside the highlighted row, and only while the menu is being driven from the keyboard. Radix focuses the row under the pointer, so `:focus-visible` would ring on every hover |
+
+Unchanged: the trigger (name and role), Radix menu semantics
+(`aria-haspopup`, `aria-expanded`, the arrow keys, Escape, click outside, focus
+returning to the trigger), and Settings offered to every role. Opening the menu
+fetches nothing, because it renders from the server context.
+
+### 38.2 The evidence
+
+- **E2E on a production build** (lane `nesto_pm`, NESTO demo plus ARMAAR):
+  - `shell/profile-menu.spec.ts` passes 9 of 9, as Migena Bajro:
+    - two lines, and no `/api` request when the menu opens;
+    - the Profile link, then Settings;
+    - Logout's computed colour equals `--nesto-danger-strong` for the text and
+      the icon, its hover equals `--nesto-danger-soft`, and a hover draws no
+      ring;
+    - Logout deletes the session row, loads the page in full, and the saved
+      cookie opens nothing in a second browser;
+    - ARLIS → IDEAL through the chooser, then the group;
+    - the keyboard walk, and focus returning to the trigger;
+    - a click outside closes the menu;
+    - long-name truncation with a `title`;
+    - 375 px width.
+  - The specs that go through the menu pass: the fixture's `signOut` users,
+    `language-preference`, `role-navigation` and `top-bar`.
+  - With `APP_ENV=development`, `demo-user-switch` passes 5 of 5. It now also
+    checks the open menu after the switch.
+- **Unit:** `tests/unit/shell/profile-menu-identity.test.ts`, 6 tests, and the
+  i18n dictionaries.
+- **Gates:**
+  - `verify:authorization`, with `endSessionAction` listed as public;
+  - `security:matrix` regenerated;
+  - `verify:ownership` (the reset helper lives in `components/layout`,
+    because `lib/auth` importing activity closed a domain cycle);
+  - `verify:production-guards`;
+  - typecheck and lint.
+
+### 38.3 Limits
+
+- **Tooltips are the native `title`:** they appear on hover, not on keyboard
+  focus.
+- **The optional analytics events (§90-§92) are not added.** The server's
+  `LOGOUT` auth event already records a sign-out.
+- **Phones get the same dropdown, capped to the screen width,** not a bottom
+  sheet.

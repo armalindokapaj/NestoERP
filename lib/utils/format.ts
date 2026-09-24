@@ -8,6 +8,14 @@ export function fullName(firstName?: string | null, lastName?: string | null): s
   return [firstName, lastName].filter(Boolean).join(" ").trim();
 }
 
+/**
+ * "Legal · ARLIS - NDERTIM" — the account menu's second line (Profile Menu §4,
+ * §82-§85). The separator appears only between two values, never dangling.
+ */
+export function roleAndCompany(role?: string | null, company?: string | null): string {
+  return [role?.trim(), company?.trim()].filter(Boolean).join(" · ");
+}
+
 /** "Good morning" / "Good afternoon" / "Good evening" for the welcome header. */
 export function greeting(date = new Date()): string {
   const hour = date.getHours();
