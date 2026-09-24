@@ -558,27 +558,34 @@ export async function acknowledgmentList(context: UserContext, announcementId: s
 /* Shell, dashboard                                                            */
 /* -------------------------------------------------------------------------- */
 
-export type AnnouncementShellState = { unread: number; banner: { id: string; title: string; requiresAcknowledgment: boolean; href: string } | null };
+/** The one critical notice the shell shows (§67, §68, NAV-02 ANN-01). */
+export type CriticalBannerDTO = { id: string; title: string; requiresAcknowledgment: boolean; href: string };
 
 /**
- * What the app shell shows: how many live announcements this member has not
- * opened, and the one critical announcement still waiting on them — never a
- * stack of banners (§67, §68, §121, §122).
+ * The one critical announcement still waiting on this member — never a stack
+ * of banners (§67, §68, §121, §122; NAV-02 ANN-01).
+ *
+ * The same audience and liveness as every other announcement read
+ * (`reachWhere`, `live`). A notice that asks for acknowledgment waits until it
+ * is acknowledged — reading it is not enough; one that asks for nothing stops
+ * waiting once it has been read or dismissed. Newest first, and between equal
+ * publication times the higher id, so two instances never disagree about
+ * which one is shown. The unread count the shell used to read beside it was
+ * never displayed and is gone (ANN-02): the bell counts on its own.
  */
-export async function announcementShellState(context: UserContext): Promise<AnnouncementShellState> {
-  if (!announcementsOpen(context)) return { unread: 0, banner: null };
-  const now = new Date();
+export async function criticalAnnouncementBanner(context: UserContext): Promise<CriticalBannerDTO | null> {
+  if (!announcementsOpen(context)) return null;
   const me = context.membershipId;
-  const visible = { AND: [reachWhere(context), live(now)] };
-  const [unread, critical] = await Promise.all([
-    prisma.announcement.count({ where: { ...visible, reads: { none: { memberId: me } }, acknowledgments: { none: { memberId: me } } } }),
-    prisma.announcement.findFirst({
-      where: { ...visible, priority: "CRITICAL", OR: [{ requiresAcknowledgment: true, acknowledgments: { none: { memberId: me } } }, { requiresAcknowledgment: false, reads: { none: { memberId: me } } }] },
-      orderBy: { publishedAt: "desc" },
-      select: { id: true, title: true, requiresAcknowledgment: true },
-    }),
-  ]);
-  return { unread, banner: critical ? { ...critical, href: `/announcements/${critical.id}` } : null };
+  const critical = await prisma.announcement.findFirst({
+    where: {
+      AND: [reachWhere(context), live(new Date())],
+      priority: "CRITICAL",
+      OR: [{ requiresAcknowledgment: true, acknowledgments: { none: { memberId: me } } }, { requiresAcknowledgment: false, reads: { none: { memberId: me } } }],
+    },
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    select: { id: true, title: true, requiresAcknowledgment: true },
+  });
+  return critical ? { ...critical, href: `/announcements/${critical.id}` } : null;
 }
 
 /** Pinned, critical and the latest unread, for the dashboard (§65, §66, §118). */

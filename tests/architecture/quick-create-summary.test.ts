@@ -5,8 +5,10 @@ import { describe, expect, it } from "vitest";
 
 /**
  * The `+ Create` trigger summary adds no shell query (NAV-01 QC-01, A08):
- * it is computed from contexts `listWorkspaces` already resolved, by helpers
- * that cannot reach the database or record context.
+ * it is computed by helpers that cannot reach the database or record context,
+ * from contexts the shell core already holds — the session's own, or the
+ * group's that Group navigation needs (NAV-02 COMPAT-02) — never from the
+ * streamed workspace chooser.
  */
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
@@ -20,11 +22,15 @@ describe("the Quick Create summary", () => {
     }
   });
 
-  it("reuses the contexts listWorkspaces already has", () => {
-    const source = read("lib/workspace/workspace.service.ts");
-    expect(source).toContain("quickCreate: quickCreateShellSummary(session, quickCreateCandidates(session, contexts))");
-    const body = source.slice(source.indexOf("export async function listWorkspaces"), source.indexOf("export type WorkspaceContextDTO"));
-    expect(body.match(/resolveGroupContexts\(/g)).toHaveLength(1);
+  it("comes from the shell core's own contexts, not the workspace chooser", () => {
+    const source = read("lib/workspace/shell-core.ts");
+    expect(source).toContain("inGroup ? resolveGroupContexts(session) : Promise.resolve([])");
+    expect(source).toContain("quickCreateCandidates(session, groupContexts)");
+    expect(source).toContain("quickCreateShellSummary(session, candidates)");
+    const imports = (source.match(/^import .*$/gm) ?? []).join("\n");
+    expect(imports).not.toMatch(/@\/lib\/database|prisma|announcement/);
+    expect(source).not.toMatch(/listWorkspaces\(/);
+    expect(read("lib/workspace/workspace.service.ts")).not.toContain("quickCreateShellSummary");
   });
 
   it("keeps the client from importing the server menu service at runtime", () => {

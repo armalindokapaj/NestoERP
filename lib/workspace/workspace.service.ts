@@ -21,8 +21,6 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { invalidateRequestScope } from "@/lib/core/observability/request-scope";
 import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { resolveWorkspaceRoute, type WorkspaceNavigationResult } from "@/lib/workspace/route-resolver";
-import { quickCreateShellSummary, type QuickCreateShellDTO } from "@/lib/modules/quick-create/context-key";
-import { quickCreateCandidates } from "@/lib/modules/quick-create/eligibility";
 
 /**
  * The workspaces a person can work in, and moving the session between them
@@ -65,11 +63,6 @@ export type WorkspacesDTO = {
   otherGroups: Array<{ id: string; name: string; companies: WorkspaceCompanyDTO[] }>;
   active: { scopeType: WorkspaceScopeType; companyId: string | null };
   defaultWorkspace: { scopeType: WorkspaceScopeType; companyId: string | null };
-  /**
-   * Whether `+ Create` has anything to offer here, and its cache namespace —
-   * derived from the contexts above, with no query of its own (NAV-01 QC-01).
-   */
-  quickCreate: QuickCreateShellDTO;
 };
 
 const USABLE_MEMBERSHIP = {
@@ -77,6 +70,19 @@ const USABLE_MEMBERSHIP = {
   user: { status: "ACTIVE" },
   company: { status: "ACTIVE", parentGroup: { status: { in: USABLE_GROUP_STATUSES } } },
 } as const;
+
+/**
+ * Whether the switcher will have a choice to offer, without building it
+ * (NAV-02 SHELL-02): two usable memberships in any group, or one with
+ * group-level standing — exactly when `listWorkspaces` lists two or more. One
+ * count, so the shell can keep the switcher's place for those who will get one
+ * and draw nothing for everyone else, as before (§9).
+ */
+export async function hasWorkspaceChoice(session: UserContext): Promise<boolean> {
+  if (session.workspace.scopeType === "GROUP" || hasGroupStanding([session])) return true;
+  const memberships = await prisma.companyMember.count({ where: { userId: session.userId, ...USABLE_MEMBERSHIP }, take: 2 });
+  return memberships > 1;
+}
 
 /** §77 — everything the switcher shows, derived from the person's own memberships and standing. */
 export async function listWorkspaces(session: UserContext): Promise<WorkspacesDTO> {
@@ -137,7 +143,6 @@ export async function listWorkspaces(session: UserContext): Promise<WorkspacesDT
     defaultWorkspace: hasGroupStanding(contexts)
       ? { scopeType: "GROUP", companyId: null }
       : { scopeType: "COMPANY", companyId: session.companyId },
-    quickCreate: quickCreateShellSummary(session, quickCreateCandidates(session, contexts)),
   };
 }
 

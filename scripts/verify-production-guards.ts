@@ -304,6 +304,19 @@ const checks: Check[] = [
     },
   },
   {
+    // NAV-02 §16: the shell-slot delay hook exists for the browser tests only.
+    name: "the shell-slot test hook answers only to its own variable, which no deployment sets",
+    run: () => {
+      const source = readFileSync("lib/workspace/shell-slots.ts", "utf8");
+      const hook = source.slice(source.indexOf("async function testDelay"));
+      if (!/^\s*if \(process\.env\.NESTO_TEST_SHELL_DELAYS !== "1"\) return;/m.test(hook.split("\n").slice(1, 3).join("\n"))) {
+        return "testDelay in lib/workspace/shell-slots.ts no longer returns first unless NESTO_TEST_SHELL_DELAYS is 1";
+      }
+      const configured = ["vercel.json", ".env.example", ".env.production"].filter((path) => existsSync(path) && readFileSync(path, "utf8").includes("NESTO_TEST_SHELL_DELAYS"));
+      return configured.length > 0 ? `NESTO_TEST_SHELL_DELAYS appears in ${configured.join(", ")}` : null;
+    },
+  },
+  {
     name: "production source maps stay private",
     run: () => {
       const source = readFileSync("next.config.ts", "utf8");

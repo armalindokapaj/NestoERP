@@ -22,6 +22,8 @@ type Described = { label: string; description: string };
 export const en = {
   shell: {
     mainNavigation: "Main navigation",
+    bannerCheckFailed: "Critical announcements could not be checked.",
+    bannerRetry: "Retry",
     navigationTitle: "NESTO navigation",
     openNavigation: "Open navigation",
     closeNavigation: "Close navigation",
@@ -96,6 +98,10 @@ export const en = {
     companyRequiredNone: "None of your companies offers {module}.",
     openInCompany: "Open in {company}",
     company: "Company",
+    loadingLabel: "Workspace: {name}. Loading the other workspaces",
+    staticLabel: "Workspace: {name}",
+    loadFailedLabel: "Workspace: {name}. The other workspaces could not be loaded",
+    retryLoad: "Retry loading workspaces",
   },
 
   notificationCenter: {
