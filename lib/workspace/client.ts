@@ -92,6 +92,21 @@ if (typeof window !== "undefined") {
   });
 }
 
+let switchingInPlace = false;
+
+/**
+ * Set while this tab switches its workspace without a document load (OW §34):
+ * from the request until the new workspace's shell and page have committed.
+ * Nothing is prepared for the old workspace in the meantime.
+ */
+export function setWorkspaceSwitchInPlace(active: boolean): void {
+  switchingInPlace = active;
+}
+
+export function isWorkspaceSwitchInPlace(): boolean {
+  return switchingInPlace;
+}
+
 /**
  * True while this tab loads the destination of its own switch. The switch
  * already asked about unsaved changes (`confirmWorkspaceNavigation`), so a

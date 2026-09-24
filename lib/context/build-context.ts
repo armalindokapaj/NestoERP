@@ -21,6 +21,13 @@ import { peekScoped, scoped, seedScoped } from "@/lib/core/observability/request
 import type { ContextResult, ModuleAccess, UserContext } from "./types";
 
 /**
+ * The parent group as a context carries it: its own row and how many companies
+ * it holds, which says whether the tenant is a group at all (OW §8, §45). A
+ * relation count on the row the loaders already read, so no query of its own.
+ */
+export const PARENT_GROUP_FOR_CONTEXT = { include: { _count: { select: { companies: true } } } } as const satisfies Prisma.ParentGroupDefaultArgs;
+
+/**
  * Builds the context from a session id alone.
  *
  * Separated from the cookie-reading entry point above so that integration tests
@@ -42,7 +49,7 @@ export async function resolveContextForSession(
       user: { include: { platformAccess: { select: { status: true } } } },
       membership: {
         include: {
-          company: { include: { parentGroup: true } },
+          company: { include: { parentGroup: PARENT_GROUP_FOR_CONTEXT } },
           role: true,
           department: true,
         },
@@ -120,6 +127,12 @@ export async function resolveContextForSession(
   });
 
   if (record.workspaceScope === "COMPANY") return { ok: true, context: company };
+  // A tenant of one company has no Group level (OW §8, §45): the session works
+  // in the company, and one that asked for the group before is moved there.
+  if (company.parentGroup.standalone) {
+    await setSessionWorkspaceScope({ sessionId: record.id, userId: record.userId, scope: "COMPANY" });
+    return { ok: true, context: company };
+  }
 
   // A fresh session (null) starts in the Group workspace when the person has
   // group-level standing, in their company otherwise (§16). A session that asks
@@ -152,7 +165,7 @@ export async function resolveContextForSession(
 }
 
 type MembershipForContext = Prisma.CompanyMemberGetPayload<{
-  include: { company: { include: { parentGroup: true } }; department: true };
+  include: { company: { include: { parentGroup: typeof PARENT_GROUP_FOR_CONTEXT } }; department: true };
 }>;
 
 /** Groups whose companies may be worked in (E-06 §21). */
@@ -229,6 +242,8 @@ export function assembleContext(input: {
       name: company.parentGroup.name,
       status: company.parentGroup.status,
       isDemo: company.parentGroup.isDemo,
+      logoUrl: company.parentGroup.logoUrl,
+      standalone: company.parentGroup._count.companies === 1,
     },
 
     role,
@@ -287,7 +302,7 @@ export async function loadGroupMemberContexts(input: {
         user: { status: "ACTIVE" },
         company: { parentGroupId: input.parentGroupId, status: "ACTIVE" },
       },
-      include: { user: true, role: true, company: { include: { parentGroup: true } }, department: true },
+      include: { user: true, role: true, company: { include: { parentGroup: PARENT_GROUP_FOR_CONTEXT } }, department: true },
     }),
     input.organization ? Promise.resolve(input.organization) : loadOrganizationAccessFor(input.parentGroupId, input.userId),
   ]);
@@ -393,6 +408,8 @@ export function hasGroupStanding(contexts: readonly UserContext[]): boolean {
  * exactly what they have: they are never offered it.
  */
 export function mayEnterGroupWorkspace(contexts: readonly UserContext[]): boolean {
+  // A standalone company has no Group level to enter, whoever asks (OW §8, §45).
+  if (contexts.some((context) => context.parentGroup.standalone)) return false;
   return contexts.length > 1 || hasGroupStanding(contexts);
 }
 

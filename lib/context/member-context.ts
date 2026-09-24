@@ -1,6 +1,6 @@
 import { isMembershipRoleKey } from "@/config/roles";
 import { prisma } from "@/lib/database/prisma";
-import { assembleContext, isParentGroupUsable, resolveEnabledModules } from "./build-context";
+import { assembleContext, isParentGroupUsable, PARENT_GROUP_FOR_CONTEXT, resolveEnabledModules } from "./build-context";
 import { loadOrganizationAccess } from "./organization-access";
 import type { UserContext } from "./types";
 
@@ -26,7 +26,7 @@ import type { UserContext } from "./types";
 const MEMBER_INCLUDE = {
   user: true,
   role: true,
-  company: { include: { parentGroup: true } },
+  company: { include: { parentGroup: PARENT_GROUP_FOR_CONTEXT } },
   department: true,
 } as const;
 

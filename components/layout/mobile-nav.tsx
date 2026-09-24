@@ -6,10 +6,10 @@ import { useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { NestoLogo } from "@/components/layout/nesto-logo";
+import { OrganizationWorkspaceHeader } from "@/components/layout/organization-workspace-header";
+import { PoweredBy } from "@/components/layout/powered-by";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
-import { brand } from "@/config/brand";
 import type { NavigationGroup } from "@/config/navigation";
 
 /**
@@ -17,13 +17,17 @@ import type { NavigationGroup } from "@/config/navigation";
  *
  * Same configuration as the desktop sidebar — one navigation model, two
  * presentations. Selecting a page navigates and closes the drawer.
+ *
+ * The organization header leads it, as it leads the sidebar (OW §48): pressing
+ * it opens the workspace choice as a bottom sheet, and the drawer closes as a
+ * switch starts. NESTO signs the foot (OW §71).
  */
 export function MobileNav({
   navigation,
-  companyName,
+  isDemo,
 }: {
   navigation: NavigationGroup[];
-  companyName: string;
+  isDemo: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -47,13 +51,15 @@ export function MobileNav({
 
       <DrawerContent side="left">
         <DrawerTitle className="sr-only">{t("navigationTitle")}</DrawerTitle>
-        <div className="flex shrink-0 items-start justify-between gap-3 px-4 pb-4 pt-5">
-          <NestoLogo showMark={false} size="lg" tagline={brand.tagline} />
+        <div className="flex shrink-0 items-center gap-2 px-3 pb-3 pt-4" data-testid="drawer-header">
+          <div className="min-w-0 flex-1">
+            <OrganizationWorkspaceHeader variant="drawer" onSwitchStart={() => setOpen(false)} />
+          </div>
           <button
             type="button"
             onClick={() => setOpen(false)}
             aria-label={t("closeNavigation")}
-            className="-mr-1 grid size-8 shrink-0 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg"
+            className="grid size-8 shrink-0 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg"
           >
             <X className="size-4" />
           </button>
@@ -66,16 +72,7 @@ export function MobileNav({
         </div>
 
         <div className="shrink-0 border-t border-line px-4 py-3.5">
-          <div className="mb-2 flex items-baseline justify-between gap-3">
-            <p className="min-w-0 truncate text-meta font-medium text-fg">{companyName}</p>
-            <span className="shrink-0 text-micro tabular-nums text-fg-subtle">{brand.version}</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <NestoLogo showWordmark={false} size="sm" />
-            <span className="nesto-eyebrow min-w-0 flex-1 truncate text-fg-subtle">
-              {brand.descriptor}
-            </span>
-          </div>
+          <PoweredBy isDemo={isDemo} version />
         </div>
       </DrawerContent>
     </Drawer>

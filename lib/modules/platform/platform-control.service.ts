@@ -18,6 +18,7 @@ import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { CORE_MODULES, DEPENDENCIES, SHARED_MODULES } from "@/lib/modules/settings/module-toggle.service";
 import type { AccessInspectorInput } from "./platform-control.schema";
 import { inspectAccess } from "./platform-control.query";
+import { describeLogo } from "@/lib/workspace/branding";
 
 function assertPlatform(context: PlatformContext, permission: PlatformPermission): void {
   if (!canPlatform(context, permission)) throw new AccessError("FORBIDDEN");
@@ -40,9 +41,11 @@ function assertUpdated(result: { count: number }, message = "The record changed 
   if (result.count !== 1) throw new AccessError("CONFLICT", message);
 }
 
-export async function updatePlatformCompany(context: PlatformContext, companyId: string, input: { name: string; legalName?: string; registrationNumber?: string; taxNumber?: string; industry?: string; country?: string; address?: string; email?: string; phone?: string; website?: string; reason: string }) {
+export async function updatePlatformCompany(context: PlatformContext, companyId: string, input: { name: string; logoUrl?: string; legalName?: string; registrationNumber?: string; taxNumber?: string; industry?: string; country?: string; address?: string; email?: string; phone?: string; website?: string; reason: string }) {
   assertPlatform(context, "platform.company.configure");
-  const company = assertFound(await prisma.company.findFirst({ where: { id: companyId, parentGroup: { isTestFixture: false } }, select: { id: true, parentGroupId: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true } }));
+  const company = assertFound(await prisma.company.findFirst({ where: { id: companyId, parentGroup: { isTestFixture: false } }, select: { id: true, parentGroupId: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true, logoUrl: true } }));
+  // A form without the field keeps the logo; an empty one clears it (OW §44).
+  const logoUrl = input.logoUrl === undefined ? company.logoUrl : nullable(input.logoUrl);
   const after = { name: input.name, legalName: nullable(input.legalName), registrationNumber: nullable(input.registrationNumber), taxNumber: nullable(input.taxNumber), industry: nullable(input.industry), country: nullable(input.country), address: nullable(input.address), email: nullable(input.email), phone: nullable(input.phone), website: nullable(input.website) };
   await prisma.$transaction(async (tx) => {
     await tx.company.update({
@@ -58,10 +61,11 @@ export async function updatePlatformCompany(context: PlatformContext, companyId:
         email: after.email,
         phone: after.phone,
         website: after.website,
+        logoUrl,
         configVersion: { increment: 1 },
       },
     });
-    await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_UPDATED, entity: { type: "Company", id: company.id, label: after.name }, before: company, after, reason: input.reason }, { tx });
+    await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_UPDATED, entity: { type: "Company", id: company.id, label: after.name }, before: { ...company, logo: describeLogo(company.logoUrl) }, after: { ...after, logo: describeLogo(logoUrl) }, reason: input.reason }, { tx });
   });
 }
 
@@ -134,6 +138,24 @@ export async function setGroupStatus(context: PlatformContext, groupId: string, 
       await revokeSessions(tx, { parentGroupId: group.id });
     }
     await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_STATUS_CHANGED, entity: { type: "ParentGroup", id: group.id, label: group.name }, before: { status: group.status }, after: { status }, reason }, { tx });
+  });
+}
+
+/**
+ * The tenant's logo, which the shell shows at the top of the sidebar (OW §12,
+ * §44). Presentation only, so it may change at any point of a group's life
+ * except once it is archived history.
+ */
+export async function setGroupBranding(context: PlatformContext, groupId: string, input: { logoUrl: string; reason: string }) {
+  assertPlatform(context, "platform.group.configure");
+  const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, isTestFixture: false }, select: { id: true, name: true, status: true, logoUrl: true } }));
+  if (group.status === "ARCHIVED") throw new AccessError("CONFLICT", "An archived group is historical and cannot be changed from the console.");
+  const logoUrl = nullable(input.logoUrl);
+  if (logoUrl === group.logoUrl) return;
+  await prisma.$transaction(async (tx) => {
+    // Guarded by the state it was read in, as the lifecycle change is: an archive in between refuses it.
+    assertUpdated(await tx.parentGroup.updateMany({ where: { id: group.id, status: group.status, isTestFixture: false }, data: { logoUrl } }));
+    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_BRANDING_CHANGED, entity: { type: "ParentGroup", id: group.id, label: group.name }, before: { logo: describeLogo(group.logoUrl) }, after: { logo: describeLogo(logoUrl) }, reason: input.reason }, { tx });
   });
 }
 

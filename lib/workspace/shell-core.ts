@@ -3,6 +3,7 @@ import type { UserContext } from "@/lib/context/types";
 import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { quickCreateShellSummary, type QuickCreateShellDTO } from "@/lib/modules/quick-create/context-key";
 import { quickCreateCandidates } from "@/lib/modules/quick-create/eligibility";
+import { resolveShellLogo } from "@/lib/workspace/branding";
 import { hasWorkspaceChoice } from "@/lib/workspace/workspace.service";
 
 /**
@@ -31,6 +32,16 @@ export type ShellCoreDTO = {
     /** The parent group's name, the label's first line. */
     groupLabel: string;
   };
+  /**
+   * The customer organization the sidebar header names (OW §5-§12), from the
+   * verified context: nothing is fetched to draw it (§57).
+   */
+  organization: {
+    /** A tenant of one company: the company is the organization, with no second line and no Group (§8). */
+    standalone: boolean;
+    /** The mark: the group's logo, else the company's in a company workspace, else null for initials (§12). */
+    logoUrl: string | null;
+  };
   /** Whether the switcher will offer a choice: its place is kept while it loads, and never drawn otherwise. */
   workspaceChoice: boolean;
   quickCreate: QuickCreateShellDTO;
@@ -53,6 +64,10 @@ export async function resolveShellCore(session: UserContext): Promise<ShellCoreD
       companyId: session.workspace.companyId,
       label: inGroup ? session.parentGroup.name : session.company.name,
       groupLabel: session.parentGroup.name,
+    },
+    organization: {
+      standalone: session.parentGroup.standalone,
+      logoUrl: resolveShellLogo({ groupLogoUrl: session.parentGroup.logoUrl, companyLogoUrl: session.company.logoUrl, inGroup }),
     },
     workspaceChoice,
     quickCreate,

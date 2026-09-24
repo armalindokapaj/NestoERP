@@ -48,7 +48,7 @@ async function groupOrNotFound(groupId: string) {
   return assertFound(
     await prisma.parentGroup.findFirst({
       where: { id: groupId, isTestFixture: false },
-      select: { id: true, slug: true, name: true, legalName: true, country: true, timezone: true, currency: true, status: true, activatedAt: true },
+      select: { id: true, slug: true, name: true, legalName: true, country: true, timezone: true, currency: true, status: true, activatedAt: true, logoUrl: true },
     }),
   );
 }
@@ -116,7 +116,7 @@ export async function updateParentGroup(context: PlatformContext, groupId: strin
 export type ChecklistItemDTO = { key: string; label: string; done: boolean; blocking: boolean };
 
 export type GroupImplementationDTO = {
-  group: { id: string; slug: string; name: string; legalName: string | null; country: string | null; timezone: string | null; currency: string | null; status: ParentGroupStatus; activatedAt: string | null };
+  group: { id: string; slug: string; name: string; legalName: string | null; country: string | null; timezone: string | null; currency: string | null; status: ParentGroupStatus; activatedAt: string | null; logoUrl: string | null };
   companies: Array<{ id: string; slug: string; name: string; status: string; members: number; branches: number; managers: number; projects: Array<{ id: string; code: string; name: string }> }>;
   /** How far the group's departments are set up (E-13 §95). */
   departments: { active: number; branches: number; withHead: number; needingHead: number; branchesWithManager: number };

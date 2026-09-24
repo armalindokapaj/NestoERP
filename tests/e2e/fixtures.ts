@@ -174,6 +174,38 @@ export function mainRegion(page: Page) {
   return page.locator("#nesto-main");
 }
 
+/**
+ * The organization header at the top of the sidebar (OW §2, §3): the
+ * workspace switch. Scoped to the sidebar, because the navigation drawer
+ * carries a second one while it is open.
+ */
+export function workspaceHeader(page: Page) {
+  return page.getByTestId("sidebar-header").getByTestId("organization-header");
+}
+
+/** The workspace popup, however it was opened (OW §20). */
+export function workspacePanel(page: Page) {
+  return page.getByTestId("workspace-panel");
+}
+
+/**
+ * Switches the workspace the way a person does: the sidebar header, then the
+ * option (OW §3, §20). Resolves once the header names the new workspace — the
+ * header changes only when the switch has committed (§33).
+ */
+export async function chooseWorkspace(page: Page, name: string | RegExp) {
+  await workspaceHeader(page).click();
+  const panel = workspacePanel(page);
+  await expect(panel.getByTestId("workspace-option").first()).toBeVisible();
+  await panel.getByTestId("workspace-option").filter({ hasText: name }).first().click();
+  await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
+  await expect(workspaceHeader(page)).toHaveAccessibleName(typeof name === "string" ? new RegExp(`Current workspace: ${escapeRegExp(name)}`) : name);
+}
+
+function escapeRegExp(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** The one sidebar; navigation is resolved once and rendered twice. */
 export function sidebar(page: Page) {
   return page.getByRole("navigation", { name: "Main navigation" }).first();

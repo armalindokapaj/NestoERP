@@ -42,7 +42,7 @@ export async function listPlatformCompanies(context: PlatformContext) {
   const rows = await prisma.company.findMany({
     where: { parentGroup: { isTestFixture: false } },
     orderBy: [{ parentGroup: { name: "asc" } }, { name: "asc" }],
-    select: { id: true, slug: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true, status: true, createdAt: true, parentGroup: { select: { id: true, name: true } }, _count: { select: { memberships: true, projects: true, modules: { where: { enabled: true } } } } },
+    select: { id: true, slug: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true, logoUrl: true, status: true, createdAt: true, parentGroup: { select: { id: true, name: true } }, _count: { select: { memberships: true, projects: true, modules: { where: { enabled: true } } } } },
   });
   return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString(), users: row._count.memberships, projects: row._count.projects, modules: row._count.modules }));
 }

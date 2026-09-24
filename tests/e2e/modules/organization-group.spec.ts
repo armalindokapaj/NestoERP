@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { db } from "../db";
-import { mainRegion, signIn } from "../fixtures";
+import { mainRegion, signIn, workspaceHeader } from "../fixtures";
 
 /**
  * The group, from inside it (E-06 §3.4, §65-§68, §96, §108).
@@ -23,13 +23,13 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-test("somebody in two companies switches between them from the top bar (§3.4, §96)", async ({ page }) => {
+test("somebody in two companies switches between them from the sidebar header (§3.4, §96; OW §3)", async ({ page }) => {
   await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-  const switcher = page.getByTestId("workspace-switcher");
+  const switcher = workspaceHeader(page);
   await expect(switcher).toHaveAttribute("aria-label", /Aurelia Construction/);
   await switcher.click();
   await page.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
-  await expect(page.getByTestId("workspace-switcher")).toHaveAttribute("aria-label", /Forma Engineering/);
+  await expect(workspaceHeader(page)).toHaveAttribute("aria-label", /Forma Engineering/);
   await expect(page).toHaveURL(/\/dashboard$/);
 
   await page.goto("/projects/project_d/team");
@@ -39,7 +39,8 @@ test("somebody in two companies switches between them from the top bar (§3.4, �
 test("somebody with one company and no group standing is offered no switch", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(page.getByTestId("workspace-switcher")).toHaveCount(0);
+  await expect(workspaceHeader(page)).toHaveAttribute("data-options", "single");
+  await expect(page.getByTestId("sidebar-header").getByRole("button")).toHaveCount(0);
 });
 
 test("a company department manager assigns one of their people to a project, and takes them off (§65, §94; E-13 §88)", async ({ page }) => {

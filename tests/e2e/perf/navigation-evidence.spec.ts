@@ -152,16 +152,21 @@ async function slotStates(page: Page, prefix: string) {
   await rules("workspaces=8000,banner=8000");
   await page.goto("/tasks", { waitUntil: "commit" });
   await expect(mainRegion(page).locator("h1").first()).toBeVisible();
-  await expect(page.getByTestId("workspace-slot")).toHaveAttribute("data-state", "pending");
+  // The header is drawn from the verified core at once; only its options are pending (OW §57).
+  const header = page.getByTestId("sidebar-header").getByTestId("organization-header");
+  await expect(header).toHaveAttribute("data-options", "pending");
   await shot(page, `${prefix}-01-slots-pending`);
   await rules("workspaces=0:fail,banner=0:fail");
   await page.goto("/tasks");
-  await expect(page.getByTestId("workspace-slot")).toHaveAttribute("data-state", "failed");
+  await expect(header).toHaveAttribute("data-options", "failed");
   await expect(page.getByTestId("critical-banner-failed")).toBeVisible();
+  await header.click();
   await shot(page, `${prefix}-02-slots-failed`);
-  await page.getByTestId("workspace-slot-retry").click();
+  await page.getByTestId("workspace-options-retry").click();
+  await expect(page.getByTestId("workspace-option").first()).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByTestId("critical-banner-retry").click();
-  await expect(page.getByTestId("workspace-switcher")).toBeVisible();
+  await expect(header).toHaveAttribute("data-options", "ready");
   await expect(page.getByTestId("critical-banner-failed")).toHaveCount(0);
   await shot(page, `${prefix}-03-slots-retried`);
 }

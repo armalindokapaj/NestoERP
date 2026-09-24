@@ -15,6 +15,30 @@ export const FIXTURE_GROUP = {
   name: "NESTO Test Fixtures",
 } as const;
 
+/**
+ * A standalone company tenant (OW §8, §45, §86): a parent group that holds one
+ * company. It has no Group level, so its Owner works in the company and the
+ * sidebar names the company alone. The group's name differs from the
+ * company's on purpose, so a test can tell which one is shown.
+ */
+export const SOLO_GROUP = {
+  id: "group_fixture_solo",
+  slug: "nesto-solo-fixture",
+  name: "Solo Studio Holding",
+} as const;
+export const SOLO_COMPANY = "company_fixture_solo";
+export const SOLO_OWNER = {
+  id: "user_solo_owner",
+  username: "solo-owner",
+  email: "solo-owner@nesto.test",
+  firstName: "Sara",
+  lastName: "Lindqvist",
+  role: "OWNER",
+  department: "executive",
+  jobTitle: "Owner",
+  phone: "+355 69 900 0002",
+} as const;
+
 /** The other tenant: a different company in a different group, with seven modules off. */
 export const FIXTURE_TENANT = "company_fixture_tenant";
 /** Accounts in awkward states, invitations, and projects the demo no longer shows. */

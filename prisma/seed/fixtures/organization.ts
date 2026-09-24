@@ -10,6 +10,9 @@
  *   Fixture Works      accounts in the states sign-in must refuse, and the
  *                      invitations and projects the demo no longer carries
  *   Suspended company  nobody in it may sign in
+ *
+ * And a second fixture group holding one company, Solo Studio: a standalone
+ * tenant with no Group level (OW §8, §45).
  */
 import type { PrismaClient } from "@prisma/client";
 
@@ -23,6 +26,9 @@ import {
   FIXTURE_TENANT_DISABLED_MODULES,
   FIXTURE_WORKS,
   NEGATIVE_USERS,
+  SOLO_COMPANY,
+  SOLO_GROUP,
+  SOLO_OWNER,
   SUSPENDED_COMPANY_USER,
   TENANT_USERS,
 } from "./constants";
@@ -36,6 +42,7 @@ const FIXTURE_MEMBER_IDS: Record<string, string> = {
   user_membership_inactive: "member_membership_inactive",
   user_membership_suspended: "member_membership_suspended",
   user_suspended_company: "member_suspended_company",
+  user_solo_owner: "member_solo_owner",
 };
 
 /** A fixture account's one membership, by its deterministic id. */
@@ -140,7 +147,9 @@ export async function seedFixtureOrganization(prisma: PrismaClient, passwordHash
     jobTitle: "Owner",
   });
 
-  for (const companyId of [FIXTURE_TENANT, FIXTURE_WORKS, COMPANY_SUSPENDED]) {
+  await seedSoloTenant(prisma, passwordHash, activatedAt, roleId);
+
+  for (const companyId of [FIXTURE_TENANT, FIXTURE_WORKS, COMPANY_SUSPENDED, SOLO_COMPANY]) {
     await prisma.companyMember.updateMany({ where: { companyId, joinedAt: null, status: "ACTIVE" }, data: { joinedAt: activatedAt } });
   }
 
@@ -149,4 +158,31 @@ export async function seedFixtureOrganization(prisma: PrismaClient, passwordHash
     worksDepartments,
     memberOf: fixtureMemberOf,
   };
+}
+
+/** The standalone tenant: one group, one company, its Owner (OW §8, §45, §86). */
+async function seedSoloTenant(prisma: PrismaClient, passwordHash: string, activatedAt: Date, roleId: Map<string, string>) {
+  await upsertParentGroup(prisma, { ...SOLO_GROUP, country: "Albania", status: "ACTIVE", isTestFixture: true, activatedAt });
+  await upsertCompany(prisma, {
+    id: SOLO_COMPANY,
+    parentGroupId: SOLO_GROUP.id,
+    slug: "solo-studio",
+    name: "Solo Studio",
+    legalName: "Solo Studio sh.p.k.",
+    industry: "Architecture",
+    country: "Albania",
+    status: "ACTIVE",
+  });
+  await seedCompanyModules(prisma, SOLO_COMPANY);
+  const departments = await seedDepartmentBranches(prisma, SOLO_COMPANY, SOLO_GROUP.id);
+  await upsertAccount(prisma, SOLO_OWNER, { passwordHash, parentGroupId: SOLO_GROUP.id });
+  await upsertMembership(prisma, {
+    id: FIXTURE_MEMBER_IDS[SOLO_OWNER.id]!,
+    companyId: SOLO_COMPANY,
+    userId: SOLO_OWNER.id,
+    role: SOLO_OWNER.role,
+    roleId,
+    departmentId: departments.get(SOLO_OWNER.department) ?? null,
+    jobTitle: SOLO_OWNER.jobTitle,
+  });
 }

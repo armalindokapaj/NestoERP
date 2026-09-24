@@ -54,7 +54,7 @@ const PANELS = [
   { name: "search", open: (page: Page) => page.keyboard.press("Control+k"), ready: '[data-testid^="palette-"], [data-testid="search-home-empty-hints"]' },
   { name: "quick_create", open: (page: Page) => page.getByTestId("quick-create-button").click(), ready: '[data-quick-create-action], [data-testid="quick-create-empty"]' },
   { name: "activity", open: (page: Page) => page.getByTestId("notification-bell").click(), ready: '[data-testid="activity-item"], [data-testid="activity-empty"]' },
-  { name: "workspace", open: (page: Page) => page.getByTestId("workspace-switcher").click(), ready: '[data-testid="workspace-option"]', mobileSkip: true },
+  { name: "workspace", open: (page: Page) => page.getByTestId("sidebar-header").getByTestId("organization-header").click(), ready: '[data-testid="workspace-option"]', mobileSkip: true },
 ] as const;
 
 type Stages = { core: number | null; primary: number | null; settled: number | null };

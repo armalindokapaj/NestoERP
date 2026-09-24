@@ -2999,3 +2999,92 @@ fetches nothing, because it renders from the server context.
   `LOGOUT` auth event already records a sign-out.
 - **Phones get the same dropdown, capped to the screen width,** not a bottom
   sheet.
+
+## 39. The organization workspace header in the sidebar
+
+The Sidebar Organization Workspace Header & Group Companies Popup PRD ("OW")
+moves the workspace switch from the top bar into the top of the sidebar. The
+decisions are in [ADR 0015](adr/0015-organization-workspace-header.md). There
+is no migration: `ParentGroup.logoUrl` and `Company.logoUrl` already existed.
+The seed gains one test-fixture tenant.
+
+### 39.1 What changed
+
+| Before | Now |
+| --- | --- |
+| The NESTO wordmark at the top of the sidebar, a link to Dashboard | `OrganizationWorkspaceHeader`: the tenant's mark (group logo, else the company's in a company workspace, else initials), the organization, then the workspace ("ARMAAR GROUP / ARLIS - NDERTIM", or "… / Group Workspace"). A standalone company shows its name alone |
+| The workspace chooser in the top bar, with a chevron | The whole header is one button. It opens "Switch Workspace", a Radix Popover to the right of the sidebar, or a bottom sheet in the phone drawer. The collapsed rail keeps the mark, with both names in a tooltip. The header draws no icon at all |
+| "Demo data" chip in the top bar | "Powered by NESTO" at the foot of the sidebar and the drawer, with the demo notice beside it. A compact "Demo" marker on the rail |
+| A switch covered the whole page and loaded a new document | In place: `router.refresh()` (after `router.replace` when the resolver moved the page) in one transition. The content is covered, the shell stays in view but inert, and the header changes in the same commit as the page. The page content is keyed by workspace |
+| Unsaved changes: the browser's `confirm` | Inside the popup: "You have unsaved changes." with **Stay** (focused) and **Discard and switch** |
+| An Owner of a one-company tenant started in a Group workspace of that one company | A standalone tenant has no Group level. It has no Group option, `switchWorkspace` answers 403 for GROUP, and sessions resolve to COMPANY |
+| Logos could not be set | Platform console: **Branding** on a group (`group.branding`, audited `PLATFORM_GROUP_BRANDING_CHANGED`) and **Logo** in the company editor. Accepted: a same-origin path that is not under `/api/`, or a base64 image of at most 96 000 characters |
+| "Group Company" | "Group Workspace" (English and Albanian) |
+
+The phone top bar shows the organization's mark as the way home, where it
+used to show the NESTO lockup.
+
+### 39.2 The evidence
+
+- **Vitest, full suite** on a fresh lane (`nesto_owv`: migrations, seed and
+  ARMAAR seed): 4 462 passed, 11 skipped. Two failures came before this work,
+  and one of them does not run:
+  - `procurement-service` "same order number in another company" is known
+    (NAV-02).
+  - `tests/integration/auth/demo-user-switch.test.ts` does not load: its
+    `next/cache` mock has no `unstable_cache`, which 730220c4 added to
+    `lib/auth/demo-tenants.ts`.
+  - `armaar-seed` §92 caught a doc-comment example that named the tenant; it
+    was fixed and passes 9 of 9.
+- **New tests:**
+  - `tests/unit/shell/organization-branding.test.ts`, 14 tests: initials,
+    accepted logo sources, the §12 fallback order, and the audit
+    description.
+  - `tests/api/workspace/organization-header.test.ts`, 9 tests:
+    - the standalone Owner starts in COMPANY, has no Group option or choice,
+      gets 403 for GROUP, and a GROUP session is moved back;
+    - a group of companies keeps its Group workspace;
+    - only the person's own companies are listed;
+    - group branding reaches both workspaces and its audit event;
+    - the company's logo shows in its own workspace only;
+    - the schema refuses external and API sources.
+- **E2E on a production build** (lane `nesto_ow`):
+  - `shell/organization-header.spec.ts` passes 18 of 18:
+    - the company and group identities, and the standalone and
+      single-workspace cases;
+    - no `svg` in the header when resting, hovered, focused, open,
+      collapsed or on a phone;
+    - every part of the header opens the popup;
+    - the popup's name, its order, its selection and authorized companies
+      only; search from five companies;
+    - the keyboard, Escape and focus return; a click outside closes it;
+    - the popup opens in under 100 ms once warmed;
+    - an exact route kept in the same document;
+    - a record falling back to its list with the notice;
+    - a refused switch;
+    - the header held until the commit, with the shell in view;
+    - Stay and Discard;
+    - the second tab;
+    - the collapsed rail and the phone sheet.
+  - The updated specs that use the header were not run on their own. A full
+    run was stopped at the user's request at 106 of 606 tests, with no
+    failure by then. The updated specs are `workspace-context`,
+    `organization-group`, `shell-slots`, `profile-menu`,
+    `navigation-response`, `demo-user-switch` and the perf evidence specs.
+- **Gates:** `verify:authorization` passes. The branding write uses the
+  guarded `updateMany` of the lifecycle change, so the by-id baseline stays
+  at 9. `verify:ownership` and `verify:production-guards` pass, and so do the
+  typecheck and lint of source files.
+
+### 39.3 Limits
+
+- **Logos are pasted, not uploaded.** The console takes a same-origin path or
+  an inline image. An address elsewhere would be blocked by `img-src`, so it
+  is refused rather than stored. The PRD's other recommended branding fields
+  (square logo, favicon, ERP display name, accent colour, §44) are not added.
+- **Only the header switches in place.** The record hop, the Quick Create
+  launch, `ChooseCompany` and `EnterCompany` still load a new document. Other
+  tabs still reload.
+- **Demo user change (§88)** is C-01's sign-out and sign-in, a full load that
+  resolves everything again. Its E2E needs `APP_ENV=development` and was not
+  run here.
