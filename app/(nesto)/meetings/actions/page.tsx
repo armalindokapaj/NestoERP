@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ListChecks, Plus } from "lucide-react";
 
 import { Pagination } from "@/components/data/pagination";

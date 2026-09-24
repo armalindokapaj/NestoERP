@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import type { ContractOverviewDTO } from "@/lib/modules/contracts/contract.types";
 import { totalsLabel } from "./contract-format";

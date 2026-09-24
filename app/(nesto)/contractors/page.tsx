@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { NewContractorButton } from "@/components/contractors/contractor-dialogs";
 import { ContractorTable } from "@/components/contractors/contractor-tables";

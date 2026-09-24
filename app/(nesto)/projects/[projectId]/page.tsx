@@ -2,7 +2,7 @@
 import { ProjectTabs } from "./project-tabs";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Box, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileWarning, Film, Image as ImageIcon, MapPin, Play, TriangleAlert } from "lucide-react";
 
 import { PersonLink } from "@/components/people/person-link";

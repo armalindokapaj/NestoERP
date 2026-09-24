@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { FileText, MoreHorizontal, Paperclip, ShieldCheck } from "lucide-react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";

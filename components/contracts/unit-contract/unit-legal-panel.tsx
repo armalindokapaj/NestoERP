@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { usePathname, useRouter } from "next/navigation";
 import { FilePen, FileSignature, Scale, Send, Undo2 } from "lucide-react";
 

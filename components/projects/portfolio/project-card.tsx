@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Building2 } from "lucide-react";
 
 import type { PortfolioProjectDTO } from "@/lib/modules/projects/project.types";

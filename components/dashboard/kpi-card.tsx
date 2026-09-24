@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { getIcon } from "@/components/layout/nav-icon";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
@@ -45,7 +45,7 @@ export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
     return (
       <div className="nesto-card p-4 md:p-5" data-testid="kpi-by-company">
         {href ? (
-          <Link href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
+          <Link navSource="dashboard" href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
             {body}
           </Link>
         ) : (
@@ -77,7 +77,7 @@ export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
   }
 
   return (
-    <Link
+    <Link navSource="dashboard"
       href={href}
       className={cn(
         "nesto-card block p-4 transition-colors hover:border-line-strong md:p-5",

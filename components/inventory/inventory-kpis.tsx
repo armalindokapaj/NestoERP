@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import type { InventoryOverviewDTO } from "@/lib/modules/inventory/inventory.types";
 

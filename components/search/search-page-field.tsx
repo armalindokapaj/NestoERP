@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 
 import { SearchField } from "@/components/ui/search-field";
 
@@ -14,7 +14,7 @@ import { SearchField } from "@/components/ui/search-field";
  * it works with JavaScript disabled.
  */
 export function SearchPageField({ defaultValue, company }: { defaultValue: string; company?: string }) {
-  const router = useRouter();
+  const router = useFeedbackRouter();
   const [value, setValue] = React.useState(defaultValue);
 
   // A new query from elsewhere (a link, the back button) has to win over what

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ArrowRight, ShoppingCart } from "lucide-react";
 
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";

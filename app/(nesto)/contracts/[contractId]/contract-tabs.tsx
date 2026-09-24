@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import type { ContractDetailDTO } from "@/lib/modules/contracts/contract.types";
 import { cn } from "@/lib/utils/cn";
@@ -48,7 +48,7 @@ export function ContractTabs({
           const isActive = tab.key === active;
           return (
             <li key={tab.key}>
-              <Link
+              <Link navSource="tab"
                 href={`/contracts/${contractId}${tab.suffix}`}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(

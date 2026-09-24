@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { useRouter } from "next/navigation";
 import { Archive, ArchiveRestore, Download, MoreHorizontal, PenLine } from "lucide-react";
 

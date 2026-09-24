@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
+import Link from "@/components/navigation/nav-link";
+import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { Divider } from "@/components/ui/divider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,14 +29,19 @@ function NavItem({
   const Icon = getIcon(item.icon);
   const t = useTranslations("modules");
   const label = t(`${item.key}.label`);
+  // Accepted and on its way: marked at once, apart from the active state, which follows the committed URL (NAV-04).
+  const pending = usePendingDestination(item.href);
 
   /* Light accent ground, accent icon and text, plus a 2px left marker
      (PRD #3 §12). */
   const link = (
     <Link
       href={item.href}
-      onClick={onNavigate}
+      navSource={dense ? "mobile" : "sidebar"}
+      // Only an accepted navigation closes the drawer; a modified click leaves it open (N02).
+      onNavigate={() => onNavigate?.()}
       aria-current={active ? "page" : undefined}
+      data-pending={pending || undefined}
       className={cn(
         "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
         dense ? "py-2.5" : "py-2.5",
@@ -53,6 +59,7 @@ function NavItem({
         )}
       />
       <span className="nesto-nav-label truncate">{label}</span>
+      {pending ? <PendingDot className="absolute right-2 top-1/2 -translate-y-1/2 text-accent" /> : null}
     </Link>
   );
 

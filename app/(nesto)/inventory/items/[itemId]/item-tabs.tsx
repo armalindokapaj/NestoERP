@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import type { ItemCapabilities } from "@/lib/modules/inventory/inventory.types";
 import { cn } from "@/lib/utils/cn";
@@ -46,7 +46,7 @@ export function ItemTabs({
           const isActive = tab.key === active;
           return (
             <li key={tab.key}>
-              <Link
+              <Link navSource="tab"
                 href={`/inventory/items/${itemId}${tab.suffix}`}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(

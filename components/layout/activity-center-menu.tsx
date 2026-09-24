@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/components/navigation/nav-link";
+import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 import { Bell, Check, CheckCheck, Loader2, Megaphone, X } from "lucide-react";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
@@ -47,7 +47,7 @@ export function dayBucket(iso: string, now = new Date()): "today" | "yesterday" 
 export function ActivityCenterMenu({ userKey, canManageAnnouncements = false }: { userKey: string; canManageAnnouncements?: boolean }) {
   const t = useTranslations("activity");
   const locale = useLocale();
-  const router = useRouter();
+  const nav = useFeedbackRouter();
   const toast = useToast();
   const panelId = React.useId();
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -197,7 +197,7 @@ export function ActivityCenterMenu({ userKey, canManageAnnouncements = false }: 
     if (item.sourceType === "NOTIFICATION") {
       // The open route re-authorises, enters the company if it must, and marks it read (§42, §51).
       setOpen(false);
-      router.push(item.href);
+      nav.push(item.href, { source: "record" });
       changed();
       return;
     }

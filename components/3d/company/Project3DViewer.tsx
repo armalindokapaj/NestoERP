@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import * as React from "react";
 import { Bath, BedDouble, Box, Expand, FileText, Home, MapPin, Maximize2, RefreshCw, Search, X } from "lucide-react";
 

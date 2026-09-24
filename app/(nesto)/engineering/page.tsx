@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { Due, EmptyNote, Metric, MetricStrip, Panel } from "@/components/engineering/engineering-ui";
 import { RfiRegister } from "@/components/engineering/registers";

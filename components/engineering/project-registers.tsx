@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Button } from "@/components/ui/button";

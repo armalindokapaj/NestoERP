@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";

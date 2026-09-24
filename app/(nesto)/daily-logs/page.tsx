@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { DailyLogList } from "@/components/daily-logs/daily-log-list";

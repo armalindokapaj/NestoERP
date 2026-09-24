@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Plus } from "lucide-react";
 
 import { ModulePage } from "@/components/modules/module-page";

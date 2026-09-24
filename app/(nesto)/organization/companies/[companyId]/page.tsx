@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { notFound, redirect } from "next/navigation";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";

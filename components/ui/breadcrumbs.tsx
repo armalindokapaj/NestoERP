@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ArrowLeft, ArrowRight, ChevronRight, MoreHorizontal } from "lucide-react";
 import { usePathname } from "next/navigation";
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { EmptyNote, Facts, Panel, ReviewBadge } from "@/components/engineering/engineering-ui";
 import { counted, orNotFound } from "@/components/engineering/page-helpers";

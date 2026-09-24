@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { getIcon } from "@/components/layout/nav-icon";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ export function QuickActions({ actions }: { actions: QuickActionDefinition[] }) 
         const Icon = getIcon(action.icon);
         return (
           <Button key={action.key} asChild variant="secondary" size="sm">
-            <Link href={action.href}>
+            <Link navSource="dashboard" href={action.href}>
               <Icon aria-hidden="true" />
               {action.label}
             </Link>

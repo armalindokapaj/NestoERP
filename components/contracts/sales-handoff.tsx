@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { FileSignature, TriangleAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";

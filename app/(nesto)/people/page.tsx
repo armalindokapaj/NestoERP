@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { selectClass } from "@/components/forms/record-form";
 import { ModulePage } from "@/components/modules/module-page";

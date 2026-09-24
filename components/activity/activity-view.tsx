@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { useRouter } from "next/navigation";
+import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 import { Check, Loader2, Megaphone } from "lucide-react";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
@@ -39,6 +40,7 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
   const tModules = useTranslations("modules");
   const locale = useLocale();
   const router = useRouter();
+  const nav = useFeedbackRouter();
   const toast = useToast();
   const [items, setItems] = React.useState(initial.items);
   const [cursor, setCursor] = React.useState(initial.nextCursor);
@@ -134,7 +136,7 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
   async function follow(item: ActivityCenterItem) {
     if (!item.href) return void markRead(item, true);
     if (item.sourceType === "NOTIFICATION") {
-      router.push(item.href);
+      nav.push(item.href, { source: "record" });
       changed();
       return;
     }

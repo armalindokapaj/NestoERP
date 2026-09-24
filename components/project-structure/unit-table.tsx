@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ExternalLink, MoreHorizontal, MoveRight, Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
