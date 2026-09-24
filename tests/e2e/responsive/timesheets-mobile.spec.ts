@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { db } from "../db";
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 import { memberId, resetTimesheets } from "../timesheets-fixtures";
 
 /**
@@ -22,9 +22,9 @@ test.afterAll(async () => {
 
 test("quick-logs project time from the sticky bar and submits the week", async ({ page }) => {
   await signIn(page, "HSE", { to: "/timesheets" });
-  const bar = page.getByTestId("timesheet-sticky-actions");
+  const bar = mainRegion(page).getByTestId("timesheet-sticky-actions");
   await expect(bar).toBeVisible();
-  await expect(page.getByTestId("timesheet-grid")).toBeHidden();
+  await expect(mainRegion(page).getByTestId("timesheet-grid")).toBeHidden();
 
   await bar.getByRole("button", { name: "Log time" }).click();
   const sheet = page.getByRole("dialog", { name: "Log time" });
@@ -34,14 +34,14 @@ test("quick-logs project time from the sticky bar and submits the week", async (
   await sheet.getByRole("button", { name: "Log time" }).click();
   await expect(page.getByText("4h logged", { exact: true })).toBeVisible();
 
-  const todayCard = page.getByTestId("timesheet-day").filter({ hasText: "Today" });
+  const todayCard = mainRegion(page).getByTestId("timesheet-day").filter({ hasText: "Today" });
   await expect(todayCard).toContainText("Riverside Residences");
   await expect(todayCard).toContainText("4h");
   await expect(bar).toContainText("4h");
 
   await bar.getByRole("button", { name: "Submit" }).click();
   await page.getByRole("dialog", { name: "Submit a short week?" }).getByRole("button", { name: "Submit anyway" }).click();
-  await expect(page.getByTestId("timesheet-status")).toHaveText("Submitted");
+  await expect(mainRegion(page).getByTestId("timesheet-status")).toHaveText("Submitted");
   await expect(bar).toBeHidden();
 
   const hse = await memberId("hse@nesto.test");

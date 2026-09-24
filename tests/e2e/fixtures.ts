@@ -65,7 +65,33 @@ export type DemoRole = keyof typeof DEMO_USERNAME;
  * company's modules, and the Group workspace has its own
  * (`workspace-context.spec.ts`).
  */
+/**
+ * Streaming leaves a hidden copy behind (ADR 0012). When React client-renders
+ * a boundary whose content has already streamed in, the server's copy stays in
+ * a hidden `div#S:n` at the end of `<body>` until React's reveal script removes
+ * it, up to a few hundred milliseconds later. Nobody can see it, but a test-id,
+ * CSS or text locator finds the element twice and strict mode refuses.
+ *
+ * The copy is an orphan once its boundary's `B:n` placeholder is gone, and the
+ * reveal script would only delete it, so the specs delete it at once. A
+ * segment still waiting for its reveal keeps its placeholder and is left alone.
+ */
+export async function dropOrphanedStreamSegments(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __nestoOrphanSweep?: boolean };
+    if (w.__nestoOrphanSweep) return;
+    w.__nestoOrphanSweep = true;
+    const sweep = () => {
+      for (const segment of Array.from(document.querySelectorAll<HTMLElement>('div[hidden][id^="S:"]'))) {
+        if (!document.getElementById(`B:${segment.id.slice(2)}`)) segment.remove();
+      }
+    };
+    new MutationObserver(sweep).observe(document, { subtree: true, childList: true });
+  });
+}
+
 export async function signIn(page: Page, role: DemoRole, options: { to?: string; company?: string; workspace?: "GROUP" } = {}) {
+  await dropOrphanedStreamSegments(page);
   if (options.company) {
     await signIn(page, role);
     await switchCompany(page, options.company);

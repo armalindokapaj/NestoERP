@@ -43,10 +43,11 @@ test("My Work clears recent work only after confirmation, and keeps favorites", 
   await db.recentItem.upsert({ where: { memberId_entityType_entityId: { memberId: engineer, entityType: "task", entityId: "task_006" } }, create: { companyId: "company_demo_a", memberId: engineer, entityType: "task", entityId: "task_006", lastAccessedAt: new Date() }, update: {} });
   const favorites = await db.userFavorite.count({ where: { memberId: engineer } });
   await signIn(page, "ENGINEER", { to: "/my-work?tab=recent" });
-  await page.getByTestId("clear-recent-work").click();
+  // Scoped: the page streams in behind its loading boundary, briefly in two copies (NAV-01).
+  await mainRegion(page).getByTestId("clear-recent-work").click();
   const confirm = page.getByRole("dialog", { name: "Clear recent work?" });
   await confirm.getByRole("button", { name: "Clear recent work" }).click();
-  await expect(page.getByTestId("recent-row")).toHaveCount(0);
+  await expect(mainRegion(page).getByTestId("recent-row")).toHaveCount(0);
   expect(await db.recentItem.count({ where: { memberId: engineer } })).toBe(0);
   expect(await db.userFavorite.count({ where: { memberId: engineer } })).toBe(favorites);
   // The old favorites page lands here (§49, §50).

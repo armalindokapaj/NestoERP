@@ -28,7 +28,7 @@ test.afterAll(async () => {
 /** Readers see announcements in the Activity Center (Activity Center §4, §164); writers manage them on /announcements?tab=manage. */
 const READER = "/activity?type=announcements";
 const MANAGE = "/announcements?tab=manage";
-const card = (page: Page, title: string) => page.getByTestId("activity-row").filter({ hasText: title });
+const card = (page: Page, title: string) => mainRegion(page).getByTestId("activity-row").filter({ hasText: title });
 const open = (page: Page, title: string) => card(page, title).getByRole("button").first().click();
 
 /** Another person, in a browser context of their own. */
@@ -112,7 +112,7 @@ test("the Project Manager announces to Riverside; its people see it and others d
   await expect(card(engineer, "Concrete pour on Block C tomorrow")).toBeVisible();
   await engineer.close();
   const inventory = await as(browser, "INVENTORY", READER);
-  await expect(inventory.getByTestId("activity-filters")).toBeVisible();
+  await expect(mainRegion(inventory).getByTestId("activity-filters")).toBeVisible();
   await expect(card(inventory, "Concrete pour on Block C tomorrow")).toHaveCount(0);
   await inventory.goto(url);
   await expect(inventory.getByText("404")).toBeVisible();

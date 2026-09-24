@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Crumb } from "@/components/ui/breadcrumbs";
 
@@ -13,7 +14,7 @@ import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
  * A task outside the caller's scope is a 404, not a 403, so the page itself
  * cannot be used to discover that it exists (PRD #11 §120).
  */
-export async function loadTask(
+export const loadTask = cache(async function loadTask(
   taskId: string,
 ): Promise<{ context: UserContext; task: TaskDetailDTO }> {
   const context = await requireModule("tasks");
@@ -24,7 +25,7 @@ export async function loadTask(
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   }
-}
+});
 
 /** Canonical breadcrumb trail: the task always lives under /tasks (PRD #11 §56, §172). */
 export function taskBreadcrumbs(task: TaskDetailDTO, trailing?: string): Crumb[] {

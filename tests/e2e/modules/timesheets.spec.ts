@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { db } from "../db";
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 import { memberId, resetTimesheets, TIMESHEET_SEED } from "../timesheets-fixtures";
 
 /**
@@ -24,7 +24,7 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-const week = (page: Page) => page.getByTestId("timesheet-week");
+const week = (page: Page) => mainRegion(page).getByTestId("timesheet-week");
 
 test("an engineer logs project, task and internal time, and submits the week (§261)", async ({ page }) => {
   await signIn(page, "ENGINEER", { to: "/timesheets" });
@@ -48,7 +48,7 @@ test("an engineer logs project, task and internal time, and submits the week (§
   await expect(page.getByText("3h 30m logged", { exact: true })).toBeVisible();
 
   // Internal time, straight into the grid.
-  const grid = page.getByTestId("timesheet-grid");
+  const grid = mainRegion(page).getByTestId("timesheet-grid");
   await grid.getByRole("button", { name: "Add row" }).click();
   await grid.getByLabel("Row work type").selectOption("INTERNAL");
   await grid.getByRole("button", { name: "Add row" }).click();
@@ -65,7 +65,7 @@ test("an engineer logs project, task and internal time, and submits the week (§
   await expect(confirm).toContainText("You logged 7h of the expected");
   await confirm.getByRole("button", { name: "Submit anyway" }).click();
   await expect(week(page).getByTestId("timesheet-status")).toHaveText("Submitted");
-  await expect(page.getByTestId("timesheet-banner")).toContainText("Submitted to Alex Morgan");
+  await expect(mainRegion(page).getByTestId("timesheet-banner")).toContainText("Submitted to Alex Morgan");
   await expect(grid.locator(`[data-cell="INTERNAL||@${today()}"]`)).toHaveCount(0);
 
   const engineer = await memberId("engineer@nesto.test");
@@ -93,16 +93,16 @@ test("the approver returns a week with a reason; the engineer corrects and resub
   const seeded = await db.timesheet.findUniqueOrThrow({ where: { id: TIMESHEET_SEED.engineerSubmitted } });
   const periodStart = seeded.periodStart.toISOString().slice(0, 10);
   await signIn(engineer, "ENGINEER", { to: `/timesheets?week=${periodStart}` });
-  await expect(engineer.getByTestId("timesheet-banner")).toContainText("Thursday's admin hour looks short");
+  await expect(mainRegion(engineer).getByTestId("timesheet-banner")).toContainText("Thursday's admin hour looks short");
   const thursday = new Date(`${periodStart}T12:00:00Z`);
   thursday.setUTCDate(thursday.getUTCDate() + 3);
-  const cell = engineer.getByTestId("timesheet-grid").locator(`[data-cell="ADMIN||@${thursday.toISOString().slice(0, 10)}"]`);
+  const cell = mainRegion(engineer).getByTestId("timesheet-grid").locator(`[data-cell="ADMIN||@${thursday.toISOString().slice(0, 10)}"]`);
   await expect(cell).toHaveValue("1");
   await cell.fill("1.5");
   await cell.press("Enter");
-  await expect(engineer.getByTestId("save-indicator")).toHaveText("Saved");
-  await engineer.getByTestId("timesheet-week").getByRole("button", { name: "Resubmit week" }).click();
-  await expect(engineer.getByTestId("timesheet-week").getByTestId("timesheet-status")).toHaveText("Submitted");
+  await expect(mainRegion(engineer).getByTestId("save-indicator")).toHaveText("Saved");
+  await week(engineer).getByRole("button", { name: "Resubmit week" }).click();
+  await expect(week(engineer).getByTestId("timesheet-status")).toHaveText("Submitted");
   await engineerContext.close();
 
   // A new cycle, decided by the approver.
@@ -127,9 +127,9 @@ test("a project manager reads their projects' hours, and another project is not 
   await project.selectOption({ label: "A-PRJ-001 · Riverside Residences" });
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page).toHaveURL(/projectId=project_a/);
-  await expect(page.getByTestId("project-total")).not.toHaveText("0h");
-  await expect(page.getByTestId("by-member")).toContainText("Anna Rossi");
+  await expect(mainRegion(page).getByTestId("project-total")).not.toHaveText("0h");
+  await expect(mainRegion(page).getByTestId("by-member")).toContainText("Anna Rossi");
 
   await page.goto("/timesheets/projects?projectId=project_c");
-  await expect(page.getByText("404")).toBeVisible();
+  await expect(mainRegion(page).getByText("404")).toBeVisible();
 });

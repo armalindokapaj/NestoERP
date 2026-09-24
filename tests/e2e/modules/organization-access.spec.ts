@@ -58,14 +58,14 @@ test("Group IT checks why somebody can or cannot do something, and reads roles b
   await form.getByRole("textbox", { name: /Permission/ }).fill("project.view");
   await form.getByRole("button", { name: "Check" }).click();
 
-  const diagnosis = page.getByTestId("access-diagnosis");
+  const diagnosis = mainRegion(page).getByTestId("access-diagnosis");
   await expect(diagnosis).toContainText("Alex Morgan in Meridian Developments");
   await expect(diagnosis.getByRole("list", { name: "Blockers" })).toContainText("no membership in Meridian Developments");
-  await expect(page.getByTestId("permission-answer")).toContainText("Not held");
+  await expect(mainRegion(page).getByTestId("permission-answer")).toContainText("Not held");
 
   await form.getByRole("combobox", { name: "Company" }).selectOption({ label: "Aurelia Construction" });
   await form.getByRole("button", { name: "Check" }).click();
-  await expect(page.getByTestId("permission-answer")).toContainText("Held.");
+  await expect(mainRegion(page).getByTestId("permission-answer")).toContainText("Held.");
   await expect(diagnosis.getByRole("table", { name: "Module access" })).toContainText("Projects");
 
   await mainRegion(page).getByRole("link", { name: "Roles", exact: true }).click();

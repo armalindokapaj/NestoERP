@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { AMENDMENT_COMPANY, CHAIN, createPendingAmendment, createPendingExpense, removeAmendments, removeExpenses, resetChainFixture } from "../approvals-fixtures";
 import { db } from "../db";
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 
 /**
  * The Unified Approvals Center, desktop (PRD #41 §279-§281).
@@ -27,8 +27,8 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-const center = (page: Page) => page.getByTestId("approvals-center");
-const row = (page: Page, id: string) => page.locator(`[data-approval="${id}"]`);
+const center = (page: Page) => mainRegion(page).getByTestId("approvals-center");
+const row = (page: Page, id: string) => mainRegion(page).locator(`[data-approval="${id}"]`);
 const detail = (page: Page) => page.getByTestId("approval-detail");
 
 test("an executive reviews a high-value purchase order, its quote and history, and approves the final step (§279)", async ({ page }) => {

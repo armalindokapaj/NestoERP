@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { db, removeTestDocuments } from "../db";
-import { signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 
 /**
  * Mobile browser behaviour (PRD #9 §182, §184; PRD #3 §6, §21–§28).
@@ -201,7 +201,7 @@ test.describe("mobile inspection execution (PRD #21 §440)", () => {
     // INS-2026-0008 is under way, so its checklist is editable.
     await page.goto("/qaqc/inspections/ins_008/execute");
 
-    const first = page.locator("#answer-0");
+    const first = mainRegion(page).locator("#answer-0");
     await expect(first).toBeVisible();
     await first.selectOption("PASS");
 
@@ -210,7 +210,7 @@ test.describe("mobile inspection execution (PRD #21 §440)", () => {
 
   test("keeps the checklist inside the viewport", async ({ page }) => {
     await page.goto("/qaqc/inspections/ins_008/execute");
-    await expect(page.locator("#answer-0")).toBeVisible();
+    await expect(mainRegion(page).locator("#answer-0")).toBeVisible();
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -289,7 +289,7 @@ test.describe("mobile HSE (PRD #22 §334)", () => {
     // HSE-INS-2026-0010 is under way, so its checklist is editable.
     await page.goto("/hse/inspections/hse_ins_010/execute");
 
-    const first = page.locator("#answer-0");
+    const first = mainRegion(page).locator("#answer-0");
     await expect(first).toBeVisible();
     await first.selectOption("PASS");
 
@@ -298,7 +298,7 @@ test.describe("mobile HSE (PRD #22 §334)", () => {
 
   test("keeps the safety checklist inside the viewport", async ({ page }) => {
     await page.goto("/hse/inspections/hse_ins_010/execute");
-    await expect(page.locator("#answer-0")).toBeVisible();
+    await expect(mainRegion(page).locator("#answer-0")).toBeVisible();
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

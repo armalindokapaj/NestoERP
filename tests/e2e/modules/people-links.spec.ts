@@ -177,6 +177,10 @@ test("a selected candidate waits for her account: hidden from colleagues, provis
   await signInArmaar(page, "bci.pm", "/dashboard");
   const response = await page.goto("/people/person_armaar_selected_kejsi");
   expect(response?.status()).toBe(404);
+  // A hard-loaded refusal answers 404 before the shell streams, so its page is the standalone
+  // not-found screen (NAV-01 §2.1); the way back is its own link.
+  await page.getByRole("link", { name: "Return to Dashboard" }).click();
+  await page.waitForURL(/\/dashboard/);
   await signOut(page);
 
   await signInArmaar(page, "armaar.it", "/people/person_armaar_selected_kejsi?tab=access");

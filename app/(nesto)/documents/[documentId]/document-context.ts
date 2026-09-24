@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Crumb } from "@/components/ui/breadcrumbs";
 
@@ -13,7 +14,7 @@ import type { DocumentDetailDTO } from "@/lib/modules/documents/document.types";
  * A document whose parent this caller cannot reach is a 404, not a 403, so the
  * page itself cannot be used to discover that the file exists (PRD #13 §149).
  */
-export async function loadDocument(
+export const loadDocument = cache(async function loadDocument(
   documentId: string,
 ): Promise<{ context: UserContext; document: DocumentDetailDTO }> {
   const context = await requireModule("documents");
@@ -24,7 +25,7 @@ export async function loadDocument(
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   }
-}
+});
 
 export function documentBreadcrumbs(document: DocumentDetailDTO, trailing?: string): Crumb[] {
   const crumbs: Crumb[] = [

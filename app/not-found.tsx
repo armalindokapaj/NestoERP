@@ -1,10 +1,15 @@
-import Link from "next/link";
-
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { Button } from "@/components/ui/button";
 import { getTranslations } from "@/lib/i18n/server";
 
-/** 404 page (spec §57). */
+/**
+ * 404 page (spec §57).
+ *
+ * Also the answer to a record refused before the shell streams (NAV-01 §2.1),
+ * which Next draws from its error payload. A soft navigation out of that
+ * payload changes the URL but keeps this screen, so the links here are plain
+ * document navigations.
+ */
 export default async function NotFound() {
   const t = await getTranslations("system");
 
@@ -16,10 +21,11 @@ export default async function NotFound() {
       <p className="mt-2 max-w-sm text-body text-fg-muted">{t("notFound.description")}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
         <Button asChild>
-          <Link href="/dashboard">{t("returnToDashboard")}</Link>
+          <a href="/dashboard">{t("returnToDashboard")}</a>
         </Button>
         <Button asChild variant="secondary">
-          <Link href="/">{t("notFound.home")}</Link>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a document navigation on purpose, see above */}
+          <a href="/">{t("notFound.home")}</a>
         </Button>
       </div>
     </div>
