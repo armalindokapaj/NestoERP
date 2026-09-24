@@ -4,13 +4,21 @@ import * as React from "react";
 import NextLink, { useLinkStatus } from "next/link";
 
 import { useNavigationFeedback, usePendingDestination } from "@/components/navigation/navigation-feedback";
+import { useIntentScheduler } from "@/components/navigation/intent-prefetch";
 import type { NavigationSource, NavigationTicket } from "@/lib/navigation/feedback-store";
+import { intentRoute } from "@/lib/navigation/intent-prefetch";
 
 type NextLinkProps = React.ComponentProps<typeof NextLink>;
 
 export type NavLinkProps = NextLinkProps & {
   /** Where the click came from, for the shell's feedback and its measurements. */
   navSource?: NavigationSource;
+  /**
+   * Join the route-intent policy (NAV-03 PREFETCH-01): for one of the five
+   * approved destinations, automatic prefetch is off and a deliberate hover
+   * or focus asks the tab's scheduler instead. Anything else is unchanged.
+   */
+  intent?: boolean;
 };
 
 function hrefString(href: NextLinkProps["href"]): string {
@@ -47,15 +55,40 @@ function LinkStatusReporter({ ticket }: { ticket: React.RefObject<NavigationTick
  * While pending the anchor carries `data-nav-pending`, which the shell's CSS
  * marks without relying on colour alone.
  */
-export default function Link({ navSource = "record", onNavigate, children, ...props }: NavLinkProps) {
+export default function Link({ navSource = "record", onNavigate, intent = false, children, ...props }: NavLinkProps) {
   const feedback = useNavigationFeedback();
+  const scheduler = useIntentScheduler();
   const ticket = React.useRef<NavigationTicket | null>(null);
   const href = hrefString(props.href);
   const pending = usePendingDestination(href);
+  const route = intent && scheduler && !props.target && !props.download ? intentRoute(href) : null;
+  const intentHandlers = route
+    ? {
+        prefetch: false as const,
+        onPointerEnter: (event: React.PointerEvent<HTMLAnchorElement>) => {
+          props.onPointerEnter?.(event);
+          // Touch contact is not intent; a tap navigates at once (PREFETCH-03).
+          if (event.pointerType === "mouse") scheduler!.intent(route, "hover");
+        },
+        onPointerLeave: (event: React.PointerEvent<HTMLAnchorElement>) => {
+          props.onPointerLeave?.(event);
+          scheduler!.leave(route);
+        },
+        onFocus: (event: React.FocusEvent<HTMLAnchorElement>) => {
+          props.onFocus?.(event);
+          scheduler!.intent(route, "focus");
+        },
+        onBlur: (event: React.FocusEvent<HTMLAnchorElement>) => {
+          props.onBlur?.(event);
+          scheduler!.leave(route);
+        },
+      }
+    : {};
 
   return (
     <NextLink
       {...props}
+      {...intentHandlers}
       data-nav-pending={pending || undefined}
       onNavigate={(event) => {
         // The event only offers preventDefault; a caller that used it cancelled the navigation.

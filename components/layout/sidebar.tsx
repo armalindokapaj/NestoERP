@@ -26,7 +26,8 @@ export async function Sidebar({ navigation }: { navigation: NavigationGroup[] })
   return (
     <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-line bg-sidebar transition-[width] lg:flex">
       <div className="flex h-16 shrink-0 items-center justify-center px-3 xl:justify-start xl:px-5">
-        <Link href="/dashboard" aria-label={t("dashboardLink")} className="min-w-0">
+        {/* Dashboard is an approved destination: prepared on intent, like its sidebar item (NAV-03 §7). */}
+        <Link href="/dashboard" intent aria-label={t("dashboardLink")} className="min-w-0">
           <span className="nesto-rail-only">
             <NestoLogo showWordmark={false} />
           </span>

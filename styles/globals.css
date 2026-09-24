@@ -470,3 +470,8 @@
     transform: translateY(10px);
   }
 }
+
+/* A page restored from history stays covered until it is reloaded (NAV-03 PREFETCH-06). */
+html[data-nesto-covered] body {
+  visibility: hidden;
+}

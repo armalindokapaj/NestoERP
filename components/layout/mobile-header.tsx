@@ -23,7 +23,8 @@ export async function MobileHeader({
   return (
     <div className="flex items-center gap-1 lg:hidden">
       <MobileNav navigation={navigation} companyName={companyName} />
-      <Link href="/dashboard" aria-label={t("dashboardLink")}>
+      {/* Dashboard is an approved destination: prepared on intent, like its sidebar item (NAV-03 §7). */}
+      <Link href="/dashboard" intent aria-label={t("dashboardLink")}>
         <NestoLogo />
       </Link>
     </div>
