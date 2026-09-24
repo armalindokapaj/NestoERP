@@ -49,6 +49,15 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
 
   /**
+   * On Vercel the build compiles only. Linting and type-checking the whole
+   * repository after Turbopack's compile ran the 8 GB build machine out of
+   * memory (a1cae587, `out_of_memory`), and CI already runs `pnpm lint` and
+   * `pnpm typecheck` as their own steps. Local builds still check both.
+   */
+  eslint: { ignoreDuringBuilds: process.env.VERCEL === "1" },
+  typescript: { ignoreBuildErrors: process.env.VERCEL === "1" },
+
+  /**
    * `/legal` is the same module as `/contracts` (PRD #18 §8).
    *
    * Older shell configuration used `/legal` as the route for this module. It
