@@ -96,6 +96,7 @@ const CONTEXT_RESOLVERS = new Set([
  */
 const PUBLIC_ACTIONS: Record<string, string> = {
   "lib/actions/auth.ts#signInAction": "credentials + throttling (PRD #6, #38 M1)",
+  "lib/actions/auth.ts#endSessionAction": "ends the caller's own session",
   "lib/actions/auth.ts#signOutAction": "ends the caller's own session",
   "lib/actions/auth.ts#requestPasswordResetAction": "identical answer for every email, throttled",
   "lib/actions/auth.ts#resetPasswordAction": "single-use reset token",

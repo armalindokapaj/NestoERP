@@ -55,6 +55,8 @@ export const en = {
     settings: "Settings",
     logout: "Logout",
     signingOut: "Signing out…",
+    myProfile: "My profile",
+    logoutFailed: "You couldn't be logged out. Try again.",
     loadingPage: "Loading page…",
     slowNavigation: "This is taking longer than expected.",
     pageErrorTitle: "This page couldn't be loaded.",

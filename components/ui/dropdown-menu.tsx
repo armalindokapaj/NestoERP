@@ -30,14 +30,20 @@ export function DropdownMenuContent({
 
 export function DropdownMenuItem({
   className,
+  variant = "default",
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Item>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
+  /** Destructive: red text and icon before any hover, a red-tinted highlight. */
+  variant?: "default" | "destructive";
+}) {
   return (
     <DropdownMenuPrimitive.Item
+      data-variant={variant}
       className={cn(
         "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-2 text-body text-fg outline-none",
         "focus:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-muted",
+        variant === "destructive" && "text-danger-strong focus:bg-danger-soft [&_svg]:text-danger-strong",
         className,
       )}
       {...props}

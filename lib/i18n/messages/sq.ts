@@ -45,6 +45,8 @@ export const sq: Messages = {
     settings: "Cilësimet",
     logout: "Dil",
     signingOut: "Duke dalë…",
+    myProfile: "Profili im",
+    logoutFailed: "Dalja nuk u krye. Provoni përsëri.",
     loadingPage: "Duke ngarkuar faqen…",
     slowNavigation: "Kjo po zgjat më shumë se zakonisht.",
     pageErrorTitle: "Kjo faqe nuk u ngarkua dot.",

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "@/components/navigation/nav-link";
-import { useTransition } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { resetUserScopedClientState } from "@/components/layout/user-scoped-state";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -13,10 +14,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signOutAction } from "@/lib/actions/auth";
-import { clearActivityCache } from "@/lib/activity/client";
-import { clearSearchHomeCache } from "@/lib/productivity/client";
-import { fullName } from "@/lib/utils/format";
+import { useToast } from "@/components/ui/toast";
+import { endSessionAction } from "@/lib/actions/auth";
+import { fullName, roleAndCompany } from "@/lib/utils/format";
 
 /**
  * The serialisable slice of the user context the menu needs. The full context
@@ -27,81 +27,135 @@ export type UserMenuUser = {
   lastName: string;
   avatarUrl: string | null;
   roleLabel: string;
+  /** The active workspace's name: the company, or the group in the Group workspace. */
   companyName: string;
 };
 
 /**
- * Top-bar user menu (PRD #3 §20): name, role and company are always visible,
- * then Settings and Logout.
+ * Menu items swallow the global focus outline, and `:focus-visible` cannot
+ * bring it back: Radix focuses the row under the pointer, so it would ring on
+ * every hover. The menu records whether it is driven by keys, and only then
+ * draws the ring inside the highlighted row (Profile Menu §24, §34, §35).
+ * `outline-solid` is needed: `outline-none` also empties the style variable
+ * that `outline-2` reads.
+ */
+const keyboardFocus =
+  "group-data-[input=keyboard]/menu:focus:outline-solid group-data-[input=keyboard]/menu:focus:outline-2 group-data-[input=keyboard]/menu:focus:-outline-offset-2";
+
+/**
+ * Top-bar account menu (PRD #3 §20, Profile Menu PRD §2).
+ *
+ * Person-focused, never a workspace switcher (§49, §50): the header is who is
+ * signed in — name, then `Role · Company` — and opens their own Profile; then
+ * Settings; then Logout, red before any hover. Everything shown comes from the
+ * server-rendered context, so opening the menu fetches nothing (§73, §77), and
+ * a workspace change or a demo-user switch re-renders it with the new identity.
  */
 export function UserMenu({ user }: { user: UserMenuUser }) {
-  const [isPending, startTransition] = useTransition();
   const t = useTranslations("shell");
+  const toast = useToast();
+  const [signingOut, setSigningOut] = useState(false);
+  const [input, setInput] = useState<"keyboard" | "pointer">("pointer");
+  const leaving = useRef(false);
+
+  const name = fullName(user.firstName, user.lastName);
+  const context = roleAndCompany(user.roleLabel, user.companyName);
+
+  async function logout() {
+    if (leaving.current) return;
+    leaving.current = true;
+    setSigningOut(true);
+
+    const result = await endSessionAction().catch(() => ({ ok: false }) as const);
+    if (!result.ok) {
+      leaving.current = false;
+      setSigningOut(false);
+      toast({ title: t("logoutFailed"), tone: "danger" });
+      return;
+    }
+
+    // A full load, not a client navigation, and the row stays busy until it
+    // lands: nothing of this person's pages or caches comes along (§39, §44).
+    resetUserScopedClientState();
+    window.location.replace("/login");
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className="flex items-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover"
         aria-label={t("openUserMenu")}
+        onKeyDown={() => setInput("keyboard")}
+        onPointerDown={() => setInput("pointer")}
       >
         <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatarUrl} size="md" />
         <span className="hidden min-w-0 text-left lg:block">
-          <span className="block truncate text-table font-medium leading-tight text-fg">
-            {fullName(user.firstName, user.lastName)}
-          </span>
-          <span className="block truncate text-micro leading-tight text-fg-muted">
-            {user.roleLabel}
-          </span>
+          <span className="block truncate text-table font-medium leading-tight text-fg">{name}</span>
+          <span className="block truncate text-micro leading-tight text-fg-muted">{user.roleLabel}</span>
         </span>
         <ChevronDown className="size-3.5 shrink-0 text-fg-subtle" />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="min-w-64">
-        <div className="px-2.5 py-2">
-          <p className="truncate text-body font-semibold text-fg">
-            {fullName(user.firstName, user.lastName)}
-          </p>
-          <p className="truncate text-table text-fg-muted">{user.roleLabel}</p>
-          <p className="truncate text-table text-fg-subtle">{user.companyName}</p>
-        </div>
+      <DropdownMenuContent
+        align="end"
+        className="group/menu w-80 max-w-[calc(100vw-2rem)]"
+        data-testid="user-menu"
+        data-input={input}
+        onKeyDown={() => setInput("keyboard")}
+        onPointerMove={() => setInput("pointer")}
+      >
+        {/*
+         * The whole identity block is one link to the signed-in person's own
+         * Profile (§9-§11, §25). /settings/profile reads the session, never a
+         * parameter, so it cannot open anyone else. Two lines, not three (§4, §6).
+         */}
+        <DropdownMenuItem asChild className={`gap-3 py-2.5 ${keyboardFocus} focus:outline-ring`}>
+          <Link href="/settings/profile" data-testid="user-menu-profile">
+            <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatarUrl} size="md" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-card font-semibold leading-snug text-fg" title={name} data-testid="user-menu-name">
+                {name}
+              </span>
+              {context ? (
+                <span className="block truncate text-table text-fg-muted" title={context} data-testid="user-menu-context">
+                  {context}
+                </span>
+              ) : null}
+              <span className="sr-only">{t("myProfile")}</span>
+            </span>
+          </Link>
+        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
         {/*
          * Offered to everyone, not just roles with Settings module access
-         * (PRD #5 §39). Profile and Appearance are personal — they belong to
-         * the person rather than the company — and /settings lists exactly the
-         * sections the reader may open, so a role with no company settings
-         * still lands on a page with something on it. Gating this link on the
-         * module was how twelve of the sixteen roles ended up with no way to
-         * reach their own theme preferences.
-         *
-         * There is no separate Profile entry: Profile is the first card on
-         * /settings, so a second way to the same page only lengthened the menu.
+         * (PRD #5 §39): /settings lists exactly the sections the reader may
+         * open, and Appearance is personal, so every role lands on a page with
+         * something on it. Gating this link on the module was how twelve of
+         * the sixteen roles ended up with no way to reach their own theme.
          */}
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem asChild className={`${keyboardFocus} focus:outline-ring`}>
           <Link href="/settings">
-            <Settings />
+            <Settings aria-hidden="true" />
             {t("settings")}
           </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
+        {/* Red by default, not only on hover; the icon and label say it too (§31-§38, §66). */}
         <DropdownMenuItem
-          disabled={isPending}
+          variant="destructive"
+          className={`${keyboardFocus} focus:outline-danger-strong`}
+          disabled={signingOut}
           onSelect={(event) => {
             event.preventDefault();
-            // Nothing personal outlives the session in this browser (Fast Re-entry §87).
-            clearSearchHomeCache();
-            clearActivityCache();
-            startTransition(() => {
-              void signOutAction();
-            });
+            void logout();
           }}
         >
-          <LogOut />
-          {isPending ? t("signingOut") : t("logout")}
+          <LogOut aria-hidden="true" />
+          {signingOut ? t("signingOut") : t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

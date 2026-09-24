@@ -1,13 +1,12 @@
 "use client";
 
-import { clearActivityCache } from "@/lib/activity/client";
-import { clearSearchHomeCache } from "@/lib/productivity/client";
 import { useMemo, useState, useTransition } from "react";
 import { Check, FlaskConical, Loader2, TriangleAlert } from "lucide-react";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SearchField } from "@/components/ui/search-field";
 import { switchDemoUserAction, type DemoUserSwitchResult } from "@/lib/actions/demo";
+import { resetUserScopedClientState } from "@/components/layout/user-scoped-state";
 import type { DemoAccountOption, DemoRosterOption } from "@/lib/auth/demo-tenants";
 import { cn } from "@/lib/utils/cn";
 
@@ -78,8 +77,7 @@ export function DevUserSwitcherDialog({ rosters, currentUsername }: { rosters: D
         // A full load, not a client navigation: nothing of the previous user's
         // pages, cache or state comes along (§47-§49). The row stays busy until
         // it lands. A switch that failed after signing out lands on sign-in (§46).
-        clearSearchHomeCache();
-        clearActivityCache();
+        resetUserScopedClientState();
         window.location.assign(result.landing);
         return;
       }
