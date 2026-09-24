@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 
-import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { MobileHeader } from "@/components/layout/mobile-header";
@@ -8,7 +7,6 @@ import { ActivityBell } from "@/components/layout/activity-bell";
 import { QuickCreate } from "@/components/layout/quick-create";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
-import { WorkspaceSlot } from "@/components/layout/shell-slots";
 import type { NavigationGroup } from "@/config/navigation";
 import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
@@ -18,10 +16,12 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
 /**
  * Universal top bar (PRD #3 §16, §76). Identical for every role.
  *
- * 56px on mobile, 64px from tablet up. It carries search, notifications and
- * the user menu (PRD #3 §17) and no page title: every page already names
- * itself in its own PageHeader directly below, so a module name up here only
- * said the same thing twice.
+ * 56px on mobile, 64px from tablet up. It carries search, + Create, Activity
+ * and the profile (PRD #3 §17; OW §19, §108) and no page title: every page
+ * already names itself in its own PageHeader directly below, so a module name
+ * up here only said the same thing twice. The organization and the workspace
+ * are not here either: they lead the sidebar, where the workspace is switched
+ * (OW §2, §19), and a demonstration tenant says so at the sidebar's foot.
  *
  * Two zones. Search leads the left one, straight after the navigation
  * controls, and the left zone takes all the leftover width while the account
@@ -40,23 +40,23 @@ export async function Topbar({
   core: ShellCoreDTO;
 }) {
   const t = await getTranslations("roles");
-  // The workspace names itself: the group above, or the company (Workspace Context §10).
+  // The profile names the workspace beside the role, and switches nothing (OW §43, §66).
   const workspaceName = context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name;
 
   return (
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
     // element the box that `position: fixed` children are placed in, which pinned the phone's
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line px-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-surface/85 before:backdrop-blur-md md:h-16 md:px-6 xl:px-8">
+    <header data-shell-region className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line px-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-surface/85 before:backdrop-blur-md md:h-16 md:px-6 xl:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <MobileHeader navigation={navigation} companyName={workspaceName} />
+        <MobileHeader navigation={navigation} isDemo={context.parentGroup.isDemo} />
 
         {/* The navigation collapse control sits out here rather than in the
-            sidebar: the rail header has one slot and the mark already owns it
-            (PRD #3 §14). */}
+            sidebar: the rail header has one slot and the organization's mark
+            already owns it (PRD #3 §14, OW §47). */}
         <SidebarToggle />
 
-        {/* Up to 420px. The margin separates it from the wordmark at tablet
+        {/* Up to 420px. The margin separates it from the mark at tablet
             width; from lg nothing precedes it but the toggle, whose own
             padding already does that, so it lines up with the page gutter. */}
         <div className="ml-auto min-w-0 md:ml-2 md:w-full md:max-w-[420px] lg:ml-0">
@@ -72,21 +72,6 @@ export async function Topbar({
             <DevUserSwitcher />
           </Suspense>
         ) : null}
-        {/* A demonstration tenant says so on every page (D-01 §68, §69). */}
-        {context.parentGroup.isDemo ? (
-          <span
-            title={DEMO_DISCLAIMER}
-            aria-label={DEMO_DISCLAIMER}
-            data-testid="demo-notice"
-            className="hidden shrink-0 rounded-full border border-line px-2.5 py-0.5 text-meta font-medium text-fg-muted sm:inline-flex"
-          >
-            Demo data
-          </span>
-        ) : null}
-        {/* The group and the companies this person may work in (Workspace Context
-            §5, §9). The verified workspace's name holds the place while the
-            chooser streams in; it never holds up the page (NAV-02 SHELL-02). */}
-        <WorkspaceSlot />
         {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). */}
         {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150).
             The button comes from the shell's summary; the menu loads only when opened (NAV-01 QC-01). */}

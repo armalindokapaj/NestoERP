@@ -48,6 +48,8 @@ export default async function GroupImplementationPage({ params }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2"><GroupImplementationActions implementation={implementation} />
+          {/* The tenant's mark in its sidebar (OW §12, §44); the group's name is its display name. */}
+          {group.status !== "ARCHIVED" ? <PlatformCommandButton label="Branding" title={`${group.name} branding`} description="The logo leads the tenant's sidebar, beside the group's name. Without one, the group's initials stand in." action="group.branding" fixed={{ groupId: group.id }} fields={[{ name: "logoUrl", label: "Logo", type: "textarea", hint: "A path on this deployment (/branding/logo.svg) or an inline image (data:image/png;base64,…), shown square at the top of the sidebar. Leave empty for initials." }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={{ logoUrl: group.logoUrl ?? "" }} success="Group branding saved." /> : null}
           <PlatformCommandButton label="Lifecycle" title={`Change ${group.name} lifecycle`} description="Suspension immediately ends tenant sessions. Archiving preserves the tenant as read-only history." action="group.status" fixed={{ groupId: group.id }} fields={[{ name: "status", label: "Status", type: "select", required: true, options: (group.status === "SUSPENDED" ? ["ACTIVE", "ARCHIVED"] : ["SUSPENDED", "ARCHIVED"]).map((value) => ({ value, label: value })) }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={{ status: group.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED" }} destructive success="Group lifecycle changed." />
         </div>
       </div>

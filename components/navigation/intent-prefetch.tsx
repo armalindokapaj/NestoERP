@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import { createIntentScheduler, type IntentRoute, type IntentScheduler } from "@/lib/navigation/intent-prefetch";
-import { isLeavingForWorkspaceSwitch } from "@/lib/workspace/client";
+import { isLeavingForWorkspaceSwitch, isWorkspaceSwitchInPlace } from "@/lib/workspace/client";
 
 /**
  * The tab's one route-intent scheduler (NAV-03 PREFETCH-01): participating
@@ -22,7 +22,7 @@ export function IntentPrefetchProvider({ contextKey, enabled, children }: { cont
   const router = useRouter();
   const feedback = useNavigationFeedback();
   const busyRef = React.useRef<() => boolean>(() => false);
-  busyRef.current = () => Boolean(feedback?.store.getSnapshot().ticket) || isLeavingForWorkspaceSwitch();
+  busyRef.current = () => Boolean(feedback?.store.getSnapshot().ticket) || isLeavingForWorkspaceSwitch() || isWorkspaceSwitchInPlace();
 
   const [scheduler] = React.useState(() =>
     createIntentScheduler({

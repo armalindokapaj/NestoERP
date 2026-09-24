@@ -16,6 +16,7 @@ import { criticalAnnouncementBanner } from "@/lib/modules/announcements/announce
 import type { UserContext } from "@/lib/context/types";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
+import { WorkspaceSwitchProvider } from "@/components/workspace/workspace-switch-provider";
 import { WorkspaceSync } from "@/components/workspace/workspace-sync";
 import { RecordNavigationProvider } from "@/components/navigation/record-navigation-provider";
 import { NavigationFeedbackIndicator, NavigationFeedbackProvider } from "@/components/navigation/navigation-feedback";
@@ -85,7 +86,12 @@ export async function AppShell({
           <IntentPrefetchProvider contextKey={core.contextKey} enabled={process.env.NESTO_INTENT_PREFETCH !== "off"}>
           <ShellSlotsProvider core={core} workspaces={workspaces} banner={banner}>
             <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
-              <Sidebar navigation={navigation} />
+              {/* One workspace switch at a time, in place, from the sidebar header or the drawer (OW §28-§36). */}
+              <WorkspaceSwitchProvider
+                contextKey={core.contextKey}
+                currentName={context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name}
+              >
+              <Sidebar navigation={navigation} isDemo={context.parentGroup.isDemo} />
 
               <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
                 <Topbar context={context} navigation={navigation} core={core} />
@@ -96,7 +102,10 @@ export async function AppShell({
                   id="nesto-main"
                   className="mx-auto w-full max-w-[1600px] px-4 pb-6 md:px-6 md:pb-8 xl:px-8"
                 >
+                  {/* Keyed by the workspace: a switch made in place remounts the page, so
+                      no client state of the old workspace outlives it (OW §33). */}
                   <RecordNavigationProvider
+                    key={workspaceKey(context.workspace)}
                     workspace={{
                       key: workspaceKey(context.workspace),
                       scopeType: context.workspace.scopeType,
@@ -112,6 +121,8 @@ export async function AppShell({
                   </RecordNavigationProvider>
                 </main>
               </div>
+
+              </WorkspaceSwitchProvider>
 
               {/* Development only: never mounted in a production build
                   (PRD #9 §211). Streamed, so its read never holds up the page (SHELL-04). */}

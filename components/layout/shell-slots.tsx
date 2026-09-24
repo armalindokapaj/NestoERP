@@ -2,11 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Layers, LoaderCircle, RotateCw } from "lucide-react";
 
 import { CriticalAnnouncementBanner } from "@/components/announcements/shell";
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import type { CriticalBannerDTO } from "@/lib/modules/announcements/announcement.service";
 import type { GroupEntryCapability, ShellCoreDTO } from "@/lib/workspace/shell-core";
 import type { SlotResult } from "@/lib/workspace/shell-slots";
@@ -187,99 +185,53 @@ export function useGroupEntry(): GroupEntryCapability | null {
   return React.useContext(ShellSlotsContext)?.groupEntry ?? null;
 }
 
-/** Retry appears only once a slot has been unresolved for five seconds (SHELL-05). */
-function useOverdue(active: boolean): boolean {
-  const [overdue, setOverdue] = React.useState(false);
+/** Retry appears only once a slot has been unresolved for five seconds (SHELL-05); each generation starts its own five. */
+function useOverdue(active: boolean, generation: number): boolean {
+  const [overdueFor, setOverdueFor] = React.useState<number | null>(null);
   React.useEffect(() => {
     if (!active) return;
-    const timer = window.setTimeout(() => setOverdue(true), SLOT_RETRY_AFTER_MS);
+    const timer = window.setTimeout(() => setOverdueFor(generation), SLOT_RETRY_AFTER_MS);
     return () => window.clearTimeout(timer);
-  }, [active]);
-  return overdue;
+  }, [active, generation]);
+  return active && overdueFor === generation;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Workspace slot                                                              */
 /* -------------------------------------------------------------------------- */
 
-/**
- * The workspace control's place in the top bar (SHELL-02). For somebody with a
- * choice to make, before the chooser arrives it is the verified workspace's
- * name in a disabled control of the switcher's own size; a failure keeps the
- * label and offers Retry. Somebody with one workspace gets no control at all,
- * as before — the shell core knows which, so nothing appears or vanishes when
- * the chooser lands. Page use never waits for any of it.
- */
-export function WorkspaceSlot() {
-  const { workspaces, core } = useShellSlots();
-  if (!core.workspaceChoice) return null;
-  const result = workspaces.result;
-  // Keyed by generation, so a retry starts its own five seconds before offering Retry again.
-  if (!result) return <WorkspaceLabel key={workspaces.generation} state="pending" />;
-  if (!result.ok) return <WorkspaceLabel state="failed" />;
-  const list = result.data;
-  const total = (list.parentGroup.groupViewAllowed ? 1 : 0) + list.companies.length + list.otherGroups.reduce((sum, group) => sum + group.companies.length, 0);
-  if (total < 2) return <WorkspaceLabel state="single" />;
-  return <WorkspaceSwitcher workspaces={list} />;
+/** The verified shell core: the active workspace, the organization and the context key (OW §57). */
+export function useShellCore(): ShellCoreDTO {
+  return useShellSlots().core;
 }
 
-function WorkspaceLabel({ state }: { state: "pending" | "single" | "failed" }) {
-  const t = useTranslations("workspace");
-  const { core, retry, retrying } = useShellSlots();
-  const inGroup = core.activeWorkspace.scopeType === "GROUP";
-  const name = inGroup ? `${core.activeWorkspace.groupLabel} — ${t("groupWorkspaceName")}` : core.activeWorkspace.label;
-  const overdue = useOverdue(state === "pending");
-  const offerRetry = state === "failed" || (state === "pending" && overdue);
-  const label = state === "pending" ? t("loadingLabel", { name }) : state === "failed" ? t("loadFailedLabel", { name }) : t("staticLabel", { name });
+export type WorkspaceOptionsState =
+  | { status: "pending"; overdue: boolean }
+  | { status: "failed" }
+  | { status: "ready"; workspaces: WorkspacesDTO; total: number };
 
-  const content = (
-    <>
-      {inGroup ? (
-        <Layers aria-hidden="true" className="size-4 shrink-0 text-accent-strong" />
-      ) : (
-        <Building2 aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
-      )}
-      <span className="hidden min-w-0 flex-col leading-tight xl:flex">
-        <span className="max-w-[11rem] truncate text-micro text-fg-subtle">{core.activeWorkspace.groupLabel}</span>
-        <span className="max-w-[11rem] truncate text-table font-medium text-fg">{inGroup ? t("groupWorkspaceName") : core.activeWorkspace.label}</span>
-      </span>
-      {state === "pending" && !overdue ? (
-        <LoaderCircle aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle motion-safe:animate-spin" />
-      ) : (
-        // The chevron's width, kept so the label does not shift; no dropdown is promised.
-        <span aria-hidden="true" className="size-3.5 shrink-0" />
-      )}
-    </>
-  );
-  // The switcher's own box, so nothing moves when it takes this place.
-  const box = "flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left";
+/** How many workspaces the chooser offers: the Group when it may be entered, and every company. */
+export function workspaceTotal(list: WorkspacesDTO): number {
+  return (list.parentGroup.groupViewAllowed ? 1 : 0) + list.companies.length + list.otherGroups.reduce((sum, group) => sum + group.companies.length, 0);
+}
 
-  return (
-    <div className="flex min-w-0 items-center">
-      {state === "single" ? (
-        <div aria-label={label} data-testid="workspace-current" data-scope={core.activeWorkspace.scopeType} className={box}>
-          {content}
-        </div>
-      ) : (
-        <button type="button" disabled aria-label={label} aria-busy={state === "pending" || undefined} data-testid="workspace-slot" data-state={state} data-scope={core.activeWorkspace.scopeType} className={`${box} disabled:cursor-default`}>
-          {content}
-        </button>
-      )}
-      {offerRetry ? (
-        <button
-          type="button"
-          onClick={() => retry("workspaces")}
-          disabled={retrying("workspaces")}
-          aria-label={t("retryLoad")}
-          title={t("retryLoad")}
-          data-testid="workspace-slot-retry"
-          className="grid size-7 shrink-0 place-items-center rounded-md text-fg-muted hover:bg-hover hover:text-fg disabled:opacity-50"
-        >
-          <RotateCw aria-hidden="true" className="size-3.5" />
-        </button>
-      ) : null}
-    </div>
-  );
+/**
+ * The workspace chooser's options (SHELL-02, OW §57-§59). The sidebar header is
+ * drawn from the verified core at once; only its popup waits for this list,
+ * which streams with the shell and is never fetched again to open it. A
+ * failure keeps the current workspace and offers Retry — only after five
+ * seconds for a slot still loading (SHELL-05).
+ */
+export function useWorkspaceOptions(): { state: WorkspaceOptionsState; retry: () => void; retrying: boolean } {
+  const { workspaces, retry, retrying } = useShellSlots();
+  const result = workspaces.result;
+  const overdue = useOverdue(!result, workspaces.generation);
+  const state: WorkspaceOptionsState = !result
+    ? { status: "pending", overdue }
+    : result.ok
+      ? { status: "ready", workspaces: result.data, total: workspaceTotal(result.data) }
+      : { status: "failed" };
+  return { state, retry: () => retry("workspaces"), retrying: retrying("workspaces") };
 }
 
 /* -------------------------------------------------------------------------- */

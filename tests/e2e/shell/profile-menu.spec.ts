@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { db } from "../db";
-import { signIn, switchCompany } from "../fixtures";
+import { chooseWorkspace, signIn, switchCompany } from "../fixtures";
 
 /**
  * The top-bar account menu (Profile Menu PRD §98-§114): two identity lines that
@@ -130,11 +130,8 @@ test("the second line follows the workspace: VELAR → ARVEL → the group (§10
   await expect(profile(page).getByTestId("user-menu-context")).toHaveText("Legal · VELAR - NDERTIM");
   await page.keyboard.press("Escape");
 
-  // Switched with the workspace chooser, as a person would.
-  await page.getByTestId("workspace-switcher").click();
-  await page.getByTestId("workspace-search").fill("ARVEL");
-  await page.getByTestId("workspace-option").filter({ hasText: "Arvela Ndertim" }).click();
-  await expect(page.getByTestId("workspace-switcher")).toHaveAccessibleName(/Arvela Ndertim/);
+  // Switched with the sidebar's organization header, as a person would (OW §3).
+  await chooseWorkspace(page, "Arvela Ndertim");
   await openMenu(page);
   await expect(profile(page).getByTestId("user-menu-context")).toHaveText("Legal · Arvela Ndertim");
   await page.keyboard.press("Escape");

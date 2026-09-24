@@ -1,10 +1,8 @@
-import Link from "@/components/navigation/nav-link";
-
-import { NestoLogo } from "@/components/layout/nesto-logo";
+import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
+import { OrganizationWorkspaceHeader } from "@/components/layout/organization-workspace-header";
+import { PoweredBy } from "@/components/layout/powered-by";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
-import { brand } from "@/config/brand";
 import type { NavigationGroup } from "@/config/navigation";
-import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * Persistent navigation (design spec §11, §12, §14, §44).
@@ -13,42 +11,43 @@ import { getTranslations } from "@/lib/i18n/server";
  * sidebar and the content offset can never disagree. Hidden below 1024px,
  * where navigation moves into the drawer.
  *
- * Header and foot swap assemblies with the width: wordmark and brand signoff
- * when expanded, the mark alone once the rail takes over. Both are links home
- * and nothing else — the collapse control sits in the top bar, where it does
- * not have to share the one slot the rail header has. Which assembly shows is
- * decided in CSS, so the server renders the right one and nothing swaps after
- * hydration.
+ * Three stacked parts (OW §18): the organization header, fixed at the top;
+ * the navigation, which scrolls on its own; and the foot, fixed at the
+ * bottom. The header names the customer organization and the workspace, and
+ * is where the workspace is switched (OW §2, §3) — the NESTO wordmark no
+ * longer stands there (OW §6). NESTO signs the foot instead, quietly (OW §71).
+ * On the rail the header keeps its mark alone and the foot has no room at all;
+ * which parts show is decided in CSS, so nothing swaps after hydration.
+ *
+ * The collapse control sits in the top bar, where it does not have to share
+ * the one slot the rail header has.
  */
-export async function Sidebar({ navigation }: { navigation: NavigationGroup[] }) {
-  const t = await getTranslations("shell");
-
+export function Sidebar({ navigation, isDemo }: { navigation: NavigationGroup[]; isDemo: boolean }) {
   return (
     <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-line bg-sidebar transition-[width] lg:flex">
-      <div className="flex h-16 shrink-0 items-center justify-center px-3 xl:justify-start xl:px-5">
-        {/* Dashboard is an approved destination: prepared on intent, like its sidebar item (NAV-03 §7). */}
-        <Link href="/dashboard" intent aria-label={t("dashboardLink")} className="min-w-0">
-          <span className="nesto-rail-only">
-            <NestoLogo showWordmark={false} />
-          </span>
-          <span className="nesto-nav-label">
-            <NestoLogo showMark={false} size="lg" />
-          </span>
-        </Link>
+      <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header">
+        <OrganizationWorkspaceHeader variant="sidebar" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Inert while a workspace switch is in flight (OW §34), like the foot and the top bar. */}
+      <div className="min-h-0 flex-1 overflow-y-auto" data-shell-region>
         <SidebarNav navigation={navigation} />
       </div>
 
-      <div className="nesto-sidebar-footer shrink-0 px-5 pb-5 pt-4">
-        <div aria-hidden="true" className="mb-3 h-px w-6 bg-line-strong" />
-        {brand.signoff.map((word) => (
-          <p key={word} className="nesto-eyebrow truncate text-fg-subtle">
-            {word}
-          </p>
-        ))}
+      <div className="nesto-sidebar-footer shrink-0 px-5 pb-5 pt-4" data-shell-region>
+        <PoweredBy isDemo={isDemo} />
       </div>
+      {/* The rail has no room for the foot, but a demonstration tenant still says so on every page (D-01 §68). */}
+      {isDemo ? (
+        <p
+          title={DEMO_DISCLAIMER}
+          aria-label={DEMO_DISCLAIMER}
+          data-testid="demo-notice-rail"
+          className="nesto-rail-only mx-auto mb-4 w-fit shrink-0 rounded-full border border-line px-1.5 py-px text-micro font-medium text-fg-muted"
+        >
+          Demo
+        </p>
+      ) : null}
     </aside>
   );
 }

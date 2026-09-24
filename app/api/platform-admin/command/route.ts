@@ -11,6 +11,7 @@ import {
   featureFlagOverrideSchema,
   featureFlagSchema,
   grantRevokeSchema,
+  groupBrandingSchema,
   groupStatusSchema,
   maintenanceSettingSchema,
   membershipSchema,
@@ -44,6 +45,7 @@ import {
   savePlatformSetting,
   setCompanyStatus,
   setFeatureFlagOverride,
+  setGroupBranding,
   setGroupStatus,
   setPlatformModule,
   setUserStatus,
@@ -64,6 +66,11 @@ export async function POST(request: Request) {
       case "group.status": {
         const input = groupStatusSchema.extend({ groupId: id }).parse(body);
         await setGroupStatus(context, input.groupId, input.status, input.reason);
+        return apiOk({ data: { ok: true } });
+      }
+      case "group.branding": {
+        const input = groupBrandingSchema.extend({ groupId: id }).parse(body);
+        await setGroupBranding(context, input.groupId, input);
         return apiOk({ data: { ok: true } });
       }
       case "company.status": {

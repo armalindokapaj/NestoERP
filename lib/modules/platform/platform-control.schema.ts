@@ -3,10 +3,21 @@ import { z } from "zod";
 import { MODULE_KEYS } from "@/config/modules";
 import { PERMISSIONS } from "@/config/permissions";
 import { MEMBERSHIP_ROLE_KEYS } from "@/config/roles";
+import { isShellLogoSource, LOGO_DATA_URI_MAX } from "@/lib/workspace/branding";
 
 const id = z.string().trim().min(1).max(128);
 const reason = z.string().trim().min(3, "Give a reason for this action.").max(500);
 const optionalText = (max: number) => z.string().trim().max(max).optional();
+/**
+ * A tenant logo (OW §12, §44): a path on this deployment or a small inline
+ * image, the only sources the shell's content security policy lets it draw.
+ * Empty clears it, and the shell shows initials.
+ */
+const logoSource = z
+  .string()
+  .trim()
+  .max(LOGO_DATA_URI_MAX)
+  .refine((value) => value === "" || isShellLogoSource(value), "Use a path on this deployment (for example /branding/logo.svg) or an inline image (data:image/png;base64,…).");
 
 export const groupStatusSchema = z.object({
   status: z.enum(["IMPLEMENTING", "READY_FOR_VALIDATION", "ACTIVE", "SUSPENDED", "ARCHIVED"]),
@@ -18,8 +29,14 @@ export const companyStatusSchema = z.object({
   reason,
 });
 
+export const groupBrandingSchema = z.object({
+  logoUrl: logoSource,
+  reason,
+});
+
 export const companyUpdateSchema = z.object({
   name: z.string().trim().min(2).max(120),
+  logoUrl: logoSource.optional(),
   legalName: optionalText(200),
   registrationNumber: optionalText(60),
   taxNumber: optionalText(60),

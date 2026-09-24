@@ -79,7 +79,9 @@ const USABLE_MEMBERSHIP = {
  * and draw nothing for everyone else, as before (§9).
  */
 export async function hasWorkspaceChoice(session: UserContext): Promise<boolean> {
-  if (session.workspace.scopeType === "GROUP" || hasGroupStanding([session])) return true;
+  if (session.workspace.scopeType === "GROUP") return true;
+  // Standing in a standalone company is no Group level to choose (OW §8, §45).
+  if (!session.parentGroup.standalone && hasGroupStanding([session])) return true;
   const memberships = await prisma.companyMember.count({ where: { userId: session.userId, ...USABLE_MEMBERSHIP }, take: 2 });
   return memberships > 1;
 }
@@ -140,7 +142,7 @@ export async function listWorkspaces(session: UserContext): Promise<WorkspacesDT
     // §16: group-level people start in the group, everyone else in their own
     // company — including somebody who may enter the group only because they
     // work in two (§7).
-    defaultWorkspace: hasGroupStanding(contexts)
+    defaultWorkspace: groupViewAllowed && hasGroupStanding(contexts)
       ? { scopeType: "GROUP", companyId: null }
       : { scopeType: "COMPANY", companyId: session.companyId },
   };

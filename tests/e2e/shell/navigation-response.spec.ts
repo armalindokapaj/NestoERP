@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Request } from "@playwright/test";
 
-import { expectAccessDenied, mainRegion, sidebar, signIn } from "../fixtures";
+import { expectAccessDenied, mainRegion, sidebar, signIn, workspaceHeader } from "../fixtures";
 
 /**
  * Immediate navigation response (NAV-01 §15): loading boundaries, pending
@@ -367,7 +367,7 @@ test.describe("+ Create in the Group workspace (Q06, Q19)", () => {
     await expect(page).toHaveURL(/\/tasks\/new$/);
     await expect(mainRegion(page).getByRole("heading", { level: 1, name: "New task" })).toBeVisible();
     // The page was loaded again in the company it entered (Workspace Context §93).
-    await expect(page.getByTestId("workspace-switcher")).not.toHaveAccessibleName(/Workspace: NESTO/i);
+    await expect(workspaceHeader(page)).not.toHaveAccessibleName(/Current workspace: NESTO/);
     expect(counted.launches()).toHaveLength(1);
     await expect(page.getByTestId("quick-create-panel")).toHaveCount(0);
   });
@@ -398,6 +398,6 @@ test.describe("a Group record opens in its company (NAV-04)", () => {
     await loaded;
     await expect(page).toHaveURL(new RegExp(`${record}$`));
     await expect(mainRegion(page).getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByTestId("workspace-switcher")).not.toHaveAccessibleName(/Workspace: NESTO/i);
+    await expect(workspaceHeader(page)).not.toHaveAccessibleName(/Current workspace: NESTO/);
   });
 });

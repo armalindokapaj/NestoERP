@@ -82,7 +82,7 @@ test.describe("panel code (P01, PERF-02)", () => {
     await opened("search", async () => cold.keyboard.press("Control+k"));
     await opened("quick_create", async () => cold.getByTestId("quick-create-button").click());
     await opened("activity", async () => cold.getByTestId("notification-bell").click());
-    await opened("workspace", async () => cold.getByTestId("workspace-switcher").click());
+    await opened("workspace", async () => cold.getByTestId("sidebar-header").getByTestId("organization-header").click());
     write("nav03-chunks", {
       label: LABEL,
       page: "/dashboard (document, panels closed, no intent)",

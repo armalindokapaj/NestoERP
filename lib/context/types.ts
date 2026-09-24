@@ -37,6 +37,14 @@ export type ParentGroupContext = {
   status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED";
   /** A demonstration tenant: every page says its operational data is synthetic (D-01 §69). */
   isDemo: boolean;
+  /** The tenant's own logo, as the platform set it; the shell's identity mark (OW §12, §44). */
+  logoUrl: string | null;
+  /**
+   * A tenant of one company (OW §8, §45). Every company has a parent group, so
+   * a customer without a group of companies is a group holding exactly one:
+   * it has no Group level to show or to enter, only the company.
+   */
+  standalone: boolean;
 };
 
 export type DepartmentContext = {
