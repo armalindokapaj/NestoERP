@@ -31,6 +31,13 @@ function withServerlessPool(url: string): string {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+/**
+ * One client, and so one connection pool, per process — in production too
+ * (NAV-02 PAR-02). A production Next.js server loads this module once for its
+ * pages and again for its route handlers; kept only in development, each copy
+ * opened a pool of its own, and one instance held two pools' worth of
+ * connections (measured: 43 against a pool of 21).
+ */
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
@@ -38,6 +45,4 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;
