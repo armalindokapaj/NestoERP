@@ -88,7 +88,9 @@ describe("the ARMAAR demo tenant", () => {
     };
     within(await prisma.projectUnit.count({ where: { projectId: lake } }), 80, 120, "Tirana Lake units");
     within(await prisma.projectUnit.count({ where: { projectId: square } }), 100, 200, "Square 21 units");
-    within(await prisma.client.count({ where: inGroup }), 40, 80, "clients");
+    // Clients are company-scoped: a company buying in Tirana Lake (BCI) and Square 21 (ARLIS - NDERTIM) is a client of each,
+    // so the scale is counted in buyers, one per name across the group.
+    within((await prisma.client.groupBy({ by: ["normalizedName"], where: inGroup })).length, 40, 80, "buyers");
     within(await prisma.supplier.count({ where: inGroup }), 20, 30, "suppliers");
     within(await prisma.contractorProfile.count({ where: inGroup }), 7, 12, "contractors");
     within(await prisma.task.count({ where: inGroup }), 50, 100, "tasks");

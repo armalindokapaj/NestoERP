@@ -18,7 +18,10 @@
  *                        their branch's COMPANY_MANAGER position (§13); a few
  *                        also work in a second company — ARLIS - NDERTIM's site
  *                        team builds Tirana Lake for BUILDING CONSTRUCTION
- *                        INVEST, so it has a login there too
+ *                        INVEST, so it has a login there too; UNICO's designers
+ *                        design Eyes of Tirana for IDEAL Construction; a BCI
+ *                        sales agent still sells Square 21's last units for
+ *                        ARLIS - NDERTIM
  */
 import type { RoleKey } from "../../../config/roles";
 import type { GroupDepartmentKey } from "../../../config/group-departments";
@@ -113,7 +116,7 @@ export const COMPANY_PEOPLE: ArmaarPerson[] = [
   { username: "bci.architect", firstName: "Sidorela", lastName: "Hysaj", role: "ARCHITECT", department: "architecture", jobTitle: "Architect", company: "BUILDING_CONSTRUCTION_INVEST", manages: true, reportsTo: "bci.director", startedDaysAgo: 1100, location: HQ, workLocationType: "HYBRID" },
   { username: "bci.legal", firstName: "Brunilda", lastName: "Xhafa", role: "LEGAL", department: "legal", jobTitle: "Legal Counsel", company: "BUILDING_CONSTRUCTION_INVEST", manages: true, reportsTo: "bci.director", startedDaysAgo: 1900, location: HQ, workLocationType: "OFFICE" },
   { username: "bci.sales-agent", firstName: "Ina", lastName: "Kurti", role: "SALES", department: "sales", jobTitle: "Sales Agent", company: "BUILDING_CONSTRUCTION_INVEST", reportsTo: "bci.sales", startedDaysAgo: 700, location: HQ, workLocationType: "OFFICE" },
-  { username: "bci.sales-agent2", firstName: "Eros", lastName: "Shehaj", role: "SALES", department: "sales", jobTitle: "Sales Agent", company: "BUILDING_CONSTRUCTION_INVEST", reportsTo: "bci.sales", startedDaysAgo: 420, location: HQ, workLocationType: "OFFICE" },
+  { username: "bci.sales-agent2", firstName: "Eros", lastName: "Shehaj", role: "SALES", department: "sales", jobTitle: "Sales Agent", company: "BUILDING_CONSTRUCTION_INVEST", alsoIn: ["ARLIS_NDERTIM"], reportsTo: "bci.sales", startedDaysAgo: 420, location: HQ, workLocationType: "OFFICE" },
   { username: "bci.finance-specialist", firstName: "Megi", lastName: "Allushi", role: "FINANCE", department: "finance", jobTitle: "Finance Specialist", company: "BUILDING_CONSTRUCTION_INVEST", reportsTo: "bci.finance", startedDaysAgo: 900, location: HQ, workLocationType: "OFFICE" },
   { username: "bci.viewer", firstName: "Artan", lastName: "Leka", role: "VIEWER", department: "executive", jobTitle: "Board Observer", company: "BUILDING_CONSTRUCTION_INVEST", reportsTo: "bci.director", startedDaysAgo: 600, location: HQ, workLocationType: "OFFICE" },
 
@@ -136,7 +139,7 @@ export const COMPANY_PEOPLE: ArmaarPerson[] = [
   { username: "arlis.site-supervisor", firstName: "Ilirjan", lastName: "Shala", role: "ENGINEER", department: "engineering", jobTitle: "Site Supervisor", company: "ARLIS_NDERTIM", alsoIn: ["BUILDING_CONSTRUCTION_INVEST"], reportsTo: "arlis.engineering", startedDaysAgo: 2300, location: LAKE, workLocationType: "SITE" },
   { username: "arlis.hse-officer", firstName: "Nertila", lastName: "Gjini", role: "HSE", department: "hse", jobTitle: "HSE Officer", company: "ARLIS_NDERTIM", alsoIn: ["BUILDING_CONSTRUCTION_INVEST"], reportsTo: "arlis.hse", startedDaysAgo: 650, location: LAKE, workLocationType: "SITE" },
   { username: "arlis.qaqc-engineer", firstName: "Denis", lastName: "Kote", role: "QAQC", department: "qaqc", jobTitle: "QA/QC Engineer", company: "ARLIS_NDERTIM", alsoIn: ["BUILDING_CONSTRUCTION_INVEST"], reportsTo: "arlis.qaqc", startedDaysAgo: 480, location: LAKE, workLocationType: "SITE" },
-  { username: "arlis.buyer", firstName: "Xhesika", lastName: "Lala", role: "PROCUREMENT", department: "procurement", jobTitle: "Procurement Specialist", company: "ARLIS_NDERTIM", alsoIn: ["IDEAL_CONSTRUCTION", "BUILDING_CONSTRUCTION_INVEST"], reportsTo: "arlis.procurement", startedDaysAgo: 880, location: HQ, workLocationType: "OFFICE" },
+  { username: "arlis.buyer", firstName: "Xhesika", lastName: "Lala", role: "PROCUREMENT", department: "procurement", jobTitle: "Procurement Specialist", company: "ARLIS_NDERTIM", alsoIn: ["BUILDING_CONSTRUCTION_INVEST"], reportsTo: "arlis.procurement", startedDaysAgo: 880, location: HQ, workLocationType: "OFFICE" },
   { username: "arlis.accountant", firstName: "Genta", lastName: "Hoxhaj", role: "FINANCE", department: "finance", jobTitle: "Finance Specialist", company: "ARLIS_NDERTIM", reportsTo: "arlis.finance", startedDaysAgo: 1050, location: HQ, workLocationType: "OFFICE" },
 
   /* IDEAL Construction ------------------------------------------------------ */
@@ -145,18 +148,19 @@ export const COMPANY_PEOPLE: ArmaarPerson[] = [
   { username: "ideal.procurement", firstName: "Bledi", lastName: "Sula", role: "PROCUREMENT", department: "procurement", jobTitle: "Procurement Manager", company: "IDEAL_CONSTRUCTION", manages: true, reportsTo: "ideal.director", startedDaysAgo: 1500, location: HQ, workLocationType: "OFFICE" },
   { username: "ideal.engineering", firstName: "Armando", lastName: "Gega", role: "ENGINEER", department: "engineering", jobTitle: "Engineering Manager", company: "IDEAL_CONSTRUCTION", manages: true, reportsTo: "ideal.director", startedDaysAgo: 2500, location: HQ, workLocationType: "HYBRID" },
   { username: "ideal.pm", firstName: "Ornela", lastName: "Caka", role: "PROJECT_MANAGER", department: "projects", jobTitle: "Project Manager", company: "IDEAL_CONSTRUCTION", manages: true, reportsTo: "ideal.director", startedDaysAgo: 1300, location: HQ, workLocationType: "HYBRID" },
-  { username: "ideal.site-engineer", firstName: "Kristi", lastName: "Rexhaj", role: "ENGINEER", department: "engineering", jobTitle: "Site Engineer", company: "IDEAL_CONSTRUCTION", reportsTo: "ideal.engineering", startedDaysAgo: 600, location: "Farka Residence — site office", workLocationType: "SITE" },
-  { username: "ideal.hse", firstName: "Luan", lastName: "Tahiri", role: "HSE", department: "hse", jobTitle: "HSE Officer", company: "IDEAL_CONSTRUCTION", manages: true, reportsTo: "ideal.director", startedDaysAgo: 900, location: "Farka Residence — site office", workLocationType: "SITE" },
-  { username: "ideal.qaqc", firstName: "Rina", lastName: "Mustafaj", role: "QAQC", department: "qaqc", jobTitle: "QA/QC Engineer", company: "IDEAL_CONSTRUCTION", manages: true, reportsTo: "ideal.director", startedDaysAgo: 700, location: "Farka Residence — site office", workLocationType: "SITE" },
+  { username: "ideal.site-engineer", firstName: "Kristi", lastName: "Rexhaj", role: "ENGINEER", department: "engineering", jobTitle: "Site Engineer", company: "IDEAL_CONSTRUCTION", reportsTo: "ideal.engineering", startedDaysAgo: 600, location: HQ, workLocationType: "HYBRID" },
+  { username: "ideal.hse", firstName: "Luan", lastName: "Tahiri", role: "HSE", department: "hse", jobTitle: "HSE Officer", company: "IDEAL_CONSTRUCTION", manages: true, reportsTo: "ideal.director", startedDaysAgo: 900, location: HQ, workLocationType: "HYBRID" },
+  { username: "ideal.qaqc", firstName: "Rina", lastName: "Mustafaj", role: "QAQC", department: "qaqc", jobTitle: "QA/QC Engineer", company: "IDEAL_CONSTRUCTION", manages: true, reportsTo: "ideal.director", startedDaysAgo: 700, location: HQ, workLocationType: "HYBRID" },
 
-  /* UNICO CONSTRUCTION — architecture, design and technical coordination --- */
+  /* UNICO CONSTRUCTION — architecture, design and technical coordination; its
+     designers work on Eyes of Tirana for IDEAL Construction too ------------- */
   { username: "unico.director", firstName: "Vjollca", lastName: "Shyti", role: "CEO", department: "executive", jobTitle: "Company Director", company: "UNICO_CONSTRUCTION", manages: true, reportsTo: "armaar.owner", startedDaysAgo: 2900, location: HQ, workLocationType: "OFFICE" },
-  { username: "unico.architecture", firstName: "Arjan", lastName: "Koci", role: "ARCHITECT", department: "architecture", jobTitle: "Head of Architecture", company: "UNICO_CONSTRUCTION", manages: true, reportsTo: "unico.director", startedDaysAgo: 2600, location: HQ, workLocationType: "HYBRID" },
-  { username: "unico.architect", firstName: "Elona", lastName: "Mece", role: "ARCHITECT", department: "architecture", jobTitle: "Architect", company: "UNICO_CONSTRUCTION", alsoIn: ["BUILDING_CONSTRUCTION_INVEST"], reportsTo: "unico.architecture", startedDaysAgo: 1200, location: HQ, workLocationType: "HYBRID" },
-  { username: "unico.designer", firstName: "Iris", lastName: "Duro", role: "ARCHITECT", department: "architecture", jobTitle: "Interior Designer", company: "UNICO_CONSTRUCTION", reportsTo: "unico.architecture", startedDaysAgo: 500, location: HQ, workLocationType: "OFFICE" },
+  { username: "unico.architecture", firstName: "Arjan", lastName: "Koci", role: "ARCHITECT", department: "architecture", jobTitle: "Head of Architecture", company: "UNICO_CONSTRUCTION", alsoIn: ["IDEAL_CONSTRUCTION"], manages: true, reportsTo: "unico.director", startedDaysAgo: 2600, location: HQ, workLocationType: "HYBRID" },
+  { username: "unico.architect", firstName: "Elona", lastName: "Mece", role: "ARCHITECT", department: "architecture", jobTitle: "Architect", company: "UNICO_CONSTRUCTION", alsoIn: ["BUILDING_CONSTRUCTION_INVEST", "IDEAL_CONSTRUCTION"], reportsTo: "unico.architecture", startedDaysAgo: 1200, location: HQ, workLocationType: "HYBRID" },
+  { username: "unico.designer", firstName: "Iris", lastName: "Duro", role: "ARCHITECT", department: "architecture", jobTitle: "Interior Designer", company: "UNICO_CONSTRUCTION", alsoIn: ["IDEAL_CONSTRUCTION"], reportsTo: "unico.architecture", startedDaysAgo: 500, location: HQ, workLocationType: "OFFICE" },
   { username: "unico.engineering", firstName: "Genci", lastName: "Kuka", role: "ENGINEER", department: "engineering", jobTitle: "Engineering Manager", company: "UNICO_CONSTRUCTION", manages: true, reportsTo: "unico.director", startedDaysAgo: 2300, location: HQ, workLocationType: "HYBRID" },
-  { username: "unico.structural", firstName: "Erjon", lastName: "Bala", role: "ENGINEER", department: "engineering", jobTitle: "Structural Engineer", company: "UNICO_CONSTRUCTION", reportsTo: "unico.engineering", startedDaysAgo: 950, location: HQ, workLocationType: "OFFICE" },
-  { username: "unico.coordinator", firstName: "Anxhela", lastName: "Rusi", role: "PROJECT_MANAGER", department: "projects", jobTitle: "Technical Coordinator", company: "UNICO_CONSTRUCTION", manages: true, reportsTo: "unico.director", startedDaysAgo: 820, location: HQ, workLocationType: "HYBRID" },
+  { username: "unico.structural", firstName: "Erjon", lastName: "Bala", role: "ENGINEER", department: "engineering", jobTitle: "Structural Engineer", company: "UNICO_CONSTRUCTION", alsoIn: ["IDEAL_CONSTRUCTION"], reportsTo: "unico.engineering", startedDaysAgo: 950, location: HQ, workLocationType: "OFFICE" },
+  { username: "unico.coordinator", firstName: "Anxhela", lastName: "Rusi", role: "PROJECT_MANAGER", department: "projects", jobTitle: "Technical Coordinator", company: "UNICO_CONSTRUCTION", alsoIn: ["IDEAL_CONSTRUCTION"], manages: true, reportsTo: "unico.director", startedDaysAgo: 820, location: HQ, workLocationType: "HYBRID" },
   { username: "unico.finance", firstName: "Dritan", lastName: "Mullai", role: "FINANCE", department: "finance", jobTitle: "Finance Manager", company: "UNICO_CONSTRUCTION", manages: true, reportsTo: "unico.director", startedDaysAgo: 1700, location: HQ, workLocationType: "OFFICE" },
 
   /* ARSOL ENERGY ------------------------------------------------------------ */
@@ -184,8 +188,9 @@ export const COMPANY_PEOPLE: ArmaarPerson[] = [
   { username: "kfp.pm", firstName: "Lorena", lastName: "Cani", role: "PROJECT_MANAGER", department: "projects", jobTitle: "Project Manager · Pogradec Marina", company: "KF_POGRADECI", manages: true, reportsTo: "kfp.director", startedDaysAgo: 780, location: "Pogradec — office", workLocationType: "SITE" },
 
   /* Named by D-03 (§11). Last, so nobody else's employee number or phone moves. */
-  // Eyes of Tirana's manager: a UNICO login, because NESTO's project manager is a member of the project's company (§12).
-  { username: "unico.pm", ...managerOf("EYES_OF_TIRANA"), role: "PROJECT_MANAGER", department: "projects", jobTitle: "Project Manager · Eyes of Tirana", company: "UNICO_CONSTRUCTION", reportsTo: "unico.coordinator", startedDaysAgo: 640, location: HQ, workLocationType: "HYBRID" },
+  // Eyes of Tirana's manager: an IDEAL login, because NESTO's project manager is a member of the project's company (§12).
+  // Eyes of Tirana is IDEAL Construction's, so IDEAL employs him; the login keeps the username D-03 was given.
+  { username: "unico.pm", ...managerOf("EYES_OF_TIRANA"), role: "PROJECT_MANAGER", department: "projects", jobTitle: "Project Manager · Eyes of Tirana", company: "IDEAL_CONSTRUCTION", reportsTo: "ideal.pm", startedDaysAgo: 640, location: HQ, workLocationType: "HYBRID" },
 ];
 
 export const ARMAAR_PEOPLE: ArmaarPerson[] = [...GROUP_PEOPLE, ...COMPANY_PEOPLE];

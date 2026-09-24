@@ -12,15 +12,25 @@ import type { PrismaClient } from "@prisma/client";
 import { groupDepartmentId } from "../../../config/group-departments";
 import { companyId, departmentName } from "./organization";
 import { ARMAAR_PEOPLE } from "./people";
-import { projectId } from "./projects";
+import { PROJECTS, projectId } from "./projects";
 import { DEPARTMENT_HEADS, PROJECT_MANAGERS } from "./provided-facts";
-import { COMPANY_FACTS, GROUP_FACTS, GROUP_OWNER, PROJECT_FACTS } from "./public-facts";
+import { COMPANY_FACTS, GROUP_FACTS, GROUP_OWNER, PROJECT_FACTS, type CompanyCode } from "./public-facts";
 import { normalName } from "./records";
 
 /** What D-01 fixes about a project's synthetic state (§19, §21): status and progress. */
 const PROMISED: Record<string, { status: string; progress: number }> = {
   "Tirana Lake": { status: "ACTIVE", progress: 62 },
   "Square 21": { status: "FINISHED", progress: 100 },
+};
+
+/** The prefix of a company's own contract numbers (`BCI-SA-2025-001`, `ALN-SV-2025-0001`). */
+const CONTRACT_PREFIX: Partial<Record<CompanyCode, string>> = {
+  BUILDING_CONSTRUCTION_INVEST: "BCI",
+  ARLIS_NDERTIM: "ALN",
+  IDEAL_CONSTRUCTION: "IDEAL",
+  UNICO_CONSTRUCTION: "UNICO",
+  SARANDA_MARINA_INVEST: "SMI",
+  ARSOL_ENERGY: "ARSOL",
 };
 
 export async function verifyDemoTenant(prisma: PrismaClient, groupId: string): Promise<string[]> {
@@ -94,6 +104,11 @@ export async function verifyDemoTenant(prisma: PrismaClient, groupId: string): P
     }
   }
   if (projects.length !== PROJECT_FACTS.length) say(`The group has ${projects.length} projects; its public portfolio is ${PROJECT_FACTS.length}.`);
+  // Which company runs each project is the demo's assignment (the plan's), public only for Tirana Lake.
+  for (const plan of PROJECTS) {
+    const project = projects.find((candidate) => candidate.id === projectId(plan.code));
+    if (project && project.companyId !== companyId(plan.company)) say(`${project.name} is not under ${plan.company}, the company the demo gives it.`);
+  }
 
   /* Suspended companies take no new work (§5) -------------------------------- */
   const suspendedWork = await prisma.project.count({ where: { company: { parentGroupId: groupId, status: "SUSPENDED" } } });
@@ -192,6 +207,43 @@ async function verifyOperations(prisma: PrismaClient, groupId: string): Promise<
   const orders = await prisma.purchaseOrder.findMany({ where: { ...inGroup, status: { in: ["APPROVED", "ISSUED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"] } }, select: { id: true, poNumber: true, financeCommitmentId: true } });
   const committed = new Map((await prisma.commitment.findMany({ where: { ...inGroup, sourceModule: "procurement", sourceEntityType: "purchase_order" }, select: { id: true, sourceEntityId: true } })).map((row) => [row.sourceEntityId, row.id]));
   for (const order of orders) if (!order.financeCommitmentId || committed.get(order.id) !== order.financeCommitmentId) say(`Approved order ${order.poNumber} has no commitment of its own.`);
+
+  // A project's records are its company's: units, sales, clients, contracts and money never cross into another (company-scoped).
+  const own = new Map(PROJECTS.map((plan) => [projectId(plan.code), companyId(plan.company)]));
+  const crossing = async (what: string, rows: Array<{ companyId: string; projectId: string | null }>) => {
+    const wrong = rows.filter((row) => row.projectId && own.has(row.projectId) && own.get(row.projectId) !== row.companyId).length;
+    if (wrong) say(`${wrong} ${what} belong to another company than their project's.`);
+  };
+  const groupCompanies = { companyId: { in: (await prisma.company.findMany({ where: { parentGroupId: groupId }, select: { id: true } })).map((row) => row.id) } };
+  const scoped = { where: groupCompanies, select: { companyId: true, projectId: true } };
+  await crossing("units", await prisma.projectUnit.findMany(scoped));
+  await crossing("buildings", await prisma.projectBuilding.findMany(scoped));
+  await crossing("commercial profiles", await prisma.unitCommercialProfile.findMany(scoped));
+  await crossing("reservations", await prisma.unitReservation.findMany(scoped));
+  await crossing("contracts", await prisma.contract.findMany(scoped));
+  await crossing("payments", await prisma.payment.findMany(scoped));
+  await crossing("invoices", await prisma.invoice.findMany(scoped));
+  await crossing("tasks", await prisma.task.findMany(scoped));
+  await crossing("meetings", await prisma.meeting.findMany(scoped));
+  await crossing("budgets", await prisma.projectBudget.findMany(scoped));
+  await crossing("expenses", await prisma.expense.findMany(scoped));
+  await crossing("purchase requests", await prisma.purchaseRequest.findMany(scoped));
+  await crossing("work logs", await prisma.workLog.findMany(scoped));
+  await crossing("crews", await prisma.workforceCrew.findMany(scoped));
+  const reservations = await prisma.unitReservation.findMany({ where: groupCompanies, select: { companyId: true, clientId: true } });
+  const clientCompany = new Map((await prisma.client.findMany({ where: { id: { in: reservations.map((row) => row.clientId) } }, select: { id: true, companyId: true } })).map((row) => [row.id, row.companyId]));
+  const foreign = reservations.filter((row) => clientCompany.get(row.clientId) !== row.companyId).length;
+  if (foreign) say(`${foreign} reservations are for a client of another company.`);
+  const team = await prisma.projectMember.findMany({ where: { project: inGroup }, select: { companyId: true, project: { select: { companyId: true } }, member: { select: { companyId: true } } } });
+  const outsiders = team.filter((row) => row.companyId !== row.project.companyId || row.member.companyId !== row.project.companyId).length;
+  if (outsiders) say(`${outsiders} project team members are not members of the project's company.`);
+
+  // A contract numbered with a company's prefix is that company's.
+  const prefixOf = new Map(Object.entries(CONTRACT_PREFIX).map(([code, prefix]) => [prefix, companyId(code as CompanyCode)]));
+  for (const contract of await prisma.contract.findMany({ where: inGroup, select: { contractNumber: true, companyId: true } })) {
+    const owner = prefixOf.get(contract.contractNumber.split("-")[0]!);
+    if (owner && owner !== contract.companyId) say(`Contract ${contract.contractNumber} carries another company's prefix.`);
+  }
 
   // Numbers the product continues from are in its own series shape.
   const numbered = [

@@ -34,7 +34,6 @@ import { workerEmploymentId } from "./workforce";
 
 const ZONE = "Europe/Tirane";
 const BCI = "BUILDING_CONSTRUCTION_INVEST" as const;
-const IDEAL = "IDEAL_CONSTRUCTION" as const;
 const ALN = "ARLIS_NDERTIM" as const;
 
 /** Ids other files refer to (the daily log links its talk and inspection). */
@@ -53,7 +52,7 @@ const INSPECTIONS: Array<{ id: string; company: CompanyCode; project: ProjectCod
   { id: "armaar_hseins_tl_0043", company: BCI, project: "TIRANA_LAKE", number: "HSE-INS-2026-0043", type: "WORK_AT_HEIGHT", title: "Work at height — Tower B façade", inspector: "arlis.hse-officer", approver: "arlis.hse", day: -9, status: "CLOSED", result: "CONDITIONAL", failed: [1], location: "Tower B — east elevation" },
   { id: "armaar_hseins_tl_0045", company: BCI, project: "TIRANA_LAKE", number: "HSE-INS-2026-0045", type: "SITE_SAFETY", title: "Weekly site safety inspection — week 38", inspector: "arlis.hse-officer", approver: "arlis.hse", day: -1, status: "PENDING_APPROVAL", result: "CONDITIONAL", failed: [2, 3], location: "Tirana Lake — Towers A and B" },
   { id: "armaar_hseins_tl_0046", company: BCI, project: "TIRANA_LAKE", number: "HSE-INS-2026-0046", type: "LIFTING", title: "Lifting operations — tower crane TC-2", inspector: "arlis.hse", approver: "arlis.hse", day: 2, status: "SCHEDULED", result: "NOT_SET", location: "Tower B — crane base" },
-  { id: "armaar_hseins_fr_0012", company: IDEAL, project: "FARKA_RESIDENCE", number: "HSE-INS-2026-0012", type: "SITE_SAFETY", title: "Monthly HSE walk — Block B", inspector: "ideal.hse", approver: "ideal.director", day: -6, status: "CLOSED", result: "PASS", location: "Farka Residence — Block B" },
+  { id: "armaar_hseins_fr_0012", company: ALN, project: "FARKA_RESIDENCE", number: "HSE-INS-2026-0012", type: "SITE_SAFETY", title: "Monthly HSE walk — Block B", inspector: "arlis.hse", approver: "arlis.director", day: -6, status: "CLOSED", result: "PASS", location: "Farka Residence — Block B" },
 ];
 
 const HAZARDS: Array<{ id: string; company: CompanyCode; project: ProjectCode; number: string; title: string; description: string; category: HseHazardCategory; likelihood: number; severity: number; status: HseHazardStatus; reporter: string; assignee: string; day: number; due: number; inspection?: string; control?: string; closure?: string; location: string }> = [
@@ -61,7 +60,7 @@ const HAZARDS: Array<{ id: string; company: CompanyCode; project: ProjectCode; n
   { id: "armaar_hse_hz_tl_0033", company: BCI, project: "TIRANA_LAKE", number: "HZ-2026-0033", title: "PPE non-compliance — façade installers not clipped on", description: "Two installers on the Tower B mast climber were not clipped to the anchor line.", category: "PPE", likelihood: 3, severity: 4, status: "IN_PROGRESS", reporter: "arlis.hse-officer", assignee: "arlis.hse", day: -4, due: 3, control: "Work stopped on the platform until both were clipped on and re-briefed.", location: "Tower B — mast climber, east" },
   { id: "armaar_hse_hz_tl_0034", company: BCI, project: "TIRANA_LAKE", number: "HZ-2026-0034", title: "Scaffold tags out of date — Tower B east elevation", description: "Tags on bays 4 to 7 show the last inspection eleven days ago.", category: "WORK_AT_HEIGHT", likelihood: 3, severity: 4, status: "PENDING_VERIFICATION", reporter: "arlis.hse-officer", assignee: "arlis.site-supervisor", day: -9, due: -6, inspection: "armaar_hseins_tl_0043", control: "Bays 4 to 7 closed until inspected.", location: "Tower B — east elevation, bays 4 to 7" },
   { id: "armaar_hse_hz_tl_0035", company: BCI, project: "TIRANA_LAKE", number: "HZ-2026-0035", title: "Housekeeping — offcuts on Tower A level 9", description: "Timber and rebar offcuts left along the slab edge after the pour.", category: "HOUSEKEEPING", likelihood: 2, severity: 2, status: "CLOSED", reporter: "arlis.site-engineer", assignee: "arlis.site-supervisor", day: -15, due: -13, closure: "Level cleared; skip placed at the hoist landing.", location: "Tower A — level 9" },
-  { id: "armaar_hse_hz_fr_0009", company: IDEAL, project: "FARKA_RESIDENCE", number: "HZ-2026-0009", title: "Open trench without barrier — Block C drainage", description: "A 1.4 m drainage trench beside the Block C access road has no barrier or signage.", category: "EXCAVATION", likelihood: 3, severity: 4, status: "OPEN", reporter: "ideal.hse", assignee: "ideal.site-engineer", day: -1, due: 1, control: "Banksman posted until the barriers arrive.", location: "Farka Residence — Block C access road" },
+  { id: "armaar_hse_hz_fr_0009", company: ALN, project: "FARKA_RESIDENCE", number: "HZ-2026-0009", title: "Open trench without barrier — Block C drainage", description: "A 1.4 m drainage trench beside the Block C access road has no barrier or signage.", category: "EXCAVATION", likelihood: 3, severity: 4, status: "OPEN", reporter: "arlis.hse", assignee: "arlis.structural", day: -1, due: 1, control: "Banksman posted until the barriers arrive.", location: "Farka Residence — Block C access road" },
 ];
 
 const ACTIONS: Array<{ id: string; company: CompanyCode; project: ProjectCode; number: string; type: HseActionType; title: string; description: string; assignee: string; status: HseActionStatus; day: number; due: number; hazard?: string; incident?: string; inspection?: string }> = [
@@ -69,7 +68,7 @@ const ACTIONS: Array<{ id: string; company: CompanyCode; project: ProjectCode; n
   { id: "armaar_hse_act_tl_0022", company: BCI, project: "TIRANA_LAKE", number: "HSE-ACT-2026-0022", type: "CORRECTIVE", title: "Clip-on check at the façade hoist gate", description: "Supervisor checks every installer's harness and clip before the platform leaves the ground.", assignee: "arlis.hse", status: "IN_PROGRESS", day: -4, due: 3, hazard: "armaar_hse_hz_tl_0033" },
   { id: "armaar_hse_act_tl_0023", company: BCI, project: "TIRANA_LAKE", number: "HSE-ACT-2026-0023", type: "PREVENTIVE", title: "Replace the edge protection after every formwork strike", description: "Formwork foreman signs off the edge protection before the crew leaves a stripped level.", assignee: "arlis.site-supervisor", status: "OPEN", day: -1, due: 2, hazard: "armaar_hse_hz_001" },
   { id: "armaar_hse_act_tl_0024", company: BCI, project: "TIRANA_LAKE", number: "HSE-ACT-2026-0024", type: "CORRECTIVE", title: "Exclusion zone below the curtain-wall lifts", description: "Barrier and banksman below the lift path whenever the crane is lifting curtain-wall units.", assignee: "arlis.site-supervisor", status: "VERIFIED", day: -4, due: -2, incident: "armaar_hse_inc_001" },
-  { id: "armaar_hse_act_fr_0005", company: IDEAL, project: "FARKA_RESIDENCE", number: "HSE-ACT-2026-0005", type: "IMMEDIATE", title: "Barrier the Block C drainage trench", description: "Pedestrian barriers and signage along the full trench before work restarts.", assignee: "ideal.site-engineer", status: "OPEN", day: -1, due: 1, hazard: "armaar_hse_hz_fr_0009" },
+  { id: "armaar_hse_act_fr_0005", company: ALN, project: "FARKA_RESIDENCE", number: "HSE-ACT-2026-0005", type: "IMMEDIATE", title: "Barrier the Block C drainage trench", description: "Pedestrian barriers and signage along the full trench before work restarts.", assignee: "arlis.structural", status: "OPEN", day: -1, due: 1, hazard: "armaar_hse_hz_fr_0009" },
 ];
 
 /** Toolbox talks: E-04's site workers sign by their employment, supervisors by their login. */
@@ -179,7 +178,8 @@ export async function seedArmaarSafety(prisma: PrismaClient) {
   for (const action of ACTIONS) {
     const code = action.company;
     const assignee = m(action.assignee, code);
-    const verifier = m(code === BCI ? "arlis.hse" : "ideal.hse", code);
+    // ARLIS - NDERTIM's HSE manager: on Tirana Lake for BCI, and on ARLIS's own sites.
+    const verifier = m("arlis.hse", code);
     const completed = action.status === "PENDING_VERIFICATION" || action.status === "VERIFIED";
     await prisma.hseAction.upsert({
       where: { id: action.id },
@@ -238,7 +238,7 @@ export async function seedArmaarSafety(prisma: PrismaClient) {
   await prisma.hseIncident.upsert({
     where: { id: "armaar_hse_inc_fr_0003" },
     update: {},
-    create: { id: "armaar_hse_inc_fr_0003", companyId: companyId(IDEAL), projectId: projectId("FARKA_RESIDENCE"), incidentNumber: "INC-2026-0003", incidentType: "PROPERTY_DAMAGE", title: "Reversing dumper struck the site hoarding — Block C", description: "A dumper reversing out of the Block C gate hit two hoarding panels. Nobody was hurt.", occurredAt: at(-2, 14), reportedAt: at(-2, 15), locationText: "Farka Residence — Block C gate", severity: "MEDIUM", status: "UNDER_INVESTIGATION", reportedByMemberId: m("ideal.site-engineer", IDEAL), investigatorMemberId: m("ideal.hse", IDEAL), propertyDamage: true, immediateAction: "Area fenced; panels replaced the same afternoon.", dueDate: day(5), createdByMemberId: m("ideal.hse", IDEAL), createdAt: at(-2, 15) },
+    create: { id: "armaar_hse_inc_fr_0003", companyId: companyId(ALN), projectId: projectId("FARKA_RESIDENCE"), incidentNumber: "INC-2026-0003", incidentType: "PROPERTY_DAMAGE", title: "Reversing dumper struck the site hoarding — Block C", description: "A dumper reversing out of the Block C gate hit two hoarding panels. Nobody was hurt.", occurredAt: at(-2, 14), reportedAt: at(-2, 15), locationText: "Farka Residence — Block C gate", severity: "MEDIUM", status: "UNDER_INVESTIGATION", reportedByMemberId: m("arlis.structural", ALN), investigatorMemberId: m("arlis.hse", ALN), propertyDamage: true, immediateAction: "Area fenced; panels replaced the same afternoon.", dueDate: day(5), createdByMemberId: m("arlis.hse", ALN), createdAt: at(-2, 15) },
   });
 
   /* Permits to work (§37) ------------------------------------------------------------ */

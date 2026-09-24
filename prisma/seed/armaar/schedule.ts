@@ -59,12 +59,12 @@ const MEETINGS: Array<{
     },
   },
   {
-    id: "armaar_mtg_s21_closeout", company: BCI, project: "SQUARE_21", organizer: "bci.sales", title: "Sales review — Square 21 close-out", type: "MANAGEMENT", day: -9, from: "15:00", to: "16:00",
-    seats: ["bci.sales-agent", "bci.sales-agent2", "bci.finance", "bci.director"], agenda: "general", location: "Head office, meeting room 2",
+    id: "armaar_mtg_s21_closeout", company: "ARLIS_NDERTIM", project: "SQUARE_21", organizer: "armaar.sales", title: "Sales review — Square 21 close-out", type: "MANAGEMENT", day: -9, from: "15:00", to: "16:00",
+    seats: ["bci.sales-agent2", "arlis.finance", "arlis.director"], agenda: "general", location: "Head office, meeting room 2",
     minutes: {
       summary: "Two reservations and two shops left. Four buyers still paying; one installment in arrears is being chased.",
       decisions: ["Hold the shop prices until the end of the quarter."],
-      actions: [{ title: "Call the buyer in arrears and agree a date", owner: "bci.sales-agent", due: -2, status: "DONE" }, { title: "Send the final account summary to the board", owner: "bci.finance", due: 7, status: "OPEN" }],
+      actions: [{ title: "Call the buyer in arrears and agree a date", owner: "bci.sales-agent2", due: -2, status: "DONE" }, { title: "Send the final account summary to the board", owner: "arlis.finance", due: 7, status: "OPEN" }],
     },
   },
   {
@@ -77,8 +77,8 @@ const MEETINGS: Array<{
     },
   },
   { id: "armaar_mtg_tl_qaqc_walk", company: BCI, project: "TIRANA_LAKE", organizer: "arlis.qaqc-engineer", title: "QA/QC walk-down — Tower A level 10", type: "QA_QC", day: -5, from: "10:00", to: "11:00", seats: ["arlis.site-engineer", "bci.engineering", "arlis.civil"], agenda: "qa-qc", location: "Tirana Lake — Tower A, level 10" },
-  { id: "armaar_mtg_ut_design", company: BCI, project: "UNITED_TOWERS", organizer: "bci.pm-lead", title: "Design coordination — United Towers concept", type: "DESIGN_REVIEW", day: 6, from: "10:00", to: "12:00", seats: ["unico.architect", "bci.architect", "bci.engineering"], agenda: "design-review", location: "Head office, meeting room 2" },
-  { id: "armaar_mtg_fr_procurement", company: "IDEAL_CONSTRUCTION", project: "FARKA_RESIDENCE", organizer: "ideal.procurement", title: "Procurement review — Block C packages", type: "PROCUREMENT", day: 3, from: "11:00", to: "12:00", seats: ["ideal.pm", "ideal.finance", "ideal.site-engineer"], agenda: "general", location: "Farka Residence — site office" },
+  { id: "armaar_mtg_ut_design", company: "UNICO_CONSTRUCTION", project: "UNITED_TOWERS", organizer: "unico.coordinator", title: "Design coordination — United Towers concept", type: "DESIGN_REVIEW", day: 6, from: "10:00", to: "12:00", seats: ["unico.architecture", "unico.architect", "unico.engineering"], agenda: "design-review", location: "Head office, meeting room 2" },
+  { id: "armaar_mtg_fr_procurement", company: "ARLIS_NDERTIM", project: "FARKA_RESIDENCE", organizer: "arlis.procurement", title: "Procurement review — Block C packages", type: "PROCUREMENT", day: 3, from: "11:00", to: "12:00", seats: ["arlis.pm-lead", "arlis.finance", "arlis.structural"], agenda: "general", location: "Farka Residence — site office" },
   { id: "armaar_mtg_gm_finance", company: "SARANDA_MARINA_INVEST", project: "GRAN_MELIA", organizer: "smi.finance", title: "Finance review — Gran Melia budget and commitments", type: "FINANCE", day: 8, from: "10:00", to: "11:30", seats: ["smi.director", "smi.pm"], agenda: "management", location: "Saranda — office" },
 ];
 
@@ -88,7 +88,7 @@ const EVENTS: Array<{ id: string; company: CompanyCode; by: string; title: strin
   { id: "armaar_cal_group_board", company: "ARLIS_ADMINISTRIM", by: "armaar.owner", title: "Group board meeting — Q3 results", type: "COMPANY_EVENT", visibility: "COMPANY", project: null, day: 11, from: "10:00", to: "13:00", location: "Head office, board room" },
   { id: "armaar_cal_scaffold_course", company: "ARLIS_NDERTIM", by: "arlis.hse", title: "Scaffold inspector course", type: "TRAINING", visibility: "COMPANY", project: null, day: 12, from: "08:30", to: "16:30", location: "The Courtyard — site office" },
   { id: "armaar_cal_gm_site_visit", company: "SARANDA_MARINA_INVEST", by: "smi.director", title: "Gran Melia — investor site visit", type: "COMPANY_EVENT", visibility: "COMPANY", project: "GRAN_MELIA", day: 15, from: "11:00", to: "14:00", location: "Gran Melia site" },
-  { id: "armaar_cal_fr_pour", company: "IDEAL_CONSTRUCTION", by: "ideal.pm", title: "Block C level 3 slab pour", type: "TEAM_EVENT", visibility: "PROJECT", project: "FARKA_RESIDENCE", day: 4, from: "06:00", to: "14:00", location: "Farka Residence — Block C" },
+  { id: "armaar_cal_fr_pour", company: "ARLIS_NDERTIM", by: "arlis.pm-lead", title: "Block C level 3 slab pour", type: "TEAM_EVENT", visibility: "PROJECT", project: "FARKA_RESIDENCE", day: 4, from: "06:00", to: "14:00", location: "Farka Residence — Block C" },
   { id: "armaar_cal_rooftop_commissioning", company: "ARSOL_ENERGY", by: "arsol.pm", title: "Rooftop programme batch 2 — commissioning window opens", type: "INTERNAL_DEADLINE", visibility: "COMPANY", project: null, day: 40 },
 ];
 

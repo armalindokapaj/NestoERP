@@ -37,17 +37,17 @@ const BCI = "BUILDING_CONSTRUCTION_INVEST" as const;
 const money = (value: number) => new Prisma.Decimal(value.toFixed(2));
 
 /** Who keeps each company's books, and who approves in it. */
-const FINANCE: Partial<Record<CompanyCode, string>> = { [BCI]: "bci.finance-specialist", ARLIS_NDERTIM: "arlis.accountant", IDEAL_CONSTRUCTION: "ideal.finance", SARANDA_MARINA_INVEST: "smi.finance", ARSOL_ENERGY: "arsol.finance" };
-const APPROVER: Partial<Record<CompanyCode, string>> = { [BCI]: "bci.finance", ARLIS_NDERTIM: "arlis.finance", IDEAL_CONSTRUCTION: "ideal.director", SARANDA_MARINA_INVEST: "smi.director", ARSOL_ENERGY: "arsol.director" };
+const FINANCE: Partial<Record<CompanyCode, string>> = { [BCI]: "bci.finance-specialist", ARLIS_NDERTIM: "arlis.accountant", IDEAL_CONSTRUCTION: "ideal.finance", UNICO_CONSTRUCTION: "unico.finance", SARANDA_MARINA_INVEST: "smi.finance", ARSOL_ENERGY: "arsol.finance" };
+const APPROVER: Partial<Record<CompanyCode, string>> = { [BCI]: "bci.finance", ARLIS_NDERTIM: "arlis.finance", IDEAL_CONSTRUCTION: "ideal.director", UNICO_CONSTRUCTION: "unico.director", SARANDA_MARINA_INVEST: "smi.director", ARSOL_ENERGY: "arsol.director" };
 
 const EXPENSES: Array<{ key: string; company: CompanyCode; project: ProjectCode | null; number: string; description: string; payee: string; category: FinanceCostCategory; net: number; status: ExpenseStatus; day: number; paid?: number; rejected?: string }> = [
   { key: "tl_security", company: BCI, project: "TIRANA_LAKE", number: "EXP-2026-0124", description: "Site security — September", payee: "Demo Security Services sh.p.k.", category: "SERVICES", net: 9_800, status: "APPROVED", day: -12, paid: -5 },
   { key: "tl_survey", company: BCI, project: "TIRANA_LAKE", number: "EXP-2026-0126", description: "Surveyor's setting-out — Tower B levels 5 to 8", payee: "Demo Survey Partners sh.p.k.", category: "SERVICES", net: 4_200, status: "APPROVED", day: -8, paid: -2 },
   { key: "tl_photography", company: BCI, project: "TIRANA_LAKE", number: "EXP-2026-0129", description: "Show apartment photography and video", payee: "Demo Studio sh.p.k.", category: "OTHER", net: 1_600, status: "PENDING_APPROVAL", day: -2 },
   { key: "tl_generator", company: BCI, project: "TIRANA_LAKE", number: "EXP-2026-0122", description: "Temporary power — generator hire, August", payee: "AlbaBuild sh.p.k.", category: "EQUIPMENT", net: 6_300, status: "REJECTED", day: -15, rejected: "Charge it to the electrical contractor under WP-TL-03." },
-  { key: "ut_permits", company: BCI, project: "UNITED_TOWERS", number: "EXP-2026-0131", description: "Planning permit fees — United Towers", payee: "Tirana Municipality", category: "ADMINISTRATION", net: 12_500, status: "DRAFT", day: -1 },
+  { key: "ut_permits", company: "UNICO_CONSTRUCTION", project: "UNITED_TOWERS", number: "EXP-2026-0131", description: "Planning permit fees — United Towers", payee: "Tirana Municipality", category: "ADMINISTRATION", net: 12_500, status: "DRAFT", day: -1 },
   { key: "tc_skips", company: "ARLIS_NDERTIM", project: "THE_COURTYARD", number: "EXP-2026-0047", description: "Skip hire — block 3 strip-out", payee: "Demo Waste Services sh.p.k.", category: "SERVICES", net: 2_400, status: "APPROVED", day: -20, paid: -14 },
-  { key: "fr_lab", company: "IDEAL_CONSTRUCTION", project: "FARKA_RESIDENCE", number: "EXP-2026-0033", description: "Concrete testing laboratory — September", payee: "Demo Materials Laboratory sh.p.k.", category: "SERVICES", net: 3_100, status: "APPROVED", day: -6 },
+  { key: "fr_lab", company: "ARLIS_NDERTIM", project: "FARKA_RESIDENCE", number: "EXP-2026-0033", description: "Concrete testing laboratory — September", payee: "Demo Materials Laboratory sh.p.k.", category: "SERVICES", net: 3_100, status: "APPROVED", day: -6 },
   { key: "gm_design", company: "SARANDA_MARINA_INVEST", project: "GRAN_MELIA", number: "EXP-2026-0012", description: "Design fees — villas concept stage", payee: "UNICO CONSTRUCTION", category: "SERVICES", net: 48_000, status: "PENDING_APPROVAL", day: -4 },
   { key: "as_grid", company: "ARSOL_ENERGY", project: null, number: "EXP-2026-0021", description: "Grid connection study — rooftop programme, batch 2", payee: "Demo Grid Consultants sh.p.k.", category: "SERVICES", net: 7_500, status: "APPROVED", day: -25, paid: -18 },
 ];
@@ -62,7 +62,6 @@ export async function seedArmaarFinance(prisma: PrismaClient) {
   const today = localDate(new Date(), ZONE);
   const day = (offset: number) => new Date(`${addLocalDays(today, offset)}T12:00:00.000Z`);
   const at = (offset: number, hour = 10) => new Date(`${addLocalDays(today, offset)}T${String(hour).padStart(2, "0")}:00:00.000Z`);
-  const bookkeeper = memberId(FINANCE[BCI]!, BCI);
 
   /* Invoices on the installments around the seed day (§20, §67) --------------- */
   if ((await prisma.invoice.count({ where: { id: { startsWith: "armaar_inv_" } } })) === 0) {
@@ -73,10 +72,16 @@ export async function seedArmaarFinance(prisma: PrismaClient) {
     });
     const contracts = new Map((await prisma.contract.findMany({ where: { id: { in: installments.map((row) => row.contractId) } }, select: { id: true, contractNumber: true, clientId: true, projectId: true } })).map((row) => [row.id, row]));
     const upcoming = installments.filter((row) => row.dueDate > new Date());
-    for (const [index, installment] of installments.entries()) {
+    // Each company's own series, and its own bookkeeper: Tirana Lake's buyers are invoiced by BCI, Square 21's by ARLIS - NDERTIM.
+    const series = new Map<string, number>();
+    const bookkeepers = new Map((await prisma.companyMember.findMany({ where: { id: { in: Object.entries(FINANCE).map(([code, username]) => memberId(username!, code as CompanyCode)) } }, select: { id: true, companyId: true } })).map((row) => [row.companyId, row.id]));
+    for (const installment of installments) {
       const contract = contracts.get(installment.contractId)!;
       const id = `armaar_inv_${installment.id.replace(/^armaar_inst_/, "")}`;
       const issued = new Date(installment.dueDate.getTime() - 14 * 86_400_000);
+      const index = series.get(installment.companyId) ?? 0;
+      series.set(installment.companyId, index + 1);
+      const bookkeeper = bookkeepers.get(installment.companyId)!;
       // Of those still to come, the last is a draft and the one before it waits for approval.
       const position = upcoming.indexOf(installment);
       const status = position === upcoming.length - 1 ? "DRAFT" : position === upcoming.length - 2 ? "PENDING_APPROVAL" : "SENT";
@@ -153,7 +158,8 @@ export async function seedArmaarFinance(prisma: PrismaClient) {
 
   /* Commitments entered by hand (§20) ------------------------------------------- */
   const manual = [
-    { id: "armaar_cmt_ut_design", company: BCI, project: "UNITED_TOWERS" as ProjectCode, reference: "UT-DES-01", description: "Concept and planning design — United Towers", counterparty: "UNICO CONSTRUCTION", category: "SERVICES" as const, amount: 420_000, status: "APPROVED" as const, expected: 120, day: -40 },
+    // United Towers is UNICO's own: UNICO designs it in-house and engages the structural and MEP engineers.
+    { id: "armaar_cmt_ut_design", company: "UNICO_CONSTRUCTION" as CompanyCode, project: "UNITED_TOWERS" as ProjectCode, reference: "UT-ENG-01", description: "Structural and MEP engineering design — United Towers", counterparty: "Demo Engineering Consultants sh.p.k.", category: "SERVICES" as const, amount: 420_000, status: "APPROVED" as const, expected: 120, day: -40 },
     { id: "armaar_cmt_gm_operator", company: "SARANDA_MARINA_INVEST" as CompanyCode, project: "GRAN_MELIA" as ProjectCode, reference: "GM-TSA-01", description: "Hotel operator technical services — pre-opening", counterparty: "Demo Hospitality Advisors", category: "SERVICES" as const, amount: 180_000, status: "PENDING_APPROVAL" as const, expected: 200, day: -3 },
   ];
   for (const commitment of manual) {

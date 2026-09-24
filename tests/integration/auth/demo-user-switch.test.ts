@@ -149,7 +149,7 @@ describe("the demo user switch replaces the session (C-01 §7, §21-§24)", () =
     await signInOnTheForm("armaar.owner");
     await switchTo("unico.pm");
     const manager = await contextNow();
-    expect(manager).toMatchObject({ fullName: "Tedi Gogu", role: "PROJECT_MANAGER", position: "MEMBER", companyId: companyId("UNICO_CONSTRUCTION") });
+    expect(manager).toMatchObject({ fullName: "Tedi Gogu", role: "PROJECT_MANAGER", position: "MEMBER", companyId: companyId("IDEAL_CONSTRUCTION") });
     const listed = await listProjects(manager, projectListQuerySchema.parse({}));
     expect(listed.data.map((row) => row.id)).toEqual([projectId("EYES_OF_TIRANA")]);
     await expect(getProject(manager, projectId("TIRANA_LAKE"))).rejects.toThrow();

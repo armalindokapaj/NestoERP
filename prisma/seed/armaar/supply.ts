@@ -37,13 +37,14 @@ const ALN = "ARLIS_NDERTIM" as const;
 const IDEAL = "IDEAL_CONSTRUCTION" as const;
 const SMI = "SARANDA_MARINA_INVEST" as const;
 const ARSOL = "ARSOL_ENERGY" as const;
+const UNICO = "UNICO_CONSTRUCTION" as const;
 const money = (value: number) => new Prisma.Decimal(value.toFixed(2));
 const qty = (value: number) => new Prisma.Decimal(value.toFixed(4));
 const normalizeSupplier = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 /** Who buys, and who approves, in each company. */
-const BUYER: Partial<Record<CompanyCode, string>> = { [BCI]: "bci.procurement", [ALN]: "arlis.procurement", [IDEAL]: "ideal.procurement", [ARSOL]: "arsol.procurement", [SMI]: "armaar.procurement" };
-const APPROVER: Partial<Record<CompanyCode, string>> = { [BCI]: "bci.director", [ALN]: "arlis.director", [IDEAL]: "ideal.director", [ARSOL]: "arsol.director", [SMI]: "smi.director" };
+const BUYER: Partial<Record<CompanyCode, string>> = { [BCI]: "bci.procurement", [ALN]: "arlis.procurement", [IDEAL]: "ideal.procurement", [ARSOL]: "arsol.procurement", [SMI]: "armaar.procurement", [UNICO]: "armaar.procurement" };
+const APPROVER: Partial<Record<CompanyCode, string>> = { [BCI]: "bci.director", [ALN]: "arlis.director", [IDEAL]: "ideal.director", [ARSOL]: "arsol.director", [SMI]: "smi.director", [UNICO]: "unico.director" };
 
 /** Continues D-01's register: SUP-001 to SUP-009 are its nine. */
 const SUPPLIERS: Array<{ key: string; name: string; taxId: string; category: string; companies: CompanyCode[] }> = [
@@ -57,7 +58,7 @@ const SUPPLIERS: Array<{ key: string; name: string; taxId: string; category: str
   { key: "safework", name: "SafeWork Albania sh.p.k.", taxId: "X90000017S", category: "PPE and site safety equipment", companies: [ALN, IDEAL] },
   { key: "fushe_cement", name: "Fushë-Kruja Cement Trading sh.p.k.", taxId: "X90000018T", category: "Cement and binders", companies: [ALN] },
   { key: "balkan_cable", name: "Balkan Cable & Wire sh.p.k.", taxId: "X90000019U", category: "Power and solar cable", companies: [ARSOL] },
-  { key: "geotest", name: "GeoTest Albania sh.p.k.", taxId: "X90000020V", category: "Geotechnical investigation and testing", companies: [BCI] },
+  { key: "geotest", name: "GeoTest Albania sh.p.k.", taxId: "X90000020V", category: "Geotechnical investigation and testing", companies: [UNICO] },
 ];
 
 type Chain = {
@@ -77,7 +78,7 @@ type Chain = {
  * order is received or closed).
  */
 const CHAINS: Chain[] = [
-  /* BUILDING CONSTRUCTION INVEST — Tirana Lake and United Towers ------------ */
+  /* BUILDING CONSTRUCTION INVEST — Tirana Lake ------------------------------ */
   {
     key: "tl_tiles", company: BCI, project: "TIRANA_LAKE", supplier: "adria_tiles",
     request: { number: "PR-2026-0056", title: "Porcelain tiles — Tower A apartments, levels 1 to 6", status: "ORDERED", submitted: -30, requester: "bci.pm" },
@@ -115,12 +116,6 @@ const CHAINS: Chain[] = [
     order: { number: "PO-2026-0046", status: "RECEIVED", placed: -21, leadDays: 14, price: 36_800 },
     receipts: [{ number: "GRN-2026-0070", share: 1, day: -8 }],
   },
-  {
-    key: "ut_geotech", company: BCI, project: "UNITED_TOWERS", supplier: "geotest",
-    request: { number: "PR-2026-0065", title: "Geotechnical investigation — United Towers plot", status: "ORDERED", submitted: -20, requester: "bci.pm-lead" },
-    item: { description: "Boreholes to 40 m with laboratory testing and report", category: "SERVICES", quantity: 1, unit: "lot", estimate: 68_000 },
-    order: { number: "PO-2026-0045", status: "APPROVED", placed: -15, leadDays: 45, price: 64_500 },
-  },
 
   /* ARLIS - NDERTIM — The Courtyard ------------------------------------------ */
   {
@@ -143,13 +138,23 @@ const CHAINS: Chain[] = [
     item: { description: "PPR pipes and fittings, 20–63 mm", category: "MATERIALS", quantity: 1, unit: "lot", estimate: 14_800 },
   },
 
-  /* IDEAL Construction — Farka Residence ------------------------------------- */
+  /* ARLIS - NDERTIM — Farka Residence --------------------------------------- */
+  // Came with the project from IDEAL: its numbers are free in ARLIS's series and follow on from The Courtyard's.
   {
-    key: "fr_formwork", company: IDEAL, project: "FARKA_RESIDENCE", supplier: "korca_timber",
-    request: { number: "PR-2026-0021", title: "Formwork plywood and props — Block C", status: "ORDERED", submitted: -28, requester: "ideal.pm" },
+    key: "fr_formwork", company: ALN, project: "FARKA_RESIDENCE", supplier: "korca_timber",
+    request: { number: "PR-2026-0021", title: "Formwork plywood and props — Block C", status: "ORDERED", submitted: -28, requester: "arlis.pm-lead" },
     item: { description: "Film-faced plywood 18 mm and steel props", category: "MATERIALS", quantity: 1, unit: "lot", estimate: 27_500 },
     order: { number: "PO-2026-0017", status: "PARTIALLY_RECEIVED", placed: -25, leadDays: 10, price: 26_400 },
     receipts: [{ number: "GRN-2026-0019", share: 0.7, day: -14 }],
+  },
+
+  /* UNICO CONSTRUCTION — United Towers --------------------------------------- */
+  // UNICO's first request and order: the first numbers of its series.
+  {
+    key: "ut_geotech", company: UNICO, project: "UNITED_TOWERS", supplier: "geotest",
+    request: { number: "PR-2026-0001", title: "Geotechnical investigation — United Towers plot", status: "ORDERED", submitted: -20, requester: "unico.coordinator" },
+    item: { description: "Boreholes to 40 m with laboratory testing and report", category: "SERVICES", quantity: 1, unit: "lot", estimate: 68_000 },
+    order: { number: "PO-2026-0001", status: "APPROVED", placed: -15, leadDays: 45, price: 64_500 },
   },
 
   /* Saranda Marina Invest — Gran Melia --------------------------------------- */

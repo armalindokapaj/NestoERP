@@ -45,7 +45,8 @@ type CompanyProfile = { industry: string; departments: GroupDepartmentKey[]; pla
 export const COMPANY_PROFILES: Record<CompanyCode, CompanyProfile> = {
   // Development and construction (§8): Tirana Lake's site runs its own HSE, QA/QC and store.
   BUILDING_CONSTRUCTION_INVEST: { industry: "Real estate development", place: "Tirana", departments: ["executive", "hr", "projects", "architecture", "engineering", "finance", "legal", "sales", "procurement", "hse", "qaqc", "inventory"] },
-  ARLIS_NDERTIM: { industry: "Construction", place: "Tirana", departments: ["executive", "it", "hr", "projects", "engineering", "finance", "legal", "procurement", "inventory", "qaqc", "hse"] },
+  // Square 21 is ARLIS - NDERTIM's, and its last units are still on sale: a sales branch.
+  ARLIS_NDERTIM: { industry: "Construction", place: "Tirana", departments: ["executive", "it", "hr", "projects", "engineering", "finance", "legal", "sales", "procurement", "inventory", "qaqc", "hse"] },
   IDEAL_CONSTRUCTION: { industry: "Construction", place: "Tirana", departments: ["executive", "hr", "projects", "engineering", "finance", "procurement", "qaqc", "hse"] },
   UNICO_CONSTRUCTION: { industry: "Architecture and engineering", place: "Tirana", departments: ["executive", "hr", "projects", "architecture", "engineering", "finance"] },
   ARSOL_ENERGY: { industry: "Energy", place: "Tirana", departments: ["executive", "it", "hr", "projects", "engineering", "finance", "legal", "procurement"] },

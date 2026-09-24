@@ -26,7 +26,7 @@ import { cleanupSessions, loginAsMembership, prisma } from "../../helpers";
 
 const ARMAAR = "armaar_group";
 const BCI = "BUILDING_CONSTRUCTION_INVEST" as const;
-const UNICO = "UNICO_CONSTRUCTION" as const;
+const IDEAL = "IDEAL_CONSTRUCTION" as const;
 const EYES = projectId("EYES_OF_TIRANA");
 const NAMED = ARMAAR_PEOPLE.filter((person) => person.named);
 const full = (person: { firstName: string; lastName: string }) => `${person.firstName} ${person.lastName}`;
@@ -144,25 +144,25 @@ describe("the people D-03 names", () => {
         members: { where: { status: "ACTIVE" }, select: { companyMemberId: true, isPrimary: true, projectRole: true } },
       },
     });
-    expect(project.companyId).toBe(companyId(UNICO));
+    expect(project.companyId).toBe(companyId(IDEAL));
     expect(full(project.projectManager!.user)).toBe(full(PROJECT_MANAGERS[0]!));
-    expect(project.projectManager).toMatchObject({ id: memberId("unico.pm", UNICO), role: { key: "PROJECT_MANAGER" } });
-    expect(project.members.filter((member) => member.isPrimary)).toEqual([{ companyMemberId: memberId("unico.pm", UNICO), isPrimary: true, projectRole: "Project Manager" }]);
+    expect(project.projectManager).toMatchObject({ id: memberId("unico.pm", IDEAL), role: { key: "PROJECT_MANAGER" } });
+    expect(project.members.filter((member) => member.isPrimary)).toEqual([{ companyMemberId: memberId("unico.pm", IDEAL), isPrimary: true, projectRole: "Project Manager" }]);
     // D-01's manager stays on the team, in the role she has.
-    expect(project.members).toContainEqual({ companyMemberId: memberId("unico.coordinator", UNICO), isPrimary: false, projectRole: "Technical Coordinator" });
+    expect(project.members).toContainEqual({ companyMemberId: memberId("unico.coordinator", IDEAL), isPrimary: false, projectRole: "Technical Coordinator" });
   });
 
   it("let Eyes of Tirana's manager into Eyes of Tirana and no other project (§31)", async () => {
     const unrelated = "test_d03_unrelated_project";
-    await prisma.project.create({ data: { id: unrelated, companyId: companyId(UNICO), code: "D03-X", name: "D-03 unrelated project", createdBy: userId("unico.director") } });
+    await prisma.project.create({ data: { id: unrelated, companyId: companyId(IDEAL), code: "D03-X", name: "D-03 unrelated project", createdBy: userId("ideal.director") } });
     try {
-      const manager = await loginAsMembership(memberId("unico.pm", UNICO));
+      const manager = await loginAsMembership(memberId("unico.pm", IDEAL));
       const listed = await listProjects(manager, projectListQuerySchema.parse({}));
       expect(listed.data.map((row) => row.id)).toEqual([EYES]);
       await expect(getProject(manager, unrelated)).rejects.toThrow();
       await expect(getProject(manager, projectId("TIRANA_LAKE"))).rejects.toThrow();
       // The company's director reads it: the manager's not reaching it is the project scope, not an empty company.
-      const director = await loginAsMembership(memberId("unico.director", UNICO));
+      const director = await loginAsMembership(memberId("ideal.director", IDEAL));
       await expect(getProject(director, unrelated)).resolves.toMatchObject({ id: unrelated });
     } finally {
       await prisma.project.delete({ where: { id: unrelated } });
@@ -181,7 +181,7 @@ describe("the people D-03 names", () => {
     }
     const manager = await record("ARMAAR:PROJECT_MANAGER:EYES_OF_TIRANA:TEDI_GOGU");
     expect(manager).toMatchObject({ entityType: "ProjectMember", sourceType: "USER_PROVIDED" });
-    expect(await prisma.projectMember.findUniqueOrThrow({ where: { id: manager.entityId }, select: { companyMemberId: true } })).toEqual({ companyMemberId: memberId("unico.pm", UNICO) });
+    expect(await prisma.projectMember.findUniqueOrThrow({ where: { id: manager.entityId }, select: { companyMemberId: true } })).toEqual({ companyMemberId: memberId("unico.pm", IDEAL) });
     // A named person's login: the name theirs, the rest synthetic.
     expect((await record("ARMAAR:PERSON:armaar.finance")).fieldSources).toMatchObject({ name: "USER_PROVIDED", login: "SYNTHETIC", activity: "SYNTHETIC" });
     expect((await record("ARMAAR:PERSON:bci.director")).sourceType).toBe("SYNTHETIC");
@@ -228,14 +228,14 @@ describe("the people D-03 names", () => {
   }, 120_000);
 
   it("leave a project manager the product appointed since, and never make two (§25)", async () => {
-    await prisma.project.update({ where: { id: EYES }, data: { projectManagerMemberId: memberId("unico.director", UNICO) } });
+    await prisma.project.update({ where: { id: EYES }, data: { projectManagerMemberId: memberId("ideal.director", IDEAL) } });
     try {
-      await expect(reseed()).rejects.toThrow(/conflict, left as it is: Eyes of Tirana's manager is Vjollca Shyti \(unico\.director\)/);
+      await expect(reseed()).rejects.toThrow(/conflict, left as it is: Eyes of Tirana's manager is Florian Kaja \(ideal\.director\)/);
       const project = await prisma.project.findUniqueOrThrow({ where: { id: EYES }, select: { projectManagerMemberId: true, members: { where: { isPrimary: true }, select: { companyMemberId: true } } } });
-      expect(project.projectManagerMemberId).toBe(memberId("unico.director", UNICO));
-      expect(project.members.map((member) => member.companyMemberId)).not.toContain(memberId("unico.pm", UNICO));
+      expect(project.projectManagerMemberId).toBe(memberId("ideal.director", IDEAL));
+      expect(project.members.map((member) => member.companyMemberId)).not.toContain(memberId("unico.pm", IDEAL));
     } finally {
-      await prisma.project.update({ where: { id: EYES }, data: { projectManagerMemberId: memberId("unico.pm", UNICO) } });
+      await prisma.project.update({ where: { id: EYES }, data: { projectManagerMemberId: memberId("unico.pm", IDEAL) } });
       await reseed();
     }
   }, 180_000);

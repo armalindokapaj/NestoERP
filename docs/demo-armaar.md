@@ -55,23 +55,50 @@ demo's password. Whoever runs the demo manages it (D-01 §87).
 | Group Engineering, Project Management, Sales, QA/QC, Inventory heads | `armaar.engineering`, `armaar.projects`, `armaar.sales`, `armaar.qaqc`, `armaar.inventory` | |
 | Company Director (BCI) | `bci.director` | BUILDING CONSTRUCTION INVEST |
 | Project Manager, Tirana Lake | `bci.pm` | |
-| Project Manager, Eyes of Tirana — Tedi Gogu | `unico.pm` | UNICO CONSTRUCTION; sees Eyes of Tirana only |
+| Project Manager, Eyes of Tirana — Tedi Gogu | `unico.pm` | IDEAL Construction, which employs him; sees Eyes of Tirana only |
 | Architect | `bci.architect` | |
 | Engineer (ARLIS - NDERTIM, on site at Tirana Lake) | `arlis.civil` | ARLIS - NDERTIM; a login in BCI too |
 | Finance user | `bci.finance-specialist` | |
-| Procurement user | `arlis.buyer` | works for three companies |
+| Procurement user | `arlis.buyer` | ARLIS - NDERTIM; a login in BCI too |
 | HSE user | `arlis.hse-officer` | |
-| Sales user | `bci.sales-agent` | |
+| Sales user | `bci.sales-agent` | Tirana Lake |
+| Sales user, Square 21 | `bci.sales-agent2` | BCI; a login in ARLIS - NDERTIM, where Square 21 sells |
 | Viewer | `bci.viewer` | read only |
 
 Every company's people follow the same pattern: `<company>.<role>` — `bci`,
-`arlis`, `ideal`, `unico`, `arsol`, `smi`, `arlisadm`, `klais`, `kfp`. Group
-people sign in to BUILDING CONSTRUCTION INVEST first, where Tirana Lake is.
+`arlis`, `ideal`, `unico`, `arsol`, `smi`, `arlisadm`, `klais`, `kfp` — named
+for the company that first employed them: `unico.pm` kept his username when
+Eyes of Tirana, and he, went to IDEAL Construction. Group people sign in to
+BUILDING CONSTRUCTION INVEST first, where Tirana Lake is.
+
+## Which company runs which project
+
+Only Tirana Lake's company is public (BUILDING CONSTRUCTION INVEST). The rest is
+the demo's assignment, and each project's records — team, units, sales, clients,
+contracts, money, procurement, site, tasks, meetings — are its company's:
+
+| Company | Projects |
+| --- | --- |
+| BUILDING CONSTRUCTION INVEST | Tirana Lake |
+| ARLIS - NDERTIM | Square 21 (with all its sales), Farka Residence, Pharmacy 10, Corner, The Courtyard |
+| UNICO CONSTRUCTION | United Towers |
+| IDEAL Construction | Eyes of Tirana |
+| Saranda Marina Invest | Gran Melia, Clearwater Beach |
+| K.F POGRADECI | Pogradec Marina |
+
+People work across companies through a login in each: ARLIS - NDERTIM's site
+team in BCI on Tirana Lake, UNICO's designers in IDEAL on Eyes of Tirana, BCI's
+agent Eros Shehaj in ARLIS - NDERTIM on Square 21. Clients are a company's own:
+the four companies that bought shops in both Tirana Lake and Square 21 are
+clients of BCI and of ARLIS - NDERTIM. Each company numbers in its own series:
+Square 21's sale agreements are `ALN-SA-<year>-0001` onwards, its invoices
+ARLIS - NDERTIM's `INV-2026-0101` onwards.
 
 In development the sign-in screen lists these people first, one click each,
 read from the database as any demo tenant's are (`lib/auth/demo-tenants.ts` —
 product code never names ARMAAR, §92): the group heads, then each active
-company's people, BUILDING CONSTRUCTION INVEST open and the others folded. The
+company's people, the company with the most projects (ARLIS - NDERTIM) open and
+the others folded. The
 one-click sign-in uses the demo's password; with `ARMAAR_DEMO_PASSWORD` set,
 sign in through the form.
 
@@ -94,8 +121,9 @@ sign in through the form.
    podium membrane delivered and in stock, the AHUs part-delivered, tiles
    ordered, sanitary ware waiting for approval, a balustrade request sent back
    for a re-quote; each approved order has its Finance commitment. ARLIS -
-   NDERTIM, IDEAL, Saranda Marina Invest and ARSOL buy too (29 supplier
-   records, 40 requests, orders and deliveries).
+   NDERTIM (The Courtyard, Farka Residence), UNICO (United Towers), Saranda
+   Marina Invest and ARSOL buy too (29 supplier records, 40 requests, orders
+   and deliveries).
 8. **Contractors and engineering** as `bci.engineering` (§65): eleven
    contractors, from the frame and façade at work to the lifts signed and the
    landscaping out to tender; on Tirana Lake twelve drawings and specifications
@@ -105,12 +133,13 @@ sign in through the form.
    the handover plan and the Q3 cost report wait for the director's review;
    sixty-five tasks, each opened from the record it is about, some blocked.
 10. **Sales / units**: 205 units in two projects — Tirana Lake 101 (with its
-    car park), Square 21 104 — typologies 1+1 to 5+1; Square 21 nearly sold
-    out, its blocks 3 and 4 bought by investors who already own in blocks 1 and
-    2; Tirana Lake a third sold, installments invoiced, some overdue,
-    reservations waiting, two with a contract asked of Legal.
-11. **Finance / legal** as `bci.finance` (§67): invoice → payment → allocation
-    on the buyers' installments; expenses approved, waiting, rejected, and the
+    car park) in BCI, as `bci.sales-agent`; Square 21 104 in ARLIS - NDERTIM,
+    as `bci.sales-agent2` or `armaar.sales` — typologies 1+1 to 5+1; Square 21
+    nearly sold out, its blocks 3 and 4 bought by investors who already own in
+    blocks 1 and 2; Tirana Lake a third sold, installments invoiced, some
+    overdue, reservations waiting, two with a contract asked of Legal.
+11. **Finance / legal** as `bci.finance` (§67), or `arlis.finance` for Square
+    21's buyers: invoice → payment → allocation on the buyers' installments; expenses approved, waiting, rejected, and the
     approved ones paid; budgets and commitments. The construction contract with
     Tower B's two extra floors in force, subcontracts with their parties and
     obligations (the façade performance bond overdue), and a hotel operator's
@@ -122,17 +151,18 @@ sign in through the form.
     hazards and their actions, toolbox talks the site workers signed, a hot-work
     permit active; QA/QC's cube test, flood test and the façade NCR; the site
     store's stock, three items low; the team's timesheets, one week returned.
-13. **Site workforce** (E-04) as `bci.pm` or `bci.hr`: Workforce lists 24 of
+13. **Site workforce** (E-04) as `bci.pm` or `bci.hr`: Workforce lists 22 of
     BCI's people who never sign in — concrete, formwork, steel fixing, the yard
-    — in five crews, each under a foreman without a login. Tirana Lake's
+    — in four crews, each under a foreman without a login. Tirana Lake's
     Workforce tab shows its three sites, who works where, and two people
     without a valid induction: Xhevdet Llani, a steel fixer new on site,
     and Artan Sinani, whose yard induction lapsed. The attendance sheet
-    has the last working days, with somebody off sick. Square 21's frame crew
-    is archived; its people moved to Tirana Lake after the handover, and Olsi
-    Dervishi moved from Tower B to Tower A a few weeks ago — both kept in their
-    history. ARLIS - NDERTIM's ten are on The Courtyard (as `arlis.hr`), one
-    with an induction voided for the wrong date and given again.
+    has the last working days, with somebody off sick. Olsi Dervishi moved
+    from Tower B to Tower A a few weeks ago, kept in his history. ARLIS -
+    NDERTIM's ten are on The Courtyard (as `arlis.hr`): its Square 21 finishing
+    crew is archived, and its five people moved to The Courtyard after the
+    handover — kept in their history; one has an induction voided for the
+    wrong date and given again. UNICO's two dig United Towers' foundations.
 14. **Employee files and qualifications** (E-02) as `arlis.hr`: HR →
     Documents → *To verify* has Taulant Ymeri's crane signaller card and
     Eduart Vrioni's ETABS; *Expiring in 30 days* has Marsela Toska's licence to
@@ -186,7 +216,7 @@ folder, so D-02's folders are the records the files are filed on (§29).
 | Finance, legal (§20, §21) | invoices on installments, 12 expenses, 6 disbursements, 22 contracts besides the sales with parties and obligations, 4 amendments |
 | Meetings, calendar (§33, §34) | 17 meetings, 11 events; 4 document reviews |
 | Site (§36-§40) | 24 daily logs; HSE 5 inspections, 6 hazards, 5 actions, 5 talks, 3 incidents, 3 permits; QA/QC 8 inspections, 4 NCRs, 4 actions, 2 defects; 13 items in 3 stores; 10 timesheets |
-| Units, clients (§15, §18) | Tirana Lake 101, Square 21 104; 77 clients, investors among them |
+| Units, clients (§15, §18) | Tirana Lake 101 (BCI), Square 21 104 (ARLIS - NDERTIM); 77 buyers, investors among them — 81 clients, as the four companies buying in both projects are clients of both companies |
 
 **Corrections to D-01's data** it made on the way: purchase request, order,
 goods receipt and NCR numbers are now in the product's own series shape
@@ -209,7 +239,7 @@ reused, replaced, conflict, skipped.
 | --- | --- | --- |
 | **Armand Lilo**, Group Owner | public | the group's Owner (`armaar.owner`): one person, nothing on the platform |
 | **Adela Dervishaj** (Procurement), **Edvin Gace** (Finance), **Besar Zifla** (Architecture & Design), **Arted Ballaj** (HSE), **Migena Bajro** (Legal), **Xhejsi Lilo** (HR) | supplied by NESTO's owner | each function's head position (`armaar.procurement` … `armaar.hr`) |
-| **Tedi Gogu**, Eyes of Tirana's project manager | supplied by NESTO's owner | the project's manager and its one primary team member (`unico.pm`, UNICO CONSTRUCTION) |
+| **Tedi Gogu**, Eyes of Tirana's project manager | supplied by NESTO's owner | the project's manager and its one primary team member (`unico.pm`, IDEAL Construction, the project's company) |
 | All thirteen companies' NIPTs | public | each company's registration number |
 
 - **The personas are replaced, not duplicated.** D-01's invented Owner and six
@@ -260,7 +290,7 @@ profile.
 ## Limits
 
 - **Workers are counted with everybody employed**: the dashboard's employees
-  figure includes the 34 site workers; there is no separate Workers figure.
+  figure includes the 34 site workers (22 of BCI's, 10 of ARLIS - NDERTIM's, 2 of UNICO's); there is no separate Workers figure.
   Their timesheets, overtime and pay are E-09's.
 - **Employee files are a presenter's handful**, not a whole company's: eighteen
   files and seventeen qualifications of seven people. Expiry dates are relative

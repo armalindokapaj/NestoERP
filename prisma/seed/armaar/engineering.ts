@@ -95,11 +95,11 @@ const CONTRACTORS: NewContractor[] = [
     compliance: [{ type: "TAX_DOCUMENT", title: "Tax compliance certificate", status: "VALID", expires: 75, issuer: "General Directorate of Taxation" }, { type: "INSURANCE", title: "Contractor's all-risk insurance", status: "MISSING", note: "Requested with the tender return." }],
   },
   {
-    key: "korca_timber", company: "IDEAL_CONSTRUCTION", project: "FARKA_RESIDENCE", legalName: "Korça Timber sh.p.k.", taxId: "X90000008H", supplier: "korca_timber", status: "ACTIVE", trade: "Formwork",
+    key: "korca_timber", company: "ARLIS_NDERTIM", project: "FARKA_RESIDENCE", legalName: "Korça Timber sh.p.k.", taxId: "X90000008H", supplier: "korca_timber", status: "ACTIVE", trade: "Formwork",
     scope: "Formwork and falsework for the slabs and columns of Blocks B and C.",
     contacts: [{ name: "Ilir Prendi", title: "Site foreman", role: "SITE_ENGINEER" }],
-    pkg: { code: "WP-FR-01", name: "Formwork and falsework — Blocks B and C", discipline: "STRUCTURAL", status: "ACTIVE", value: 640_000, manager: "ideal.site-engineer", start: -120, end: 90 },
-    contract: { number: "IDEAL-SC-2026-003", status: "ACTIVE", signed: -130 },
+    pkg: { code: "WP-FR-01", name: "Formwork and falsework — Blocks B and C", discipline: "STRUCTURAL", status: "ACTIVE", value: 640_000, manager: "arlis.structural", start: -120, end: 90 },
+    contract: { number: "ALN-SC-2026-0001", status: "ACTIVE", signed: -130 },
     compliance: [{ type: "INSURANCE", title: "Contractor's all-risk insurance", status: "VALID", expires: 150, issuer: "Demo Insurance Co." }],
   },
   {
@@ -196,7 +196,7 @@ export async function seedArmaarEngineering(prisma: PrismaClient) {
   const day = (offset: number) => new Date(`${addLocalDays(today, offset)}T12:00:00.000Z`);
   const at = (offset: number, hour = 10) => new Date(`${addLocalDays(today, offset)}T${String(hour).padStart(2, "0")}:00:00.000Z`);
   const m = (username: string, code: CompanyCode = BCI) => memberId(username, code);
-  const legalOf = (code: CompanyCode) => (code === BCI ? "bci.legal" : "armaar.legal");
+  const legalOf = (code: CompanyCode) => (code === BCI ? "bci.legal" : code === "ARLIS_NDERTIM" ? "arlis.legal" : "armaar.legal");
 
   await prisma.engineeringSettings.upsert({ where: { companyId: companyId(BCI) }, update: {}, create: { companyId: companyId(BCI) } });
 
@@ -242,7 +242,7 @@ export async function seedArmaarEngineering(prisma: PrismaClient) {
         primaryContactName: contractor.contacts[0]!.name,
         notes: `${contractor.trade} contractor.`,
         normalizedName: normalizeContractorName(contractor.legalName),
-        createdByMemberId: m(code === BCI ? "bci.procurement" : code === "IDEAL_CONSTRUCTION" ? "ideal.procurement" : "armaar.procurement", code),
+        createdByMemberId: m(code === BCI ? "bci.procurement" : code === "ARLIS_NDERTIM" ? "arlis.procurement" : "armaar.procurement", code),
         createdAt: at(Math.min(started, 0) - 45),
       },
     });

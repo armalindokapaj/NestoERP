@@ -3,15 +3,18 @@
  * Tirana Lake, United Towers and The Courtyard, almost none of whom will ever
  * sign in to NESTO.
  *
- *   workers        twenty-four of BUILDING CONSTRUCTION INVEST's and ten of
- *                  ARLIS - NDERTIM's, each a person of the group and an
- *                  employment with a trade — no login, no role (§10-§13)
+ *   workers        twenty-two of BUILDING CONSTRUCTION INVEST's, ten of
+ *                  ARLIS - NDERTIM's and two of UNICO CONSTRUCTION's, each a
+ *                  person of the group and an employment with a trade — no
+ *                  login, no role (§10-§13); each works on their own
+ *                  company's projects
  *   sites          Tirana Lake's two towers and its batching yard, The
  *                  Courtyard's blocks, and Square 21's plot, closed when the
  *                  project was handed over (§38, §39)
  *   crews          each led by a foreman who has no login either (§31, §32);
- *                  Square 21's frame crew is archived, and its people moved to
- *                  Tirana Lake — the history is the rows (§29, §30)
+ *                  ARLIS - NDERTIM's Square 21 finishing crew is archived, and
+ *                  its people moved to The Courtyard — the history is the rows
+ *                  (§29, §30)
  *   assignments    one primary project each; one worker moved from Tower B to
  *                  Tower A a few weeks ago (§33-§42)
  *   attendance     the last working days, marked on site by the site
@@ -37,7 +40,12 @@ import { ARMAAR_GROUP_ID, demoKey, recordDemo } from "./records";
 
 const BCI = "BUILDING_CONSTRUCTION_INVEST" as const;
 const ALN = "ARLIS_NDERTIM" as const;
-type Employer = typeof BCI | typeof ALN;
+const UNC = "UNICO_CONSTRUCTION" as const;
+type Employer = typeof BCI | typeof ALN | typeof UNC;
+const EMPLOYERS: Employer[] = [BCI, ALN, UNC];
+/** Who keeps each employer's workforce: its HR manager; UNICO has none, so the group's HR head. */
+const HR: Record<Employer, string> = { [BCI]: "bci.hr", [ALN]: "arlis.hr", [UNC]: "armaar.hr" };
+const SLUG: Record<Employer, string> = { [BCI]: "bci", [ALN]: "aln", [UNC]: "unc" };
 
 /** NESTO went live for the group this many days ago: nothing is placed on a site before it. */
 const LIVE_DAYS = 540;
@@ -60,15 +68,16 @@ const TRADES: Record<Employer, Array<{ key: string; name: string; code: string }
     { key: "electrical", name: "Electrical", code: "ELE" },
     { key: "plumbing", name: "Plumbing", code: "PLB" },
   ],
+  [UNC]: [{ key: "labour", name: "General labour", code: "LAB" }],
 };
-export const tradeId = (code: Employer, key: string) => `armaar_trade_${code === BCI ? "bci" : "aln"}_${key}`;
+export const tradeId = (code: Employer, key: string) => `armaar_trade_${SLUG[code]}_${key}`;
 
 type SiteKey = "tower_a" | "tower_b" | "yard" | "sq21_plot" | "cty_blocks";
 const SITES: Array<{ key: SiteKey; company: Employer; project: ProjectCode; name: string; code: string; address: string; closedDaysAgo?: number }> = [
   { key: "tower_a", company: BCI, project: "TIRANA_LAKE", name: "Tower A", code: "TA", address: "Rruga e Liqenit, plot A" },
   { key: "tower_b", company: BCI, project: "TIRANA_LAKE", name: "Tower B", code: "TB", address: "Rruga e Liqenit, plot B" },
   { key: "yard", company: BCI, project: "TIRANA_LAKE", name: "Batching yard", code: "BY", address: "Rruga e Liqenit, north gate" },
-  { key: "sq21_plot", company: BCI, project: "SQUARE_21", name: "Main plot", code: "MP", address: "Sheshi 21", closedDaysAgo: 300 },
+  { key: "sq21_plot", company: ALN, project: "SQUARE_21", name: "Main plot", code: "MP", address: "Sheshi 21", closedDaysAgo: 300 },
   { key: "cty_blocks", company: ALN, project: "THE_COURTYARD", name: "Blocks 1–3", code: "B13", address: "The Courtyard, blocks 1 to 3" },
 ];
 const siteId = (key: SiteKey) => `armaar_site_${key}`;
@@ -106,8 +115,6 @@ const WORKERS: Record<Employer, Worker[]> = {
     { key: "bci_20", first: "Ylli", last: "Berisha", title: "Crane operator and yard foreman", trade: "lifting", category: "SUPERVISOR", startedDaysAgo: 1100 },
     { key: "bci_21", first: "Artan", last: "Sinani", title: "Truck mixer driver", trade: "lifting", category: "DRIVER", startedDaysAgo: 800 },
     { key: "bci_22", first: "Besart", last: "Gjoni", title: "Dumper driver", trade: "lifting", category: "DRIVER", startedDaysAgo: 45 },
-    { key: "bci_23", first: "Dashamir", last: "Pllumi", title: "Excavation foreman", trade: "labour", category: "SUPERVISOR", startedDaysAgo: 950 },
-    { key: "bci_24", first: "Erald", last: "Nika", title: "Plant operator", trade: "labour", category: "TECHNICIAN", startedDaysAgo: 150 },
   ],
   [ALN]: [
     { key: "aln_01", first: "Fatos", last: "Gjeka", title: "Finishing foreman", trade: "finishing", category: "SUPERVISOR", startedDaysAgo: 1900 },
@@ -121,11 +128,16 @@ const WORKERS: Record<Employer, Worker[]> = {
     { key: "aln_09", first: "Ervin", last: "Tahiri", title: "Plumber", trade: "plumbing", category: "TECHNICIAN", startedDaysAgo: 380 },
     { key: "aln_10", first: "Kristi", last: "Gjika", title: "Electrician's mate", trade: "electrical", category: "CONSTRUCTION_WORKER", startedDaysAgo: 3 },
   ],
+  // United Towers' excavation crew: UNICO's, as United Towers is.
+  [UNC]: [
+    { key: "unc_01", first: "Dashamir", last: "Pllumi", title: "Excavation foreman", trade: "labour", category: "SUPERVISOR", startedDaysAgo: 950 },
+    { key: "unc_02", first: "Erald", last: "Nika", title: "Plant operator", trade: "labour", category: "TECHNICIAN", startedDaysAgo: 150 },
+  ],
 };
-const EMPLOYEE_PREFIX: Record<Employer, string> = { [BCI]: "BCI", [ALN]: "ALN" };
+const EMPLOYEE_PREFIX: Record<Employer, string> = { [BCI]: "BCI", [ALN]: "ALN", [UNC]: "UNC" };
 const personId = (key: string) => `person_armaar_w_${key}`;
 export const workerEmploymentId = (key: string) => `employee_armaar_w_${key}`;
-const workerOf = (key: string) => [...WORKERS[BCI], ...WORKERS[ALN]].find((worker) => worker.key === key)!;
+const workerOf = (key: string) => EMPLOYERS.flatMap((code) => WORKERS[code]).find((worker) => worker.key === key)!;
 
 /* -------------------------------------------------------------------------- */
 /* Crews                                                                      */
@@ -148,16 +160,17 @@ type Crew = {
 };
 
 const CREWS: Crew[] = [
+  // ARLIS - NDERTIM's finishing crew on Square 21, which moved to The Courtyard after the handover.
   {
-    key: "sq21_frame",
-    company: BCI,
-    name: "Square 21 frame crew",
+    key: "sq21_finishing",
+    company: ALN,
+    name: "Square 21 finishing crew",
     project: "SQUARE_21",
     site: "sq21_plot",
-    trade: "concrete",
-    members: ["bci_01", "bci_02", "bci_03", "bci_04", "bci_08"],
-    manager: "bci.pm-lead",
-    recorder: "bci.pm-lead",
+    trade: "finishing",
+    members: ["aln_01", "aln_02", "aln_03", "aln_04", "aln_05"],
+    manager: "arlis.pm-lead",
+    recorder: "arlis.pm-lead",
     ended: { daysAgo: 310, reason: "Square 21 handed over" },
   },
   { key: "tl_concrete", company: BCI, name: "Tower A concrete crew", project: "TIRANA_LAKE", site: "tower_a", trade: "concrete", members: ["bci_01", "bci_02", "bci_03", "bci_04", "bci_05", "bci_06", "bci_07"], manager: "bci.pm", recorder: "arlis.site-supervisor" },
@@ -165,7 +178,7 @@ const CREWS: Crew[] = [
   { key: "tl_steel", company: BCI, name: "Steel fixers", project: "TIRANA_LAKE", site: "tower_a", trade: "steel", members: ["bci_15", "bci_16", "bci_17", "bci_18", "bci_19"], manager: "bci.pm", recorder: "arlis.site-supervisor" },
   { key: "tl_yard", company: BCI, name: "Yard and lifting", project: "TIRANA_LAKE", site: "yard", trade: "lifting", members: ["bci_20", "bci_21", "bci_22"], manager: "bci.pm", recorder: "arlis.site-supervisor" },
   // United Towers is still in its foundations: one crew, the whole project.
-  { key: "ut_excavation", company: BCI, name: "United Towers excavation crew", project: "UNITED_TOWERS", site: null, trade: "labour", members: ["bci_23", "bci_24"], manager: "bci.pm-lead", recorder: "bci.pm-lead" },
+  { key: "ut_excavation", company: UNC, name: "United Towers excavation crew", project: "UNITED_TOWERS", site: null, trade: "labour", members: ["unc_01", "unc_02"], manager: "unico.coordinator", recorder: "unico.coordinator" },
   { key: "cty_finishing", company: ALN, name: "Courtyard finishing crew", project: "THE_COURTYARD", site: "cty_blocks", trade: "finishing", members: ["aln_01", "aln_02", "aln_03", "aln_04", "aln_05", "aln_06"], manager: "arlis.site-supervisor", recorder: "arlis.site-supervisor" },
   { key: "cty_mep", company: ALN, name: "Courtyard MEP crew", project: "THE_COURTYARD", site: "cty_blocks", trade: "electrical", members: ["aln_07", "aln_08", "aln_09", "aln_10"], manager: "arlis.site-supervisor", recorder: "arlis.site-supervisor" },
 ];
@@ -190,7 +203,7 @@ const STINTS: Stint[] = (() => {
       // Nobody is on a site before they were employed, the project began, or NESTO went live.
       const joined = Math.max(-workerOf(worker).startedDaysAgo, -LIVE_DAYS, planOf(crew.project).start);
       const before = crew.ended ? undefined : earlier(worker);
-      // Square 21's people came to Tirana Lake ten days after the handover.
+      // Square 21's people came to The Courtyard ten days after the handover.
       const start = before ? -before.ended!.daysAgo + 10 : joined;
       const moved = worker === MOVED.worker && crew.key === MOVED.from;
       const end = crew.ended ? { day: -crew.ended.daysAgo, reason: crew.ended.reason } : moved ? { day: -MOVED.daysAgo - 1, reason: MOVED.reason } : null;
@@ -213,16 +226,16 @@ const currentCrew = (worker: string) => NOW.find((stint) => stint.worker === wor
  */
 export async function seedArmaarWorkers(prisma: PrismaClient, branches: ArmaarBranches) {
   const today = todayDay();
-  for (const code of [BCI, ALN] as const) {
+  for (const code of EMPLOYERS) {
     for (const [index, trade] of TRADES[code].entries()) {
       const id = tradeId(code, trade.key);
       const data = { name: trade.name, code: trade.code, sortOrder: index, isActive: true };
-      await prisma.workforceTrade.upsert({ where: { id }, update: data, create: { id, companyId: companyId(code), createdByMemberId: memberId(code === BCI ? "bci.hr" : "arlis.hr", code), ...data } });
+      await prisma.workforceTrade.upsert({ where: { id }, update: data, create: { id, companyId: companyId(code), createdByMemberId: memberId(HR[code], code), ...data } });
     }
   }
 
-  for (const code of [BCI, ALN] as const) {
-    const hr = code === BCI ? "bci.hr" : "arlis.hr";
+  for (const code of EMPLOYERS) {
+    const hr = HR[code];
     const projects = branches.get(companyId(code))?.get("projects") ?? null;
     for (const [index, worker] of WORKERS[code].entries()) {
       const crew = currentCrew(worker.key);
@@ -268,7 +281,7 @@ export async function seedArmaarWorkers(prisma: PrismaClient, branches: ArmaarBr
       await recordDemo(prisma, { key: demoKey("WORKER", worker.key), entityType: "PersonProfile", entityId: personId(worker.key), source: "SYNTHETIC", note: "A demo site worker without a NESTO login; not a member of ARMAAR's staff." });
     }
   }
-  return { workers: WORKERS[BCI].length + WORKERS[ALN].length };
+  return { workers: EMPLOYERS.reduce((sum, code) => sum + WORKERS[code].length, 0) };
 }
 
 
@@ -404,7 +417,7 @@ export async function seedArmaarWorkforce(prisma: PrismaClient) {
 
   /* Site inductions (§71, §270) ---------------------------------------------- */
   // Given by the HSE officer on Tirana Lake, the group's HSE head on United Towers, ARLIS's HSE manager on The Courtyard.
-  const conductor = (crew: Crew) => (crew.company === ALN ? memberId("arlis.hse", ALN) : crew.project === "UNITED_TOWERS" ? memberId("armaar.hse", BCI) : memberId("arlis.hse-officer", BCI));
+  const conductor = (crew: Crew) => (crew.company === ALN ? memberId("arlis.hse", ALN) : crew.company === UNC ? memberId("armaar.hse", UNC) : memberId("arlis.hse-officer", BCI));
   const induct = async (id: string, data: { worker: string; crew: Crew; on: number; validUntil?: number; notes?: string; voided?: { daysAgo: number; reason: string } }) => {
     const by = conductor(data.crew);
     await prisma.hseInduction.upsert({

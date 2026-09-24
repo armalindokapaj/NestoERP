@@ -54,9 +54,12 @@ describe("demo account sign-in", () => {
     };
     expect(armaar.heads[0]).toEqual({ username: "armaar.owner", name: "Armand Lilo", role: "OWNER", title: "Group Owner" });
     expect(armaar.heads.map((head) => head.username).sort()).toEqual(GROUP_PEOPLE.map((person) => person.username).sort());
-    expect(armaar.companies[0].name).toBe("BUILDING CONSTRUCTION INVEST");
-    expect(armaar.companies[0].personas[0]).toEqual({ username: "bci.director", name: nameOf("bci.director"), role: "CEO", title: "Company Director" });
-    expect(armaar.companies[0].personas).toContainEqual({ username: "bci.pm", name: nameOf("bci.pm"), role: "PROJECT_MANAGER", title: "Project Manager · Tirana Lake" });
+    // The busiest company first: ARLIS - NDERTIM runs five of the group's projects.
+    expect(armaar.companies[0].name).toBe("ARLIS - NDERTIM");
+    expect(armaar.companies[0].personas[0]).toEqual({ username: "arlis.director", name: nameOf("arlis.director"), role: "CEO", title: "Company Director" });
+    const bci = armaar.companies.find((company) => company.name === "BUILDING CONSTRUCTION INVEST")!;
+    expect(bci.personas[0]).toEqual({ username: "bci.director", name: nameOf("bci.director"), role: "CEO", title: "Company Director" });
+    expect(bci.personas).toContainEqual({ username: "bci.pm", name: nameOf("bci.pm"), role: "PROJECT_MANAGER", title: "Project Manager · Tirana Lake" });
     const companyName = new Map(COMPANY_FACTS.map((fact) => [fact.code, fact.name]));
     const expected = new Map<string, string[]>();
     for (const person of COMPANY_PEOPLE) {

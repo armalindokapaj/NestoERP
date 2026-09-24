@@ -4,7 +4,7 @@
  * The people who sign in and log their time: each has a designated approver,
  * and the last three weeks are behind them — approved, waiting for the project
  * manager, and one returned with a question — with hours on Tirana Lake's
- * tasks, United Towers' design and Farka Residence's site. Normal and project
+ * tasks and, in ARLIS - NDERTIM, Farka Residence's site. Normal and project
  * hours only: overtime and the worker's own week are E-09's and are not faked
  * (§40, §41). The current week is left empty.
  *
@@ -23,7 +23,7 @@ import { ARMAAR_GROUP_ID } from "./records";
 
 const ZONE = "Europe/Tirane";
 const BCI = "BUILDING_CONSTRUCTION_INVEST" as const;
-const IDEAL = "IDEAL_CONSTRUCTION" as const;
+const ALN = "ARLIS_NDERTIM" as const;
 
 /** Who approves whose weeks. */
 const APPROVERS: Array<[member: string, approver: string, company: CompanyCode]> = [
@@ -36,8 +36,8 @@ const APPROVERS: Array<[member: string, approver: string, company: CompanyCode]>
   ["unico.architect", "bci.pm-lead", BCI],
   ["bci.pm", "bci.pm-lead", BCI],
   ["bci.engineering", "bci.director", BCI],
-  ["ideal.site-engineer", "ideal.pm", IDEAL],
-  ["ideal.qaqc", "ideal.pm", IDEAL],
+  ["arlis.structural", "arlis.pm-lead", ALN],
+  ["arlis.qaqc", "arlis.pm-lead", ALN],
 ];
 
 type Entry = { day: number; type: WorkLogType; project?: ProjectCode; task?: string; minutes: number; description?: string };
@@ -66,8 +66,8 @@ const ARCHITECT: Entry[] = [
   { day: 0, type: "PROJECT_WORK", project: "TIRANA_LAKE", task: task(1), minutes: 360, description: "Façade drawing revision C mark-ups." },
   { day: 0, type: "INTERNAL", minutes: 60 },
   { day: 1, type: "PROJECT_WORK", project: "TIRANA_LAKE", task: task(104), minutes: 180, description: "Tile samples against the finishes schedule." },
-  { day: 1, type: "PROJECT_WORK", project: "UNITED_TOWERS", task: task(15), minutes: 300, description: "Upper-floor design brief." },
-  { day: 2, type: "PROJECT_WORK", project: "UNITED_TOWERS", task: task(15), minutes: 480, description: "Massing options for the hotel floors." },
+  { day: 1, type: "PROJECT_WORK", project: "TIRANA_LAKE", task: task(1), minutes: 300, description: "Façade drawing revision C: corner bays." },
+  { day: 2, type: "PROJECT_WORK", project: "TIRANA_LAKE", task: task(115), minutes: 480, description: "Landscaping tender: design compliance." },
   { day: 3, type: "PROJECT_WORK", project: "TIRANA_LAKE", task: task(121), minutes: 420, description: "Show floor snag walk." },
   { day: 4, type: "PROJECT_WORK", project: "TIRANA_LAKE", task: task(107), minutes: 240, description: "Terrace falls answer drafted." },
   { day: 4, type: "ADMIN", minutes: 120 },
@@ -108,16 +108,16 @@ const WEEKS: Array<{ key: string; member: string; company: CompanyCode; weeksBac
   { key: "architect_w1", member: "bci.architect", company: BCI, weeksBack: 1, status: "SUBMITTED", entries: ARCHITECT },
   { key: "qaqc_w1", member: "arlis.qaqc-engineer", company: BCI, weeksBack: 1, status: "APPROVED", entries: QAQC },
   { key: "engineering_w1", member: "bci.engineering", company: BCI, weeksBack: 1, status: "SUBMITTED", entries: ENGINEERING },
-  { key: "farka_w1", member: "ideal.site-engineer", company: IDEAL, weeksBack: 1, status: "APPROVED", entries: FARKA },
+  { key: "farka_w1", member: "arlis.structural", company: ALN, weeksBack: 1, status: "APPROVED", entries: FARKA },
 ];
 
 export async function seedArmaarTimesheets(prisma: PrismaClient) {
-  for (const code of [BCI, IDEAL]) await prisma.timesheetSettings.upsert({ where: { companyId: companyId(code) }, update: {}, create: { companyId: companyId(code) } });
+  for (const code of [BCI, ALN]) await prisma.timesheetSettings.upsert({ where: { companyId: companyId(code) }, update: {}, create: { companyId: companyId(code) } });
   for (const [member, approver, code] of APPROVERS) {
     await prisma.timesheetApproverAssignment.upsert({
       where: { memberId: memberId(member, code) },
       update: {},
-      create: { companyId: companyId(code), memberId: memberId(member, code), approverMemberId: memberId(approver, code), updatedByMemberId: memberId(code === BCI ? "bci.hr" : "ideal.director", code) },
+      create: { companyId: companyId(code), memberId: memberId(member, code), approverMemberId: memberId(approver, code), updatedByMemberId: memberId(code === BCI ? "bci.hr" : "arlis.hr", code) },
     });
   }
 

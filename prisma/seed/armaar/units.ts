@@ -22,10 +22,9 @@ import { floorPlanSvg, jpeg, publish, unitFile } from "../unit-publishing";
 import { memberId } from "./access";
 import { companyId } from "./organization";
 import { userId } from "./people";
-import type { ProjectCode } from "./public-facts";
-import { projectId } from "./projects";
+import type { CompanyCode, ProjectCode } from "./public-facts";
+import { planOf, projectId } from "./projects";
 
-const BCI = "BUILDING_CONSTRUCTION_INVEST" as const;
 const DAY = 86_400_000;
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY);
 const dec = (value: number | null) => (value === null ? null : new Prisma.Decimal(value.toFixed(2)));
@@ -113,23 +112,34 @@ const LAYOUT: Record<"TIRANA_LAKE" | "SQUARE_21", Building[]> = {
 
 const HUES = ["#3b6ea0", "#a0583b", "#5b8a3b", "#7a4f8a", "#8a7a3b"];
 
-export async function seedArmaarUnits(prisma: PrismaClient): Promise<SeededUnit[]> {
-  const company = companyId(BCI);
-  await prisma.projectUnitType.createMany({ data: defaultUnitTypeRows(company), skipDuplicates: true });
-  await prisma.projectUnitType.createMany({
-    data: TYPOLOGIES.map((typology, index) => ({ companyId: company, code: typology.code, name: typology.name, category: "RESIDENTIAL" as const, sortOrder: 20 + index })),
-    skipDuplicates: true,
-  });
-  const typeId = new Map((await prisma.projectUnitType.findMany({ where: { companyId: company }, select: { id: true, code: true } })).map((row) => [row.code, row.id]));
+/**
+ * Who draws a company's units and who publishes them: BCI's architect and director
+ * for Tirana Lake; ARLIS - NDERTIM's engineering manager and director for Square 21.
+ */
+const PEOPLE: Partial<Record<CompanyCode, { architect: string; publisher: string }>> = {
+  BUILDING_CONSTRUCTION_INVEST: { architect: "bci.architect", publisher: "bci.director" },
+  ARLIS_NDERTIM: { architect: "arlis.engineering", publisher: "arlis.director" },
+};
 
-  const architect = memberId("bci.architect", BCI);
-  const architectUser = userId("bci.architect");
-  const publisher = memberId("bci.director", BCI);
+export async function seedArmaarUnits(prisma: PrismaClient): Promise<SeededUnit[]> {
   const seeded: SeededUnit[] = [];
   // One drawing per typology and size, reused for every unit that has it.
   const drawings = new Map<string, Uint8Array>();
 
   for (const [projectCode, buildings] of Object.entries(LAYOUT) as Array<["TIRANA_LAKE" | "SQUARE_21", Building[]]>) {
+    // The project's own company: its unit types, its people, its rows.
+    const code = planOf(projectCode).company;
+    const company = companyId(code);
+    await prisma.projectUnitType.createMany({ data: defaultUnitTypeRows(company), skipDuplicates: true });
+    await prisma.projectUnitType.createMany({
+      data: TYPOLOGIES.map((typology, index) => ({ companyId: company, code: typology.code, name: typology.name, category: "RESIDENTIAL" as const, sortOrder: 20 + index })),
+      skipDuplicates: true,
+    });
+    const typeId = new Map((await prisma.projectUnitType.findMany({ where: { companyId: company }, select: { id: true, code: true } })).map((row) => [row.code, row.id]));
+    const people = PEOPLE[code]!;
+    const architect = memberId(people.architect, code);
+    const architectUser = userId(people.architect);
+    const publisher = memberId(people.publisher, code);
     const project = projectId(projectCode);
     const prefix = projectCode === "TIRANA_LAKE" ? "tl" : "sq21";
     const finished = projectCode === "SQUARE_21";
