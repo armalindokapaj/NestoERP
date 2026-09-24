@@ -308,10 +308,15 @@ const checks: Check[] = [
     name: "the shell-slot test hook answers only to its own variable, which no deployment sets",
     run: () => {
       const source = readFileSync("lib/workspace/shell-slots.ts", "utf8");
-      const hook = source.slice(source.indexOf("async function testDelay"));
-      if (!/^\s*if \(process\.env\.NESTO_TEST_SHELL_DELAYS !== "1"\) return;/m.test(hook.split("\n").slice(1, 3).join("\n"))) {
-        return "testDelay in lib/workspace/shell-slots.ts no longer returns first unless NESTO_TEST_SHELL_DELAYS is 1";
+      // NAV-03 adds the page-section hook beside it, under the same gate.
+      for (const hookName of ["testDelay", "testSectionDelay"]) {
+        const hook = source.slice(source.indexOf(`async function ${hookName}(`));
+        if (!/^\s*if \(process\.env\.NESTO_TEST_SHELL_DELAYS !== "1"\) return;/m.test(hook.split("\n").slice(1, 3).join("\n"))) {
+          return `${hookName} in lib/workspace/shell-slots.ts no longer returns first unless NESTO_TEST_SHELL_DELAYS is 1`;
+        }
       }
+      const reached = source.match(/testHold\(/g)?.length ?? 0;
+      if (reached !== 3) return "testHold in lib/workspace/shell-slots.ts is reached from somewhere other than the two gated hooks";
       const configured = ["vercel.json", ".env.example", ".env.production"].filter((path) => existsSync(path) && readFileSync(path, "utf8").includes("NESTO_TEST_SHELL_DELAYS"));
       return configured.length > 0 ? `NESTO_TEST_SHELL_DELAYS appears in ${configured.join(", ")}` : null;
     },

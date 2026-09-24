@@ -26,13 +26,18 @@ import { budgetVsActualAcross } from "@/lib/modules/finance/reports/reports.serv
  * Read-only: creating an invoice needs a company.
  */
 export async function GroupFinanceOverview({ context }: { context: UserContext }) {
-  const [experience, overview, canInvoices, canExpenses] = await Promise.all([
+  // The budget report starts beside the overview, not after it (NAV-03 STREAM-05);
+  // it asks only the companies where the reader holds the grant, and is shown
+  // only where the overview says project budgets are the reader's to see.
+  const budgetReport = budgetVsActualAcross(context).then((report) => report.rows);
+  const [experience, overview, canInvoices, canExpenses, budgetRows] = await Promise.all([
     financeExperience(context),
     getGroupFinanceOverview(context),
     canReadFinance(context, "finance.invoice.view"),
     canReadFinance(context, "finance.expense.view"),
+    budgetReport,
   ]);
-  const budgets = overview.visible.projectBudgets ? (await budgetVsActualAcross(context)).rows : [];
+  const budgets = overview.visible.projectBudgets ? budgetRows : [];
 
   if (overview.companies.length === 0) {
     return (
