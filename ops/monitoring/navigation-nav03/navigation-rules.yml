@@ -1,0 +1,57 @@
+# NAV-03 §11 TELEMETRY-05: the five operational views as recording rules, and the initial alerts.
+# Browser samples are a 10 % sample by default: read rates as sample rates, not traffic.
+groups:
+  - name: nesto-navigation-views
+    rules:
+      # 1. Navigation p50/p95 by route and stage, across instances.
+      - record: nesto:navigation_duration_ms:p95
+        expr: histogram_quantile(0.95, sum by (le, route, stage, kind) (rate(navigation_duration_ms_bucket[15m])))
+      - record: nesto:navigation_duration_ms:p50
+        expr: histogram_quantile(0.50, sum by (le, route, stage, kind) (rate(navigation_duration_ms_bucket[15m])))
+      - record: nesto:navigation_outcome:rate15m
+        expr: sum by (route, stage, outcome) (rate(navigation_outcome_total[15m]))
+      - record: nesto:navigation_samples:15m
+        expr: sum by (route, stage) (increase(navigation_duration_ms_count[15m]))
+      # 2. Panel readiness, cold and warm apart, and panel failures.
+      - record: nesto:panel_ready_ms:p95
+        expr: histogram_quantile(0.95, sum by (le, panel, cache) (rate(panel_ready_ms_bucket[15m])))
+      - record: nesto:panel_error_ratio:15m
+        expr: sum by (panel) (increase(panel_outcome_total{outcome="error"}[15m])) / clamp_min(sum by (panel) (increase(panel_outcome_total[15m])), 1)
+      # 3. Activity: server read volume and duration.
+      - record: nesto:activity_reads:rate15m
+        expr: sum by (family) (rate(activity_read_ms_count[15m]))
+      - record: nesto:activity_read_ms:p95
+        expr: histogram_quantile(0.95, sum by (le, family) (rate(activity_read_ms_bucket[15m])))
+      # 5. Web Vitals, paired with the build's JS sizes in the release evidence.
+      - record: nesto:web_vital:p75
+        expr: histogram_quantile(0.75, sum by (le, metric, device) (rate(web_vital_bucket[1h])))
+      - record: nesto:web_vital_cls:p75
+        expr: histogram_quantile(0.75, sum by (le, device) (rate(web_vital_cls_bucket[1h])))
+
+  - name: nesto-navigation-alerts
+    rules:
+      # p95 primary-ready more than 20 % above the same hour a week earlier, with at least 100 samples.
+      - alert: NavigationPrimaryReadyRegression
+        expr: |
+          (nesto:navigation_duration_ms:p95{stage="primary"} > 1.2 * (nesto:navigation_duration_ms:p95{stage="primary"} offset 7d))
+          and on (route, stage) (nesto:navigation_samples:15m{stage="primary"} >= 100)
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 primary-ready on {{ $labels.route }} is more than 20 % above last week. Check the traffic mix before blaming a release."
+      # Panel errors above 1 % with at least 100 opens.
+      - alert: PanelErrorRate
+        expr: |
+          nesto:panel_error_ratio:15m > 0.01
+          and on (panel) sum by (panel) (increase(panel_outcome_total[15m])) >= 100
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.panel }} panel failed in more than 1 % of opens."
+      # Activity reads 25 % above the matched baseline (same hour last week).
+      - alert: ActivityRequestVolume
+        expr: sum(rate(activity_read_ms_count[15m])) > 1.25 * sum(rate(activity_read_ms_count[15m] offset 7d))
+        for: 30m
+        labels: { severity: info }
+        annotations:
+          summary: "Activity reads are 25 % above the same hour last week."

@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import { recordPanelReady } from "@/lib/navigation/telemetry-registry";
+
 /**
  * The top bar's panels, loaded when they are wanted (NAV-03 §6).
  *
@@ -102,13 +104,23 @@ export function usePanelModule<T>(loader: PanelLoader<T>, wanted: boolean): { st
     const ready = loader.peek();
     if (ready) {
       setState({ status: "ready", module: ready });
+      recordPanelReady(loader.id, performance.now(), false);
       return;
     }
     let live = true;
+    const startedAt = performance.now();
     setState({ status: "loading" });
     loader.load().then(
-      (loadedModule) => live && setState({ status: "ready", module: loadedModule }),
-      () => live && setState({ status: "failed", reloadAdvised: loader.failures() >= 2 }),
+      (loadedModule) => {
+        if (!live) return;
+        setState({ status: "ready", module: loadedModule });
+        recordPanelReady(loader.id, startedAt, true);
+      },
+      () => {
+        if (!live) return;
+        setState({ status: "failed", reloadAdvised: loader.failures() >= 2 });
+        recordPanelReady(loader.id, startedAt, true, "error");
+      },
     );
     return () => {
       live = false;

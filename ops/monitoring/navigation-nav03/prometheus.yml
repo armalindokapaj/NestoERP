@@ -1,0 +1,19 @@
+# NAV-03 §11 TELEMETRY-05 — scrape the protected metrics endpoint of each app instance.
+# The token is METRICS_TOKEN on the app; keep it in a file the collector can read.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - navigation-rules.yml
+
+scrape_configs:
+  - job_name: nesto
+    metrics_path: /api/internal/metrics
+    scheme: https
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/nesto-metrics-token
+    static_configs:
+      # One target per app instance; histograms add across them (never average instance p95s).
+      - targets: ["app-1.internal:443", "app-2.internal:443"]

@@ -20,6 +20,7 @@ import { WorkspaceSync } from "@/components/workspace/workspace-sync";
 import { RecordNavigationProvider } from "@/components/navigation/record-navigation-provider";
 import { NavigationFeedbackIndicator, NavigationFeedbackProvider } from "@/components/navigation/navigation-feedback";
 import { IntentPrefetchProvider } from "@/components/navigation/intent-prefetch";
+import { PerformanceGate } from "@/components/navigation/performance-gate";
 import { workspaceKey } from "@/config/workspace";
 import { resolveShellCore } from "@/lib/workspace/shell-core";
 import { settleSlot, type SlotResult } from "@/lib/workspace/shell-slots";
@@ -78,6 +79,8 @@ export async function AppShell({
             key, so nothing pending outlives the identity or workspace it began in. */}
         <NavigationFeedbackProvider identityKey={core.contextKey}>
           <NavigationFeedbackIndicator />
+          {/* Sampled navigation telemetry: 10 % of documents unless configured (NAV-03 TELEMETRY-02). */}
+          <PerformanceGate sampleRate={telemetrySampleRate()} />
           {/* Off with NESTO_INTENT_PREFETCH=off: links keep ordinary navigation (NAV-03 §19). */}
           <IntentPrefetchProvider contextKey={core.contextKey} enabled={process.env.NESTO_INTENT_PREFETCH !== "off"}>
           <ShellSlotsProvider core={core} workspaces={workspaces} banner={banner}>
@@ -164,4 +167,11 @@ async function DevAccessPanelSlot({ context, organization }: { context: UserCont
       }}
     />
   );
+}
+
+/** The share of documents that record navigation telemetry; server configuration, never the browser's. */
+function telemetrySampleRate(): number {
+  if (process.env.NESTO_NAV_TELEMETRY === "off") return 0;
+  const configured = Number(process.env.NESTO_NAV_TELEMETRY_SAMPLE ?? "0.1");
+  return Number.isFinite(configured) ? Math.min(1, Math.max(0, configured)) : 0.1;
 }

@@ -21,7 +21,9 @@ export type RateLimitCategory =
   | "DOWNLOAD_GRANT"
   | "GENERAL_API"
   | "PUBLIC_PRICING"
-  | "PUBLIC_PRICING_LEAD";
+  | "PUBLIC_PRICING_LEAD"
+  /** Browser navigation telemetry batches, per session, per instance (NAV-03 TELEMETRY-03). */
+  | "TELEMETRY";
 
 type Rule = { limit: number; windowMs: number; failClosed: boolean };
 
@@ -36,6 +38,8 @@ const RULES: Record<RateLimitCategory, Rule> = {
   GENERAL_API: { limit: 300, windowMs: 5 * 60_000, failClosed: false },
   PUBLIC_PRICING: { limit: 120, windowMs: 5 * 60_000, failClosed: false },
   PUBLIC_PRICING_LEAD: { limit: 10, windowMs: 60 * 60_000, failClosed: true },
+  // Six batches a minute; a limiter failure refuses rather than admits.
+  TELEMETRY: { limit: 6, windowMs: 60_000, failClosed: true },
 };
 
 type Counter = { count: number; resetAt: number };
