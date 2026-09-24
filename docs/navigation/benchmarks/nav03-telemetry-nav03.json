@@ -1,0 +1,276 @@
+{
+  "label": "nav03",
+  "batches": [
+    {
+      "bytes": 2608,
+      "events": 20
+    },
+    {
+      "bytes": 1757,
+      "events": 13
+    }
+  ],
+  "accepted_by_server": {
+    "before": 3,
+    "after": 5
+  },
+  "event_kinds": {
+    "navigation:core": 6,
+    "navigation:primary": 5,
+    "navigation:settled": 6,
+    "web_vital:FCP": 1,
+    "web_vital:TTFB": 1,
+    "navigation:feedback": 5,
+    "navigation:commit": 5,
+    "web_vital:LCP": 1,
+    "panel:ready": 2,
+    "web_vital:INP": 1
+  },
+  "stray_strings": [],
+  "first_batch": {
+    "schemaVersion": 1,
+    "events": [
+      {
+        "kind": "navigation",
+        "route": "dashboard",
+        "stage": "core",
+        "navigationKind": "document",
+        "outcome": "success",
+        "durationMs": 153,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "dashboard",
+        "stage": "primary",
+        "navigationKind": "document",
+        "outcome": "success",
+        "durationMs": 204,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "dashboard",
+        "stage": "settled",
+        "navigationKind": "document",
+        "outcome": "success",
+        "durationMs": 204,
+        "device": "wide"
+      },
+      {
+        "kind": "web_vital",
+        "route": "dashboard",
+        "metric": "FCP",
+        "value": 108,
+        "outcome": "success",
+        "device": "wide"
+      },
+      {
+        "kind": "web_vital",
+        "route": "dashboard",
+        "metric": "TTFB",
+        "value": 49,
+        "outcome": "success",
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "tasks",
+        "stage": "feedback",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 12,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "tasks",
+        "stage": "commit",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 20,
+        "device": "wide"
+      },
+      {
+        "kind": "web_vital",
+        "route": "tasks",
+        "metric": "LCP",
+        "value": 108,
+        "outcome": "success",
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "tasks",
+        "stage": "core",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 329,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "tasks",
+        "stage": "primary",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 329,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "tasks",
+        "stage": "settled",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 329,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "clients",
+        "stage": "feedback",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 9,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "clients",
+        "stage": "commit",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 21,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "clients",
+        "stage": "core",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 325,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "clients",
+        "stage": "primary",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 325,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "clients",
+        "stage": "settled",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 325,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "finance",
+        "stage": "feedback",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 11,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "finance",
+        "stage": "commit",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 30,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "finance",
+        "stage": "core",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 344,
+        "device": "wide"
+      },
+      {
+        "kind": "navigation",
+        "route": "finance",
+        "stage": "primary",
+        "navigationKind": "spa",
+        "outcome": "success",
+        "durationMs": 344,
+        "device": "wide"
+      }
+    ]
+  },
+  "scrape_counts": {
+    "navigation_duration_ms": {
+      "before": 23,
+      "after": 50
+    },
+    "panel_ready_ms": {
+      "before": 2,
+      "after": 4
+    },
+    "web_vital": {
+      "before": 6,
+      "after": 10
+    },
+    "web_vital_cls": {
+      "before": 0,
+      "after": 0
+    },
+    "activity_read_ms": {
+      "before": 2,
+      "after": 4
+    }
+  },
+  "scrape_excerpt": [
+    "# TYPE navigation_duration_ms histogram",
+    "navigation_duration_ms_sum{route=\"dashboard\",stage=\"core\",kind=\"document\"} 1163",
+    "navigation_duration_ms_count{route=\"dashboard\",stage=\"core\",kind=\"document\"} 3",
+    "navigation_duration_ms_sum{route=\"dashboard\",stage=\"primary\",kind=\"document\"} 459",
+    "navigation_duration_ms_count{route=\"dashboard\",stage=\"primary\",kind=\"document\"} 2",
+    "navigation_duration_ms_sum{route=\"dashboard\",stage=\"settled\",kind=\"document\"} 469",
+    "navigation_duration_ms_count{route=\"dashboard\",stage=\"settled\",kind=\"document\"} 2",
+    "navigation_duration_ms_sum{route=\"clients\",stage=\"feedback\",kind=\"spa\"} 18",
+    "navigation_duration_ms_count{route=\"clients\",stage=\"feedback\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"clients\",stage=\"commit\",kind=\"spa\"} 44",
+    "navigation_duration_ms_count{route=\"clients\",stage=\"commit\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"clients\",stage=\"core\",kind=\"spa\"} 651",
+    "navigation_duration_ms_count{route=\"clients\",stage=\"core\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"clients\",stage=\"primary\",kind=\"spa\"} 651",
+    "navigation_duration_ms_count{route=\"clients\",stage=\"primary\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"clients\",stage=\"settled\",kind=\"spa\"} 651",
+    "navigation_duration_ms_count{route=\"clients\",stage=\"settled\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"finance\",stage=\"feedback\",kind=\"spa\"} 22",
+    "navigation_duration_ms_count{route=\"finance\",stage=\"feedback\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"finance\",stage=\"commit\",kind=\"spa\"} 50",
+    "navigation_duration_ms_count{route=\"finance\",stage=\"commit\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"finance\",stage=\"core\",kind=\"spa\"} 672",
+    "navigation_duration_ms_count{route=\"finance\",stage=\"core\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"finance\",stage=\"primary\",kind=\"spa\"} 672",
+    "navigation_duration_ms_count{route=\"finance\",stage=\"primary\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"finance\",stage=\"settled\",kind=\"spa\"} 672",
+    "navigation_duration_ms_count{route=\"finance\",stage=\"settled\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"projects\",stage=\"feedback\",kind=\"spa\"} 21",
+    "navigation_duration_ms_count{route=\"projects\",stage=\"feedback\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"projects\",stage=\"commit\",kind=\"spa\"} 41",
+    "navigation_duration_ms_count{route=\"projects\",stage=\"commit\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"projects\",stage=\"core\",kind=\"spa\"} 671",
+    "navigation_duration_ms_count{route=\"projects\",stage=\"core\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"projects\",stage=\"settled\",kind=\"spa\"} 671",
+    "navigation_duration_ms_count{route=\"projects\",stage=\"settled\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"dashboard\",stage=\"feedback\",kind=\"spa\"} 23",
+    "navigation_duration_ms_count{route=\"dashboard\",stage=\"feedback\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"dashboard\",stage=\"commit\",kind=\"spa\"} 40",
+    "navigation_duration_ms_count{route=\"dashboard\",stage=\"commit\",kind=\"spa\"} 2",
+    "navigation_duration_ms_sum{route=\"dashboard\",stage=\"core\",kind=\"spa\"} 657"
+  ]
+}

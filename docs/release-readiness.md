@@ -2856,3 +2856,87 @@ bottlenecks left.
   It is assigned to a backend task (evidence §8).
 - **The top bar is 26 px too wide at 320 px** for a person with a workspace
   choice. That predates NAV-02 and is assigned to NAV-03.
+
+## 37. NAV-03 — Further navigation optimization
+
+NAV-03 is phase 3 of 3 of navigation performance. What changed:
+- **Panels:** the top bar's four panels load their code when first opened.
+- **The bell:** one controller per tab reads it every two minutes while
+  healthy, and not at all while hidden.
+- **Prefetch:** the five main destinations are prepared on a deliberate
+  hover or focus, not on sight.
+- **Pages:** Dashboard, Clients, Tasks, Finance and the project home stream
+  section by section.
+- **Telemetry:** sampled browsers report navigation timings to histograms
+  the existing metrics endpoint exports.
+
+[ADR 0014](adr/0014-nav-03-further-navigation-optimization.md) records the
+decisions. The evidence §18 asks for is in
+[NAV-03-release-evidence.md](navigation/NAV-03-release-evidence.md). There
+is no migration.
+
+### 37.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Search, + Create, Activity and the workspace switcher were in every page's first load | Each body loads on first open, or on a deliberate hover or focus of its trigger. Triggers, shortcuts, the bell's count and the workspace label stay in the shell. A body whose code fails offers Reload page |
+| The bell's effect remounted on every open and tab change, polled every 45 s even while hidden, and read the count twice on load | One controller per tab: 120 s while closed and healthy, 45 s while open or when something critical or needing attention is known, nothing while hidden. One read in flight per resource, an 8 s deadline, backoff, and events deduplicated across tabs |
+| Search Home and Activity lists were kept in sessionStorage with no expiry | Tab memory with a 30 s lifetime. Older entries are removed on load |
+| Search and Activity answers carried no context | They carry `meta.contextKey`, and a panel drops an answer for another context |
+| Every sidebar link, and the logo, prefetched on sight on every page | The five approved destinations (Dashboard, Projects, Clients, Tasks, Finance), from the sidebar and the logo, are prepared after a 150 ms hover or 100 ms focus. At most four a minute, 1.5 s apart, never on touch, Save-Data or 2g. Other links keep the default |
+| A page restored from the back/forward cache could show an old workspace | A leaving page is covered, and a restored one reloads |
+| The five pages awaited every section together; Finance and the project home read in a waterfall | The frame renders first, and each section streams in its own boundary. A failed section says so in place, with Retry (one route refresh) |
+| No browser timings, histograms or Web Vitals | 10 % of documents record navigation stages, panel readiness and Web Vitals. Only those download the recorder. `/api/telemetry/navigation` takes enums and numbers only, into bounded histograms. `ops/monitoring/navigation-nav03/` holds the scrape, recording rules and alerts |
+
+### 37.2 The evidence
+
+See [NAV-03-release-evidence.md](navigation/NAV-03-release-evidence.md):
+
+| Measure | Baseline (NAV-02) | NAV-03 |
+| --- | --- | --- |
+| First-load JS, `/dashboard`, panels closed | 263,458 B | 261,486 B (−0.75 %); every required page smaller |
+| Bell count reads, 10 healthy closed minutes | 14 | 6 |
+| SQL statements, mixed navigation and abandoned-intent script | 3,528 | 3,277 (−7.1 %) |
+| Statements per document load, Tasks | 131 | 54 |
+| 1.5 s held in one optional section: added to the primary section | | +17 ms (document), −4 ms (navigation) |
+
+Desktop profile, 30 samples, one build at a time (primary section drawn,
+p95):
+
+| Page | Document, baseline → NAV-03 | Sidebar hovered, baseline → NAV-03 | Sidebar unprepared, NAV-03 |
+| --- | --- | --- | --- |
+| Dashboard | 301 → 197 ms | 314 → 359 ms | 367 ms |
+| Clients | 97 → 105 ms | 314 → 314 ms | 63 ms |
+| Tasks | 145 → 132 ms | 313 → 316 ms | 63 ms |
+| Finance | 148 → 139 ms | 313 → 314 ms | 63 ms |
+| Project home | 333 → 265 ms | 362 → 360 ms | 359 ms |
+
+Cold panels are ready within 151 ms p95 and warm ones within 83 ms. The
+constrained mobile profile was not run.
+
+The evidence also has the business side-effect check, the telemetry scrape,
+the acceptance-case mapping and the test results.
+
+### 37.3 Limits
+
+- **Dashboard's first widget misses the 10 % limit in sidebar navigations**
+  (+14 % and +15 % p95, about +45 ms). React holds a streamed section's
+  reveal 300 ms after the frame's placeholders, and every widget must stream
+  (STREAM-02). A recorded deviation.
+- **A panel whose code fails offers Reload at once,** not after an in-page
+  retry. The production bundler keeps a failed chunk load for the document's
+  life, so the retry could never succeed.
+- **The 20 % first-load target was missed.** The first load shrank 0.75 %.
+  The panels' own code left it, but the shared UI they use stayed.
+- **Phones get no prefetch of the five approved destinations,** because a
+  tap is not intent. They show NAV-01's pending mark while the page arrives.
+- **Not done:**
+  - twenty concurrent users on two instances (R05);
+  - the constrained mobile timings (desktop only);
+  - NAV-02's 320 px top-bar overflow (26 px, with a workspace choice), still
+    open;
+  - a live Prometheus with `promtool`;
+  - the acceptance cases the evidence marks Not covered.
+- **One Vitest file does not load:** `demo-user-switch.test.ts`. Its
+  `next/cache` mock predates `730220c4`'s `unstable_cache`, which came from
+  outside NAV-03.

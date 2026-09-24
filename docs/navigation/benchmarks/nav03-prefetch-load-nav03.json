@@ -1,0 +1,30 @@
+{
+  "label": "nav03",
+  "script": "document /dashboard, then 10 steps of (hover one sidebar link 400 ms and leave, click another)",
+  "statements": {
+    "median": 3277
+  },
+  "rounds": [
+    {
+      "statements": 3548,
+      "prefetch": 76,
+      "abandoned_prefetch": 70,
+      "navigation": 10,
+      "document": 1
+    },
+    {
+      "statements": 3277,
+      "prefetch": 76,
+      "abandoned_prefetch": 70,
+      "navigation": 10,
+      "document": 1
+    },
+    {
+      "statements": 3250,
+      "prefetch": 76,
+      "abandoned_prefetch": 70,
+      "navigation": 10,
+      "document": 1
+    }
+  ]
+}

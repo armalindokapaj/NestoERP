@@ -1,0 +1,11 @@
+{
+  "label": "baseline",
+  "loads_per_page": 3,
+  "statements_per_document_load": {
+    "/dashboard": 725,
+    "/clients": 142.3,
+    "/tasks": 131,
+    "/finance": 194,
+    "/projects/project_a": 694.7
+  }
+}

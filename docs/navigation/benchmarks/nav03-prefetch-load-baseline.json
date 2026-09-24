@@ -1,0 +1,30 @@
+{
+  "label": "baseline",
+  "script": "document /dashboard, then 10 steps of (hover one sidebar link 400 ms and leave, click another)",
+  "statements": {
+    "median": 3528
+  },
+  "rounds": [
+    {
+      "statements": 3793,
+      "prefetch": 70,
+      "abandoned_prefetch": 64,
+      "navigation": 11,
+      "document": 1
+    },
+    {
+      "statements": 3528,
+      "prefetch": 70,
+      "abandoned_prefetch": 64,
+      "navigation": 11,
+      "document": 1
+    },
+    {
+      "statements": 3354,
+      "prefetch": 70,
+      "abandoned_prefetch": 64,
+      "navigation": 11,
+      "document": 1
+    }
+  ]
+}

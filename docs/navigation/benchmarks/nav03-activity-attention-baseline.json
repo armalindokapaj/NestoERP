@@ -1,0 +1,89 @@
+{
+  "label": "baseline",
+  "role": "PROJECT_MANAGER",
+  "visible_10min": {
+    "count": 15,
+    "list": 0
+  },
+  "hidden_5min": {
+    "count": 0,
+    "list": 0
+  },
+  "log": [
+    {
+      "at": 6,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 99,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 45097,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 90096,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 135096,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 180096,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 225096,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 270098,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 315097,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 360096,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 405093,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 450097,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 495098,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 540096,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 585098,
+      "kind": "count",
+      "phase": "visible"
+    }
+  ]
+}

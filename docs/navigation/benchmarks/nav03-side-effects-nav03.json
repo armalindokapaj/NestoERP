@@ -1,0 +1,32 @@
+{
+  "label": "nav03",
+  "prepared_approved": [
+    "/clients",
+    "/dashboard",
+    "/finance",
+    "/projects",
+    "/tasks"
+  ],
+  "prepared_by_other_links": [
+    "/contracts",
+    "/documents",
+    "/hr",
+    "/inventory",
+    "/procurement",
+    "/qaqc",
+    "/sales"
+  ],
+  "control_writes": {},
+  "hover_writes": {},
+  "hover_only_tables": [],
+  "business_tables_checked": [
+    "recent_items",
+    "announcement_reads",
+    "notifications",
+    "user_favorites",
+    "sessions",
+    "audit_events",
+    "unit_reservations",
+    "announcement_acknowledgments"
+  ]
+}

@@ -1,0 +1,328 @@
+{
+  "label": "baseline",
+  "profile": "desktop",
+  "samples": 30,
+  "conditions": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "latency": 40,
+    "down": 20,
+    "up": 10,
+    "cpu": 1
+  },
+  "documents": {
+    "Dashboard": {
+      "core": {
+        "n": 30,
+        "median": 149,
+        "p95": 301
+      },
+      "primary": {
+        "n": 30,
+        "median": 149,
+        "p95": 301
+      },
+      "settled": {
+        "n": 30,
+        "median": 149,
+        "p95": 301
+      }
+    },
+    "Clients": {
+      "core": {
+        "n": 30,
+        "median": 86,
+        "p95": 97
+      },
+      "primary": {
+        "n": 30,
+        "median": 86,
+        "p95": 97
+      },
+      "settled": {
+        "n": 30,
+        "median": 86,
+        "p95": 97
+      }
+    },
+    "Tasks": {
+      "core": {
+        "n": 30,
+        "median": 136,
+        "p95": 145
+      },
+      "primary": {
+        "n": 30,
+        "median": 136,
+        "p95": 145
+      },
+      "settled": {
+        "n": 30,
+        "median": 136,
+        "p95": 145
+      }
+    },
+    "Finance": {
+      "core": {
+        "n": 30,
+        "median": 138,
+        "p95": 148
+      },
+      "primary": {
+        "n": 30,
+        "median": 138,
+        "p95": 148
+      },
+      "settled": {
+        "n": 30,
+        "median": 138,
+        "p95": 148
+      }
+    },
+    "Project home": {
+      "core": {
+        "n": 30,
+        "median": 299,
+        "p95": 333
+      },
+      "primary": {
+        "n": 30,
+        "median": 299,
+        "p95": 333
+      },
+      "settled": {
+        "n": 30,
+        "median": 299,
+        "p95": 333
+      }
+    }
+  },
+  "navigations": {
+    "hovered": {
+      "Dashboard": {
+        "core": {
+          "n": 30,
+          "median": 312,
+          "p95": 314
+        },
+        "primary": {
+          "n": 30,
+          "median": 312,
+          "p95": 314
+        },
+        "settled": {
+          "n": 30,
+          "median": 312,
+          "p95": 314
+        }
+      },
+      "Clients": {
+        "core": {
+          "n": 30,
+          "median": 312,
+          "p95": 314
+        },
+        "primary": {
+          "n": 30,
+          "median": 312,
+          "p95": 314
+        },
+        "settled": {
+          "n": 30,
+          "median": 312,
+          "p95": 314
+        }
+      },
+      "Tasks": {
+        "core": {
+          "n": 30,
+          "median": 311,
+          "p95": 313
+        },
+        "primary": {
+          "n": 30,
+          "median": 311,
+          "p95": 313
+        },
+        "settled": {
+          "n": 30,
+          "median": 311,
+          "p95": 313
+        }
+      },
+      "Finance": {
+        "core": {
+          "n": 30,
+          "median": 312,
+          "p95": 313
+        },
+        "primary": {
+          "n": 30,
+          "median": 312,
+          "p95": 313
+        },
+        "settled": {
+          "n": 30,
+          "median": 312,
+          "p95": 313
+        }
+      },
+      "Project home": {
+        "core": {
+          "n": 30,
+          "median": 355,
+          "p95": 362
+        },
+        "primary": {
+          "n": 30,
+          "median": 355,
+          "p95": 362
+        },
+        "settled": {
+          "n": 30,
+          "median": 355,
+          "p95": 362
+        }
+      }
+    },
+    "unprepared": {
+      "Dashboard": {
+        "core": {
+          "n": 30,
+          "median": 314,
+          "p95": 318
+        },
+        "primary": {
+          "n": 30,
+          "median": 314,
+          "p95": 318
+        },
+        "settled": {
+          "n": 30,
+          "median": 314,
+          "p95": 318
+        }
+      },
+      "Clients": {
+        "core": {
+          "n": 30,
+          "median": 312,
+          "p95": 317
+        },
+        "primary": {
+          "n": 30,
+          "median": 312,
+          "p95": 317
+        },
+        "settled": {
+          "n": 30,
+          "median": 312,
+          "p95": 317
+        }
+      },
+      "Tasks": {
+        "core": {
+          "n": 30,
+          "median": 312,
+          "p95": 316
+        },
+        "primary": {
+          "n": 30,
+          "median": 312,
+          "p95": 316
+        },
+        "settled": {
+          "n": 30,
+          "median": 312,
+          "p95": 316
+        }
+      },
+      "Finance": {
+        "core": {
+          "n": 30,
+          "median": 312,
+          "p95": 317
+        },
+        "primary": {
+          "n": 30,
+          "median": 312,
+          "p95": 317
+        },
+        "settled": {
+          "n": 30,
+          "median": 312,
+          "p95": 317
+        }
+      },
+      "Project home": {
+        "core": {
+          "n": 30,
+          "median": 357,
+          "p95": 363
+        },
+        "primary": {
+          "n": 30,
+          "median": 357,
+          "p95": 363
+        },
+        "settled": {
+          "n": 30,
+          "median": 357,
+          "p95": 363
+        }
+      }
+    }
+  },
+  "panels": {
+    "search": {
+      "cold": {
+        "n": 30,
+        "median": 41,
+        "p95": 49
+      },
+      "warm": {
+        "n": 30,
+        "median": 35,
+        "p95": 40
+      }
+    },
+    "quick_create": {
+      "cold": {
+        "n": 30,
+        "median": 130,
+        "p95": 147
+      },
+      "warm": {
+        "n": 30,
+        "median": 56,
+        "p95": 63
+      }
+    },
+    "activity": {
+      "cold": {
+        "n": 30,
+        "median": 61,
+        "p95": 106
+      },
+      "warm": {
+        "n": 30,
+        "median": 62,
+        "p95": 71
+      }
+    },
+    "workspace": {
+      "cold": {
+        "n": 30,
+        "median": 69,
+        "p95": 88
+      },
+      "warm": {
+        "n": 30,
+        "median": 69,
+        "p95": 73
+      }
+    }
+  }
+}

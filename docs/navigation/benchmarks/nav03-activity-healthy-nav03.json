@@ -1,0 +1,44 @@
+{
+  "label": "healthy-nav03",
+  "role": "VIEWER",
+  "visible_10min": {
+    "count": 6,
+    "list": 0
+  },
+  "hidden_5min": {
+    "count": 0,
+    "list": 0
+  },
+  "log": [
+    {
+      "at": 2123,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 118356,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 233933,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 348733,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 465422,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 575849,
+      "kind": "count",
+      "phase": "visible"
+    }
+  ]
+}

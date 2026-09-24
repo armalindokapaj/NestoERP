@@ -1,0 +1,30 @@
+{
+  "label": "baseline",
+  "pages": {
+    "/dashboard": {
+      "files": 23,
+      "transfer": 263458,
+      "decoded": 835363
+    },
+    "/clients": {
+      "files": 23,
+      "transfer": 263131,
+      "decoded": 834663
+    },
+    "/tasks": {
+      "files": 23,
+      "transfer": 263554,
+      "decoded": 835597
+    },
+    "/finance": {
+      "files": 23,
+      "transfer": 263554,
+      "decoded": 835597
+    },
+    "/projects/project_a": {
+      "files": 29,
+      "transfer": 285192,
+      "decoded": 891242
+    }
+  }
+}

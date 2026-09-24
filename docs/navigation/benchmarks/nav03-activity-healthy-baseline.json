@@ -1,0 +1,84 @@
+{
+  "label": "healthy-baseline",
+  "role": "VIEWER",
+  "visible_10min": {
+    "count": 14,
+    "list": 0
+  },
+  "hidden_5min": {
+    "count": 0,
+    "list": 0
+  },
+  "log": [
+    {
+      "at": 149,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 45155,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 90151,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 135151,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 180150,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 225148,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 270150,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 315150,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 360150,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 405149,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 450150,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 495150,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 540149,
+      "kind": "count",
+      "phase": "visible"
+    },
+    {
+      "at": 585150,
+      "kind": "count",
+      "phase": "visible"
+    }
+  ]
+}

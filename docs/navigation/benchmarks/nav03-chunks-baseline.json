@@ -1,0 +1,155 @@
+{
+  "label": "baseline",
+  "page": "/dashboard (document, panels closed, no intent)",
+  "initial": {
+    "files": 23,
+    "transfer": 263458,
+    "decoded": 835363
+  },
+  "initial_files": [
+    {
+      "url": "/_next/static/chunks/8120271b8326a1e8.js",
+      "transfer": 1122,
+      "decoded": 1618
+    },
+    {
+      "url": "/_next/static/chunks/2d56adc66c119ccb.js",
+      "transfer": 6000,
+      "decoded": 21199
+    },
+    {
+      "url": "/_next/static/chunks/5b4e9dc4fd51b881.js",
+      "transfer": 13593,
+      "decoded": 42515
+    },
+    {
+      "url": "/_next/static/chunks/74f0b5637b4486d6.js",
+      "transfer": 59658,
+      "decoded": 188550
+    },
+    {
+      "url": "/_next/static/chunks/bfd78cb5676f1860.js",
+      "transfer": 583,
+      "decoded": 283
+    },
+    {
+      "url": "/_next/static/chunks/56d8c5ef0a8c9a01.js",
+      "transfer": 8536,
+      "decoded": 37501
+    },
+    {
+      "url": "/_next/static/chunks/turbopack-9e71760b976b5786.js",
+      "transfer": 4196,
+      "decoded": 9933
+    },
+    {
+      "url": "/_next/static/chunks/980b09d8730e21fd.js",
+      "transfer": 17666,
+      "decoded": 64986
+    },
+    {
+      "url": "/_next/static/chunks/d82120e8958f8b8d.js",
+      "transfer": 9617,
+      "decoded": 26543
+    },
+    {
+      "url": "/_next/static/chunks/e6cd4acb143302af.js",
+      "transfer": 7697,
+      "decoded": 32555
+    },
+    {
+      "url": "/_next/static/chunks/d707bae1a1ed793e.js",
+      "transfer": 8501,
+      "decoded": 23479
+    },
+    {
+      "url": "/_next/static/chunks/2992600540e3fb6f.js",
+      "transfer": 9568,
+      "decoded": 29797
+    },
+    {
+      "url": "/_next/static/chunks/c76d47324dcdbe21.js",
+      "transfer": 12006,
+      "decoded": 41832
+    },
+    {
+      "url": "/_next/static/chunks/6cabdea5bbe0e221.js",
+      "transfer": 8959,
+      "decoded": 23774
+    },
+    {
+      "url": "/_next/static/chunks/8d74d2b2e88d47bc.js",
+      "transfer": 18528,
+      "decoded": 62793
+    },
+    {
+      "url": "/_next/static/chunks/af8436196952d8e3.js",
+      "transfer": 6483,
+      "decoded": 18954
+    },
+    {
+      "url": "/_next/static/chunks/10d6d7bf8174c99b.js",
+      "transfer": 12979,
+      "decoded": 38721
+    },
+    {
+      "url": "/_next/static/chunks/c6b8509185f6ba4d.js",
+      "transfer": 9375,
+      "decoded": 29158
+    },
+    {
+      "url": "/_next/static/chunks/cebfa7debb102a2e.js",
+      "transfer": 10775,
+      "decoded": 27295
+    },
+    {
+      "url": "/_next/static/chunks/2be62f8cbdb1502e.js",
+      "transfer": 4567,
+      "decoded": 10771
+    },
+    {
+      "url": "/_next/static/chunks/2d7d054719fabe72.js",
+      "transfer": 1192,
+      "decoded": 1764
+    },
+    {
+      "url": "/_next/static/chunks/58289b254e693a33.js",
+      "transfer": 30882,
+      "decoded": 100294
+    },
+    {
+      "url": "/_next/static/chunks/402ef39c8e72f886.js",
+      "transfer": 975,
+      "decoded": 1048
+    }
+  ],
+  "panels": [
+    {
+      "panel": "search",
+      "files": 0,
+      "transfer": 0,
+      "decoded": 0
+    },
+    {
+      "panel": "quick_create",
+      "files": 0,
+      "transfer": 0,
+      "decoded": 0
+    },
+    {
+      "panel": "activity",
+      "files": 0,
+      "transfer": 0,
+      "decoded": 0
+    },
+    {
+      "panel": "workspace",
+      "files": 0,
+      "transfer": 0,
+      "decoded": 0
+    }
+  ],
+  "all_panels_cumulative": {
+    "transfer": 263458
+  }
+}
