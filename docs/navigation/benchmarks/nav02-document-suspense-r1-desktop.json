@@ -1,0 +1,63 @@
+{
+  "label": "nav02",
+  "profile": "desktop",
+  "conditions": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "latency": 100,
+    "down": 10,
+    "up": 5,
+    "cpu": 1
+  },
+  "samples": 30,
+  "commit": null,
+  "browser": "153.0.8010.12",
+  "category": "transitions start on a document-loaded origin; warm = default prefetch arrived, uncached = no prefetch",
+  "report": {
+    "Cold entry /dashboard": {
+      "content_usable": {
+        "n": 30,
+        "median": 318,
+        "p95": 334
+      },
+      "first_byte": {
+        "n": 30,
+        "median": 16,
+        "p95": 24
+      }
+    },
+    "Cold entry /projects": {
+      "content_usable": {
+        "n": 30,
+        "median": 207,
+        "p95": 264
+      },
+      "first_byte": {
+        "n": 30,
+        "median": 14,
+        "p95": 20
+      }
+    },
+    "Cold entry /finance/invoices": {
+      "content_usable": {
+        "n": 30,
+        "median": 271,
+        "p95": 277
+      },
+      "first_byte": {
+        "n": 30,
+        "median": 14,
+        "p95": 18
+      }
+    },
+    "Workspace switch → dashboard usable": {
+      "content_usable": {
+        "n": 30,
+        "median": 271,
+        "p95": 342
+      }
+    }
+  }
+}

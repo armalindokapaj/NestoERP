@@ -1,0 +1,26 @@
+{
+  "label": "nav02r3",
+  "samples": 30,
+  "page": "/tasks (document)",
+  "report": {
+    "none": {
+      "n": 30,
+      "median": 97,
+      "p95": 119
+    },
+    "slow_workspaces": {
+      "n": 30,
+      "median": 117,
+      "p95": 169
+    },
+    "slow_banner": {
+      "n": 30,
+      "median": 82,
+      "p95": 95
+    }
+  },
+  "added_median_ms": {
+    "slow_workspaces": 20,
+    "slow_banner": -15
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "label": "after",
+  "samples": 30,
+  "page": "/tasks (document)",
+  "report": {
+    "none": {
+      "n": 30,
+      "median": 94,
+      "p95": 108
+    },
+    "slow_workspaces": {
+      "n": 30,
+      "median": 91,
+      "p95": 108
+    },
+    "slow_banner": {
+      "n": 30,
+      "median": 76,
+      "p95": 80
+    }
+  },
+  "added_median_ms": {
+    "slow_workspaces": -3,
+    "slow_banner": -18
+  }
+}

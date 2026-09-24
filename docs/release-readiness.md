@@ -2810,3 +2810,49 @@ left for Phase 2.
 - **Parent-layout waits are Phase 2's.** Cold entry and a workspace switch
   still wait for the (nesto) layout and the shell's reads before the first
   byte. They are measured in the evidence.
+
+## 36. NAV-02 — Faster server loading
+
+NAV-02 is phase 2 of 3 of navigation performance. A request now reads each
+piece of access data once. The shell draws its frame without waiting for the
+workspace chooser, the critical banner or the development panel. Pages read
+maintenance from a snapshot at most five seconds old, while every protected
+operation still reads it fresh.
+[ADR 0013](adr/0013-nav-02-faster-server-loading.md) records the decisions.
+The evidence §20 asks for is in
+[NAV-02-release-evidence.md](navigation/NAV-02-release-evidence.md). There is
+no migration.
+
+### 36.1 What changed
+
+| Before | Now |
+| --- | --- |
+| React `cache` was the only reuse, and it does nothing in route handlers. One API call resolved the person's organization access up to four times, and productivity settings for every consumer | A request scope: pages get it from React `cache`, handlers, jobs and notification rows from AsyncLocalStorage. Organization access, modules, group contexts, the context and productivity settings are read once per request, with keys that carry every primitive they depend on. Access writes clear it after they commit. Nothing is kept across requests |
+| The group's company contexts read modules again for companies the session had already resolved | The module batch covers only the companies the request has not resolved |
+| `AppShell` awaited the full workspace chooser, the announcement state (with an unread COUNT it never showed) and the development panel before the frame | It awaits the navigation and a `ShellCoreDTO`. The chooser, the banner and the panel are slots the client settles after hydration, with a five-second Retry through `/api/shell/workspaces` and `/api/shell/critical-announcement` |
+| The Group crumb in record navigation waited for the chooser | Group entry is published from the chooser's answer. Record navigation is never blocked or remounted by it |
+| The shell's banner read was a COUNT plus a find | One `findFirst`, ordered `publishedAt desc, id desc` |
+| Maintenance was read after authentication, outside API error translation, on every page and call | APIs, sign-in, uploads and 3D read it fresh, in parallel with the context and inside the error envelope. Pages use a per-process snapshot, at most 5 s old on the monotonic clock. An "enabled" snapshot is confirmed live before a redirect. A save invalidates after commit and reports `pageRefresh` as `complete` or `pending` |
+| A production server held two Prisma pools, one per module copy: 43 connections where 21 were meant | One client per process. The cache store, metric counters, request-scope storage and maintenance snapshot are per process too |
+
+### 36.2 The evidence
+
+See [NAV-02-release-evidence.md](navigation/NAV-02-release-evidence.md) for
+the dependency graph, the key lifecycle, the statement counts, the timings,
+the two-instance maintenance drill, the pictures, the test results and the
+bottlenecks left.
+
+### 36.3 Limits
+
+- **Pages may show maintenance up to five seconds late** on an instance that
+  was not told of the change. Every protected operation sees it at once.
+  `NESTO_MAINTENANCE_PAGE_CACHE=off` makes pages read fresh too.
+- **The slot test hook ships in the build.** `NESTO_TEST_SHELL_DELAYS=1`
+  lets a cookie delay or fail a slot's read. It is inert unless that variable
+  is set when the server starts, and `verify:production-guards` fails if a
+  deployment sets it.
+- **Context resolution is still 12 statements,** 7 of them Prisma's split of
+  one nested `include`. Every document, prefetch and API call pays it once.
+  It is assigned to a backend task (evidence §8).
+- **The top bar is 26 px too wide at 320 px** for a person with a workspace
+  choice. That predates NAV-02 and is assigned to NAV-03.

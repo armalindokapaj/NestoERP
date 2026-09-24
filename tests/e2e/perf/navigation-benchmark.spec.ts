@@ -36,6 +36,7 @@ const ENABLED = process.env.NAV_BENCH === "1";
 const SAMPLES = Number(process.env.NAV_BENCH_SAMPLES ?? 30);
 const PROFILE = process.env.NAV_BENCH_PROFILE === "mobile" ? "mobile" : "desktop";
 const LABEL = process.env.NAV_BENCH_LABEL ?? "after";
+const DOCUMENTS_ONLY = process.env.NAV_BENCH_ONLY === "documents";
 const OUT = process.env.NAV_BENCH_OUT ?? join(process.cwd(), "test-results");
 const CRAWLER = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 const progress = (step: string) => console.log(`[nav-bench ${LABEL}-${PROFILE}] ${new Date().toISOString().slice(11, 19)} ${step}`);
@@ -193,104 +194,108 @@ test.describe("NAV-01 benchmark", () => {
       }
     };
 
-    await transitions("warm");
-    await transitions("uncached");
+    // NAV_BENCH_ONLY=documents: cold entry and workspace switching only (NAV-02 §16).
+    let page: Page;
+    if (!DOCUMENTS_ONLY) {
+      await transitions("warm");
+      await transitions("uncached");
 
-    // Quick Create: cold open (no cache) and a cached reopen (§14.3 step 5).
-    let page = await session("PROJECT_MANAGER", { to: "/tasks" });
-    const cold: Array<number | null> = [];
-    const coldReady: Array<number | null> = [];
-    const cached: Array<number | null> = [];
-    let actionRequests = 0;
-    page.on("request", (request) => {
-      if (request.url().includes("/api/quick-create/actions")) actionRequests += 1;
-    });
-    for (let index = 0; index < SAMPLES; index += 1) {
-      await page.goto("/tasks", { waitUntil: "load" });
-      const button = page.getByTestId("quick-create-button");
-      // The baseline shows its button only once its eagerly loaded menu has arrived.
-      await button.waitFor({ state: "attached", timeout: 15_000 }).catch(() => undefined);
-      if (!(await button.count())) break;
-      const times = await page.evaluate(
-        () =>
-          new Promise<[number | null, number | null]>((resolve) => {
-            const trigger = document.querySelector<HTMLElement>('[data-testid="quick-create-button"]')!;
-            let visible: number | null = null;
-            const start = performance.now();
-            const check = () => {
-              if (visible === null && document.querySelector('[data-testid="quick-create-panel"]')) visible = performance.now() - start;
-              // Action rows carry `quick-create-<key>` (keys have dots) in both the baseline and this build.
-              if (document.querySelector('[data-testid="quick-create-panel"] [data-testid^="quick-create-"][data-testid*="."], [data-testid="quick-create-empty"]')) {
-                clearInterval(poll);
-                resolve([visible, performance.now() - start]);
-              }
-            };
-            const poll = setInterval(check, 8);
-            trigger.click();
-            setTimeout(() => {
-              clearInterval(poll);
-              resolve([visible, null]);
-            }, 15_000);
-          }),
-      );
-      cold.push(times[0]);
-      coldReady.push(times[1]);
-      await page.keyboard.press("Escape");
-      const reopened = await page.evaluate(() => {
-        const start = performance.now();
-        document.querySelector<HTMLElement>('[data-testid="quick-create-button"]')!.click();
-        return new Promise<number>((resolve) => requestAnimationFrame(() => resolve(performance.now() - start)));
+      // Quick Create: cold open (no cache) and a cached reopen (§14.3 step 5).
+      page = await session("PROJECT_MANAGER", { to: "/tasks" });
+      const cold: Array<number | null> = [];
+      const coldReady: Array<number | null> = [];
+      const cached: Array<number | null> = [];
+      let actionRequests = 0;
+      page.on("request", (request) => {
+        if (request.url().includes("/api/quick-create/actions")) actionRequests += 1;
       });
-      cached.push(reopened);
-      await page.keyboard.press("Escape");
-    }
-    report["Quick Create cold open"] = { quick_create_visible: stats(cold), quick_create_ready: stats(coldReady) };
-    report["Quick Create cached reopen"] = { quick_create_visible: stats(cached), actions_requests_total: actionRequests };
-    progress("Quick Create");
+      for (let index = 0; index < SAMPLES; index += 1) {
+        await page.goto("/tasks", { waitUntil: "load" });
+        const button = page.getByTestId("quick-create-button");
+        // The baseline shows its button only once its eagerly loaded menu has arrived.
+        await button.waitFor({ state: "attached", timeout: 15_000 }).catch(() => undefined);
+        if (!(await button.count())) break;
+        const times = await page.evaluate(
+          () =>
+            new Promise<[number | null, number | null]>((resolve) => {
+              const trigger = document.querySelector<HTMLElement>('[data-testid="quick-create-button"]')!;
+              let visible: number | null = null;
+              const start = performance.now();
+              const check = () => {
+                if (visible === null && document.querySelector('[data-testid="quick-create-panel"]')) visible = performance.now() - start;
+                // Action rows carry `quick-create-<key>` (keys have dots) in both the baseline and this build.
+                if (document.querySelector('[data-testid="quick-create-panel"] [data-testid^="quick-create-"][data-testid*="."], [data-testid="quick-create-empty"]')) {
+                  clearInterval(poll);
+                  resolve([visible, performance.now() - start]);
+                }
+              };
+              const poll = setInterval(check, 8);
+              trigger.click();
+              setTimeout(() => {
+                clearInterval(poll);
+                resolve([visible, null]);
+              }, 15_000);
+            }),
+        );
+        cold.push(times[0]);
+        coldReady.push(times[1]);
+        await page.keyboard.press("Escape");
+        const reopened = await page.evaluate(() => {
+          const start = performance.now();
+          document.querySelector<HTMLElement>('[data-testid="quick-create-button"]')!.click();
+          return new Promise<number>((resolve) => requestAnimationFrame(() => resolve(performance.now() - start)));
+        });
+        cached.push(reopened);
+        await page.keyboard.press("Escape");
+      }
+      report["Quick Create cold open"] = { quick_create_visible: stats(cold), quick_create_ready: stats(coldReady) };
+      report["Quick Create cached reopen"] = { quick_create_visible: stats(cached), actions_requests_total: actionRequests };
+      progress("Quick Create");
 
-    // Group record → company record (§14.3 step 5). It switches the workspace, and this build then
-    // loads the record as a new document, so it is timed from here rather than inside the page.
-    const hop = { feedback: [] as Array<number | null>, committed: [] as Array<number | null>, usable: [] as Array<number | null>, landedOnRecord: 0 };
-    page = await session("OWNER");
-    for (let index = 0; index < SAMPLES; index += 1) {
-      await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } });
-      await page.goto("/tasks/all", { waitUntil: "load" });
-      // Visible only: on a phone the list's desktop table is in the page but hidden.
-      const link = page.locator("#nesto-main a[data-company-id]:visible").first();
-      await link.waitFor({ state: "attached", timeout: 15_000 }).catch(() => undefined);
-      if (!(await link.count())) break;
-      const record = (await link.getAttribute("href")) ?? "";
-      await page.waitForTimeout(400);
-      const started = Date.now();
-      const feedback = page
-        .waitForSelector('a[data-company-id][aria-busy="true"], [data-testid="nav-progress"]', { state: "attached", timeout: 30_000 })
-        .then(() => Date.now() - started)
-        .catch(() => null);
-      await link.click();
-      const committed = await page
-        // The baseline reloads the list instead of landing, so a hop that has not landed in 5 s never will.
-        .waitForURL((url) => url.pathname === record, { timeout: 5_000, waitUntil: "commit" })
-        .then(() => Date.now() - started)
-        .catch(() => null);
-      const usable = committed === null
-        ? null
-        : await page.locator("#nesto-main h1").first().waitFor({ state: "visible", timeout: 30_000 }).then(() => Date.now() - started).catch(() => null);
-      // A reload of the list after the commit is the failure this measures, so check where it ended.
-      await page.waitForTimeout(1500);
-      await page.waitForLoadState("load");
-      const landed = new URL(page.url()).pathname === record;
-      if (landed) hop.landedOnRecord += 1;
-      hop.feedback.push(await feedback);
-      hop.committed.push(landed ? committed : null);
-      hop.usable.push(landed ? usable : null);
+      // Group record → company record (§14.3 step 5). It switches the workspace, and this build then
+      // loads the record as a new document, so it is timed from here rather than inside the page.
+      const hop = { feedback: [] as Array<number | null>, committed: [] as Array<number | null>, usable: [] as Array<number | null>, landedOnRecord: 0 };
+      page = await session("OWNER");
+      for (let index = 0; index < SAMPLES; index += 1) {
+        await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } });
+        await page.goto("/tasks/all", { waitUntil: "load" });
+        // Visible only: on a phone the list's desktop table is in the page but hidden.
+        const link = page.locator("#nesto-main a[data-company-id]:visible").first();
+        await link.waitFor({ state: "attached", timeout: 15_000 }).catch(() => undefined);
+        if (!(await link.count())) break;
+        const record = (await link.getAttribute("href")) ?? "";
+        await page.waitForTimeout(400);
+        const started = Date.now();
+        const feedback = page
+          .waitForSelector('a[data-company-id][aria-busy="true"], [data-testid="nav-progress"]', { state: "attached", timeout: 30_000 })
+          .then(() => Date.now() - started)
+          .catch(() => null);
+        await link.click();
+        const committed = await page
+          // The baseline reloads the list instead of landing, so a hop that has not landed in 5 s never will.
+          .waitForURL((url) => url.pathname === record, { timeout: 5_000, waitUntil: "commit" })
+          .then(() => Date.now() - started)
+          .catch(() => null);
+        const usable = committed === null
+          ? null
+          : await page.locator("#nesto-main h1").first().waitFor({ state: "visible", timeout: 30_000 }).then(() => Date.now() - started).catch(() => null);
+        // A reload of the list after the commit is the failure this measures, so check where it ended.
+        await page.waitForTimeout(1500);
+        await page.waitForLoadState("load");
+        const landed = new URL(page.url()).pathname === record;
+        if (landed) hop.landedOnRecord += 1;
+        hop.feedback.push(await feedback);
+        hop.committed.push(landed ? committed : null);
+        hop.usable.push(landed ? usable : null);
+      }
+      report["Group record → company record"] = {
+        feedback_visible: stats(hop.feedback),
+        route_committed: stats(hop.committed),
+        content_usable: stats(hop.usable),
+        landed_on_record: `${hop.landedOnRecord}/${hop.feedback.length}`,
+      };
+      progress("Group record → company record");
     }
-    report["Group record → company record"] = {
-      feedback_visible: stats(hop.feedback),
-      route_committed: stats(hop.committed),
-      content_usable: stats(hop.usable),
-      landed_on_record: `${hop.landedOnRecord}/${hop.feedback.length}`,
-    };
-    progress("Group record → company record");
 
     // Cold entry and workspace switching, reported apart (§3 "Limit", §14.3 step 8): a document
     // load waits for the parent layout, which is Phase 2's to shorten.
@@ -328,6 +333,29 @@ test.describe("NAV-01 benchmark", () => {
       }
     }
     report["Workspace switch → dashboard usable"] = { content_usable: stats(switches) };
+    progress("Workspace switch");
+
+    // The Group Owner profile (NAV-02 PERF-04 step 2): the Group view's navigation
+    // needs the group's company contexts before the frame.
+    const group = await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } });
+    if (group.ok()) {
+      const groupEntry: Array<number | null> = [];
+      const groupFirstByte: Array<number | null> = [];
+      for (let index = 0; index < SAMPLES; index += 1) {
+        const started = Date.now();
+        await page.goto("/dashboard", { waitUntil: "commit" });
+        await page.locator("#nesto-main h1").first().waitFor({ state: "visible", timeout: 30_000 }).catch(() => undefined);
+        groupEntry.push(Date.now() - started);
+        groupFirstByte.push(
+          await page.evaluate(() => {
+            const entry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+            return entry ? Math.round(entry.responseStart - entry.requestStart) : null;
+          }),
+        );
+      }
+      report["Cold entry /dashboard (Group view)"] = { content_usable: stats(groupEntry), first_byte: stats(groupFirstByte) };
+      progress("Group cold entry");
+    }
 
     await opened.at(-1)?.close();
 
