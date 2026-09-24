@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Box, Boxes, GitBranch, Home, Layers3, PackageCheck } from "lucide-react";
+import { Box, GitBranch, Home, Layers3, PackageCheck } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
 
+/**
+ * The Experience's management tabs. Authoring is not one of them: the
+ * Experience Editor opens in its own browser tab from the header (3D Editor
+ * PRD §19-§21, §171).
+ */
 const items = [
   { segment: "", label: "Overview", icon: Home },
   { segment: "structure", label: "Project Structure", icon: Layers3 },
   { segment: "models", label: "Models", icon: Box },
-  { segment: "editor", label: "Experience Editor", icon: Boxes },
   { segment: "bindings", label: "Unit Binding", icon: GitBranch },
   { segment: "releases", label: "Releases", icon: PackageCheck },
 ] as const;

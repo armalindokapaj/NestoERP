@@ -48,10 +48,20 @@ function emptyBinding(meshName: string, projectUnitId = ""): Binding {
   };
 }
 
-export function UnitBindingEditor({ projectId, versionId }: { projectId: string; versionId: string }) {
+export function UnitBindingEditor({
+  projectId,
+  versionId,
+  onDirtyChange,
+}: {
+  projectId: string;
+  versionId: string;
+  /** Told whether links differ from the saved ones, so a host can protect them from being closed away. */
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const endpoint = `/api/platform/3d/projects/${projectId}/versions/${versionId}/bindings`;
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [draft, setDraft] = React.useState<Record<string, Binding>>({});
+  const [saved, setSaved] = React.useState("{}");
   const [reason, setReason] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [pending, setPending] = React.useState(false);
@@ -67,7 +77,9 @@ export function UnitBindingEditor({ projectId, versionId }: { projectId: string;
       const normalized = { ...next, detectedNodes: bindingNodes };
       setWorkspace(normalized);
       const byMesh = new Map(next.bindings.map((binding) => [binding.meshName, binding]));
-      setDraft(Object.fromEntries(bindingNodes.map((meshName) => [meshName, byMesh.get(meshName) ?? emptyBinding(meshName)])));
+      const loaded = Object.fromEntries(bindingNodes.map((meshName) => [meshName, byMesh.get(meshName) ?? emptyBinding(meshName)]));
+      setDraft(loaded);
+      setSaved(JSON.stringify(loaded));
     } catch (failure) {
       setError(failureMessage(failure, "The unit links could not be loaded."));
     } finally {
@@ -78,6 +90,12 @@ export function UnitBindingEditor({ projectId, versionId }: { projectId: string;
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  const dirty = workspace !== null && JSON.stringify(draft) !== saved;
+  React.useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  React.useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   function setBinding(meshName: string, patch: Partial<Binding>) {
     setDraft((current) => ({ ...current, [meshName]: { ...(current[meshName] ?? emptyBinding(meshName)), ...patch } }));

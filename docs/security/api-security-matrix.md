@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**870 route handlers, 258 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1037 · PLATFORM 45 · PUBLIC 11 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**871 route handlers, 258 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1037 · PLATFORM 46 · PUBLIC 11 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/activity-center
 
@@ -660,6 +660,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | PATCH | `/api/platform/3d/experiences/[projectId]` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | GET | `/api/platform/3d/experiences` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | security |
 | POST | `/api/platform/3d/experiences` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
+| GET | `/api/platform/3d/projects/[projectId]/config` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | PUT | `/api/platform/3d/projects/[projectId]/config` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | GET | `/api/platform/3d/projects/[projectId]/cover` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |
 | PUT | `/api/platform/3d/projects/[projectId]/entitlement` | PLATFORM | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | `assertFound` | — | security |

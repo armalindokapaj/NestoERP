@@ -46,7 +46,8 @@ parsing or looking up domain data. The five permissions are:
 - `platform.3d.publish`
 
 These permissions are never part of a Company role. The Platform page tree is
-guarded by the Platform layout.
+guarded by the Platform layout; the Experience Editor tab, which that layout
+does not wrap, is guarded by its own (see below).
 
 The Company route and bootstrap use normal NESTO `UserContext`, the Projects
 module gate, `project.view`, and the existing Project scope builder. A viewer is
@@ -107,6 +108,66 @@ The Company viewer provides model loading/failure state, reset, fullscreen,
 signed-access refresh, unit search, live commercial-status colors, selection,
 and canonical Unit navigation when authorized. It has no upload, editor,
 binding, version, publish, rollback, entitlement, or debug action.
+
+## Experience Editor tab
+
+Authoring happens in a dedicated browser tab, not inside Platform Admin.
+Experience detail (`/platform-admin/3d/projects/{projectId}`) keeps the
+management tabs — Overview, Project Structure, Models, Unit Binding, Releases —
+and offers **Open Experience Editor ↗**, a plain `target="_blank"` link, only to
+a session holding `platform.3d.view` and `platform.3d.configure`.
+
+The editor lives at `/platform-admin/3d/projects/{projectId}/editor`, the same
+address the embedded tab used, so old links now open it. The route sits in the
+`app/(experience-editor)` route group: its layouts never pass through the
+Platform Admin layout, so no admin sidebar, top bar, search or account controls
+render and none of their data loads. Because the admin layout's guard is not
+inherited there, the group runs it itself:
+
+```text
+(experience-editor)/platform-admin/3d/projects/[projectId]/
+├── layout.tsx       requirePlatformContext(); full-window dark frame, no scroll
+├── not-found.tsx    404 inside the frame
+└── editor/
+    ├── layout.tsx   authorizeProject3DEditor(): permission, then existence —
+    │                before anything streams, so a missing Experience is a 404
+    ├── loading.tsx  the editor's shape while the payload is read
+    ├── error.tsx    "The 3D editor encountered an error" + Reload
+    └── page.tsx     openProject3DEditor() → <ExperienceEditor />
+```
+
+`components/3d/platform/ExperienceEditor.tsx` is the only editor; architecture
+tests keep it that way, keep it imported only by the editor page, and keep the
+renderer (`three`, `lib/3d/runtime/render-engine`) unreachable from every page
+under `app/platform-admin`. Inside the editor the renderer itself loads through
+`next/dynamic`, after the editor chrome is interactive.
+
+**Save is not Publish.** Save writes the authoring document through
+`PUT /api/platform/3d/projects/{id}/config` (optimistic `expectedRevision`) and
+each edited model version through `PATCH …/versions/{versionId}`
+(`expectedUpdatedAt`), both with the reason for the change and audited. Only a
+release changes what Company users see. The top bar says which release is live.
+
+Unsaved work is protected: the save state reads Saved, Unsaved changes, Saving…
+or Save failed; closing or reloading a tab with unsaved changes (including
+unsaved unit links) asks first; Reset defaults asks first and only changes the
+tab's draft. Ctrl/Cmd+S saves. Model settings are kept per version, so
+switching models loses nothing.
+
+Tabs stay in step without sending the scene anywhere. A save broadcasts
+`{ projectId, revision }` on the `nesto-3d-experience-editor` channel
+(`lib/3d/platform/editor-sync.ts`): the Experience detail tab re-reads itself,
+and another editor tab on an older revision says so and offers Reload latest.
+Returning to an editor tab re-reads `GET …/config` to catch a newer revision,
+an ended session (sign in again in a new tab, then Save) or changed access.
+
+Panel widths, collapsed panels and the last tool are remembered in this
+browser's storage; nothing of the Experience is. The editor warns below
+1280 × 720.
+
+Not in V0.1: an audit entry for merely opening the editor, editor telemetry
+events, merge or review of a concurrent change (the choice is reload), and
+read-only authoring for a view-only Platform role (none exists).
 
 ## Mapbox
 
