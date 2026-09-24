@@ -4,6 +4,7 @@ import { assertPermission } from "@/lib/access/guards";
 import { CORE_MODULE_KEYS, MODULE_KEYS, modules as registry, type ModuleKey } from "@/config/modules";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { invalidateRequestScope } from "@/lib/core/observability/request-scope";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { integrationBlockers } from "./integration-settings.service";
@@ -180,6 +181,8 @@ export async function setModuleEnabled(
       { tx },
     );
   });
+  // This request's module snapshot predates the toggle (NAV-02 CTX-04).
+  invalidateRequestScope();
 
   return listCompanyModules(context);
 }

@@ -4,6 +4,7 @@ import { DB_NOW, sqlTimestamp } from "@/lib/database/clock";
 import { prisma } from "@/lib/database/prisma";
 import { logger } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
+import { runWithRequestScope } from "@/lib/core/observability/request-scope";
 import { newCorrelationId, newRequestId, runWithRequestContext } from "@/lib/core/observability/request-context";
 import { runWithinJob } from "./job.context";
 import { classifyJobError, JobError, type ClassifiedError } from "./job.errors";
@@ -214,7 +215,8 @@ async function runClaimed(job: JobDefinition, owner: string, claim: Claim, optio
   const requestContext = { requestId: runId, correlationId, startedAt: started, route: `job:${job.key}`, jobKey: job.key, workerId: owner };
   const logBase = { job: job.key, jobId: runId, workerId: owner, correlationId, attempt: claim.consecutiveFailures + 1, dryRun };
 
-  return runWithRequestContext(requestContext, async () => {
+  // A fresh request scope per attempt: nothing read by an earlier run is reused (NAV-02 CTX-02).
+  return runWithRequestContext(requestContext, () => runWithRequestScope(async () => {
     if (claim.recoveredFrom && claim.recoveredFrom !== owner) {
       // The last holder died holding the job: a crash, counted where operators look (§124 "repeated lease expiry").
       logger.warn("worker.job.lease_recovered", { ...logBase, previousOwner: claim.recoveredFrom });
@@ -306,7 +308,7 @@ async function runClaimed(job: JobDefinition, owner: string, claim: Claim, optio
       clearInterval(extender);
       options.signal?.removeEventListener("abort", onShutdown);
     }
-  });
+  }));
 }
 
 /** Claims and runs one job if it is due (or, with `force`, whenever nobody else holds it). */

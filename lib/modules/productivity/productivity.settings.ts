@@ -5,6 +5,7 @@ import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { invalidateRequestScope, scoped } from "@/lib/core/observability/request-scope";
 import { prisma } from "@/lib/database/prisma";
 import type { productivitySettingsSchema } from "./productivity.schema";
 
@@ -24,7 +25,16 @@ export type ProductivitySettingsDTO = {
   notifyNormalAnnouncements: boolean;
 };
 
-export async function resolveProductivitySettings(companyId: string): Promise<ProductivitySettingsDTO> {
+/**
+ * Read once per company per request (NAV-02): the bell, search and the
+ * dashboard each consult it several times, and every read is an upsert. The
+ * next request reads it again.
+ */
+export function resolveProductivitySettings(companyId: string): Promise<ProductivitySettingsDTO> {
+  return scoped(`productivity-settings:${companyId}`, () => readProductivitySettings(companyId));
+}
+
+async function readProductivitySettings(companyId: string): Promise<ProductivitySettingsDTO> {
   const row = await prisma.productivitySettings.upsert({ where: { companyId }, update: {}, create: { companyId } });
   return {
     announcementsEnabled: row.announcementsEnabled,
@@ -44,5 +54,7 @@ export async function updateProductivitySettings(context: UserContext, input: z.
     await tx.productivitySettings.update({ where: { companyId: context.companyId }, data: { ...input, updatedByMemberId: context.membershipId } });
     await recordUserAction(context, { actionKey: AuditAction.PRODUCTIVITY_SETTINGS_UPDATED, entity: { type: "company", id: context.companyId, label: "Announcements, favorites and recent work" }, before: { ...before }, after: { ...input } }, { tx });
   });
+  // The snapshot this request read is the old one (CTX-04).
+  invalidateRequestScope(`productivity-settings:${context.companyId}`);
   return resolveProductivitySettings(context.companyId);
 }

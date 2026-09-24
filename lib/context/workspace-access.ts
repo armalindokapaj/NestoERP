@@ -6,6 +6,7 @@ import type { Permission } from "@/config/permissions";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { groupMemberContextsOf, loadGroupMemberContexts } from "./build-context";
+import { scoped } from "@/lib/core/observability/request-scope";
 import type { UserContext } from "./types";
 
 /**
@@ -32,15 +33,24 @@ export type WorkspaceAccessRequest = {
   permission?: Permission;
 };
 
-/** Every company of the group the person may enter, as their own context there. */
+/**
+ * Every company of the group the person may enter, as their own context there.
+ *
+ * One set per request (NAV-02 QUERY-03): Group navigation, the workspace
+ * chooser, + Create's summary, the bell and search all read the same contexts.
+ * A Group-workspace session already carries them; otherwise they are loaded
+ * once per group, person and session, reusing the organization access and
+ * modules the session resolver read.
+ */
 export const resolveGroupContexts = cache(async (session: UserContext): Promise<UserContext[]> => {
-  return (
-    groupMemberContextsOf(session) ??
-    (await loadGroupMemberContexts({
+  const carried = groupMemberContextsOf(session);
+  if (carried) return carried;
+  return scoped(`group-contexts:${session.parentGroupId}:${session.userId}:${session.sessionId}`, () =>
+    loadGroupMemberContexts({
       userId: session.userId,
       parentGroupId: session.parentGroupId,
       sessionId: session.sessionId,
-    }))
+    }),
   );
 });
 

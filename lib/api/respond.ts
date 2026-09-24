@@ -5,6 +5,7 @@ import { AccessError, type ApiErrorCode, errorStatus } from "@/lib/access/guards
 import { recordAuthorizationDenial } from "@/lib/access/security-log";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { resolvePlatformContext, type PlatformContext } from "@/lib/context/platform-context";
+import { runWithRequestScope } from "@/lib/core/observability/request-scope";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import type { UserContext } from "@/lib/context/types";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
@@ -66,6 +67,11 @@ function withRequestHeaders(response: Response): Response {
  *
  * Every protected endpoint goes through here, so no handler can forget the
  * authentication step.
+ *
+ * Each call gets its own request scope (NAV-02 CTX-02): the context, the
+ * person's organization access and their group's company contexts are read
+ * once for this request and shared by every service it calls — and by nothing
+ * after it.
  */
 export async function withContext(
   handler: (context: UserContext) => Promise<Response>,
@@ -73,7 +79,7 @@ export async function withContext(
 ): Promise<Response> {
   return runWithRequestContext(
     { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
-    () => handleRequest(handler, options),
+    () => runWithRequestScope(() => handleRequest(handler, options)),
   );
 }
 
@@ -183,7 +189,7 @@ export async function withPlatformContext(
 ): Promise<Response> {
   return runWithRequestContext(
     { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
-    async () => {
+    () => runWithRequestScope(async () => {
       // A valid tenant context can be rejected before resolving the separate
       // Platform Admin session. This also keeps direct route security sweeps
       // on the same fail-closed boundary as live requests.
@@ -206,7 +212,7 @@ export async function withPlatformContext(
       } catch (error) {
         return translateError(error);
       }
-    },
+    }),
   );
 }
 
