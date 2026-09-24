@@ -24,6 +24,12 @@ export const en = {
     mainNavigation: "Main navigation",
     bannerCheckFailed: "Critical announcements could not be checked.",
     bannerRetry: "Retry",
+    panelCodeFailed: "This panel could not load.",
+    panelDataFailed: "We couldn't load this information.",
+    panelNewerVersion: "A newer version may be available.",
+    panelTryAgain: "Try again",
+    panelClose: "Close",
+    panelReload: "Reload page",
     navigationTitle: "NESTO navigation",
     openNavigation: "Open navigation",
     closeNavigation: "Close navigation",
@@ -133,6 +139,9 @@ export const en = {
   },
 
   activity: {
+    stale: "Could not refresh; showing what was last loaded.",
+    close: "Close",
+    countStale: "may be out of date",
     title: "Activity Center",
     all: "All",
     notifications: "Notifications",
@@ -167,6 +176,7 @@ export const en = {
   },
 
   search: {
+    homeStale: "Could not refresh; showing what was last loaded.",
     recentWork: "Recent Work",
     noFavorites: "No favorites yet.",
     noFavoritesHint: "Star a record to keep it here.",

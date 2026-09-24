@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import { useOpenRecord } from "@/components/workspace/use-open-record";
 import type { ModuleKey } from "@/config/modules";
-import { clearActivityCache, publishActivityChange, relativeTime, subscribeActivity } from "@/lib/activity/client";
+import { publishActivityChange, relativeTime, subscribeActivity } from "@/lib/activity/client";
 import type { ActivityCenterItem, ActivityPage, ActivityType } from "@/lib/modules/activity/activity-center.service";
 import { cn } from "@/lib/utils/cn";
 
@@ -54,7 +54,38 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
     setItems(initial.items);
     setCursor(initial.nextCursor);
   }, [initial]);
-  React.useEffect(() => subscribeActivity(() => router.refresh()), [router]);
+  // A change here or in another tab refreshes the page, batched, and never while hidden (NAV-03 ACTIVITY-06, A15).
+  React.useEffect(() => {
+    let timer: number | null = null;
+    let last = -Infinity;
+    let dirty = false;
+    const refresh = () => {
+      timer = null;
+      if (document.visibilityState !== "visible") {
+        dirty = true;
+        return;
+      }
+      dirty = false;
+      last = Date.now();
+      router.refresh();
+    };
+    const schedule = () => {
+      if (document.visibilityState !== "visible") {
+        dirty = true;
+        return;
+      }
+      if (timer !== null) return;
+      timer = window.setTimeout(refresh, Math.max(250, last + 1_000 - Date.now()));
+    };
+    const onVisible = () => document.visibilityState === "visible" && dirty && schedule();
+    const unsubscribe = subscribeActivity(schedule);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [router]);
 
   const moduleLabel = (key: string) => {
     const label = tModules(`${key as ModuleKey}.label`);
@@ -75,7 +106,6 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
   }
 
   function changed() {
-    clearActivityCache();
     publishActivityChange();
   }
 
