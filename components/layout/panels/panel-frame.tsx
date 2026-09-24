@@ -6,9 +6,14 @@ import { confirmWorkspaceNavigation } from "@/lib/workspace/client";
 /**
  * What a top-bar panel shows before its body arrives, or when it cannot
  * (NAV-03 PANEL-02, PANEL-03): a named loading state, and failures in plain
- * words with Try again and Close. After a second failure to load code the
- * build may have moved on, and Reload is offered; it asks about unsaved
- * changes first and is never automatic.
+ * words with Close.
+ *
+ * - Data that failed offers Try again: a new request can succeed.
+ * - Code that failed offers Reload page at once. The production bundler
+ *   (Turbopack) keeps a chunk's failed load for the life of the document, so
+ *   importing it again rejects without a request and an in-page retry can
+ *   never succeed. Reload asks about unsaved changes first and is never
+ *   automatic. A repeated failure adds that a newer version may be available.
  */
 
 export function PanelLoading({ label }: { label: string }) {
@@ -41,7 +46,7 @@ export function PanelFailure({
         {message}
       </p>
       <div className="mt-2 flex gap-3">
-        {kind === "code" && reloadAdvised ? (
+        {kind === "code" ? (
           <button type="button" onClick={() => confirmWorkspaceNavigation() && window.location.reload()} className="text-table font-medium text-accent-strong hover:underline" data-testid="panel-reload">
             {t("panelReload")}
           </button>
