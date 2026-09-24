@@ -82,7 +82,7 @@ import type {
 } from "./dashboard.types";
 
 /**
- * The dashboard resolver (PRD #4 §6, §83).
+ * The dashboard resolver (PRD #4 §6, §83; NAV-03 STREAM-03).
  *
  * user → role → permissions → module access → data scope → widgets.
  *
@@ -90,11 +90,24 @@ import type {
  * not hold is never loaded at all, and every query it runs is already scoped
  * (PRD #4 §10, §19, §20). One widget failing leaves the rest of the dashboard
  * working (PRD #4 §77).
+ *
+ * Two stages. `planDashboard` decides, from access alone, which KPIs, widgets
+ * and quick actions this reader gets and in what order; `loadPlannedKpi` and
+ * `loadPlannedWidget` then read one item each. The page streams the items one
+ * by one; `resolveDashboard` composes the same two stages for everyone else,
+ * so there is one set of permission rules.
  */
-export async function resolveDashboard(context: UserContext): Promise<ResolvedDashboard> {
+export type DashboardPlan = {
+  focus: string;
+  kpis: Array<(typeof kpis)[string]>;
+  widgets: Array<(typeof widgets)[string]>;
+  quickActions: ResolvedDashboard["quickActions"];
+};
+
+export async function planDashboard(context: UserContext): Promise<DashboardPlan> {
   // The same dashboard engine for both workspaces (Workspace Context §18): the
   // Group workspace reads its own layout, asking each authorised company in turn.
-  if (context.workspace.scopeType === "GROUP") return resolveGroupDashboard(context);
+  if (context.workspace.scopeType === "GROUP") return planGroupDashboard(context);
 
   const config = dashboardForRole(context.role, context.position);
 
@@ -127,11 +140,16 @@ export async function resolveDashboard(context: UserContext): Promise<ResolvedDa
     .map((key) => quickActions[key])
     .filter((definition) => definition && can(context, definition.permission));
 
-  return {
-    focus: config.focus,
-    ...(await loadResolved(context, visibleKpis, visibleWidgets)),
-    quickActions: visibleActions,
-  };
+  return { focus: config.focus, kpis: visibleKpis, widgets: visibleWidgets, quickActions: visibleActions };
+}
+
+export async function resolveDashboard(context: UserContext): Promise<ResolvedDashboard> {
+  const plan = await planDashboard(context);
+  const [resolvedKpis, resolvedWidgets] = await Promise.all([
+    Promise.all(plan.kpis.map((definition) => loadPlannedKpi(context, definition))).then((rows) => rows.filter((row): row is ResolvedKpi => row !== null)),
+    Promise.all(plan.widgets.map((definition) => loadPlannedWidget(context, definition))),
+  ]);
+  return { focus: plan.focus, kpis: resolvedKpis, widgets: resolvedWidgets, quickActions: plan.quickActions };
 }
 
 /**
@@ -143,7 +161,7 @@ export async function resolveDashboard(context: UserContext): Promise<ResolvedDa
  * The loaders then read each company as the reader there, so a company that
  * withholds a figure is left out of it rather than counted partly.
  */
-async function resolveGroupDashboard(context: UserContext): Promise<ResolvedDashboard> {
+async function planGroupDashboard(context: UserContext): Promise<DashboardPlan> {
   const companies = await resolveGroupContexts(context);
   const offered = (definition: { module: Parameters<typeof isModuleEnabled>[1]; permission: Permission; supportsGroupContext?: boolean } | undefined) =>
     Boolean(definition?.supportsGroupContext) && companies.some((company) => isModuleEnabled(company, definition!.module) && can(company, definition!.permission));
@@ -155,39 +173,25 @@ async function resolveGroupDashboard(context: UserContext): Promise<ResolvedDash
     .filter(offered)
     .sort((a, b) => a.priority - b.priority);
 
-  return { focus: config.focus, ...(await loadResolved(context, visibleKpis, visibleWidgets)), quickActions: [] };
+  return { focus: config.focus, kpis: visibleKpis, widgets: visibleWidgets, quickActions: [] };
 }
 
-/** Loads what a dashboard resolved to show; one failing widget leaves the rest working (PRD #4 §77). */
-async function loadResolved(
-  context: UserContext,
-  visibleKpis: Array<(typeof kpis)[string]>,
-  visibleWidgets: Array<(typeof widgets)[string]>,
-): Promise<{ kpis: ResolvedKpi[]; widgets: ResolvedWidget[] }> {
-  const [resolvedKpis, resolvedWidgets] = await Promise.all([
-    Promise.all(
-      visibleKpis.map(async (definition): Promise<ResolvedKpi | null> => {
-        const value = await loadKpi(context, definition.key).catch(() => null);
-        // A group figure with nothing behind it for this reader is left out, not shown as a dash (D-01 §66).
-        if (value === NOT_FOR_READER) return null;
-        if (value !== null && typeof value === "object") return { definition, value: value.value, hint: value.hint, breakdown: value.breakdown };
-        return {
-          definition,
-          value: value ?? "—",
-        };
-      }),
-    ).then((rows) => rows.filter((row): row is ResolvedKpi => row !== null)),
-    Promise.all(
-      visibleWidgets.map(async (definition): Promise<ResolvedWidget> => {
-        const payload = await loadWidget(context, definition.key).catch(
-          (): WidgetPayload => ({ kind: "error" }),
-        );
-        return { definition, payload };
-      }),
-    ),
-  ]);
+/**
+ * One planned KPI. A group figure with nothing behind it for this reader is
+ * left out (null), not shown as a dash (D-01 §66); a figure that could not be
+ * read is a dash, never a zero.
+ */
+export async function loadPlannedKpi(context: UserContext, definition: (typeof kpis)[string]): Promise<ResolvedKpi | null> {
+  const value = await loadKpi(context, definition.key).catch(() => null);
+  if (value === NOT_FOR_READER) return null;
+  if (value !== null && typeof value === "object") return { definition, value: value.value, hint: value.hint, breakdown: value.breakdown };
+  return { definition, value: value ?? "—" };
+}
 
-  return { kpis: resolvedKpis, widgets: resolvedWidgets };
+/** One planned widget; its failure is its own error state (PRD #4 §77). */
+export async function loadPlannedWidget(context: UserContext, definition: (typeof widgets)[string]): Promise<ResolvedWidget> {
+  const payload = await loadWidget(context, definition.key).catch((): WidgetPayload => ({ kind: "error" }));
+  return { definition, payload };
 }
 
 /* -------------------------------------------------------------------------- */

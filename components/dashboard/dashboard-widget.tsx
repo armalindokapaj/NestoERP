@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils/cn";
  * component per role or per module. A widget that failed to load says so and
  * leaves the rest of the dashboard working (PRD #4 §76, §77).
  */
-const SPAN: Record<string, 1 | 2 | 3> = {
+export const SPAN: Record<string, 1 | 2 | 3> = {
   SMALL: 1,
   MEDIUM: 1,
   LARGE: 2,
@@ -47,7 +47,8 @@ function RowLink({ href, companyId, className, children }: { href: string; compa
   );
 }
 
-export function DashboardWidget({ widget }: { widget: ResolvedWidget }) {
+/** `fill`: rendered inside a cell that already carries the span (NAV-03 streamed dashboard). */
+export function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidget; fill?: boolean }) {
   const { definition, payload } = widget;
 
   const isEmpty =
@@ -60,7 +61,7 @@ export function DashboardWidget({ widget }: { widget: ResolvedWidget }) {
         // below its content, which is how a single long line inside a widget
         // pushes the whole page sideways on a phone (PRD #7 §85).
         "nesto-card flex min-w-0 flex-col p-5",
-        widgetSpanClasses[SPAN[definition.size]],
+        fill ? "flex-1" : widgetSpanClasses[SPAN[definition.size]],
       )}
       aria-labelledby={`widget-${definition.key}`}
     >

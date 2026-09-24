@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, Users } from "lucide-react";
+import { Suspense } from "react";
+import { ArrowRight } from "lucide-react";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { ListSectionSkeleton, StatCardsSkeleton } from "@/components/modules/section-skeletons";
+import { SectionBoundary } from "@/components/modules/page-section";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -19,33 +21,27 @@ import { formatDate } from "@/lib/utils/format";
 export const metadata: Metadata = { title: "Clients" };
 
 /**
- * Clients module overview (PRD #12 §7, §8).
+ * Clients module overview (PRD #12 §7, §8; NAV-03 STREAM-02, STREAM-04).
  *
  * A relationship summary, not a sales pipeline — the pipeline belongs to Sales
  * (PRD #12 §8). Every counter is scoped to what this reader may see.
+ *
+ * The module guard, the tabs and New client render first; the counters and
+ * the two lists each arrive in their own section, so a slow one holds back
+ * nothing else. Each list answers for itself: an empty list says so in its
+ * own words and never stands for the whole module. The primary section is
+ * Recently added.
  */
 export default async function ClientsOverviewPage() {
   const context = await requireModule("clients");
   const experience = resolveModuleExperience(context, "clients");
 
-  const [stats, recent, updated] = await Promise.all([
-    clientOverviewStats(context),
-    recentClients(context, 5),
-    recentlyUpdatedClients(context, 5),
-  ]);
-
-  const cards = [
-    { label: "Active clients", value: stats.active, href: "/clients/active" },
-    {
-      label: "With active projects",
-      value: stats.withActiveProjects,
-      href: "/clients/all?hasActiveProject=yes",
-    },
-    { label: "Added this month", value: stats.addedThisMonth, href: "/clients/all?sort=created-desc" },
-    { label: "Archived", value: stats.archived, href: "/clients/archived" },
-  ];
-
-  const hasAnything = recent.length > 0 || updated.length > 0;
+  // Started together, awaited apart.
+  const stats = clientOverviewStats(context);
+  const recent = recentClients(context, 5);
+  const updated = recentlyUpdatedClients(context, 5);
+  // Awaited only inside their sections; a rejection is that section's to show.
+  for (const promise of [stats, recent, updated]) promise.catch(() => undefined);
 
   return (
     <ModulePage
@@ -60,58 +56,73 @@ export default async function ClientsOverviewPage() {
       }
     >
       <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {cards.map((card) => (
-            <Link
-              key={card.label}
-              href={card.href}
-              className="nesto-card p-4 transition-colors hover:border-line-strong"
-            >
-              <p className="text-table text-fg-muted">{card.label}</p>
-              <p className="mt-2 text-page font-semibold tabular-nums text-fg">{card.value}</p>
-            </Link>
-          ))}
-        </div>
+        <SectionBoundary className="nesto-card">
+          <Suspense fallback={<StatCardsSkeleton count={4} />}>
+            <ClientStats stats={stats} />
+          </Suspense>
+        </SectionBoundary>
 
-        {!hasAnything ? (
-          <EmptyState
-            icon={<Users />}
-            title="No clients yet."
-            description="Clients added to your company will appear here."
-            action={
-              can(context, "client.create")
-                ? { label: "New client", href: "/clients/new" }
-                : undefined
-            }
-          />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ClientPanel title="Recently added" href="/clients/all?sort=created-desc" clients={recent} />
-            <ClientPanel title="Recently updated" href="/clients/all" clients={updated} />
-          </div>
-        )}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SectionBoundary className="nesto-card">
+            <Suspense fallback={<ListSectionSkeleton title="Recently added" />}>
+              <ClientPanel title="Recently added" empty="No recently added clients." href="/clients/all?sort=created-desc" clients={recent} primary />
+            </Suspense>
+          </SectionBoundary>
+          <SectionBoundary className="nesto-card">
+            <Suspense fallback={<ListSectionSkeleton title="Recently updated" />}>
+              <ClientPanel title="Recently updated" empty="No recently updated clients." href="/clients/all" clients={updated} />
+            </Suspense>
+          </SectionBoundary>
+        </div>
       </div>
     </ModulePage>
   );
 }
 
-function ClientPanel({
+async function ClientStats({ stats }: { stats: ReturnType<typeof clientOverviewStats> }) {
+  const value = await stats;
+  const cards = [
+    { label: "Active clients", value: value.active, href: "/clients/active" },
+    { label: "With active projects", value: value.withActiveProjects, href: "/clients/all?hasActiveProject=yes" },
+    { label: "Added this month", value: value.addedThisMonth, href: "/clients/all?sort=created-desc" },
+    { label: "Archived", value: value.archived, href: "/clients/archived" },
+  ];
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-section="stats">
+      {cards.map((card) => (
+        <Link key={card.label} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
+          <p className="text-table text-fg-muted">{card.label}</p>
+          <p className="mt-2 text-page font-semibold tabular-nums text-fg">{card.value}</p>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+async function ClientPanel({
   title,
+  empty,
   href,
-  clients,
+  clients: pending,
+  primary = false,
 }: {
   title: string;
+  empty: string;
   href: string;
-  clients: {
-    id: string;
-    name: string;
-    code: string | null;
-    status: string;
-    updatedAt: Date;
-  }[];
+  clients: Promise<
+    {
+      id: string;
+      name: string;
+      code: string | null;
+      status: string;
+      updatedAt: Date;
+    }[]
+  >;
+  primary?: boolean;
 }) {
+  const clients = await pending;
   return (
-    <section className="nesto-card p-5">
+    <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-card font-semibold text-fg">{title}</h2>
         <Link
@@ -123,7 +134,7 @@ function ClientPanel({
         </Link>
       </div>
       {clients.length === 0 ? (
-        <p className="mt-4 text-table text-fg-subtle">Nothing to show yet.</p>
+        <p className="mt-4 text-table text-fg-subtle">{empty}</p>
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {clients.map((client) => (

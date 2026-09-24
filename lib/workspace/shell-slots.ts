@@ -52,13 +52,28 @@ export const SHELL_DELAY_COOKIE = "nesto-test-shell-delay";
 
 async function testDelay(slot: ShellSlot, phase: SlotPhase): Promise<void> {
   if (process.env.NESTO_TEST_SHELL_DELAYS !== "1") return;
+  await testHold(phase === "retry" ? `${slot}-retry` : slot);
+}
+
+/**
+ * Test-only, behind the same variable: holds one page section before it
+ * renders, from a `section-<name>=1500` rule in the same cookie. It is how the
+ * browser tests prove a slow optional section adds nothing to its siblings
+ * (NAV-03 PERF-01 Streaming, S01).
+ */
+export async function testSectionDelay(section: string): Promise<void> {
+  if (process.env.NESTO_TEST_SHELL_DELAYS !== "1") return;
+  await testHold(`section-${section}`);
+}
+
+/** Reached only through the two gated hooks above. */
+async function testHold(name: string): Promise<void> {
   let value: string | undefined;
   try {
     value = (await cookies()).get(SHELL_DELAY_COOKIE)?.value;
   } catch {
     return;
   }
-  const name = phase === "retry" ? `${slot}-retry` : slot;
   const rule = value?.split(",").map((part) => part.split("=")).find(([key]) => key === name)?.[1];
   if (!rule) return;
   const [delay, outcome] = rule.split(":");

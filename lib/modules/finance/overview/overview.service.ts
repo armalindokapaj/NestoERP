@@ -33,32 +33,62 @@ import { companyOf, financeContexts, mergeCurrencyTotals } from "../finance.work
 
 const MODULE = "finance" as const;
 
+/**
+ * What this reader may see on the overview, from permissions alone (NAV-03
+ * STREAM-05): the exact predicates the overview has always used, including
+ * the compound receivables/invoice, payables/expense and cashflow/payment
+ * grants, and one reporting time for every figure.
+ */
+export type FinanceOverviewPlan = { now: Date; monthStart: Date; visible: FinanceOverviewDTO["visible"] };
+
+export function planFinanceOverview(context: UserContext, options: { now?: Date } = {}): FinanceOverviewPlan {
+  assertModule(context, MODULE);
+  assertPermission(context, "finance.dashboard.view");
+  const now = options.now ?? new Date();
+  return {
+    now,
+    monthStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+    visible: {
+      receivables: can(context, "finance.receivables.view") && can(context, "finance.invoice.view"),
+      payables: can(context, "finance.payables.view") && can(context, "finance.expense.view"),
+      cashflow: can(context, "finance.cashflow.view") && can(context, "finance.payment.view"),
+      commitments: can(context, "finance.commitment.view"),
+      approvals: can(context, "finance.approval.view"),
+      projectBudgets: can(context, "finance.project_budget.view"),
+    },
+  };
+}
+
+/**
+ * Each financial domain's read, started together and awaited apart, so the
+ * page can show one while another is still on its way. A domain the plan does
+ * not show is never read.
+ */
+export function loadFinanceOverviewDomains(context: UserContext, plan: FinanceOverviewPlan) {
+  const { visible, now, monthStart } = plan;
+  return {
+    receivables: visible.receivables ? receivableTotals(context, now) : emptyReceivables(),
+    payables: visible.payables ? payableTotals(context) : Promise.resolve([]),
+    cash: visible.cashflow ? cashTotals(context, monthStart) : Promise.resolve({ in: [], out: [] }),
+    commitments: visible.commitments ? openCommitmentTotals(context) : Promise.resolve([]),
+    counts: overviewCounts(context, visible, now),
+    baseCurrency: baseCurrency(context.companyId),
+  };
+}
+
 export async function getFinanceOverview(
   context: UserContext,
   options: { now?: Date } = {},
 ): Promise<FinanceOverviewDTO> {
-  assertModule(context, MODULE);
-  assertPermission(context, "finance.dashboard.view");
-
-  const now = options.now ?? new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-
-  const visible = {
-    receivables: can(context, "finance.receivables.view") && can(context, "finance.invoice.view"),
-    payables: can(context, "finance.payables.view") && can(context, "finance.expense.view"),
-    cashflow: can(context, "finance.cashflow.view") && can(context, "finance.payment.view"),
-    commitments: can(context, "finance.commitment.view"),
-    approvals: can(context, "finance.approval.view"),
-    projectBudgets: can(context, "finance.project_budget.view"),
-  };
-
+  const plan = planFinanceOverview(context, options);
+  const domains = loadFinanceOverviewDomains(context, plan);
   const [receivables, payables, cash, commitments, counts, currency] = await Promise.all([
-    visible.receivables ? receivableTotals(context, now) : emptyReceivables(),
-    visible.payables ? payableTotals(context) : Promise.resolve([]),
-    visible.cashflow ? cashTotals(context, monthStart) : Promise.resolve({ in: [], out: [] }),
-    visible.commitments ? openCommitmentTotals(context) : Promise.resolve([]),
-    overviewCounts(context, visible, now),
-    baseCurrency(context.companyId),
+    domains.receivables,
+    domains.payables,
+    domains.cash,
+    domains.commitments,
+    domains.counts,
+    domains.baseCurrency,
   ]);
 
   return {
@@ -71,7 +101,7 @@ export async function getFinanceOverview(
     netCashflow: netOf(cash.in, cash.out),
     openCommitments: commitments,
     counts,
-    visible,
+    visible: plan.visible,
   };
 }
 
@@ -281,7 +311,7 @@ function totals(rows: GroupRow[], field: string): CurrencyTotal[] {
 }
 
 /** Net cashflow may legitimately be negative: the company spent more than it took. */
-function netOf(cashIn: CurrencyTotal[], cashOut: CurrencyTotal[]): CurrencyTotal[] {
+export function netOf(cashIn: CurrencyTotal[], cashOut: CurrencyTotal[]): CurrencyTotal[] {
   const byCurrency = new Map<string, Money>();
 
   for (const entry of cashIn) {
