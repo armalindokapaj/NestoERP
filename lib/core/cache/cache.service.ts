@@ -14,7 +14,11 @@ import { logger } from "@/lib/core/observability/logger";
 
 type Entry = { value: unknown; expiresAt: number };
 
-const store = new Map<string, Entry>();
+// One store per process, however many times a server bundle loads this module
+// (pages and route handlers each get their own copy); otherwise a write from
+// one never reaches a read in the other (NAV-02 CACHE-01).
+const processCache = globalThis as unknown as { __nestoCacheStore?: Map<string, Entry> };
+const store = (processCache.__nestoCacheStore ??= new Map<string, Entry>());
 const MAX_ENTRIES = 5000;
 
 export type CacheNamespace =
