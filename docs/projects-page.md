@@ -1,43 +1,47 @@
-# Projects page and multi-company access (E-05A)
+# Projects page and multi-company access (E-05A, Projects Workspace Grid)
 
 Built from the first E-05A PRD and brought in line with the final one
 (`NESTO_V0.1_Enhancement_PRD_E05A_Projects_Page_and_Project_Discovery_FINAL`),
 which renumbered its sections. Citations from the first pass — in this document
 and in code comments — use the first PRD's numbers; everything added for the
-final PRD (project types, roles +1, chips, the phone sheet, the error state)
-cites the final one. Where the two PRDs differ, the final one is the contract.
+final PRD cites the final one.
 
-The Projects page is where a person finds every project they may open, in every
-company they belong to, and opens one. It does not choose a company first: the
-list crosses companies, and opening a project moves the session into the
-project's own company.
+The **Projects Workspace Grid PRD**
+(`NESTO_V0.1_Projects_Workspace_Grid_and_Simplified_Project_Discovery_PRD`,
+cited as "Projects Workspace Grid §n") then simplified the page. Where it and
+E-05A differ, it is the contract: the workspace is the organisational filter,
+so the page no longer offers the company, role, type or location filters, the
+status and favorites pills, the chips, the sort, Recommended, or the list view.
+
+The Projects page is where a person finds every project they may open in the
+active workspace, and opens one. The workspace has already chosen the
+companies — every company of the group they can open projects in, in the Group
+workspace, or the one company in a company workspace — so the page never asks
+for a company again. Opening a project in the Group workspace moves the session
+into the project's own company.
 
 ```
-Person → Projects → authorised projects across companies
-       → search / filter / favorite → open → session moves to the project's company
+Person → workspace → Projects → authorised projects in that workspace
+       → search / star → open → (Group workspace) session enters the project's company
        → project workspace
 ```
-
-One continuous collection, not sections. Favorites first, then the most recently
-active projects, then by name. Finished projects stay in it; archived ones leave
-it (they are on **Archived**, in the session's company).
 
 ## Where things live
 
 | Concern | Location |
 | --- | --- |
-| The person's memberships, the cross-company list, filters, opening | `lib/modules/projects/project.portfolio.ts` |
+| The person's memberships in the workspace, the list, opening | `lib/modules/projects/project.portfolio.ts` |
 | Status machine | `lib/modules/projects/project.machine.ts` (registered in `lib/core/state/registry.ts`) |
 | Create, edit, change status, cover choice | `lib/modules/projects/project.service.ts` |
-| Query from a URL, both directions | `project.query.ts` (`parsePortfolioQuery`), `project.portfolio-url.ts` |
+| Query from a URL; retired parameters | `project.query.ts` (`parsePortfolioQuery`, `canonicalPortfolioHref`) |
 | Project types: the defaults a company starts with | `config/project-types.ts` |
 | Project types: the company's own list | `lib/modules/projects/project-type.service.ts`, page `app/(nesto)/projects/types` |
-| Gallery / list preference | `lib/modules/projects/project.view-preference.ts` (cookie `nesto.projects.view`) |
 | Cover thumbnails | `lib/modules/documents/storage/thumbnail.service.ts` |
 | Moving a session between memberships | `lib/auth/session-store.ts` (`moveSessionToMembership`) |
 | Last activity | `lib/modules/shared/activity.ts` (`touchProjectActivity`) |
-| API | `app/api/projects/route.ts`, `app/api/projects/filter-options`, `app/api/projects/[projectId]/{status,favorite,open,cover,archive}`, `app/api/projects/types`, `app/api/projects/types/[typeId]`, `app/api/projects/types/reorder` |
-| UI | `app/(nesto)/projects/(portfolio)/page.tsx` and its `error.tsx`, `app/(nesto)/projects/[projectId]/open`, `app/(nesto)/projects/new`, `components/projects/portfolio/*`, `components/projects/project-types-manager.tsx` |
+| API | `app/api/projects/route.ts`, `app/api/projects/[projectId]/{status,favorite,open,cover,archive}`, `app/api/projects/types`, `app/api/projects/types/[typeId]`, `app/api/projects/types/reorder` |
+| UI | `app/(nesto)/projects/(portfolio)/page.tsx` and its `error.tsx`, `app/(nesto)/projects/[projectId]/open`, `app/(nesto)/projects/new`, `components/projects/portfolio/*` (grid shape in `gallery.ts`), `components/projects/change-project-status-dialog.tsx`, `components/projects/project-types-manager.tsx` |
+| Route skeleton | `GalleryPageSkeleton` in `components/layout/page-skeletons.tsx` (same grid and card shape) |
 
 ## Authorisation: one person, several companies
 
@@ -46,21 +50,23 @@ membership, and every scope builder starts from that membership's company. The
 Projects page is the one place that looks past it, and it does so without a
 second access model:
 
-1. `resolveProjectPortfolio(session)` takes the person's other active
-   memberships in active companies and builds each into a `UserContext` through
-   `buildMemberContexts` — the same `assembleContext` the session resolver uses.
-   The session's own context is used for its own company.
+1. `resolveProjectPortfolio(session)` asks the workspace resolver
+   (`resolveWorkspaceContexts`) for a `UserContext` per company the active
+   workspace reads — every company of the group the person belongs to in the
+   Group workspace, the one company in a company workspace — each built the way
+   the session resolver builds one.
 2. A membership joins the portfolio only where Projects is switched on, the role
-   reaches the module and holds `project.view`.
+   reaches the module and holds `project.view` — workspace access, module access
+   and project access together (Projects Workspace Grid §13).
 3. The list's `where` is the **union of each membership's own
    `buildProjectScopeWhere`**. Every branch carries its company, so a project is
-   matched only through the membership in its company. Search, filters, sort and
-   the cursor are applied on top, in the database (E-05A §42).
-4. Everything a card allows — edit, change status, archive, favorite — is decided
-   with *that* membership's context: `can(context, …)` plus the project already
-   being in that context's scope. No role names (E-05A §59).
+   matched only through the membership in its company. The search and the
+   cursor are applied on top, in the database (E-05A §42; Projects Workspace
+   Grid §93-§95). Nothing is fetched and then hidden in the browser.
+4. Whether a card offers the star is decided with *that* membership's company
+   (favorites switched on there). No role names (E-05A §59).
 
-Actions reached from the page (`status`, `favorite`, `archive`, `cover`) find the
+Actions reached from the page (`favorite`, `cover`) and from a project (`status`, `archive`) find the
 project with `contextForProject(session, id)` and act with the membership in the
 project's company. Create takes an optional `companyId`; `contextForCompany`
 refuses a company the person does not belong to and one where they lack
@@ -114,7 +120,9 @@ Activity and audit rows written before keep the words of the day.
 | `archive` | Pending, Active, Finished | Archived | `project.archive` | — |
 | `restore` | Archived | the pre-archive status | `project.restore` | — |
 
-`return_to_pending` is the correction E-05A §12 allows. Every move goes through
+Change status is in the project page's own actions menu (it left the card menu
+with the Projects Workspace Grid PRD, §56, §57). `return_to_pending` is the
+correction E-05A §12 allows. Every move goes through
 `applyTransition`, so the state the caller read is in the write, and records
 `PROJECT_STATUS_CHANGED` in activity and audit with the previous and new status
 and the reason. The edit form offers the status only to somebody with
@@ -147,15 +155,18 @@ only where a company grants it.
 
 ## Ordering and pagination
 
-Recommended = favorites, then `lastActivityAt` desc, then name, then id. The
-other sorts: recently active, name A–Z / Z–A, company A–Z, newest, oldest — each
-ends on `id`, so the order is total.
+One order, with no control to change it (Projects Workspace Grid §33-§36):
+**Active, then Pending, then Finished, each by name, then id.** Favorites and
+recent activity order nothing. The status enum sorts Pending first in the
+database, so the list is read as three keyset runs — Active, Pending,
+Finished — each by `(name, id)`, and the cursor names the run and the last
+row's name and id. A cursor from anywhere else (the old favorites-first order
+included) is refused as stale. The three runs are read together, so a page
+costs one round trip whichever runs it crosses.
 
-Paging is keyset, not offset: the cursor is the last row's sort values. The
-recommended order is paged as two runs — favorites, then the rest — and the
-cursor says which run it is in, so "is starred" never has to be a column. A
-cursor from a different sort is refused. The page renders the first 24 on the
-server; **Load more** asks `GET /api/projects` with the same URL and the cursor.
+The page renders the first 24 on the server; **Load more** asks
+`GET /api/projects` with the search and the cursor. There is no numbered
+pagination and no infinite scroll (§109-§113).
 
 ## Last activity
 
@@ -163,7 +174,8 @@ server; **Load more** asks `GET /api/projects` with the same URL and the cursor.
 `updatedAt`) moves whenever `recordActivity` or `recordActorActivity` writes an
 activity whose entity is the project or whose metadata names it — tasks,
 documents, meetings, daily logs, status changes, edits, planning, anything that
-already records activity. It is written:
+already records activity. The Projects page no longer orders by it (Projects
+Workspace Grid §33); it is kept for the rest of the product. It is written:
 
 - by raw SQL, so `updatedAt` — the edit form's concurrency token — does not move
   when somebody adds a task;
@@ -179,43 +191,71 @@ exception it never sees used, so the decision is written down in
 ## Favorites
 
 The PRD #45 `UserFavorite` row with `entityType = project`, per membership. A
-star on a card is the same favorite as the star on the project header. The list
-reads favorites across all the person's memberships, in companies with favorites
-switched on; one person's star changes nothing for anyone else and grants
-nothing.
+star on a card is the same favorite as the star on the project header. The page
+reads the stars of the projects on it in one query, across the person's
+memberships in companies with favorites switched on. A star changes nothing for
+anyone else, grants nothing, and no longer moves a project up or filters the
+page (Projects Workspace Grid §31, §32, §124); a starred project the person can
+no longer open is simply not on the page (§126). Favorites are gathered in the
+top bar's Search and in My Work.
 
-## Search and filters
+## Search
 
-Search (debounced 300 ms) matches name, code, company name, city, country and
-project type name, inside the authorised set. Quick filters: All, Active,
-Pending, Finished, Favorites. Filters: Company (shown when there is more than
-one), My role (an effective project role label, or *All my assignments*),
-Project type (by name, see below), Location (`country:` or `city:`). All combine
-with AND. Every option is drawn from the authorised projects only
-(`portfolioFilterOptions`), so a dropdown never names a company, role, type or
-place the person cannot see.
+One field, **Search projects…**, under the title (Projects Workspace Grid
+§21-§25, §145): the projects already in the workspace, never the product — the
+top bar's Search is that. It matches name, code, city and country, and the
+company's name in the Group workspace. It does not match a project type: the
+card does not show one. It is a clause added to the authorised set in the
+database, so it can only narrow it.
 
-URL: `/projects?q=&status=&favorites=1&company=&role=&type=&location=&sort=`.
-`/projects/all` and `/projects/my-projects` redirect there, carrying search and
-status (and `role=@assigned` for My Projects).
+Debounced 250 ms into `?q=` (replace, not push), so a search survives a refresh
+and Back. The header keeps counting the workspace's projects; beside the field
+the page says *N projects found*, or *No projects found.* when nothing matches.
+The clear button and Escape empty it; Escape on an empty field leaves it.
 
-What is active shows under the toolbar as chips — *Status: Active ×*,
-*Sort: Project name A–Z ×* — each removing only itself, followed by **Clear
-filters**, which resets everything but the gallery/list preference (§32). The
-chips and Clear filters appear only while something is set, and a sort other
-than Recommended counts. While anything narrows the collection the row starts
-with **N results** (§53); a sort alone narrows nothing and shows no count.
+**Retired parameters.** `status`, `favorites`, `company`/`companyId`,
+`role`/`roleId`, `type`/`projectType`, `location`, `sort`, `view` and the old
+`search`: the page redirects (replace) to `/projects` with only `q`, and the
+API ignores them. No parameter can choose a company (§108, §183, §184).
+`/projects/all` and `/projects/my-projects` redirect there, carrying the search
+only.
 
-On a phone the four filters and the sort move into a bottom sheet with
-**Reset** and **Apply** (§39): choices in the sheet change nothing until Apply,
-so the page does not reload behind it at every choice. On a wide screen a
-filter applies as it is chosen.
+## The header
 
-**My role** is the person's `ProjectMember.projectRole` on that project, and
-*Project Manager* where they manage it — never the job title or the company
-role (§55). Holding both, with different words, reads *Lead Architect +1*
-(§56): the team role first, then the manager role. The same words in another
-case are one role. An Owner on no project's team shows none.
+*11 projects across 6 companies* in the Group workspace; *4 projects in
+ARLIS - NDERTIM* where they are one company's, in either workspace (§16, §17).
+Counted from the projects the person can see, so nothing hidden is hinted at,
+and unmoved by a search (§15, §18, §19). No line while the page loads (a
+skeleton bar, §103) or when there are no projects. There is no *New project*
+button: **+ Create** in the top bar is where projects are started (§74, §75).
+
+## The card and the grid
+
+Cover (or initials over architectural line art, never a broken image), status
+bottom-left on it, star and menu top-right, then the name, the company — always,
+in either workspace — and the place when the project records one (§42-§62). The
+name is a real link stretched over the card, so Cmd/Ctrl and middle click open
+a new tab; the star and the menu are separate buttons after it in the tab order
+(§166-§169). The menu: *Open project*, *Open in new tab*, *Add to / Remove from
+favorites*, *Copy project link*. Edit, Change status and Archive are on the
+project's own page (§56, §57). The DTO is `ProjectCardDTO` (§88, §89).
+
+Grid: one card a row under 640 px, two to 1023, three to 1439, four from
+1440 px, never more; the shell's 1600 px content width stops cards growing on
+an ultra-wide screen (§39, §40, §157). Covers are portrait 3:4 from two columns
+up and landscape 4:3 on a phone's single column (§41, §152). The star and the
+menu are 44 px on a phone (§154). Hover lifts the card, tints its border and
+eases the render in 200 ms, none of it under reduced motion (§158-§160).
+
+## Switching the workspace on this page
+
+`/projects` is a workspace collection, so the route resolver keeps it when the
+new workspace can use Projects (§76-§81) and falls back to the Dashboard only
+where it cannot. The in-place switch (OW, ADR 0015) keys the page by workspace
+and covers the content region until the new tree has committed, so no card of
+the old workspace shows under the new header (§82, §83). The search, if any,
+is kept and re-run in the new workspace. Other tabs follow through the
+workspace channel (§87).
 
 ## Project types
 
@@ -245,18 +285,20 @@ tab **Project types** shows only to them.
 - **An edit keeps a retired type.** The form offers the types in use plus the
   project's own, marked *(retired)*, so saving other details never strips it.
   Older projects without a type may stay without one.
-- **Filtering is by name, not id.** Each company has its own rows, so a person
-  in two companies has two *Residential* types; the filter offers the name once
-  and matches it case-insensitively in every company. A company that renames
-  its type is filtered under the new name.
+- **The page does not filter by type** any more (Projects Workspace Grid §138);
+  the D-01 group dashboard still groups projects by type name across companies.
 
 ## Loading and failure
 
-The page streams: the header and 3:4 card skeletons show while the first page is
-built (§72). If building it fails, the page's own error boundary — scoped by the
-`(portfolio)` route group so a project's pages keep their own — says *Projects
-could not be loaded.* with **Retry**, which asks the server again (§76). A
-failed **Load more** says the same inline and turns the button into Retry.
+The route's skeleton and the page's own Suspense fallback both draw the grid's
+columns and card shape (Projects Workspace Grid §101). If building the page
+fails, the page's own error boundary — scoped by the `(portfolio)` route group
+so a project's pages keep their own — says *Projects could not be loaded.* with
+**Retry**, which asks the server again (§104). A failed **Load more** says the
+same inline and turns the button into Retry. Every page of cards is timed into
+the `project_discovery_query_ms` histogram (labels `scope` group/company,
+`outcome`); a failure that is not a refusal also counts
+`project_discovery_error_total` (§172).
 
 ## Covers
 
@@ -267,66 +309,63 @@ that the editor can open; the service re-checks that on save.
 The card shows `GET /api/projects/:id/cover?v=…`, which needs the project through
 the person's membership **and** the document through the documents module's
 download gate in that company. The list includes a cover only for a reader who
-passes that gate; anybody else sees the placeholder. The thumbnail is 600×800
-WEBP, built with `sharp` on first request and kept at the document's derived
-`thumb` key; promoting a new version clears it. Thumbnail reads are not audited
-one by one.
+passes that gate; anybody else sees the placeholder. The version is the
+document's, so the same cover keeps the same URL between loads (§98). The
+thumbnail is 600×800 WEBP, built with `sharp` on first request and kept at the
+document's derived `thumb` key; promoting a new version clears it. It loads
+lazily, with `sizes` matching the grid, and is decorative (`alt=""`): the name
+is right under it (§46, §165). A cover the route cannot serve counts
+`project_cover_load_error_total{reason}`, and the card falls back to the
+placeholder (§105, §172). Thumbnail reads are not audited one by one.
 
 ## Tests
 
-- `tests/api/projects/project-types.test.ts` — only the Owner and the CEO keep
-  the list; add, rename, retire, use again, reorder and delete, each audited;
-  names unique per company whatever the case and free across companies; a used
-  type cannot be deleted; another company's type is not found and never offered.
 - `tests/api/projects/portfolio.test.ts` — cross-company visibility for the
-  seeded `multi-architect` person (an Architect in Aurelia on Riverside
-  Residences and in Forma on Marina Apartments since E-06), filter options that never leak a
-  company, search inside scope, opening and the session move, E-05A §65's
-  ordering with a cursor walk across the favorites boundary, every filter,
-  per-person favorites, card permissions and roles, cover visibility and the
-  thumbnail's shape, status permissions and audit, two simultaneous moves,
-  create in a chosen company and its refusal, and the activity marker; and for
-  the final PRD: *Role +1*, filtering and searching a type name across two
-  companies' lists, a type required and checked against the chosen company and
-  retirement, a project code once per company, and a role granted
-  `project.create` creating without gaining the status (§104, §105).
-- `tests/e2e/modules/projects.spec.ts` — the gallery and its 3:4 covers, filters
-  and URL state with Back, chips, the result count and Clear Filters (a sort
-  included), list view remembered, favorites without navigating, change status,
-  create with a type, the CEO keeping the type list and the create form
-  following it, a Project Manager refused it; `tests/e2e/modules/projects-multi-company.spec.ts`
-  — both companies on one page, opening a project in the other company, a deep
-  link into its tab, and a refused project that names nothing;
-  `tests/e2e/responsive/mobile.spec.ts` — two cards a row, and the filter sheet
-  with the sort, applying only on Apply and clearing with Reset.
-- `tests/api/company/company-bootstrap.test.ts` — a new company starts with the
-  default types, and a rerun does not restore one that was removed.
+  seeded `multi-architect` person in the Group workspace and one company in a
+  company workspace; counts that include only what the person sees; search
+  inside scope (name, code, place, company name only in the Group workspace,
+  never the type); no request parameter choosing a company, filter or sort;
+  Active → Pending → Finished by name with cursor walks across both
+  boundaries; favorites ordering nothing; a starred project whose access was
+  removed not shown; the card DTO's exact fields; initials; cover visibility,
+  its stable URL and the thumbnail's shape; the discovery histogram; opening
+  and the session move; status permissions and audit; create; the activity
+  marker.
+- `tests/unit/projects/portfolio-url.test.ts` — the parser, the canonical
+  address for retired parameters, and the legacy redirects.
+- `tests/e2e/modules/projects-workspace-grid.spec.ts` — no filter, sort, pill or
+  view control; a retired bookmark rewritten; group and company headers;
+  switching group → company → group on `/projects` without leaving it or
+  showing the old cards; the order; search, its count, zero state, clear and
+  Escape; the card's tab order and menu; 4/3/2 columns; an empty workspace.
+  `projects.spec.ts` keeps the roles, create/edit/archive, covers, the star,
+  status from the project page and the legacy links;
+  `projects-multi-company.spec.ts` the cross-company opening;
+  `responsive/mobile.spec.ts` one full-width card a row with 44 px controls.
 - `tests/perf/projects-page.perf.test.ts` (opt-in, `NESTO_PERF=1`) — 600 visible
-  projects in a table of 5,600: first page, a page ten cursors deep, a filtered
-  page and the filter options each under 500 ms at P95 (about 15 ms locally),
-  and the same number of queries for 12 cards as for 60.
+  projects across two companies in the Group workspace, in a table of 5,600:
+  first page, a page ten cursors deep (in the Pending run) and a search each
+  under 500 ms at P95 (57, 10 and 41 ms locally on 2026-09-24), and the same
+  number of queries for 12 cards as for 60.
 
 ## Limits
 
 - **Covers are chosen, not uploaded, on the edit page.** Upload the render to the
-  project's documents first. The create form has no cover (§13 lists it as
+  project's documents first. The create form has no cover (E-05A §13 lists it as
   optional): a new upload waits on the malware scan before it can be read, so a
   cover chosen in the same step would show the placeholder anyway.
 - **Project codes are typed.** There is no project numbering scheme yet.
 - **Project types are per company, not per Parent Group.** NESTO has no Parent
-  Group entity; two companies keep two lists, joined by name on the page.
+  Group entity; two companies keep two lists.
 - **Somebody granted `project.create` without a wide enough scope** — an
   Architect given it, say — sees the project they create only if they manage it
   or join its team. The create form offers them as manager.
 - **Opening moves the whole session.** There is no per-tab company.
-- **The sidebar is the session company's.** Somebody whose session is in a
-  company where they have no Projects access reaches the page by URL or by
-  opening a project, not from the sidebar of that company.
-- **Archived projects are not on the page**; there is no Archived filter yet (§85).
-- **Status changes always use the Change status dialog**, Pending → Active
-  included; §94 allows that one to be lighter but does not require it.
-- **Back restores filters, search and view**, and the browser's scroll position
-  on the first page; pages added with Load more are fetched again rather than
-  kept (§52, "where practical").
-- **Last activity is minute-accurate**, and can be one transaction late when the
-  project row was locked.
+- **Archived projects are not on the page**; they are on **Archived**, in the
+  session's company (Projects Workspace Grid §128).
+- **No search threshold.** The search shows whenever the workspace has a project;
+  §146-§147's "only above N projects" is left for later.
+- **No product analytics events** (§170 is optional); the operational metrics are
+  in *Loading and failure*.
+- **Back restores the search** and the browser's scroll position on the first
+  page; pages added with Load more are fetched again rather than kept.

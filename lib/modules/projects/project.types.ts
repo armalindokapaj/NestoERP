@@ -90,58 +90,48 @@ export type ProjectTaskSummary = {
 
 
 /* -------------------------------------------------------------------------- */
-/* Projects page (E-05A §37, §41)                                              */
+/* Projects page (E-05A; Projects Workspace Grid §88)                          */
 /* -------------------------------------------------------------------------- */
 
-export type PortfolioProjectDTO = {
+/**
+ * One card on the Projects page (Projects Workspace Grid §42, §88, §89): what
+ * the card draws, and nothing it does not.
+ */
+export type ProjectCardDTO = {
   id: string;
   code: string;
   name: string;
   status: ProjectStatus;
   href: string;
-  /** The managing company, always named (E-05A §9). `isCurrent` is the session's company. */
-  company: { id: string; name: string; logoUrl: string | null; isCurrent: boolean };
+  /** The project's company, always named (§59). `isCurrent`: the company the session works in. */
+  company: { id: string; name: string; isCurrent: boolean };
+  /** Null when the project records neither a city nor a country (§62). */
+  location: { city: string | null; country: string | null } | null;
   /** Null when there is no cover or this reader cannot open its document (E-05A §73). */
-  cover: { documentId: string; thumbnailUrl: string } | null;
-  location: { city: string | null; country: string | null };
-  projectType: { id: string; name: string } | null;
-  /**
-   * What this person is on the project — their role on its team, or Project
-   * Manager — never their job title (E-05A §55). `others` counts the further
-   * roles they hold on it, shown as "Architect +1" (§56).
-   */
-  myProjectRole: { name: string; others: number } | null;
+  cover: { thumbnailUrl: string } | null;
+  /** What the placeholder shows in place of a cover (§44, §47). */
+  initials: string;
   isFavorite: boolean;
-  lastActivityAt: string;
-  createdAt: string;
-  /** Decided in the project's own company, by permission and scope — never by role name (E-05A §33, §59). */
-  permissions: { open: true; edit: boolean; manageStatus: boolean; archive: boolean; favorite: boolean };
-  /** The statuses Change Status may offer; empty without the permission. */
-  statusMoves: Array<"PENDING" | "ACTIVE" | "FINISHED">;
+  /** Whether the project's company has favorites switched on. */
+  canFavorite: boolean;
 };
+
+/** A key project on the group dashboard (D-01 §31): the card, and its type. */
+export type KeyProjectDTO = ProjectCardDTO & { projectType: { id: string; name: string } | null };
 
 export type PortfolioListDTO = {
-  items: PortfolioProjectDTO[];
+  items: ProjectCardDTO[];
   pageInfo: { nextCursor: string | null; hasNextPage: boolean };
   meta: {
-    /** Every project this person can discover, before search and filters (E-05A §5). */
+    /** Every project this person can discover in the workspace, before any search (§15, §18). */
     visibleProjectCount: number;
+    /** The companies those projects belong to (§19). */
     visibleCompanyCount: number;
-    /** What the current search and filters match. */
+    /** The one company they belong to, when it is one — what the header names (§17, §69). */
+    onlyCompany: { id: string; name: string } | null;
+    /** What the search matches — the visible count when there is no search (§148). */
     matchingCount: number;
   };
-};
-
-export type PortfolioFilterOptionsDTO = {
-  companies: Array<{ id: string; name: string }>;
-  roles: Array<{ value: string; label: string }>;
-  projectTypes: Array<{ value: string; label: string }>;
-  locations: {
-    countries: Array<{ value: string; label: string }>;
-    cities: Array<{ value: string; label: string }>;
-  };
-  /** Where `+ New Project` may create (E-05A §30). */
-  creatableCompanies: Array<{ id: string; name: string }>;
 };
 
 /** One of a company's project types, as the people who keep the list see it (E-05A §62). */

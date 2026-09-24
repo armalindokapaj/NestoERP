@@ -1,18 +1,17 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
-import Link from "@/components/navigation/nav-link";
-import { Plus } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
+import { projectCountLabel } from "@/components/projects/portfolio/gallery";
 import { ProjectsPortfolio, ProjectsPortfolioSkeleton } from "@/components/projects/portfolio/projects-portfolio";
-import { Button } from "@/components/ui/button";
 import { canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import type { UserContext } from "@/lib/context/types";
-import { listPortfolioProjects, portfolioFilterOptions } from "@/lib/modules/projects/project.portfolio";
-import { activePortfolioFilterCount, parsePortfolioQuery } from "@/lib/modules/projects/project.query";
-import { parseProjectsView, PROJECTS_VIEW_COOKIE } from "@/lib/modules/projects/project.view-preference";
+import { creatableCompanies, listPortfolioProjects } from "@/lib/modules/projects/project.portfolio";
+import { canonicalPortfolioHref, parsePortfolioQuery } from "@/lib/modules/projects/project.query";
+import { PORTFOLIO_PAGE_SIZE } from "@/lib/modules/projects/project.schema";
+import type { PortfolioListDTO } from "@/lib/modules/projects/project.types";
 import { requireProjectPortfolio } from "../portfolio-access";
 
 export const metadata: Metadata = { title: { absolute: "Projects · NESTO" } };
@@ -20,93 +19,85 @@ export const metadata: Metadata = { title: { absolute: "Projects · NESTO" } };
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
- * Projects (E-05A §1, §4, §5).
+ * Projects (E-05A; Projects Workspace Grid §1-§9, §213).
  *
- * One continuous collection of every project this person may open in the active
- * workspace — the company's, or in the Group workspace every company's (Workspace
- * Context §30) — favorites first, then whatever was worked on most recently. No separate sections for recent, finished or starred work: those
- * are filters on the one collection.
+ * The projects this person may open in the active workspace — every company's
+ * they can open in the Group workspace, the one company's in a company
+ * workspace — as one grid, in one order. The workspace is the organisational
+ * filter; the page does not ask for a company, role, type, place, sort or view
+ * again. It only offers a search, and the way into a project.
  */
 export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
   const { session } = await requireProjectPortfolio();
   const params = await searchParams;
 
+  // A bookmark from before the simplification: the same page, without the
+  // filters it no longer applies (§184).
+  const canonical = canonicalPortfolioHref(params);
+  if (canonical) redirect(canonical);
+
   return (
-    // No key: a new search or filter keeps the page on screen, dimmed, while
-    // the next first page arrives, so the search box keeps focus mid-typing.
-    <Suspense fallback={<ProjectsFrame session={session} description="Loading projects…"><ProjectsPortfolioSkeleton /></ProjectsFrame>}>
-      <ProjectsBody session={session} params={params} />
+    // No key: a new search keeps the page on screen, dimmed, while the next
+    // first page arrives, so the search box keeps focus mid-typing.
+    <Suspense
+      fallback={
+        <ProjectsFrame session={session} description={<span aria-hidden="true" className="inline-block h-4 w-44 animate-pulse rounded bg-surface-muted align-middle motion-reduce:animate-none" />}>
+          <ProjectsPortfolioSkeleton />
+        </ProjectsFrame>
+      }
+    >
+      <ProjectsBody session={session} q={parsePortfolioQuery(params).q ?? ""} />
     </Suspense>
   );
 }
 
-async function ProjectsBody({ session, params }: { session: UserContext; params: Awaited<SearchParams> }) {
-  const query = parsePortfolioQuery(params);
-  const [result, options, cookieStore] = await Promise.all([
+async function ProjectsBody({ session, q }: { session: UserContext; q: string }) {
+  const [result, creatable] = await Promise.all([
     // The page always renders the first page; "Load more" asks the API for the rest.
-    listPortfolioProjects(session, { ...query, cursor: undefined }),
-    portfolioFilterOptions(session),
-    cookies(),
+    listPortfolioProjects(session, { q: q || undefined, limit: PORTFOLIO_PAGE_SIZE }),
+    creatableCompanies(session),
   ]);
 
-  const { visibleProjectCount: projects, visibleCompanyCount: companies } = result.meta;
-  const inGroup = session.workspace.scopeType === "GROUP";
-  const description =
-    projects === 0
-      ? inGroup
-        ? `Projects you can open across ${session.parentGroup.name}.`
-        : `Projects you can open in ${session.company.name}.`
-      : `${projects} ${projects === 1 ? "project" : "projects"}${inGroup && companies > 1 ? ` across ${companies} companies` : ""}`;
-
   return (
-    <ProjectsFrame
-      session={session}
-      description={description}
-      actions={
-        options.creatableCompanies.length > 0 ? (
-          <Button asChild size="sm">
-            <Link href="/projects/new" aria-label="New project">
-              <Plus aria-hidden="true" />
-              {/* A phone keeps the header to "Projects +" (E-05A §38). */}
-              <span className="hidden sm:inline">New project</span>
-            </Link>
-          </Button>
-        ) : null
-      }
-    >
-      <ProjectsPortfolio
-        initial={result}
-        options={options}
-        query={query}
-        filterCount={activePortfolioFilterCount(query)}
-        initialView={parseProjectsView(cookieStore.get(PROJECTS_VIEW_COOKIE)?.value)}
-      />
+    <ProjectsFrame session={session} description={headerCount(result.meta)}>
+      <ProjectsPortfolio initial={result} q={q} canCreate={creatable.length > 0} />
     </ProjectsFrame>
   );
 }
 
 /**
- * The module frame. Its section tabs — Milestones, Archived — belong to the
- * session's company, so somebody whose session is in a company without project
- * access sees the page without them.
+ * "11 projects across 6 companies" in the Group workspace, "4 projects in
+ * ARLIS - NDERTIM" where they are one company's (§16, §17, §68, §69). Counted
+ * from the projects this person can see, so nothing hidden is hinted at (§15,
+ * §18, §19), and unmoved by a search. No line at all when there are none: the
+ * empty state says so.
  */
-function ProjectsFrame({ session, description, actions, children }: { session: UserContext; description: string; actions?: React.ReactNode; children: React.ReactNode }) {
-  // The Group workspace has no company whose sections these would be (Workspace Context §25).
+function headerCount(meta: PortfolioListDTO["meta"]): string | null {
+  if (meta.visibleProjectCount === 0) return null;
+  const projects = projectCountLabel(meta.visibleProjectCount);
+  return meta.onlyCompany ? `${projects} in ${meta.onlyCompany.name}` : `${projects} across ${meta.visibleCompanyCount} companies`;
+}
+
+/**
+ * The module frame. Its section tabs — Milestones, Archived and the company's
+ * lists — belong to the session's company, so the Group workspace, which has
+ * no company whose sections these would be, shows the page without them
+ * (Workspace Context §25). No "New project" beside the title: the top bar's
+ * + Create is where projects are started (§74, §75).
+ */
+function ProjectsFrame({ session, description, children }: { session: UserContext; description: React.ReactNode; children: React.ReactNode }) {
   if (session.workspace.scopeType === "COMPANY" && isModuleEnabled(session, "projects") && canAccessModule(session, "projects")) {
     return (
-      <ModulePage experience={resolveModuleExperience(session, "projects")} activeSection="portfolio" description={description} actions={actions}>
+      <ModulePage experience={resolveModuleExperience(session, "projects")} activeSection="portfolio" description={description}>
         {children}
       </ModulePage>
     );
   }
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg">Projects</h1>
-          <p className="mt-1.5 text-body text-fg-muted">{description}</p>
-        </div>
-        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      <div className="min-w-0">
+        <h1 className="text-page font-semibold text-fg">Projects</h1>
+        {description === null ? null : <p className="mt-1.5 text-body text-fg-muted">{description}</p>}
       </div>
       {children}
     </div>

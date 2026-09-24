@@ -7,6 +7,7 @@ import { can, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { recordAuthEvent } from "@/lib/auth/events";
+import { incrementCounter, Metric, observeHistogram } from "@/lib/core/observability/metrics";
 import { moveSessionToMembership } from "@/lib/auth/session-store";
 import type { UserContext } from "@/lib/context/types";
 import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
@@ -14,14 +15,8 @@ import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { isThumbnailableMimeType } from "@/lib/modules/documents/storage/thumbnail.service";
 import { resolveProductivitySettings } from "@/lib/modules/productivity/productivity.settings";
-import { statusActionFor, WORKING_STATUSES, type WorkingStatus } from "./project.machine";
-import { ASSIGNED_ROLE_VALUE } from "./project.portfolio-url";
-import type { PortfolioQuery, PortfolioSortKey } from "./project.schema";
-import type {
-  PortfolioFilterOptionsDTO,
-  PortfolioListDTO,
-  PortfolioProjectDTO,
-} from "./project.types";
+import type { PortfolioQuery } from "./project.schema";
+import type { KeyProjectDTO, PortfolioListDTO, ProjectCardDTO } from "./project.types";
 
 /**
  * A person's projects, across the companies the active workspace reads
@@ -37,7 +32,8 @@ import type {
  * (`resolveWorkspaceContexts`) gives the same `UserContext` a signed-in request
  * in each company would get, and a project is authorised when *that* context's
  * own project scope contains it. The page's query is the union of those scopes,
- * applied in the database before search, filters, sort and pagination (§42).
+ * applied in the database before search and pagination (§42; Projects Workspace
+ * Grid §93-§95).
  * Nothing here decides access on its own; it only asks each company's rules in
  * turn — and never a company outside the person's group.
  *
@@ -239,123 +235,67 @@ const LIST_SELECT = {
   city: true,
   country: true,
   companyId: true,
-  projectType: { select: { id: true, name: true } },
   coverImageDocumentId: true,
-  projectManagerMemberId: true,
-  lastActivityAt: true,
-  createdAt: true,
   company: { select: { name: true } },
 } satisfies Prisma.ProjectSelect;
 
 type ListRow = Prisma.ProjectGetPayload<{ select: typeof LIST_SELECT }>;
 
-type SortField = { key: "lastActivityAt" | "name" | "createdAt" | "company" | "id"; direction: "asc" | "desc" };
+/**
+ * The page's one order (Projects Workspace Grid §34-§36): Active, then Pending,
+ * then Finished, each by name and then id, so it is total and the same on every
+ * load. The status enum sorts Pending first in the database, so the order is
+ * read as three keyset runs, and the cursor says which run it is in.
+ */
+const STATUS_RUNS = ["ACTIVE", "PENDING", "FINISHED"] as const;
+type StatusRun = (typeof STATUS_RUNS)[number];
+
+const cursorSchema = z.object({ s: z.enum(STATUS_RUNS), v: z.tuple([z.string(), z.string()]) });
+
+function encodeCursor(row: ListRow): string {
+  return Buffer.from(JSON.stringify({ s: row.status, v: [row.name, row.id] })).toString("base64url");
+}
+
+function decodeCursor(cursor: string | undefined): { run: StatusRun; name: string; id: string } | null {
+  if (!cursor) return null;
+  try {
+    const parsed = cursorSchema.parse(JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")));
+    return { run: parsed.s, name: parsed.v[0], id: parsed.v[1] };
+  } catch {
+    throw new AccessError("VALIDATION_ERROR", "That page of projects is no longer available. Reload the list.");
+  }
+}
 
 /**
- * Every sort ends on a unique column, so the order is total and a cursor
- * always names exactly one position (E-05A §14, §43).
+ * The search (§22, §25): name, code and place — and the company's name in the
+ * Group workspace, where cards of several companies sit side by side. It is a
+ * clause added to the authorised set, so it can only narrow it (§196).
  */
-const SORT_FIELDS: Record<PortfolioSortKey, SortField[]> = {
-  recommended: [{ key: "lastActivityAt", direction: "desc" }, { key: "name", direction: "asc" }, { key: "id", direction: "asc" }],
-  activity: [{ key: "lastActivityAt", direction: "desc" }, { key: "name", direction: "asc" }, { key: "id", direction: "asc" }],
-  "name-asc": [{ key: "name", direction: "asc" }, { key: "id", direction: "asc" }],
-  "name-desc": [{ key: "name", direction: "desc" }, { key: "id", direction: "desc" }],
-  "company-asc": [{ key: "company", direction: "asc" }, { key: "name", direction: "asc" }, { key: "id", direction: "asc" }],
-  newest: [{ key: "createdAt", direction: "desc" }, { key: "id", direction: "desc" }],
-  oldest: [{ key: "createdAt", direction: "asc" }, { key: "id", direction: "asc" }],
-};
-
-/** `fav` and `rest` are the two halves of the recommended order; `all` is every other sort. */
-type Phase = "fav" | "rest" | "all";
-
-const cursorSchema = z.object({ p: z.enum(["fav", "rest", "all"]), v: z.array(z.string()).min(1).max(3) });
-
-function sortValue(row: ListRow, field: SortField): string {
-  switch (field.key) {
-    case "lastActivityAt":
-      return row.lastActivityAt.toISOString();
-    case "createdAt":
-      return row.createdAt.toISOString();
-    case "company":
-      return row.company.name;
-    case "name":
-      return row.name;
-    case "id":
-      return row.id;
-  }
+function searchClause(session: UserContext, q: string): Prisma.ProjectWhereInput {
+  const contains = { contains: q, mode: "insensitive" as const };
+  const fields: Prisma.ProjectWhereInput[] = [{ name: contains }, { code: contains }, { city: contains }, { country: contains }];
+  if (session.workspace.scopeType === "GROUP") fields.push({ company: { name: contains } });
+  return { OR: fields };
 }
 
-function encodeCursor(phase: Phase, fields: SortField[], row: ListRow): string {
-  return Buffer.from(JSON.stringify({ p: phase, v: fields.map((field) => sortValue(row, field)) })).toString("base64url");
-}
-
-function decodeCursor(cursor: string | undefined, fields: SortField[]): { phase: Phase; values: Array<string | Date> } | null {
-  if (!cursor) return null;
-  const stale = () => new AccessError("VALIDATION_ERROR", "That page of projects is no longer available. Reload the list.");
-  let parsed: z.infer<typeof cursorSchema>;
-  try {
-    parsed = cursorSchema.parse(JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")));
-  } catch {
-    throw stale();
-  }
-  if (parsed.v.length !== fields.length) throw stale();
-  const values = fields.map((field, index) => {
-    const raw = parsed.v[index]!;
-    if (field.key !== "lastActivityAt" && field.key !== "createdAt") return raw;
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) throw stale();
-    return date;
-  });
-  return { phase: parsed.p, values };
-}
-
-function orderByFor(fields: SortField[]): Prisma.ProjectOrderByWithRelationInput[] {
-  return fields.map((field) =>
-    field.key === "company" ? { company: { name: field.direction } } : { [field.key]: field.direction },
-  );
-}
-
-function equalsClause(field: SortField, value: string | Date): Prisma.ProjectWhereInput {
-  return field.key === "company" ? { company: { name: value as string } } : { [field.key]: value };
-}
-
-function beyondClause(field: SortField, value: string | Date): Prisma.ProjectWhereInput {
-  const operator = field.direction === "asc" ? "gt" : "lt";
-  return field.key === "company"
-    ? { company: { name: { [operator]: value as string } } }
-    : { [field.key]: { [operator]: value } };
-}
-
-/** Rows strictly after the cursor in the sort's own order — keyset pagination. */
-function afterCursor(fields: SortField[], values: Array<string | Date>): Prisma.ProjectWhereInput {
-  return {
-    OR: fields.map((field, index) => ({
-      AND: [...fields.slice(0, index).map((previous, i) => equalsClause(previous, values[i]!)), beyondClause(field, values[index]!)],
-    })),
-  };
-}
-
-function fetchPage(where: Prisma.ProjectWhereInput, fields: SortField[], cursorValues: Array<string | Date> | null, take: number) {
-  return prisma.project.findMany({
-    where: cursorValues ? { AND: [where, afterCursor(fields, cursorValues)] } : where,
-    orderBy: orderByFor(fields),
-    take,
-    select: LIST_SELECT,
-  });
-}
-
-/** The person's starred projects, in companies that have favorites switched on. */
-async function favoriteProjectIds(portfolio: PortfolioMembership[]): Promise<{ ids: Set<string>; enabledCompanies: Set<string> }> {
+/**
+ * Which of these projects the person has starred, and in which companies they
+ * may star at all — one query for the page, whatever its size (§119). A star
+ * orders nothing and opens nothing: a project reaches this only by being in the
+ * authorised set already (§124, §126).
+ */
+async function favoriteState(portfolio: PortfolioMembership[], projectIds: string[]): Promise<{ ids: Set<string>; enabledCompanies: Set<string> }> {
   const settings = await Promise.all(
     portfolio.map(async (membership) => ({ membership, enabled: (await resolveProductivitySettings(membership.companyId)).favoritesEnabled })),
   );
   const enabled = settings.filter((entry) => entry.enabled).map((entry) => entry.membership);
   const enabledCompanies = new Set(enabled.map((membership) => membership.companyId));
-  if (enabled.length === 0) return { ids: new Set(), enabledCompanies };
+  if (enabled.length === 0 || projectIds.length === 0) return { ids: new Set(), enabledCompanies };
 
   const rows = await prisma.userFavorite.findMany({
     where: {
       entityType: "project",
+      entityId: { in: projectIds },
       OR: enabled.map((membership) => ({ companyId: membership.companyId, memberId: membership.context.membershipId })),
     },
     select: { entityId: true },
@@ -363,63 +303,13 @@ async function favoriteProjectIds(portfolio: PortfolioMembership[]): Promise<{ i
   return { ids: new Set(rows.map((row) => row.entityId)), enabledCompanies };
 }
 
-export { ASSIGNED_ROLE_VALUE as ASSIGNED_ROLE } from "./project.portfolio-url";
-
-function filterClauses(query: PortfolioQuery, portfolio: PortfolioMembership[], favorites: Set<string>): Prisma.ProjectWhereInput[] {
-  const clauses: Prisma.ProjectWhereInput[] = [];
-  const memberIds = portfolio.map((membership) => membership.context.membershipId);
-
-  if (query.q) {
-    const contains = { contains: query.q, mode: "insensitive" as const };
-    clauses.push({
-      OR: [
-        { name: contains },
-        { code: contains },
-        { company: { name: contains } },
-        { city: contains },
-        { country: contains },
-        { projectType: { name: contains } },
-      ],
-    });
-  }
-
-  if (query.status) clauses.push({ status: query.status });
-  if (query.favorites) clauses.push({ id: { in: [...favorites] } });
-  if (query.companyId) clauses.push({ companyId: query.companyId });
-  // By name: each company keeps its own list, and "Hospital" means the same
-  // thing on a card from either company (E-05A §30).
-  if (query.projectType) clauses.push({ projectType: { name: { equals: query.projectType, mode: "insensitive" } } });
-
-  if (query.location) {
-    const separator = query.location.indexOf(":");
-    const kind = query.location.slice(0, separator);
-    const value = query.location.slice(separator + 1);
-    const equals = { equals: value, mode: "insensitive" as const };
-    clauses.push(kind === "city" ? { city: equals } : { country: equals });
-  }
-
-  if (query.role) {
-    const managed: Prisma.ProjectWhereInput = { projectManagerMemberId: { in: memberIds } };
-    if (query.role === ASSIGNED_ROLE_VALUE) {
-      clauses.push({ OR: [managed, { members: { some: { companyMemberId: { in: memberIds }, status: "ACTIVE" } } }] });
-    } else {
-      const byLabel: Prisma.ProjectWhereInput = {
-        members: { some: { companyMemberId: { in: memberIds }, status: "ACTIVE", projectRole: { equals: query.role, mode: "insensitive" } } },
-      };
-      clauses.push(query.role.toLowerCase() === "project manager" ? { OR: [byLabel, managed] } : byLabel);
-    }
-  }
-
-  return clauses;
-}
-
 /**
- * Which covers each reader may see (E-05A §73).
+ * Which covers each reader may see (E-05A §73; Projects Workspace Grid §96-§99).
  *
  * A cover is a document, and a reader who cannot open the document sees the
  * placeholder rather than a thumbnail link that would refuse them. One query
  * per company with covers on the page, through the documents module's own
- * access clause.
+ * access clause (§120).
  */
 async function readableCovers(portfolio: PortfolioMembership[], rows: ListRow[]): Promise<Map<string, number>> {
   const readable = new Map<string, number>();
@@ -448,62 +338,71 @@ async function readableCovers(portfolio: PortfolioMembership[], rows: ListRow[])
 }
 
 /**
- * The Projects page list (E-05A §4, §14, §36, §37, §42, §43).
+ * The Projects page list (Projects Workspace Grid §11-§13, §34, §91).
  *
- * Authorised projects → search → filters → sort → cursor page. The recommended
- * order puts the person's favorites first; it is paged as two keyset runs —
- * favorites, then everything else — so a cursor never has to express
- * "is starred" as a column.
+ * Authorised projects in the active workspace → search → the fixed order →
+ * a cursor page. Each status run is read at once; a page seldom crosses more
+ * than one, and the three reads cost one round trip together.
  */
 export async function listPortfolioProjects(session: UserContext, query: PortfolioQuery): Promise<PortfolioListDTO> {
-  const portfolio = await requirePortfolio(session);
-  const { ids: favorites, enabledCompanies } = await favoriteProjectIds(portfolio);
+  const started = performance.now();
+  const scope = session.workspace.scopeType === "GROUP" ? "group" : "company";
+  try {
+    const result = await discoverProjects(session, query);
+    observeHistogram("project_discovery_query_ms", { scope, outcome: "success" }, performance.now() - started);
+    return result;
+  } catch (error) {
+    // Refusals and stale cursors are answers, not failures of the page (§172).
+    if (!(error instanceof AccessError)) {
+      observeHistogram("project_discovery_query_ms", { scope, outcome: "failure" }, performance.now() - started);
+      incrementCounter(Metric.PROJECT_DISCOVERY_ERROR, { scope });
+    }
+    throw error;
+  }
+}
 
+async function discoverProjects(session: UserContext, query: PortfolioQuery): Promise<PortfolioListDTO> {
+  const portfolio = await requirePortfolio(session);
   const authorised: Prisma.ProjectWhereInput = { AND: [portfolioProjectWhere(portfolio), IN_DISCOVERY] };
-  const filtered: Prisma.ProjectWhereInput = { AND: [authorised, ...filterClauses(query, portfolio, favorites)] };
-  const fields = SORT_FIELDS[query.sort];
-  const cursor = decodeCursor(query.cursor, fields);
+  const matching: Prisma.ProjectWhereInput = query.q ? { AND: [authorised, searchClause(session, query.q)] } : authorised;
+  const cursor = decodeCursor(query.cursor);
   const take = query.limit + 1;
 
-  const rows: Array<{ row: ListRow; phase: Phase }> = [];
-  const phased = query.sort === "recommended" && !query.favorites;
-
-  if (phased) {
-    if (cursor && cursor.phase === "all") throw new AccessError("VALIDATION_ERROR", "That page of projects is no longer available. Reload the list.");
-    const favoriteIds = [...favorites];
-    if ((!cursor || cursor.phase === "fav") && favoriteIds.length > 0) {
-      const page = await fetchPage({ AND: [filtered, { id: { in: favoriteIds } }] }, fields, cursor?.values ?? null, take);
-      rows.push(...page.map((row) => ({ row, phase: "fav" as const })));
-    }
-    if (rows.length < take) {
-      const rest: Prisma.ProjectWhereInput = favoriteIds.length > 0 ? { AND: [filtered, { id: { notIn: favoriteIds } }] } : filtered;
-      const page = await fetchPage(rest, fields, cursor?.phase === "rest" ? cursor.values : null, take - rows.length);
-      rows.push(...page.map((row) => ({ row, phase: "rest" as const })));
-    }
-  } else {
-    if (cursor && cursor.phase !== "all") throw new AccessError("VALIDATION_ERROR", "That page of projects is no longer available. Reload the list.");
-    const page = await fetchPage(filtered, fields, cursor?.values ?? null, take);
-    rows.push(...page.map((row) => ({ row, phase: "all" as const })));
-  }
-
+  const runs = STATUS_RUNS.slice(cursor ? STATUS_RUNS.indexOf(cursor.run) : 0);
+  const pages = await Promise.all(
+    runs.map((run, index) => {
+      const after: Prisma.ProjectWhereInput[] =
+        cursor && index === 0 ? [{ OR: [{ name: { gt: cursor.name } }, { name: cursor.name, id: { gt: cursor.id } }] }] : [];
+      return prisma.project.findMany({
+        where: { AND: [matching, { status: run }, ...after] },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        take,
+        select: LIST_SELECT,
+      });
+    }),
+  );
+  const rows = pages.flat().slice(0, take);
   const hasNextPage = rows.length > query.limit;
   const page = rows.slice(0, query.limit);
   const last = page.at(-1);
 
-  const [companyCounts, matchingCount, covers, roles] = await Promise.all([
+  const [companyCounts, matchingCount, favorites, covers] = await Promise.all([
     prisma.project.groupBy({ by: ["companyId"], where: authorised, _count: { _all: true } }),
-    prisma.project.count({ where: filtered }),
-    readableCovers(portfolio, page.map((entry) => entry.row)),
-    effectiveRoles(portfolio, page.map((entry) => entry.row)),
+    query.q ? prisma.project.count({ where: matching }) : Promise.resolve(null),
+    favoriteState(portfolio, page.map((row) => row.id)),
+    readableCovers(portfolio, page),
   ]);
+  const visibleProjectCount = companyCounts.reduce((sum, group) => sum + group._count._all, 0);
+  const only = companyCounts.length === 1 ? portfolio.find((membership) => membership.companyId === companyCounts[0]!.companyId) : undefined;
 
   return {
-    items: page.map(({ row }) => toPortfolioDTO(row, portfolio, { favorites, enabledCompanies, covers, roles })),
-    pageInfo: { nextCursor: hasNextPage && last ? encodeCursor(last.phase, fields, last.row) : null, hasNextPage },
+    items: page.map((row) => toCard(row, portfolio, { favorites: favorites.ids, enabledCompanies: favorites.enabledCompanies, covers })),
+    pageInfo: { nextCursor: hasNextPage && last ? encodeCursor(last) : null, hasNextPage },
     meta: {
-      visibleProjectCount: companyCounts.reduce((sum, group) => sum + group._count._all, 0),
+      visibleProjectCount,
       visibleCompanyCount: companyCounts.length,
-      matchingCount,
+      onlyCompany: only ? { id: only.companyId, name: only.company.name } : null,
+      matchingCount: matchingCount ?? visibleProjectCount,
     },
   };
 }
@@ -515,19 +414,21 @@ export async function listPortfolioProjects(session: UserContext, query: Portfol
  * area and then its name. An empty list for somebody who can open projects
  * nowhere.
  */
-export async function keyPortfolioProjects(session: UserContext, limit = 4): Promise<PortfolioProjectDTO[]> {
+export async function keyPortfolioProjects(session: UserContext, limit = 4): Promise<KeyProjectDTO[]> {
   const portfolio = await resolveProjectPortfolio(session);
   if (portfolio.length === 0) return [];
-  const { ids: favorites, enabledCompanies } = await favoriteProjectIds(portfolio);
   const rows = await prisma.project.findMany({
     where: { AND: [portfolioProjectWhere(portfolio), IN_DISCOVERY, { isKeyProject: true }] },
     // The largest published first, so a group's flagship leads.
     orderBy: [{ builtArea: { sort: "desc", nulls: "last" } }, { name: "asc" }, { id: "asc" }],
-    select: LIST_SELECT,
+    select: { ...LIST_SELECT, projectType: { select: { id: true, name: true } } },
   });
   const ordered = [...rows.filter((row) => row.status === "ACTIVE"), ...rows.filter((row) => row.status !== "ACTIVE")].slice(0, limit);
-  const [covers, roles] = await Promise.all([readableCovers(portfolio, ordered), effectiveRoles(portfolio, ordered)]);
-  return ordered.map((row) => toPortfolioDTO(row, portfolio, { favorites, enabledCompanies, covers, roles }));
+  const [favorites, covers] = await Promise.all([favoriteState(portfolio, ordered.map((row) => row.id)), readableCovers(portfolio, ordered)]);
+  return ordered.map((row) => ({
+    ...toCard(row, portfolio, { favorites: favorites.ids, enabledCompanies: favorites.enabledCompanies, covers }),
+    projectType: row.projectType,
+  }));
 }
 
 /** How the projects this person can discover divide by status and by type (D-01 §32, §33). */
@@ -551,47 +452,22 @@ export async function portfolioBreakdown(session: UserContext): Promise<{ byStat
   };
 }
 
-/**
- * The roles this person holds on each project (E-05A §55, §56): their role on
- * the project's team first, then Project Manager where they manage it and the
- * team role says something else. Never the job title and never the company
- * role — an Owner who is on no project's team has no project role to show.
- * The same words in another case are one role, not two.
- */
-async function effectiveRoles(portfolio: PortfolioMembership[], rows: ListRow[]): Promise<Map<string, string[]>> {
-  const roles = new Map<string, string[]>();
-  if (rows.length === 0) return roles;
-  const memberIds = new Set(portfolio.map((membership) => membership.context.membershipId));
-
-  const add = (projectId: string, label: string | null | undefined) => {
-    const trimmed = label?.trim();
-    if (!trimmed) return;
-    const held = roles.get(projectId) ?? [];
-    if (!held.some((existing) => existing.toLowerCase() === trimmed.toLowerCase())) roles.set(projectId, [...held, trimmed]);
-  };
-
-  const assignments = await prisma.projectMember.findMany({
-    where: { projectId: { in: rows.map((row) => row.id) }, companyMemberId: { in: [...memberIds] }, status: "ACTIVE" },
-    select: { projectId: true, projectRole: true },
-    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-  });
-  for (const assignment of assignments) add(assignment.projectId, assignment.projectRole);
-  for (const row of rows) {
-    if (row.projectManagerMemberId && memberIds.has(row.projectManagerMemberId)) add(row.id, "Project Manager");
-  }
-  return roles;
+/** "Eyes of Tirana" → "EO": the first letter of the first two words (§47). */
+export function projectInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return words
+    .slice(0, 2)
+    .map((word) => Array.from(word)[0]!.toLocaleUpperCase())
+    .join("");
 }
 
-function toPortfolioDTO(
+function toCard(
   row: ListRow,
   portfolio: PortfolioMembership[],
-  lookups: { favorites: Set<string>; enabledCompanies: Set<string>; covers: Map<string, number>; roles: Map<string, string[]> },
-): PortfolioProjectDTO {
+  lookups: { favorites: Set<string>; enabledCompanies: Set<string>; covers: Map<string, number> },
+): ProjectCardDTO {
   const membership = portfolio.find((candidate) => candidate.companyId === row.companyId)!;
-  const context = membership.context;
   const coverVersion = row.coverImageDocumentId ? lookups.covers.get(row.coverImageDocumentId) : undefined;
-  const [role, ...otherRoles] = lookups.roles.get(row.id) ?? [];
-  const manageStatus = can(context, "project.status.manage");
 
   return {
     id: row.id,
@@ -599,95 +475,12 @@ function toPortfolioDTO(
     name: row.name,
     status: row.status,
     href: `/projects/${row.id}`,
-    company: { id: row.companyId, name: row.company.name, logoUrl: membership.company.logoUrl, isCurrent: membership.isCurrent },
-    cover:
-      row.coverImageDocumentId && coverVersion !== undefined
-        ? { documentId: row.coverImageDocumentId, thumbnailUrl: `/api/projects/${row.id}/cover?v=${coverVersion.toString(36)}` }
-        : null,
-    location: { city: row.city, country: row.country },
-    projectType: row.projectType ? { id: row.projectType.id, name: row.projectType.name } : null,
-    myProjectRole: role ? { name: role, others: otherRoles.length } : null,
+    company: { id: row.companyId, name: row.company.name, isCurrent: membership.isCurrent },
+    location: row.city || row.country ? { city: row.city, country: row.country } : null,
+    // The version is the document's, so the same cover keeps the same URL between loads (§98).
+    cover: coverVersion !== undefined ? { thumbnailUrl: `/api/projects/${row.id}/cover?v=${coverVersion.toString(36)}` } : null,
+    initials: projectInitials(row.name),
     isFavorite: lookups.favorites.has(row.id),
-    lastActivityAt: row.lastActivityAt.toISOString(),
-    createdAt: row.createdAt.toISOString(),
-    permissions: {
-      open: true,
-      edit: can(context, "project.update"),
-      manageStatus,
-      archive: can(context, "project.archive"),
-      favorite: lookups.enabledCompanies.has(row.companyId),
-    },
-    statusMoves: manageStatus ? nextStatuses(row.status) : [],
-  };
-}
-
-/** The working states a project can be moved to from where it is (E-05A §12). */
-function nextStatuses(from: ListRow["status"]): WorkingStatus[] {
-  return WORKING_STATUSES.filter((to) => to !== from && statusActionFor(from, to) !== null);
-}
-
-/* -------------------------------------------------------------------------- */
-/* Filter options and header                                                   */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Filter values drawn only from projects this person can see (E-05A §18, §41).
- * A company, a role, a type or a place appears only because an authorised
- * project carries it — never because it exists.
- */
-export async function portfolioFilterOptions(session: UserContext): Promise<PortfolioFilterOptionsDTO> {
-  const portfolio = await requirePortfolio(session);
-  const authorised: Prisma.ProjectWhereInput = { AND: [portfolioProjectWhere(portfolio), IN_DISCOVERY] };
-  const memberIds = portfolio.map((membership) => membership.context.membershipId);
-
-  const [companies, types, places, assignments, managed] = await Promise.all([
-    prisma.project.groupBy({ by: ["companyId"], where: authorised, _count: { _all: true } }),
-    prisma.project.groupBy({ by: ["projectTypeId"], where: { AND: [authorised, { projectTypeId: { not: null } }] } }),
-    prisma.project.groupBy({ by: ["city", "country"], where: { AND: [authorised, { OR: [{ city: { not: null } }, { country: { not: null } }] }] } }),
-    prisma.projectMember.findMany({
-      where: { companyMemberId: { in: memberIds }, status: "ACTIVE", projectRole: { not: null }, project: authorised },
-      select: { projectRole: true },
-      distinct: ["projectRole"],
-    }),
-    prisma.project.count({ where: { AND: [authorised, { projectManagerMemberId: { in: memberIds } }] } }),
-  ]);
-
-  const represented = new Set(companies.map((group) => group.companyId));
-
-  // Types are rows per company; the filter offers each name once.
-  const typeRows = await prisma.projectType.findMany({
-    where: { id: { in: types.map((group) => group.projectTypeId).filter((id): id is string => Boolean(id)) } },
-    select: { name: true },
-  });
-  const typeNames = new Map<string, string>();
-  for (const { name } of typeRows) {
-    if (!typeNames.has(name.toLowerCase())) typeNames.set(name.toLowerCase(), name);
-  }
-
-  const roleLabels = new Map<string, string>();
-  for (const { projectRole } of assignments) {
-    const label = projectRole?.trim();
-    if (label) roleLabels.set(label.toLowerCase(), roleLabels.get(label.toLowerCase()) ?? label);
-  }
-  if (managed > 0 && !roleLabels.has("project manager")) roleLabels.set("project manager", "Project Manager");
-
-  const cities = new Map<string, { value: string; label: string }>();
-  const countries = new Map<string, { value: string; label: string }>();
-  for (const place of places) {
-    const city = place.city?.trim();
-    const country = place.country?.trim();
-    if (city && !cities.has(city.toLowerCase())) cities.set(city.toLowerCase(), { value: `city:${city}`, label: country ? `${city}, ${country}` : city });
-    if (country && !countries.has(country.toLowerCase())) countries.set(country.toLowerCase(), { value: `country:${country}`, label: country });
-  }
-
-  return {
-    companies: portfolio.filter((membership) => represented.has(membership.companyId)).map((membership) => ({ id: membership.companyId, name: membership.company.name })),
-    roles: [...roleLabels.values()].sort((a, b) => a.localeCompare(b)).map((label) => ({ value: label, label })),
-    projectTypes: [...typeNames.values()].sort((a, b) => a.localeCompare(b)).map((name) => ({ value: name, label: name })),
-    locations: {
-      countries: [...countries.values()].sort((a, b) => a.label.localeCompare(b.label)),
-      cities: [...cities.values()].sort((a, b) => a.label.localeCompare(b.label)),
-    },
-    creatableCompanies: portfolio.filter((membership) => can(membership.context, "project.create")).map((membership) => ({ id: membership.companyId, name: membership.company.name })),
+    canFavorite: lookups.enabledCompanies.has(row.companyId),
   };
 }

@@ -1,51 +1,48 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
-import { FolderKanban, Star } from "lucide-react";
+import { FolderKanban, SearchX } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
-import { statusActionFor, WORKING_STATUSES } from "@/lib/modules/projects/project.machine";
-import { portfolioHref, type PortfolioUrlUpdate } from "@/lib/modules/projects/project.portfolio-url";
-import type { PortfolioQuery } from "@/lib/modules/projects/project.schema";
-import type { PortfolioFilterOptionsDTO, PortfolioListDTO, PortfolioProjectDTO } from "@/lib/modules/projects/project.types";
-import { projectsViewCookie, type ProjectsView } from "@/lib/modules/projects/project.view-preference";
+import type { PortfolioListDTO, ProjectCardDTO } from "@/lib/modules/projects/project.types";
 import { cn } from "@/lib/utils/cn";
-import { ChangeProjectStatusDialog } from "./change-project-status-dialog";
-import { GALLERY_GRID, ProjectCard, ProjectCardSkeleton } from "./project-card";
-import { ProjectList } from "./project-list";
-import { ProjectsToolbar } from "./projects-toolbar";
+import { GALLERY_GRID, projectCountLabel } from "./gallery";
+import { ProjectCard, ProjectCardSkeleton } from "./project-card";
+
+/** Server-side search, so a short pause before asking (Projects Workspace Grid §180). */
+const SEARCH_DEBOUNCE_MS = 250;
 
 /**
- * The Projects page body (E-05A §4, §21-§23, §43, §45, §46, §58).
+ * The Projects page body (Projects Workspace Grid §5, §21-§23, §37, §70-§73,
+ * §109-§114, §148-§150).
  *
- * The server renders the first page from the URL; this keeps what the person
- * does next — more pages, a star, a status, an archive — without reloading the
- * collection they are looking at. A new URL (a filter, a search, Back) brings a
- * new first page from the server, and the collection starts again from it.
+ * A search and the grid — nothing else to choose: the workspace has already
+ * chosen the companies, and the person's access the projects. The server
+ * renders the first page for the URL; this keeps what the person does next —
+ * more cards, a star — without reloading the gallery they are looking at. A new
+ * search is a new URL and brings a new first page. A new workspace is a new
+ * tree: the shell keys the page by workspace, so nothing here survives into the
+ * next one (§83, §86).
  */
 export function ProjectsPortfolio({
   initial,
-  options,
-  query,
-  filterCount,
-  initialView,
+  q,
+  canCreate,
 }: {
   initial: PortfolioListDTO;
-  options: PortfolioFilterOptionsDTO;
-  query: PortfolioQuery;
-  filterCount: number;
-  initialView: ProjectsView;
+  q: string;
+  /** Whether this person may create a project here; only then does the empty workspace offer it (§73). */
+  canCreate: boolean;
 }) {
   const router = useRouter();
   const feedback = useNavigationFeedback();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const toast = useToast();
   const [navigating, startNavigation] = React.useTransition();
 
@@ -53,11 +50,7 @@ export function ProjectsPortfolio({
   const [cursor, setCursor] = React.useState(initial.pageInfo.nextCursor);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
-  const [view, setView] = React.useState(initialView);
   const [pendingFavorites, setPendingFavorites] = React.useState<ReadonlySet<string>>(new Set());
-  const [statusTarget, setStatusTarget] = React.useState<PortfolioProjectDTO | null>(null);
-  const [archiveTarget, setArchiveTarget] = React.useState<PortfolioProjectDTO | null>(null);
-  const [archiving, setArchiving] = React.useState(false);
 
   React.useEffect(() => {
     setItems(initial.items);
@@ -65,24 +58,17 @@ export function ProjectsPortfolio({
     setLoadError(null);
   }, [initial]);
 
-  const navigate = React.useCallback(
-    (update: PortfolioUrlUpdate, mode: "push" | "replace" = "push") => {
-      const href = portfolioHref(pathname, new URLSearchParams(searchParams.toString()), update);
+  const search = React.useCallback(
+    (next: string) => {
+      const href = next ? `${pathname}?${new URLSearchParams({ q: next }).toString()}` : pathname;
       feedback?.begin(href, "record");
-      startNavigation(() => {
-        if (mode === "replace") router.replace(href, { scroll: false });
-        else router.push(href, { scroll: false });
-      });
+      // Replace: every keystroke is not a place to come Back to.
+      startNavigation(() => router.replace(href, { scroll: false }));
     },
-    [pathname, router, searchParams, feedback],
+    [pathname, router, feedback],
   );
 
-  function changeView(next: ProjectsView) {
-    setView(next);
-    document.cookie = projectsViewCookie(next);
-  }
-
-  const patch = (projectId: string, change: Partial<PortfolioProjectDTO>) =>
+  const patch = (projectId: string, change: Partial<ProjectCardDTO>) =>
     setItems((current) => current.map((item) => (item.id === projectId ? { ...item, ...change } : item)));
 
   async function loadMore() {
@@ -90,8 +76,8 @@ export function ProjectsPortfolio({
     setLoadingMore(true);
     setLoadError(null);
     try {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("cursor", cursor);
+      const params = new URLSearchParams({ cursor });
+      if (q) params.set("q", q);
       const page = await announcementApi<PortfolioListDTO>(`/api/projects?${params.toString()}`);
       setItems((current) => {
         const seen = new Set(current.map((item) => item.id));
@@ -105,7 +91,7 @@ export function ProjectsPortfolio({
     }
   }
 
-  async function toggleFavorite(project: PortfolioProjectDTO) {
+  async function toggleFavorite(project: ProjectCardDTO) {
     if (pendingFavorites.has(project.id)) return;
     const next = !project.isFavorite;
     patch(project.id, { isFavorite: next });
@@ -124,71 +110,35 @@ export function ProjectsPortfolio({
     }
   }
 
-  function statusChanged(projectId: string, status: PortfolioProjectDTO["statusMoves"][number]) {
-    patch(projectId, {
-      status,
-      statusMoves: WORKING_STATUSES.filter((to) => to !== status && statusActionFor(status, to) !== null),
-    });
-  }
-
-  async function archive() {
-    if (!archiveTarget) return;
-    setArchiving(true);
-    try {
-      await announcementApi(`/api/projects/${archiveTarget.id}/archive`, { method: "POST" });
-      setItems((current) => current.filter((item) => item.id !== archiveTarget.id));
-      toast({ title: `${archiveTarget.name} archived.` });
-      setArchiveTarget(null);
-    } catch (error) {
-      toast({ title: failureMessage(error, "The project could not be archived."), tone: "danger" });
-    } finally {
-      setArchiving(false);
-    }
-  }
-
+  // Nothing to search in: the workspace itself has no project for this person.
+  // It does not say whether projects exist that they cannot open (§71, §72).
   if (initial.meta.visibleProjectCount === 0) {
     return (
       <EmptyState
         icon={<FolderKanban />}
-        title="No projects available."
-        description="You do not currently have access to any projects."
-        action={options.creatableCompanies.length > 0 ? { label: "Create project", href: "/projects/new" } : undefined}
+        title="No projects available in this workspace."
+        action={canCreate ? { label: "Create project", href: "/projects/new" } : undefined}
       />
     );
   }
 
-  const onlyFavorites = query.favorites && filterCount === 1;
   const shown = items.length;
+  const total = initial.meta.matchingCount;
 
   return (
-    <div className="space-y-6">
-      <ProjectsToolbar
-        query={query}
-        options={options}
-        view={view}
-        filterCount={filterCount}
-        matchingCount={initial.meta.matchingCount}
-        onNavigate={navigate}
-        onViewChange={changeView}
-      />
-
-      <p className="sr-only" aria-live="polite">
-        {navigating ? "Loading projects" : `Showing ${shown} of ${initial.meta.matchingCount} projects`}
-      </p>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <ProjectsSearch value={q} onSearch={search} />
+        {/* The count of what the search found, only while there is one (§148). */}
+        <p className="text-table text-fg-muted" aria-live="polite" data-testid="projects-result-count">
+          {navigating ? <span className="sr-only">Loading projects</span> : q && total > 0 ? `${projectCountLabel(total)} found` : null}
+        </p>
+      </div>
 
       <div className={cn("transition-opacity", navigating && "pointer-events-none opacity-60")} aria-busy={navigating}>
         {shown === 0 ? (
-          onlyFavorites ? (
-            <EmptyState icon={<Star />} title="No favorite projects yet." description="Mark a project with the star to keep it at the top." />
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line-strong bg-surface-muted px-6 py-14 text-center">
-              <p className="text-card font-semibold text-fg">No projects match these filters.</p>
-              <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => navigate({ clear: true })}>
-                Clear filters
-              </Button>
-            </div>
-          )
-        ) : view === "gallery" ? (
+          <EmptyState icon={<SearchX />} title="No projects found." className="py-12" />
+        ) : (
           <div className={GALLERY_GRID} data-testid="project-gallery">
             {items.map((project) => (
               <ProjectCard
@@ -196,20 +146,10 @@ export function ProjectsPortfolio({
                 project={project}
                 favoritePending={pendingFavorites.has(project.id)}
                 onToggleFavorite={() => void toggleFavorite(project)}
-                onChangeStatus={() => setStatusTarget(project)}
-                onArchive={() => setArchiveTarget(project)}
               />
             ))}
             {loadingMore ? Array.from({ length: 4 }, (_, index) => <ProjectCardSkeleton key={`more-${index}`} />) : null}
           </div>
-        ) : (
-          <ProjectList
-            projects={items}
-            pendingFavorites={pendingFavorites}
-            onToggleFavorite={(project) => void toggleFavorite(project)}
-            onChangeStatus={setStatusTarget}
-            onArchive={setArchiveTarget}
-          />
         )}
       </div>
 
@@ -221,7 +161,7 @@ export function ProjectsPortfolio({
             </p>
           ) : (
             <p className="text-meta text-fg-subtle">
-              Showing {shown} of {initial.meta.matchingCount}
+              Showing {shown} of {total}
             </p>
           )}
           <Button type="button" variant="secondary" onClick={() => void loadMore()} disabled={loadingMore} data-testid="projects-load-more">
@@ -229,39 +169,58 @@ export function ProjectsPortfolio({
           </Button>
         </div>
       ) : null}
-
-      <ChangeProjectStatusDialog
-        project={statusTarget}
-        open={statusTarget !== null}
-        onOpenChange={(open) => !open && setStatusTarget(null)}
-        onChanged={statusChanged}
-      />
-
-      <ConfirmDialog
-        open={archiveTarget !== null}
-        onOpenChange={(open) => !open && setArchiveTarget(null)}
-        title={archiveTarget ? `Archive ${archiveTarget.name}?` : "Archive project?"}
-        description="The project leaves the Projects page. Its tasks, documents, team and history stay available as archived project data, and it can be restored."
-        confirmLabel="Archive project"
-        pending={archiving}
-        onConfirm={() => void archive()}
-      />
     </div>
   );
 }
 
-/** What the page shows while the first page is on its way (E-05A §46). */
+/**
+ * The page's own search (§21-§25, §145, §149, §150): the projects already on
+ * this page, never the product — the top bar's Search is that. Debounced into
+ * the URL, so a search survives a refresh and can be shared; clearable with
+ * its button or Escape.
+ */
+function ProjectsSearch({ value, onSearch }: { value: string; onSearch: (q: string) => void }) {
+  const [text, setText] = React.useState(value);
+  const lastSent = React.useRef(value);
+
+  // A search changed from outside (Back, a link) shows here. The page's answer
+  // to this field's own search is not one: resetting the text to it would drop
+  // a space typed while the answer was on its way.
+  React.useEffect(() => {
+    if (value === lastSent.current) return;
+    lastSent.current = value;
+    setText(value);
+  }, [value]);
+
+  React.useEffect(() => {
+    const trimmed = text.trim();
+    if (trimmed === lastSent.current) return;
+    const timer = window.setTimeout(() => {
+      lastSent.current = trimmed;
+      onSearch(trimmed);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [text, onSearch]);
+
+  return (
+    <SearchField
+      value={text}
+      onChange={(event) => setText(event.target.value)}
+      onClear={() => setText("")}
+      placeholder="Search projects…"
+      aria-label="Search projects"
+      className="sm:max-w-sm"
+      maxLength={200}
+      data-testid="projects-search"
+    />
+  );
+}
+
+/** What the page shows while the first page is on its way: the same cards, the same shape (§101-§103). */
 export function ProjectsPortfolioSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Loading projects">
-      <div className="space-y-3">
-        <div className="h-10 w-full animate-pulse rounded-md bg-surface-muted md:max-w-md motion-reduce:animate-none" />
-        <div className="flex gap-1.5">
-          {Array.from({ length: 5 }, (_, index) => (
-            <div key={index} className="h-8 w-20 animate-pulse rounded-full bg-surface-muted motion-reduce:animate-none" />
-          ))}
-        </div>
-      </div>
+    <div className="space-y-5" aria-busy="true" aria-label="Loading projects">
+      <div className="h-10 w-full animate-pulse rounded-md bg-surface-muted sm:max-w-sm motion-reduce:animate-none" />
       <div className={GALLERY_GRID}>
         {Array.from({ length: 8 }, (_, index) => (
           <ProjectCardSkeleton key={index} />

@@ -1,4 +1,5 @@
 import { RevealWatchdog } from "@/components/navigation/reveal-watchdog";
+import { COVER_ASPECT, GALLERY_GRID } from "@/components/projects/portfolio/gallery";
 import { SkeletonCards, SkeletonTable } from "@/components/ui/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTranslations } from "@/lib/i18n/server";
@@ -127,16 +128,17 @@ export function ListPageSkeleton() {
 /** The Projects gallery — heading, filters, image cards. */
 export function GalleryPageSkeleton() {
   return (
-    <LoadingRegion variant="gallery">
-      <Heading action />
-      <Toolbar filters={3} />
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }, (_, index) => (
-          <div key={index} className="nesto-card overflow-hidden">
-            <Skeleton className="aspect-[16/10] w-full rounded-none" />
-            <div className="space-y-2 p-4">
-              <Skeleton className="h-4 w-40 max-w-full" />
-              <Skeleton className="h-3 w-24" />
+    <LoadingRegion variant="gallery" className="space-y-5">
+      <Heading />
+      <Skeleton className="h-10 w-full sm:max-w-sm" />
+      {/* The Projects gallery's own grid and card shape (Projects Workspace Grid §101). */}
+      <div className={GALLERY_GRID}>
+        {Array.from({ length: 8 }, (_, index) => (
+          <div key={index} className="min-w-0">
+            <Skeleton className={cn(COVER_ASPECT, "w-full rounded-xl")} />
+            <div className="mt-3 space-y-2 px-0.5">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3.5 w-1/2" />
             </div>
           </div>
         ))}

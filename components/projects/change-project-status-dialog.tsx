@@ -8,10 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import type { PortfolioProjectDTO } from "@/lib/modules/projects/project.types";
+import type { WorkingStatus } from "@/lib/modules/projects/project.machine";
 import { cn } from "@/lib/utils/cn";
-
-type WorkingStatus = PortfolioProjectDTO["statusMoves"][number];
 
 const CHOICES: Record<WorkingStatus, { label: string; description: string }> = {
   PENDING: { label: "Pending", description: "Set up, but normal work has not started." },
@@ -24,15 +22,19 @@ const CHOICES: Record<WorkingStatus, { label: string; description: string }> = {
  *
  * Offers only the moves the server said this project can make, for this
  * person. Going back to Pending corrects a status set too early, and asks why —
- * the same rule the server enforces.
+ * the same rule the server enforces. It lives on the project's own page: the
+ * Projects page's card menu keeps to opening, starring and sharing (Projects
+ * Workspace Grid §56, §57).
  */
 export function ChangeProjectStatusDialog({
   project,
+  statusMoves,
   open,
   onOpenChange,
   onChanged,
 }: {
-  project: PortfolioProjectDTO | null;
+  project: { id: string; name: string; companyName: string } | null;
+  statusMoves: readonly WorkingStatus[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChanged: (projectId: string, status: WorkingStatus) => void;
@@ -46,8 +48,8 @@ export function ChangeProjectStatusDialog({
   // The next step first; going back to Pending is a correction, so it comes last
   // and is never the choice the dialog opens on.
   const moves = React.useMemo(
-    () => [...(project?.statusMoves ?? [])].sort((a, b) => Number(a === "PENDING") - Number(b === "PENDING")),
-    [project],
+    () => [...statusMoves].sort((a, b) => Number(a === "PENDING") - Number(b === "PENDING")),
+    [statusMoves],
   );
 
   React.useEffect(() => {
@@ -88,7 +90,7 @@ export function ChangeProjectStatusDialog({
           <div className="pr-6">
             <DialogTitle>Change status</DialogTitle>
             <DialogDescription>
-              {project.name} · {project.company.name}
+              {project.name} · {project.companyName}
             </DialogDescription>
           </div>
 

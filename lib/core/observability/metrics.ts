@@ -158,6 +158,10 @@ export const Metric = {
   NAVIGATION_OUTCOME: "navigation_outcome_total",
   PANEL_OUTCOME: "panel_outcome_total",
   REQUEST_SUMMARY: "browser_request_total",
+  // Projects page (Projects Workspace Grid §172). The query's duration is the
+  // `project_discovery_query_ms` histogram.
+  PROJECT_DISCOVERY_ERROR: "project_discovery_error_total",
+  PROJECT_COVER_LOAD_ERROR: "project_cover_load_error_total",
   TELEMETRY_BATCH: "telemetry_batch_total",
   TELEMETRY_EVENT_DROPPED: "telemetry_event_dropped_total",
   SHELL_SLOT_MS: "shell_slot_ms_total",
@@ -288,6 +292,11 @@ export const HISTOGRAMS = {
     help: "Server time for the bell's count and list reads.",
     buckets: DURATION_BUCKETS_MS,
     labels: { family: ["count", "list"], outcome: ["success", "failure"] },
+  },
+  project_discovery_query_ms: {
+    help: "Server time for one page of the Projects page's authorised project cards.",
+    buckets: DURATION_BUCKETS_MS,
+    labels: { scope: ["group", "company"], outcome: ["success", "failure"] },
   },
 } as const satisfies Record<string, { help: string; buckets: readonly number[]; labels: Record<string, readonly string[]> }>;
 

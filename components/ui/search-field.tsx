@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -11,12 +11,21 @@ import { cn } from "@/lib/utils/cn";
  * The single search input style in the product. Search itself is not built in
  * V0.1, so callers pass `disabled` and the field explains itself rather than
  * silently swallowing what the user types.
+ *
+ * With `onClear`, a field that holds text offers a clear button, and Escape
+ * clears it — or, when it is already empty, leaves it. The browser's own clear
+ * control is hidden so there is only one.
  */
 export function SearchField({
   className,
   shortcut,
+  onClear,
+  onKeyDown,
   ...props
-}: React.ComponentProps<"input"> & { shortcut?: string }) {
+}: React.ComponentProps<"input"> & { shortcut?: string; onClear?: () => void }) {
+  const hasText = typeof props.value === "string" && props.value.length > 0;
+  const clearable = Boolean(onClear) && hasText && !props.disabled;
+
   return (
     <div className={cn("relative w-full", className)}>
       <Search
@@ -30,11 +39,31 @@ export function SearchField({
           "placeholder:text-fg-subtle hover:border-line-strong",
           "focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20",
           "disabled:cursor-not-allowed disabled:bg-surface-muted",
-          shortcut ? "pr-14" : "pr-3",
+          onClear && "[&::-webkit-search-cancel-button]:appearance-none",
+          shortcut || onClear ? "pr-14" : "pr-3",
         )}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (event.defaultPrevented || !onClear || event.key !== "Escape") return;
+          event.preventDefault();
+          if (hasText) onClear();
+          else event.currentTarget.blur();
+        }}
         {...props}
       />
-      {shortcut ? (
+      {clearable ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            onClear?.();
+            (event.currentTarget.previousElementSibling as HTMLInputElement | null)?.focus();
+          }}
+          aria-label="Clear search"
+          className="absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X aria-hidden="true" className="size-4" />
+        </button>
+      ) : shortcut ? (
         <kbd
           aria-hidden="true"
           className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-line bg-surface-muted px-1.5 py-0.5 font-sans text-micro font-medium text-fg-subtle"

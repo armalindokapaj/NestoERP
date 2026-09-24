@@ -16,6 +16,7 @@ import { ListSectionSkeleton } from "@/components/modules/section-skeletons";
 import { getProject3DAvailability } from "@/lib/modules/project-3d/project-3d.viewer";
 import { listProjectMedia } from "@/lib/modules/project-media/project-media.service";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
+import { statusMovesFrom } from "@/lib/modules/projects/project.machine";
 import * as projects from "@/lib/modules/projects/project.service";
 import { projectMyWork, projectUpcoming, type ProjectUpcomingItem, type ProjectWorkItem } from "@/lib/modules/projects/project-workspace.service";
 import type { ProjectActivityDTO } from "@/lib/modules/projects/project.types";
@@ -116,7 +117,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
     <div className="space-y-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Breadcrumbs items={projectBreadcrumbs(project)} className="min-w-0 flex-1" />
-        <div className="flex items-center gap-2"><RecordFavorite context={context} entityType="project" entityId={project.id} /><ProjectActions projectId={project.id} projectName={project.name} archived={archived} canUpdate={actions.canUpdate} canArchive={actions.canArchive} canRestore={actions.canRestore} canManageMedia={actions.canManageMedia} canManageTeam={actions.canManageMembers} /></div>
+        <div className="flex items-center gap-2"><RecordFavorite context={context} entityType="project" entityId={project.id} /><ProjectActions projectId={project.id} projectName={project.name} companyName={project.company.name} statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []} archived={archived} canUpdate={actions.canUpdate} canArchive={actions.canArchive} canRestore={actions.canRestore} canManageMedia={actions.canManageMedia} canManageTeam={actions.canManageMembers} /></div>
       </div>
 
       {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />This project is archived and read-only.</p> : null}

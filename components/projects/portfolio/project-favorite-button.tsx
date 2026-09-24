@@ -5,24 +5,23 @@ import { Star } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The star on a project card or list row (E-05A §13, §25).
+ * The star on a project card (Projects Workspace Grid §31, §49, §51, §52, §162).
  *
  * Presentational: the Projects page owns the request, so the star and the
  * menu's "Add to favorites" are one action. It never navigates — the card
- * underneath is a link, so the click stops here.
+ * underneath is a link, so the click stops here — and it never reorders the
+ * gallery or grants anything (§32, §124).
  */
 export function ProjectFavoriteButton({
   projectName,
   isFavorite,
   pending,
   onToggle,
-  variant = "overlay",
 }: {
   projectName: string;
   isFavorite: boolean;
   pending: boolean;
   onToggle: () => void;
-  variant?: "overlay" | "inline";
 }) {
   return (
     <button
@@ -37,12 +36,8 @@ export function ProjectFavoriteButton({
       title={isFavorite ? "Remove from favorites" : "Add to favorites"}
       data-testid="project-favorite"
       data-pending={pending ? "true" : undefined}
-      className={cn(
-        "relative z-10 inline-flex items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        variant === "overlay"
-          ? "size-9 border border-line/70 bg-surface/90 text-fg shadow-card backdrop-blur-sm hover:bg-surface"
-          : "size-8 text-fg-subtle hover:bg-hover hover:text-fg",
-      )}
+      // 44 px where a finger aims it, 36 px under a pointer (§153, §154).
+      className="relative z-10 inline-flex size-11 items-center justify-center rounded-full border border-line/70 bg-surface/90 text-fg shadow-card backdrop-blur-sm transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:size-9"
     >
       <Star aria-hidden="true" className={cn("size-4 transition-colors", isFavorite ? "fill-warning text-warning" : "")} />
     </button>

@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**871 route handlers, 258 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1038 · PLATFORM 45 · PUBLIC 11 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**870 route handlers, 258 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1037 · PLATFORM 45 · PUBLIC 11 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/activity-center
 
@@ -915,7 +915,6 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/projects/[projectId]/work-packages/options` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `contractorProjectDoor` | — | — | sweep |
 | GET | `/api/projects/[projectId]/work-packages` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` +5 | — | — | sweep |
 | POST | `/api/projects/[projectId]/work-packages` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `contractorProjectDoor` | `loadRecord` | `assertProjectWritable` | sweep |
-| GET | `/api/projects/filter-options` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere` | `requirePortfolio` | — | sweep |
 | GET | `/api/projects` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `requirePortfolio` | — | sweep |
 | POST | `/api/projects` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | — | sweep |
 | PATCH | `/api/projects/types/[typeId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | — | — | — | sweep |

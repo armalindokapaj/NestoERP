@@ -25,7 +25,8 @@ export function ModulePage({
   activeSection: string;
   /** Defaults to the module label; a section may override it. */
   title?: string;
-  description?: string;
+  /** Defaults to the module's description; `null` shows no line under the title. */
+  description?: React.ReactNode;
   actions?: React.ReactNode;
   toolbar?: React.ReactNode;
   children: React.ReactNode;
@@ -35,9 +36,11 @@ export function ModulePage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-page font-semibold text-fg">{title ?? experience.label}</h1>
-          <p className="mt-1.5 text-body text-fg-muted">
-            {description ?? experience.description}
-          </p>
+          {description === null ? null : (
+            <p className="mt-1.5 text-body text-fg-muted">
+              {description ?? experience.description}
+            </p>
+          )}
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>

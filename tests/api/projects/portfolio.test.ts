@@ -3,16 +3,16 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { AccessError } from "@/lib/access/guards";
 import { resolveContextForSession } from "@/lib/context/build-context";
+import { histogramSeries } from "@/lib/core/observability/metrics";
 import type { UserContext } from "@/lib/context/types";
 import { readDocumentThumbnail } from "@/lib/modules/documents/storage/thumbnail.service";
 import { addFavorite } from "@/lib/modules/productivity/favorites.service";
 import {
-  ASSIGNED_ROLE,
   contextForProject,
   creatableCompanies,
   listPortfolioProjects,
   openPortfolioProject,
-  portfolioFilterOptions,
+  projectInitials,
 } from "@/lib/modules/projects/project.portfolio";
 import { parsePortfolioQuery } from "@/lib/modules/projects/project.query";
 import { createProjectSchema, portfolioQuerySchema } from "@/lib/modules/projects/project.schema";
@@ -22,7 +22,7 @@ import { seedStoredDocument } from "../../../prisma/seed/document-objects";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, grantGroupStanding, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
- * The Projects page (E-05A §63-§69).
+ * The Projects page (E-05A §63-§69; Projects Workspace Grid §193-§197).
  *
  * Every case runs the real services against the seeded database through real
  * sessions — the multi-company person is `multicompany`, an Architect in
@@ -195,29 +195,58 @@ describe("authorisation across companies (E-05A §63)", () => {
     expect((await ids(ownerB)).sort()).toEqual(["project_b_one", "project_b_two"]);
   });
 
-  it("never names a company, role or place the person cannot see in the filter options", async () => {
-    const owner = await loginAs("OWNER", GROUP);
-    const options = await portfolioFilterOptions(owner);
-    expect(options.companies.map((company) => company.id).sort()).toEqual([COMPANY.a, COMPANY.b, COMPANY.c, COMPANY.d, COMPANY.e]);
-    expect(options.locations.cities.map((city) => city.value)).not.toContain("city:Munich");
-    expect(options.locations.cities.map((city) => city.value)).not.toContain("city:Fier");
-
+  it("counts only the projects and companies the person can see, never what is hidden (Projects Workspace Grid §15, §18, §19)", async () => {
+    await tempProject({ companyId: COMPANY_D, name: "Unassigned Forma project" });
     const multi = await loginAsMembership(MULTI_A, GROUP);
-    const multiOptions = await portfolioFilterOptions(multi);
-    expect(multiOptions.companies.map((company) => company.id).sort()).toEqual([COMPANY_A, COMPANY_D]);
-    expect(multiOptions.roles.map((role) => role.label)).toEqual(["Architect"]);
-    expect(multiOptions.locations.cities.map((city) => city.value).sort()).toEqual(["city:Tiranë", "city:Vlorë"]);
+    expect((await listPortfolioProjects(multi, query())).meta).toEqual({ visibleProjectCount: 2, visibleCompanyCount: 2, onlyCompany: null, matchingCount: 2 });
+
+    const owner = await loginAs("OWNER", GROUP);
+    const meta = (await listPortfolioProjects(owner, query())).meta;
+    expect(meta).toMatchObject({ visibleCompanyCount: 5, onlyCompany: null });
+    const live = { companyId: { in: [COMPANY.a, COMPANY.b, COMPANY.c, COMPANY.d, COMPANY.e] }, archivedAt: null, status: { not: "ARCHIVED" as const } };
+    expect(meta.visibleProjectCount).toBe(await prisma.project.count({ where: live }));
+
+    // One company's projects are counted "in" that company.
+    const architect = await loginAs("ARCHITECT");
+    expect((await listPortfolioProjects(architect, query())).meta).toEqual({ visibleProjectCount: 1, visibleCompanyCount: 1, onlyCompany: { id: COMPANY_A, name: "Aurelia Construction" }, matchingCount: 1 });
   });
 
-  it("searches inside the authorised set only (E-05A §16, §73)", async () => {
+  it("searches inside the authorised set only, and a search never moves the count (§22, §196)", async () => {
     const owner = await loginAs("OWNER", GROUP);
     expect(await ids(owner, { q: "Munich" })).toEqual([]);
-    expect(await ids(owner, { companyId: COMPANY.tenant })).toEqual([]);
 
     const multi = await loginAsMembership(MULTI_A, GROUP);
     expect(await ids(multi, { q: "Durrës" })).toEqual([]);
     expect(await ids(multi, { q: "Vlorë" })).toEqual([PROJECT.d]);
     expect(await ids(multi, { q: "Forma Engineering" })).toEqual([PROJECT.d]);
+    expect(await ids(multi, { q: "d-prj" })).toEqual([PROJECT.d]);
+    expect(await ids(multi, { q: "albania" })).toEqual([PROJECT.d, PROJECT.a]);
+
+    const searched = await listPortfolioProjects(multi, query({ q: "Marina" }));
+    expect(searched.meta).toMatchObject({ visibleProjectCount: 2, matchingCount: 1 });
+  });
+
+  it("matches a company's name only in the Group workspace, and never a project type the card does not show (§25)", async () => {
+    const inGroup = await loginAs("OWNER", GROUP);
+    expect(await ids(inGroup, { q: "Aurelia" })).toEqual([PROJECT.a]);
+    const inCompany = await loginAs("OWNER");
+    expect(await ids(inCompany, { q: "Aurelia" })).toEqual([]);
+    expect(await ids(inCompany, { q: "Riverside" })).toEqual([PROJECT.a]);
+    // Project C is the demo's Industrial project; the word is nowhere on its card.
+    expect(await ids(inGroup, { q: "industrial" })).toEqual([]);
+  });
+
+  it("reads no company, filter or sort from a request: the workspace alone chooses the companies (§108, §183)", async () => {
+    const owner = await loginAs("OWNER", GROUP);
+    const all = await ids(owner);
+    for (const retired of [`company=${COMPANY.tenant}`, `companyId=${COMPANY.tenant}`, `companyId=${COMPANY_A}`, "status=FINISHED", "favorites=1", "role=@assigned", "type=Industrial", "location=city:Vlorë", "sort=name-desc", "view=list"]) {
+      const parsed = parsePortfolioQuery(new URLSearchParams(retired));
+      expect(parsed, retired).toEqual({ limit: 24 });
+      expect(await ids(owner, { ...parsed, limit: 60 }), retired).toEqual(all);
+    }
+
+    const inA = await loginAsMembership(MULTI_A);
+    expect(await ids(inA, parsePortfolioQuery(new URLSearchParams(`companyId=${COMPANY_D}`)))).toEqual([PROJECT.a]);
   });
 
   it("refuses a person who can open projects nowhere", async () => {
@@ -277,8 +306,7 @@ describe("a company workspace lists one company (Workspace Context §30, §83)",
     const inD = await loginAsMembership(MULTI_D);
     expect(await ids(inA)).toEqual([PROJECT.a]);
     expect(await ids(inD)).toEqual([PROJECT.d]);
-    expect((await listPortfolioProjects(inA, query())).meta).toMatchObject({ visibleProjectCount: 1, visibleCompanyCount: 1 });
-    expect((await portfolioFilterOptions(inA)).companies.map((company) => company.id)).toEqual([COMPANY_A]);
+    expect((await listPortfolioProjects(inA, query())).meta).toMatchObject({ visibleProjectCount: 1, visibleCompanyCount: 1, onlyCompany: { id: COMPANY_A } });
   });
 
   it("gives an Owner in a company workspace that company's projects, and the group's five in the Group workspace", async () => {
@@ -295,156 +323,136 @@ describe("a company workspace lists one company (Workspace Context §30, §83)",
   });
 });
 
-describe("ordering (E-05A §14, §65)", () => {
-  it("puts favorites first, each group by latest activity", async () => {
+describe("ordering (Projects Workspace Grid §34-§36, §127-§130)", () => {
+  it("lists Active, then Pending, then Finished, each by name, and leaves Archived out", async () => {
     const owner = await loginAs("OWNER", GROUP);
     const label = `Ordering ${Date.now()}`;
-    const september = (day: number) => new Date(Date.UTC(2026, 8, day, 12));
+    const finishedA = await tempProject({ name: `${label} A`, status: "FINISHED" });
+    const pendingB = await tempProject({ name: `${label} B`, status: "PENDING", companyId: COMPANY_B });
+    const activeC = await tempProject({ name: `${label} C`, status: "ACTIVE", companyId: COMPANY_D });
+    const pendingA = await tempProject({ name: `${label} A2`, status: "PENDING" });
+    const activeA = await tempProject({ name: `${label} A3`, status: "ACTIVE", companyId: COMPANY_E });
+    await tempProject({ name: `${label} archived`, status: "ARCHIVED" });
 
-    const favoriteA = await tempProject({ name: `${label} Favorite A`, lastActivityAt: september(10) });
-    const favoriteB = await tempProject({ name: `${label} Favorite B`, lastActivityAt: september(15) });
-    const projectC = await tempProject({ name: `${label} Project C`, lastActivityAt: september(16) });
-    const projectD = await tempProject({ name: `${label} Project D`, lastActivityAt: september(12) });
-    await addFavorite(owner, { entityType: "project", entityId: favoriteA });
-    await addFavorite(owner, { entityType: "project", entityId: favoriteB });
+    const expected = [activeA, activeC, pendingA, pendingB, finishedA];
+    expect(await ids(owner, { q: label })).toEqual(expected);
 
-    expect(await ids(owner, { q: label })).toEqual([favoriteB, favoriteA, projectC, projectD]);
-
-    // A cursor walk of one card at a time crosses the favorites boundary without
-    // skipping or repeating anything.
-    const walked: string[] = [];
-    let cursor: string | undefined;
-    do {
-      const page = await listPortfolioProjects(owner, query({ q: label, limit: 1, cursor }));
-      walked.push(...page.items.map((item) => item.id));
-      cursor = page.pageInfo.nextCursor ?? undefined;
-      expect(page.pageInfo.hasNextPage).toBe(Boolean(cursor));
-    } while (cursor);
-    expect(walked).toEqual([favoriteB, favoriteA, projectC, projectD]);
-
-    // Other sorts ignore favorites and page on their own keys.
-    const byName: string[] = [];
-    cursor = undefined;
-    do {
-      const page = await listPortfolioProjects(owner, query({ q: label, limit: 3, sort: "name-desc", cursor }));
-      byName.push(...page.items.map((item) => item.id));
-      cursor = page.pageInfo.nextCursor ?? undefined;
-    } while (cursor);
-    expect(byName).toEqual([projectD, projectC, favoriteB, favoriteA]);
-  });
-
-  it("keeps a favorite Finished project at the top (E-05A §14)", async () => {
-    const owner = await loginAs("OWNER", GROUP);
-    const label = `Finished ${Date.now()}`;
-    const finished = await tempProject({ name: `${label} old`, status: "FINISHED", lastActivityAt: new Date(Date.UTC(2020, 0, 1)) });
-    const recent = await tempProject({ name: `${label} new`, lastActivityAt: new Date() });
-    await addFavorite(owner, { entityType: "project", entityId: finished });
-    expect(await ids(owner, { q: label })).toEqual([finished, recent]);
-  });
-
-  it("rejects a cursor that does not belong to the sort", async () => {
-    const owner = await loginAs("OWNER", GROUP);
-    const page = await listPortfolioProjects(owner, query({ limit: 1, sort: "name-asc" }));
-    await expectError(listPortfolioProjects(owner, query({ limit: 1, cursor: page.pageInfo.nextCursor })), "VALIDATION_ERROR");
-    await expectError(listPortfolioProjects(owner, query({ cursor: "not-a-cursor" })), "VALIDATION_ERROR");
-  });
-});
-
-describe("filters and search (E-05A §17, §18, §66)", () => {
-  it("narrows by status, type, place and role, and combines them with AND", async () => {
-    const owner = await loginAs("OWNER", GROUP);
-    // Every demo project is Active, so the other states are made here.
-    const pendingInB = await tempProject({ companyId: COMPANY_B, status: "PENDING", projectType: "Commercial" });
-    const finishedInD = await tempProject({ companyId: COMPANY_D, status: "FINISHED", city: "Vlorë" });
-    expect(await ids(owner, { status: "PENDING" })).toEqual([pendingInB]);
-    expect(await ids(owner, { status: "FINISHED" })).toEqual([finishedInD]);
-    expect((await ids(owner, { projectType: "Commercial" })).sort()).toEqual([PROJECT.b, pendingInB].sort());
-    expect((await ids(owner, { projectType: "commercial", status: "ACTIVE" }))).toEqual([PROJECT.b]);
-    expect((await ids(owner, { location: "city:vlorë" })).sort()).toEqual([PROJECT.d, finishedInD].sort());
-    expect(await ids(owner, { location: "city:tiranë", projectType: "industrial" })).toEqual([PROJECT.c]);
-    expect(await ids(owner, { q: "other" })).toEqual([]);
-    expect(await ids(owner, { q: "industrial" })).toEqual([PROJECT.c]);
-
-    const multi = await loginAsMembership(MULTI_A, GROUP);
-    const managedInD = await tempProject({ companyId: COMPANY_D, managerMemberId: MULTI_D });
-    expect((await ids(multi, { role: "Architect" })).sort()).toEqual([PROJECT.a, PROJECT.d].sort());
-    expect(await ids(multi, { role: "project manager" })).toEqual([managedInD]);
-    expect((await ids(multi, { role: ASSIGNED_ROLE })).sort()).toEqual([PROJECT.a, PROJECT.d, managedInD].sort());
-    expect(await ids(multi, { location: "city:Vlorë" })).toEqual([PROJECT.d]);
-    expect(await ids(multi, { companyId: COMPANY_A, role: "project manager" })).toEqual([]);
-  });
-
-  it("filters and searches by a type name across companies, each with its own list (E-05A §30, §62)", async () => {
-    const multi = await loginAsMembership(MULTI_A, GROUP);
-    const label = `Types ${Date.now()}`;
-    const inA = await tempProject({ companyId: COMPANY_A, name: `${label} A`, projectType: "Residential", memberIds: [MULTI_A], memberRole: "Architect" });
-
-    expect((await ids(multi, { projectType: "residential" })).sort()).toEqual([PROJECT.d, inA].sort());
-    expect((await ids(multi, { q: "resident" })).sort()).toEqual([PROJECT.d, inA].sort());
-    // Two companies' "Residential" rows are one choice in the filter.
-    expect((await portfolioFilterOptions(multi)).projectTypes.map((type) => type.label)).toEqual(["Mixed use", "Residential"]);
-
-    // A renamed type is filtered by its new name, and only in its own company.
-    const renamedId = await typeId(COMPANY_A, "Residential");
-    await prisma.projectType.update({ where: { id: renamedId }, data: { name: "Housing" } });
-    try {
-      expect(await ids(multi, { projectType: "Housing" })).toEqual([inA]);
-      expect(await ids(multi, { projectType: "Residential" })).toEqual([PROJECT.d]);
-    } finally {
-      await prisma.projectType.update({ where: { id: renamedId }, data: { name: "Residential" } });
+    // A cursor walk crosses both status boundaries without skipping or
+    // repeating anything, whatever the page size.
+    for (const limit of [1, 2, 3]) {
+      const walked: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await listPortfolioProjects(owner, query({ q: label, limit, cursor }));
+        walked.push(...page.items.map((item) => item.id));
+        cursor = page.pageInfo.nextCursor ?? undefined;
+        expect(page.pageInfo.hasNextPage).toBe(Boolean(cursor));
+      } while (cursor);
+      expect(walked, `limit ${limit}`).toEqual(expected);
     }
   });
 
-  it("filters favorites per person — one person's star is nobody else's", async () => {
-    const multi = await loginAsMembership(MULTI_A, GROUP);
-    await addFavorite(await contextForProject(multi, PROJECT.d), { entityType: "project", entityId: PROJECT.d });
-
-    expect(await ids(multi, { favorites: true })).toEqual([PROJECT.d]);
-    const favorite = await prisma.userFavorite.findFirst({ where: { entityType: "project", entityId: PROJECT.d, memberId: MULTI_D } });
-    expect(favorite?.companyId).toBe(COMPANY_D);
-
+  it("orders nothing by favorites or recent activity (§32, §33)", async () => {
     const owner = await loginAs("OWNER", GROUP);
-    expect(await ids(owner, { favorites: true })).toEqual([]);
-    expect((await listPortfolioProjects(owner, query())).items.every((item) => !item.isFavorite)).toBe(true);
+    const label = `Unmoved ${Date.now()}`;
+    const first = await tempProject({ name: `${label} A`, lastActivityAt: new Date(Date.UTC(2020, 0, 1)) });
+    const second = await tempProject({ name: `${label} B`, lastActivityAt: new Date() });
+    await addFavorite(owner, { entityType: "project", entityId: second });
+    expect(await ids(owner, { q: label })).toEqual([first, second]);
   });
 
-  it("reads the page's URL the way the API does", () => {
-    const parsed = parsePortfolioQuery(new URLSearchParams("q=hospital&status=COMPLETED&company=cmp_1&type=hotel&location=city:Fier&sort=bogus&favorites=1"));
-    expect(parsed).toMatchObject({ q: "hospital", status: "FINISHED", companyId: "cmp_1", projectType: "hotel", location: "city:Fier", sort: "recommended", favorites: true, limit: 24 });
-    expect(parsePortfolioQuery({ status: "DRAFT", location: "Fier" })).toMatchObject({ status: "PENDING", location: undefined });
+  it("orders the same name by id, so the order is total", async () => {
+    const owner = await loginAs("OWNER", GROUP);
+    const name = `Twin ${Date.now()}`;
+    const one = await tempProject({ name, companyId: COMPANY_B });
+    const two = await tempProject({ name, companyId: COMPANY.c });
+    const first = await listPortfolioProjects(owner, query({ q: name, limit: 1 }));
+    const second = await listPortfolioProjects(owner, query({ q: name, limit: 1, cursor: first.pageInfo.nextCursor ?? undefined }));
+    // By the database's own order of the ids, which the cursor compares in.
+    const byId = await prisma.project.findMany({ where: { id: { in: [one, two] } }, orderBy: { id: "asc" }, select: { id: true } });
+    expect([...first.items, ...second.items].map((item) => item.id)).toEqual(byId.map((row) => row.id));
+    expect(second.pageInfo.hasNextPage).toBe(false);
+  });
+
+  it("refuses a cursor it did not write", async () => {
+    const owner = await loginAs("OWNER", GROUP);
+    await expectError(listPortfolioProjects(owner, query({ cursor: "not-a-cursor" })), "VALIDATION_ERROR");
+    // One from the old favorites-first order, and one naming the archived run.
+    const retired = Buffer.from(JSON.stringify({ p: "fav", v: ["x"] })).toString("base64url");
+    await expectError(listPortfolioProjects(owner, query({ cursor: retired })), "VALIDATION_ERROR");
+    const archived = Buffer.from(JSON.stringify({ s: "ARCHIVED", v: ["a", "b"] })).toString("base64url");
+    await expectError(listPortfolioProjects(owner, query({ cursor: archived })), "VALIDATION_ERROR");
+  });
+
+  it("times each page into project_discovery_query_ms by workspace scope (§172)", async () => {
+    const count = (scope: string) =>
+      histogramSeries().find((series) => series.name === "project_discovery_query_ms" && series.labels.scope === scope && series.labels.outcome === "success")?.count ?? 0;
+    const [group, company] = [count("group"), count("company")];
+    await listPortfolioProjects(await loginAs("OWNER", GROUP), query());
+    await listPortfolioProjects(await loginAs("OWNER"), query());
+    expect([count("group"), count("company")]).toEqual([group + 1, company + 1]);
   });
 });
 
-describe("what each card says and allows (E-05A §7, §33, §52)", () => {
-  it("shows the effective project role and permissions decided in the project's own company", async () => {
-    const before = await loginAsMembership(MULTI_A, GROUP);
-    // Seeded, they are an Architect in both companies; a Project Manager membership in Nova sets one company apart.
-    const managerInE = await tempMembership(before.userId, COMPANY_E, "PROJECT_MANAGER");
-    const hotelId = await tempProject({ companyId: COMPANY_E, managerMemberId: managerInE, memberIds: [managerInE] });
-    // A request resolves the group's companies once; the new membership is read by the next one.
+describe("favorites (Projects Workspace Grid §31, §32, §123-§126)", () => {
+  it("marks one person's stars and nobody else's", async () => {
     const multi = await loginAsMembership(MULTI_A, GROUP);
-    const { items } = await listPortfolioProjects(multi, query());
-    const riverside = items.find((item) => item.id === PROJECT.a)!;
-    const hotel = items.find((item) => item.id === hotelId)!;
+    await addFavorite(await contextForProject(multi, PROJECT.d), { entityType: "project", entityId: PROJECT.d });
+    const favorite = await prisma.userFavorite.findFirst({ where: { entityType: "project", entityId: PROJECT.d, memberId: MULTI_D } });
+    expect(favorite?.companyId).toBe(COMPANY_D);
 
-    expect(riverside).toMatchObject({ myProjectRole: { name: "Architect", others: 0 }, company: { id: COMPANY_A }, projectType: { name: "Mixed use" }, location: { city: "Tiranë", country: "Albania" } });
-    expect(riverside.permissions).toMatchObject({ edit: true, manageStatus: false, archive: false });
-    expect(riverside.statusMoves).toEqual([]);
+    const items = (await listPortfolioProjects(multi, query())).items;
+    expect(items.filter((item) => item.isFavorite).map((item) => item.id)).toEqual([PROJECT.d]);
 
-    expect(hotel).toMatchObject({ myProjectRole: { name: "Project Manager", others: 0 }, company: { id: COMPANY_E } });
-    expect(hotel.permissions).toMatchObject({ edit: true, manageStatus: true, archive: true });
-    expect(hotel.statusMoves.sort()).toEqual(["FINISHED", "PENDING"]);
+    const owner = await loginAs("OWNER", GROUP);
+    expect((await listPortfolioProjects(owner, query())).items.every((item) => !item.isFavorite)).toBe(true);
   });
 
-  it("shows a second role as +1, and the same role twice as one (E-05A §56)", async () => {
-    const owner = await loginAs("OWNER", GROUP);
-    const label = `Roles ${Date.now()}`;
-    const twoRoles = await tempProject({ name: `${label} lead`, managerMemberId: owner.membershipId, memberIds: [owner.membershipId], memberRole: "Lead Architect" });
-    const oneRole = await tempProject({ name: `${label} pm`, managerMemberId: owner.membershipId, memberIds: [owner.membershipId], memberRole: "project manager" });
-    const { items } = await listPortfolioProjects(owner, query({ q: label }));
+  it("never shows a starred project the person can no longer open", async () => {
+    const multi = await loginAsMembership(MULTI_A, GROUP);
+    const name = `Starred ${Date.now()}`;
+    const projectId = await tempProject({ companyId: COMPANY_D, name, memberIds: [MULTI_D], memberRole: "Architect" });
+    await addFavorite(await contextForProject(multi, projectId), { entityType: "project", entityId: projectId });
+    expect(await ids(multi, { q: name })).toEqual([projectId]);
 
-    expect(items.find((item) => item.id === twoRoles)?.myProjectRole).toEqual({ name: "Lead Architect", others: 1 });
-    expect(items.find((item) => item.id === oneRole)?.myProjectRole).toEqual({ name: "project manager", others: 0 });
+    // Access removed; the star stays behind and opens nothing.
+    await prisma.projectMember.deleteMany({ where: { projectId } });
+    expect(await prisma.userFavorite.count({ where: { entityId: projectId } })).toBe(1);
+    const after = await loginAsMembership(MULTI_A, GROUP);
+    expect(await ids(after, { q: name })).toEqual([]);
+    expect((await listPortfolioProjects(after, query())).meta.visibleProjectCount).toBe(2);
+  });
+});
+
+describe("what each card carries (Projects Workspace Grid §42, §59-§62, §88, §89)", () => {
+  it("sends only what the card draws: name, company, place, status, cover, initials and the star", async () => {
+    const multi = await loginAsMembership(MULTI_A, GROUP);
+    const riverside = (await listPortfolioProjects(multi, query())).items.find((item) => item.id === PROJECT.a)!;
+
+    expect(riverside).toEqual({
+      id: PROJECT.a,
+      code: "A-PRJ-001",
+      name: "Riverside Residences",
+      status: "ACTIVE",
+      href: `/projects/${PROJECT.a}`,
+      // No company is the session's in the Group workspace: a project is entered through its own.
+      company: { id: COMPANY_A, name: "Aurelia Construction", isCurrent: false },
+      location: { city: "Tiranë", country: "Albania" },
+      cover: riverside.cover,
+      initials: "RR",
+      isFavorite: false,
+      canFavorite: true,
+    });
+    expect((await listPortfolioProjects(await loginAsMembership(MULTI_A), query())).items[0]!.company.isCurrent).toBe(true);
+  });
+
+  it("leaves out a place the project does not record, and makes initials from the first two words (§47, §62)", async () => {
+    const owner = await loginAs("OWNER", GROUP);
+    const name = `eyes of Tirana ${Date.now()}`;
+    await tempProject({ name });
+    expect((await listPortfolioProjects(owner, query({ q: name }))).items[0]).toMatchObject({ location: null, initials: "EO" });
+    expect(projectInitials("  Ëndrra   Blu ")).toBe("ËB");
+    expect(projectInitials("Farka")).toBe("F");
   });
 
   it("offers a cover only to a reader who can open its document, as a 3:4 thumbnail", async () => {
@@ -463,6 +471,8 @@ describe("what each card says and allows (E-05A §7, §33, §52)", () => {
 
     const item = (await listPortfolioProjects(owner, query({ q: updated.name }))).items[0]!;
     expect(item.cover?.thumbnailUrl).toMatch(new RegExp(`^/api/projects/${projectId}/cover\\?v=`));
+    // The same cover keeps the same address between loads (§98).
+    expect((await listPortfolioProjects(owner, query({ q: updated.name }))).items[0]!.cover).toEqual(item.cover);
 
     const thumbnail = await readDocumentThumbnail(owner, documentId);
     const metadata = await sharp(Buffer.from(thumbnail.body)).metadata();

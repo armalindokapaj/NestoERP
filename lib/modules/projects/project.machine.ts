@@ -52,3 +52,8 @@ export function statusActionFor(from: ProjectStatus, to: ProjectStatus): Project
   );
   return transition?.action ?? null;
 }
+
+/** The working states a project can be moved to from where it is (E-05A §12). */
+export function statusMovesFrom(from: ProjectStatus): WorkingStatus[] {
+  return WORKING_STATUSES.filter((to) => to !== from && statusActionFor(from, to) !== null);
+}

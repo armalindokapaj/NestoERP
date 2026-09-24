@@ -26,12 +26,13 @@ test("finds both companies' projects on one page, each company named", async ({ 
   await expect(mainRegion(page).getByText("2 projects across 2 companies")).toBeVisible();
   await expect(card(page, "Riverside Residences").getByTestId("project-company")).toHaveText("Aurelia Construction");
   await expect(card(page, "Marina Apartments").getByTestId("project-company")).toHaveText("Forma Engineering");
-  await expect(card(page, "Marina Apartments")).toContainText("Architect");
-  await expect(card(page, "Riverside Residences")).toContainText("Architect");
   // A sibling company this person does not belong to lends them nothing.
   await expect(mainRegion(page).getByText("Central Office Tower")).toHaveCount(0);
 
-  await mainRegion(page).getByLabel("Company").selectOption({ label: "Forma Engineering" });
+  // The workspace chose the companies; the page offers no company filter, and
+  // its search finds a company by name among these cards (Projects Workspace Grid §8, §25).
+  await expect(mainRegion(page).getByLabel("Company")).toHaveCount(0);
+  await mainRegion(page).getByRole("searchbox", { name: "Search projects" }).fill("Forma");
   await expect(card(page, "Riverside Residences")).toHaveCount(0);
   await expect(card(page, "Marina Apartments")).toBeVisible();
 });

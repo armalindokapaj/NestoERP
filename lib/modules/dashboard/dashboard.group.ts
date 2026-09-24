@@ -414,7 +414,7 @@ export async function groupKeyProjects(context: UserContext): Promise<WidgetProj
         name: project.name,
         href: project.href,
         company: project.company.name,
-        location: [project.location.city, project.location.country].filter(Boolean).join(", ") || null,
+        location: [project.location?.city, project.location?.country].filter(Boolean).join(", ") || null,
         tags: [...new Set(tags)],
         status: project.status,
         progress: counted ? Math.round((completed / counted) * 100) : null,

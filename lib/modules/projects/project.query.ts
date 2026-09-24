@@ -1,13 +1,10 @@
-import { PROJECT_TYPE_NAME_MAX } from "@/config/project-types";
 import { firstValue } from "@/lib/modules/shared/list-query";
 import {
   PORTFOLIO_PAGE_SIZE,
-  PORTFOLIO_SORT_KEYS,
   PROJECT_SORT_KEYS,
   portfolioQuerySchema,
   projectListQuerySchema,
   type PortfolioQuery,
-  type PortfolioSortKey,
   type ProjectListQuery,
   type ProjectSortKey,
 } from "./project.schema";
@@ -75,49 +72,39 @@ export function parseProjectListQuery(
 }
 
 /**
- * The Projects page query from a URL (E-05A §36, §48).
+ * The Projects page query from a URL (Projects Workspace Grid §107, §182).
  *
- * The page and `GET /api/projects` read the same parameters, so a filtered
- * page URL and the API call behind "Load more" cannot drift. The page writes
- * `company`; the API documents `companyId`; both are read. A value that is not
- * one the query knows is dropped rather than refused — a stale bookmark should
- * land on the page, not on an error.
+ * The page and `GET /api/projects` read the same parameters, so the page and
+ * the API call behind "Load more" cannot drift. Only the search is read —
+ * `q`, or `search` from links written before E-05A. Anything else a URL carries
+ * is ignored rather than refused: a stale bookmark should land on the page, and
+ * no parameter may choose a company (§108, §184).
  */
 export function parsePortfolioQuery(params: RawParams): PortfolioQuery {
-  const statusValue = (read(params, "status") ?? "").trim().toUpperCase();
-  const status = LEGACY_STATUS[statusValue] ?? statusValue;
-  const sortValue = read(params, "sort") ?? "";
-  const typeValue = (read(params, "type") ?? read(params, "projectType") ?? "").trim();
-  const location = read(params, "location")?.trim();
   const limit = Number.parseInt(read(params, "limit") ?? String(PORTFOLIO_PAGE_SIZE), 10);
-  const favorites = (read(params, "favorites") ?? "").toLowerCase();
-
   return portfolioQuerySchema.parse({
-    q: (read(params, "q") ?? read(params, "search"))?.trim() || undefined,
-    status: (STATUSES as readonly string[]).includes(status) ? status : undefined,
-    favorites: favorites === "true" || favorites === "1",
-    companyId: (read(params, "company") ?? read(params, "companyId"))?.trim() || undefined,
-    role: (read(params, "role") ?? read(params, "roleId"))?.trim() || undefined,
-    projectType: typeValue && typeValue.length <= PROJECT_TYPE_NAME_MAX ? typeValue : undefined,
-    location: location && /^(city|country):.+$/.test(location) && location.length <= 240 ? location : undefined,
-    sort: (PORTFOLIO_SORT_KEYS as readonly string[]).includes(sortValue) ? (sortValue as PortfolioSortKey) : "recommended",
+    q: (read(params, "q") ?? read(params, "search"))?.trim().slice(0, 200) || undefined,
     cursor: read(params, "cursor") || undefined,
     limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, 60) : PORTFOLIO_PAGE_SIZE,
   });
 }
 
 /**
- * How many values narrow the collection — what the "N results" line and the
- * empty-state wording go by (E-05A §53, §74). A sort reorders; it never narrows.
+ * What the Projects page's URL said before its filters, sort, favorites pill and
+ * list view were removed (Projects Workspace Grid §183), plus the old name for
+ * the search.
  */
-export function activePortfolioFilterCount(query: PortfolioQuery): number {
-  return [query.q, query.status, query.favorites || undefined, query.companyId, query.role, query.projectType, query.location].filter(Boolean).length;
-}
+const RETIRED_PAGE_PARAMS = ["status", "favorites", "company", "companyId", "role", "roleId", "type", "projectType", "location", "sort", "view", "search"] as const;
 
 /**
- * Whether Clear Filters shows: anything narrowing, or a sort other than
- * Recommended — Clear Filters resets both (E-05A §32).
+ * The page's canonical address when a URL still carries retired parameters —
+ * the search kept, everything else dropped — or null when it is already clean
+ * (§184). The page replaces the URL with it, so the address bar never names a
+ * filter the page no longer applies.
  */
-export function portfolioIsCustomised(query: PortfolioQuery): boolean {
-  return activePortfolioFilterCount(query) > 0 || query.sort !== "recommended";
+export function canonicalPortfolioHref(params: RawParams, pathname = "/projects"): string | null {
+  const retired = RETIRED_PAGE_PARAMS.some((key) => read(params, key) !== undefined);
+  if (!retired) return null;
+  const { q } = parsePortfolioQuery(params);
+  return q ? `${pathname}?${new URLSearchParams({ q }).toString()}` : pathname;
 }
