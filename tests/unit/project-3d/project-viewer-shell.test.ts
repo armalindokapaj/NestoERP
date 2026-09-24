@@ -11,6 +11,8 @@ vi.mock("next/link", async () => {
   const ReactModule = await import("react");
   return {
     default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => ReactModule.createElement("a", { ...props, href }, children),
+    // NavLink (NAV-01) reads the link's pending state; nothing is ever pending here.
+    useLinkStatus: () => ({ pending: false }),
   };
 });
 
