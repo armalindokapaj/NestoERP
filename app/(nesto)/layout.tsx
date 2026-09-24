@@ -24,6 +24,7 @@ import { runPreStreamGuard } from "./pre-stream-guards";
  * never left unhandled. The snapshot's age is checked again when it is used.
  */
 export default async function NestoLayout({ children }: { children: React.ReactNode }) {
+  const startedAt = performance.now();
   const maintenanceCandidate = getPageMaintenanceState();
   maintenanceCandidate.catch(() => undefined);
   const context = await requireUserContext();
@@ -33,5 +34,9 @@ export default async function NestoLayout({ children }: { children: React.ReactN
   if (maintenance.value.enabled) redirect("/maintenance");
   if (guard.status === "rejected") throw guard.reason;
 
-  return <AppShell context={context}>{children}</AppShell>;
+  return (
+    <AppShell context={context} startedAt={startedAt}>
+      {children}
+    </AppShell>
+  );
 }

@@ -1,9 +1,10 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { UserContext } from "@/lib/context/types";
 import { reconcileAttention } from "@/lib/core/notifications/attention.reconcile";
 import { dispatchNotifications } from "@/lib/core/notifications/notification.dispatch";
 import { loadRecord } from "@/lib/core/records/record.registry";
+import { prisma as app } from "@/lib/database/prisma";
 import { globalSearch } from "@/lib/core/search/search.service";
 import { announcementCalendarProvider } from "@/lib/modules/announcements/announcement.calendar-provider";
 import { archiveAnnouncement, publishAnnouncement, runAcknowledgmentReminders, runAnnouncementSchedule, scheduleAnnouncement, setPinned, unscheduleAnnouncement } from "@/lib/modules/announcements/announcement.publish";
@@ -12,7 +13,7 @@ import {
   acknowledgeAnnouncement,
   acknowledgmentList,
   announcementMetrics,
-  announcementShellState,
+  criticalAnnouncementBanner,
   createAnnouncement,
   dashboardAnnouncements,
   duplicateAnnouncement,
@@ -295,13 +296,43 @@ describe("critical notices, calendar, search, documents and dashboard (§27, §3
     expect(await prisma.notificationEventOutbox.count({ where: { entityId: id, eventType: "ANNOUNCEMENT_CRITICAL" } })).toBe(1);
     await dispatchNotifications(500);
     expect(await prisma.notification.count({ where: { entityId: id, recipientMemberId: engineer.membershipId, eventType: "ANNOUNCEMENT_CRITICAL" } })).toBe(1);
-    expect((await announcementShellState(engineer)).banner).toMatchObject({ id, requiresAcknowledgment: true });
+    expect((await criticalAnnouncementBanner(engineer))).toMatchObject({ id, requiresAcknowledgment: true });
     expect((await dashboardAnnouncements(engineer))[0].id).toBe(id);
     await markRead(engineer, id);
-    expect((await announcementShellState(engineer)).banner?.id).toBe(id);
+    expect((await criticalAnnouncementBanner(engineer))?.id).toBe(id);
     await acknowledgeAnnouncement(engineer, id);
-    expect((await announcementShellState(engineer)).banner?.id).not.toBe(id);
-    expect((await announcementShellState(ownerB)).banner).toBeNull();
+    expect((await criticalAnnouncementBanner(engineer))?.id).not.toBe(id);
+    expect((await criticalAnnouncementBanner(ownerB))).toBeNull();
+  });
+
+  it("the shell reads one banner row and no unread count (NAV-02 S11)", async () => {
+    await published(owner, { priority: "CRITICAL", requiresAcknowledgment: true, title: "Evacuation drill at noon" });
+    const count = vi.spyOn(app.announcement, "count");
+    const findFirst = vi.spyOn(app.announcement, "findFirst");
+    try {
+      expect(await criticalAnnouncementBanner(engineer)).not.toBeNull();
+      expect(count).not.toHaveBeenCalled();
+      expect(findFirst).toHaveBeenCalledTimes(1);
+    } finally {
+      count.mockRestore();
+      findFirst.mockRestore();
+    }
+  });
+
+  it("a critical notice that asks nothing stops being the banner once it is read (NAV-02 S13)", async () => {
+    const id = await published(owner, { priority: "CRITICAL", requiresAcknowledgment: false, title: "Crane inspection today" });
+    expect((await criticalAnnouncementBanner(engineer))?.id).toBe(id);
+    await markRead(engineer, id);
+    expect((await criticalAnnouncementBanner(engineer))?.id).not.toBe(id);
+  });
+
+  it("between two critical notices published at the same moment, every instance shows the same one (NAV-02 S16)", async () => {
+    const first = await published(owner, { priority: "CRITICAL", requiresAcknowledgment: true, title: "Tower crane out of service" });
+    const second = await published(owner, { priority: "CRITICAL", requiresAcknowledgment: true, title: "Site gate B closed" });
+    const moment = new Date();
+    await prisma.announcement.updateMany({ where: { id: { in: [first, second] } }, data: { publishedAt: moment } });
+    const expected = [first, second].sort().at(-1);
+    for (let attempt = 0; attempt < 3; attempt += 1) expect((await criticalAnnouncementBanner(engineer))?.id).toBe(expected);
   });
 
   it("puts only event-dated announcements on the calendar of their audience", async () => {

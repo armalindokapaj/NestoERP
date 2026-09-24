@@ -5,7 +5,7 @@ import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { canOpenQuickCreate } from "@/lib/modules/quick-create/eligibility";
 import { listAvailableActions, projectChoices, resolveLaunch } from "@/lib/modules/quick-create/quick-create.service";
-import { listWorkspaces } from "@/lib/workspace/workspace.service";
+import { resolveShellCore } from "@/lib/workspace/shell-core";
 import { cleanupSessions, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
@@ -123,15 +123,15 @@ describe("safe context prefill (§21-§28, §171-§173)", () => {
 describe("the shell's trigger summary (NAV-01 QC-01, QC-02, Q05, Q06, A08)", () => {
   it("opens exactly when the server would draw a menu, with the menu's own context key", async () => {
     for (const context of [finance, viewer, pm, inGroup]) {
-      const [{ quickCreate }, menu] = await Promise.all([listWorkspaces(context), listAvailableActions(context)]);
+      const [{ quickCreate }, menu] = await Promise.all([resolveShellCore(context), listAvailableActions(context)]);
       expect(quickCreate.canOpen, context.role).toBe(menu.actions.length > 0);
       expect(quickCreate.contextKey, context.role).toBe(menu.contextKey);
     }
-    expect((await listWorkspaces(viewer)).quickCreate.canOpen).toBe(false);
+    expect((await resolveShellCore(viewer)).quickCreate.canOpen).toBe(false);
   });
 
   it("is keyed by identity and workspace, and never carries the session id", async () => {
-    const keys = await Promise.all([finance, pm, inGroup].map(async (context) => (await listWorkspaces(context)).quickCreate.contextKey));
+    const keys = await Promise.all([finance, pm, inGroup].map(async (context) => (await resolveShellCore(context)).quickCreate.contextKey));
     expect(new Set(keys).size).toBe(3);
     for (const [index, context] of [finance, pm, inGroup].entries()) {
       expect(keys[index]).not.toContain(context.sessionId);

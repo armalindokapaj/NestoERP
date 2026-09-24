@@ -5,6 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { ArrowLeft, ArrowRight, ChevronRight, MoreHorizontal } from "lucide-react";
 import { usePathname } from "next/navigation";
 
+import { useGroupEntry } from "@/components/layout/shell-slots";
 import { useRecordNavigation } from "@/components/navigation/record-navigation-provider";
 import {
   DropdownMenu,
@@ -82,6 +83,7 @@ function Separator() {
 /** Unified record navigation, shared by every tenant record page. */
 export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb[]; className?: string; maxVisible?: number }) {
   const navigation = useRecordNavigation();
+  const groupEntry = useGroupEntry();
   const pathname = usePathname();
   const trail = React.useMemo<ResolvedCrumb[]>(() => {
     const roots: ResolvedCrumb[] = [];
@@ -90,7 +92,9 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
       roots.push({
         key: `group-${workspace.key}`,
         label: workspace.group.name,
-        href: workspace.group.canEnter ? "/dashboard" : undefined,
+        // A link only once the Group view is known to be open to them: pending
+        // and failed are not denials, just not yet a way in (NAV-02 COMPAT-01).
+        href: groupEntry?.status === "ready" && groupEntry.canEnter ? "/dashboard" : undefined,
         workspaceTarget: workspace.scopeType === "GROUP" ? undefined : { scopeType: "GROUP", companyId: null },
       });
       if (workspace.scopeType === "COMPANY" && workspace.company) {
@@ -108,7 +112,7 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
       const previous = all[index - 1];
       return !previous || previous.label !== item.label || previous.href !== item.href;
     });
-  }, [items, navigation?.workspace, pathname]);
+  }, [items, navigation?.workspace, pathname, groupEntry]);
 
   const collapseAt = Math.max(4, maxVisible);
   const collapsed = trail.length > collapseAt;

@@ -12,6 +12,8 @@ import type { Messages } from "./en";
 export const sq: Messages = {
   shell: {
     mainNavigation: "Navigimi kryesor",
+    bannerCheckFailed: "Njoftimet kritike nuk u kontrolluan.",
+    bannerRetry: "Provo përsëri",
     navigationTitle: "Navigimi i NESTO",
     openNavigation: "Hap navigimin",
     closeNavigation: "Mbyll navigimin",
@@ -86,6 +88,10 @@ export const sq: Messages = {
     companyRequiredNone: "Asnjë nga kompanitë tuaja nuk ofron {module}.",
     openInCompany: "Hape te {company}",
     company: "Kompania",
+    loadingLabel: "Hapësira e punës: {name}. Po ngarkohen hapësirat e tjera",
+    staticLabel: "Hapësira e punës: {name}",
+    loadFailedLabel: "Hapësira e punës: {name}. Hapësirat e tjera nuk u ngarkuan",
+    retryLoad: "Provo përsëri ngarkimin e hapësirave",
   },
 
   notificationCenter: {

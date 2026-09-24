@@ -180,6 +180,9 @@
  */
 [data-sidebar] {
   --nesto-nav-width: 0px;
+  /* The critical banner's height: 10px padding above and below, a 24px dismiss
+     button and a 1px rule. Reserved so a late banner moves nothing (NAV-02 SHELL-03). */
+  --nesto-banner-height: 2.8125rem;
 }
 
 @media (min-width: 1024px) {

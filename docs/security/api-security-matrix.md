@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**868 route handlers, 257 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1035 · PLATFORM 45 · PUBLIC 10 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**870 route handlers, 257 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1037 · PLATFORM 45 · PUBLIC 10 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/activity-center
 
@@ -1051,6 +1051,13 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | GET | `/api/settings/runtime` (reviewed: company timezone, locale, currency and enabled modules every member's UI reads) | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
 | GET | `/api/settings/sales` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
 | PATCH | `/api/settings/sales` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
+
+## /api/shell
+
+| Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
+|---|---|---|---|---|---|---|---|---|
+| GET | `/api/shell/critical-announcement` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `projectDoor` | — | — | sweep |
+| GET | `/api/shell/workspaces` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | — | — | — | sweep |
 
 ## /api/storage
 

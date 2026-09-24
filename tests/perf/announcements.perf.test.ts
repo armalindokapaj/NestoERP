@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { feedQuerySchema } from "@/lib/modules/announcements/announcement.schema";
-import { announcementShellState, dashboardAnnouncements, listAnnouncements } from "@/lib/modules/announcements/announcement.service";
+import { criticalAnnouncementBanner, dashboardAnnouncements, listAnnouncements } from "@/lib/modules/announcements/announcement.service";
 import { listFavorites } from "@/lib/modules/productivity/favorites.service";
 import { listRecentWork } from "@/lib/modules/productivity/recent-work.service";
 import { cleanupSessions, loginAs, prisma } from "../helpers";
@@ -115,7 +115,7 @@ describe.skipIf(!RUN)("announcements at 1,000 per company with 20,000 read and a
     ]);
     const favorites = record("favorites", await time(() => listFavorites(engineer)));
     const recent = record("recent work", await time(() => listRecentWork(engineer)));
-    const aggregate = record("dashboard productivity", await time(() => Promise.all([dashboardAnnouncements(engineer), listFavorites(engineer, { limit: 8 }), listRecentWork(engineer, { limit: 8 }), announcementShellState(engineer)])));
+    const aggregate = record("dashboard productivity", await time(() => Promise.all([dashboardAnnouncements(engineer), listFavorites(engineer, { limit: 8 }), listRecentWork(engineer, { limit: 8 }), criticalAnnouncementBanner(engineer)])));
 
     if (process.env.NESTO_PERF_REPORT) (await import("node:fs")).writeFileSync(process.env.NESTO_PERF_REPORT, JSON.stringify(report, null, 2));
     console.table(report);

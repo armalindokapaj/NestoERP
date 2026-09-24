@@ -8,12 +8,12 @@ import { ActivityCenterMenu } from "@/components/layout/activity-center-menu";
 import { QuickCreate } from "@/components/layout/quick-create";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
-import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
+import { WorkspaceSlot } from "@/components/layout/shell-slots";
 import type { NavigationGroup } from "@/config/navigation";
 import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
-import type { WorkspacesDTO } from "@/lib/workspace/workspace.service";
+import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
 
 /**
  * Universal top bar (PRD #3 §16, §76). Identical for every role.
@@ -33,11 +33,11 @@ import type { WorkspacesDTO } from "@/lib/workspace/workspace.service";
 export async function Topbar({
   context,
   navigation,
-  workspaces,
+  core,
 }: {
   context: UserContext;
   navigation: NavigationGroup[];
-  workspaces: WorkspacesDTO;
+  core: ShellCoreDTO;
 }) {
   const t = await getTranslations("roles");
   // The workspace names itself: the group above, or the company (Workspace Context §10).
@@ -83,13 +83,14 @@ export async function Topbar({
             Demo data
           </span>
         ) : null}
-        {/* The group and the companies this person may work in; shown only when
-            there is a choice to make (Workspace Context §5, §9). */}
-        <WorkspaceSwitcher workspaces={workspaces} />
+        {/* The group and the companies this person may work in (Workspace Context
+            §5, §9). The verified workspace's name holds the place while the
+            chooser streams in; it never holds up the page (NAV-02 SHELL-02). */}
+        <WorkspaceSlot />
         {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). */}
         {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150).
             The button comes from the shell's summary; the menu loads only when opened (NAV-01 QC-01). */}
-        <QuickCreate userKey={context.userId} summary={workspaces.quickCreate} />
+        <QuickCreate userKey={context.userId} summary={core.quickCreate} />
         <ActivityCenterMenu userKey={context.userId} canManageAnnouncements={context.permissions.includes("announcement.create")} />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
         <UserMenu

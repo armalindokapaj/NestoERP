@@ -1,8 +1,8 @@
 import * as React from "react";
 import { cookies } from "next/headers";
 
-import { CriticalAnnouncementBanner } from "@/components/announcements/shell";
 import { DevAccessPanel } from "@/components/layout/dev-access-panel";
+import { BannerSlot, ShellSlotsProvider } from "@/components/layout/shell-slots";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { Topbar } from "@/components/layout/topbar";
@@ -10,8 +10,9 @@ import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MODULE_KEYS, modules } from "@/config/modules";
 import { isDevMode } from "@/lib/auth/dev-mode";
-import { grantsInCompany, loadOrganizationAccessFor } from "@/lib/context/organization-access";
-import { announcementShellState } from "@/lib/modules/announcements/announcement.service";
+import { Metric, recordDuration } from "@/lib/core/observability/metrics";
+import { grantsInCompany, loadOrganizationAccessFor, type OrganizationAccess } from "@/lib/context/organization-access";
+import { criticalAnnouncementBanner } from "@/lib/modules/announcements/announcement.service";
 import type { UserContext } from "@/lib/context/types";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
@@ -19,6 +20,8 @@ import { WorkspaceSync } from "@/components/workspace/workspace-sync";
 import { RecordNavigationProvider } from "@/components/navigation/record-navigation-provider";
 import { NavigationFeedbackIndicator, NavigationFeedbackProvider } from "@/components/navigation/navigation-feedback";
 import { workspaceKey } from "@/config/workspace";
+import { resolveShellCore } from "@/lib/workspace/shell-core";
+import { settleSlot, type SlotResult } from "@/lib/workspace/shell-slots";
 import { listWorkspaces } from "@/lib/workspace/workspace.service";
 
 /**
@@ -33,27 +36,38 @@ import { listWorkspaces } from "@/lib/workspace/workspace.service";
  *
  * Content is capped at 1600px (PRD #3 §87) and padded across mobile, tablet and
  * desktop (PRD #7 §83).
+ *
+ * The frame waits only for what it cannot be drawn without (NAV-02 SHELL-01):
+ * the verified context, the permitted navigation and the shell core. The
+ * workspace chooser, the critical banner and the development access panel are
+ * started here and awaited only in their own slots, so a slow one delays
+ * nothing but itself.
  */
 export async function AppShell({
   context,
+  startedAt,
   children,
 }: {
   context: UserContext;
+  /** When the layout began the request's shell work, for `shell_core_ready_ms` (NAV-02 PERF-01). */
+  startedAt: number;
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
   const sidebarState = readSidebarState(cookieStore.get(SIDEBAR_COOKIE)?.value);
 
+  // Optional reads start now and are awaited only in their slots. The banner is
+  // read in this member's audience (PRD #45 §67, §122); the access debugger's
+  // grants are the organization snapshot the context was built from, read once
+  // for the request (QUERY-01), and only where the panel exists.
+  const workspaces = settleSlot("workspaces", () => listWorkspaces(context));
+  const banner = settleSlot("banner", () => criticalAnnouncementBanner(context));
+  const organization = isDevMode ? settleSlot("diagnostics", () => loadOrganizationAccessFor(context.parentGroupId, context.userId)) : null;
+
   // Resolved once, here, for the active workspace, and handed to the sidebar and
   // the drawer alike (Workspace Context §24). Never kept across a workspace change.
-  // Unread count and the one critical banner, read in this member's audience (PRD #45 §67, §122).
-  // The access debugger's grants are read only where it is shown.
-  const [navigation, announcements, organization, workspaces] = await Promise.all([
-    resolveWorkspaceNavigation(context),
-    announcementShellState(context).catch(() => ({ unread: 0, banner: null })),
-    isDevMode ? loadOrganizationAccessFor(context.parentGroupId, context.userId).catch(() => null) : null,
-    listWorkspaces(context),
-  ]);
+  const [navigation, core] = await Promise.all([resolveWorkspaceNavigation(context), resolveShellCore(context)]);
+  recordDuration(Metric.SHELL_CORE_READY_MS, Metric.SHELL_CORE_READY, startedAt, { scope: context.workspace.scopeType });
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -61,76 +75,89 @@ export async function AppShell({
         <WorkspaceSync />
         {/* Immediate navigation feedback (NAV-01 §7). Keyed by the opaque context
             key, so nothing pending outlives the identity or workspace it began in. */}
-        <NavigationFeedbackProvider identityKey={workspaces.quickCreate.contextKey}>
+        <NavigationFeedbackProvider identityKey={core.contextKey}>
           <NavigationFeedbackIndicator />
-          <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
-            <Sidebar navigation={navigation} />
+          <ShellSlotsProvider core={core} workspaces={workspaces} banner={banner}>
+            <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
+              <Sidebar navigation={navigation} />
 
-            <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-              <Topbar context={context} navigation={navigation} workspaces={workspaces} />
-              <CriticalAnnouncementBanner banner={announcements.banner} />
-              <main
-                id="nesto-main"
-                className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-6 md:py-8 xl:px-8"
-              >
-                <RecordNavigationProvider
-                  workspace={{
-                    key: workspaceKey(context.workspace),
-                    scopeType: context.workspace.scopeType,
-                    companyId: context.workspace.companyId,
-                    group: { name: context.parentGroup.name, canEnter: workspaces.parentGroup.groupViewAllowed },
-                    company: context.workspace.scopeType === "COMPANY"
-                      ? { id: context.workspace.companyId!, name: context.company.name }
-                      : null,
-                  }}
+              <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
+                <Topbar context={context} navigation={navigation} core={core} />
+                {/* The banner's height is reserved and stands in for the top padding,
+                    so a late banner moves nothing under a pointer (SHELL-03). */}
+                <BannerSlot />
+                <main
+                  id="nesto-main"
+                  className="mx-auto w-full max-w-[1600px] px-4 pb-6 md:px-6 md:pb-8 xl:px-8"
                 >
-                  {children}
-                </RecordNavigationProvider>
-              </main>
-            </div>
+                  <RecordNavigationProvider
+                    workspace={{
+                      key: workspaceKey(context.workspace),
+                      scopeType: context.workspace.scopeType,
+                      companyId: context.workspace.companyId,
+                      // Whether the Group view can be entered streams in with the chooser (COMPAT-01).
+                      group: { name: context.parentGroup.name },
+                      company: context.workspace.scopeType === "COMPANY"
+                        ? { id: context.workspace.companyId!, name: context.company.name }
+                        : null,
+                    }}
+                  >
+                    {children}
+                  </RecordNavigationProvider>
+                </main>
+              </div>
 
-            {/* Development only: never mounted in a production build
-                (PRD #9 §211). */}
-            {isDevMode ? (
-              <DevAccessPanel
-                snapshot={{
-                  user: context.fullName,
-                  userId: context.userId,
-                  sessionId: context.sessionId,
-                  membershipId: context.membershipId,
-                  company: context.company.name,
-                  role: `${context.roleLabel} (${context.role})`,
-                  position: context.position,
-                  department: context.department?.name ?? "—",
-                  assignments: context.assignments.map(
-                    (assignment) =>
-                      `${assignment.positionLevel} · ${assignment.groupDepartmentName}${assignment.companyId ? "" : " (group)"} · ${assignment.functionalRoleKey}`,
-                  ),
-                  grants: organization
-                    ? grantsInCompany(organization.grants, context.parentGroupId, context.companyId).map(
-                        (grant) => `${grant.moduleKey} ${grant.accessLevel} · ${grant.scopeType}`,
-                      )
-                    : [],
-                  permissionCount: context.permissions.length,
-                  modules: Object.fromEntries(
-                    MODULE_KEYS.map((key) => [
-                      key,
-                      {
-                        label: modules[key].label,
-                        accessLevel: context.moduleAccess[key].enabled
-                          ? context.moduleAccess[key].accessLevel
-                          : "DISABLED",
-                        scope: context.moduleAccess[key].scope,
-                        permissions: context.moduleAccess[key].permissions,
-                      },
-                    ]),
-                  ),
-                }}
-              />
-            ) : null}
-          </SidebarProvider>
+              {/* Development only: never mounted in a production build
+                  (PRD #9 §211). Streamed, so its read never holds up the page (SHELL-04). */}
+              {isDevMode && organization ? (
+                <React.Suspense fallback={null}>
+                  <DevAccessPanelSlot context={context} organization={organization} />
+                </React.Suspense>
+              ) : null}
+            </SidebarProvider>
+          </ShellSlotsProvider>
         </NavigationFeedbackProvider>
       </ToastProvider>
     </TooltipProvider>
+  );
+}
+
+/** The access debugger, once its organization snapshot is in hand; nothing at all if it failed. */
+async function DevAccessPanelSlot({ context, organization }: { context: UserContext; organization: Promise<SlotResult<OrganizationAccess>> }) {
+  const result = await organization;
+  return (
+    <DevAccessPanel
+      snapshot={{
+        user: context.fullName,
+        userId: context.userId,
+        sessionId: context.sessionId,
+        membershipId: context.membershipId,
+        company: context.company.name,
+        role: `${context.roleLabel} (${context.role})`,
+        position: context.position,
+        department: context.department?.name ?? "—",
+        assignments: context.assignments.map(
+          (assignment) =>
+            `${assignment.positionLevel} · ${assignment.groupDepartmentName}${assignment.companyId ? "" : " (group)"} · ${assignment.functionalRoleKey}`,
+        ),
+        grants: result.ok
+          ? grantsInCompany(result.data.grants, context.parentGroupId, context.companyId).map(
+              (grant) => `${grant.moduleKey} ${grant.accessLevel} · ${grant.scopeType}`,
+            )
+          : [],
+        permissionCount: context.permissions.length,
+        modules: Object.fromEntries(
+          MODULE_KEYS.map((key) => [
+            key,
+            {
+              label: modules[key].label,
+              accessLevel: context.moduleAccess[key].enabled ? context.moduleAccess[key].accessLevel : "DISABLED",
+              scope: context.moduleAccess[key].scope,
+              permissions: context.moduleAccess[key].permissions,
+            },
+          ]),
+        ),
+      }}
+    />
   );
 }

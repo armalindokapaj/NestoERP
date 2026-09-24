@@ -20,7 +20,8 @@ export type NavigationWorkspace = {
   key: string;
   scopeType: WorkspaceScopeType;
   companyId: string | null;
-  group: { name: string; canEnter: boolean };
+  /** Whether the Group view can be entered is streamed separately: `useGroupEntry` (NAV-02 COMPAT-01). */
+  group: { name: string };
   company: { name: string; id: string } | null;
 };
 
