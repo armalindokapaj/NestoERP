@@ -7,6 +7,8 @@ import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { loadRecord } from "@/lib/core/records/record.registry";
 import { prisma } from "@/lib/database/prisma";
+import { quickCreateContextKey } from "@/lib/modules/quick-create/context-key";
+import { mayCreate, quickCreateCandidates, supportedInWorkspace } from "@/lib/modules/quick-create/eligibility";
 
 /**
  * Quick Create (Quick Create PRD §2, §7, §33, §87-§98, §147, §148).
@@ -49,17 +51,15 @@ export type QuickCreateMenuDTO = {
   workspace: { scopeType: "GROUP" | "COMPANY"; company: QuickCreateCompany | null };
   /** The current page's record, when it is safe context (§21, §22). */
   context: QuickCreateContextDTO | null;
+  /** The identity and eligibility this menu was drawn for — the shell's own key when nothing changed (NAV-01 QC-02). */
+  contextKey: string;
 };
-
-function mayCreate(context: UserContext, action: QuickCreateActionDefinition): boolean {
-  return isModuleEnabled(context, action.moduleKey) && canAccessModule(context, action.moduleKey) && can(context, action.permission);
-}
 
 const company = (context: UserContext): QuickCreateCompany => ({ id: context.companyId, name: context.company.name });
 
 /** The contexts a Quick Create may act in: the company workspace's own, or each company of the group (§11-§15). */
 async function candidates(session: UserContext): Promise<UserContext[]> {
-  return session.workspace.scopeType === "GROUP" ? resolveGroupContexts(session) : [session];
+  return quickCreateCandidates(session, session.workspace.scopeType === "GROUP" ? await resolveGroupContexts(session) : []);
 }
 
 /**
@@ -97,7 +97,7 @@ export async function listAvailableActions(session: UserContext, input: { pathna
 
   const actions: QuickCreateActionDTO[] = [];
   for (const action of QUICK_CREATE_ACTIONS) {
-    if (inGroup ? !action.supportsGroupWorkspace : !action.supportsCompanyWorkspace) continue;
+    if (!supportedInWorkspace(session.workspace.scopeType, action)) continue;
     const allowed = contexts.filter((context) => mayCreate(context, action));
     // No company to own it is no action at all — not a disabled one (§156).
     if (allowed.length === 0) continue;
@@ -118,6 +118,7 @@ export async function listAvailableActions(session: UserContext, input: { pathna
     actions,
     workspace: { scopeType: inGroup ? "GROUP" : "COMPANY", company: inGroup ? null : company(session) },
     context: page?.dto ?? null,
+    contextKey: quickCreateContextKey(session, contexts),
   };
 }
 
