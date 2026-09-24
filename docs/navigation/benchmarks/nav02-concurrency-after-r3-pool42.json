@@ -1,0 +1,51 @@
+{
+  "label": "nav02r3pool42",
+  "people": 20,
+  "rounds": 5,
+  "wall_ms": 6795,
+  "statuses": {
+    "ok": 800
+  },
+  "report": {
+    "/dashboard": {
+      "n": 100,
+      "median": 359,
+      "p95": 627
+    },
+    "/api/workspaces": {
+      "n": 100,
+      "median": 63,
+      "p95": 142
+    },
+    "/tasks": {
+      "n": 100,
+      "median": 202,
+      "p95": 294
+    },
+    "/api/activity-center/unread-count": {
+      "n": 100,
+      "median": 97,
+      "p95": 187
+    },
+    "/projects": {
+      "n": 100,
+      "median": 200,
+      "p95": 250
+    },
+    "/api/search/home": {
+      "n": 100,
+      "median": 77,
+      "p95": 180
+    },
+    "/finance": {
+      "n": 100,
+      "median": 184,
+      "p95": 273
+    },
+    "/api/quick-create/actions?pathname=%2Fdashboard": {
+      "n": 100,
+      "median": 56,
+      "p95": 107
+    }
+  }
+}

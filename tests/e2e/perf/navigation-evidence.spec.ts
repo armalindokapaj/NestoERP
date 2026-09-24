@@ -136,3 +136,54 @@ test.describe("NAV-01 evidence, phone", () => {
     await shot(page, "phone-03-denied");
   });
 });
+
+/**
+ * NAV-02 release evidence (§20 item 6): the shell's optional slots while held,
+ * failed and retried, over a page that is already usable. Opt-in:
+ * `NAV_EVIDENCE=nav02`, against a production build started with
+ * NESTO_TEST_SHELL_DELAYS=1, whose test-only hook holds or fails a slot's read
+ * as the `nesto-test-shell-delay` cookie says.
+ */
+const SLOT_EVIDENCE = process.env.NAV_EVIDENCE === "nav02";
+
+async function slotStates(page: Page, prefix: string) {
+  const origin = new URL(page.url()).origin;
+  const rules = async (value: string) => page.context().addCookies([{ name: "nesto-test-shell-delay", value, url: origin }]);
+  await rules("workspaces=8000,banner=8000");
+  await page.goto("/tasks", { waitUntil: "commit" });
+  await expect(mainRegion(page).locator("h1").first()).toBeVisible();
+  await expect(page.getByTestId("workspace-slot")).toHaveAttribute("data-state", "pending");
+  await shot(page, `${prefix}-01-slots-pending`);
+  await rules("workspaces=0:fail,banner=0:fail");
+  await page.goto("/tasks");
+  await expect(page.getByTestId("workspace-slot")).toHaveAttribute("data-state", "failed");
+  await expect(page.getByTestId("critical-banner-failed")).toBeVisible();
+  await shot(page, `${prefix}-02-slots-failed`);
+  await page.getByTestId("workspace-slot-retry").click();
+  await page.getByTestId("critical-banner-retry").click();
+  await expect(page.getByTestId("workspace-switcher")).toBeVisible();
+  await expect(page.getByTestId("critical-banner-failed")).toHaveCount(0);
+  await shot(page, `${prefix}-03-slots-retried`);
+}
+
+test.describe("NAV-02 evidence, desktop", () => {
+  test.skip(!SLOT_EVIDENCE, "Set NAV_EVIDENCE=nav02 (and start the server with NESTO_TEST_SHELL_DELAYS=1).");
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("the chooser and the banner held, failed and retried", async ({ page }) => {
+    await signIn(page, "OWNER", { to: "/dashboard" });
+    await slotStates(page, "nav02-desktop");
+  });
+});
+
+test.describe("NAV-02 evidence, phone", () => {
+  test.skip(!SLOT_EVIDENCE, "Set NAV_EVIDENCE=nav02 (and start the server with NESTO_TEST_SHELL_DELAYS=1).");
+  const pixel: Partial<(typeof devices)["Pixel 7"]> = { ...devices["Pixel 7"] };
+  delete pixel.defaultBrowserType;
+  test.use(pixel);
+
+  test("the chooser and the banner held, failed and retried", async ({ page }) => {
+    await signIn(page, "OWNER", { to: "/dashboard" });
+    await slotStates(page, "nav02-phone");
+  });
+});
