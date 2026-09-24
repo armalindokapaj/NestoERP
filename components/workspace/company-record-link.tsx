@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import { useToast } from "@/components/ui/toast";
-import { requestWorkspaceSwitch } from "@/lib/workspace/client";
+import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
 
 /**
  * A link to a record that lives in one company, from the Group workspace
@@ -28,7 +28,7 @@ export function CompanyRecordLink({
 }: Omit<React.ComponentProps<"a">, "href" | "onClick"> & { companyId: string; companyName?: string; href: string }) {
   const t = useTranslations("workspace");
   const toast = useToast();
-  const router = useRouter();
+  const feedback = useNavigationFeedback();
   const [pending, setPending] = React.useState(false);
 
   async function open(event: React.MouseEvent<HTMLAnchorElement>) {
@@ -36,13 +36,16 @@ export function CompanyRecordLink({
     event.preventDefault();
     if (pending) return;
     setPending(true);
-    const result = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId });
+    // The shell shows the wait from the click on, through the switch and the page (NAV-04).
+    const ticket = feedback?.begin(href, "workspace", { ownsWorkspaceSwitch: true }) ?? null;
+    const result = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId }, { echoToThisTab: false });
     if (!result.ok) {
       setPending(false);
-      toast({ title: t("switchFailed", { name: companyName ?? "" }), tone: "danger" });
+      feedback?.store.settle(ticket);
+      if (!result.stale) toast({ title: t("switchFailed", { name: companyName ?? "" }), tone: "danger" });
       return;
     }
-    router.replace(href);
+    openInSwitchedWorkspace(href, { replace: true });
   }
 
   return (

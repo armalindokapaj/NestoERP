@@ -3,9 +3,12 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import type { WorkspaceScopeType } from "@/config/workspace";
+import type { NavigationTicket } from "@/lib/navigation/feedback-store";
 import {
   confirmWorkspaceNavigation,
+  openInSwitchedWorkspace,
   requestWorkspaceSwitch,
 } from "@/lib/workspace/client";
 
@@ -88,6 +91,20 @@ export function RecordNavigationProvider({
   const [history, setHistory] = React.useState<StoredHistory>({ entries: [], index: -1 });
   const movingTo = React.useRef<number | null>(null);
   const navigating = React.useRef(false);
+  const feedback = useNavigationFeedback();
+  // Router calls run as transitions: when one ends without a commit (cancelled, same page), the
+  // lock and the shell's pending feedback are released rather than left stuck (NAV-04).
+  const [transitionPending, startTransition] = React.useTransition();
+  const ticket = React.useRef<NavigationTicket | null>(null);
+  const wasPending = React.useRef(false);
+  React.useEffect(() => {
+    if (wasPending.current && !transitionPending) {
+      navigating.current = false;
+      feedback?.store.settle(ticket.current);
+      ticket.current = null;
+    }
+    wasPending.current = transitionPending;
+  }, [transitionPending, feedback]);
 
   React.useEffect(() => {
     const stored = readHistory();
@@ -159,15 +176,18 @@ export function RecordNavigationProvider({
     const target = history.entries[targetIndex];
     if (!target) return;
     navigating.current = true;
+    const crossing = target.workspaceKey !== workspace.key;
+    ticket.current = feedback?.store.begin(null, "history", { ownsWorkspaceSwitch: crossing }) ?? null;
 
     const result = await requestWorkspaceSwitch({
       scopeType: target.scopeType,
       companyId: target.companyId,
       currentPathname: target.route.split("?")[0],
       currentSearch: target.route.includes("?") ? `?${target.route.split("?").slice(1).join("?")}` : "",
-    }, { publishChange: target.workspaceKey !== workspace.key });
+    }, { publishChange: crossing, echoToThisTab: false });
     if (!result.ok) {
       navigating.current = false;
+      feedback?.store.settle(ticket.current);
       return;
     }
 
@@ -176,41 +196,51 @@ export function RecordNavigationProvider({
     writeHistory(nextHistory);
     setHistory(nextHistory);
     const destination = result.data.navigation.destination;
-    const sameWorkspace = target.workspaceKey === workspace.key;
-    const exact = destination === target.route;
-    if (sameWorkspace && exact) {
-      if (direction < 0) router.back();
-      else router.forward();
-    } else {
-      router.replace(destination);
+    if (crossing) {
+      // The stored history already points at the target; the new document restores it.
+      window.dispatchEvent(new CustomEvent(direction < 0 ? "NAV_HISTORY_BACK" : "NAV_HISTORY_FORWARD"));
+      openInSwitchedWorkspace(destination, { replace: true });
+      return;
     }
+    startTransition(() => {
+      if (destination === target.route) {
+        if (direction < 0) router.back();
+        else router.forward();
+      } else {
+        router.replace(destination);
+      }
+    });
     window.dispatchEvent(new CustomEvent(direction < 0 ? "NAV_HISTORY_BACK" : "NAV_HISTORY_FORWARD"));
-  }, [history, router, workspace.key]);
+  }, [history, router, workspace.key, feedback]);
 
   const navigate = React.useCallback((href: string) => {
     if (navigating.current || !confirmWorkspaceNavigation()) return;
     navigating.current = true;
-    router.push(href);
+    ticket.current = feedback?.begin(href, "breadcrumb") ?? null;
+    startTransition(() => router.push(href));
     window.dispatchEvent(new CustomEvent("NAV_BREADCRUMB_CLICK"));
-  }, [router]);
+  }, [router, feedback]);
 
   const navigateWorkspace = React.useCallback(async (scopeType: WorkspaceScopeType, companyId: string | null, href: string) => {
     if (navigating.current) return;
     navigating.current = true;
+    ticket.current = feedback?.begin(href, "workspace", { ownsWorkspaceSwitch: true }) ?? null;
     const [currentPathname, query = ""] = href.split("?");
     const result = await requestWorkspaceSwitch({
       scopeType,
       companyId,
       currentPathname,
       currentSearch: query ? `?${query}` : "",
-    });
+    }, { echoToThisTab: false });
     if (!result.ok) {
       navigating.current = false;
+      feedback?.store.settle(ticket.current);
       return;
     }
-    router.push(result.data.navigation.destination);
     window.dispatchEvent(new CustomEvent("NAV_BREADCRUMB_CLICK"));
-  }, [router]);
+    if (result.data.switched) openInSwitchedWorkspace(result.data.navigation.destination);
+    else startTransition(() => router.push(result.data.navigation.destination));
+  }, [router, feedback]);
 
   return (
     <NavigationContext.Provider value={{

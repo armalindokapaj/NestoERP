@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useFeedbackRouter, useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import { useToast } from "@/components/ui/toast";
-import { requestWorkspaceSwitch } from "@/lib/workspace/client";
+import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
 
 export type OpenWorkspace = { scopeType: "GROUP" | "COMPANY"; companyId: string | null };
 export type OpenTarget = { href: string; company?: { id: string; name: string } | null };
@@ -21,7 +21,8 @@ export type OpenTarget = { href: string; company?: { id: string; name: string } 
  * decided from a label the list carried.
  */
 export function useOpenRecord(workspace: OpenWorkspace | null | undefined) {
-  const router = useRouter();
+  const router = useFeedbackRouter();
+  const feedback = useNavigationFeedback();
   const toast = useToast();
   const t = useTranslations("workspace");
   const [pending, setPending] = React.useState(false);
@@ -31,21 +32,26 @@ export function useOpenRecord(workspace: OpenWorkspace | null | undefined) {
       if (pending) return false;
       const company = target.company;
       if (!company || (workspace?.scopeType === "COMPANY" && workspace.companyId === company.id)) {
-        router.push(target.href);
+        router.push(target.href, { source: "record" });
         return true;
       }
       setPending(true);
+      const ticket = feedback?.begin(target.href, "workspace", { ownsWorkspaceSwitch: true }) ?? null;
       const [currentPathname, search = ""] = target.href.split("?");
-      const entered = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId: company.id, currentPathname, currentSearch: search ? `?${search}` : "" });
-      setPending(false);
+      const entered = await requestWorkspaceSwitch(
+        { scopeType: "COMPANY", companyId: company.id, currentPathname, currentSearch: search ? `?${search}` : "" },
+        { echoToThisTab: false },
+      );
       if (!entered.ok) {
+        setPending(false);
+        feedback?.store.settle(ticket);
         if (!entered.stale) toast({ title: t("switchFailed", { name: company.name }), tone: "danger" });
         return false;
       }
-      router.replace(entered.data.navigation.destination);
+      openInSwitchedWorkspace(entered.data.navigation.destination, { replace: true });
       return true;
     },
-    [pending, workspace, router, toast, t],
+    [pending, workspace, router, feedback, toast, t],
   );
 
   return { open, pending };

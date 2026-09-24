@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import { Building2, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useToast } from "@/components/ui/toast";
-import { requestWorkspaceSwitch } from "@/lib/workspace/client";
+import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
 
 export type ChooseCompanyOption = { id: string; name: string; roleLabel: string };
 
@@ -18,19 +18,21 @@ export type ChooseCompanyOption = { id: string; name: string; roleLabel: string 
 export function ChooseCompany({ companies, destination }: { companies: ChooseCompanyOption[]; destination: string }) {
   const t = useTranslations("workspace");
   const toast = useToast();
-  const router = useRouter();
+  const feedback = useNavigationFeedback();
   const [pending, setPending] = React.useState<string | null>(null);
 
   async function choose(company: ChooseCompanyOption) {
     if (pending) return;
     setPending(company.id);
-    const result = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId: company.id });
+    const ticket = feedback?.begin(destination, "workspace", { ownsWorkspaceSwitch: true }) ?? null;
+    const result = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId: company.id }, { echoToThisTab: false });
     if (!result.ok) {
       setPending(null);
+      feedback?.store.settle(ticket);
       toast({ title: t("switchFailed", { name: company.name }), tone: "danger" });
       return;
     }
-    router.replace(destination);
+    openInSwitchedWorkspace(destination, { replace: true });
   }
 
   return (

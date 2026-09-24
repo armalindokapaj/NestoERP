@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, MessageSquare, Pencil, Plus, Send, Stamp } from "lucide-react";
 
@@ -15,7 +15,7 @@ import { addLocalDays, dayLabel, formatMinutes, weekLabel } from "@/lib/modules/
 import { WORK_LOG_TYPE_LABELS, type TimesheetFormOptions, type TimesheetWeekDTO, type WorkLogDTO } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
-import { setWorkspaceDirtyState } from "@/lib/workspace/client";
+import { isLeavingForWorkspaceSwitch, setWorkspaceDirtyState } from "@/lib/workspace/client";
 import { TimesheetEntryDrawer, type EntryDraft } from "./timesheet-entry-drawer";
 import { TimesheetGrid, type CellCommit, type RowTemplate } from "./timesheet-grid";
 import { TimesheetHistory } from "./timesheet-history";
@@ -69,7 +69,9 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
   // Leaving with a cell still saving would lose it (§208).
   React.useEffect(() => {
     if (!pendingSaves) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!isLeavingForWorkspaceSwitch()) event.preventDefault();
+    };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [pendingSaves]);

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
-import { setWorkspaceDirtyState } from "@/lib/workspace/client";
+import { isLeavingForWorkspaceSwitch, setWorkspaceDirtyState } from "@/lib/workspace/client";
 
 /**
  * The shared create/edit form shell (PRD #7 §43, PRD #10 §151).
@@ -130,7 +130,9 @@ export function RecordForm({
   // Browser-level protection; the in-app guard is the cancel confirm below.
   React.useEffect(() => {
     if (!dirty) return;
-    const handler = (event: BeforeUnloadEvent) => event.preventDefault();
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!isLeavingForWorkspaceSwitch()) event.preventDefault();
+    };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);

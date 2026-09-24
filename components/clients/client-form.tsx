@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ClientActionResult } from "@/lib/actions/clients";
 import type { DuplicateMatch } from "@/lib/modules/clients/client.duplicate";
-import { setWorkspaceDirtyState } from "@/lib/workspace/client";
+import { isLeavingForWorkspaceSwitch, setWorkspaceDirtyState } from "@/lib/workspace/client";
 
 /**
  * Create / edit client form (PRD #12 §41, §53, §66).
@@ -84,7 +84,9 @@ export function ClientForm({
 
   React.useEffect(() => {
     if (!dirty) return;
-    const handler = (event: BeforeUnloadEvent) => event.preventDefault();
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!isLeavingForWorkspaceSwitch()) event.preventDefault();
+    };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
