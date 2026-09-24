@@ -1,6 +1,8 @@
 import { DEMO_ACCOUNT_SECTIONS, DEMO_PASSWORD, PRIMARY_DEMO_ACCOUNTS, demoAccountByUsername, type DemoAccountSection } from "@/config/demo-accounts";
 import { GROUP_DEPARTMENTS } from "@/config/group-departments";
 import { roles, type RoleKey } from "@/config/roles";
+import { unstable_cache } from "next/cache";
+
 import { prisma } from "@/lib/database/prisma";
 import { SIGN_IN_ACCOUNT, signInWorkspace } from "./credentials";
 import { verifyPassword } from "./password";
@@ -147,7 +149,19 @@ function option(role: RoleKey, username: string, name: string, assignment: strin
  * The rosters: each demo tenant's people as its data has them, its busiest
  * company open (D-01 §87), then the curated five-company demo, folded.
  */
-export async function demoRosters(): Promise<DemoRosterOption[]> {
+const cachedDemoRosters = unstable_cache(readDemoRosters, ["demo-rosters"], { revalidate: 300 });
+
+/** Held only inside the Next server; a script or a test reads the database. */
+export function demoRosters(): Promise<DemoRosterOption[]> {
+  return process.env.NEXT_RUNTIME ? cachedDemoRosters() : readDemoRosters();
+}
+
+/*
+ * The roster is about eight queries in a row, and it was read on every sign-in
+ * page and every signed-in page (the demo user switcher). It changes only when
+ * a demo is seeded, so it is held for five minutes rather than re-read.
+ */
+async function readDemoRosters(): Promise<DemoRosterOption[]> {
   // A convenience: a database it cannot read leaves the curated personas, by username.
   const [tenants, curated] = await Promise.all([
     listDemoTenants().catch((): DemoTenant[] => []),
