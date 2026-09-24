@@ -6,9 +6,10 @@ import * as React from "react";
  * The top bar's panels, loaded when they are wanted (NAV-03 §6).
  *
  * - One overlay at a time: opening one closes the other (RUNTIME-01).
- * - A panel's body is a separate chunk behind a stable loader. A rejected
- *   attempt can be replaced by one explicit retry; after a second failure the
- *   person is offered a reload, since the build may have moved on (PANEL-03).
+ * - A panel's body is a separate chunk behind a stable loader. The loader
+ *   forgets a rejected attempt on reset, but Turbopack's runtime keeps a
+ *   chunk's failed load for the document's life, so the panel offers Reload
+ *   rather than an in-page retry (PANEL-03; see panel-frame.tsx).
  * - Code warming on a deliberate hover or focus, within two speculative loads
  *   a minute, never while hidden, offline, on Save-Data or 2g (PANEL-06).
  */
