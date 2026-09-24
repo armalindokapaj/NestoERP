@@ -2,39 +2,26 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { Archive, ArrowUpRight, Link2, MoreHorizontal, PenLine, RefreshCw, Star } from "lucide-react";
+import { ArrowUpRight, ExternalLink, Link2, MoreHorizontal, Star } from "lucide-react";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
-import type { PortfolioProjectDTO } from "@/lib/modules/projects/project.types";
-import { cn } from "@/lib/utils/cn";
+import type { ProjectCardDTO } from "@/lib/modules/projects/project.types";
 
 /**
- * The card's action menu (E-05A §33).
+ * The card's action menu (Projects Workspace Grid §56, §57).
  *
- * Every item is derived from the permissions the server attached to this
- * project in its own company — nothing here asks what role somebody holds.
+ * Opening, starring and sharing — what anybody who can see the card may do.
+ * Editing, status and archiving live on the project's own page, where the
+ * person has chosen the project; the gallery stays a place to find one.
  * Opening the menu never opens the project.
  */
-export function ProjectCardMenu({
-  project,
-  onToggleFavorite,
-  onChangeStatus,
-  onArchive,
-  variant = "overlay",
-}: {
-  project: PortfolioProjectDTO;
-  onToggleFavorite: () => void;
-  onChangeStatus: () => void;
-  onArchive: () => void;
-  variant?: "overlay" | "inline";
-}) {
+export function ProjectCardMenu({ project, onToggleFavorite }: { project: ProjectCardDTO; onToggleFavorite: () => void }) {
   const toast = useToast();
 
   async function copyLink() {
@@ -46,22 +33,16 @@ export function ProjectCardMenu({
     }
   }
 
-  const canChangeStatus = project.permissions.manageStatus && project.statusMoves.length > 0;
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           onClick={(event) => event.stopPropagation()}
-          aria-label={`Actions for ${project.name}`}
+          aria-label={`Project actions for ${project.name}`}
           data-testid="project-menu"
-          className={cn(
-            "relative z-10 inline-flex items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            variant === "overlay"
-              ? "size-9 border border-line/70 bg-surface/90 text-fg shadow-card backdrop-blur-sm hover:bg-surface"
-              : "size-8 text-fg-subtle hover:bg-hover hover:text-fg",
-          )}
+          // 44 px where a finger aims it, 36 px under a pointer (§154).
+          className="relative z-10 inline-flex size-11 items-center justify-center rounded-full border border-line/70 bg-surface/90 text-fg shadow-card backdrop-blur-sm transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:size-9"
         >
           <MoreHorizontal aria-hidden="true" className="size-4" />
         </button>
@@ -73,7 +54,13 @@ export function ProjectCardMenu({
             Open project
           </Link>
         </DropdownMenuItem>
-        {project.permissions.favorite ? (
+        <DropdownMenuItem asChild>
+          <a href={project.href} target="_blank" rel="noopener noreferrer">
+            <ExternalLink />
+            Open in new tab
+          </a>
+        </DropdownMenuItem>
+        {project.canFavorite ? (
           <DropdownMenuItem onSelect={onToggleFavorite}>
             <Star />
             {project.isFavorite ? "Remove from favorites" : "Add to favorites"}
@@ -83,32 +70,6 @@ export function ProjectCardMenu({
           <Link2 />
           Copy project link
         </DropdownMenuItem>
-
-        {project.permissions.edit || canChangeStatus ? <DropdownMenuSeparator /> : null}
-        {project.permissions.edit ? (
-          <DropdownMenuItem asChild>
-            <Link href={`${project.href}/edit`} prefetch={false}>
-              <PenLine />
-              Edit project
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {canChangeStatus ? (
-          <DropdownMenuItem onSelect={onChangeStatus}>
-            <RefreshCw />
-            Change status…
-          </DropdownMenuItem>
-        ) : null}
-
-        {project.permissions.archive ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onArchive}>
-              <Archive />
-              Archive project…
-            </DropdownMenuItem>
-          </>
-        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

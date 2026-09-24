@@ -4,7 +4,9 @@ import { db, removeTestProjects } from "../db";
 import { mainRegion, signIn } from "../fixtures";
 
 /**
- * The Projects journey (PRD #9 §153, §163, PRD #10 §241–§246, E-05A §63-§70).
+ * The Projects journey (PRD #9 §153, §163, PRD #10 §241–§246, E-05A §63-§70,
+ * Projects Workspace Grid §193-§198; the grid itself is in
+ * projects-workspace-grid.spec.ts).
  *
  * Every demo company runs one project (E-06 §45): Aurelia's project manager,
  * architect and viewer see Riverside Residences, and the Owner, a member of all
@@ -51,33 +53,17 @@ test.describe("Project Manager (PRD #9 §153)", () => {
 
   test("search returns nothing for an out-of-scope project (PRD #9 §169)", async ({ page }) => {
     await page.goto("/projects?q=Marina");
-    await expect(mainRegion(page).getByText(/no projects match these filters/i)).toBeVisible();
+    await expect(mainRegion(page).getByText("No projects found.")).toBeVisible();
+    // The header still counts what the person can see, not what the search found.
+    // Other specs may add projects mid-run, so the words are asserted, not the number.
+    await expect(mainRegion(page).getByText(/^\d+ projects? in Aurelia Construction$/)).toBeVisible();
   });
 
-  test("filters do not offer a place the person cannot see (E-05A §18, §73)", async ({ page }) => {
+  test("keeps the search in the URL, and Back returns to it (Projects Workspace Grid §182)", async ({ page }) => {
     await page.goto("/projects");
-
-    const location = mainRegion(page).getByLabel("Location");
-    await expect(location.locator("option", { hasText: "Tiranë" })).toHaveCount(1);
-    const options = await location.locator("option").allTextContents();
-    // Meridian's tower is in Durrës and Forma's apartments in Vlorë.
-    expect(options.join(" ")).not.toContain("Durrës");
-    expect(options.join(" ")).not.toContain("Vlorë");
-    // One company: no company filter to choose from.
-    await expect(mainRegion(page).getByLabel("Company")).toHaveCount(0);
-  });
-
-  test("keeps search, filters and sort in the URL, and Back returns to them (E-05A §48)", async ({ page }) => {
-    await page.goto("/projects?status=ACTIVE&sort=name-asc");
-
-    await expect(mainRegion(page).getByRole("button", { name: "Active", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(mainRegion(page).getByLabel("Sort", { exact: true })).toHaveValue("name-asc");
-    await page.reload();
-    await expect(mainRegion(page).getByLabel("Sort", { exact: true })).toHaveValue("name-asc");
-
     await mainRegion(page).getByRole("searchbox", { name: "Search projects" }).fill("Riverside");
-    await expect(page).toHaveURL(/q=Riverside/);
-    await expect(card(page, "Central Office Tower")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/projects\?q=Riverside$/);
+    await expect(mainRegion(page).getByTestId("projects-result-count")).toHaveText("1 project found");
 
     await card(page, "Riverside Residences").getByTestId("project-card-link").click();
     await expect(page).toHaveURL(/\/projects\/project_a$/);
@@ -85,29 +71,6 @@ test.describe("Project Manager (PRD #9 §153)", () => {
     await expect(page).toHaveURL(/q=Riverside/);
     await expect(card(page, "Riverside Residences")).toBeVisible();
     await expect(mainRegion(page).getByRole("searchbox", { name: "Search projects" })).toHaveValue("Riverside");
-  });
-
-  test("shows Clear filters only while something is filtered or re-sorted (E-05A §32, §53)", async ({ page }) => {
-    await page.goto("/projects");
-    await expect(mainRegion(page).getByTestId("projects-clear-filters")).toHaveCount(0);
-    await expect(mainRegion(page).getByTestId("projects-result-count")).toHaveCount(0);
-
-    // A sort narrows nothing, so there is no result count — but it can be cleared.
-    await page.goto("/projects?sort=name-asc");
-    await expect(mainRegion(page).getByTestId("projects-clear-filters")).toBeVisible();
-    await expect(mainRegion(page).getByTestId("projects-result-count")).toHaveCount(0);
-
-    // Each active value is a chip that removes only itself.
-    await page.goto("/projects?status=ACTIVE&sort=name-asc");
-    // Other specs may add projects mid-run, so the words are asserted, not the number.
-    await expect(mainRegion(page).getByTestId("projects-result-count")).toHaveText(/^\d+ results?$/);
-    await mainRegion(page).getByRole("button", { name: "Remove Sort: Project name A–Z" }).click();
-    await expect(page).toHaveURL(/\/projects\?status=ACTIVE$/);
-    await expect(mainRegion(page).getByRole("button", { name: "Remove Status: Active" })).toBeVisible();
-
-    await mainRegion(page).getByTestId("projects-clear-filters").click();
-    await expect(page).toHaveURL(/\/projects$/);
-    await expect(mainRegion(page).getByTestId("projects-clear-filters")).toHaveCount(0);
   });
 
   test("uses the simple project home and keeps detailed work in normal modules", async ({ page }) => {
@@ -135,7 +98,7 @@ test.describe("Project Manager changes a status (E-05A §12, §68)", () => {
     await removeTestProjects(prefix);
   });
 
-  test("moves a project they manage from the card menu, and it stays on the page", async ({ page }) => {
+  test("moves a project they manage from the project's own menu, and the card says so", async ({ page }) => {
     const pm = await db.companyMember.findFirstOrThrow({ where: { user: { username: "pm-a" }, companyId: "company_demo_a" } });
     const name = `Status Test ${Date.now().toString().slice(-6)}`;
     const project = await db.project.create({
@@ -144,20 +107,24 @@ test.describe("Project Manager changes a status (E-05A §12, §68)", () => {
     await db.projectMember.create({ data: { companyId: "company_demo_a", projectId: project.id, companyMemberId: pm.id, projectRole: "Project Manager", status: "ACTIVE" } });
 
     await signIn(page, "PROJECT_MANAGER");
+    // The card's menu opens, stars and shares; status is the project page's (Projects Workspace Grid §56, §57).
     await page.goto(`/projects?q=${encodeURIComponent(name)}`);
+    await card(page, name).getByTestId("project-menu").click();
+    await expect(page.getByRole("menuitem", { name: /change status/i })).toHaveCount(0);
+    await page.keyboard.press("Escape");
 
-    const target = card(page, name);
-    await target.getByTestId("project-menu").click();
+    await page.goto(`/projects/${project.id}`);
+    await page.getByRole("button", { name: "More project actions" }).click();
     await page.getByRole("menuitem", { name: /change status/i }).click();
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("radio", { name: /finished/i }).check();
     await dialog.getByLabel(/reason/i).fill("Handover completed");
     await dialog.getByRole("button", { name: /change status/i }).click();
+    await expect(dialog).toBeHidden();
 
-    await expect(target.getByTestId("project-status")).toHaveText("Finished");
     // Finished is not a separate section: it is still in the one collection.
-    await page.reload();
+    await page.goto(`/projects?q=${encodeURIComponent(name)}`);
     await expect(card(page, name).getByTestId("project-status")).toHaveText("Finished");
 
     const audit = await db.auditEvent.findFirst({ where: { entityId: project.id, actionKey: "PROJECT_STATUS_CHANGED" } });
@@ -178,10 +145,9 @@ test.describe("Architect (PRD #9 §154)", () => {
 
   test("may contribute but neither create nor change a status (PRD #10 §124, E-05A §11)", async ({ page }) => {
     await signIn(page, "ARCHITECT");
-    await page.goto("/projects");
+    await page.goto("/projects/project_a");
 
-    await expect(page.getByRole("link", { name: /new project/i })).toHaveCount(0);
-    await card(page, "Riverside Residences").getByTestId("project-menu").click();
+    await page.getByRole("button", { name: "More project actions" }).click();
     await expect(page.getByRole("menuitem", { name: /edit project/i })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: /change status/i })).toHaveCount(0);
     await page.keyboard.press("Escape");
@@ -251,19 +217,23 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
     await db.userFavorite.deleteMany({ where: { entityType: "project", entityId: "project_c", memberId: { in: ["member_owner", "member_owner__c"] } } });
   });
 
-  test("gives every cover the 3:4 shape, image or placeholder (E-05A §7.1, §8)", async ({ page }) => {
+  test("gives every cover the 3:4 shape, image or placeholder (E-05A §7.1, §8; Projects Workspace Grid §41-§45)", async ({ page }) => {
     // Two companies' projects on one page is the Group workspace (Workspace Context §83).
     await signIn(page, "OWNER", { workspace: "GROUP" });
     await page.goto("/projects");
 
     for (const name of ["Riverside Residences", "Central Office Tower"]) {
-      const cover = card(page, name).locator(".aspect-\\[3\\/4\\]");
-      const box = await cover.boundingBox();
+      const box = await card(page, name).getByTestId("project-cover").boundingBox();
       expect(box, name).not.toBeNull();
       expect(box!.height / box!.width, name).toBeCloseTo(4 / 3, 1);
     }
-    await expect(card(page, "Central Office Tower").getByRole("img", { name: "Cover image of Central Office Tower" })).toBeVisible();
-    await expect(card(page, "Riverside Residences").getByRole("img", { name: "No cover image for Riverside Residences" })).toBeVisible();
+    // A cover is decorative — the name is right underneath — and a project
+    // without one shows its initials, never a broken image.
+    const cover = card(page, "Central Office Tower").getByTestId("project-cover").locator("img");
+    await expect(cover).toBeVisible();
+    await expect(cover).toHaveAttribute("alt", "");
+    await expect(cover).toHaveAttribute("loading", "lazy");
+    await expect(card(page, "Riverside Residences").getByTestId("project-placeholder")).toHaveText("RR");
   });
 
   test("creates, edits, archives and restores a project", async ({ page }) => {
@@ -293,8 +263,8 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
     await page.getByRole("button", { name: /save changes/i }).click();
     await expect(page.getByRole("heading", { name: "End-to-end Renamed" })).toBeVisible();
 
-    // The new project is on the Projects page, typed.
-    await page.goto("/projects?type=Hospital");
+    // The new project is on the Projects page.
+    await page.goto(`/projects?q=${encodeURIComponent("End-to-end Renamed")}`);
     await expect(card(page, "End-to-end Renamed")).toBeVisible();
 
     // Archive, with confirmation
@@ -316,44 +286,28 @@ test.describe("Owner (PRD #9 §148, PRD #10 §241)", () => {
     await expect(page.getByText(/this project is archived/i)).toHaveCount(0);
   });
 
-  test("stars a project to the top, without opening it (E-05A §13, §14, §25)", async ({ page }) => {
+  test("stars a project without opening it or moving it (Projects Workspace Grid §31, §32, §52)", async ({ page }) => {
     // Logistics Hub is Terra's, so the list that holds it is the group's (§83).
     await signIn(page, "OWNER", { workspace: "GROUP" });
     await page.goto("/projects");
+    const order = async () => mainRegion(page).getByTestId("project-card").evaluateAll((cards) => cards.map((card) => card.getAttribute("data-project-id")));
+    await expect(card(page, "Logistics Hub")).toBeVisible();
+    const before = await order();
 
     const hub = card(page, "Logistics Hub");
     const saved = page.waitForResponse((response) => response.url().endsWith("/api/projects/project_c/favorite") && response.request().method() === "POST");
-    await hub.getByTestId("project-favorite").click();
+    await hub.getByRole("button", { name: /^Add East Gate Logistics Hub to favorites$/ }).click();
     expect((await saved).ok()).toBe(true);
     await expect(page).toHaveURL(/\/projects$/);
     await expect(hub.getByTestId("project-favorite")).toHaveAttribute("aria-pressed", "true");
 
     await page.reload();
-    await expect(mainRegion(page).getByTestId("project-card").first()).toHaveAttribute("data-project-id", "project_c");
-
-    await page.goto("/projects?favorites=1");
-    await expect(mainRegion(page).getByTestId("project-card")).toHaveCount(1);
+    await expect(card(page, "Logistics Hub").getByTestId("project-favorite")).toHaveAttribute("aria-pressed", "true");
+    expect(await order()).toEqual(before);
 
     const removed = page.waitForResponse((response) => response.url().endsWith("/api/projects/project_c/favorite") && response.request().method() === "DELETE");
-    await card(page, "Logistics Hub").getByTestId("project-favorite").click();
+    await card(page, "Logistics Hub").getByRole("button", { name: /^Remove East Gate Logistics Hub from favorites$/ }).click();
     expect((await removed).ok()).toBe(true);
-  });
-
-  test("remembers the list view (E-05A §22, §23)", async ({ page }) => {
-    // Marina Apartments is Forma's, so this is the group's list (§83).
-    await signIn(page, "OWNER", { workspace: "GROUP" });
-    await page.goto("/projects");
-
-    // Scoped to the main region: after a reload the list streams in, and for a
-    // moment React's parked copy of it is in the document too (see mainRegion).
-    await mainRegion(page).getByRole("button", { name: "List view" }).click();
-    await expect(mainRegion(page).getByTestId("project-list")).toBeVisible();
-    await page.reload();
-    await expect(mainRegion(page).getByTestId("project-list")).toBeVisible();
-    await expect(mainRegion(page).getByTestId("project-list").getByRole("link", { name: "Marina Apartments" })).toBeVisible();
-
-    await mainRegion(page).getByRole("button", { name: "Gallery view" }).click();
-    await expect(mainRegion(page).getByTestId("project-gallery")).toBeVisible();
   });
 
   test("refuses a duplicate project code (PRD #10 §41)", async ({ page }) => {
@@ -428,23 +382,27 @@ test.describe("Project types (E-05A §30, §62)", () => {
 });
 
 test.describe("CEO (E-05A §29, §60, E-06)", () => {
-  test("may create projects, and a new one starts Pending", async ({ page }) => {
+  test("creates projects from + Create, not from a second button on the page (Projects Workspace Grid §74, §75)", async ({ page }) => {
     await signIn(page, "CEO");
     await page.goto("/projects");
-    await page.getByRole("link", { name: /new project/i }).click();
-    await expect(page).toHaveURL(/\/projects\/new$/);
+    await expect(mainRegion(page).getByTestId("project-card").first()).toBeVisible();
+    await expect(mainRegion(page).getByRole("link", { name: /new project/i })).toHaveCount(0);
+
+    await page.getByTestId("quick-create-button").click();
+    await page.getByTestId("quick-create-projects.project.create").click();
+    await expect(page).toHaveURL(/\/projects\/new/);
     await expect(page.getByTestId("project-form-company")).toContainText("Aurelia Construction");
   });
 });
 
 test.describe("Legacy project list links", () => {
-  test("All Projects and My Projects land on the Projects page", async ({ page }) => {
+  test("All Projects and My Projects land on the Projects page, with their search only (Projects Workspace Grid §184)", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER");
     await page.goto("/projects/all?status=COMPLETED&search=Tower");
-    await expect(page).toHaveURL(/\/projects\?q=Tower&status=FINISHED$/);
+    await expect(page).toHaveURL(/\/projects\?q=Tower$/);
 
     await page.goto("/projects/my-projects");
-    await expect(page).toHaveURL(/\/projects\?role=%40assigned$/);
+    await expect(page).toHaveURL(/\/projects$/);
     await expect(card(page, "Riverside Residences")).toBeVisible();
   });
 });

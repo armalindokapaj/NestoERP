@@ -70,7 +70,7 @@ test.describe("mobile navigation", () => {
 });
 
 test.describe("mobile module layout (PRD #9 §184)", () => {
-  test("shows projects as cards, two to a row, with the star and the company in reach (E-05A §24)", async ({ page }) => {
+  test("shows projects as full-width cards, one to a row, with the star and the menu in reach (Projects Workspace Grid §151-§154)", async ({ page }) => {
     // The Owner sees a project in each of the group's five companies (E-06 §45),
     // which is the Group workspace's list (Workspace Context §83).
     await signIn(page, "OWNER", { workspace: "GROUP" });
@@ -79,39 +79,30 @@ test.describe("mobile module layout (PRD #9 §184)", () => {
     await expect(page.getByRole("table")).toBeHidden();
     const cards = page.locator("#nesto-main").getByTestId("project-card");
     await expect(cards.first()).toBeVisible();
-    const [first, second] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()]);
-    expect(Math.abs(first!.y - second!.y)).toBeLessThan(2);
-    await expect(cards.first().getByTestId("project-favorite")).toBeVisible();
+    const [first, second, main] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox(), page.locator("#nesto-main").boundingBox()]);
+    expect(second!.y).toBeGreaterThan(first!.y + first!.height - 1);
+    // The main region's side padding is all that is left beside a card.
+    expect(first!.width).toBeGreaterThan(main!.width - 40);
+    // A phone's one column shows the render landscape, so a screen holds more than one card.
+    const cover = await cards.first().getByTestId("project-cover").boundingBox();
+    expect(cover!.width / cover!.height).toBeCloseTo(4 / 3, 1);
+
+    for (const control of ["project-favorite", "project-menu"]) {
+      const box = await cards.first().getByTestId(control).boundingBox();
+      expect(box!.width, control).toBeGreaterThanOrEqual(44);
+      expect(box!.height, control).toBeGreaterThanOrEqual(44);
+    }
     await expect(cards.first().getByTestId("project-company")).toBeVisible();
     await expect(cards.first().getByTestId("project-status")).toBeVisible();
   });
 
-  test("moves filters and the sort into a sheet that applies them together (PRD #7 §88, E-05A §39)", async ({ page }) => {
-    // The group's list, so every company's project types are on offer (§83, §86).
+  test("keeps the search and nothing else above the cards (Projects Workspace Grid §151)", async ({ page }) => {
     await signIn(page, "OWNER", { workspace: "GROUP" });
     await page.goto("/projects");
-
-    await page.locator("#nesto-main").getByTestId("projects-filters-open").click();
-    const sheet = page.getByRole("dialog");
-    await expect(sheet).toBeVisible();
-    await sheet.getByLabel("Project type").selectOption({ label: "Commercial" });
-    await sheet.getByLabel("Sort").selectOption({ label: "Project name Z–A" });
-    // Nothing moves behind the sheet until Apply.
-    await expect(page).toHaveURL(/\/projects$/);
-    await sheet.getByRole("button", { name: "Apply" }).click();
-
-    await expect(page).toHaveURL(/type=Commercial/);
-    await expect(page).toHaveURL(/sort=name-desc/);
-    await expect(page.locator("#nesto-main").getByTestId("project-card")).toHaveCount(1);
-    // Reopening while the sheet is still sliding out (180ms) raced its closing
-    // and left it shut about one run in three; a person waits for it to go.
-    await expect(sheet).toBeHidden();
-
-    // Reset clears the sheet; Apply then clears the page.
-    await page.locator("#nesto-main").getByTestId("projects-filters-open").click();
-    await sheet.getByRole("button", { name: "Reset" }).click();
-    await sheet.getByRole("button", { name: "Apply" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
+    const main = page.locator("#nesto-main");
+    await expect(main.getByRole("searchbox", { name: "Search projects" })).toBeVisible();
+    await expect(main.getByTestId("projects-filters-open")).toHaveCount(0);
+    await expect(main.getByRole("combobox")).toHaveCount(0);
   });
 
   test("never scrolls the page sideways", async ({ page }) => {

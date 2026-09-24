@@ -3,27 +3,29 @@
 import * as React from "react";
 import Image from "next/image";
 
-import type { PortfolioProjectDTO } from "@/lib/modules/projects/project.types";
+import type { ProjectCardDTO } from "@/lib/modules/projects/project.types";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The 3:4 cover, or a placeholder that holds the same shape (E-05A §7.1, §8, §44).
+ * The cover, or a placeholder that holds the same shape (E-05A §7.1, §8, §44;
+ * Projects Workspace Grid §43-§46, §105, §165).
  *
  * The thumbnail comes from the project's authorised cover endpoint, already
  * sized for a card, so it is served as it is rather than through the image
  * optimiser — which would fetch it without the reader's session. It loads
  * lazily into space the card has already reserved, so nothing shifts when it
  * arrives. A thumbnail that fails falls back to the placeholder rather than a
- * broken image.
+ * broken image. Both are decorative: the project's name is the card's link,
+ * right underneath.
  */
-export function ProjectCover({ project, sizes, className }: { project: Pick<PortfolioProjectDTO, "id" | "name" | "cover">; sizes: string; className?: string }) {
+export function ProjectCover({ project, sizes, className }: { project: Pick<ProjectCardDTO, "id" | "initials" | "cover">; sizes: string; className?: string }) {
   const [failed, setFailed] = React.useState(false);
 
   if (project.cover && !failed) {
     return (
       <Image
         src={project.cover.thumbnailUrl}
-        alt={`Cover image of ${project.name}`}
+        alt=""
         fill
         sizes={sizes}
         unoptimized
@@ -34,7 +36,7 @@ export function ProjectCover({ project, sizes, className }: { project: Pick<Port
     );
   }
 
-  return <ProjectPlaceholder id={project.id} name={project.name} className={className} />;
+  return <ProjectPlaceholder id={project.id} initials={project.initials} className={className} />;
 }
 
 const TONES = [
@@ -52,20 +54,12 @@ function toneFor(id: string): string {
   return TONES[hash % TONES.length]!;
 }
 
-function initialsOf(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  return words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join("");
-}
-
-export function ProjectPlaceholder({ id, name, className }: { id: string; name: string; className?: string }) {
+/** The project's initials over architectural line art, in the project's own tone (§44, §47). */
+export function ProjectPlaceholder({ id, initials, className }: { id: string; initials: string; className?: string }) {
   return (
-    <div
-      role="img"
-      aria-label={`No cover image for ${name}`}
-      className={cn("absolute inset-0 overflow-hidden bg-gradient-to-br", toneFor(id), className)}
-    >
-      <span aria-hidden="true" className="absolute left-4 top-4 text-[2.75rem] font-semibold leading-none tracking-tight text-fg/15">
-        {initialsOf(name)}
+    <div aria-hidden="true" data-testid="project-placeholder" className={cn("absolute inset-0 overflow-hidden bg-gradient-to-br", toneFor(id), className)}>
+      <span className="absolute left-4 top-4 text-[2.75rem] font-semibold leading-none tracking-tight text-fg/15">
+        {initials}
       </span>
       <svg
         aria-hidden="true"

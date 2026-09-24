@@ -5,8 +5,11 @@ import { listPortfolioProjects } from "@/lib/modules/projects/project.portfolio"
 import * as projects from "@/lib/modules/projects/project.service";
 
 /**
- * GET  /api/projects — every project this person may open, across their
- *      companies: searched, filtered, sorted and cursor-paged (E-05A §36, §37, §42).
+ * GET  /api/projects — the Projects page's cards: every project this person may
+ *      open in the active workspace, optionally searched (`q`), in the page's
+ *      fixed order, cursor-paged (Projects Workspace Grid §106-§114). The
+ *      workspace and the person come from the session; no parameter chooses a
+ *      company (§108).
  * POST /api/projects — create, requiring project.create in the chosen company
  *      (E-05A §39; PRD #10 §114).
  *

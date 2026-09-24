@@ -2,13 +2,16 @@ import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 /**
- * Projects page performance (E-05A §44, §69).
+ * Projects page performance (E-05A §44, §69; Projects Workspace Grid §115,
+ * §118-§121, §197).
  *
- * A person with 600 visible projects across two companies, in a project table
- * of 5,600, with 40 favorites and a cover on a third of them. Times the first
- * page in the recommended order, a page deep into the cursor, and the filter
- * options. Targets: P95 < 500 ms each. And no N+1: the number of queries a
- * page takes does not grow with the number of cards on it.
+ * A person with 600 visible projects across two companies in the Group
+ * workspace, in a project table of 5,600, with 40 favorites and a cover on a
+ * third of them. Times the first page in the page's order (Active, Pending,
+ * Finished, by name), a page deep into the cursor — past the Active run — and a
+ * search. Targets: P95 < 500 ms each, inside the PRD's P95 < 700 ms. And no
+ * N+1: the number of queries a page takes does not grow with the number of
+ * cards on it.
  *
  * Opt-in (`NESTO_PERF=1`): it writes into the shared development database for
  * the length of the run and removes everything afterwards.
@@ -30,15 +33,17 @@ const counter = await vi.hoisted(async () => {
   return state;
 });
 
-const { listPortfolioProjects, portfolioFilterOptions } = await import("@/lib/modules/projects/project.portfolio");
+const { listPortfolioProjects } = await import("@/lib/modules/projects/project.portfolio");
 const { portfolioQuerySchema } = await import("@/lib/modules/projects/project.schema");
-const { cleanupSessions, loginAsMembership } = await import("../helpers");
+const { cleanupSessions, grantGroupStanding, loginAsMembership } = await import("../helpers");
 
 const RUN = process.env.NESTO_PERF === "1";
 const PREFIX = "perf_prj";
 const db = new PrismaClient();
 
-const MEMBERSHIPS = { A: { companyId: "company_demo_a", memberId: "member_multicompany_a" }, B: { companyId: "company_demo_b", memberId: "member_multicompany_b" } };
+const MEMBERSHIPS = { A: { companyId: "company_demo_a", memberId: "member_multicompany_a" }, D: { companyId: "company_demo_d", memberId: "member_multicompany_d" } };
+const GROUP = { workspace: "GROUP" } as const;
+let undoStanding: (() => Promise<void>) | null = null;
 const VISIBLE_PER_COMPANY = 300;
 const BACKGROUND = 5_000;
 
@@ -67,6 +72,9 @@ async function time(run: () => Promise<unknown>, attempts = 12): Promise<number[
 describe.skipIf(!RUN)("the Projects page at 600 visible projects in a table of 5,600 (E-05A §69)", () => {
   beforeAll(async () => {
     await cleanup();
+    // Both companies on one page is the Group workspace, which needs group standing.
+    const member = await db.companyMember.findUniqueOrThrow({ where: { id: MEMBERSHIPS.A.memberId }, select: { userId: true } });
+    undoStanding = await grantGroupStanding(member.userId);
     const cover = await db.document.findFirst({ where: { companyId: "company_demo_a", status: "ACTIVE", storageStatus: "AVAILABLE", mimeType: { startsWith: "image/" } }, select: { id: true } });
     const now = Date.now();
 
@@ -83,7 +91,7 @@ describe.skipIf(!RUN)("the Projects page at 600 visible projects in a table of 5
         city: index % 4 === 0 ? "Tiranë" : "Durrës",
         country: "Albania",
         lastActivityAt: new Date(now - index * 60_000),
-        coverImageDocumentId: key === "A" && cover && index % 3 === 0 ? cover.id : null,
+        coverImageDocumentId: key === "A" && cover && index % 3 === 1 ? cover.id : null,
         createdBy: "perf",
       }));
       await db.project.createMany({ data: rows });
@@ -112,30 +120,33 @@ describe.skipIf(!RUN)("the Projects page at 600 visible projects in a table of 5
 
   afterAll(async () => {
     await cleanup();
+    await undoStanding?.();
     await cleanupSessions();
     await db.$disconnect();
   }, 300_000);
 
-  it("serves the first page, a deep page and the filters inside 500 ms at P95", async () => {
-    const session = await loginAsMembership(MEMBERSHIPS.A.memberId);
+  it("serves the first page, a deep page and a search inside 500 ms at P95", async () => {
+    const session = await loginAsMembership(MEMBERSHIPS.A.memberId, GROUP);
     const first = portfolioQuerySchema.parse({});
 
     const firstPage = await listPortfolioProjects(session, first);
     expect(firstPage.meta.visibleProjectCount).toBeGreaterThanOrEqual(VISIBLE_PER_COMPANY * 2);
+    expect(firstPage.meta.visibleCompanyCount).toBe(2);
     expect(firstPage.items).toHaveLength(24);
-    expect(firstPage.items.slice(0, 24).every((item) => item.isFavorite)).toBe(true);
+    expect(firstPage.items.every((item) => item.status === "ACTIVE")).toBe(true);
 
+    // Ten pages in is past the 200 Active projects, in the Pending run.
     let cursor = firstPage.pageInfo.nextCursor ?? undefined;
     for (let page = 0; page < 10 && cursor; page += 1) {
       cursor = (await listPortfolioProjects(session, portfolioQuerySchema.parse({ cursor }))).pageInfo.nextCursor ?? undefined;
     }
     const deep = portfolioQuerySchema.parse({ cursor });
+    expect((await listPortfolioProjects(session, deep)).items[0]?.status).toBe("PENDING");
 
     const results = {
       first: percentile(await time(() => listPortfolioProjects(session, first)), 95),
       deep: percentile(await time(() => listPortfolioProjects(session, deep)), 95),
-      filtered: percentile(await time(() => listPortfolioProjects(session, portfolioQuerySchema.parse({ q: "project 1", status: "ACTIVE", projectType: "Residential" }))), 95),
-      options: percentile(await time(() => portfolioFilterOptions(session)), 95),
+      searched: percentile(await time(() => listPortfolioProjects(session, portfolioQuerySchema.parse({ q: "project 1" }))), 95),
     };
     console.info("[perf] projects page P95 (ms)", results);
 
@@ -143,11 +154,11 @@ describe.skipIf(!RUN)("the Projects page at 600 visible projects in a table of 5
   }, 300_000);
 
   it("takes the same number of queries for 12 cards as for 60", async () => {
-    const session = await loginAsMembership(MEMBERSHIPS.A.memberId);
+    const session = await loginAsMembership(MEMBERSHIPS.A.memberId, GROUP);
     const count = async (limit: number) => {
-      await listPortfolioProjects(session, portfolioQuerySchema.parse({ limit, sort: "name-asc" }));
+      await listPortfolioProjects(session, portfolioQuerySchema.parse({ limit }));
       const before = counter.queries;
-      await listPortfolioProjects(session, portfolioQuerySchema.parse({ limit, sort: "name-asc" }));
+      await listPortfolioProjects(session, portfolioQuerySchema.parse({ limit }));
       return counter.queries - before;
     };
     const [large, small] = [await count(60), await count(12)];

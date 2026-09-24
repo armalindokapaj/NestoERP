@@ -179,49 +179,19 @@ export type UpdateProjectMemberInput = z.infer<typeof updateProjectMemberSchema>
 /* Projects page (E-05A)                                                       */
 /* -------------------------------------------------------------------------- */
 
-/**
- * The Projects page sorts (E-05A §14, §20). `recommended` is favorites first,
- * then the most recent activity, then the name.
- */
-export const PORTFOLIO_SORT_KEYS = [
-  "recommended",
-  "activity",
-  "name-asc",
-  "name-desc",
-  "company-asc",
-  "newest",
-  "oldest",
-] as const;
-
-export type PortfolioSortKey = (typeof PORTFOLIO_SORT_KEYS)[number];
-
 export const PORTFOLIO_PAGE_SIZE = 24;
 
 /**
- * One query behind the gallery, the list and `GET /api/projects` (E-05A §22,
- * §36, §42). Every value narrows the person's authorised projects; none of
- * them can widen it.
+ * The query behind the Projects page and `GET /api/projects` (Projects
+ * Workspace Grid §21-§23, §107, §108).
+ *
+ * The workspace decides which companies, and the person's own access decides
+ * which projects; neither comes from the URL. A search is the one thing a
+ * request adds, and it only narrows that set. There is no sort, filter or view:
+ * the order is fixed (§34-§36).
  */
 export const portfolioQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
-  status: z.enum(WORKING_STATUSES).optional(),
-  favorites: z.boolean().default(false),
-  companyId: z.string().trim().max(64).optional(),
-  /** An effective project role label, or `any` for every project the person is assigned to or manages. */
-  role: z.string().trim().max(120).optional(),
-  /**
-   * A project type by name. Each company keeps its own list, so "Hospital" in
-   * two companies is two rows with one name — the filter matches the name.
-   */
-  projectType: z.string().trim().max(PROJECT_TYPE_NAME_MAX).optional(),
-  /** `city:<name>` or `country:<name>`. */
-  location: z
-    .string()
-    .trim()
-    .max(240)
-    .regex(/^(city|country):.+$/)
-    .optional(),
-  sort: z.enum(PORTFOLIO_SORT_KEYS).default("recommended"),
   cursor: z.string().max(2000).optional(),
   limit: z.number().int().min(1).max(60).default(PORTFOLIO_PAGE_SIZE),
 });
