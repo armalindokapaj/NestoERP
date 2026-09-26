@@ -13,6 +13,7 @@
 import { PrismaClient } from "@prisma/client";
 
 import { seedAccessConfiguration } from "./seed/access";
+import { assertSeedAllowed } from "./seed/guard";
 import { seedActivities } from "./seed/activities";
 import { seedBusinessRecords } from "./seed/business";
 import { seedCalendarRecords } from "./seed/calendar";
@@ -57,25 +58,8 @@ import { seedDocumentVersions, seedStorageQuotas } from "./seed/storage";
 
 const prisma = new PrismaClient();
 
-/**
- * Demo records must never reach production (PRD #9 §6, §248). Both guards are
- * required: the environment must not be production, and the operator must have
- * opted in explicitly.
- */
-function assertSafeEnvironment() {
-  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "true") {
-    throw new Error(
-      "Refusing to seed demo data: NODE_ENV is production and ALLOW_DEMO_SEED is not set.",
-    );
-  }
-
-  if (!process.env.NESTO_DEMO_PASSWORD && process.env.NODE_ENV === "production") {
-    throw new Error("Refusing to seed: NESTO_DEMO_PASSWORD must be set outside development.");
-  }
-}
-
 async function main() {
-  assertSafeEnvironment();
+  assertSeedAllowed();
 
   const access = await seedAccessConfiguration(prisma);
   const passwordHash = await hashPassword(DEMO_PASSWORD);

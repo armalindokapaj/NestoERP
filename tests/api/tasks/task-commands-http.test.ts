@@ -217,7 +217,8 @@ describe("the server actions answer as the routes do (TR-21)", () => {
     };
 
     expect(await actions.updateTaskAction(task.id, form({}))).toMatchObject({ ok: false, code: "TASK_VERSION_REQUIRED" });
-    await expect(actions.updateTaskAction(task.id, form({ expectedVersion: "1" }))).rejects.toMatchObject({ url: `/tasks/${task.id}` });
+    // The form navigates itself once its unsaved-work guard has let go (AUD-03), so the action answers where to go.
+    expect(await actions.updateTaskAction(task.id, form({ expectedVersion: "1" }))).toMatchObject({ ok: true, redirectTo: `/tasks/${task.id}`, meta: { version: 2 } });
     expect(await actions.updateTaskAction(task.id, form({ expectedVersion: "1", title: "aud02h_stale" }))).toMatchObject({ ok: false, code: "TASK_VERSION_CONFLICT" });
 
     // The Owner's own task, assigned to the PM, handed on by the PM: saved, and out of sight.

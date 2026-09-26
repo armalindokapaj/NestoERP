@@ -72,7 +72,10 @@ export function DevUserSwitcherDialog({ rosters, currentUsername }: { rosters: D
     setError(null);
     setPending(account.username);
     startTransition(async () => {
-      const result: DemoUserSwitchResult = await switchDemoUserAction(account.username).catch(() => ({ ok: false, error: "Could not switch demo user." }));
+      // No answer: the session may already have ended. A full load lets the
+      // server say who is signed in — the old person again, or sign-in —
+      // rather than leaving this page up for a session that may be gone (AUD-06 RP-03).
+      const result: DemoUserSwitchResult = await switchDemoUserAction(account.username).catch(() => ({ ok: false, error: "Could not switch demo user.", landing: "/dashboard" }));
       if (result.ok && result.landing === null) {
         approval.release();
         setPending(null);

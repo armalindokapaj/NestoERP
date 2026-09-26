@@ -1,5 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { clearThrottle, clientAddress, hitThrottle } from "@/lib/core/security/throttle";
+
 import { dashboardForRole } from "@/config/dashboards";
 import { DEMO_PASSWORD } from "@/config/demo-accounts";
 import { signInAsDemoAccountAction, switchDemoUserAction } from "@/lib/actions/demo";
@@ -37,13 +39,23 @@ vi.mock("@/lib/auth/dev-mode", () => ({
   get isDevMode() {
     return browser.dev;
   },
+  // A developer's machine: the platform account is a one-click target here.
+  get allowsPlatformOneClick() {
+    return browser.dev;
+  },
 }));
-vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
+// `unstable_cache` runs at import time in lib/auth/demo-tenants.ts: the
+// roster cache is a pass-through here, so every read is live.
+vi.mock("next/cache", () => ({
+  revalidatePath: () => undefined,
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => (browser.cookies.has(name) ? { name, value: browser.cookies.get(name) } : undefined),
     delete: (name: string) => void browser.cookies.delete(name),
   }),
+  headers: async () => new Headers(),
 }));
 vi.mock("@/lib/auth", async () => {
   const { CredentialsSignin } = await import("next-auth");
@@ -191,7 +203,11 @@ describe("the demo user switch replaces the session (C-01 §7, §21-§24)", () =
       userId: before.id,
       metadata: { switchType: "DEMO_USER_SWITCH", toUserId: after.id },
     });
-    expect(await prisma.authEvent.findFirst({ where: { type: "LOGIN_SUCCESS", sessionId: after.sessionId } })).toMatchObject({ userId: after.id });
+    // The sign-in says it was a switch, not a password typed (AUD-06 §4).
+    expect(await prisma.authEvent.findFirst({ where: { type: "LOGIN_SUCCESS", sessionId: after.sessionId } })).toMatchObject({
+      userId: after.id,
+      metadata: { via: "DEMO_USER_SWITCH" },
+    });
   });
 
   it("deletes the old role-override cookie, which nothing reads (§28, §70)", async () => {
@@ -295,6 +311,41 @@ describe("the demo user switch refuses before it replaces anything (C-01 §13, �
     expect(browser.user).toEqual(before);
     expect(browser.signIns).toBe(signIns);
     expect(await prisma.session.findUnique({ where: { id: before.sessionId } })).not.toBeNull();
+  });
+
+  it("refuses while new sign-ins are paused, and the current session stands (AUD-06 RP-03)", async () => {
+    const before = await signInOnTheForm("armaar.owner");
+    const signIns = browser.signIns;
+    const admin = await prisma.user.findFirstOrThrow({ where: { platformAccess: { status: "ACTIVE" } }, select: { id: true } });
+    await prisma.platformSetting.upsert({
+      where: { key: "maintenance.disableNewLogins" },
+      create: { key: "maintenance.disableNewLogins", category: "maintenance", value: true, updatedByUserId: admin.id },
+      update: { value: true },
+    });
+    try {
+      const result = await switchTo("armaar.finance");
+      expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/paused for maintenance/) });
+      expect(result).not.toHaveProperty("landing");
+      expect(browser.user).toEqual(before);
+      expect(browser.signIns).toBe(signIns);
+      expect(await prisma.session.findUnique({ where: { id: before.sessionId } })).not.toBeNull();
+    } finally {
+      await prisma.platformSetting.update({ where: { key: "maintenance.disableNewLogins" }, data: { value: false } });
+    }
+  });
+
+  it("refuses a target whose sign-in is throttled, and the current session stands (AUD-06 RP-03)", async () => {
+    const before = await signInOnTheForm("armaar.owner");
+    const subjects = { account: "armaar.finance", ip: clientAddress(new Headers()) };
+    for (let attempt = 0; attempt < 6; attempt += 1) await hitThrottle("AUTH_LOGIN", subjects);
+    try {
+      const result = await switchTo("armaar.finance");
+      expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/Too many recent sign-in attempts/) });
+      expect(browser.user).toEqual(before);
+      expect(await prisma.session.findUnique({ where: { id: before.sessionId } })).not.toBeNull();
+    } finally {
+      await clearThrottle("AUTH_LOGIN", { account: "armaar.finance" });
+    }
   });
 
   it("sends the browser to sign in when the new sign-in fails after the old session ended (§46)", async () => {

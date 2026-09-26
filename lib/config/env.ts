@@ -14,7 +14,7 @@ import { z } from "zod";
 const schema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-    APP_ENV: z.enum(["development", "staging", "production"]).optional(),
+    APP_ENV: z.enum(["development", "test", "demo", "staging", "production"]).optional(),
 
     DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
     AUTH_SECRET: z.string().optional(),
@@ -50,7 +50,8 @@ const schema = z
   })
   .superRefine((value, ctx) => {
     const appEnv = value.APP_ENV ?? value.NODE_ENV;
-    if (appEnv !== "production") return;
+    // A hosted demo is hosted: it needs real secrets like production.
+    if (appEnv !== "production" && appEnv !== "demo") return;
 
     // Production-only requirements (PRD #34 §225, PRD #30 §408).
     if (!value.AUTH_SECRET && !value.NEXTAUTH_SECRET) {
@@ -131,8 +132,16 @@ export function readEnv(): AppEnv {
   return cached;
 }
 
+/**
+ * The deployment class for safety rules. A hosted demo (`APP_ENV=demo`) is a
+ * hosted deployment: it gets production's protections (HTTPS storage,
+ * confirmation before deletion) while its demo conveniences are decided by
+ * `lib/auth/dev-mode.ts`. `test` is a developer's machine.
+ */
 export function appEnvironment(): "development" | "staging" | "production" {
   const env = readEnv();
+  if (env.APP_ENV === "demo") return "production";
+  if (env.APP_ENV === "test") return "development";
   return env.APP_ENV ?? (env.NODE_ENV === "production" ? "production" : "development");
 }
 

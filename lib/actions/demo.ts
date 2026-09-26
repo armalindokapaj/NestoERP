@@ -2,7 +2,7 @@
 
 import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { auth, signIn, signOut } from "@/lib/auth";
 import { DEMO_ACCOUNT_REFUSALS, resolveDemoAccountTarget } from "@/lib/auth/demo-tenants";
@@ -32,13 +32,14 @@ export async function signInAsDemoAccountAction(
     return { error: "Demo sign-in is available in development only." };
   }
 
-  const target = await resolveDemoAccountTarget(String(username));
+  const target = await resolveDemoAccountTarget(String(username), await requestHeaders());
   if (!target.allowed) return { error: DEMO_ACCOUNT_REFUSALS[target.reason] };
 
   try {
     await signIn("credentials", {
       username: target.username,
       password: target.password,
+      via: "DEMO_SIGN_IN",
       redirectTo: target.landing,
     });
   } catch (error) {
@@ -55,6 +56,15 @@ export type DemoUserSwitchResult =
   | { ok: false; error: string; landing?: string };
 
 const SWITCH_FAILED = "Could not switch demo user.";
+
+/** The request's headers, for the throttle's address; none outside a request (a test calling the action). */
+async function requestHeaders(): Promise<Headers | null> {
+  try {
+    return new Headers(await headers());
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Becomes another demo user: signing out and signing in as them, without
@@ -75,7 +85,9 @@ const SWITCH_FAILED = "Could not switch demo user.";
 export async function switchDemoUserAction(username: string): Promise<DemoUserSwitchResult> {
   if (!isDevMode) return { ok: false, error: "Not found." };
 
-  const target = await resolveDemoAccountTarget(String(username));
+  // Every refusal the sign-in would give is asked first, while this session
+  // still stands: a refused target leaves the current person signed in (RP-03).
+  const target = await resolveDemoAccountTarget(String(username), await requestHeaders());
   if (!target.allowed) return { ok: false, error: `${SWITCH_FAILED} ${DEMO_ACCOUNT_REFUSALS[target.reason]}` };
 
   const current = (await auth())?.user;
@@ -98,10 +110,11 @@ export async function switchDemoUserAction(username: string): Promise<DemoUserSw
   await signOut({ redirect: false });
 
   try {
-    await signIn("credentials", { username: target.username, password: target.password, redirect: false });
+    await signIn("credentials", { username: target.username, password: target.password, via: "DEMO_USER_SWITCH", redirect: false });
   } catch (error) {
-    if (!(error instanceof AuthError)) throw error;
-    // Signed out already: never act on as the previous user (§46).
+    // Signed out already, whatever went wrong: the browser goes to sign in,
+    // never back to the previous person's page (§46, AUD-06 RP-03).
+    if (!(error instanceof AuthError)) console.error("demo user switch: sign-in failed after sign-out", error instanceof Error ? error.name : "unknown");
     return { ok: false, error: SWITCH_FAILED, landing: "/login?reason=demo-switch-failed" };
   }
 

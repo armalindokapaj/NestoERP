@@ -21,6 +21,7 @@ import {
   newRequestId,
   runWithRequestContext,
 } from "@/lib/core/observability/request-context";
+import { verifiedRequestMethod } from "@/lib/core/security/request-method";
 
 /**
  * API response helpers (PRD #7 §150, §152).
@@ -153,13 +154,16 @@ async function handleRequest(
   // Direct route invocation in the security matrix has no Next request store.
   // It still exercises authorization; live HTTP requests provide these values.
   let requestHeaders: Pick<Headers, "get"> = new Headers();
+  let live = false;
   try {
     requestHeaders = await headers();
+    live = true;
   } catch {
     // Next throws synchronously when a route is invoked without its request store.
   }
-  const method = requestHeaders.get("x-nesto-request-method") ?? "GET";
   const requestPath = requestHeaders.get("x-nesto-request-path") ?? "";
+  // Believed only when middleware signed it; unverified reads as a write (AUD-06).
+  const method = live ? await verifiedRequestMethod(requestHeaders, requestPath) : "GET";
   if (result.context.workspace.scopeType === "GROUP") {
     const reads = ["GET", "HEAD", "OPTIONS"].includes(method);
     if (options.group !== "any" && !(options.group === "read" && reads)) {

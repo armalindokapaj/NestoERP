@@ -11,6 +11,8 @@ import type { PrismaClient } from "@prisma/client";
 
 import { groupDepartmentId } from "../../../config/group-departments";
 import { companyId, departmentName } from "./organization";
+import { SIGN_IN_ACCOUNT, signInWorkspace } from "../../../lib/auth/credentials";
+import { companiesOf } from "./access";
 import { ARMAAR_PEOPLE } from "./people";
 import { PROJECTS, projectId } from "./projects";
 import { DEPARTMENT_HEADS, PROJECT_MANAGERS } from "./provided-facts";
@@ -186,6 +188,47 @@ async function verifyNamedPeople(prisma: PrismaClient, groupId: string): Promise
       say(`${project.name}'s manager is ${project.projectManager ? name(project.projectManager.user) : "nobody"}; D-03 names ${name(manager)}.`);
     } else if (project.members.length !== 1 || project.members[0]!.companyMemberId !== project.projectManager.id) {
       say(`${project.name} has ${project.members.length} primary members; its manager should be the one.`);
+    }
+  }
+
+  // AUD-06 §5: each named person is exactly the identity the seed encodes —
+  // employed where it says, a login with their role in each company it lists
+  // and no other, and a sign-in that starts where a real one would.
+  for (const fact of [...DEPARTMENT_HEADS, ...PROJECT_MANAGERS]) {
+    const person = ARMAAR_PEOPLE.find((candidate) => same(candidate, fact));
+    if (!person) {
+      say(`${name(fact)} is not among the seeded people.`);
+      continue;
+    }
+    const account = await prisma.user.findUnique({
+      where: { username: person.username },
+      include: {
+        ...SIGN_IN_ACCOUNT,
+        personProfile: { select: { employments: { where: { employmentStatus: "ACTIVE" }, select: { companyId: true } } } },
+      },
+    });
+    if (!account || account.status !== "ACTIVE") {
+      say(`${name(fact)} (${person.username}) has no active login.`);
+      continue;
+    }
+    const employers = (account.personProfile?.employments ?? []).map((employment) => employment.companyId);
+    if (employers.length !== 1 || employers[0] !== companyId(person.company)) {
+      say(`${name(fact)} is employed by ${employers.length ? employers.join(", ") : "nobody"}; the seed employs them at ${person.company}.`);
+    }
+    const expected = companiesOf(person).filter((code) => COMPANY_FACTS.find((company) => company.code === code)?.status === "ACTIVE").map(companyId);
+    const logins = await prisma.companyMember.findMany({
+      where: { userId: account.id, status: "ACTIVE", company: { status: "ACTIVE" } },
+      select: { companyId: true, role: { select: { key: true } } },
+    });
+    const loginCompanies = new Set(logins.map((login) => login.companyId));
+    const missing = expected.filter((id) => !loginCompanies.has(id));
+    const extra = [...loginCompanies].filter((id) => !expected.includes(id));
+    if (missing.length || extra.length) say(`${name(fact)}'s logins differ from the seed: missing ${missing.join(", ") || "none"}, extra ${extra.join(", ") || "none"}.`);
+    const wrongRole = logins.filter((login) => login.role.key !== person.role);
+    if (wrongRole.length) say(`${name(fact)} is not ${person.role} in ${wrongRole.map((login) => `${login.companyId} (${login.role.key})`).join(", ")}.`);
+    const start = signInWorkspace(account);
+    if (!start || start.platform || start.membership.companyId !== expected[0]) {
+      say(`${name(fact)} would start in ${start && !start.platform ? start.membership.companyId : "nowhere"}; the seed starts them in ${expected[0]}.`);
     }
   }
   return findings;

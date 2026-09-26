@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import type { Permission } from "@/config/permissions";
 import { can, canAccessModule, getModuleScope, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertModule } from "@/lib/access/guards";
-import { buildProjectLinkedScopeWhere } from "@/lib/access/scope";
+import { buildProjectLinkedScopeWhere, reachesWholeCompany } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { dbDay, todayDay, type Day } from "@/lib/modules/hr/employment/employment.dates";
 
@@ -35,7 +35,7 @@ export function assertWorkforce(context: UserContext, permission: Permission = "
 /** Company scope, or anything wider: the whole company's workforce. */
 export function seesWholeCompany(context: UserContext): boolean {
   const scope = getModuleScope(context, MODULE);
-  return scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT";
+  return reachesWholeCompany(scope);
 }
 
 /** Projects whose workforce this reader reaches. */

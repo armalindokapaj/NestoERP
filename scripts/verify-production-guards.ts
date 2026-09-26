@@ -10,6 +10,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 
 import ts from "typescript";
 
+import { devModeFor } from "../lib/auth/dev-mode";
+
 type Check = { name: string; run: () => string | null };
 
 const checks: Check[] = [
@@ -73,14 +75,41 @@ const checks: Check[] = [
     },
   },
   {
-    name: "the dev-mode guard honours APP_ENV, not just NODE_ENV",
+    // AUD-06 §4, RP-04: asked of the function itself, not of its source text.
+    name: "the dev-mode guard is off in production, staging and anything unknown",
     run: () => {
-      const source = readFileSync("lib/auth/dev-mode.ts", "utf8");
-      const honoursAppEnv = /APP_ENV/.test(source);
-      const refusesStaging = /staging/.test(source);
-      if (!honoursAppEnv) return "isDevMode ignores APP_ENV";
-      if (!refusesStaging) return "isDevMode does not exclude staging";
-      return null;
+      const mustBeOff: Array<Record<string, string>> = [
+        { APP_ENV: "production" },
+        { APP_ENV: "production", NESTO_DEMO_MODE: "true" },
+        { APP_ENV: "staging" },
+        { APP_ENV: "staging", NESTO_DEMO_MODE: "true" },
+        { APP_ENV: "staging", NODE_ENV: "development" },
+        { APP_ENV: "unexpected", NESTO_DEMO_MODE: "true" },
+        { NODE_ENV: "production" },
+      ];
+      const on = mustBeOff.filter((env) => devModeFor(env));
+      return on.length ? `isDevMode is on for ${on.map((env) => JSON.stringify(env)).join(", ")}` : null;
+    },
+  },
+  {
+    // AUD-06 §4: the browser is sent a username, never a demo password.
+    name: "no client code can reach the demo password",
+    run: () => {
+      const offenders: string[] = [];
+      const walk = (dir: string) => {
+        for (const name of readdirSync(dir)) {
+          const path = `${dir}/${name}`;
+          if (statSync(path).isDirectory()) walk(path);
+          else if (/\.tsx?$/.test(path)) {
+            const source = readFileSync(path, "utf8");
+            const client = /^\s*["']use client["']/.test(source);
+            if (client && /DEMO_PASSWORD|_DEMO_PASSWORD/.test(source)) offenders.push(path);
+            if (/<DemoAccounts[^>]*password=/.test(source)) offenders.push(`${path} (passes a password to DemoAccounts)`);
+          }
+        }
+      };
+      ["app", "components"].forEach(walk);
+      return offenders.length ? `demo password reachable from ${offenders.join(", ")}` : null;
     },
   },
   {
@@ -328,6 +357,43 @@ const checks: Check[] = [
       return /productionBrowserSourceMaps:\s*false/.test(source)
         ? null
         : "productionBrowserSourceMaps is not disabled";
+    },
+  },
+  {
+    // AUD-12 §5: destructive database commands go through the target guard,
+    // and nothing hands Prisma the application's database as its shadow.
+    name: "destructive database commands are guarded before they start",
+    run: () => {
+      const scripts = (JSON.parse(readFileSync("package.json", "utf8")) as { scripts: Record<string, string> }).scripts;
+      const raw = Object.entries(scripts).filter(([, command]) => /prisma\s+(migrate\s+(reset|dev)|db\s+push)\b/.test(command) || /--shadow-database-url/.test(command));
+      if (raw.length > 0) return `package.json runs ${raw.map(([name]) => name).join(", ")} without scripts/db/destructive.ts or scripts/db/drift.ts`;
+      const expected: Record<string, string> = {
+        "db:reset:demo": "scripts/db/destructive.ts reset",
+        "db:migrate": "scripts/db/destructive.ts migrate",
+        "db:push": "scripts/db/destructive.ts push",
+        "db:drift": "scripts/db/drift.ts",
+      };
+      for (const [name, command] of Object.entries(expected)) {
+        if (!scripts[name]?.includes(command)) return `${name} does not run ${command}`;
+      }
+      const guard = readFileSync("lib/core/database/target.ts", "utf8");
+      if (!/export function checkDestructiveTarget/.test(guard) || !/export function checkShadowTarget/.test(guard)) return "lib/core/database/target.ts lost its checks";
+      const drift = readFileSync("scripts/db/drift.ts", "utf8");
+      if (!/probeDistinct/.test(drift) || !/create database/.test(drift)) return "scripts/db/drift.ts no longer checks the shadow's identity or uses a run database of its own";
+      return null;
+    },
+  },
+  {
+    // AUD-12 §5: a seed on build needs the opt-in, a named target and a
+    // non-production environment; the seed repeats the checks itself.
+    name: "the demo seed is bound to a named, non-production target",
+    run: () => {
+      const build = readFileSync("scripts/vercel-build.sh", "utf8");
+      if (/db\s+seed/.test(build) && !(/NESTO_SEED_TARGET/.test(build) && /checkSeedTarget/.test(build))) return "scripts/vercel-build.sh seeds without checking NESTO_SEED_TARGET and checkSeedTarget";
+      for (const path of ["prisma/seed.ts", "prisma/seed/armaar/index.ts"]) {
+        if (!/assertSeedAllowed\(\)/.test(readFileSync(path, "utf8"))) return `${path} does not call assertSeedAllowed() before seeding`;
+      }
+      return null;
     },
   },
 ];

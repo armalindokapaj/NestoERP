@@ -44,21 +44,42 @@ cp .env.example .env          # then fill in DATABASE_URL and AUTH_SECRET
 #   AUTH_SECRET: openssl rand -base64 32
 
 createdb nesto_erp            # or point DATABASE_URL at an existing database
-pnpm db:migrate               # apply prisma/migrations
+pnpm db:deploy                # apply prisma/migrations (never resets anything)
 pnpm db:seed                  # two demo companies, 18 role accounts, full dataset
 
 pnpm dev                      # http://localhost:3000
 ```
 
-Starting again from scratch:
+Starting again from scratch — **destructive: everything in the database is
+lost**:
 
 ```bash
-pnpm db:reset:demo            # drop, re-migrate and re-seed
+NESTO_DISPOSABLE_DATABASES=nesto_erp pnpm db:reset:demo   # drop, re-migrate and re-seed
 ```
 
-`db:reset:demo` refuses to run against a production environment, and the seed
-itself requires both `NODE_ENV !== production` and an explicit
-`ALLOW_DEMO_SEED=true` before it will place demo records anywhere else.
+Before it starts, `db:reset:demo` (and `db:migrate`, `db:push`) refuses a
+database that is not on this machine, one not named in
+`NESTO_DISPOSABLE_DATABASES`, and any environment that says production or
+staging (`APP_ENV`, `VERCEL_ENV`, `NODE_ENV`). At a terminal it then asks you
+to type the database's name; without one it runs only in CI, with `CI=true` and
+`NESTO_CONFIRM_DESTRUCTIVE=<database>`. The seed checks again on its own:
+never production or staging, and a database that is not on this machine only
+when `NESTO_SEED_TARGET` names it (`host/database`). A production Node build
+also needs `ALLOW_DEMO_SEED=true`. The rules live in
+`lib/core/database/target.ts`.
+
+`pnpm db:drift` needs its own shadow database, never `DATABASE_URL` — Prisma
+empties its shadow:
+
+```bash
+createdb nesto_shadow
+SHADOW_DATABASE_URL=postgresql://localhost:5432/nesto_shadow \
+NESTO_DISPOSABLE_DATABASES=nesto_shadow pnpm db:drift
+```
+
+It refuses a shadow that is, under any spelling, a database the application
+uses, and even then runs Prisma in a new database it creates beside the shadow
+and drops afterwards.
 
 ### Scripts
 
@@ -68,12 +89,14 @@ itself requires both `NODE_ENV !== production` and an explicit
 | `pnpm build` / `pnpm start` | Production build and server |
 | `pnpm typecheck` | TypeScript, no emit |
 | `pnpm lint` | ESLint |
-| `pnpm db:migrate` | Create / apply Prisma migrations |
-| `pnpm db:deploy` | Apply migrations without generating one (CI, deploys) |
+| `pnpm db:migrate` | **Destructive-capable.** `prisma migrate dev` on a disposable local database only (see above) |
+| `pnpm db:deploy` | Apply pending migrations; never resets (setup, CI, deploys) |
+| `pnpm db:drift` | Migrations versus schema, in a throwaway database beside `SHADOW_DATABASE_URL`; writes nothing else |
 | `pnpm db:seed` | Seed the demo dataset and validate it (the ARMAAR demo tenant included) |
 | `pnpm seed:armaar` | Add or update the ARMAAR demo tenant in an existing database ([docs/demo-armaar.md](docs/demo-armaar.md)) |
 | `pnpm verify:demo` | Hold the ARMAAR demo tenant to D-01: public facts, companies, people, provenance |
-| `pnpm db:reset:demo` | Drop, re-migrate and re-seed |
+| `pnpm db:reset:demo` | **Destructive.** Drop, re-migrate and re-seed a disposable local database, after confirmation |
+| `pnpm db:push` | **Destructive-capable.** `prisma db push` on a disposable local database only |
 | `pnpm db:studio` | Prisma Studio |
 | `pnpm test` | Unit + integration + API (vitest) |
 | `pnpm test:unit` | Pure resolver logic — no database needed |

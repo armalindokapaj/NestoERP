@@ -12,7 +12,8 @@
  * Idempotent: every record has a stable id, so running it again updates in
  * place and adds nothing (§73, §110). It needs the migrations applied, and seeds
  * the access configuration itself, so it also runs on an otherwise empty
- * database. Never in production without ALLOW_DEMO_SEED (PRD #9 §6), and its
+ * database. Never in production or staging, never a remote database that
+ * NESTO_SEED_TARGET does not name (`../guard.ts`), and its
  * password is its own: ARMAAR_DEMO_PASSWORD, or in development the demo's
  * (§87, "credentials managed separately").
  */
@@ -20,11 +21,13 @@ import { PrismaClient } from "@prisma/client";
 
 import { hashPassword } from "../../../lib/auth/password";
 import { seedAccessConfiguration } from "../access";
+import { assertSeedAllowed } from "../guard";
 import { armaarPassword, describeArmaar, seedArmaar } from "./seed";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  assertSeedAllowed();
   const passwordHash = await hashPassword(armaarPassword());
   await seedAccessConfiguration(prisma);
   // Concise, and never a password or a hash (PRD #9 §240).

@@ -42,7 +42,7 @@ export function buildProjectScopeWhere(context: UserContext): Prisma.ProjectWher
   const scope = getModuleScope(context, "projects");
   const base: Prisma.ProjectWhereInput = { companyId: context.companyId };
 
-  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+  if (reachesWholeCompany(scope)) {
     return base;
   }
 
@@ -89,7 +89,7 @@ export function buildTaskScopeWhere(context: UserContext): Prisma.TaskWhereInput
     OR: [{ projectId: null }, { project: buildProjectScopeWhere(context) }],
   };
 
-  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+  if (reachesWholeCompany(scope)) {
     return { AND: [base, projectGate] };
   }
 
@@ -119,7 +119,7 @@ export function buildClientScopeWhere(context: UserContext): Prisma.ClientWhereI
   const scope = getModuleScope(context, "clients");
   const base: Prisma.ClientWhereInput = { companyId: context.companyId };
 
-  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+  if (reachesWholeCompany(scope)) {
     return base;
   }
 
@@ -139,11 +139,21 @@ export function buildProjectLinkedScopeWhere(
 ): { companyId: string; project?: Prisma.ProjectWhereInput } {
   const scope = getModuleScope(context, moduleKey);
 
-  if (scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM" || scope === "DEPARTMENT") {
+  if (reachesWholeCompany(scope)) {
     return { companyId: context.companyId };
   }
 
   return { companyId: context.companyId, project: memberProjectClause(context) };
+}
+
+/**
+ * Whether a scope reaches every record of its kind in the company. DEPARTMENT
+ * does not: a project, task or client has no department, so a department
+ * scope here narrows to the person's own projects like SELF, and never widens
+ * to the whole company because of a title (AUD-06 §3).
+ */
+export function reachesWholeCompany(scope: DataScope): boolean {
+  return scope === "COMPANY" || scope === "GROUP" || scope === "SYSTEM";
 }
 
 /** Human-readable scope, for the development access debugger (PRD #7 §123). */

@@ -8,6 +8,7 @@ import {
   newCspNonce,
 } from "@/lib/core/security/csp";
 import { REQUEST_PATH_HEADER } from "@/lib/core/security/request-path";
+import { REQUEST_METHOD_HEADER, REQUEST_SIGNATURE_HEADER, signRequestMethod } from "@/lib/core/security/request-method";
 import { isPublicRoute, redirectsWhenAuthenticated } from "@/lib/permissions/route-access";
 
 /**
@@ -26,7 +27,7 @@ import { isPublicRoute, redirectsWhenAuthenticated } from "@/lib/permissions/rou
  */
 const { auth } = NextAuth(authConfig);
 
-export default auth((req) => {
+export default auth(async (req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
   const isAuthenticated = Boolean(req.auth?.user?.id);
@@ -48,7 +49,12 @@ export default auth((req) => {
   forwarded.set("Content-Security-Policy", csp);
   // Always overwritten, so a client cannot choose it (E-05A §34).
   forwarded.set(REQUEST_PATH_HEADER, pathname + nextUrl.search);
-  forwarded.set("x-nesto-request-method", req.method);
+  forwarded.set(REQUEST_METHOD_HEADER, req.method);
+  // Signed, so a route can tell this method from one a client sent on a path
+  // middleware never saw (lib/core/security/request-method.ts).
+  const signature = await signRequestMethod(req.method, pathname + nextUrl.search);
+  if (signature) forwarded.set(REQUEST_SIGNATURE_HEADER, signature);
+  else forwarded.delete(REQUEST_SIGNATURE_HEADER);
 
   const proceed = () => {
     const response = NextResponse.next({ request: { headers: forwarded } });

@@ -3414,3 +3414,70 @@ empty database, and `prisma migrate diff` reports no drift.
   command comes from the share locks the command takes, as documented in
   ADR 0017 §4.
 - **The full E2E suite and a Vercel deployment were not run.**
+
+## 42. AUD-12 §5 — Database safeguards, applied before any further migration or reset
+
+The audit program's first prerequisite: no command in this repository can drop,
+reset, push to or seed a database it was not explicitly pointed at.
+
+### 42.1 What changed
+
+| Before | Now |
+| --- | --- |
+| `db:drift` used `DATABASE_URL` as Prisma's shadow database, which Prisma resets | `scripts/db/drift.ts`: `SHADOW_DATABASE_URL` must be local, listed in `NESTO_DISPOSABLE_DATABASES` and different from every application database. Each run creates `<shadow>_run_<pid>_<ts>`, diffs against it and drops it. Exit 0 no drift, 2 drift, 1 refused/failed |
+| `db:migrate` = `prisma migrate dev`, `db:push`, `db:reset:demo` = `migrate reset --force`, pointed wherever the environment pointed | `scripts/db/destructive.ts reset|migrate|push`: `DATABASE_URL` and `DIRECT_URL` must be the same disposable local database. At a terminal the operator types the database name; without one, `CI=true` and `NESTO_CONFIRM_DESTRUCTIVE=<database>` are required |
+| The seed ran against any `DATABASE_URL`; Vercel's build seeded an empty database on every deploy | `prisma/seed/guard.ts` (both seeds): never in production/staging; a database not on this machine only when `NESTO_SEED_TARGET` names its host/database exactly. `scripts/vercel-build.sh` seeds only with `NESTO_SEED_ON_BUILD=1`, a matching target, a passing check and zero users |
+| — | `lib/core/database/target.ts`: one parser and policy (`checkDestructiveTarget`, `checkShadowTarget`, `checkSeedTarget`); `verify:production-guards` asserts the destructive scripts are guarded and the seed is bound to a target |
+
+CI creates its own `nesto_shadow` and declares `nesto_test,nesto_shadow` disposable.
+
+### 42.2 The evidence
+
+- `tests/unit/database/target.test.ts`, 17 of 17: parsing, locality, the disposable list, shadow distinctness, seed targets.
+- `tests/integration/database/db-safety.test.ts`, 13 of 13 plus 1 skipped, against real PostgreSQL:
+  - drift refuses a missing shadow, the application's own database under any spelling, and an unmarked shadow, without printing credentials; with a proper shadow it runs in a database of its own and leaves the application data alone;
+  - reset refuses an unmarked database, production/staging, a remote database, a missing confirmation and mismatched `DATABASE_URL`/`DIRECT_URL`;
+  - both seeds refuse an unnamed remote target and production.
+  - Skipped: the actual reset of a marked, confirmed database. Prisma refuses `migrate reset` under an AI agent without the operator's own consent, which was not given; it runs in CI.
+- `verify:production-guards` passes.
+
+### 42.3 Limits
+
+- Production migrations still run from `vercel-build.sh` (`migrate deploy`, non-destructive) — unchanged.
+- The guard reads URLs, not credentials: a production database reachable at `localhost` through a tunnel would count as local. Don't tunnel production to `localhost:5432`.
+
+## 43. AUD-06 — Demo roles and permissions: who you are decides what you see, everywhere
+
+### 43.1 What changed
+
+| Before | Now |
+| --- | --- |
+| The sign-in page rendered the demo password | No password in the page or its scripts; the picker sends a username (RP-04). `verify:production-guards` checks no client code can reach it |
+| "Dev mode" (demo picker, user switch) followed `NODE_ENV` | `lib/auth/dev-mode.ts`: production and staging off, an unknown `APP_ENV` off, development/test/demo on; a production build with `APP_ENV` unset needs `NESTO_DEMO_MODE=true`. One-click Platform Admin only on a developer machine (policy decision, `access-exceptions.md` EX-02) |
+| A demo switch logged out first, then could fail and strand the tab | Maintenance, closed sign-ins and throttling are checked before logout (`UNAVAILABLE`, `THROTTLED`); any failure after logout lands on the sign-in page; `LOGIN_SUCCESS` records `via` |
+| Notifications and Activity kept showing a record's title after the reader lost access | `reachableRecordKeys` batch check; withheld rows show a neutral title and are excluded from search (RP-18) |
+| DEPARTMENT scope read as company-wide in projects, tasks, clients, workforce | `reachesWholeCompany` narrows it (EX-03 lists the modules no role uses it in yet) |
+| `withContext` trusted an `x-nesto-request-method` header a client could send on static-looking paths | Middleware HMAC-signs method + path; an unverified method is treated as a write |
+| The Group dashboard used the anchor company's role | `groupReader`: the person's standing across the group (Owner anywhere first) (RP-19) |
+| `createTask` committed after a revocation that landed mid-request | `assertActorCurrent` (`lib/core/transactions/actor.ts`, also `runInTransaction({ actor })`) re-reads membership, account, role and session under a share lock inside the write (RP-16) |
+| A reader of a meeting got 200 on a forged action edit (nothing written) | 403 unless they manage actions or own the action |
+| — | `docs/security/access-manifest.json`, derived from config + seed by the product's own resolver (134 personas, 310 memberships); `api-security-matrix.md` extended to 1,865 entry points with surface, owner, named tests and status; `access-exceptions.md` EX-01..EX-13; `authorization-model.md` §10–§13 rewritten |
+
+### 43.2 The evidence
+
+All on lanes cloned from the seeded template; nothing against `nesto_erp`.
+
+- `tests/security/` 15 files: 122 passed, 1 skipped — including the new
+  `same-company-roles` (Viewer: 441 forged route writes + 235 actions refused, company byte-identical; Engineer: 177 + 110; 16 paired checks with positive controls), `private-fields` (5,220 GETs across 9 roles, planted markers; Owner control finds all), `platform-boundary` (37 route files, 42 pages), `cursor-and-forgery` (17 forged cursors × 6 lists × 3 readers), `revocation` (7 revocations, both race orders; createTask refused after a mid-request suspension, positive control), `access-manifest` (22).
+- `tests/api/` notifications, dashboard, workspace, meetings, tasks, demo, approvals, activity: 22 files, 343 passed — including `dashboard-identity` (20) and `company-switch-identity` (6).
+- `tests/integration` + `tests/unit`: 1,443 passed, 1 skipped, 2 failed. Both failures reproduce on 324a3ca9 (before this change): `project-viewer-shell` (3D, another workstream) and the navigation-telemetry series budget (4,408 > 4,000; AUD-07).
+- `tsc` 0 errors; eslint clean on every changed file; `verify:authorization`, `ownership`, `state`, `workers`, `production-guards`, `company-integrity`, `organization`, `employment`, `employee-integrity`, `security:matrix --check`, `security:access-manifest:check` pass.
+- E2E `tests/e2e/auth/aud06-roles.spec.ts` (RP-02/04/05/08/13/19/23) written; runs in the single final E2E pass (switch cases need an `APP_ENV=development` server).
+
+### 43.3 Limits
+
+- EX-01: signed download/preview URLs live 180 s (uploads 900 s) and cannot be revoked — needs the product owner's sign-off.
+- 921 of the matrix's 1,435 covered entry points are covered through the service they call, not a test of the route itself.
+- The actor recheck is in `createTask` and `mutateTask`; other services adopt `runInTransaction({ actor })` as they are touched.
+- Open product questions: an Engineer can complete a colleague's task on a shared project; a locked daily log or meeting answers 409 before 403. The welcome header still shows the anchor membership's role label.
+- `verify:roles` needs a running server and the E2E suite has not run; both are in the final pass.

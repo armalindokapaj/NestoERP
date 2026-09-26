@@ -52,6 +52,38 @@ configuration (`config/role-defaults.ts`) at request time, so there is nothing
 to invalidate and no `accessVersion` to maintain (§126, §127). If a cache is
 ever introduced here, it needs the invalidation story that this design avoids.
 
+**The commit boundary (AUD-06 §7, RP-16).** "The next request" leaves one
+window: a request that resolved its context, decided, and is still writing
+when the revocation commits. Two mechanisms close it where they are used:
+
+- `mutateTask` (every task edit and command) re-reads the actor's membership
+  `FOR SHARE` inside its transaction, before the task row.
+- `runInTransaction(operation, run, { actor: context })` does the same for
+  any caller that passes the actor: `assertActorCurrent`
+  (`lib/core/transactions/actor.ts`) share-locks the actor's
+  `company_members` and `users` rows and, for a signed-in actor, the
+  `sessions` row, and refuses when the membership or account is no longer
+  active (`MEMBERSHIP_INACTIVE`), the membership's role differs from the one
+  the request decided under (`FORBIDDEN`), or the session is gone or expired
+  (`UNAUTHENTICATED`).
+
+Either way the two serialise: a revocation that committed first is seen and
+the write rolls back with nothing written — no activity row, no outbox event;
+one that arrives during the write waits for its commit.
+`tests/security/revocation.test.ts` forces both orders with a lock barrier.
+
+What it does **not** cover: a module switched off, a project assignment
+ended, a department position or a delegated grant withdrawn mid-write. Those
+are per-record facts only the service knows; they are enforced when the
+context is resolved, on every request, and a service that needs them at the
+commit boundary locks those rows itself (as `mutateTask` locks the project and
+assignee rows). **And it covers only callers that opt in.** As of AUD-06 no
+service outside tasks passes `actor`; `createTask` in particular writes in a
+plain `prisma.$transaction` with no recheck, and the revocation suite pins
+that as a known gap. Adopting it is one argument per `runInTransaction` call,
+or one `assertActorCurrent(tx, context)` line first inside an existing
+transaction.
+
 ## 2. Company isolation
 
 Every business query starts from `companyId`, including for the Owner
@@ -80,8 +112,10 @@ scope, resolved through `buildMemberContexts`; and opening a project in another
 company moves the session row to the membership in that company, by POST, after
 re-finding the project through that membership and re-checking the membership
 is active (`moveSessionToMembership`). The move is recorded as
-`COMPANY_CONTEXT_SWITCHED`. Nothing moves a session to a company without a
-project the person may open there. See `docs/projects-page.md`.
+`COMPANY_CONTEXT_SWITCHED`. See `docs/projects-page.md`. The workspace switch
+(§10) is the other way a session moves between the person's companies, by the
+same `moveSessionToMembership`; nothing moves a session into a company the
+person holds no active membership in.
 
 **The data itself is checked too.** `lib/core/security/company-integrity.ts`
 reads the schema from Prisma's DMMF and looks for any row whose id-shaped
@@ -135,6 +169,16 @@ JavaScript (PRD #47 §40). The shared builders live in `lib/access/scope.ts`:
 Modules with a domain-specific reading of scope own a builder next to their
 service — for example `lib/modules/procurement/procurement.scope.ts`.
 
+**DEPARTMENT is not company-wide.** `reachesWholeCompany(scope)` in
+`lib/access/scope.ts` is true for `COMPANY`, `GROUP` and `SYSTEM` only. A
+project, task or client carries no department, so where the role matrix gives
+a module `DEPARTMENT` scope the shared builders narrow it to the person's own
+projects, like `SELF` — a department title never widens to the whole company
+(AUD-06 §3). Modules whose records do carry a department (documents,
+timesheets) read it themselves. Every "whole company?" question asks
+`reachesWholeCompany` rather than listing scopes, so the rule has one
+definition (`workforce.permissions.ts` included).
+
 Every scope keeps a **SELF door**: a record somebody raised, owns or is
 assigned to stays theirs even when it sits on a project they are not a member
 of (PRD #19 §218). That is deliberate, and the project-isolation suite excludes
@@ -163,6 +207,17 @@ this registry rather than carrying rules of their own (§47, §48). Favourites,
 recent work, notifications and attention items never grant access: each
 re-authorizes the record when it is opened or listed (§74-§77).
 
+**Notification titles are withheld, not trusted (AUD-06 RP-18).** A
+notification's title and body were written for its recipient when it was
+sent, and they name the record. When a list is read, each row about a record
+is checked against the reader's scope *now* (`withdrawnNotificationIds` in
+`lib/core/notifications/notification.service.ts`, one reachability query per
+record type and company); for a record the reader can no longer open the list
+shows `WITHDRAWN_TITLE` ("About a record you can no longer open"), no body and
+no link. The row is not deleted: it still counts and can be marked read. The
+activity center applies the same rule to its feed, and its search never
+matches a withheld row — a match would confirm what the withheld text said.
+
 ## 7. State guards and error behaviour
 
 Authorization includes the record's state: an approved revision, a locked daily
@@ -179,10 +234,22 @@ answers `CONFLICT`.
 | `NOT_FOUND` | 404 | out of scope, another company's, or absent — indistinguishable on purpose (§114) |
 | `VALIDATION_ERROR` | 422 | input, including a linked id that is not the caller's |
 | `CONFLICT` | 409 | the record's state does not allow it |
+| `WORKSPACE_COMPANY_REQUIRED` | 409 | a write in the Group workspace, which has no company to write to |
 
 The response carries the code, a safe message and a request id — never the
 permission that was missing, another company's name, a hidden record's title or
 any SQL (§116, §224).
+
+**The request method is signed.** `withContext` has no request object, so it
+learns the HTTP method from `x-nesto-request-method`, which middleware sets —
+and it matters: a Group-workspace session may read but not write, and the
+stale-tab and maintenance guards apply to writes. Middleware does not run on
+paths that look like static files, and a dynamic segment can be spelled
+`abc.png`, so on such a path a client's own header would reach the route. So
+middleware also signs method and path with the auth secret
+(`x-nesto-request-signature`, `lib/core/security/request-method.ts`), and the
+route believes the method only when the signature verifies; an unverified
+method reads as a write, the stricter answer for every guard that asks.
 
 **Internally**, each refusal carries a reason code — `UNAUTHENTICATED`,
 `MEMBERSHIP_INACTIVE`, `COMPANY_INACTIVE`, `MODULE_DISABLED`,
@@ -204,6 +271,7 @@ either somebody probing ids or a client sending the wrong ones (§197).
 | `module-disabled` | a company with modules off: routes, providers, search, calendar and counts all absent |
 | `session-lifecycle` | no session, suspended membership, suspended company — refused on the next request, with the right code and counter |
 | `company-integrity` | no row anywhere references another company's record |
+| `revocation` | a role change, membership suspension, ended project assignment, module switched off, deactivated account and ended session each refuse an already-resolved session's next request and its outstanding form; a revocation racing a write is serial (AUD-06 RP-15, RP-16) |
 | `foreign-links` | **destructive**; see below |
 
 The routes and actions are discovered from the filesystem, and the ids from the
@@ -262,11 +330,104 @@ server-owned fields · a test.
 
 **Pull requests** carry the same list in `.github/pull_request_template.md`.
 
-## 10. What this does not do (V0.1)
+## 10. Workspaces: one person, several companies, the group
+
+A session always points at one membership. What it shows is its
+**workspace**: that one company, or the whole parent group (Workspace Context
+PRD; `lib/context/workspace-access.ts`, `lib/workspace/workspace.service.ts`).
+
+**Company switch.** `POST /api/workspace` (`switchWorkspace`) moves the
+session between the companies the person belongs to, and to the Group
+workspace when they may enter it. It changes the workspace, never the person:
+the same user, the same session row, token and expiry; only the membership,
+its company and the workspace generation (`workspaceVersion`) move, recorded
+as `COMPANY_CONTEXT_SWITCHED`. A company they hold no membership in — or one
+that does not exist — is `FORBIDDEN` with one answer for both; a company they
+belong to that is suspended is `COMPANY_INACTIVE`; an older switch arriving
+after a newer one is refused. A refused switch leaves the session row exactly
+as it was. A tab still showing the previous workspace sends it with every
+write (`x-nesto-workspace`) and is refused (AUD-03 §7), so a switch in one tab
+never turns another tab's draft into a write in the wrong company.
+`tests/api/workspace/company-switch-identity.test.ts` (AUD-06 RP-06).
+
+**The Group workspace is a union, never a grant.** `resolveGroupContexts`
+builds the person's own context in every usable company of the group, each by
+the same `assembleContext` a session there would use. A group list, count,
+search or dashboard figure is the union of those companies' own scoped answers
+for that module and action; a company that does not grant it is left out
+entirely, and a permission held in one company is never lent to another
+(§57-§62). Holding a group title promotes nothing. Writes need one company:
+in the Group workspace `requireCompanyContext` / `withContext` refuse with
+`WORKSPACE_COMPANY_REQUIRED` and never fall back to the anchor company.
+
+The Group dashboard's *layout* follows the person's position in the group —
+Owner in any company, else the highest position held anywhere — not the role
+of whichever membership the session is anchored in; the data under it is still
+each company's own answer (`groupReader` in `dashboard.service.ts`, AUD-06
+RP-19).
+
+## 11. The demo user switch and demo mode
+
+Development conveniences — the demo account picker on the sign-in page, the
+demo user switch in the top bar, the access debugger — exist only where
+`isDevMode` is true. `devModeFor` (`lib/auth/dev-mode.ts`) is an allowlist
+and fails closed:
+
+| `APP_ENV` | Demo conveniences |
+|---|---|
+| `production`, `staging` | off, whatever else is set |
+| `development`, `test`, `demo` | on (`demo` is the hosted demo) |
+| any other value (a typo, `preview`) | off |
+| unset | on for a development or test Node build; on a production build only with the explicit `NESTO_DEMO_MODE=true` |
+
+`NODE_ENV` alone never turns it on for a deployment. The server actions check
+it themselves (`signInAsDemoAccountAction`, `switchDemoUserAction` answer
+"Not found." when it is off), so hiding the control is not the gate.
+
+**Switching user is signing out and signing in** (C-01, AUD-06 §4). The
+browser sends a username and nothing else. The demo password is resolved on
+the server (`resolveDemoAccountTarget`) and never rendered, bundled or
+returned; only curated personas and active logins of a demo tenant qualify.
+Every refusal the sign-in would give — unknown or inactive account, no
+workspace, the password refused, maintenance or `disableNewLogins`, the
+sign-in throttle — is asked **before** the current session is ended, so a
+refused target leaves the current person signed in. Then the session row is
+deleted and a `LOGOUT` recorded (`metadata.switchType = "DEMO_USER_SWITCH"`,
+the target's id), the legacy `nesto.dev-role` cookie is deleted, and the
+target signs in through the credentials provider — the same pipeline as the
+form, so the new session, company and workspace are what a normal login
+makes. If that sign-in fails after the logout, the browser is sent to
+`/login?reason=demo-switch-failed`; the old session is never resurrected. The
+`LOGIN_SUCCESS` event records `metadata.via` (`DEMO_USER_SWITCH` or
+`DEMO_SIGN_IN`) where demo mode is on, and nowhere else.
+
+A context is never a role overlay: the role is always the membership's own,
+and no cookie, header or body can replace it (`tests/architecture/no-role-override.test.ts`).
+
+## 12. Known limitations, stated
+
+- **Signed download and preview URLs are bearer URLs.** A document download or
+  preview URL is issued after the reader is authorized and lives
+  `DOWNLOAD_URL_TTL_SECONDS` / `PREVIEW_URL_TTL_SECONDS` — 3 minutes
+  (`lib/core/storage/index.ts`); project media and 3D viewer assets live 5
+  minutes. The storage provider cannot revoke an issued URL, so a URL issued
+  before a revocation keeps working until it expires, for whoever holds it.
+  What revocation does stop immediately is **issuance**: the next request for
+  a URL re-authorizes and is refused. The residual exposure — up to 3 minutes
+  (5 for media/3D) of an already-issued link — needs the owner's sign-off
+  before the stricter "instant revocation" objective is declared met
+  (AUD-06 §6, §9).
+- **Commit-boundary rechecks are opt-in** (§1): only task mutations and
+  `runInTransaction` callers that pass `actor` serialise with a concurrent
+  revocation; every other write is authorized when its request resolves.
+- **Notification text is withheld per list read**, not rewritten: the stored
+  title stays in the database, and a surface that renders notification rows
+  without going through the notification service would show it.
+
+## 13. What this does not do (V0.1)
 
 No SSO, MFA, passkeys or external contractor login; no custom role builder; no
-free company switcher; no attribute-based policy engine (PRD #47 §5). A session
-moves between a person's companies only by opening a project that company owns
-(§2, E-05A).
+attribute-based policy engine (PRD #47 §5). No production impersonation: the
+demo user switch is a demo-mode capability (§11), not a support tool.
 `EXTERNAL_SHAREABLE` is metadata and grants nobody anything — contractor
 records are internal company data (§101, §102).

@@ -17,6 +17,11 @@ concurrency:
 
 env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nesto_test?schema=public
+  # The drift check's shadow: its own database, never DATABASE_URL (AUD-12 §5).
+  # The check creates a run database beside it and drops it afterwards.
+  SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nesto_shadow?schema=public
+  # Both exist only for this run, so both may be dropped.
+  NESTO_DISPOSABLE_DATABASES: nesto_test,nesto_shadow
   AUTH_SECRET: ci-only-secret-not-used-in-any-deployment
   AUTH_TRUST_HOST: "true"
   NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
@@ -63,6 +68,9 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
+      - name: Shadow database
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -c "create database nesto_shadow"
+
       - name: Migration drift check
         # A schema edited without a matching migration would apply cleanly here
         # and fail in production instead (PRD #34 §204, PRD #37 §177).
@@ -94,6 +102,12 @@ jobs:
         # Fails when the matrix is stale, or when a company-scoped endpoint
         # reaches no permission, module or record check at all (PRD #47 §105-§107, §157).
         run: pnpm security:matrix --check
+
+      - name: Access manifest
+        # Fails when docs/security/access-manifest.json — every role × position
+        # × module cell and every seeded persona's resolved access — no longer
+        # matches the role matrix and the seed it is derived from (AUD-06 §2, RP-01).
+        run: pnpm security:access-manifest:check
 
       - name: Security isolation tests
         # Company A/B, project A/B, disabled modules, session and membership

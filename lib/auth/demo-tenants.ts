@@ -3,6 +3,9 @@ import { GROUP_DEPARTMENTS } from "@/config/group-departments";
 import { roles, type RoleKey } from "@/config/roles";
 import { unstable_cache } from "next/cache";
 
+import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
+import { allowsPlatformOneClick } from "./dev-mode";
+import { clientAddress, peekThrottle } from "@/lib/core/security/throttle";
 import { prisma } from "@/lib/database/prisma";
 import { SIGN_IN_ACCOUNT, signInWorkspace } from "./credentials";
 import { verifyPassword } from "./password";
@@ -171,7 +174,8 @@ async function readDemoRosters(): Promise<DemoRosterOption[]> {
   ]);
   const curatedNames = new Map(curated.map((user) => [user.username, nameOf(user)]));
   // Once the database is readable, a curated persona it does not hold is not offered.
-  const seeded = curated.length > 0 ? PRIMARY_DEMO_ACCOUNTS.filter((account) => curatedNames.has(account.username)) : PRIMARY_DEMO_ACCOUNTS;
+  const offered = PRIMARY_DEMO_ACCOUNTS.filter((account) => allowsPlatformOneClick || account.section !== "platform");
+  const seeded = curated.length > 0 ? offered.filter((account) => curatedNames.has(account.username)) : offered;
   const sections = new Map<DemoAccountSection, DemoAccountOption[]>();
   for (const account of seeded) {
     const entry = option(account.role, account.username, curatedNames.get(account.username) ?? "", account.assignment);
@@ -206,7 +210,7 @@ async function readDemoRosters(): Promise<DemoRosterOption[]> {
 
 /* Who may be signed into this way ------------------------------------------ */
 
-export type DemoAccountRefusal = "UNKNOWN" | "NOT_SEEDED" | "INACTIVE" | "NO_WORKSPACE" | "PASSWORD_REFUSED";
+export type DemoAccountRefusal = "UNKNOWN" | "NOT_SEEDED" | "INACTIVE" | "NO_WORKSPACE" | "PASSWORD_REFUSED" | "UNAVAILABLE" | "THROTTLED";
 
 export type DemoAccountTarget =
   | {
@@ -230,6 +234,8 @@ export const DEMO_ACCOUNT_REFUSALS: Record<DemoAccountRefusal, string> = {
   INACTIVE: "That demo account is not active.",
   NO_WORKSPACE: "That demo account has no active company to sign in to.",
   PASSWORD_REFUSED: "The demo password was refused: a demo tenant seeded with a password of its own signs in through the form.",
+  UNAVAILABLE: "Sign-in is paused for maintenance.",
+  THROTTLED: "Too many recent sign-in attempts. Try again in a few minutes.",
 };
 
 /**
@@ -243,7 +249,7 @@ export const DEMO_ACCOUNT_REFUSALS: Record<DemoAccountRefusal, string> = {
  * tenant's login is UNKNOWN, whether or not it exists: a customer's account is
  * never a target, and the answer does not say it is there.
  */
-export async function resolveDemoAccountTarget(input: string): Promise<DemoAccountTarget> {
+export async function resolveDemoAccountTarget(input: string, requestHeaders?: Headers | null): Promise<DemoAccountTarget> {
   const username = normaliseUsername(input);
   const curated = demoAccountByUsername(username) !== undefined;
   const account = username
@@ -260,6 +266,8 @@ export async function resolveDemoAccountTarget(input: string): Promise<DemoAccou
   if (account.status !== "ACTIVE") return { allowed: false, reason: "INACTIVE" };
   const workspace = signInWorkspace(account);
   if (!workspace) return { allowed: false, reason: "NO_WORKSPACE" };
+  // The platform account is not a one-click target on a hosted demo: as if it were not here.
+  if (workspace.platform && !allowsPlatformOneClick) return { allowed: false, reason: "UNKNOWN" };
   const lapsed = account.temporaryPasswordExpiresAt !== null && account.temporaryPasswordExpiresAt.getTime() <= Date.now();
   // A demo tenant may be seeded with a password of its own, held in a
   // `<TENANT>_DEMO_PASSWORD` variable on a hosted demo (D-01 §87); the tenant
@@ -272,6 +280,14 @@ export async function resolveDemoAccountTarget(input: string): Promise<DemoAccou
     }
   }
   if (password === null) return { allowed: false, reason: "PASSWORD_REFUSED" };
+  // The credentials check refuses these too; asked here first so a switch is
+  // refused while the current session still stands (AUD-06 §4, RP-03).
+  if (!workspace.platform) {
+    const maintenance = await getMaintenanceState();
+    if (maintenance.enabled || maintenance.disableNewLogins) return { allowed: false, reason: "UNAVAILABLE" };
+  }
+  const allowance = await peekThrottle("AUTH_LOGIN", { account: account.username, ip: clientAddress(requestHeaders) });
+  if (!allowance.allowed) return { allowed: false, reason: "THROTTLED" };
 
   return {
     allowed: true,

@@ -1916,6 +1916,30 @@ export async function canReadRecord(context: UserContext, type: string, id: stri
   return (await loadRecord(context, type, id)) !== null;
 }
 
+/**
+ * Which of these records this reader may open right now, as `type:id` keys:
+ * the batch form of `canReadRecord`, one query per type (AUD-06 §6, RP-18).
+ * Unknown types answer nothing readable.
+ */
+export async function reachableRecordKeys(context: UserContext, refs: Array<{ type: string; id: string }>): Promise<Set<string>> {
+  const idsByType = new Map<string, Set<string>>();
+  for (const ref of refs) {
+    if (!ref.type || !ref.id) continue;
+    const ids = idsByType.get(ref.type) ?? new Set<string>();
+    ids.add(ref.id);
+    idsByType.set(ref.type, ids);
+  }
+  const keys = new Set<string>();
+  await Promise.all(
+    [...idsByType].map(async ([type, ids]) => {
+      const definition = recordDefinition(type);
+      if (!definition || !moduleAndPermissions(context, definition.moduleKey, definition.viewPermissions)) return;
+      for (const id of await definition.reachable(context, [...ids])) keys.add(`${type}:${id}`);
+    }),
+  );
+  return keys;
+}
+
 /** Somebody's own employment here: the login it names is theirs (HR self-service, E-04 §7). */
 async function ownEmployment(context: UserContext, id: string): Promise<boolean> {
   return (await prisma.employeeProfile.count({ where: { id, companyId: context.companyId, companyMemberId: context.membershipId } })) > 0;

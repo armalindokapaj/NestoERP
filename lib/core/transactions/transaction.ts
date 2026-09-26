@@ -4,6 +4,8 @@ import { logger } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { currentRequestContext } from "@/lib/core/observability/request-context";
 import { prisma } from "@/lib/database/prisma";
+import type { UserContext } from "@/lib/context/types";
+import { assertActorCurrent } from "./actor";
 
 /**
  * One atomic business operation (PRD #48 §21, §124, §176, §180).
@@ -23,6 +25,13 @@ import { prisma } from "@/lib/database/prisma";
  *      operation is contended is the question conflict metrics exist to answer,
  *      and the name has to be low-cardinality — `procurement.order.approve`,
  *      not an id (§176, §177, §181).
+ *
+ * And one thing a caller opts into: `actor`. Given the context the request
+ * decided under, the transaction first re-reads that actor's membership,
+ * account, role and session with a share lock (`assertActorCurrent`), so a
+ * revocation that commits between the decision and the write refuses the write
+ * instead of following it, and one that arrives later waits for this commit
+ * (AUD-06 §7, RP-16). Every attempt re-reads it.
  *
  * The callback must contain only database work. An email, an upload or an
  * external call inside it either happens twice on a retry or happens before a
@@ -53,6 +62,8 @@ export type TransactionOptions = {
   timeout?: number;
   maxWait?: number;
   isolationLevel?: Prisma.TransactionIsolationLevel;
+  /** The signed-in actor the operation was authorised for, re-checked at the commit boundary (AUD-06 RP-16). */
+  actor?: UserContext;
 };
 
 export async function runInTransaction<T>(
@@ -66,7 +77,10 @@ export async function runInTransaction<T>(
 
   for (let attempt = 1; ; attempt += 1) {
     try {
-      const result = await prisma.$transaction(run, {
+      const result = await prisma.$transaction(async (tx) => {
+        if (options.actor) await assertActorCurrent(tx, options.actor);
+        return run(tx);
+      }, {
         timeout: options.timeout,
         maxWait: options.maxWait,
         isolationLevel: options.isolationLevel,

@@ -127,6 +127,10 @@ export async function updateActionItem(
   const meeting = await requireReadableMeeting(context, meetingId);
   const action = findAction(meeting, actionId);
   const manage = canManageActions(context, meeting);
+  // Only somebody who manages actions, or the action's owner, changes it at
+  // all: an empty or unchanged request from anybody else is refused, not
+  // answered 200 as though it were theirs to send (AUD-06 §6, RP-09).
+  if (!manage && action.ownerMemberId !== context.membershipId) throw new AccessError("FORBIDDEN", "You cannot change this action.");
   const content = input.title !== undefined || input.description !== undefined || input.ownerMemberId !== undefined || input.dueDate !== undefined;
 
   if (content) {
