@@ -50,6 +50,27 @@ export type InvoiceSummaryDTO = {
   company?: CompanyRef;
 };
 
+/**
+ * What a register's filters matched, all of it rather than the page shown
+ * (AUD-01 §6). One bucket per currency — V0.1 converts nothing — each summing
+ * its records' own outstanding, so one overpaid record never hides another's
+ * debt. The counts add up to `matchingCount`, which is `pagination.total`.
+ */
+export type FinanceCurrencySummary = {
+  currency: string;
+  count: number;
+  totalAmount: string;
+  paidAmount: string;
+  outstandingAmount: string;
+};
+
+export type FinanceListSummary = {
+  /** The one server instant the response classified settlement at. */
+  evaluatedAt: string;
+  matchingCount: number;
+  byCurrency: FinanceCurrencySummary[];
+};
+
 export type InvoiceLineDTO = {
   id: string;
   description: string;

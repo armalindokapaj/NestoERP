@@ -10,7 +10,9 @@
 // validates that before every write (PRD #8 §64).
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // `views`: the settlement views the finance registers filter and total through (AUD-01).
+  previewFeatures = ["views"]
 }
 
 datasource db {
@@ -4282,6 +4284,8 @@ model Invoice {
   lineItems   InvoiceLineItem[]
   /// What has been paid against it (E-05F §31): allocations of recorded payments.
   allocations PaymentAllocation[]
+  /// Those allocations summed when read (AUD-01): the register filters and totals through it.
+  settlement  InvoiceSettlement?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4358,6 +4362,8 @@ model Expense {
 
   /// What has been paid out against it: allocations of recorded disbursements (E-05F §31).
   allocations PaymentAllocation[]
+  /// Those allocations summed when read (AUD-01).
+  settlement  ExpenseSettlement?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4468,6 +4474,49 @@ model PaymentAllocation {
   @@index([invoiceId])
   @@index([expenseId])
   @@map("payment_allocations")
+}
+
+/// What an invoice has been paid, derived when read (AUD-01 §3, §4). A database
+/// view (migration 20260926120000), never written: `paidAmount` sums the live
+/// allocations naming the invoice — not reversed, of a payment still RECORDED —
+/// and `outstandingAmount` is what is left of the total, never below zero. The
+/// invoice register filters by settlement, counts and totals through it inside
+/// the database, so a page never has to be read before it can be filtered.
+///
+/// `integrityIssues` counts live allocations from another company or in another
+/// currency; the register refuses to total a record that has any.
+view InvoiceSettlement {
+  invoiceId         String        @unique
+  companyId         String
+  currency          String
+  status            InvoiceStatus
+  dueDate           DateTime
+  totalAmount       Decimal
+  paidAmount        Decimal
+  outstandingAmount Decimal
+  integrityIssues   Int
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("invoice_settlements")
+}
+
+/// What an expense has been paid out, derived when read (AUD-01 §3, §4); the
+/// expense twin of `InvoiceSettlement`, with no due date because an expense is
+/// never overdue.
+view ExpenseSettlement {
+  expenseId         String        @unique
+  companyId         String
+  currency          String
+  status            ExpenseStatus
+  totalAmount       Decimal
+  paidAmount        Decimal
+  outstandingAmount Decimal
+  integrityIssues   Int
+
+  expense Expense @relation(fields: [expenseId], references: [id])
+
+  @@map("expense_settlements")
 }
 
 /// A sale contract's plan of payments (E-05F §18-§25, §69). Finance turns the

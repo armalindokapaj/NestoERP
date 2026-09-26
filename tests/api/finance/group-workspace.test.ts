@@ -99,6 +99,13 @@ const companyNames = async () => new Map((await prisma.company.findMany({ where:
 
 type Kind = "invoice" | "expense" | "budget";
 
+/**
+ * One instant for every register read here: each response carries the instant
+ * it classified settlement at (AUD-01 §3), so two reads compared whole must be
+ * given the same one.
+ */
+const AT = new Date();
+
 const LISTS: Array<{
   kind: Kind;
   permission: "finance.invoice.view" | "finance.expense.view" | "finance.budget.view";
@@ -108,14 +115,14 @@ const LISTS: Array<{
   {
     kind: "invoice",
     permission: "finance.invoice.view",
-    group: (session, params, company) => invoices.listInvoicesForWorkspace(session, parseInvoiceQuery(params), { company }),
-    own: (session, params) => invoices.listInvoices(session, parseInvoiceQuery(params)),
+    group: (session, params, company) => invoices.listInvoicesForWorkspace(session, parseInvoiceQuery(params), { company, now: AT }),
+    own: (session, params) => invoices.listInvoices(session, parseInvoiceQuery(params), { now: AT }),
   },
   {
     kind: "expense",
     permission: "finance.expense.view",
-    group: (session, params, company) => expenses.listExpensesForWorkspace(session, parseExpenseQuery(params), { company }),
-    own: (session, params) => expenses.listExpenses(session, parseExpenseQuery(params)),
+    group: (session, params, company) => expenses.listExpensesForWorkspace(session, parseExpenseQuery(params), { company, now: AT }),
+    own: (session, params) => expenses.listExpenses(session, parseExpenseQuery(params), { now: AT }),
   },
   {
     kind: "budget",

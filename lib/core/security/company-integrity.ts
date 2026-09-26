@@ -59,11 +59,18 @@ function modelShapes(): ModelShape[] {
 const quote = (identifier: string) => `"${identifier.replaceAll('"', '""')}"`;
 
 export async function findCrossCompanyReferences(prisma: PrismaClient): Promise<CompanyIntegrityViolation[]> {
-  const models = modelShapes();
   const violations: CompanyIntegrityViolation[] = [];
 
   await prisma.$transaction(
     async (tx) => {
+      // Tables only. A view — the finance settlement views (AUD-01) — stores no
+      // reference of its own: the tables it reads are checked here already.
+      const tables = await tx.$queryRawUnsafe<{ name: string }[]>(
+        `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'`,
+      );
+      const stored = new Set(tables.map((row) => row.name));
+      const models = modelShapes().filter((model) => stored.has(model.table));
+
       await tx.$executeRawUnsafe(`CREATE TEMP TABLE owned_record_ids (id text PRIMARY KEY, company_id text NOT NULL) ON COMMIT DROP`);
       for (const model of models.filter((candidate) => candidate.owned && candidate.hasId)) {
         await tx.$executeRawUnsafe(

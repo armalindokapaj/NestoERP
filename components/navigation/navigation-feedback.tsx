@@ -104,6 +104,24 @@ export function usePendingDestination(href: string | null): boolean {
   );
 }
 
+/**
+ * Whether the pending navigation stays on `pathname` and only changes its query —
+ * a filter, a sort or another page of the same list — so the list on screen can
+ * say it is being replaced rather than pass for the new answer (AUD-01 §9).
+ */
+export function usePendingQueryChange(pathname: string): boolean {
+  const feedback = useNavigationFeedback();
+  const store = feedback?.store;
+  return React.useSyncExternalStore(
+    store?.subscribe ?? noopSubscribe,
+    () => {
+      const destination = store?.getSnapshot().ticket?.destination;
+      return typeof destination === "string" && (destination === pathname || destination.startsWith(`${pathname}?`));
+    },
+    () => false,
+  );
+}
+
 export type FeedbackNavigateOptions = {
   source?: NavigationSource;
   /** A ticket the caller already began — e.g. before a workspace switch — carried on to the navigation. */

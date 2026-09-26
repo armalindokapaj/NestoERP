@@ -8,16 +8,23 @@
  * opens the file. Such a cell is prefixed with an apostrophe — the convention
  * every spreadsheet recognises as "this is text" — and quoted.
  *
+ * Leading spaces and control characters do not hide one (AUD-01 §8): a
+ * spreadsheet trims ` =1+1` or a line break before `=` and evaluates what is
+ * left, so the formula character is looked for after them, and a cell that
+ * starts with any control character is guarded too.
+ *
  * Plain numbers keep their sign: a negative amount from the database is not a
  * formula, and turning `-120.50` into text would break the column's sums.
  */
-const FORMULA_START = /^[=+\-@\t\r]/;
+const FORMULA_START = /^[\s\u0000-\u001f\u007f]*[=+\-@]/;
+const CONTROL_START = /^[\u0000-\u001f\u007f]/;
 const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
 
 export function csvCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "number") return String(value);
-  const text = FORMULA_START.test(value) && !PLAIN_NUMBER.test(value) ? `'${value}` : value;
+  const formulaLike = (FORMULA_START.test(value) || CONTROL_START.test(value)) && !PLAIN_NUMBER.test(value);
+  const text = formulaLike ? `'${value}` : value;
   return /[",\n\r']/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 

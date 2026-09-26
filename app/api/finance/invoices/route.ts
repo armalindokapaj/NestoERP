@@ -7,6 +7,9 @@ import * as invoices from "@/lib/modules/finance/invoices/invoice.service";
  * GET  /api/finance/invoices — scoped, filtered, paginated (PRD #15 §221). In the
  *      Group workspace: the invoices of every company the caller may read, each
  *      naming its company, narrowed by `?company=` only within those (§36, §86).
+ *      Every filter, settlement included, applies before the page; `summary`
+ *      beside `data` and `pagination` totals all the matches per currency, and
+ *      `pagination.page` is the page actually read (AUD-01 §5, §6).
  * POST /api/finance/invoices — create a draft, requiring finance.invoice.create.
  *
  * Totals are absent from the request body: the server calculates them from the

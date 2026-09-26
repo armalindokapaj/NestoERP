@@ -3,9 +3,11 @@ import { Prisma } from "@prisma/client";
 import { buildClientScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { searchClause } from "@/lib/modules/shared/list-query";
+import { readRegisterSnapshot, registerSlice, registerSummary, type RegisterWindow } from "../finance.register";
 import { buildFinanceProjectWhere, buildInvoiceScopeWhere } from "../finance.scope";
 import type { InvoiceListQuery, InvoiceSortKey } from "./invoice.schema";
+import { invoiceSettlementWhere } from "./invoice.status";
 
 /** Invoice queries (PRD #15 §160–§164, §262). */
 
@@ -105,48 +107,83 @@ export function buildInvoiceListWhere(
   return { AND: filters };
 }
 
-export async function listInvoices(context: UserContext, query: InvoiceListQuery) {
-  const where = buildInvoiceListWhere(context, query);
+/**
+ * The register's order: the chosen sort, then the id (AUD-01 §5.2). Several
+ * invoices — in one company or across the group — can share a date, an amount
+ * or a number, and without the id a record could sit on two pages or none.
+ */
+function registerOrder(sort: InvoiceSortKey): Prisma.InvoiceOrderByWithRelationInput[] {
+  return [...ORDER[sort], { id: "asc" }];
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.invoice.findMany({
-      where,
-      orderBy: ORDER[query.sort],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUMMARY_SELECT,
-    }),
-    prisma.invoice.count({ where }),
-  ]);
+/** A register row: the summary, its company, and what it has been paid in this snapshot. */
+export const REGISTER_SELECT = {
+  ...SUMMARY_SELECT,
+  companyId: true,
+  settlement: { select: { paidAmount: true } },
+} satisfies Prisma.InvoiceSelect;
 
-  return { rows, total };
+export type InvoiceRegisterRow = Prisma.InvoiceGetPayload<{ select: typeof REGISTER_SELECT }>;
+
+/**
+ * The invoice register — list, count, filtered totals and export (AUD-01 §4).
+ *
+ * `contexts` is the reader in each company answered for: the session alone in a
+ * company workspace, or every company the Group workspace may read. Each company
+ * keeps its own list clause — its scope, the archive rule, the search and the
+ * filters — and the union is filtered by settlement in the database, through
+ * the settlement view, before anything is counted, totalled or paged. The
+ * view-side clause names the companies too, so Postgres aggregates only theirs.
+ */
+export async function readInvoiceRegister(
+  contexts: UserContext[],
+  query: InvoiceListQuery,
+  read: { evaluatedAt: Date; window: RegisterWindow; timeoutMs?: number },
+) {
+  // Nothing readable is an empty answer, not an error (Workspace Context §76).
+  if (contexts.length === 0) return { rows: [] as InvoiceRegisterRow[], summary: registerSummary("invoices", [], read.evaluatedAt), page: 1 };
+
+  const eligible: Prisma.InvoiceWhereInput =
+    contexts.length === 1 ? buildInvoiceListWhere(contexts[0], query) : { OR: contexts.map((context) => buildInvoiceListWhere(context, query)) };
+  const companies: Prisma.InvoiceSettlementWhereInput = { companyId: { in: contexts.map((context) => context.companyId) } };
+  const settled = query.settlement?.length ? invoiceSettlementWhere(query.settlement, read.evaluatedAt) : null;
+
+  return readRegisterSnapshot(
+    "invoices",
+    async (tx) => {
+      const groups = await tx.invoiceSettlement.groupBy({
+        by: ["currency"],
+        _count: { _all: true },
+        _sum: { totalAmount: true, paidAmount: true, outstandingAmount: true, integrityIssues: true },
+        orderBy: { currency: "asc" },
+        where: { AND: [companies, ...(settled ? [settled] : []), { invoice: { is: eligible } }] },
+      });
+      const summary = registerSummary("invoices", groups, read.evaluatedAt);
+      const slice = registerSlice(read.window, summary.matchingCount);
+
+      const rows =
+        slice.take === 0
+          ? []
+          : await tx.invoice.findMany({
+              where: settled ? { AND: [eligible, { settlement: { is: { AND: [companies, settled] } } }] } : eligible,
+              orderBy: registerOrder(query.sort),
+              skip: slice.skip,
+              take: slice.take,
+              select: REGISTER_SELECT,
+            });
+
+      return { rows, summary, page: slice.page };
+    },
+    { timeoutMs: read.timeoutMs },
+  );
 }
 
 /**
- * The Group workspace's invoice list (Workspace Context §36, §58).
- *
- * The union of each company's own list clause — that company's scope, the
- * archive rule, the search and the filters — so the database decides which
- * invoices belong before it sorts and pages, and every branch begins with its
- * company. `id` breaks ties: several companies can hold the same due date, and
- * a page must not move between requests.
+ * One invoice's settlement row, for a detail read to refuse a figure an
+ * allocation from another company or currency would inflate (AUD-01 §3).
  */
-export async function listInvoicesAcross(contexts: UserContext[], query: InvoiceListQuery) {
-  if (contexts.length === 0) return { rows: [], total: 0 };
-  const where: Prisma.InvoiceWhereInput = { OR: contexts.map((context) => buildInvoiceListWhere(context, query)) };
-
-  const [rows, total] = await Promise.all([
-    prisma.invoice.findMany({
-      where,
-      orderBy: [...ORDER[query.sort], { id: "asc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: { ...SUMMARY_SELECT, companyId: true },
-    }),
-    prisma.invoice.count({ where }),
-  ]);
-
-  return { rows, total };
+export function invoiceSettlementRow(invoiceId: string) {
+  return prisma.invoiceSettlement.findUnique({ where: { invoiceId }, select: { integrityIssues: true } });
 }
 
 export function findInvoiceInScope(context: UserContext, invoiceId: string) {

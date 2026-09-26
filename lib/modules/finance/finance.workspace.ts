@@ -2,6 +2,7 @@ import { modules, sectionRoute } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
 import { inGroupWorkspace, isGroupRoute } from "@/config/workspace";
 import { can } from "@/lib/access/can";
+import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import { resolveModuleExperience, type ResolvedModuleExperience } from "@/lib/access/module-access";
 import type { UserContext } from "@/lib/context/types";
 import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
@@ -50,6 +51,66 @@ export async function canReadFinance(session: UserContext, ...permissions: Permi
  */
 export function narrowToCompany(contexts: UserContext[], company: string | null | undefined): UserContext[] {
   return company ? contexts.filter((context) => context.companyId === company) : contexts;
+}
+
+/**
+ * Who may export a register, and from which companies (AUD-01 §7, §8).
+ *
+ * An export needs everything the list needs plus `finance.export`, in every
+ * company the list would answer for. A Group view where one of those companies
+ * does not allow export is refused whole — never exported as a quieter subset
+ * that looks like the list — and the reader is told to narrow it to companies
+ * that do. A company filter naming a company outside the view keeps its usual
+ * meaning, an empty list, so it exports an empty file and says nothing more.
+ */
+export type FinanceExportEligibility =
+  | { state: "allowed" }
+  /** No company in this view lets the reader export: the control is not offered. */
+  | { state: "unavailable" }
+  /** Some companies here allow it and some do not: narrow to these first. */
+  | { state: "choose-company"; companies: CompanyRef[] };
+
+async function exportScope(session: UserContext, viewPermission: Permission, company: string | null | undefined) {
+  const readable = await financeContexts(session, viewPermission);
+  const answered = narrowToCompany(readable, company);
+  const exportable = answered.filter((context) => can(context, "finance.export"));
+  return { readable, answered, exportable };
+}
+
+export async function financeExportEligibility(
+  session: UserContext,
+  viewPermission: Permission,
+  company?: string | null,
+): Promise<FinanceExportEligibility> {
+  if (!inGroupWorkspace(session)) return can(session, viewPermission) && can(session, "finance.export") ? { state: "allowed" } : { state: "unavailable" };
+  const { readable, answered, exportable } = await exportScope(session, viewPermission, company);
+  if (exportable.length === answered.length) return readable.some((context) => can(context, "finance.export")) ? { state: "allowed" } : { state: "unavailable" };
+  const offered = readable.filter((context) => can(context, "finance.export")).map(companyOf);
+  return offered.length > 0 ? { state: "choose-company", companies: offered } : { state: "unavailable" };
+}
+
+/** The contexts an export reads from, or the refusal (AUD-01 §7). Rechecked on every request. */
+export async function financeExportContexts(
+  session: UserContext,
+  viewPermission: Permission,
+  company?: string | null,
+): Promise<UserContext[]> {
+  if (!inGroupWorkspace(session)) {
+    assertModule(session, "finance");
+    assertPermission(session, viewPermission);
+    assertPermission(session, "finance.export");
+    return [session];
+  }
+  const { readable, answered, exportable } = await exportScope(session, viewPermission, company);
+  if (!readable.some((context) => can(context, "finance.export"))) throw new AccessError("FORBIDDEN");
+  if (exportable.length !== answered.length) {
+    throw new AccessError(
+      "FORBIDDEN",
+      "You can't export from every company in this view. Choose a company where you can export, then try again.",
+      { code: "EXPORT_COMPANY_REQUIRED" },
+    );
+  }
+  return answered;
 }
 
 /** The choices for the Group `company` filter: only companies the reader reads here. */

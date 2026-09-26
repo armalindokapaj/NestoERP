@@ -3088,3 +3088,176 @@ used to show the NESTO lockup.
 - **Demo user change (§88)** is C-01's sign-out and sign-in, a full load that
   resolves everything again. Its E2E needs `APP_ENV=development` and was not
   run here.
+
+## 40. AUD-01 — Finance accuracy: settlement before the page, filtered totals, CSV export
+
+AUD-01 fixes the invoice and expense registers.
+- **The defect.** They filtered settlement after reading a page. A Paid search
+  showed only the paid records on that page, the count ignored the filter, and
+  a page could come back empty ahead of real matches. All four list paths were
+  affected (invoices and expenses, Company and Group).
+- **The fix.** Every filter now applies in the database before the count, the
+  totals and the page.
+- **New.** Filtered totals per currency, and CSV exports.
+
+The design is in [ADR 0016](adr/0016-finance-register-settlement.md) and the
+contract in [finance-registers.md](finance-registers.md).
+
+### 40.1 What changed
+
+| Before | Now |
+| --- | --- |
+| A page was read, paid amounts were fetched for it, and non-matching rows were dropped in JavaScript. `total` was unfiltered | Views `invoice_settlements` and `expense_settlements` derive paid and outstanding at query time. `readInvoiceRegister` / `readExpenseRegister` filter settlement through them, then total, then page, in one repeatable-read, read-only snapshot with one `evaluatedAt` |
+| Company sorts had no tie-breaker | Every sort ends in `id`, in both workspaces |
+| A page past the end clamped the label but kept the empty offset | The last real page is read. The page replaces its address with the page it shows, and the filters as understood |
+| No totals | `summary` (count, then Total/Paid/Outstanding per currency) in the JSON, and **Filtered results** on the page |
+| No finance CSV | `GET /api/finance/{invoices,expenses}/export`:<br>• needs `finance.export` in every company in view<br>• 10 000-row cap<br>• UTF-8 with BOM, CRLF<br>• headers `X-Export-Row-Count` and `X-Export-Evaluated-At`<br>The page has an **Export filtered CSV** control |
+| An invalid date in the address crashed the page. A reversed range matched nothing | Both are validation errors: 422 on the API, a "These filters could not be applied." state on the page |
+| Clear filters in the archive left the archive | It stays in the archive |
+| At 768 px the toolbar's filter row overflowed by 39–64 px | The row wraps |
+| `csvCell` missed ` =1+1` and control-character prefixes | Guarded |
+| — | An allocation from another company or currency fails the affected response (`SETTLEMENT_INTEGRITY`) instead of inflating a total. There is a new release invariant for it |
+
+Migration `20260926120000_finance_settlement_views_aud_01` is additive (two
+views, LOW risk). Rollback is `DROP VIEW`, after the code that reads the views
+is gone. No backfill is needed. **`nesto_erp` does not have it yet.**
+
+### 40.2 The evidence
+
+Every run below used the real PostgreSQL database with disposable fixtures.
+Nothing was run against `nesto_erp`. The lanes were cloned from `nesto_ow_tpl`
+(NESTO demo, fixtures and ARMAAR), with the migration applied: `nesto_audv` for
+vitest, `nesto_aud` for E2E and `nesto_audp` for the benchmark.
+`prisma migrate diff` reports no drift.
+
+**New tests**
+
+- **`tests/api/finance/finance-accuracy.test.ts`, 23 of 23:**
+  - FA-01 and FA-02, in all four list paths.
+  - FA-03 to FA-12.
+  - FA-13: foreign company, project and client; Finance off; a role without
+    the permission.
+  - SQL against domain classifier parity, over invoice status × paid × due-date
+    and expense status × paid matrices.
+  - The views' paid and outstanding figures equal `paidByInvoice` /
+    `paidByExpense` for every record in the database.
+  - FA-18: a payment committed during a read is not seen by it, and is seen by
+    the next read.
+  - The snapshot refuses writes.
+  - FA-19: a timed-out read fails instead of answering short.
+  - The integrity refusal in the list and on the record.
+- **`tests/api/finance/finance-export.test.ts`, 10 of 10**, through the route
+  handlers:
+  - FA-15: every match once, in the list's order and with its values, asked
+    from page 2.
+  - FA-16: a header-only file; 10 000 rows exported; 10 001 refused.
+  - FA-17: formula names, quotes, commas, line breaks, Albanian letters, the
+    BOM and CRLF.
+  - FA-13, FA-14 and FA-21: 401 and 403 answers, a mixed-permission Group
+    refused whole, a foreign company exporting nothing, `MODULE_UNAVAILABLE`.
+  - The JSON envelope with `summary`.
+  - 422 for an invalid date and for a reversed range.
+  - The audit event.
+- **`tests/unit/finance/finance-register.test.ts` (10)** and
+  **`tests/unit/utils/csv.test.ts`**: the page window, normalisation, the
+  canonical address, the settlement arms, the file name and formula prefixes.
+- **E2E, `tests/e2e/modules/finance-accuracy.spec.ts`, 14 of 14**, on a
+  production build (`.next-e2e`, :3170, lane `nesto_aud`):
+  - FA-01 through the toolbar.
+  - FA-11: `page=999` is rewritten to `page=2`.
+  - Combined settlement shown in the control.
+  - The archive kept by Clear filters.
+  - FA-15: the downloaded file.
+  - FA-16: the explained, inert export.
+  - FA-19: a failed export with Try again; a broken ledger shows the content
+    error, and Retry then keeps the address.
+  - FA-06: a receipt recorded in the UI reaches the Paid list, including after
+    Refresh.
+  - FA-20 at 360, 390, 768 and 1440 px: no sideways scroll; the summary,
+    export and pages visible; Settlement through the phone sheet; the export by
+    keyboard; Back.
+  - The Group register across two companies.
+  - The expense register.
+  - FA-21: direct links for a role without the registers, and a reader without
+    `finance.export`.
+
+**Regression**
+
+- **Vitest, full suite** (`nesto_audv`): 4 523 passed, 14 skipped. Four
+  failures:
+  - Two, in `tests/security/company-integrity.test.ts`, were caused by the new
+    views: `findCrossCompanyReferences` keyed id-less models by `ctid`, which a
+    view does not have. It now checks base tables only. The file passes 2 of 2,
+    and `verify:company-integrity` passes.
+  - `procurement-service` "same order number in another company" is known.
+  - `tests/integration/auth/demo-user-switch.test.ts` does not load. This is
+    known (§39.2).
+  - The updated `group-workspace.test.ts` passes 33 of 33: two whole-list
+    comparisons now pass the same `now`.
+- **E2E, full suite** (633 tests): 589 passed, 41 skipped, 3 failed. The
+  3 failures are outside Finance. They were not re-run on the base build:
+  - `projects.spec.ts:76` has been known since NAV-03.
+  - `documents.spec.ts:154`: the lane's storage has no PDF object, so the
+    signed URL has no `Content-Disposition`.
+  - `responsive/top-bar-mobile.spec.ts:29`: two Close buttons in the Activity
+    Center sheet.
+
+**Gates**
+
+- `verify:ownership`, `verify:authorization`, `verify:state` and
+  `verify:production-guards` pass.
+- `security:matrix` was regenerated. The only change is the two export routes,
+  COMPANY_SCOPED, with 0 unchecked endpoints.
+- Typecheck, lint and `next build` pass. The build lints and type-checks.
+
+**FA-22, performance** (`NESTO_PERF=1 tests/perf/finance-registers.perf.test.ts`)
+
+- **Setup:** Apple M5 with 10 cores and 16 GB; local PostgreSQL 16.15; lane
+  `nesto_audp`.
+- **Data:** 10 000 invoices and 10 000 expenses across the five demo companies,
+  with 13 334 payments and 20 000 allocations (voided payments and reversed
+  allocations among them).
+- **Load:** the API route handlers, 10 concurrent readers, 100 warm requests
+  per scenario, in milliseconds:
+
+| Scenario | p50 | p95 |
+| --- | --- | --- |
+| Company invoices, 25 / 100 rows | 38 / 49 | 51 / 70 |
+| Company invoices, Paid | 41 | 57 |
+| Group invoices (10 000), 25 / 100 rows | 174 / 179 | 204 / 196 |
+| Group invoices, Paid | 176 | 191 |
+| Group invoices, Paid + Partially paid, search, EUR, amount-desc, 100 rows | 446 | 552 |
+| Group invoices, Overdue, page 60 | 155 | 161 |
+| Group expenses, 25 / 100 Unpaid | 175 / 335 | 184 / 352 |
+| Company expenses, Partially paid, 100 rows | 61 | 86 |
+
+- **Target:** every p95 is under the 1 s target.
+- **Queries:** a register page is six data queries for invoices and five for
+  expenses, at 25 rows and at 100. Nothing is read per row.
+- **Export:** 10 000 invoices take 821–825 ms for a 1.7 MB file, with a heap
+  delta of 78 MB.
+- **Plans** (EXPLAIN ANALYZE of every query of the heaviest page, kept with the
+  run):
+  - The lateral paid sum uses `payment_allocations_invoiceId_idx` and
+    `payments_pkey`, at about 0.01 ms per record.
+  - The rows are a top-N heapsort over the eligible set.
+  - No index was added: the plan offers nothing for one to fix.
+
+### 40.3 Limits
+
+- **Export error codes** follow the API's convention: the top-level `code`
+  is the generic one, and the business code is `details.code`
+  (`EXPORT_LIMIT_EXCEEDED` with 422 `VALIDATION_ERROR`,
+  `EXPORT_COMPANY_REQUIRED` with 403, `SETTLEMENT_INTEGRITY` with 500). The
+  PRD's "stable code" is read as `details.code`.
+- **The benchmark ran on a laptop against a local database**, not on staging
+  hardware.
+- **Not covered:** cross-tab push, and pages narrower than 360 px. Neither is
+  required.
+- **Module copy is still English.** Only the new register copy (the summary,
+  the export, the invalid-filter state) is translated into Albanian. Server
+  error messages are English, as elsewhere in Finance. The export button shows
+  its own translated messages for known codes.
+- **`nesto_erp` needs `prisma migrate deploy`** for
+  `20260926120000_finance_settlement_views_aud_01` before the dev app can open
+  the registers. It was not applied here.
