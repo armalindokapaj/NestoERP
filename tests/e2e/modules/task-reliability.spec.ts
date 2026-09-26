@@ -229,16 +229,14 @@ test.describe("task actions against a task that moved (TR-22)", () => {
     await expect(reason).toHaveValue("Waiting for the structural engineer's sign-off");
     expect((await db.task.findUniqueOrThrow({ where: { id: task.id } })).status).toBe("TODO");
 
-    // Closed and opened again on the latest version, the reason is still there.
-    // The first Escape closes the dialog, the second the actions menu behind it.
+    // The page behind has the latest version. Closing the dialog asks first
+    // (AUD-03): Stay keeps it, and its reason, and the block goes through now.
+    await expect(page.getByRole("heading", { name: `${PREFIX} blocked reason, renamed` })).toBeAttached();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("heading", { name: `${PREFIX} blocked reason, renamed` })).toBeVisible();
-    await page.getByRole("button", { name: "More task actions" }).click();
-    await page.getByRole("menuitem", { name: "Mark blocked" }).click();
-    await expect(page.getByRole("dialog").getByLabel("Reason")).toHaveValue("Waiting for the structural engineer's sign-off");
-    await page.getByRole("dialog").getByRole("button", { name: "Mark blocked" }).click();
+    await expect(page.getByTestId("unsaved-prompt")).toBeVisible();
+    await page.getByTestId("unsaved-stay").click();
+    await expect(reason).toHaveValue("Waiting for the structural engineer's sign-off");
+    await dialog.getByRole("button", { name: "Mark blocked" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByTestId("task-blocked-reason")).toContainText("Waiting for the structural engineer's sign-off");
     await owner.context().close();
