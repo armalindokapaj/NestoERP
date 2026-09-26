@@ -59,9 +59,11 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const toast = useToast();
   const [confirming, setConfirming] = React.useState(false);
   const [blocking, setBlocking] = React.useState(false);
-  // Closed as a dialog opens from it: a menu left open behind the dialog would
-  // take the dialog's first Escape.
+  // A dialog chosen from the menu opens once the menu has finished closing: a
+  // menu still animating out is the top layer and would take the dialog's
+  // first Escape, and its focus return would pull focus off the dialog.
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const chosenDialog = React.useRef<"block" | "archive" | null>(null);
   // The version the reason dialog was opened on: a refresh behind it does not
   // quietly move the command to a state the person has not looked at.
   const [blockVersion, setBlockVersion] = React.useState(task.version);
@@ -180,16 +182,25 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent
+            align="end"
+            onCloseAutoFocus={(event) => {
+              const chosen = chosenDialog.current;
+              if (!chosen) return;
+              chosenDialog.current = null;
+              // The dialog takes focus itself.
+              event.preventDefault();
+              if (chosen === "block") setBlocking(true);
+              else setConfirming(true);
+            }}
+          >
             {canBlock ? (
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
+                onSelect={() => {
                   // A reason typed before a refused attempt is kept.
                   setBlockError(null);
                   setBlockVersion(task.version);
-                  setMenuOpen(false);
-                  setBlocking(true);
+                  chosenDialog.current = "block";
                 }}
               >
                 <Ban />
@@ -198,10 +209,8 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
             ) : null}
             {may.canArchive ? (
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  setMenuOpen(false);
-                  setConfirming(true);
+                onSelect={() => {
+                  chosenDialog.current = "archive";
                 }}
               >
                 <Archive />
@@ -212,7 +221,16 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
         </DropdownMenu>
       ) : null}
 
-      <Dialog open={blocking} onOpenChange={setBlocking}>
+      <Dialog
+        open={blocking}
+        onOpenChange={(open) => {
+          setBlocking(open);
+          // A close reaches here only once nothing is unsaved or the person
+          // chose Discard (AUD-03): the reason goes with it. A refused attempt
+          // keeps the dialog, and its reason, open (AUD-02).
+          if (!open) setBlockReason("");
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogTitle>Mark this task blocked</DialogTitle>
           <DialogDescription>

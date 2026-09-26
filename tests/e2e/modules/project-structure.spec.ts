@@ -108,6 +108,9 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   await expect(duplicate.getByTestId("bulk-unit-preview")).toContainText("exists");
   await expect(duplicate.getByRole("button", { name: "Create 2 units" })).toBeDisabled();
   await duplicate.getByRole("button", { name: "Close" }).click();
+  // The typed batch is unsaved input: closing asks first, and Discard lets it go (AUD-03).
+  await page.getByTestId("unsaved-prompt").getByTestId("unsaved-discard").click();
+  await expect(duplicate).toBeHidden();
 
   // The unit page: a new code and a new floor, the same unit (§52, §55, §83).
   await chooseFloor(page, "Floor 2");

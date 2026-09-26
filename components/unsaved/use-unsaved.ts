@@ -210,7 +210,27 @@ export function useFormDirty(
   const interacted = React.useRef(false);
   /** When the current baseline was taken: gestures before it made it. */
   const baselineAt = React.useRef(0);
-  const ignore = React.useMemo(() => new Set(options.ignore ?? []), [options.ignore]);
+  // By content, not identity: callers pass the list inline, and a new Set on
+  // every render would rebuild the listeners below on every render.
+  const ignoreKey = (options.ignore ?? []).join("\u0000");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const ignore = React.useMemo(() => new Set(options.ignore ?? []), [ignoreKey]);
+  // Inputs waiting for their deferred check, kept across a re-run of the
+  // listeners' effect so none is dropped (see onInput).
+  const pendingInputs = React.useRef(new Map<string, boolean>());
+  const inputTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const checkFieldRef = React.useRef<((name: string, user: boolean) => void) | null>(null);
+  const mounted = React.useRef(true);
+  React.useEffect(() => {
+    mounted.current = true;
+    const pending = pendingInputs.current;
+    return () => {
+      mounted.current = false;
+      if (inputTimer.current) clearTimeout(inputTimer.current);
+      inputTimer.current = null;
+      pending.clear();
+    };
+  }, []);
   const paused = React.useRef(Boolean(options.paused));
   paused.current = Boolean(options.paused);
   const editorRef = React.useRef(editor);
@@ -288,11 +308,28 @@ export function useFormDirty(
       if (was !== differs) publish();
     };
 
+    // Checked once the event has finished its dispatch, never inside it. This
+    // listener runs in the capture phase, before React's own; a state update
+    // here re-renders a controlled input with its old value before React's
+    // onChange has seen the keystroke, and the character is lost.
+    checkFieldRef.current = checkField;
+    const processInputs = () => {
+      inputTimer.current = null;
+      if (!mounted.current) return;
+      const names = [...pendingInputs.current];
+      pendingInputs.current.clear();
+      for (const [name, user] of names) checkFieldRef.current?.(name, user);
+    };
     const onInput = (event: Event) => {
       const target = event.target as Element | null;
       const name = target && "name" in target ? String((target as HTMLInputElement).name) : "";
       if (!name || target?.closest("[data-unsaved-ignore]")) return;
-      checkField(name, event.isTrusted || recentGesture(baselineAt.current));
+      const user = event.isTrusted || recentGesture(baselineAt.current);
+      // A ref only, no render: a departure asked for before the deferred check
+      // runs still sees the person's edit through sync().
+      if (user) interacted.current = true;
+      pendingInputs.current.set(name, (pendingInputs.current.get(name) ?? false) || user);
+      inputTimer.current ??= setTimeout(processInputs, 0);
     };
 
     // Rows added or removed, hidden inputs a custom control writes, fields
@@ -303,7 +340,11 @@ export function useFormDirty(
     const flush = () => {
       scheduled = false;
       if (paused.current) return;
-      const user = recentGesture(baselineAt.current);
+      // A field whose input event is still waiting for its deferred check was
+      // changed by the person: React writing a controlled input's value
+      // attribute arrives here first, and must not read as a refresh.
+      const typed = [...pendingInputs.current].some(([, byUser]) => byUser);
+      const user = typed || recentGesture(baselineAt.current);
       if (structural) {
         structural = false;
         touchedNames.clear();
@@ -328,7 +369,7 @@ export function useFormDirty(
         publish();
         return;
       }
-      for (const name of touchedNames) checkField(name, user);
+      for (const name of touchedNames) checkField(name, user || pendingInputs.current.get(name) === true);
       touchedNames.clear();
     };
     const schedule = () => {
