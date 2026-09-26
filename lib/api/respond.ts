@@ -8,6 +8,7 @@ import { resolvePlatformContext, type PlatformContext } from "@/lib/context/plat
 import { runWithRequestScope } from "@/lib/core/observability/request-scope";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import type { ContextResult, UserContext } from "@/lib/context/types";
+import { isStaleWorkspace, StaleWorkspaceError, TAB_WORKSPACE_HEADER } from "@/lib/context/tab-workspace";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { headers } from "next/headers";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
@@ -166,6 +167,12 @@ async function handleRequest(
       return apiError("WORKSPACE_COMPANY_REQUIRED");
     }
   }
+  // A write from a tab still showing another workspace (AUD-03 §7). The
+  // person's own affairs (`any`) have no company to get wrong.
+  if (options.group !== "any" && !["GET", "HEAD", "OPTIONS"].includes(method) && isStaleWorkspace(result.context, requestHeaders.get(TAB_WORKSPACE_HEADER))) {
+    recordAuthorizationDenial({ code: "CONFLICT", reason: "STALE_WORKSPACE" });
+    return apiError("CONFLICT", "Your workspace changed in another tab, so nothing was saved.", { code: "WORKSPACE_CHANGED" });
+  }
   if (maintenance.enabled) return apiError("COMPANY_INACTIVE", "NESTO is temporarily unavailable for maintenance.");
   if (maintenance.readOnly && !["GET", "HEAD", "OPTIONS"].includes(method)) return apiError("CONFLICT", "NESTO is currently in read-only mode.");
   if (maintenance.disableUploads && !["GET", "HEAD", "OPTIONS"].includes(method) && /upload|document-version/.test(requestPath)) return apiError("CONFLICT", "Uploads are temporarily disabled.");
@@ -187,6 +194,11 @@ function translateError(error: unknown): Response {
       incrementCounter(Metric.CONFLICT, { kind: (error.details as { code?: string } | undefined)?.code ?? "unspecified" });
     }
     return apiError(error.code, error.message, error.details);
+  }
+
+  if (error instanceof StaleWorkspaceError) {
+    recordAuthorizationDenial({ code: "CONFLICT", reason: "STALE_WORKSPACE" });
+    return apiError("CONFLICT", error.message, { code: "WORKSPACE_CHANGED" });
   }
 
   if (error instanceof ZodError) {

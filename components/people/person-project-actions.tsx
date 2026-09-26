@@ -33,6 +33,9 @@ export function AssignProjectButton({ personId, name, projects }: { personId: st
         ]}
         initial={{ projectId: "", projectRole: "" }}
         submitLabel="Assign"
+        // Putting somebody on a project is a record like any other: the prompt may save it (AUD-03 §3).
+        saveKind="create"
+        module="people"
         testId="assign-project-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/people/${personId}/projects`, { method: "POST", body: payload });

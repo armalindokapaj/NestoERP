@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { UPLOAD_CONCURRENCY, UPLOAD_RETRY_LIMIT } from "@/lib/core/storage";
 
 /**
@@ -80,17 +81,23 @@ export function useUploadQueue(options: {
     );
   }, []);
 
-  /** Warn before navigating away mid-upload (PRD #29 §345). */
   const active = items.some((item) =>
     ["authorising", "uploading", "verifying"].includes(item.status),
   );
 
-  React.useEffect(() => {
-    if (!active) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [active]);
+  /**
+   * Leaving mid-upload asks first (PRD #29 §345). The queue takes part in the
+   * tab's unsaved-work contract instead of adding its own `beforeunload`
+   * (AUD-03 §3): links, Back, closing the dialog it sits in, a workspace
+   * switch and a reload all ask while a file is waiting or on its way. A file
+   * the server already holds is never deleted by a discard.
+   */
+  const uploads = useUnsavedEditor({ saveKind: "none", label: "Files being uploaded" });
+  const { setPendingUploads } = uploads;
+  const inFlight = items.some((item) =>
+    ["queued", "authorising", "uploading", "verifying"].includes(item.status),
+  );
+  React.useEffect(() => setPendingUploads(inFlight), [inFlight, setPendingUploads]);
 
   const upload = React.useCallback(
     async (item: UploadItem, metadata: Metadata) => {

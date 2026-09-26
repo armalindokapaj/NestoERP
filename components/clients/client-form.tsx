@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import {
   Field,
@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ClientActionResult } from "@/lib/actions/clients";
 import type { DuplicateMatch } from "@/lib/modules/clients/client.duplicate";
-import { isLeavingForWorkspaceSwitch, setWorkspaceDirtyState } from "@/lib/workspace/client";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 
 /**
  * Create / edit client form (PRD #12 §41, §53, §66).
@@ -76,64 +77,45 @@ export function ClientForm({
   action: (formData: FormData) => Promise<ClientActionResult>;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = React.useTransition();
-  const [error, setError] = React.useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
-  const [duplicates, setDuplicates] = React.useState<DuplicateMatch[]>([]);
-  const [dirty, setDirty] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!dirty) return;
-    const handler = (event: BeforeUnloadEvent) => {
-      if (!isLeavingForWorkspaceSwitch()) event.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
-
-  React.useEffect(() => {
-    setWorkspaceDirtyState(dirty);
-    return () => setWorkspaceDirtyState(false);
-  }, [dirty]);
-
-  function submit(formData: FormData, acceptDuplicate: boolean) {
-    if (acceptDuplicate) formData.set("acceptDuplicate", "true");
-    setError(null);
-    setFieldErrors({});
-
-    startTransition(async () => {
-      const result = await action(formData);
-      if (result && !result.ok) {
-        setError(result.error);
-        setFieldErrors(result.fieldErrors ?? {});
-        setDuplicates(result.duplicates ?? []);
-      } else {
-        setDirty(false);
-        setDuplicates([]);
-      }
-    });
-  }
-
   const formRef = React.useRef<HTMLFormElement>(null);
+  const [duplicates, setDuplicates] = React.useState<DuplicateMatch[]>([]);
+  // Set only by "Create anyway": the person's own answer to the warning, for
+  // that one submission. Save and continue never sets it (AUD-03 §4, UW-10).
+  const acceptDuplicate = React.useRef(false);
 
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    submit(new FormData(event.currentTarget), false);
-  }
+  const save = useEditorSave({
+    formRef,
+    action,
+    module: "clients",
+    saveKind: mode === "create" ? "create" : "save",
+    prepare: (formData) => {
+      if (acceptDuplicate.current) formData.set("acceptDuplicate", "true");
+      acceptDuplicate.current = false;
+    },
+    onRefused: (result) => {
+      const found = (result.duplicates ?? []) as DuplicateMatch[];
+      setDuplicates(found);
+      // The warning is the message: it names what was found and asks.
+      return found.length > 0;
+    },
+    onCommitted: () => {
+      setDuplicates([]);
+    },
+  });
+  const { pending, fieldErrors } = save;
 
   function createAnyway() {
-    if (!formRef.current) return;
-    submit(new FormData(formRef.current), true);
+    acceptDuplicate.current = true;
+    void save.submit("normal");
   }
 
   function onCancel() {
-    if (dirty && !window.confirm("Discard unsaved changes?")) return;
     router.push(cancelHref);
   }
 
   return (
     <FieldErrorProvider value={fieldErrors}>
-      <form ref={formRef} onSubmit={onSubmit} onChange={() => setDirty(true)} className="space-y-5">
+      <form ref={formRef} onSubmit={save.onSubmit} className="space-y-5">
         {versionUpdatedAt ? (
           <input type="hidden" name="versionUpdatedAt" value={versionUpdatedAt} />
         ) : null}
@@ -171,15 +153,12 @@ export function ClientForm({
               </Button>
             </div>
           </div>
-        ) : error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong"
-          >
-            {error}
-          </p>
-        ) : null}
+        ) : (
+          <SaveMessages save={save} />
+        )}
 
+        {/* The submitted snapshot saves as it was (AUD-03 §6). */}
+        <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-5 border-0 p-0">
         <FormSection title="Client details">
           <Field label="Client name" name="name" required>
             <NameInput defaultValue={initial.name} />
@@ -282,9 +261,10 @@ export function ClientForm({
             </Field>
           </FormSection>
         ) : null}
+        </fieldset>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending || Boolean(save.saved)}>
             {pending
               ? mode === "create"
                 ? "Creating…"
@@ -296,6 +276,7 @@ export function ClientForm({
           <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
             Cancel
           </Button>
+          <UnsavedIndicator save={save} />
         </div>
       </form>
     </FieldErrorProvider>

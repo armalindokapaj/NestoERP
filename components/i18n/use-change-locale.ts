@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";

@@ -13,6 +13,5 @@
   "lib/modules/projects/project.service.ts": 2,
   "lib/modules/qaqc/ncrs/ncr.service.ts": 1,
   "lib/modules/sales/leads/lead.service.ts": 1,
-  "lib/modules/sales/opportunities/opportunity.service.ts": 1,
-  "lib/modules/tasks/task.service.ts": 2
+  "lib/modules/sales/opportunities/opportunity.service.ts": 1
 }

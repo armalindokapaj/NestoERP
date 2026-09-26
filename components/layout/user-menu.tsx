@@ -15,7 +15,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
+import { announceSignOut } from "@/components/unsaved/unsaved-host";
 import { endSessionAction } from "@/lib/actions/auth";
+import { unsaved } from "@/lib/unsaved/coordinator";
 import { fullName, roleAndCompany } from "@/lib/utils/format";
 
 /**
@@ -57,31 +59,44 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
   const [signingOut, setSigningOut] = useState(false);
   const [input, setInput] = useState<"keyboard" | "pointer">("pointer");
   const leaving = useRef(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const name = fullName(user.firstName, user.lastName);
   const context = roleAndCompany(user.roleLabel, user.companyName);
 
   async function logout() {
     if (leaving.current) return;
+    // Unsaved work is asked about before the session ends; a save offered here
+    // runs as this person, before anything changes (AUD-03 §7).
+    const approval = await unsaved.requestDeparture({ kind: "identity", action: "sign-out" });
+    if (!approval || !approval.run(() => undefined)) {
+      // Stayed: back to the page, not to a menu left open behind the question.
+      setMenuOpen(false);
+      return;
+    }
     leaving.current = true;
     setSigningOut(true);
 
     const result = await endSessionAction().catch(() => ({ ok: false }) as const);
     if (!result.ok) {
+      approval.release();
       leaving.current = false;
       setSigningOut(false);
       toast({ title: t("logoutFailed"), tone: "danger" });
       return;
     }
 
+    // The browser's other tabs hold nothing unsaved for a session that is gone.
+    announceSignOut();
     // A full load, not a client navigation, and the row stays busy until it
     // lands: nothing of this person's pages or caches comes along (§39, §44).
+    unsaved.forceLeave();
     resetUserScopedClientState();
     window.location.replace("/login");
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger
         className="flex items-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover"
         aria-label={t("openUserMenu")}

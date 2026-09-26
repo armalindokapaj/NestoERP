@@ -22,6 +22,7 @@ export function HseTaskForm({
 
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel="Create task"

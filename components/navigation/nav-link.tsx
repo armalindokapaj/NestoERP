@@ -2,11 +2,14 @@
 
 import * as React from "react";
 import NextLink, { useLinkStatus } from "next/link";
+import { useRouter } from "next/navigation";
 
 import { useNavigationFeedback, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { useIntentScheduler } from "@/components/navigation/intent-prefetch";
 import type { NavigationSource, NavigationTicket } from "@/lib/navigation/feedback-store";
 import { intentRoute } from "@/lib/navigation/intent-prefetch";
+import { unsaved } from "@/lib/unsaved/coordinator";
+import { leavesPage } from "@/components/navigation/guarded-router";
 
 type NextLinkProps = React.ComponentProps<typeof NextLink>;
 
@@ -57,6 +60,7 @@ function LinkStatusReporter({ ticket }: { ticket: React.RefObject<NavigationTick
  */
 export default function Link({ navSource = "record", onNavigate, intent = false, children, ...props }: NavLinkProps) {
   const feedback = useNavigationFeedback();
+  const router = useRouter();
   const scheduler = useIntentScheduler();
   const ticket = React.useRef<NavigationTicket | null>(null);
   const href = hrefString(props.href);
@@ -100,6 +104,22 @@ export default function Link({ navSource = "record", onNavigate, intent = false,
           },
         });
         if (prevented) return;
+        // Unsaved work on this page (AUD-03 §5). Next calls this only for a
+        // navigation it accepted — never for a modified or middle click, a
+        // download or a new tab — so those open as before without a question.
+        // The page stays, editor and all, until the person answers.
+        if (leavesPage(href) && !unsaved.isLeaving() && unsaved.hasBlocking({ kind: "navigate", href })) {
+          event.preventDefault();
+          void unsaved.requestDeparture({ kind: "navigate", href }).then((approval) => {
+            approval?.run(() => {
+              ticket.current = feedback?.begin(href, navSource) ?? null;
+              const options = props.scroll === undefined ? undefined : { scroll: props.scroll };
+              if (props.replace) router.replace(href, options);
+              else router.push(href, options);
+            });
+          });
+          return;
+        }
         ticket.current = feedback?.begin(href, navSource) ?? null;
       }}
     >

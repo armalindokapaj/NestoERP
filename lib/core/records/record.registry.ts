@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import type { ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
 import { can } from "@/lib/access/can";
@@ -171,8 +173,8 @@ const DEFINITIONS: RecordDefinition[] = [
     activityEntityType: "Task",
     route: "/tasks",
     viewPermissions: ["task.view"],
-    async find(context, id) {
-      const row = await prisma.task.findFirst({
+    async find(context, id, db = prisma) {
+      const row = await db.task.findFirst({
         where: { AND: [buildTaskScopeWhere(context), { id, companyId: context.companyId }] },
         select: { id: true, companyId: true, title: true, projectId: true, status: true, archivedAt: true, assigneeMemberId: true, createdByMemberId: true },
       });
@@ -1898,11 +1900,16 @@ export function recordDefinitions(): RecordDefinition[] {
  * modules, missing permissions, other companies and out-of-scope records all
  * answer null.
  */
-export async function loadRecord(context: UserContext, type: string, id: string): Promise<RecordSummary | null> {
+export async function loadRecord(
+  context: UserContext,
+  type: string,
+  id: string,
+  db?: Prisma.TransactionClient,
+): Promise<RecordSummary | null> {
   const definition = recordDefinition(type);
   if (!definition || !id) return null;
   if (!moduleAndPermissions(context, definition.moduleKey, definition.viewPermissions)) return null;
-  return definition.find(context, id);
+  return definition.find(context, id, db);
 }
 
 export async function canReadRecord(context: UserContext, type: string, id: string): Promise<boolean> {

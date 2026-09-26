@@ -61,6 +61,7 @@ export function ItemForm({
   return (
     <RecordForm
       action={action}
+      module="inventory"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}

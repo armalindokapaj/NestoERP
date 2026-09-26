@@ -5,7 +5,7 @@ import * as React from "react";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, ReasonDialog, type FormField } from "@/components/engineering/form-kit";
 import { Button, type ButtonProps } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { useToast } from "@/components/ui/toast";
 
 type Props = {

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, type FormField } from "@/components/engineering/form-kit";
@@ -53,7 +53,7 @@ export function CreateUserButton({ personId, personName }: { personId: string; p
   const command = usePlatformCommand();
   return <>
     <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>Create account</Button>
-    <FormDialog open={open} onOpenChange={setOpen} title={`Create account for ${personName}`} description="The password is shown once and expires automatically. The user must replace it on first sign-in." fields={[{ name: "username", label: "Username", type: "text", hint: "Leave blank to generate from the person's name." }, { name: "reason", label: "Reason", type: "textarea", required: true }]} submitLabel="Create account" onSubmit={async (payload) => setCreated(await command<Credentials>({ action: "user.create", personProfileId: personId, ...payload }, "Account created."))} />
+    <FormDialog open={open} onOpenChange={setOpen} title={`Create account for ${personName}`} description="The password is shown once and expires automatically. The user must replace it on first sign-in." fields={[{ name: "username", label: "Username", type: "text", hint: "Leave blank to generate from the person's name." }, { name: "reason", label: "Reason", type: "textarea", required: true }]} submitLabel="Create account" saveKind="none" onSubmit={async (payload) => setCreated(await command<Credentials>({ action: "user.create", personProfileId: personId, ...payload }, "Account created."))} />
     <Dialog open={created !== null} onOpenChange={(next) => !next && setCreated(null)}><DialogContent className="max-w-md"><DialogTitle>Account created</DialogTitle><DialogDescription>Copy these credentials now. The temporary password cannot be shown again.</DialogDescription>{created ? <dl className="mt-4 space-y-3"><div><dt className="text-meta text-fg-subtle">Username</dt><dd className="flex items-center gap-2 font-mono text-body">{created.username}<CopyButton value={created.username} label="Copy username" /></dd></div><div><dt className="text-meta text-fg-subtle">Temporary password</dt><dd className="flex items-center gap-2 font-mono text-body">{created.temporaryPassword}<CopyButton value={created.temporaryPassword} label="Copy password" /></dd></div></dl> : null}<DialogFooter><Button onClick={() => setCreated(null)}>Done</Button></DialogFooter></DialogContent></Dialog>
   </>;
 }

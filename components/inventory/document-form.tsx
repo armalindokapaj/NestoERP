@@ -124,6 +124,9 @@ export function DocumentForm({
   return (
     <RecordForm
       action={action}
+      module="inventory"
+      // "Save draft" on a new document creates it (AUD-03 §3).
+      saveKind={versionUpdatedAt ? "save" : "create"}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}

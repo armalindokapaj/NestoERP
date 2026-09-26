@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import {
   Archive,
   ArchiveRestore,
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { UnsavedValue } from "@/components/unsaved/unsaved-value";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,11 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
-import {
-  archiveTaskAction,
-  restoreTaskAction,
-  setTaskStatusAction,
-} from "@/lib/actions/tasks";
+import { taskCommandAction, type ActionResult, type TaskCommandName } from "@/lib/actions/tasks";
 import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
 
 /**
@@ -49,12 +46,25 @@ import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
  * all, disabled or otherwise (PRD #11 §140, §159).
  *
  * Nothing is applied optimistically; the server confirms first (PRD #11 §248).
+ * Every command names the version this page shows (AUD-02 §3). When the task
+ * has moved on, the page is refreshed to its latest state and the person
+ * chooses again — a command is never re-sent against a version they have not
+ * seen (§7).
  */
+const UNCONFIRMED = "We couldn't confirm whether this change was saved. Check the latest task before trying again.";
+const CHANGED = "This task changed since you opened it. Its latest state is shown now; choose again.";
+
 export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
   const [confirming, setConfirming] = React.useState(false);
   const [blocking, setBlocking] = React.useState(false);
+  // Closed as a dialog opens from it: a menu left open behind the dialog would
+  // take the dialog's first Escape.
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  // The version the reason dialog was opened on: a refresh behind it does not
+  // quietly move the command to a state the person has not looked at.
+  const [blockVersion, setBlockVersion] = React.useState(task.version);
   const [blockReason, setBlockReason] = React.useState("");
   const [blockError, setBlockError] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
@@ -62,45 +72,58 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const { capabilities: may, status } = task;
   const archived = task.archivedAt !== null || status === "ARCHIVED";
 
-  function run(
-    action: "start" | "block" | "complete" | "reopen",
+  /**
+   * Sends one command. Answers whether it committed, so a dialog knows to
+   * close; a refusal is reported and the page refreshed where the task moved.
+   */
+  function send(
+    command: TaskCommandName,
     successMessage: string,
-    reason = "",
-  ) {
-    startTransition(async () => {
-      const result = await setTaskStatusAction(task.id, action, "TODO", reason);
-      if (result.ok) {
-        toast({ title: successMessage });
-        router.refresh();
-      } else {
-        toast({ title: result.error, tone: "danger" });
-      }
+    input: { expectedVersion: number; reason?: string },
+    onRefused?: (message: string) => void,
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        let result: ActionResult;
+        try {
+          result = await taskCommandAction(task.id, command, input);
+        } catch {
+          // The request may or may not have reached the server: say so, show
+          // the latest task, and let the person decide (AUD-02 §7).
+          (onRefused ?? ((message: string) => toast({ title: message, tone: "warning" })))(UNCONFIRMED);
+          router.refresh();
+          resolve(false);
+          return;
+        }
+        if (result.ok) {
+          if (result.redirectTo) {
+            toast({ title: `${successMessage} You no longer have access to this task.`, tone: "success" });
+            router.push(result.redirectTo);
+          } else {
+            toast({ title: successMessage, tone: "success" });
+            router.refresh();
+          }
+          resolve(true);
+          return;
+        }
+        const moved = result.code === "TASK_VERSION_CONFLICT" || result.code === "TASK_STATE_CONFLICT";
+        (onRefused ?? ((message: string) => toast({ title: message, tone: "danger" })))(moved ? CHANGED : result.error);
+        if (moved) router.refresh();
+        resolve(false);
+      });
     });
+  }
+
+  function run(command: "start" | "complete" | "reopen", successMessage: string) {
+    void send(command, successMessage, { expectedVersion: task.version });
   }
 
   function archive() {
-    startTransition(async () => {
-      const result = await archiveTaskAction(task.id);
-      setConfirming(false);
-      if (result.ok) {
-        toast({ title: "Task archived." });
-        router.refresh();
-      } else {
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
+    void send("archive", "Task archived.", { expectedVersion: task.version }).then(() => setConfirming(false));
   }
 
   function restore() {
-    startTransition(async () => {
-      const result = await restoreTaskAction(task.id);
-      if (result.ok) {
-        toast({ title: "Task restored." });
-        router.refresh();
-      } else {
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
+    void send("restore", "Task restored.", { expectedVersion: task.version });
   }
 
   const canStart = may.canChangeStatus && (status === "TODO" || status === "BLOCKED");
@@ -151,7 +174,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
       ) : null}
 
       {!archived && (canBlock || may.canArchive) ? (
-        <DropdownMenu>
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label="More task actions">
               <MoreHorizontal />
@@ -162,8 +185,10 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
               <DropdownMenuItem
                 onSelect={(event) => {
                   event.preventDefault();
-                  setBlockReason("");
+                  // A reason typed before a refused attempt is kept.
                   setBlockError(null);
+                  setBlockVersion(task.version);
+                  setMenuOpen(false);
                   setBlocking(true);
                 }}
               >
@@ -175,6 +200,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
               <DropdownMenuItem
                 onSelect={(event) => {
                   event.preventDefault();
+                  setMenuOpen(false);
                   setConfirming(true);
                 }}
               >
@@ -200,10 +226,21 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
                 setBlockError("Say why the task is blocked.");
                 return;
               }
-              setBlocking(false);
-              run("block", "Task marked blocked.", blockReason.trim());
+              setBlockError(null);
+              // The dialog stays open, with the reason, until the server has
+              // confirmed; a refusal is shown inside it (AUD-02 §7).
+              void send("block", "Task marked blocked.", { expectedVersion: blockVersion, reason: blockReason.trim() }, setBlockError).then(
+                (committed) => {
+                  if (committed) {
+                    setBlocking(false);
+                    setBlockReason("");
+                  }
+                },
+              );
             }}
           >
+            {/* A typed reason is unsaved input; marking blocked is the only way it is kept (AUD-03 §4). */}
+            <UnsavedValue module="tasks" saveKind="none" workflow="Mark blocked" label="The reason this task is blocked" dirty={blockReason !== ""} saving={pending} />
             <Label htmlFor="block-reason">Reason</Label>
             <Textarea
               id="block-reason"
@@ -229,7 +266,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={pending}>
-                Mark blocked
+                {pending ? "Saving…" : "Mark blocked"}
               </Button>
             </DialogFooter>
           </form>

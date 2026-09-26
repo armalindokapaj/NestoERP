@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { AttendanceForm } from "@/components/hr/attendance-form";
 import { formatTimeOfDay, formatWorkedMinutes } from "@/components/hr/hr-format";
@@ -11,6 +11,7 @@ import { AccessError } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
 import { updateAttendanceAction } from "@/lib/actions/hr";
 import { requireModule } from "@/lib/context/current-user";
+import { committed } from "@/lib/forms/committed";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import { attendanceSourceLabels } from "@/lib/modules/hr/hr.status";
 import { formatDate, orDash } from "@/lib/utils/format";
@@ -42,7 +43,8 @@ export default async function AttendanceDetailPage({ params }: Params) {
     "use server";
     const result = await updateAttendanceAction(attendanceId, formData);
     if (!result.ok) return result;
-    redirect(`/hr/attendance/${attendanceId}`);
+    // Answered, not redirected: the form learns the save committed (AUD-03 §6).
+    return committed(`/hr/attendance/${attendanceId}`);
   }
 
   return (

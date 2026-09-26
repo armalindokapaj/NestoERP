@@ -1,4 +1,5 @@
 import { apiOk, readJson, withContext } from "@/lib/api/respond";
+import { revalidateTaskViews } from "@/lib/modules/tasks/task.invalidate";
 import { parseTaskListQuery } from "@/lib/modules/tasks/task.query";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
@@ -33,6 +34,9 @@ export async function POST(request: Request) {
     // companyId, createdByMemberId, completedAt and archivedAt are absent from
     // the schema, so they cannot be set from a request body (PRD #11 §116).
     const input = createTaskSchema.parse(body);
-    return apiOk({ data: await tasks.createTask(context, input) }, { status: 201 });
+    const task = await tasks.createTask(context, input);
+    // The same invalidation as the server action (AUD-02 §8); the task starts at version 1.
+    revalidateTaskViews(task.id, { projectIds: task.project ? [task.project.id] : [] });
+    return apiOk({ data: task }, { status: 201 });
   });
 }

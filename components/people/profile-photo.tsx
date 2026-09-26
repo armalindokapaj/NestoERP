@@ -5,6 +5,7 @@ import * as React from "react";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { useCommand } from "@/components/engineering/form-kit";
 import { Button } from "@/components/ui/button";
+import { UnsavedValue } from "@/components/unsaved/unsaved-value";
 
 /**
  * Setting or removing a profile photo (E-08 §43, §93): the person's own, or —
@@ -36,6 +37,8 @@ export function ProfilePhotoButton({ personId, self, hasPhoto }: { personId: str
 
   return (
     <>
+      {/* A photo on its way up would be lost by leaving now (AUD-03 §3 files). */}
+      {pending === "photo" ? <UnsavedValue dirty={false} saving module="people" saveKind="none" label={self ? "Your photo" : "Profile photo"} /> : null}
       <input
         ref={input}
         type="file"

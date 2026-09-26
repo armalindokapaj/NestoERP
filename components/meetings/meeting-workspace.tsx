@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter as useNextRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import {
   Ban,
   CalendarDays,
@@ -29,12 +30,15 @@ import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { UnsavedScope, useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import {
   LOCATION_TYPE_LABELS,
   MEETING_TYPE_LABELS,
@@ -47,7 +51,7 @@ import { cn } from "@/lib/utils/cn";
 import { ActionsPanel } from "./actions-panel";
 import { AgendaPanel } from "./agenda-panel";
 import { DecisionsPanel } from "./decisions-panel";
-import { failureMessage, meetingApi } from "./meeting-api";
+import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { durationLabel, meetingClock, meetingDate, meetingDay, MeetingStatusBadge, PlainText } from "./meeting-ui";
 import { MinutesPanel } from "./minutes-panel";
 import { ParticipantsPanel } from "./participants-panel";
@@ -70,6 +74,27 @@ export type ActivityEntry = { id: string; action: string; message: string | null
 const TABS = ["overview", "agenda", "minutes", "actions", "documents", "activity"] as const;
 type Tab = (typeof TABS)[number];
 
+/** The panels a tab switch destroys, and the ones leaving or entering meeting mode destroys (AUD-03 §5). */
+const TAB_SCOPE = "meeting-tab";
+const VIEW_SCOPE = "meeting-view";
+
+/**
+ * Swapping panels in place destroys the editors in them — a note being
+ * written, a decision half-typed. Asks about those, and only those, first —
+ * even inside another departure's leaving window: the page stays.
+ */
+function dismissPanels(scope: string, apply: () => void) {
+  const intent = { kind: "dismiss", scope } as const;
+  if (!unsaved.hasBlocking(intent)) {
+    apply();
+    return;
+  }
+  void unsaved.requestDeparture(intent).then((approval) => {
+    // The page stays: the approval covers this swap and nothing after it.
+    if (approval?.run(apply)) approval.release();
+  });
+}
+
 const REPEAT: Record<string, string> = { DAILY: "Repeats daily", WEEKLY: "Repeats weekly", MONTHLY: "Repeats monthly", YEARLY: "Repeats yearly" };
 
 export function MeetingWorkspace({
@@ -87,6 +112,7 @@ export function MeetingWorkspace({
   favorite?: React.ReactNode;
 }) {
   const router = useRouter();
+  const nextRouter = useNextRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const toast = useToast();
@@ -111,13 +137,24 @@ export function MeetingWorkspace({
 
   const change = React.useCallback((detail: MeetingDetailDTO) => setMeeting(detail), []);
 
-  function selectTab(next: Tab) {
+  function showTab(next: Tab) {
     setTab(next);
     const params = new URLSearchParams(searchParams.toString());
     if (next === "overview") params.delete("tab");
     else params.set("tab", next);
     const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    // The same page with the same workspace mounted: only the tab's own
+    // editors go, and they were asked about already.
+    nextRouter.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
+  function selectTab(next: Tab) {
+    if (next === tab) return;
+    dismissPanels(TAB_SCOPE, () => showTab(next));
+  }
+
+  function toggleFocus() {
+    dismissPanels(VIEW_SCOPE, () => setFocus((value) => !value));
   }
 
   async function command(key: string, url: string, body: unknown, success: string) {
@@ -127,7 +164,7 @@ export function MeetingWorkspace({
       const detail = "meeting" in result ? result.meeting : result;
       setMeeting(detail);
       toast({ title: success, tone: "success" });
-      if (key === "start") setFocus(true);
+      if (key === "start") dismissPanels(VIEW_SCOPE, () => setFocus(true));
       router.refresh();
       return detail;
     } catch (error) {
@@ -325,13 +362,14 @@ export function MeetingWorkspace({
             In progress{meeting.startedAt ? ` · started ${meetingClock(meeting.startedAt, zone)}` : ""}
             <Elapsed since={meeting.startedAt} />
           </span>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setFocus((value) => !value)} className="text-info-strong hover:bg-info/10">
+          <Button type="button" size="sm" variant="ghost" onClick={toggleFocus} className="text-info-strong hover:bg-info/10">
             {inFocus ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
             {inFocus ? "Full workspace" : "Meeting mode"}
           </Button>
         </div>
       ) : null}
 
+      <UnsavedScope id={VIEW_SCOPE}>
       {inFocus ? (
         <MeetingMode meeting={meeting} onChange={change} pane={mobilePane} onPane={setMobilePane} />
       ) : (
@@ -358,6 +396,7 @@ export function MeetingWorkspace({
               ))}
             </div>
 
+            <UnsavedScope id={TAB_SCOPE}>
             <div role="tabpanel" id={`meeting-panel-${tab}`} aria-labelledby={`meeting-tab-${tab}`}>
               {tab === "overview" ? (
                 <div className="space-y-5">
@@ -437,6 +476,7 @@ export function MeetingWorkspace({
                 </section>
               ) : null}
             </div>
+            </UnsavedScope>
           </div>
 
           <aside className="space-y-5" aria-label="Meeting context">
@@ -481,6 +521,7 @@ export function MeetingWorkspace({
           </aside>
         </div>
       )}
+      </UnsavedScope>
 
       {/* Sticky actions on a phone, only the ones this reader may take (PRD #40 §126). */}
       {caps.canStart || caps.canComplete || caps.canRespond || (inFocus && caps.canCreateAction) ? (
@@ -510,8 +551,11 @@ export function MeetingWorkspace({
         onConfirm={async () => {
           if (await command("complete", `/api/meetings/${meeting.id}/complete`, {}, "Meeting completed")) {
             setCompleting(false);
-            setFocus(false);
-            selectTab("minutes");
+            // Leaving meeting mode for the minutes tab destroys the panels: it asks first.
+            dismissPanels(VIEW_SCOPE, () => {
+              setFocus(false);
+              showTab("minutes");
+            });
           }
         }}
       />
@@ -604,112 +648,163 @@ function MeetingMode({
 }
 
 function CancelDialog({ open, onOpenChange, meeting, onDone }: { open: boolean; onOpenChange: (open: boolean) => void; meeting: MeetingDetailDTO; onDone: (detail: MeetingDetailDTO) => void }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogTitle>Cancel this meeting?</DialogTitle>
+        <DialogDescription>{meeting.status === "DRAFT" ? "Nobody has been invited yet." : "Everyone on it is told. A cancelled meeting cannot be reopened — duplicate it to hold it another day."}</DialogDescription>
+        {/* Inside the dialog, so the reason belongs to its guarded close (AUD-03 §5). */}
+        <CancelForm meeting={meeting} onDone={onDone} onClose={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CancelForm({ meeting, onDone, onClose }: { meeting: MeetingDetailDTO; onDone: (detail: MeetingDetailDTO) => void; onClose: () => void }) {
   const toast = useToast();
   const router = useRouter();
   const [reason, setReason] = React.useState("");
   const [scope, setScope] = React.useState<"THIS" | "FUTURE">("THIS");
   const [pending, setPending] = React.useState(false);
 
+  // Cancelling is a workflow step: the prompt never cancels a meeting (AUD-03 §3).
+  const editor = useUnsavedEditor({ module: "meetings", saveKind: "none", workflow: "Cancel meeting", label: "Cancel this meeting" });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(reason !== "" || scope !== "THIS"), [reason, scope, setDirty]);
+
   async function cancel() {
+    if (pending) return;
     setPending(true);
+    setSaving(true);
     try {
       const result = await meetingApi<MeetingWriteResult>(`/api/meetings/${meeting.id}/cancel`, { body: { reason: reason.trim() || null, scope } });
+      setDirty(false);
+      setUnresolved(false);
+      setSaving(false);
       onDone(result.meeting);
       toast({ title: scope === "FUTURE" ? "Meetings cancelled" : "Meeting cancelled", tone: "success" });
-      onOpenChange(false);
+      onClose();
       router.refresh();
     } catch (error) {
+      setUnresolved(meetingFailureOutcome(error).kind === "unknown");
       toast({ title: failureMessage(error, "The meeting could not be cancelled."), tone: "danger" });
     } finally {
       setPending(false);
+      setSaving(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogTitle>Cancel this meeting?</DialogTitle>
-        <DialogDescription>{meeting.status === "DRAFT" ? "Nobody has been invited yet." : "Everyone on it is told. A cancelled meeting cannot be reopened — duplicate it to hold it another day."}</DialogDescription>
-        <div className="mt-4 space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="cancel-reason">Reason (optional)</Label>
-            <Textarea id="cancel-reason" rows={2} maxLength={1000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Client postponed the review" />
-          </div>
-          {meeting.series ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="cancel-scope">Cancel</Label>
-              <select id="cancel-scope" className={selectClass} value={scope} onChange={(event) => setScope(event.target.value as "THIS" | "FUTURE")}>
-                <option value="THIS">This meeting only</option>
-                <option value="FUTURE">This and every later meeting — ends the series</option>
-              </select>
-            </div>
-          ) : null}
+    <>
+      <div className="mt-4 space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="cancel-reason">Reason (optional)</Label>
+          <Textarea id="cancel-reason" rows={2} maxLength={1000} value={reason} readOnly={pending} onChange={(event) => setReason(event.target.value)} placeholder="Client postponed the review" />
         </div>
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+        {meeting.series ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="cancel-scope">Cancel</Label>
+            <select id="cancel-scope" className={selectClass} value={scope} disabled={pending} onChange={(event) => setScope(event.target.value as "THIS" | "FUTURE")}>
+              <option value="THIS">This meeting only</option>
+              <option value="FUTURE">This and every later meeting — ends the series</option>
+            </select>
+          </div>
+        ) : null}
+      </div>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
             Keep meeting
           </Button>
-          <Button type="button" variant="danger" onClick={() => void cancel()} disabled={pending}>
-            {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-            Cancel meeting
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogClose>
+        <Button type="button" variant="danger" onClick={() => void cancel()} disabled={pending}>
+          {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
+          Cancel meeting
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
 
 function DuplicateDialog({ open, onOpenChange, meeting }: { open: boolean; onOpenChange: (open: boolean) => void; meeting: MeetingDetailDTO }) {
-  const toast = useToast();
-  const router = useRouter();
-  const [date, setDate] = React.useState("");
-  const [time, setTime] = React.useState(meetingClock(meeting.startsAt, meeting.timezone));
-  const [pending, setPending] = React.useState(false);
-  React.useEffect(() => {
-    if (!open) return;
-    const next = new Date(Math.max(Date.now(), new Date(meeting.startsAt).getTime()) + 7 * 86_400_000).toISOString();
-    setDate(meetingDate(next, meeting.timezone));
-  }, [open, meeting.startsAt, meeting.timezone]);
-
-  async function duplicate() {
-    setPending(true);
-    try {
-      const result = await meetingApi<MeetingWriteResult>(`/api/meetings/${meeting.id}/duplicate`, { body: { date, startTime: time } });
-      toast({ title: "Meeting duplicated", description: "People and agenda came across; minutes and decisions did not.", tone: "success" });
-      onOpenChange(false);
-      router.push(`/meetings/${result.meeting.id}`);
-    } catch (error) {
-      toast({ title: failureMessage(error, "The meeting could not be duplicated."), tone: "danger" });
-    } finally {
-      setPending(false);
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogTitle>Duplicate meeting</DialogTitle>
         <DialogDescription>A new meeting with the same type, project, people, agenda and length. Minutes, decisions and actions stay with this one.</DialogDescription>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="duplicate-date">Date</Label>
-            <Input id="duplicate-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="duplicate-time">Start</Label>
-            <Input id="duplicate-time" type="time" step={300} value={time} onChange={(event) => setTime(event.target.value)} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={() => void duplicate()} disabled={pending || !date}>
-            {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Copy aria-hidden="true" />}
-            Duplicate
-          </Button>
-        </DialogFooter>
+        {/* Inside the dialog, so the new date belongs to its guarded close (AUD-03 §5). */}
+        <DuplicateForm meeting={meeting} onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+function DuplicateForm({ meeting, onClose }: { meeting: MeetingDetailDTO; onClose: () => void }) {
+  const toast = useToast();
+  const router = useRouter();
+  // Mounted when the dialog opens: a week after the later of now and this meeting.
+  const [initialDate] = React.useState(() => meetingDate(new Date(Math.max(Date.now(), new Date(meeting.startsAt).getTime()) + 7 * 86_400_000).toISOString(), meeting.timezone));
+  const initialTime = meetingClock(meeting.startsAt, meeting.timezone);
+  const [date, setDate] = React.useState(initialDate);
+  const [time, setTime] = React.useState(initialTime);
+  const [pending, setPending] = React.useState(false);
+  const running = React.useRef(false);
+
+  const run = React.useRef<(mode: "normal" | "continue") => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
+  const editor = useUnsavedEditor({ module: "meetings", saveKind: "create", label: "Duplicate meeting", save: () => run.current("continue") });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(date !== initialDate || time !== initialTime), [date, time, initialDate, initialTime, setDirty]);
+
+  run.current = async (mode) => {
+    if (running.current || !date) return { kind: running.current ? "unknown" : "invalid" };
+    if (unsaved.frozen) return { kind: "refused" };
+    running.current = true;
+    setPending(true);
+    setSaving(true);
+    try {
+      const result = await meetingApi<MeetingWriteResult>(`/api/meetings/${meeting.id}/duplicate`, { body: { date, startTime: time } });
+      setDirty(false);
+      setUnresolved(false);
+      setSaving(false);
+      toast({ title: "Meeting duplicated", description: "People and agenda came across; minutes and decisions did not.", tone: "success" });
+      onClose();
+      if (mode === "normal") router.push(`/meetings/${result.meeting.id}`);
+      return { kind: "committed" };
+    } catch (error) {
+      const outcome = meetingFailureOutcome(error);
+      setUnresolved(outcome.kind === "unknown");
+      toast({ title: failureMessage(error, "The meeting could not be duplicated."), description: outcome.kind === "unknown" ? OUTCOME_COPY.unknown : undefined, tone: "danger" });
+      return outcome;
+    } finally {
+      running.current = false;
+      setPending(false);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="duplicate-date">Date</Label>
+          <Input id="duplicate-date" type="date" value={date} readOnly={pending} onChange={(event) => setDate(event.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="duplicate-time">Start</Label>
+          <Input id="duplicate-time" type="time" step={300} value={time} readOnly={pending} onChange={(event) => setTime(event.target.value)} />
+        </div>
+      </div>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="button" onClick={() => void run.current("normal")} disabled={pending || !date}>
+          {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Copy aria-hidden="true" />}
+          Duplicate
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

@@ -110,6 +110,7 @@ export function LeadForm({
   return (
     <RecordForm
       action={action}
+      module="sales"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}

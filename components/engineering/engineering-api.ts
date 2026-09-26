@@ -1,5 +1,8 @@
 "use client";
 
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { outcomeOf } from "@/lib/unsaved/outcome";
+
 /**
  * The browser side of the contractor and engineering APIs. Every call answers
  * with the data or throws a failure carrying the server's message, code and
@@ -49,4 +52,14 @@ export function fieldErrorsOf(error: unknown): Record<string, string> {
   for (const [key, value] of Object.entries(error.details)) if (Array.isArray(value) && typeof value[0] === "string") result[key] = value[0];
   if (typeof error.details.field === "string") result[error.details.field] = error.message;
   return result;
+}
+
+/**
+ * What a thrown call means for unsaved work (AUD-03 §6): the server's answer is
+ * a definite refusal; a request that never got an answer may have committed.
+ */
+export function failureOutcome(error: unknown): SaveOutcome {
+  if (!isFailure(error) || error.status === 0) return { kind: "unknown" };
+  const outcome = outcomeOf({ ok: false, code: error.code, error: error.message });
+  return outcome.kind === "invalid" && error.detailCode ? outcomeOf({ ok: false, code: error.detailCode, error: error.message }) : outcome;
 }

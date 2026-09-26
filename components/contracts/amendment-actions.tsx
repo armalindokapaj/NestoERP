@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { CheckCircle2, FileSignature, PenLine, Play, Send, XCircle } from "lucide-react";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DialogEditor, useOpenedWith } from "@/components/sales/unit-sales/unit-sales-dialogs";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
@@ -20,6 +21,7 @@ import {
   type ContractActionResult,
 } from "@/lib/actions/contracts";
 import type { ContractAmendmentDTO } from "@/lib/modules/contracts/contract.types";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 
 /**
  * Actions on an amendment (PRD #18 §170–§180).
@@ -204,12 +206,32 @@ function SignedDialog({
   onError: (message: string) => void;
 }) {
   const [signedDate, setSignedDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [unresolved, setUnresolved] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
+  // Recording the signature is the only way forward: leaving offers Stay or Discard (AUD-03 §4).
+  const changed = useOpenedWith(open, signedDate);
+
+  React.useEffect(() => {
+    if (!open) {
+      // Reset only once the dialog has closed through its guard.
+      setSignedDate(new Date().toISOString().slice(0, 10));
+      setUnresolved(false);
+    }
+  }, [open]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
     startTransition(async () => {
-      const result = await markAmendmentSignedAction(contractId, amendment.id, signedDate);
+      setUnresolved(false);
+      let result: Awaited<ReturnType<typeof markAmendmentSignedAction>>;
+      try {
+        result = await markAmendmentSignedAction(contractId, amendment.id, signedDate);
+      } catch {
+        // The request may have gone through (AUD-03 §6).
+        setUnresolved(true);
+        onError(OUTCOME_COPY.unknown);
+        return;
+      }
       if (result.ok) {
         onOpenChange(false);
         onDone();
@@ -222,6 +244,7 @@ function SignedDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
+        <DialogEditor label={`Signature of ${amendment.amendmentNumber}`} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow="Record as signed" />
         <DialogTitle>Record {amendment.amendmentNumber} as signed</DialogTitle>
         <DialogDescription>
           Signing does not change the contract. Activating the amendment does.
@@ -240,9 +263,11 @@ function SignedDialog({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary" disabled={pending}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : "Record as signed"}
             </Button>

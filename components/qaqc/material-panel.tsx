@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import {
   recordMaterialDecisionAction,
@@ -53,42 +55,8 @@ export function MaterialPanel({
   const [pending, startTransition] = React.useTransition();
   const [dialog, setDialog] = React.useState<"release" | "revoke" | null>(null);
 
-  const [lineId, setLineId] = React.useState(lines[0]?.id ?? "");
-  const [inspected, setInspected] = React.useState("");
-  const [accepted, setAccepted] = React.useState("");
-  const [rejected, setRejected] = React.useState("0");
-  const [conditional, setConditional] = React.useState("0");
-
-  const line = lines.find((row) => row.id === lineId);
-
-  const balance = React.useMemo(() => {
-    const scale = (value: string) => {
-      const parsed = Number.parseFloat(value.replace(",", "."));
-      return Number.isFinite(parsed) ? Math.round(parsed * 10_000) : null;
-    };
-
-    const parts = [inspected, accepted, rejected, conditional].map(scale);
-    if (parts.some((part) => part === null)) return null;
-
-    const [i, a, r, c] = parts as number[];
-    return { difference: (a + r + c - i) / 10_000, balanced: a + r + c === i };
-  }, [inspected, accepted, rejected, conditional]);
-
-  function record(formData: FormData) {
-    startTransition(async () => {
-      const result = await recordMaterialDecisionAction(inspectionId, formData);
-      if (result.ok) {
-        toast({ title: result.message ?? "Decision recorded.", tone: "success" });
-        setInspected("");
-        setAccepted("");
-        setRejected("0");
-        setConditional("0");
-        router.refresh();
-      } else {
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
-  }
+  // A fresh form after each recorded decision: new values, a new baseline.
+  const [formKey, setFormKey] = React.useState(0);
 
   function runRelease(notes: string | null) {
     return new Promise<boolean>((resolve) => {
@@ -242,101 +210,12 @@ export function MaterialPanel({
       ) : null}
 
       {canDecide && lines.length > 0 ? (
-        <form action={record} className="nesto-card space-y-4 p-5">
-          <div>
-            <h3 className="text-card font-semibold text-fg">Record a decision</h3>
-            <p className="mt-1 text-meta text-fg-subtle">
-              Recording a line again replaces the earlier decision on it.
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="goodsReceiptItemId">Delivery line</Label>
-            <select
-              id="goodsReceiptItemId"
-              name="goodsReceiptItemId"
-              className={selectClass}
-              value={lineId}
-              onChange={(event) => setLineId(event.target.value)}
-              required
-            >
-              {lines.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.description} — {row.receivedQuantity} {row.unit} received
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="inspectedQuantity">Inspected</Label>
-              <Input
-                id="inspectedQuantity"
-                name="inspectedQuantity"
-                value={inspected}
-                onChange={(event) => setInspected(event.target.value)}
-                inputMode="decimal"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="acceptedQuantity">Accepted</Label>
-              <Input
-                id="acceptedQuantity"
-                name="acceptedQuantity"
-                value={accepted}
-                onChange={(event) => setAccepted(event.target.value)}
-                inputMode="decimal"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rejectedQuantity">Rejected</Label>
-              <Input
-                id="rejectedQuantity"
-                name="rejectedQuantity"
-                value={rejected}
-                onChange={(event) => setRejected(event.target.value)}
-                inputMode="decimal"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="conditionalQuantity">Conditional</Label>
-              <Input
-                id="conditionalQuantity"
-                name="conditionalQuantity"
-                value={conditional}
-                onChange={(event) => setConditional(event.target.value)}
-                inputMode="decimal"
-                required
-              />
-            </div>
-          </div>
-
-          {balance && !balance.balanced ? (
-            <p className="text-meta text-danger-strong">
-              Accepted, rejected and conditional are{" "}
-              <span className="tabular-nums">{Math.abs(balance.difference)}</span>{" "}
-              {balance.difference > 0 ? "more" : "less"} than the quantity inspected. Every unit
-              looked at has to end up in exactly one of the three.
-            </p>
-          ) : balance?.balanced ? (
-            <p className="text-meta text-fg-subtle">
-              Balanced against {inspected} {line?.unit ?? ""} inspected.
-            </p>
-          ) : null}
-
-          <div className="space-y-1.5">
-            <Label htmlFor="notes">Note</Label>
-            <Textarea id="notes" name="notes" rows={2} maxLength={2000} />
-          </div>
-
-          <Button type="submit" disabled={pending || (balance !== null && !balance.balanced)}>
-            {pending ? "Saving…" : "Record decision"}
-          </Button>
-        </form>
+        <DecisionForm
+          key={formKey}
+          inspectionId={inspectionId}
+          lines={lines}
+          onRecorded={() => setFormKey((key) => key + 1)}
+        />
       ) : null}
 
       <RejectDialog
@@ -365,5 +244,180 @@ export function MaterialPanel({
         onReject={(reason) => runRevoke(reason)}
       />
     </div>
+  );
+}
+
+/**
+ * Recording one line's decision (PRD #21 §90, §91): quantities typed before
+ * one save, so an editor under the unsaved-work contract (AUD-03 §3) whose
+ * "Save and continue" runs this same "Record decision" — including the balance
+ * rule its button is held back by. Remounted after each recorded decision, so
+ * the next one starts empty with a fresh baseline.
+ */
+function DecisionForm({
+  inspectionId,
+  lines,
+  onRecorded,
+}: {
+  inspectionId: string;
+  lines: { id: string; description: string; receivedQuantity: string; unit: string }[];
+  onRecorded: () => void;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  const [lineId, setLineId] = React.useState(lines[0]?.id ?? "");
+  const [inspected, setInspected] = React.useState("");
+  const [accepted, setAccepted] = React.useState("");
+  const [rejected, setRejected] = React.useState("0");
+  const [conditional, setConditional] = React.useState("0");
+
+  const line = lines.find((row) => row.id === lineId);
+
+  const balance = React.useMemo(() => {
+    const scale = (value: string) => {
+      const parsed = Number.parseFloat(value.replace(",", "."));
+      return Number.isFinite(parsed) ? Math.round(parsed * 10_000) : null;
+    };
+
+    const parts = [inspected, accepted, rejected, conditional].map(scale);
+    if (parts.some((part) => part === null)) return null;
+
+    const [i, a, r, c] = parts as number[];
+    return { difference: (a + r + c - i) / 10_000, balanced: a + r + c === i };
+  }, [inspected, accepted, rejected, conditional]);
+  const balanceRef = React.useRef(balance);
+  balanceRef.current = balance;
+
+  const save = useEditorSave({
+    formRef,
+    action: async (formData: FormData) => {
+      // The rule the button is disabled by holds for the prompt's save too.
+      if (balanceRef.current && !balanceRef.current.balanced) {
+        return {
+          ok: false as const,
+          error: "Accepted, rejected and conditional must add up to the quantity inspected.",
+        };
+      }
+      return recordMaterialDecisionAction(inspectionId, formData);
+    },
+    module: "qaqc",
+    saveKind: "create",
+    label: "Material decision",
+    onCommitted: (result, mode) => {
+      if (mode === "normal") {
+        toast({ title: result?.message ?? "Decision recorded.", tone: "success" });
+        router.refresh();
+      }
+      onRecorded();
+      return true;
+    },
+  });
+  const { pending } = save;
+
+  return (
+    <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
+      <div>
+        <h3 className="text-card font-semibold text-fg">Record a decision</h3>
+        <p className="mt-1 text-meta text-fg-subtle">
+          Recording a line again replaces the earlier decision on it.
+        </p>
+      </div>
+
+      <SaveMessages save={save} />
+
+      <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        <div className="space-y-1.5">
+          <Label htmlFor="goodsReceiptItemId">Delivery line</Label>
+          <select
+            id="goodsReceiptItemId"
+            name="goodsReceiptItemId"
+            className={selectClass}
+            value={lineId}
+            onChange={(event) => setLineId(event.target.value)}
+            required
+          >
+            {lines.map((row) => (
+              <option key={row.id} value={row.id}>
+                {row.description} — {row.receivedQuantity} {row.unit} received
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="inspectedQuantity">Inspected</Label>
+            <Input
+              id="inspectedQuantity"
+              name="inspectedQuantity"
+              value={inspected}
+              onChange={(event) => setInspected(event.target.value)}
+              inputMode="decimal"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="acceptedQuantity">Accepted</Label>
+            <Input
+              id="acceptedQuantity"
+              name="acceptedQuantity"
+              value={accepted}
+              onChange={(event) => setAccepted(event.target.value)}
+              inputMode="decimal"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="rejectedQuantity">Rejected</Label>
+            <Input
+              id="rejectedQuantity"
+              name="rejectedQuantity"
+              value={rejected}
+              onChange={(event) => setRejected(event.target.value)}
+              inputMode="decimal"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="conditionalQuantity">Conditional</Label>
+            <Input
+              id="conditionalQuantity"
+              name="conditionalQuantity"
+              value={conditional}
+              onChange={(event) => setConditional(event.target.value)}
+              inputMode="decimal"
+              required
+            />
+          </div>
+        </div>
+
+        {balance && !balance.balanced ? (
+          <p className="text-meta text-danger-strong">
+            Accepted, rejected and conditional are{" "}
+            <span className="tabular-nums">{Math.abs(balance.difference)}</span>{" "}
+            {balance.difference > 0 ? "more" : "less"} than the quantity inspected. Every unit
+            looked at has to end up in exactly one of the three.
+          </p>
+        ) : balance?.balanced ? (
+          <p className="text-meta text-fg-subtle">
+            Balanced against {inspected} {line?.unit ?? ""} inspected.
+          </p>
+        ) : null}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="notes">Note</Label>
+          <Textarea id="notes" name="notes" rows={2} maxLength={2000} />
+        </div>
+      </fieldset>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={pending || (balance !== null && !balance.balanced)}>
+          {pending ? "Saving…" : "Record decision"}
+        </Button>
+        <UnsavedIndicator save={save} />
+      </div>
+    </form>
   );
 }

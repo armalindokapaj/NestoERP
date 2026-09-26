@@ -1,17 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Check, Download, History, Loader2, Send, Upload, X } from "lucide-react";
 
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import type {
   DocumentReviewDTO,
@@ -19,6 +20,7 @@ import type {
   VersionHistoryDTO,
 } from "@/lib/modules/documents/versions/version.service";
 import { formatDateTime } from "@/lib/utils/format";
+import { startDownload } from "@/lib/navigation/start-download";
 
 /**
  * Version history and review (PRD #38 §56-§63, §67, §68).
@@ -52,6 +54,25 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
     } satisfies Failure;
   }
   return (json?.data ?? json) as T;
+}
+
+/** No answer came back (a lost connection): the step may or may not have happened (AUD-03 §6). */
+function unconfirmed(error: unknown): boolean {
+  const status = (error as Partial<Failure> | null)?.status;
+  return !(typeof status === "number" && status > 0);
+}
+
+/**
+ * A version dialog's input, registered with the tab's unsaved-work coordinator
+ * (AUD-03 §3, §5). Each of these dialogs ends in a step — upload, send for
+ * review, approve, reject — so closing with input asks, and Save and continue
+ * never takes the step.
+ */
+function useDialogInput(dirty: boolean, workflow: string, label: string) {
+  const editor = useUnsavedEditor({ module: "documents", saveKind: "none", workflow, label });
+  const { setDirty } = editor;
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
+  return editor;
 }
 
 function failureText(error: unknown): string {
@@ -294,7 +315,7 @@ function VersionDownload({ documentId, versionId, versionNumber }: { documentId:
     setPending(true);
     try {
       const grant = await api<{ url: string }>(`/api/documents/${documentId}/versions/${versionId}/download`, { method: "POST" });
-      window.location.href = grant.url;
+      startDownload(grant.url);
     } catch (failure) {
       toast({ title: failureText(failure), tone: "danger" });
     } finally {
@@ -345,24 +366,47 @@ function UploadVersionDialog({
   onOpenChange: (open: boolean) => void;
   onUploaded: () => Promise<void>;
 }) {
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <Dialog open={open} locked={busy} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogTitle>Upload new version</DialogTitle>
+        <DialogDescription>
+          The current version stays in place until the new file has been checked.
+        </DialogDescription>
+        {/* Mounted per opening: a fresh file, note and idempotency key each time. */}
+        <UploadVersionForm documentId={documentId} onBusy={setBusy} onUploaded={onUploaded} onDone={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function UploadVersionForm({
+  documentId,
+  onBusy,
+  onUploaded,
+  onDone,
+}: {
+  documentId: string;
+  onBusy: (busy: boolean) => void;
+  onUploaded: () => Promise<void>;
+  onDone: () => void;
+}) {
   const toast = useToast();
   const [file, setFile] = React.useState<File | null>(null);
   const [changeNote, setChangeNote] = React.useState("");
   const [progress, setProgress] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const idempotencyKey = React.useRef<string>("");
-
-  React.useEffect(() => {
-    if (open) {
-      setFile(null);
-      setChangeNote("");
-      setProgress(null);
-      setError(null);
-      idempotencyKey.current = crypto.randomUUID();
-    }
-  }, [open]);
+  if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID();
 
   const busy = progress !== null;
+  const editor = useDialogInput(file !== null || changeNote !== "", "Upload", "New version");
+  const { setPendingUploads } = editor;
+  React.useEffect(() => {
+    setPendingUploads(busy);
+    onBusy(busy);
+  }, [busy, setPendingUploads, onBusy]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -392,9 +436,13 @@ function UploadVersionDialog({
         title: result.status === "AVAILABLE" ? "New version uploaded" : "Upload received — the file is being checked",
         tone: "success",
       });
-      onOpenChange(false);
+      editor.setUnresolved(false);
+      editor.setDirty(false);
+      onBusy(false);
+      onDone();
       await onUploaded();
     } catch (failure) {
+      editor.setUnresolved(unconfirmed(failure));
       setError(failureText(failure));
       // A failed attempt gets a fresh key so a retry is a new upload, not a replay.
       idempotencyKey.current = crypto.randomUUID();
@@ -404,59 +452,53 @@ function UploadVersionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (busy ? null : onOpenChange(next))}>
-      <DialogContent>
-        <DialogTitle>Upload new version</DialogTitle>
-        <DialogDescription>
-          The current version stays in place until the new file has been checked.
-        </DialogDescription>
-        <form className="mt-4 space-y-4" onSubmit={submit}>
-          <div className="space-y-1.5">
-            <Label htmlFor="version-file">File</Label>
-            <Input
-              id="version-file"
-              type="file"
-              disabled={busy}
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            />
+    <form className="mt-4 space-y-4" onSubmit={submit}>
+      <div className="space-y-1.5">
+        <Label htmlFor="version-file">File</Label>
+        <Input
+          id="version-file"
+          type="file"
+          disabled={busy}
+          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="version-note">What changed</Label>
+        <Textarea
+          id="version-note"
+          rows={3}
+          maxLength={500}
+          disabled={busy}
+          value={changeNote}
+          onChange={(event) => setChangeNote(event.target.value)}
+          placeholder="Optional — for example, “Updated after client comments”."
+        />
+      </div>
+      {progress !== null ? (
+        <div aria-live="polite" className="text-table text-fg-muted">
+          Uploading… {progress}%
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover">
+            <div className="h-full bg-accent transition-[width]" style={{ width: `${progress}%` }} />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="version-note">What changed</Label>
-            <Textarea
-              id="version-note"
-              rows={3}
-              maxLength={500}
-              disabled={busy}
-              value={changeNote}
-              onChange={(event) => setChangeNote(event.target.value)}
-              placeholder="Optional — for example, “Updated after client comments”."
-            />
-          </div>
-          {progress !== null ? (
-            <div aria-live="polite" className="text-table text-fg-muted">
-              Uploading… {progress}%
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover">
-                <div className="h-full bg-accent transition-[width]" style={{ width: `${progress}%` }} />
-              </div>
-            </div>
-          ) : null}
-          {error ? (
-            <p role="alert" className="text-table text-danger-strong">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="secondary" disabled={busy} onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={busy || !file}>
-              {busy ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
-              Upload
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </div>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-table text-danger-strong">
+          {error}
+        </p>
+      ) : null}
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={busy}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={busy || !file}>
+          {busy ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
+          Upload
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 
@@ -473,6 +515,33 @@ function RequestReviewDialog({
   onOpenChange: (open: boolean) => void;
   onRequested: () => Promise<void>;
 }) {
+  const [pending, setPending] = React.useState(false);
+  return (
+    <Dialog open={version !== null} locked={pending} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogTitle>Request review{version ? ` of version ${version.versionNumber}` : ""}</DialogTitle>
+        <DialogDescription>
+          Only people who can open this document and decide reviews are listed.
+        </DialogDescription>
+        {version ? <RequestReviewForm documentId={documentId} version={version} onPending={setPending} onRequested={onRequested} onDone={() => onOpenChange(false)} /> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RequestReviewForm({
+  documentId,
+  version,
+  onPending,
+  onRequested,
+  onDone,
+}: {
+  documentId: string;
+  version: DocumentVersionDTO;
+  onPending: (pending: boolean) => void;
+  onRequested: () => Promise<void>;
+  onDone: () => void;
+}) {
   const toast = useToast();
   const [query, setQuery] = React.useState("");
   const [reviewers, setReviewers] = React.useState<Reviewer[] | null>(null);
@@ -481,19 +550,15 @@ function RequestReviewDialog({
   const [dueDate, setDueDate] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const open = version !== null;
+  // The search is a filter, not input.
+  const editor = useDialogInput(selected !== "" || note !== "" || dueDate !== "", "Send for review", `Review request for version ${version.versionNumber}`);
+  const { setSaving } = editor;
+  React.useEffect(() => {
+    setSaving(pending);
+    onPending(pending);
+  }, [pending, setSaving, onPending]);
 
   React.useEffect(() => {
-    if (!open) return;
-    setQuery("");
-    setSelected("");
-    setNote("");
-    setDueDate("");
-    setError(null);
-  }, [open]);
-
-  React.useEffect(() => {
-    if (!open) return;
     let cancelled = false;
     setReviewers(null);
     const timer = window.setTimeout(async () => {
@@ -511,11 +576,11 @@ function RequestReviewDialog({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [open, query, documentId]);
+  }, [query, documentId]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!version || !selected) {
+    if (!selected) {
       setError("Choose a reviewer.");
       return;
     }
@@ -527,9 +592,13 @@ function RequestReviewDialog({
         body: JSON.stringify({ reviewerMemberId: selected, note: note.trim() || undefined, dueDate: dueDate || undefined }),
       });
       toast({ title: "Review requested", tone: "success" });
-      onOpenChange(false);
+      editor.setUnresolved(false);
+      editor.setDirty(false);
+      onPending(false);
+      onDone();
       await onRequested();
     } catch (failure) {
+      editor.setUnresolved(unconfirmed(failure));
       setError(failureText(failure));
     } finally {
       setPending(false);
@@ -537,72 +606,66 @@ function RequestReviewDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (pending ? null : onOpenChange(next))}>
-      <DialogContent>
-        <DialogTitle>Request review{version ? ` of version ${version.versionNumber}` : ""}</DialogTitle>
-        <DialogDescription>
-          Only people who can open this document and decide reviews are listed.
-        </DialogDescription>
-        <form className="mt-4 space-y-4" onSubmit={submit}>
-          <div className="space-y-1.5">
-            <Label htmlFor="reviewer-search">Reviewer</Label>
-            <Input
-              id="reviewer-search"
-              placeholder="Search by name"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <div role="radiogroup" aria-label="Eligible reviewers" className="max-h-52 overflow-y-auto rounded-md border border-line">
-              {reviewers === null ? (
-                <p className="px-3 py-2 text-table text-fg-subtle">Loading…</p>
-              ) : reviewers.length === 0 ? (
-                <p className="px-3 py-2 text-table text-fg-subtle">Nobody else can review this document.</p>
-              ) : (
-                reviewers.map((reviewer) => (
-                  <label
-                    key={reviewer.memberId}
-                    className="flex cursor-pointer items-center gap-3 px-3 py-2 text-table hover:bg-hover has-[:checked]:bg-hover"
-                  >
-                    <input
-                      type="radio"
-                      name="reviewer"
-                      value={reviewer.memberId}
-                      checked={selected === reviewer.memberId}
-                      onChange={() => setSelected(reviewer.memberId)}
-                    />
-                    <span className="text-fg">{reviewer.fullName}</span>
-                    {reviewer.jobTitle ? <span className="text-fg-subtle">{reviewer.jobTitle}</span> : null}
-                  </label>
-                ))
-              )}
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="review-due">Decision needed by</Label>
-            <Input id="review-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-            <p className="text-meta text-fg-subtle">Optional. A date puts the review on both calendars.</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="review-note">Note</Label>
-            <Textarea id="review-note" rows={3} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional" />
-          </div>
-          {error ? (
-            <p role="alert" className="text-table text-danger-strong">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="secondary" disabled={pending} onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending || !selected}>
-              {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Send aria-hidden="true" />}
-              Send for review
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <form className="mt-4 space-y-4" onSubmit={submit}>
+      <div className="space-y-1.5">
+        <Label htmlFor="reviewer-search">Reviewer</Label>
+        <Input
+          id="reviewer-search"
+          placeholder="Search by name"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <div role="radiogroup" aria-label="Eligible reviewers" className="max-h-52 overflow-y-auto rounded-md border border-line">
+          {reviewers === null ? (
+            <p className="px-3 py-2 text-table text-fg-subtle">Loading…</p>
+          ) : reviewers.length === 0 ? (
+            <p className="px-3 py-2 text-table text-fg-subtle">Nobody else can review this document.</p>
+          ) : (
+            reviewers.map((reviewer) => (
+              <label
+                key={reviewer.memberId}
+                className="flex cursor-pointer items-center gap-3 px-3 py-2 text-table hover:bg-hover has-[:checked]:bg-hover"
+              >
+                <input
+                  type="radio"
+                  name="reviewer"
+                  value={reviewer.memberId}
+                  checked={selected === reviewer.memberId}
+                  onChange={() => setSelected(reviewer.memberId)}
+                />
+                <span className="text-fg">{reviewer.fullName}</span>
+                {reviewer.jobTitle ? <span className="text-fg-subtle">{reviewer.jobTitle}</span> : null}
+              </label>
+            ))
+          )}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="review-due">Decision needed by</Label>
+        <Input id="review-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+        <p className="text-meta text-fg-subtle">Optional. A date puts the review on both calendars.</p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="review-note">Note</Label>
+        <Textarea id="review-note" rows={3} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional" />
+      </div>
+      {error ? (
+        <p role="alert" className="text-table text-danger-strong">
+          {error}
+        </p>
+      ) : null}
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending || !selected}>
+          {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Send aria-hidden="true" />}
+          Send for review
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 
@@ -615,23 +678,48 @@ function DecisionDialog({
   onOpenChange: (open: boolean) => void;
   onDecided: () => Promise<void>;
 }) {
+  const [pending, setPending] = React.useState(false);
+  const rejecting = decision?.outcome === "reject";
+  return (
+    <Dialog open={decision !== null} locked={pending} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogTitle>{rejecting ? "Reject this version" : "Approve this version"}</DialogTitle>
+        <DialogDescription>
+          {rejecting
+            ? "The person who asked will see your note."
+            : "Approving makes this the approved version and supersedes any earlier approval."}
+        </DialogDescription>
+        {decision ? <DecisionForm decision={decision} onPending={setPending} onDecided={onDecided} onDone={() => onOpenChange(false)} /> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DecisionForm({
+  decision,
+  onPending,
+  onDecided,
+  onDone,
+}: {
+  decision: { review: DocumentReviewDTO; outcome: "approve" | "reject" };
+  onPending: (pending: boolean) => void;
+  onDecided: () => Promise<void>;
+  onDone: () => void;
+}) {
   const toast = useToast();
   const [note, setNote] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const open = decision !== null;
-  const rejecting = decision?.outcome === "reject";
-
+  const rejecting = decision.outcome === "reject";
+  const editor = useDialogInput(note !== "", rejecting ? "Reject" : "Approve", rejecting ? "Rejection note" : "Approval note");
+  const { setSaving } = editor;
   React.useEffect(() => {
-    if (open) {
-      setNote("");
-      setError(null);
-    }
-  }, [open]);
+    setSaving(pending);
+    onPending(pending);
+  }, [pending, setSaving, onPending]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!decision) return;
     if (rejecting && note.trim().length === 0) {
       setError("Say what needs to change before rejecting.");
       return;
@@ -644,9 +732,13 @@ function DecisionDialog({
         body: JSON.stringify({ note: note.trim() || undefined }),
       });
       toast({ title: rejecting ? "Version rejected" : "Version approved", tone: "success" });
-      onOpenChange(false);
+      editor.setUnresolved(false);
+      editor.setDirty(false);
+      onPending(false);
+      onDone();
       await onDecided();
     } catch (failure) {
+      editor.setUnresolved(unconfirmed(failure));
       setError(failureText(failure));
     } finally {
       setPending(false);
@@ -654,42 +746,34 @@ function DecisionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (pending ? null : onOpenChange(next))}>
-      <DialogContent>
-        <DialogTitle>{rejecting ? "Reject this version" : "Approve this version"}</DialogTitle>
-        <DialogDescription>
-          {rejecting
-            ? "The person who asked will see your note."
-            : "Approving makes this the approved version and supersedes any earlier approval."}
-        </DialogDescription>
-        <form className="mt-4 space-y-4" onSubmit={submit}>
-          <div className="space-y-1.5">
-            <Label htmlFor="decision-note">{rejecting ? "What needs to change" : "Note"}</Label>
-            <Textarea
-              id="decision-note"
-              rows={3}
-              maxLength={1000}
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder={rejecting ? "Required" : "Optional"}
-            />
-          </div>
-          {error ? (
-            <p role="alert" className="text-table text-danger-strong">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="secondary" disabled={pending} onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant={rejecting ? "danger" : "primary"} disabled={pending}>
-              {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : rejecting ? <X aria-hidden="true" /> : <Check aria-hidden="true" />}
-              {rejecting ? "Reject" : "Approve"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <form className="mt-4 space-y-4" onSubmit={submit}>
+      <div className="space-y-1.5">
+        <Label htmlFor="decision-note">{rejecting ? "What needs to change" : "Note"}</Label>
+        <Textarea
+          id="decision-note"
+          rows={3}
+          maxLength={1000}
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder={rejecting ? "Required" : "Optional"}
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="text-table text-danger-strong">
+          {error}
+        </p>
+      ) : null}
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" variant={rejecting ? "danger" : "primary"} disabled={pending}>
+          {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : rejecting ? <X aria-hidden="true" /> : <Check aria-hidden="true" />}
+          {rejecting ? "Reject" : "Approve"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

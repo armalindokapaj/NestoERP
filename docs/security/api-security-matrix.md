@@ -8,7 +8,7 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 - **Permissions**, **Modules**, **Scope**, **Record guard**, **State guard** — what the static call-graph analysis found reachable from the handler. Evidence, not proof; the behaviour is proven by `pnpm test:security`.
 - **Tests** — every session endpoint is attacked by the cross-company sweep (`tests/security/cross-company-api.test.ts`); server actions by `tests/security/cross-company-actions.test.ts`.
 
-**873 route handlers, 258 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1039 · PLATFORM 46 · PUBLIC 11 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
+**873 route handlers, 257 server actions.** AUTHENTICATED 30 · COMPANY_SCOPED 1038 · PLATFORM 46 · PUBLIC 11 · SIGNED 2 · TOKEN 3. Company-scoped endpoints with no check on their path: **0**.
 
 ## /api/activity-center
 
@@ -1100,13 +1100,13 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
 | GET | `/api/tasks/[taskId]/activity` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | — | — | sweep |
-| POST | `/api/tasks/[taskId]/archive` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` | — | sweep |
+| POST | `/api/tasks/[taskId]/archive` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | `canTransitionTaskStatus` | sweep |
 | POST | `/api/tasks/[taskId]/block` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | `canTransitionTaskStatus` | sweep |
 | POST | `/api/tasks/[taskId]/complete` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | `canTransitionTaskStatus` | sweep |
 | POST | `/api/tasks/[taskId]/reopen` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | `canTransitionTaskStatus` | sweep |
-| POST | `/api/tasks/[taskId]/restore` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` | — | sweep |
+| POST | `/api/tasks/[taskId]/restore` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | `canTransitionTaskStatus` | sweep |
 | GET | `/api/tasks/[taskId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | — | sweep |
-| PATCH | `/api/tasks/[taskId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` +1 | `assertFound`, `findTaskInScope` +1 | `canTransitionTaskStatus` | sweep |
+| PATCH | `/api/tasks/[taskId]` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | `canTransitionTaskStatus` | sweep |
 | POST | `/api/tasks/[taskId]/start` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | `canTransitionTaskStatus` | sweep |
 | GET | `/api/tasks` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | — | — | sweep |
 | POST | `/api/tasks` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` +1 | `assertFound`, `findTaskInScope` +1 | — | sweep |
@@ -1569,10 +1569,9 @@ Every endpoint NESTO exposes, with the authorization evidence found on its call 
 | Method | Endpoint | Class | Modules | Permissions | Scope | Record guard | State guard | Tests |
 |---|---|---|---|---|---|---|---|---|
 | ACTION | `createTaskAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` +1 | `assertFound`, `findTaskInScope` +2 | — | sweep |
-| ACTION | `updateTaskAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` +1 | `assertFound`, `findTaskInScope` +2 | `canTransitionTaskStatus` | sweep |
-| ACTION | `setTaskStatusAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +2 | `canTransitionTaskStatus` | sweep |
-| ACTION | `archiveTaskAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | — | sweep |
-| ACTION | `restoreTaskAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +1 | — | sweep |
+| ACTION | `updateTaskAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +2 | `canTransitionTaskStatus` | sweep |
+| ACTION | `taskCommandAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +2 | `canTransitionTaskStatus` | sweep |
+| ACTION | `taskReviewSnapshotAction` | COMPANY_SCOPED | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | `buildProjectScopeWhere`, `buildTaskScopeWhere` | `assertFound`, `findTaskInScope` +2 | — | sweep |
 
 ## Server actions — team
 

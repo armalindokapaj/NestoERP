@@ -90,6 +90,7 @@ export function SitesManager({ projectId, sites, canManage }: { projectId: strin
         fields={FIELDS}
         initial={editing && editing !== "new" ? editing : {}}
         submitLabel={editing === "new" ? "Add site" : "Save"}
+        module="workforce"
         testId="site-dialog"
         onSubmit={async (payload) => {
           if (editing === "new") await engineeringApi(`/api/projects/${projectId}/sites`, { body: payload });

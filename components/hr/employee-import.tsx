@@ -4,11 +4,13 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { Upload } from "lucide-react";
 
-import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
+import { engineeringApi, failureMessage, failureOutcome } from "@/components/engineering/engineering-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { ImportBatchDTO, ImportResultDTO } from "@/lib/modules/workforce/workforce.import";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -27,6 +29,14 @@ export function EmployeeImport({ template }: { template: string }) {
   const [pending, setPending] = React.useState<"preview" | "commit" | "discard" | null>(null);
   const [filter, setFilter] = React.useState<(typeof FILTERS)[number]>("all");
   const input = React.useRef<HTMLInputElement>(null);
+
+  // A checked file waiting to be imported is unsaved work, and its only way
+  // forward is the import itself (AUD-03 §3): leaving asks, and the prompt
+  // never imports. Leaving sets the batch aside; nothing stored is deleted.
+  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: "Import", label: "Employee import" });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(batch !== null), [batch, setDirty]);
+  React.useEffect(() => setSaving(pending !== null), [pending, setSaving]);
 
   async function preview(file: File) {
     setError(null);
@@ -50,9 +60,13 @@ export function EmployeeImport({ template }: { template: string }) {
     setPending("commit");
     try {
       setResult(await engineeringApi<ImportResultDTO>(`/api/hr/employees/import/${batch.id}/commit`, { method: "POST" }));
+      setUnresolved(false);
       setBatch(null);
     } catch (failure) {
-      setError(failureMessage(failure, "The import did not run."));
+      // No answer: it may have imported. Say so, and never run it again on its own (§6).
+      const unknown = failureOutcome(failure).kind === "unknown";
+      setUnresolved(unknown);
+      setError(unknown ? OUTCOME_COPY.unknown : failureMessage(failure, "The import did not run."));
     } finally {
       setPending(null);
     }

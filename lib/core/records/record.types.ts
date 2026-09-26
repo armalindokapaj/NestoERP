@@ -90,8 +90,13 @@ export type RecordDefinition = {
   /**
    * Loads the record inside the reader's own scope. Absent, in another company,
    * out of scope — all answer null, identically (PRD #38 §82, §89).
+   *
+   * `db` is a transaction that is changing the record: a definition that honours
+   * it answers from that transaction's view, so "who can read this task" can be
+   * asked of the task as it is about to commit (AUD-02 §8). A definition that
+   * ignores it answers from committed data, as before.
    */
-  find(context: UserContext, id: string): Promise<RecordSummary | null>;
+  find(context: UserContext, id: string, db?: Prisma.TransactionClient): Promise<RecordSummary | null>;
   /**
    * Of these ids, the ones this reader may see — the same clause as `find`, in
    * one query. Used where a list has to be filtered by record access, such as

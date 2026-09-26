@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { saveChecklistAction } from "@/lib/actions/qaqc";
 import type { ChecklistItemDTO } from "@/lib/modules/qaqc/qaqc.types";
 import {
@@ -27,18 +29,22 @@ import {
  * rather than waiting until the inspector tries to submit. The server enforces
  * the same rule either way (§57, §75).
  */
-export function ChecklistExecutor({
-  inspectionId,
-  items,
-  readOnly,
-}: {
+type ChecklistExecutorProps = {
   inspectionId: string;
   items: ChecklistItemDTO[];
   readOnly: boolean;
-}) {
+};
+
+export function ChecklistExecutor(props: ChecklistExecutorProps) {
+  // Remounted when it turns editable (or back), so the editor's tracking
+  // attaches to the form that is actually rendered (AUD-03 §3).
+  return <ChecklistEditor key={`${props.readOnly}-${props.items.length > 0}`} {...props} />;
+}
+
+function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorProps) {
   const router = useRouter();
   const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
+  const formRef = React.useRef<HTMLFormElement>(null);
   const [answers, setAnswers] = React.useState(() =>
     Object.fromEntries(
       items.map((item) => [
@@ -56,17 +62,28 @@ export function ChecklistExecutor({
     setAnswers((current) => ({ ...current, [id]: { ...current[id]!, ...patch } }));
   }
 
-  function submit(formData: FormData) {
-    startTransition(async () => {
-      const result = await saveChecklistAction(inspectionId, formData);
-      if (result.ok) {
-        toast({ title: result.message ?? "Answers saved.", tone: "success" });
+  /**
+   * Many answers held before one save, so the checklist is an editor under
+   * the unsaved-work contract (AUD-03 §3): leaving with unsaved answers asks
+   * first, and "Save and continue" runs this same "Save answers". Saving is
+   * ordinary — recording the result is the separate panel. Read-only, no form
+   * is rendered, so the editor never holds anything unsaved.
+   */
+  const save = useEditorSave({
+    formRef,
+    action: (formData: FormData) => saveChecklistAction(inspectionId, formData),
+    module: "qaqc",
+    saveKind: "save",
+    label: "Checklist",
+    onCommitted: (result, mode) => {
+      if (mode === "normal") {
+        toast({ title: result?.message ?? "Answers saved.", tone: "success" });
         router.refresh();
-      } else {
-        toast({ title: result.error, tone: "danger" });
       }
-    });
-  }
+      return true;
+    },
+  });
+  const { pending } = save;
 
   if (items.length === 0) {
     return (
@@ -180,11 +197,20 @@ export function ChecklistExecutor({
   if (readOnly) return body;
 
   return (
-    <form action={submit} className="space-y-4">
-      {body}
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save answers"}
-      </Button>
+    <form ref={formRef} onSubmit={save.onSubmit} className="space-y-4">
+      <SaveMessages save={save} />
+
+      {/* The submitted answers save as they were: nothing changes meanwhile (§6). */}
+      <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 border-0 p-0">
+        {body}
+      </fieldset>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save answers"}
+        </Button>
+        <UnsavedIndicator save={save} />
+      </div>
     </form>
   );
 }

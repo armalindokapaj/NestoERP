@@ -73,6 +73,7 @@ export function AmendmentForm({
   return (
     <RecordForm
       action={action}
+      module="contracts"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}

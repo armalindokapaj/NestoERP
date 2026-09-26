@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
 import { requireCompanyContext } from "@/lib/context/current-user";
+import { committed } from "@/lib/forms/committed";
 import { updateDocumentSchema } from "@/lib/modules/documents/document.schema";
 import * as documents from "@/lib/modules/documents/document.service";
 
@@ -29,7 +29,7 @@ function revalidateDocuments(documentId?: string, projectId?: string | null, cli
 }
 
 export type DocumentActionResult =
-  | { ok: true }
+  | { ok: true; redirectTo?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
 
 function toResult(error: unknown): DocumentActionResult {
@@ -69,7 +69,8 @@ export async function updateDocumentAction(
   }
 
   revalidateDocuments(documentId);
-  redirect(`/documents/${documentId}`);
+  // The form navigates, so Save and continue can go where the person was going (AUD-03 §6).
+  return committed(`/documents/${documentId}`);
 }
 
 export async function archiveDocumentAction(documentId: string): Promise<DocumentActionResult> {

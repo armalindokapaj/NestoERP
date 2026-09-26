@@ -6,6 +6,7 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { can } from "@/lib/access/can";
 import { createAttendanceAction } from "@/lib/actions/hr";
 import { requireModule } from "@/lib/context/current-user";
+import { committed } from "@/lib/forms/committed";
 import { listEmployees } from "@/lib/modules/hr/employees/employee.service";
 
 export const metadata: Metadata = { title: "Record attendance" };
@@ -37,7 +38,8 @@ export default async function NewAttendancePage() {
     "use server";
     const result = await createAttendanceAction(formData);
     if (!result.ok) return result;
-    redirect(result.id ? `/hr/attendance/${result.id}` : "/hr/attendance");
+    // Answered, not redirected: the form learns the save committed (AUD-03 §6).
+    return committed(result.id ? `/hr/attendance/${result.id}` : "/hr/attendance");
   }
 
   return (

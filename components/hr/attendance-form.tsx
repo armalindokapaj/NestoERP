@@ -67,6 +67,7 @@ export function AttendanceForm({
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
+      module="hr"
     >
       <FormSection
         title={lockedDate ? `${lockedDate.employee} — ${lockedDate.date}` : "Attendance"}

@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { TriangleAlert } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { updateIntegrationSettingsAction } from "@/lib/actions/settings";
 import type { IntegrationSettingsDTO } from "@/lib/modules/settings/integration-settings.service";
 
@@ -26,27 +28,31 @@ const TOGGLES = [
 export function IntegrationSettingsForm({ settings }: { settings: IntegrationSettingsDTO }) {
   const router = useRouter();
   const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
   const t = useTranslations("settings");
+  const formRef = React.useRef<HTMLFormElement>(null);
+  // Under the unsaved-work contract (AUD-03 §3, §6).
+  const save = useEditorSave({
+    formRef,
+    action: async (formData: FormData) => {
+      const result = await updateIntegrationSettingsAction(formData);
+      return result.ok ? result : { ok: false as const, error: result.message };
+    },
+    module: "settings",
+    saveKind: "save",
+    label: t("integrations.submit"),
+    onCommitted: () => {
+      toast({ title: t("integrations.updated"), tone: "success" });
+      router.refresh();
+    },
+  });
+  const { pending } = save;
 
   const blockerFor = (name: string) => settings.blockers.find((b) => b.key === name);
 
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    startTransition(async () => {
-      const result = await updateIntegrationSettingsAction(formData);
-      if (result.ok) {
-        toast({ title: t("integrations.updated"), tone: "success" });
-        router.refresh();
-      } else {
-        toast({ title: result.message, tone: "danger" });
-      }
-    });
-  }
-
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form ref={formRef} onSubmit={save.onSubmit} className="space-y-5">
+      <SaveMessages save={save} />
+      <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 border-0 p-0">
       <div className="nesto-card divide-y divide-line">
         {TOGGLES.map((toggle) => {
           const blocker = blockerFor(toggle.name);
@@ -77,9 +83,11 @@ export function IntegrationSettingsForm({ settings }: { settings: IntegrationSet
           );
         })}
       </div>
+      </fieldset>
 
       {settings.capabilities.canUpdate ? (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
+          <UnsavedIndicator save={save} />
           <Button type="submit" disabled={pending}>
             {pending ? t("saving") : t("integrations.submit")}
           </Button>

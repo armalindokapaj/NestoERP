@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, MessageSquare, Pencil, Plus, Send, Stamp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { addLocalDays, dayLabel, formatMinutes, weekLabel } from "@/lib/modules/
 import { WORK_LOG_TYPE_LABELS, type TimesheetFormOptions, type TimesheetWeekDTO, type WorkLogDTO } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
-import { isLeavingForWorkspaceSwitch, setWorkspaceDirtyState } from "@/lib/workspace/client";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { TimesheetEntryDrawer, type EntryDraft } from "./timesheet-entry-drawer";
 import { TimesheetGrid, type CellCommit, type RowTemplate } from "./timesheet-grid";
 import { TimesheetHistory } from "./timesheet-history";
@@ -66,20 +66,27 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
   const editable = week.capabilities.canEdit;
   const pendingSaves = Object.values(cellState).some((state) => state === "saving");
 
-  // Leaving with a cell still saving would lose it (§208).
-  React.useEffect(() => {
-    if (!pendingSaves) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      if (!isLeavingForWorkspaceSwitch()) event.preventDefault();
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [pendingSaves]);
-
-  React.useEffect(() => {
-    setWorkspaceDirtyState(pendingSaves);
-    return () => setWorkspaceDirtyState(false);
-  }, [pendingSaves]);
+  // Leaving with a cell still saving would lose it (§208), and so would a
+  // cell that failed to save, a value typed but not yet saved (a cell saves
+  // when it is left), and a row added but holding no time yet (AUD-03 §3). The
+  // week saves cell by cell, so there is no separate save to offer.
+  const [typedCells, setTypedCells] = React.useState<ReadonlySet<string>>(() => new Set());
+  const onDraft = React.useCallback((cell: string, typed: boolean) => {
+    setTypedCells((current) => {
+      if (current.has(cell) === typed) return current;
+      const next = new Set(current);
+      if (typed) next.add(cell);
+      else next.delete(cell);
+      return next;
+    });
+  }, []);
+  const failedCells = Object.values(cellState).some((state) => state === "error");
+  const unsavedRows = templates.some((template) => !week.rows.some((row) => row.key === template.key));
+  const dirty = failedCells || typedCells.size > 0 || unsavedRows;
+  const editor = useUnsavedEditor({ module: "timesheets", saveKind: "none", label: "Your timesheet week" });
+  const { setSaving, setDirty } = editor;
+  React.useEffect(() => setSaving(pendingSaves), [pendingSaves, setSaving]);
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
 
   const refresh = React.useCallback(async () => {
     const next = await timesheetApi<TimesheetWeekDTO>(`/api/timesheets/me?week=${week.periodStart}`);
@@ -291,6 +298,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
           onOpenEntries={(logIds, date) => setEntries({ logIds, date })}
           onAddRow={(row) => setTemplates((current) => (current.some((entry) => entry.key === row.key) || week.rows.some((entry) => entry.key === row.key) ? current : [...current, row]))}
           onRemoveTemplate={(key) => setTemplates((current) => current.filter((row) => row.key !== key))}
+          onDraft={onDraft}
         />
       </div>
 

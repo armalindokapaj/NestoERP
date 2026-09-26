@@ -7,10 +7,12 @@ import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import {
   ATTENDANCE_LABELS,
   PARTICIPANT_ROLE_LABELS,
@@ -19,7 +21,7 @@ import {
   type MeetingParticipantDTO,
 } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
-import { failureMessage, meetingApi } from "./meeting-api";
+import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { PersonAvatar } from "./meeting-ui";
 import { PeoplePicker, type PickedPerson } from "./people-picker";
 
@@ -222,89 +224,113 @@ export function ParticipantsPanel({
 }
 
 function AddPeopleDialog({ open, onOpenChange, meeting, onChange }: { open: boolean; onOpenChange: (open: boolean) => void; meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogTitle>Add people</DialogTitle>
+        <DialogDescription>{meeting.status === "DRAFT" ? "They are invited when the meeting is scheduled." : "They are invited straight away."}</DialogDescription>
+        {/* Inside the dialog, so the people picked belong to its guarded close (AUD-03 §5). Mounted on open: it starts empty. */}
+        <AddPeopleForm meeting={meeting} onChange={onChange} onDone={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; onDone: () => void }) {
   const toast = useToast();
   const [picked, setPicked] = React.useState<Array<PickedPerson & { role: Role }>>([]);
   const [scope, setScope] = React.useState<"THIS" | "FUTURE">("THIS");
   const [pending, setPending] = React.useState(false);
-  React.useEffect(() => {
-    if (open) {
-      setPicked([]);
-      setScope("THIS");
-    }
-  }, [open]);
 
-  async function save() {
+  // On a draft meeting adding people is an ordinary save; otherwise it sends
+  // their invitations — a workflow step the prompt never takes (AUD-03 §3).
+  const draft = meeting.status === "DRAFT";
+  const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
+  const editor = useUnsavedEditor({ module: "meetings", saveKind: draft ? "create" : "none", workflow: "Add and invite", label: "Add people", save: draft ? () => run.current() : undefined });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(picked.length > 0 || scope !== "THIS"), [picked, scope, setDirty]);
+
+  run.current = async () => {
+    if (pending) return { kind: "unknown" };
+    if (picked.length === 0) return { kind: "invalid" };
     setPending(true);
+    setSaving(true);
     try {
       onChange(
         await meetingApi<MeetingDetailDTO>(`/api/meetings/${meeting.id}/participants`, {
           body: { participants: picked.map((person) => ({ memberId: person.memberId, role: person.role, required: true })), scope },
         }),
       );
+      setDirty(false);
+      setUnresolved(false);
+      setSaving(false);
       toast({ title: picked.length === 1 ? `${picked[0].fullName} added` : `${picked.length} people added`, tone: "success" });
-      onOpenChange(false);
+      onDone();
+      return { kind: "committed" };
     } catch (error) {
+      const outcome = meetingFailureOutcome(error);
+      setUnresolved(outcome.kind === "unknown");
       toast({ title: failureMessage(error, "They could not be added."), tone: "danger" });
+      return outcome;
     } finally {
       setPending(false);
+      setSaving(false);
     }
-  }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogTitle>Add people</DialogTitle>
-        <DialogDescription>{meeting.status === "DRAFT" ? "They are invited when the meeting is scheduled." : "They are invited straight away."}</DialogDescription>
-        <div className="mt-4 space-y-3">
-          <Label htmlFor="add-people" className="sr-only">
-            Find people
-          </Label>
-          <PeoplePicker id="add-people" exclude={[...meeting.participants.map((row) => row.memberId), ...picked.map((row) => row.memberId)]} onPick={(person) => setPicked((rows) => [...rows, { ...person, role: "ATTENDEE" }])} />
-          {picked.length > 0 ? (
-            <ul className="divide-y divide-line rounded-lg border border-line">
-              {picked.map((person) => (
-                <li key={person.memberId} className="flex items-center gap-2.5 px-3 py-2">
-                  <PersonAvatar person={person} />
-                  <span className="min-w-0 flex-1 truncate text-table text-fg">{person.fullName}</span>
-                  <select
-                    aria-label={`Role for ${person.fullName}`}
-                    className="h-8 rounded-md border border-line bg-surface px-2 text-meta"
-                    value={person.role}
-                    onChange={(change) => setPicked((rows) => rows.map((row) => (row.memberId === person.memberId ? { ...row, role: change.target.value as Role } : row)))}
-                  >
-                    {ROLES.map((role) => (
-                      <option key={role} value={role}>
-                        {PARTICIPANT_ROLE_LABELS[role]}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="button" className="text-meta text-fg-subtle hover:text-fg" onClick={() => setPicked((rows) => rows.filter((row) => row.memberId !== person.memberId))}>
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {meeting.series ? (
-            <div className="space-y-1">
-              <Label htmlFor="add-people-scope">Add to</Label>
-              <select id="add-people-scope" className={selectClass} value={scope} onChange={(change) => setScope(change.target.value as "THIS" | "FUTURE")}>
-                <option value="THIS">This meeting only</option>
-                <option value="FUTURE">This and every later meeting</option>
-              </select>
-            </div>
-          ) : null}
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+    <>
+      <div className="mt-4 space-y-3">
+        <Label htmlFor="add-people" className="sr-only">
+          Find people
+        </Label>
+        <PeoplePicker id="add-people" exclude={[...meeting.participants.map((row) => row.memberId), ...picked.map((row) => row.memberId)]} onPick={(person) => setPicked((rows) => [...rows, { ...person, role: "ATTENDEE" }])} />
+        {picked.length > 0 ? (
+          <ul className="divide-y divide-line rounded-lg border border-line">
+            {picked.map((person) => (
+              <li key={person.memberId} className="flex items-center gap-2.5 px-3 py-2">
+                <PersonAvatar person={person} />
+                <span className="min-w-0 flex-1 truncate text-table text-fg">{person.fullName}</span>
+                <select
+                  aria-label={`Role for ${person.fullName}`}
+                  className="h-8 rounded-md border border-line bg-surface px-2 text-meta"
+                  value={person.role}
+                  onChange={(change) => setPicked((rows) => rows.map((row) => (row.memberId === person.memberId ? { ...row, role: change.target.value as Role } : row)))}
+                >
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {PARTICIPANT_ROLE_LABELS[role]}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="text-meta text-fg-subtle hover:text-fg" onClick={() => setPicked((rows) => rows.filter((row) => row.memberId !== person.memberId))}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {meeting.series ? (
+          <div className="space-y-1">
+            <Label htmlFor="add-people-scope">Add to</Label>
+            <select id="add-people-scope" className={selectClass} value={scope} onChange={(change) => setScope(change.target.value as "THIS" | "FUTURE")}>
+              <option value="THIS">This meeting only</option>
+              <option value="FUTURE">This and every later meeting</option>
+            </select>
+          </div>
+        ) : null}
+      </div>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => void save()} disabled={pending || picked.length === 0}>
-            {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-            Add {picked.length > 1 ? `${picked.length} people` : ""}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogClose>
+        <Button type="button" onClick={() => void run.current()} disabled={pending || picked.length === 0}>
+          {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
+          Add {picked.length > 1 ? `${picked.length} people` : ""}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

@@ -47,6 +47,7 @@ export function RequestAccountButton({
         ]}
         initial={{ companyDepartmentId: departmentId ?? "" }}
         submitLabel="Submit request"
+        module="hr"
         testId="request-account-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/hr/user-provisioning-requests", { body: { ...payload, employeeProfileId: employeeId, submit: true } });

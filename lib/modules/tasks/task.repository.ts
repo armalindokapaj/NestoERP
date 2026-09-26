@@ -42,6 +42,7 @@ const SUMMARY_SELECT = {
   dueDate: true,
   completedAt: true,
   updatedAt: true,
+  version: true,
   project: { select: { id: true, code: true, name: true } },
   assignee: { select: PERSON_SELECT },
 } satisfies Prisma.TaskSelect;

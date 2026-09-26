@@ -284,3 +284,12 @@ export const PROJECT = {
   /** The fixture tenant's first project. */
   companyB: "project_b_one",
 } as const;
+
+/**
+ * The version a person would see on the task's page right now (AUD-02 §3):
+ * what a test acting as that person names when it changes the task.
+ */
+export async function taskVersion(taskId: string): Promise<{ expectedVersion: number }> {
+  const row = await prisma.task.findUniqueOrThrow({ where: { id: taskId }, select: { version: true } });
+  return { expectedVersion: row.version };
+}

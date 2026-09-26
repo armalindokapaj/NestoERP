@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Building2, Loader2 } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";

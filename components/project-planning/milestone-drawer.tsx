@@ -11,11 +11,13 @@ import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useDialogClose } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor, type UnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { dateLabel, varianceLabel } from "@/lib/modules/project-planning/planning.dates";
 import type { MilestoneOptions } from "@/lib/modules/project-planning/planning.links";
 import {
@@ -32,10 +34,12 @@ import {
   type Option,
   type TaskLinkType,
 } from "@/lib/modules/project-planning/planning.types";
+import type { SaveKind, SaveOutcome } from "@/lib/unsaved/coordinator";
 import { cn } from "@/lib/utils/cn";
 import type { DrawerPanel } from "./milestone-list";
 import { MilestoneFormDialog } from "./milestone-form";
 import { failureMessage, planningApi } from "./planning-api";
+import { COMMITTED, failureOutcome, INVALID } from "./use-values-editor";
 import { CommittedBadge, CriticalBadge, MilestoneStatusBadge, OwnerName, ProgressBar, Variance } from "./planning-ui";
 
 /**
@@ -47,9 +51,29 @@ import { CommittedBadge, CriticalBadge, MilestoneStatusBadge, OwnerName, Progres
  * blockers; the files, meetings and site days behind it; its history and
  * discussion. Every action is offered only when the server would accept it,
  * and each opens inline, so nothing stacks over the drawer on a phone.
+ *
+ * Unsaved work (AUD-03 §3, §5): the quick update and whichever inline panel is
+ * open are editors of their own. Closing the drawer, a link, Back, starting
+ * another panel or Cancel asks when either holds input; the quick update and
+ * the panels that add something save through Save and continue exactly as
+ * their buttons do, while completing, reopening, a baseline change and
+ * resolving a blocker are steps only their own button takes.
  */
 
 type Panel = "complete" | "reopen" | "baseline" | "blocker" | "task" | "link-task" | "dependency" | "meeting" | "log" | null;
+
+/** What Save and continue may do for each panel: add a record, or nothing — a step belongs to its button. */
+const PANEL_KIND: Record<Exclude<Panel, null>, { saveKind: SaveKind; workflow?: string; label: string }> = {
+  complete: { saveKind: "none", workflow: "Complete milestone", label: "Completing the milestone" },
+  reopen: { saveKind: "none", workflow: "Reopen milestone", label: "Reopening the milestone" },
+  baseline: { saveKind: "none", workflow: "Save baseline", label: "Baseline change" },
+  blocker: { saveKind: "create", label: "New blocker" },
+  task: { saveKind: "create", label: "New task" },
+  "link-task": { saveKind: "create", label: "Task link" },
+  dependency: { saveKind: "create", label: "New dependency" },
+  meeting: { saveKind: "create", label: "Meeting link" },
+  log: { saveKind: "create", label: "Daily log link" },
+};
 
 function Section({ title, count, action, children, id }: { title: string; count?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; id?: string }) {
   return (
@@ -124,7 +148,35 @@ export function MilestoneDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  return (
+    <Drawer open={Boolean(milestoneId)} onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent side={mobile ? "bottom" : "right"} className={cn("bg-surface", mobile ? "max-h-[92dvh]" : "w-full sm:max-w-[500px]")} data-testid="milestone-drawer" aria-describedby={undefined}>
+        {/* Inside the drawer, so closing the drawer is what asks about its editors (AUD-03 §5). */}
+        <MilestoneDrawerBody milestoneId={milestoneId} initialPanel={initialPanel} phases={phases} members={members} canSetBaseline={canSetBaseline} onClose={onClose} onChanged={onChanged} />
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+function MilestoneDrawerBody({
+  milestoneId,
+  initialPanel,
+  phases,
+  members,
+  canSetBaseline,
+  onClose,
+  onChanged,
+}: {
+  milestoneId: string | null;
+  initialPanel: DrawerPanel;
+  phases: Option[];
+  members: Option[];
+  canSetBaseline: boolean;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const toast = useToast();
+  const closeDrawer = useDialogClose();
   const [detail, setDetail] = React.useState<MilestoneDetailDTO | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [options, setOptions] = React.useState<MilestoneOptions | null>(null);
@@ -133,14 +185,22 @@ export function MilestoneDrawer({
   const [editing, setEditing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<Record<string, string | boolean>>({});
+  // What the open panel (or a blocker's resolve line) started with: typing it back is clean again.
+  const [formBaseline, setFormBaseline] = React.useState<Record<string, string | boolean>>({});
   const [quick, setQuick] = React.useState<{ status: MilestoneStatus; forecastDate: string; progress: string; reason: string } | null>(null);
   const quickRef = React.useRef<HTMLDivElement>(null);
+  const quickDirtyRef = React.useRef(false);
 
-  const load = React.useCallback(async (id: string) => {
+  /**
+   * `resetQuick` only when the milestone opens or its quick update was saved:
+   * any other refresh keeps an update being typed (AUD-03 §3 rule 6).
+   */
+  const load = React.useCallback(async (id: string, resetQuick = false) => {
     try {
       const next = await planningApi<MilestoneDetailDTO>(`/api/project-milestones/${id}`);
+      const keep = !resetQuick && quickDirtyRef.current;
       setDetail(next);
-      setQuick({ status: next.status, forecastDate: next.forecastDate ?? "", progress: next.progressPercent === null ? "" : String(next.progressPercent), reason: "" });
+      setQuick((current) => (keep && current ? current : { status: next.status, forecastDate: next.forecastDate ?? "", progress: next.progressPercent === null ? "" : String(next.progressPercent), reason: "" }));
       setLoadError(null);
       return next;
     } catch (failure) {
@@ -160,46 +220,135 @@ export function MilestoneDrawer({
     setDetail(null);
     setOptions(null);
     setPanel(null);
+    setForm({});
+    setFormBaseline({});
     setError(null);
     setEditing(false);
     if (!milestoneId) return;
-    void load(milestoneId).then((next) => {
+    void load(milestoneId, true).then((next) => {
       if (!next) return;
       // Opening a milestone is returning to it later (PRD #45 §99).
       void planningApi("/api/recent-work/access", { body: { entityType: "project_milestone", entityId: next.id } }).catch(() => undefined);
       const map: Record<Exclude<DrawerPanel, null>, Panel> = { status: null, forecast: null, blocker: "blocker", task: "task", complete: "complete" };
-      if (initialPanel && map[initialPanel]) openPanel(map[initialPanel]);
+      if (initialPanel && map[initialPanel]) showPanel(map[initialPanel]);
       if (initialPanel === "status" || initialPanel === "forecast") setTimeout(() => quickRef.current?.querySelector<HTMLElement>(initialPanel === "status" ? "select" : "input[type=date]")?.focus(), 250);
     });
     // Re-open when the milestone or the requested action changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [milestoneId, initialPanel]);
 
-  function openPanel(next: Panel) {
+  function showPanel(next: Panel) {
     setError(null);
-    setForm(next === "complete" ? { actualDate: detail?.today ?? "", completionNote: "" } : next === "baseline" ? { newBaselineDate: detail?.baselineDate ?? "", reason: "" } : next === "blocker" ? { severity: "MEDIUM" } : next === "task" || next === "link-task" ? { linkType: "SUPPORTS", priority: "MEDIUM" } : next === "dependency" ? { lagDays: "0" } : {});
+    const start: Record<string, string | boolean> = next === "complete" ? { actualDate: detail?.today ?? "", completionNote: "" } : next === "baseline" ? { newBaselineDate: detail?.baselineDate ?? "", reason: "" } : next === "blocker" ? { severity: "MEDIUM" } : next === "task" || next === "link-task" ? { linkType: "SUPPORTS", priority: "MEDIUM" } : next === "dependency" ? { lagDays: "0" } : {};
+    setForm(start);
+    setFormBaseline(start);
     setPanel(next);
     if (next && ["blocker", "task", "link-task", "dependency", "meeting", "log"].includes(next)) void loadOptions();
   }
 
-  async function act(run: () => Promise<unknown>, success: string, after?: () => void) {
-    if (!detail) return;
+  const persistPanel = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
+  const panelKind: { saveKind: SaveKind; workflow?: string; label: string } = panel ? PANEL_KIND[panel] : form.blockerId ? { saveKind: "none", workflow: "Resolve", label: "Resolving a blocker" } : { saveKind: "none", label: "Milestone panel" };
+  const panelEditor = useUnsavedEditor({ module: "planning", saveKind: panelKind.saveKind, workflow: panelKind.workflow, label: panelKind.label, save: panelKind.saveKind === "none" ? undefined : () => persistPanel.current() });
+  const quickEditor = useUnsavedEditor({ module: "planning", saveKind: "save", label: "Milestone update", save: () => saveQuick() });
+  const setPanelDirty = panelEditor.setDirty;
+  const setQuickDirty = quickEditor.setDirty;
+  const panelActive = panel !== null || Boolean(form.blockerId);
+  const panelDirty = panelActive && JSON.stringify(form) !== JSON.stringify(formBaseline);
+  React.useEffect(() => setPanelDirty(panelDirty), [panelDirty, setPanelDirty]);
+
+  /** Another panel, the resolve line or Cancel replaces what is being typed: asked first. */
+  function openPanel(next: Panel) {
+    void panelEditor.requestDismiss(() => showPanel(next));
+  }
+
+  /**
+   * Runs one command. `owner` is the editor whose input it sends: it saves
+   * while the request runs, is clean once the server said yes, and holds an
+   * unknown outcome when no answer came back (AUD-03 §6). A command that is
+   * not the open panel's leaves the panel and what is typed in it alone.
+   */
+  async function act(run: () => Promise<unknown>, success: string, after?: () => void, owner?: UnsavedEditor): Promise<SaveOutcome> {
+    if (!detail) return INVALID;
     setPending(true);
+    owner?.setSaving(true);
     setError(null);
     try {
       await run();
+      owner?.setUnresolved(false);
+      owner?.setDirty(false);
       toast({ title: success, tone: "success" });
-      setPanel(null);
+      if (owner === panelEditor) setPanel(null);
       after?.();
       setOptions(null);
-      await load(detail.id);
+      await load(detail.id, owner === quickEditor);
       onChanged();
+      return COMMITTED;
     } catch (failure) {
+      const outcome = failureOutcome(failure);
+      owner?.setUnresolved(outcome.kind === "unknown");
       setError(failureMessage(failure));
       if ((failure as { code?: string }).code === "CONFLICT") void load(detail.id);
+      return outcome;
     } finally {
       setPending(false);
+      owner?.setSaving(false);
     }
+  }
+
+  /** The open panel's own command, for its button and for Save and continue alike. */
+  persistPanel.current = async () => {
+    if (!detail) return INVALID;
+    switch (panel) {
+      case "complete":
+        return act(() => planningApi(`${base}/complete`, { body: { expectedVersion: detail.version, actualDate: text("actualDate") || null, completionNote: text("completionNote") || null } }), "Milestone completed", undefined, panelEditor);
+      case "reopen":
+        if (!text("reason").trim()) return INVALID;
+        return act(() => planningApi(`${base}/reopen`, { body: { expectedVersion: detail.version, reason: text("reason") } }), "Milestone reopened", undefined, panelEditor);
+      case "baseline":
+        if (!text("newBaselineDate")) return INVALID;
+        return act(() => planningApi(`${base}/baseline`, { body: { expectedVersion: detail.version, newBaselineDate: text("newBaselineDate"), reason: text("reason") || null } }), "Baseline changed", undefined, panelEditor);
+      case "dependency":
+        if (!text("predecessorMilestoneId")) return INVALID;
+        return act(() => planningApi(`${base}/dependencies`, { body: { predecessorMilestoneId: text("predecessorMilestoneId"), lagDays: Number(text("lagDays") || 0) } }), "Dependency added", undefined, panelEditor);
+      case "link-task":
+        if (!text("taskId")) return INVALID;
+        return act(() => planningApi(`${base}/tasks`, { body: { taskId: text("taskId"), linkType: text("linkType") as TaskLinkType } }), "Task linked", undefined, panelEditor);
+      case "task":
+        if (!text("title").trim()) return INVALID;
+        return act(() => planningApi(`${base}/tasks/create`, { body: { title: text("title"), assigneeMemberId: text("assigneeMemberId") || null, dueDate: text("dueDate") || null, priority: "MEDIUM", linkType: "SUPPORTS" } }), "Task created", undefined, panelEditor);
+      case "blocker":
+        if (!text("title").trim()) return INVALID;
+        return act(() => planningApi(`${base}/blockers`, { body: { title: text("title"), severity: text("severity") as BlockerSeverity, ownerMemberId: text("ownerMemberId") || null, dueDate: text("dueDate") || null, description: text("description") || null, createTask: form.createTask === true } }), "Blocker added", undefined, panelEditor);
+      case "meeting":
+      case "log":
+        if (!text("recordId")) return INVALID;
+        return act(() => planningApi(`${base}/${panel === "meeting" ? "meetings" : "daily-logs"}`, { body: { recordId: text("recordId") } }), "Linked", undefined, panelEditor);
+      default: {
+        const blockerId = typeof form.blockerId === "string" ? form.blockerId : null;
+        if (!blockerId) return INVALID;
+        return act(() => planningApi(`/api/project-milestone-blockers/${blockerId}/resolve`, { body: { resolutionNote: text("resolutionNote") || null } }), "Blocker resolved", () => { setForm({}); setFormBaseline({}); }, panelEditor);
+      }
+    }
+  };
+  const submitPanel = () => void persistPanel.current();
+
+  function saveQuick(): Promise<SaveOutcome> {
+    if (!detail || !quick) return Promise.resolve(INVALID);
+    return act(
+      () =>
+        planningApi(`${base}/quick-update`, {
+          body: {
+            expectedVersion: detail.version,
+            status: quick.status,
+            forecastDate: quick.forecastDate || null,
+            progressPercent: quick.progress === "" ? null : Number(quick.progress),
+            forecastReason: quick.reason || null,
+          },
+        }),
+      "Milestone updated",
+      undefined,
+      quickEditor,
+    );
   }
 
   const base = detail ? `/api/project-milestones/${detail.id}` : "";
@@ -217,10 +366,12 @@ export function MilestoneDrawer({
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const quickDirty = Boolean(detail && quick && (quick.status !== detail.status || quick.forecastDate !== (detail.forecastDate ?? "") || quick.progress !== (detail.progressPercent === null ? "" : String(detail.progressPercent))));
+  quickDirtyRef.current = quickDirty;
+  // Before, the drawer closed over a changed status without a word (AUD-03 §5).
+  React.useEffect(() => setQuickDirty(quickDirty), [quickDirty, setQuickDirty]);
 
   return (
-    <Drawer open={Boolean(milestoneId)} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent side={mobile ? "bottom" : "right"} className={cn("bg-surface", mobile ? "max-h-[92dvh]" : "w-full sm:max-w-[500px]")} data-testid="milestone-drawer" aria-describedby={undefined}>
+    <>
         {!detail ? (
           <div className="p-6">
             <DrawerTitle className="text-card font-semibold text-fg">{loadError ? "Milestone unavailable" : "Loading milestone…"}</DrawerTitle>
@@ -265,7 +416,7 @@ export function MilestoneDrawer({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : null}
-                <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
+                <Button type="button" variant="ghost" size="icon-sm" onClick={closeDrawer} aria-label="Close">
                   <X />
                 </Button>
               </div>
@@ -305,7 +456,7 @@ export function MilestoneDrawer({
                 ) : null}
               </div>
               {panel === "complete" ? (
-                <InlinePanel title="Mark complete" onCancel={() => setPanel(null)}>
+                <InlinePanel title="Mark complete" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2">
                     <Labeled label="Actual date" htmlFor="complete-date">
                       <Input id="complete-date" type="date" value={text("actualDate")} max={detail.today} onChange={(event) => setField("actualDate", event.target.value)} />
@@ -314,18 +465,18 @@ export function MilestoneDrawer({
                       <Textarea id="complete-note" rows={2} value={text("completionNote")} onChange={(event) => setField("completionNote", event.target.value)} maxLength={2000} />
                     </Labeled>
                     <p className="text-meta text-fg-subtle">Linked tasks are not changed.</p>
-                    <Button type="button" size="sm" disabled={pending} onClick={() => void act(() => planningApi(`${base}/complete`, { body: { expectedVersion: detail.version, actualDate: text("actualDate") || null, completionNote: text("completionNote") || null } }), "Milestone completed")}>
+                    <Button type="button" size="sm" disabled={pending} onClick={submitPanel}>
                       Complete milestone
                     </Button>
                   </div>
                 </InlinePanel>
               ) : null}
               {panel === "reopen" ? (
-                <InlinePanel title="Reopen milestone" onCancel={() => setPanel(null)}>
+                <InlinePanel title="Reopen milestone" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <Labeled label="Reason" htmlFor="reopen-reason">
                     <Textarea id="reopen-reason" rows={2} value={text("reason")} onChange={(event) => setField("reason", event.target.value)} maxLength={2000} />
                   </Labeled>
-                  <Button type="button" size="sm" className="mt-2" disabled={pending || !text("reason").trim()} onClick={() => void act(() => planningApi(`${base}/reopen`, { body: { expectedVersion: detail.version, reason: text("reason") } }), "Milestone reopened")}>
+                  <Button type="button" size="sm" className="mt-2" disabled={pending || !text("reason").trim()} onClick={submitPanel}>
                     Reopen milestone
                   </Button>
                 </InlinePanel>
@@ -396,25 +547,11 @@ export function MilestoneDrawer({
                       type="button"
                       size="sm"
                       disabled={pending}
-                      onClick={() =>
-                        void act(
-                          () =>
-                            planningApi(`${base}/quick-update`, {
-                              body: {
-                                expectedVersion: detail.version,
-                                status: quick.status,
-                                forecastDate: quick.forecastDate || null,
-                                progressPercent: quick.progress === "" ? null : Number(quick.progress),
-                                forecastReason: quick.reason || null,
-                              },
-                            }),
-                          "Milestone updated",
-                        )
-                      }
+                      onClick={() => void saveQuick()}
                     >
                       Save update
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setQuick({ status: detail.status, forecastDate: detail.forecastDate ?? "", progress: detail.progressPercent === null ? "" : String(detail.progressPercent), reason: "" })}>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => void quickEditor.requestDismiss(() => setQuick({ status: detail.status, forecastDate: detail.forecastDate ?? "", progress: detail.progressPercent === null ? "" : String(detail.progressPercent), reason: "" }))}>
                       Discard
                     </Button>
                   </div>
@@ -452,7 +589,7 @@ export function MilestoneDrawer({
                 ))}
               </dl>
               {panel === "baseline" ? (
-                <InlinePanel title={detail.baselineDate ? "Change baseline" : "Set baseline"} onCancel={() => setPanel(null)}>
+                <InlinePanel title={detail.baselineDate ? "Change baseline" : "Set baseline"} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2">
                     <Labeled label="New baseline date" htmlFor="baseline-date">
                       <Input id="baseline-date" type="date" value={text("newBaselineDate")} onChange={(event) => setField("newBaselineDate", event.target.value)} />
@@ -462,7 +599,7 @@ export function MilestoneDrawer({
                     </Labeled>
                     <p className="text-meta text-fg-subtle">Baseline changes are recorded in the audit log with the reason.</p>
                     {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
-                    <Button type="button" size="sm" disabled={pending || !text("newBaselineDate")} onClick={() => void act(() => planningApi(`${base}/baseline`, { body: { expectedVersion: detail.version, newBaselineDate: text("newBaselineDate"), reason: text("reason") || null } }), "Baseline changed")}>
+                    <Button type="button" size="sm" disabled={pending || !text("newBaselineDate")} onClick={submitPanel}>
                       Save baseline
                     </Button>
                   </div>
@@ -533,7 +670,7 @@ export function MilestoneDrawer({
                 ) : null,
               )}
               {panel === "dependency" ? (
-                <InlinePanel title="Add a milestone this one depends on" onCancel={() => setPanel(null)}>
+                <InlinePanel title="Add a milestone this one depends on" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2 sm:grid-cols-[1fr_6rem]">
                     <Labeled label="Predecessor" htmlFor="dependency-milestone">
                       <OptionSelect id="dependency-milestone" value={text("predecessorMilestoneId")} onChange={(value) => setField("predecessorMilestoneId", value)} options={(options?.milestones ?? []).map((row) => ({ id: row.id, label: `${row.label} · ${row.status}`, disabled: row.blocked }))} placeholder={options ? "Choose a milestone" : "Loading…"} />
@@ -543,7 +680,7 @@ export function MilestoneDrawer({
                     </Labeled>
                   </div>
                   {error ? <p role="alert" className="mt-2 text-table text-danger-strong">{error}</p> : null}
-                  <Button type="button" size="sm" className="mt-2" disabled={pending || !text("predecessorMilestoneId")} onClick={() => void act(() => planningApi(`${base}/dependencies`, { body: { predecessorMilestoneId: text("predecessorMilestoneId"), lagDays: Number(text("lagDays") || 0) } }), "Dependency added")}>
+                  <Button type="button" size="sm" className="mt-2" disabled={pending || !text("predecessorMilestoneId")} onClick={submitPanel}>
                     Add dependency
                   </Button>
                 </InlinePanel>
@@ -599,7 +736,7 @@ export function MilestoneDrawer({
                 <p className="text-table text-fg-subtle">No linked tasks. Completing tasks never completes the milestone.</p>
               )}
               {panel === "link-task" ? (
-                <InlinePanel title="Link a task" onCancel={() => setPanel(null)}>
+                <InlinePanel title="Link a task" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
                     <Labeled label="Task" htmlFor="link-task">
                       <OptionSelect id="link-task" value={text("taskId")} onChange={(value) => setField("taskId", value)} options={(options?.tasks ?? []).map((row) => ({ id: row.id, label: row.label, disabled: row.linked }))} placeholder={options ? "Choose a task" : "Loading…"} />
@@ -615,13 +752,13 @@ export function MilestoneDrawer({
                     </Labeled>
                   </div>
                   {error ? <p role="alert" className="mt-2 text-table text-danger-strong">{error}</p> : null}
-                  <Button type="button" size="sm" className="mt-2" disabled={pending || !text("taskId")} onClick={() => void act(() => planningApi(`${base}/tasks`, { body: { taskId: text("taskId"), linkType: text("linkType") as TaskLinkType } }), "Task linked")}>
+                  <Button type="button" size="sm" className="mt-2" disabled={pending || !text("taskId")} onClick={submitPanel}>
                     Link task
                   </Button>
                 </InlinePanel>
               ) : null}
               {panel === "task" ? (
-                <InlinePanel title="Create a task" onCancel={() => setPanel(null)}>
+                <InlinePanel title="Create a task" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2">
                     <Labeled label="Title" htmlFor="task-title">
                       <Input id="task-title" value={text("title")} onChange={(event) => setField("title", event.target.value)} maxLength={200} />
@@ -635,7 +772,7 @@ export function MilestoneDrawer({
                       </Labeled>
                     </div>
                     {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
-                    <Button type="button" size="sm" disabled={pending || !text("title").trim()} onClick={() => void act(() => planningApi(`${base}/tasks/create`, { body: { title: text("title"), assigneeMemberId: text("assigneeMemberId") || null, dueDate: text("dueDate") || null, priority: "MEDIUM", linkType: "SUPPORTS" } }), "Task created")}>
+                    <Button type="button" size="sm" disabled={pending || !text("title").trim()} onClick={submitPanel}>
                       Save task
                     </Button>
                   </div>
@@ -657,7 +794,7 @@ export function MilestoneDrawer({
               }
             >
               {panel === "blocker" ? (
-                <InlinePanel title="Add a blocker" onCancel={() => setPanel(null)}>
+                <InlinePanel title="Add a blocker" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2">
                     <Labeled label="Title" htmlFor="blocker-title">
                       <Input id="blocker-title" value={text("title")} onChange={(event) => setField("title", event.target.value)} maxLength={200} />
@@ -693,12 +830,7 @@ export function MilestoneDrawer({
                       type="button"
                       size="sm"
                       disabled={pending || !text("title").trim()}
-                      onClick={() =>
-                        void act(
-                          () => planningApi(`${base}/blockers`, { body: { title: text("title"), severity: text("severity") as BlockerSeverity, ownerMemberId: text("ownerMemberId") || null, dueDate: text("dueDate") || null, description: text("description") || null, createTask: form.createTask === true } }),
-                          "Blocker added",
-                        )
-                      }
+                      onClick={submitPanel}
                     >
                       Save blocker
                     </Button>
@@ -733,7 +865,14 @@ export function MilestoneDrawer({
                           {blocker.resolutionNote ? <span className="block text-meta text-fg-muted">{blocker.resolutionNote}</span> : null}
                         </span>
                         {!blocker.resolvedAt && caps?.canManageBlockers ? (
-                          <Button type="button" variant="secondary" size="sm" onClick={() => { setForm({ blockerId: blocker.id, resolutionNote: "" }); setPanel(null); }}>
+                          <Button type="button" variant="secondary" size="sm" onClick={() =>
+                              void panelEditor.requestDismiss(() => {
+                                const start = { blockerId: blocker.id, resolutionNote: "" };
+                                setForm(start);
+                                setFormBaseline(start);
+                                setPanel(null);
+                              })
+                            }>
                             Resolve
                           </Button>
                         ) : null}
@@ -741,7 +880,7 @@ export function MilestoneDrawer({
                       {form.blockerId === blocker.id && !panel ? (
                         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                           <Input aria-label="Resolution note" placeholder="Resolution note (optional)" value={text("resolutionNote")} onChange={(event) => setField("resolutionNote", event.target.value)} maxLength={2000} />
-                          <Button type="button" size="sm" className="h-10" disabled={pending} onClick={() => void act(() => planningApi(`/api/project-milestone-blockers/${blocker.id}/resolve`, { body: { resolutionNote: text("resolutionNote") || null } }), "Blocker resolved", () => setForm({}))}>
+                          <Button type="button" size="sm" className="h-10" disabled={pending} onClick={submitPanel}>
                             Confirm resolve
                           </Button>
                         </div>
@@ -831,10 +970,10 @@ export function MilestoneDrawer({
                     <p className="text-table text-fg-subtle">{group.empty}</p>
                   )}
                   {panel === group.panelKey ? (
-                    <InlinePanel title={`Link ${group.title.toLowerCase().replace(/s$/, "")}`} onCancel={() => setPanel(null)}>
+                    <InlinePanel title={`Link ${group.title.toLowerCase().replace(/s$/, "")}`} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                       <OptionSelect id={`link-${group.key}`} value={text("recordId")} onChange={(value) => setField("recordId", value)} options={(group.choices ?? []).map((row) => ({ id: row.id, label: row.label, disabled: row.linked }))} placeholder={options ? `Choose from this project` : "Loading…"} />
                       {error ? <p role="alert" className="mt-2 text-table text-danger-strong">{error}</p> : null}
-                      <Button type="button" size="sm" className="mt-2" disabled={pending || !text("recordId")} onClick={() => void act(() => planningApi(`${base}/${group.endpoint}`, { body: { recordId: text("recordId") } }), "Linked")}>
+                      <Button type="button" size="sm" className="mt-2" disabled={pending || !text("recordId")} onClick={submitPanel}>
                         Save link
                       </Button>
                     </InlinePanel>
@@ -903,7 +1042,6 @@ export function MilestoneDrawer({
             />
           </>
         )}
-      </DrawerContent>
-    </Drawer>
+    </>
   );
 }

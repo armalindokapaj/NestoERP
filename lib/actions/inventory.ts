@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
+import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as adjustments from "@/lib/modules/inventory/documents/adjustment.service";
 import * as issues from "@/lib/modules/inventory/documents/issue.service";
@@ -34,7 +34,7 @@ import {
  */
 
 export type InventoryActionResult =
-  | { ok: true; id?: string; message?: string }
+  | { ok: true; id?: string; message?: string; redirectTo?: string }
   | { ok: false; error: string; code?: string; fieldErrors?: Record<string, string[]> };
 
 function revalidateInventory(recordPath?: string) {
@@ -117,7 +117,7 @@ export async function createItemAction(formData: FormData): Promise<InventoryAct
   }
 
   revalidateInventory();
-  redirect(`/inventory/items/${id}`);
+  return committed(`/inventory/items/${id}`);
 }
 
 export async function updateItemAction(
@@ -136,7 +136,7 @@ export async function updateItemAction(
   }
 
   revalidateInventory(`/inventory/items/${itemId}`);
-  redirect(`/inventory/items/${itemId}`);
+  return committed(`/inventory/items/${itemId}`);
 }
 
 export async function itemLifecycleAction(
@@ -176,7 +176,7 @@ export async function createWarehouseAction(
   }
 
   revalidateInventory();
-  redirect(`/inventory/warehouses/${id}`);
+  return committed(`/inventory/warehouses/${id}`);
 }
 
 export async function updateWarehouseAction(
@@ -195,7 +195,7 @@ export async function updateWarehouseAction(
   }
 
   revalidateInventory(`/inventory/warehouses/${warehouseId}`);
-  redirect(`/inventory/warehouses/${warehouseId}`);
+  return committed(`/inventory/warehouses/${warehouseId}`);
 }
 
 export async function warehouseLifecycleAction(
@@ -295,7 +295,7 @@ export async function createDocumentAction(
   }
 
   revalidateInventory();
-  redirect(`/inventory/${kind}/${id}`);
+  return committed(`/inventory/${kind}/${id}`);
 }
 
 export async function updateDocumentAction(
@@ -333,7 +333,7 @@ export async function updateDocumentAction(
   }
 
   revalidateInventory(`/inventory/${kind}/${documentId}`);
-  redirect(`/inventory/${kind}/${documentId}`);
+  return committed(`/inventory/${kind}/${documentId}`);
 }
 
 export type DocumentLifecycle = "post" | "cancel" | "reverse";
@@ -432,7 +432,7 @@ export async function postFromGoodsReceiptAction(
 
   revalidateInventory();
   revalidatePath("/procurement", "layout");
-  redirect(`/inventory/receipts/${id}`);
+  return committed(`/inventory/receipts/${id}`);
 }
 
 /* -------------------------------------------------------------------------- */

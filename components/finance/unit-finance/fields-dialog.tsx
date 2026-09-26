@@ -3,7 +3,7 @@
 import * as React from "react";
 
 import { Field } from "@/components/project-structure/structure-ui";
-import { FormDialog, useDialogRequest } from "@/components/sales/unit-sales/unit-sales-dialogs";
+import { FormDialog, requestOutcome, useDialogRequest, useOpenedWith } from "@/components/sales/unit-sales/unit-sales-dialogs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
  * The legal and finance sections ask for these the same way; the server says
  * whether the change is allowed, and its message lands beside the field it is
  * about or above the form.
+ *
+ * Most are workflow steps (request, decline, activate, void): leaving with
+ * input in them offers Stay or Discard, never the step itself. One that is an
+ * ordinary save — a unit's value — says so with `saveKind`, and "Save and
+ * continue" runs the same checks and request as its button (AUD-03 §3, §4).
  */
 
 export type Submit = (url: string, body: Record<string, unknown>, success: string, method?: string) => Promise<void>;
@@ -41,6 +46,8 @@ export function FieldsDialog({
   success,
   submit,
   testId,
+  saveKind,
+  module,
 }: {
   open: boolean;
   onClose: () => void;
@@ -54,6 +61,10 @@ export function FieldsDialog({
   success: string;
   submit: Submit;
   testId?: string;
+  /** Set when the confirm is an ordinary save, not a workflow step. */
+  saveKind?: "save" | "create";
+  /** For telemetry: the unit's page unless said otherwise. */
+  module?: string;
 }) {
   const request = useDialogRequest((target, payload, message) => submit(target, payload, message, method));
   const [values, setValues] = React.useState<Record<string, string | boolean>>({});
@@ -67,7 +78,21 @@ export function FieldsDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const changed = useOpenedWith(open, values);
   const missing = fields.filter((field) => field.kind !== "checkbox" && field.required && String(values[field.name] ?? "").trim() === "").map((field) => field.name);
+
+  /** The dialog's one path to the server, for its button and "Save and continue" alike. */
+  async function confirm(): Promise<unknown> {
+    setTouched(true);
+    if (missing.length) return { code: "VALIDATION_ERROR", message: "This is required." };
+    const payload: Record<string, unknown> = { ...body };
+    for (const field of fields) {
+      const value = values[field.name];
+      if (field.kind === "checkbox") payload[field.name] = Boolean(value);
+      else if (String(value ?? "").trim() !== "") payload[field.name] = String(value).trim();
+    }
+    return request.send(url, payload, success);
+  }
 
   return (
     <FormDialog
@@ -79,17 +104,11 @@ export function FieldsDialog({
       pending={request.pending}
       error={request.error}
       testId={testId}
-      onSubmit={() => {
-        setTouched(true);
-        if (missing.length) return;
-        const payload: Record<string, unknown> = { ...body };
-        for (const field of fields) {
-          const value = values[field.name];
-          if (field.kind === "checkbox") payload[field.name] = Boolean(value);
-          else if (String(value ?? "").trim() !== "") payload[field.name] = String(value).trim();
-        }
-        void request.send(url, payload, success).then((failed) => (failed ? null : onClose()));
-      }}
+      module={module}
+      dirty={changed && !request.done}
+      unresolved={request.unresolved}
+      save={saveKind ? { kind: saveKind, run: async () => requestOutcome(await confirm()) } : undefined}
+      onSubmit={() => void confirm().then((failed) => (failed ? null : onClose()))}
     >
       {fields.map((field) => {
         const id = `dialog-${field.name}`;

@@ -43,6 +43,7 @@ export function EditOwnProfileButton({ profile }: { profile: Profile }) {
         ]}
         initial={profile}
         submitLabel="Save"
+        module="people"
         testId="own-profile-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/people/me/work-profile", { method: "PATCH", body: payload });
@@ -75,6 +76,7 @@ export function ManageProfileButton({ profile, name }: { profile: Profile; name:
         ]}
         initial={profile}
         submitLabel="Save"
+        module="people"
         testId="managed-profile-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/people/${profile.personId}/work-profile`, { method: "PATCH", body: payload });

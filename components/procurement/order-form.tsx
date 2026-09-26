@@ -59,6 +59,7 @@ export function OrderForm({
   return (
     <RecordForm
       action={action}
+      module="procurement"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}

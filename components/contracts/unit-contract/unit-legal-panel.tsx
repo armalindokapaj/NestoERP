@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { FilePen, FileSignature, Scale, Send, Undo2 } from "lucide-react";
 
 import { amountLabel, UnitContractStatusBadge } from "@/components/finance/unit-finance/finance-status";
@@ -10,7 +11,7 @@ import { FieldsDialog, today, type Submit } from "@/components/finance/unit-fina
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Field, structureApi } from "@/components/project-structure/structure-ui";
-import { FormDialog, useDialogRequest } from "@/components/sales/unit-sales/unit-sales-dialogs";
+import { FormDialog, requestOutcome, useDialogRequest, useOpenedWith } from "@/components/sales/unit-sales/unit-sales-dialogs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -61,7 +62,9 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
     async (url, body, success, method) => {
       await structureApi(url, { method: method ?? "POST", body });
       toast({ title: success });
-      if (initialAction) router.replace(pathname, { scroll: false });
+      // The one-shot `?action=` goes without a navigation: the dialog that just
+      // saved is still on screen, and a navigation would ask about it (AUD-03 §5).
+      if (initialAction) window.history.replaceState(window.history.state, "", pathname);
       router.refresh();
     },
     [toast, router, pathname, initialAction],
@@ -323,8 +326,20 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const changed = useOpenedWith(open, [number, title, chosen, values]);
   const rows = [{ unitId: legal.unitId, unitCode: legal.unitCode, agreedPrice: legal.defaults.agreedPrice, primary: true }, ...legal.candidates.filter((row) => chosen[row.unitId]).map((row) => ({ unitId: row.unitId, unitCode: row.unitCode, agreedPrice: row.agreedPrice, primary: false }))];
   const total = rows.reduce((sum, row) => sum + Number(values[row.unitId]?.value || 0), 0);
+
+  /** A draft is an ordinary create: its button and "Save and continue" draft it the same way (AUD-03 §3). */
+  function draft(): Promise<unknown> {
+    const body = {
+      ...(legal.defaults.autoNumber ? {} : { contractNumber: number }),
+      title,
+      additionalUnitIds: rows.filter((row) => !row.primary).map((row) => row.unitId),
+      values: rows.filter((row) => values[row.unitId]?.value && values[row.unitId]!.value !== row.agreedPrice).map((row) => ({ unitId: row.unitId, value: values[row.unitId]!.value, valueNote: values[row.unitId]!.note || null })),
+    };
+    return request.send(`/api/project-units/${legal.unitId}/contracts`, body, "The contract is drafted.");
+  }
 
   return (
     <FormDialog
@@ -337,15 +352,10 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
       error={request.error}
       testId="create-contract-dialog"
       wide
-      onSubmit={() => {
-        const body = {
-          ...(legal.defaults.autoNumber ? {} : { contractNumber: number }),
-          title,
-          additionalUnitIds: rows.filter((row) => !row.primary).map((row) => row.unitId),
-          values: rows.filter((row) => values[row.unitId]?.value && values[row.unitId]!.value !== row.agreedPrice).map((row) => ({ unitId: row.unitId, value: values[row.unitId]!.value, valueNote: values[row.unitId]!.note || null })),
-        };
-        void request.send(`/api/project-units/${legal.unitId}/contracts`, body, "The contract is drafted.").then((failed) => (failed ? null : onClose()));
-      }}
+      dirty={changed && !request.done}
+      unresolved={request.unresolved}
+      save={{ kind: "create", run: async () => requestOutcome(await draft()) }}
+      onSubmit={() => void draft().then((failed) => (failed ? null : onClose()))}
     >
       {legal.defaults.autoNumber ? (
         <p className="text-meta text-fg-subtle">The contract number is given by the company&apos;s numbering.</p>
@@ -412,6 +422,7 @@ function UnitValueDialog({ onClose, contract, unitId, submit }: { onClose: () =>
       ]}
       success="The value was changed."
       submit={submit}
+      saveKind="save"
     />
   );
 }

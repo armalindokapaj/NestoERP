@@ -71,6 +71,7 @@ export function IncidentPeople({ incidentId, people, canEdit, employees }: { inc
         ]}
         initial={{ involvement: "INVOLVED" }}
         submitLabel="Add"
+        module="hse"
         testId="incident-person-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/hse/incidents/${incidentId}/people`, { body: payload });
@@ -125,6 +126,7 @@ export function PermitWorkers({ permitId, workers, canEdit, employees, crews }: 
           { name: "crewId", label: "Or a crew", type: "select", emptyLabel: "—", options: crews, wide: true },
         ]}
         submitLabel="Add"
+        module="hse"
         testId="permit-worker-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/hse/permits/${permitId}/workers`, { body: payload });

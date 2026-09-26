@@ -6,11 +6,12 @@ import { ChevronDown } from "lucide-react";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { Textarea } from "@/components/ui/textarea";
+import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "@/components/project-planning/use-values-editor";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { attributesFor, expectsCount, unitWarnings } from "@/lib/modules/project-structure/structure.rules";
 import {
   AREA_FIELDS,
@@ -238,126 +239,122 @@ export function UnitDialog({
   types: UnitTypeOption[];
   onSaved: (id: string) => void;
 }) {
+  // Closing with unsaved input asks through the shared prompt (AUD-03 §5):
+  // the X, Escape, the backdrop and Cancel all arrive here as a guarded close.
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
+        <DialogTitle>{unit ? `Edit ${unit.unitCode}` : "Add unit"}</DialogTitle>
+        <DialogDescription>
+          {floor.buildingName} · {floor.name}
+        </DialogDescription>
+        {/* Mounted per opening: each opening starts from the unit as loaded. */}
+        <UnitForm floor={floor} unit={unit} types={types} onSaved={onSaved} onDone={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function UnitForm({
+  floor,
+  unit,
+  types,
+  onSaved,
+  onDone,
+}: {
+  floor: { id: string; name: string; buildingName: string };
+  unit?: UnitDTO;
+  types: UnitTypeOption[];
+  onSaved: (id: string) => void;
+  onDone: () => void;
+}) {
   const toast = useToast();
-  const [code, setCode] = React.useState("");
-  const [name, setName] = React.useState("");
-  const [active, setActive] = React.useState(true);
-  const [technical, setTechnical] = React.useState<TechnicalValues>(emptyTechnical());
+  const [code, setCode] = React.useState(unit?.unitCode ?? "");
+  const [name, setName] = React.useState(unit?.name ?? "");
+  const [active, setActive] = React.useState(unit?.isActive ?? true);
+  const [technical, setTechnical] = React.useState<TechnicalValues>(() => (unit ? technicalFromUnit(unit) : emptyTechnical(types.find((type) => type.isActive)?.id ?? "")));
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  const [confirmDiscard, setConfirmDiscard] = React.useState(false);
-  const loaded = React.useRef("");
 
-  React.useEffect(() => {
-    if (!open) return;
-    const initial = { code: unit?.unitCode ?? "", name: unit?.name ?? "", active: unit?.isActive ?? true, technical: unit ? technicalFromUnit(unit) : emptyTechnical(types.find((type) => type.isActive)?.id ?? "") };
-    setCode(initial.code);
-    setName(initial.name);
-    setActive(initial.active);
-    setTechnical(initial.technical);
-    loaded.current = JSON.stringify(initial);
-    setErrors({});
-    setFormError(null);
-    setConfirmDiscard(false);
-  }, [open, unit, types]);
+  // What was typed is not thrown away by a stray click, a link or a closed tab
+  // (E-05D §53, AUD-03 §3): the unit registers with the tab's coordinator.
+  const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
+  const editor = useValuesEditor(
+    { code, name, active, technical },
+    { module: "units", saveKind: unit ? "save" : "create", label: unit ? `Unit ${unit.unitCode}` : `New unit on ${floor.name}`, save: () => persist.current() },
+  );
 
-  // What was typed is not thrown away by a stray click or a closed tab (E-05D §53).
-  const dirty = open && loaded.current !== "" && JSON.stringify({ code, name, active, technical }) !== loaded.current;
-  React.useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
-  function requestClose(next: boolean) {
-    if (next) return onOpenChange(true);
-    if (dirty && !pending) return setConfirmDiscard(true);
-    onOpenChange(false);
-  }
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  persist.current = async () => {
     const local: Record<string, string> = {};
     if (!code.trim()) local.unitCode = "Give the unit a code.";
     if (!technical.unitTypeId) local.unitTypeId = "Choose the unit's type.";
-    if (Object.keys(local).length) return setErrors(local);
+    if (Object.keys(local).length) {
+      setErrors(local);
+      return INVALID;
+    }
     setPending(true);
     setErrors({});
     setFormError(null);
     const body = { unitCode: code, name: name || null, ...technicalBody(technical) };
     try {
       if (unit) {
-        await structureApi(`/api/project-units/${unit.id}`, { method: "PATCH", body: { ...body, isActive: active, expectedVersion: unit.version } });
+        await editor.track(() => structureApi(`/api/project-units/${unit.id}`, { method: "PATCH", body: { ...body, isActive: active, expectedVersion: unit.version } }));
         toast({ title: code !== unit.unitCode ? `Saved. ${unit.unitCode} is now ${code}; its page and links are unchanged.` : `${code} saved.` });
         onSaved(unit.id);
       } else {
-        const created = await structureApi<{ id: string }>(`/api/project-floors/${floor.id}/units`, { body });
+        const created = await editor.track(() => structureApi<{ id: string }>(`/api/project-floors/${floor.id}/units`, { body }));
         toast({ title: `${code} added to ${floor.name}.` });
         onSaved(created.id);
       }
-      loaded.current = "";
-      onOpenChange(false);
+      onDone();
+      return COMMITTED;
     } catch (error) {
       const fields = fieldErrors(error);
       setErrors(fields);
       if (!Object.keys(fields).length) setFormError(failureMessage(error, "The unit could not be saved."));
+      return failureOutcome(error);
     } finally {
       setPending(false);
     }
+  };
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    void persist.current();
   }
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={requestClose}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
-          <DialogTitle>{unit ? `Edit ${unit.unitCode}` : "Add unit"}</DialogTitle>
-          <DialogDescription>
-            {floor.buildingName} · {floor.name}
-          </DialogDescription>
-          <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
-            <FormError message={formError} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Unit code" htmlFor="unit-code" error={errors.unitCode} required hint={unit ? "Changing the code keeps the unit's id and page." : "Unique in this project, e.g. A-901."}>
-                <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
-              </Field>
-              <Field label="Name" htmlFor="unit-name" error={errors.name}>
-                <Input id="unit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder="Apartment 901" />
-              </Field>
-            </div>
-            <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
-            {unit ? (
-              <label className="flex items-center gap-2 text-table text-fg">
-                <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
-                Active
-              </label>
-            ) : null}
-            <Warnings items={warningsFor(technical, types)} />
-            <DialogFooter>
-              <Button type="button" variant="secondary" onClick={() => requestClose(false)} disabled={pending}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Saving…" : unit ? "Save unit" : "Add unit"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <ConfirmDialog
-        open={confirmDiscard}
-        onOpenChange={setConfirmDiscard}
-        title="You have unsaved changes."
-        description="Discard them, or stay and keep editing."
-        confirmLabel="Discard"
-        cancelLabel="Stay"
-        onConfirm={() => {
-          setConfirmDiscard(false);
-          loaded.current = "";
-          onOpenChange(false);
-        }}
-      />
-    </>
+    <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
+      <FormError message={formError} />
+      <fieldset disabled={pending} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Unit code" htmlFor="unit-code" error={errors.unitCode} required hint={unit ? "Changing the code keeps the unit's id and page." : "Unique in this project, e.g. A-901."}>
+            <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
+          </Field>
+          <Field label="Name" htmlFor="unit-name" error={errors.name}>
+            <Input id="unit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder="Apartment 901" />
+          </Field>
+        </div>
+        <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
+        {unit ? (
+          <label className="flex items-center gap-2 text-table text-fg">
+            <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
+            Active
+          </label>
+        ) : null}
+      </fieldset>
+      <Warnings items={warningsFor(technical, types)} />
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : unit ? "Save unit" : "Add unit"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

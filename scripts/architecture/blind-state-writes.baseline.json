@@ -8,14 +8,12 @@
   "lib/modules/clients/client.service.ts": 9,
   "lib/modules/contractors/contractor.compliance.ts": 2,
   "lib/modules/contractors/contractor.service.ts": 1,
-  "lib/modules/hr/employees/employee.service.ts": 3,
   "lib/modules/hse/environment/environment.service.ts": 3,
   "lib/modules/hse/inspections/inspection.service.ts": 2,
   "lib/modules/hse/risk-assessments/risk.service.ts": 4,
   "lib/modules/hse/stop-work/stop-work.service.ts": 2,
   "lib/modules/hse/templates/template.service.ts": 3,
   "lib/modules/hse/toolbox/toolbox.service.ts": 2,
-  "lib/modules/meetings/meeting.task-sync.ts": 1,
   "lib/modules/projects/project.service.ts": 1,
   "lib/modules/qaqc/defects/defect.service.ts": 5,
   "lib/modules/qaqc/inspections/inspection.service.ts": 1,
@@ -26,8 +24,6 @@
   "lib/modules/sales/leads/lead.service.ts": 4,
   "lib/modules/sales/opportunities/opportunity.service.ts": 2,
   "lib/modules/sales/proposals/proposal.service.ts": 4,
-  "lib/modules/tasks/task.service.ts": 4,
-  "lib/modules/team/departments/department.service.ts": 5,
   "lib/modules/team/invitations/invite.service.ts": 2,
   "lib/modules/team/team.service.ts": 1
 }

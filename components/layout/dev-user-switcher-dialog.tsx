@@ -9,6 +9,7 @@ import { switchDemoUserAction, type DemoUserSwitchResult } from "@/lib/actions/d
 import { resetUserScopedClientState } from "@/components/layout/user-scoped-state";
 import type { DemoAccountOption, DemoRosterOption } from "@/lib/auth/demo-tenants";
 import { cn } from "@/lib/utils/cn";
+import { unsaved } from "@/lib/unsaved/coordinator";
 
 /** Case and accents folded, so "cela" finds Çela. */
 const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -57,18 +58,23 @@ export function DevUserSwitcherDialog({ rosters, currentUsername }: { rosters: D
   const [, startTransition] = useTransition();
   const shown = useMemo(() => visibleRosters(rosters, query), [rosters, query]);
 
-  const choose = (account: DemoAccountOption) => {
+  const choose = async (account: DemoAccountOption) => {
     if (pending) return;
     // Already this person: nothing to replace (§42).
     if (account.username === currentUsername) {
       setOpen(false);
       return;
     }
+    // A full identity replacement: unsaved work is asked about before the
+    // session changes hands, and any save runs as the current person (AUD-03 §7).
+    const approval = await unsaved.requestDeparture({ kind: "identity", action: "switch-user" });
+    if (!approval || !approval.run(() => undefined)) return;
     setError(null);
     setPending(account.username);
     startTransition(async () => {
       const result: DemoUserSwitchResult = await switchDemoUserAction(account.username).catch(() => ({ ok: false, error: "Could not switch demo user." }));
       if (result.ok && result.landing === null) {
+        approval.release();
         setPending(null);
         setOpen(false);
         return;
@@ -77,17 +83,19 @@ export function DevUserSwitcherDialog({ rosters, currentUsername }: { rosters: D
         // A full load, not a client navigation: nothing of the previous user's
         // pages, cache or state comes along (§47-§49). The row stays busy until
         // it lands. A switch that failed after signing out lands on sign-in (§46).
+        unsaved.forceLeave();
         resetUserScopedClientState();
         window.location.assign(result.landing);
         return;
       }
+      approval.release();
       if (!result.ok) setError(result.error);
       setPending(null);
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (pending ? undefined : setOpen(next))}>
+    <Dialog open={open} locked={pending !== null} onOpenChange={setOpen}>
       <DialogTrigger
         className="flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2 text-micro font-medium text-fg-muted transition-colors hover:bg-hover"
         title="Development only: sign in as another demo user"

@@ -222,6 +222,7 @@ function QualificationCard({ row, data, onRenew }: { row: QualificationDTO; data
         description="Check the file, the issuer, the number and the dates. Nobody verifies their own."
         fields={[{ name: "note", label: "Note", type: "textarea", rows: 2 }]}
         submitLabel="Verify"
+        module="people"
         testId="verify-qualification-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`${url}/verify`, { body: { ...payload, expectedVersion: row.version } });
@@ -262,7 +263,8 @@ function FileInput({ onChange }: { onChange: (file: File | null) => void }) {
       <label htmlFor="qualification-file" className="text-meta font-medium text-fg-muted">
         Supporting file
       </label>
-      <input id="qualification-file" type="file" data-testid="qualification-file" className="text-table file:mr-3 file:rounded-md file:border file:border-line file:bg-surface-muted file:px-3 file:py-1.5 file:text-table" onChange={(event) => onChange(event.target.files?.[0] ?? null)} />
+      {/* Named, so a chosen file is part of what the dialog would lose (AUD-03 §3). */}
+      <input id="qualification-file" name="file" type="file" data-testid="qualification-file" className="text-table file:mr-3 file:rounded-md file:border file:border-line file:bg-surface-muted file:px-3 file:py-1.5 file:text-table" onChange={(event) => onChange(event.target.files?.[0] ?? null)} />
       <p className="text-meta text-fg-subtle">Kept on the employee file, seen by you and HR. Sharing the qualification never shares the file.</p>
     </div>
   );
@@ -271,6 +273,10 @@ function FileInput({ onChange }: { onChange: (file: File | null) => void }) {
 function ResubmitDialog({ open, onOpenChange, row, employmentId }: { open: boolean; onOpenChange: (open: boolean) => void; row: QualificationDTO; employmentId: string | null }) {
   const { run } = useCommand();
   const [file, setFile] = React.useState<File | null>(null);
+  // A discarded dialog takes its chosen file with it: the input starts empty next time.
+  React.useEffect(() => {
+    if (!open) setFile(null);
+  }, [open]);
   return (
     <FormDialog
       open={open}
@@ -279,6 +285,7 @@ function ResubmitDialog({ open, onOpenChange, row, employmentId }: { open: boole
       description="Back to HR for verification. Add the corrected file if that was the reason."
       fields={[{ name: "note", label: "Note for HR", type: "textarea", rows: 2 }]}
       submitLabel="Resubmit"
+      module="people"
       onSubmit={async (payload) => {
         const documentId = file && employmentId ? await uploadToEmployment(employmentId, file, `${row.title} — ${file.name}`) : undefined;
         await engineeringApi(`/api/people/${row.personId}/qualifications/${row.id}/resubmit`, { body: { ...payload, documentId, expectedVersion: row.version } });
@@ -328,6 +335,8 @@ function QualificationDialog({ request, onClose, data }: { request: { renews?: Q
       fields={fields}
       initial={base ? { type: base.type, title: base.title, issuer: base.issuer, documentNumber: edits ? base.documentNumber : "", issueDate: edits ? base.issueDate : "", expiryDate: edits ? base.expiryDate : "", proficiency: base.proficiency, visibility: base.visibility } : { visibility: "EMPLOYEE_AND_HR" }}
       submitLabel={edits ? "Save" : renews ? "Renew" : "Add"}
+      saveKind={edits ? "save" : "create"}
+      module="people"
       testId="qualification-dialog"
       wide
       onValuesChange={(values: FormValues) => {

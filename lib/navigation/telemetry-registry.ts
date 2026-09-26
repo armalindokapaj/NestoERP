@@ -12,11 +12,20 @@
 export type RouteFamily = "dashboard" | "projects" | "clients" | "tasks" | "finance" | "other";
 export type Device = "compact" | "wide";
 
+/** Modules an unsaved-work guard event may name; anything else is "other" (AUD-03 §8). */
+export const GUARD_MODULES = [
+  "tasks", "finance", "projects", "units", "clients", "sales", "procurement", "documents", "contracts", "hr",
+  "engineering", "hse", "inventory", "qaqc", "meetings", "calendar", "timesheets", "daily_logs", "settings",
+  "planning", "workforce", "collaboration", "approvals", "announcements", "team", "people", "pricing", "shell", "other",
+] as const;
+export type GuardModule = (typeof GUARD_MODULES)[number];
+
 export type TelemetryEvent =
   | { kind: "navigation"; route: RouteFamily; stage: "feedback" | "commit" | "core" | "primary" | "settled"; navigationKind: "document" | "spa" | "history" | "workspace"; outcome: "success" | "partial_failure" | "error" | "timeout" | "superseded" | "abandoned" | "backgrounded"; durationMs?: number; preparation?: "issued" | "not_issued" | "unknown"; device?: Device }
   | { kind: "panel"; route: RouteFamily; surface: "search" | "quick_create" | "activity" | "workspace"; stage: "feedback" | "ready"; outcome: "success" | "error" | "timeout" | "superseded" | "abandoned"; durationMs?: number; cache: "cold" | "warm" | "unknown"; device?: Device }
   | { kind: "web_vital"; route: RouteFamily; metric: "LCP" | "INP" | "CLS" | "FCP" | "TTFB"; value: number; outcome: "success"; device: Device }
-  | { kind: "request_summary"; route: RouteFamily; requestFamily: "activity_count" | "activity_list" | "search" | "search_home" | "quick_create" | "route"; requestCount: number; outcome: "success" };
+  | { kind: "request_summary"; route: RouteFamily; requestFamily: "activity_count" | "activity_list" | "search" | "search_home" | "quick_create" | "route"; requestCount: number; outcome: "success" }
+  | { kind: "unsaved_guard"; route: RouteFamily; event: "prompt" | "stay" | "discard" | "save" | "save_failed" | "continued" | "duplicate_request" | "duplicate_continuation" | "stale_approval" | "guard_error" | "frozen"; departure: "navigate" | "history" | "dismiss" | "workspace" | "identity" | "reload"; module: GuardModule; durationMs?: number };
 
 export type Recorder = {
   readonly sampled: boolean;

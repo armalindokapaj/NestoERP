@@ -11,7 +11,6 @@ import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.re
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { isLocalDate } from "@/lib/modules/calendar/calendar.time";
-import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { createTaskFromContextIn } from "@/lib/modules/tasks/task.service";
@@ -196,7 +195,7 @@ export async function convertActionToTask(context: UserContext, meetingId: strin
   // The meeting's project, when the caller can put work on it.
   const projectId = meeting.projectId && canAccessModule(context, "projects") && (await canAccessProject(context, meeting.projectId)) ? meeting.projectId : undefined;
 
-  const task = await runInTransaction("meetings.action.to_task", async (tx) => {
+  await runInTransaction("meetings.action.to_task", async (tx) => {
     const created = await createTaskFromContextIn(tx, context, {
       title: action.title.length >= 2 ? action.title : `${action.title} (action)`,
       description: action.description ?? undefined,
@@ -218,12 +217,10 @@ export async function convertActionToTask(context: UserContext, meetingId: strin
       { actionKey: AuditAction.MEETING_ACTION_TASK_CREATED, entity: { type: ENTITY, id: meetingId }, projectId: meeting.projectId, metadata: { actionId, taskId: created.id } },
       { tx },
     );
-    return created;
   });
 
-  // Watchers are the task's own, written outside its transaction because they
-  // depend on who can read the task now it exists (PRD #38 §33).
-  await subscribeStakeholders({ companyId: context.companyId, parentType: "task", parentId: task.id, memberIds: [context.membershipId, ...(task.assigneeMemberId ? [task.assigneeMemberId] : [])] });
+  // The task's watchers — its creator and assignee — were subscribed by the
+  // task door inside the same transaction (PRD #38 §33, AUD-02 §8).
   incrementCounter(Metric.MEETING_ACTION_TASK_CREATE);
   return getMeeting(context, meetingId);
 }

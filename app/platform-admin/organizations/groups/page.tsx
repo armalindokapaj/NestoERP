@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { CreateGroupButton } from "@/components/platform/platform-actions";
 import { Badge } from "@/components/ui/badge";

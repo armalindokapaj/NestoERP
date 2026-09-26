@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 import { Check, Loader2, Megaphone } from "lucide-react";
 

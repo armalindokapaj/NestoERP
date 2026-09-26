@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { FilePen } from "lucide-react";
 
 import { amountLabel } from "@/components/finance/unit-finance/finance-status";
@@ -104,7 +104,7 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
         </ul>
       )}
       {declining ? (
-        <FieldsDialog open onClose={() => setDeclining(null)} title={`Decline the request for ${declining.unit.unitCode}?`} description="Sales is told, with your reason." confirmLabel="Decline" url={`/api/contracts/requests/${declining.id}/decline`} fields={[{ name: "reason", label: "Reason", kind: "textarea", required: true }]} success="The request was declined." submit={submit} />
+        <FieldsDialog open onClose={() => setDeclining(null)} title={`Decline the request for ${declining.unit.unitCode}?`} description="Sales is told, with your reason." confirmLabel="Decline" url={`/api/contracts/requests/${declining.id}/decline`} fields={[{ name: "reason", label: "Reason", kind: "textarea", required: true }]} success="The request was declined." submit={submit} module="contracts" />
       ) : null}
     </div>
   );

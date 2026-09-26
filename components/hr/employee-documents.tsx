@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { PersonLink } from "@/components/people/person-link";
+import { UnsavedValue } from "@/components/unsaved/unsaved-value";
 import {
   CATEGORY_RULES,
   VERIFICATION_LABELS,
@@ -338,7 +339,7 @@ function base(row: Pick<EmployeeDocumentDTO, "employeeId" | "id">) {
 }
 
 function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDocumentDTO; contracts: Array<{ value: string; label: string }>; onOpen?: () => void; onRenew: () => void }) {
-  const { run } = useCommand();
+  const { run, pending } = useCommand();
   const [dialog, setDialog] = React.useState<"verify" | "reject" | "supersede" | "archive" | "edit" | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
   const { actions } = row;
@@ -387,6 +388,8 @@ function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDoc
           if (file) void run("version", () => uploadNewVersion(row.file.documentId, file), "New version uploaded. It counts once it has been checked.");
         }}
       />
+      {/* A new version on its way up would be lost by leaving now (AUD-03 §3 files). */}
+      {pending === "version" ? <UnsavedValue dirty={false} saving module="hr" saveKind="none" label={`New version of ${row.title}`} /> : null}
 
       <FormDialog
         open={dialog === "verify"}
@@ -395,6 +398,7 @@ function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDoc
         description="Check the file, the issuer, the number and the dates against the original. You cannot verify your own."
         fields={[{ name: "note", label: "Note", type: "textarea", rows: 2, placeholder: "For example: checked against the register" }]}
         submitLabel="Verify"
+        module="hr"
         testId="verify-document-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`${base(row)}/verify`, { body: { ...payload, expectedVersion: versionOf(row) } });
@@ -607,6 +611,8 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
       fields={fields}
       initial={renewing ? { title: renewing.title, issuer: renewing.issuer ?? "", documentNumber: "", category: renewing.category } : { title: request?.unfiled ? request.unfiled.name.replace(/\.[A-Za-z0-9]{1,6}$/, "") : "" }}
       submitLabel={renewing ? "Renew" : request?.unfiled ? "File it" : "Add document"}
+      saveKind="create"
+      module="hr"
       testId="add-employee-document-dialog"
       wide
       onValuesChange={(values: FormValues) => {
@@ -634,8 +640,10 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
           <label htmlFor="employee-document-file" className="text-meta font-medium text-fg-muted">
             File<span className="text-danger-strong"> *</span>
           </label>
+          {/* Named, so a chosen file is part of what the dialog would lose (AUD-03 §3). */}
           <input
             id="employee-document-file"
+            name="file"
             type="file"
             data-testid="employee-document-file"
             className="text-table file:mr-3 file:rounded-md file:border file:border-line file:bg-surface-muted file:px-3 file:py-1.5 file:text-table"
@@ -665,6 +673,7 @@ function EditDocumentDialog({ row, open, onOpenChange }: { row: EmployeeDocument
       fields={fields}
       initial={{ title: row.title, issuer: row.issuer, documentNumber: row.documentNumber, issueDate: row.issueDate, expiryDate: row.expiryDate, effectiveFrom: row.effectiveFrom, effectiveTo: row.effectiveTo, visibility: row.visibility }}
       submitLabel="Save"
+      module="hr"
       testId="edit-employee-document-dialog"
       wide
       onSubmit={async (payload) => {

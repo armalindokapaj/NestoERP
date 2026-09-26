@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import {
   Field,
@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { createReservationAction } from "@/lib/actions/inventory";
 import type { DocumentFormOptions } from "@/lib/modules/inventory/inventory.options";
 import { formatQuantity } from "./inventory-format";
@@ -38,8 +40,23 @@ export function ReservationForm({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
-  const [errors, setErrors] = React.useState<Record<string, string[]>>({});
+  const formRef = React.useRef<HTMLFormElement>(null);
+  // AUD-03 §3, §6: a normal save opens the reservations list; Save and
+  // continue leaves the destination to the departure.
+  const save = useEditorSave({
+    formRef,
+    action: async (formData: FormData) => {
+      const result = await createReservationAction(formData);
+      return result.ok ? { ...result, redirectTo: "/inventory/reservations" } : result;
+    },
+    module: "inventory",
+    saveKind: "create",
+    label: "Reservation",
+    onCommitted: (result) => {
+      toast({ title: result?.message ?? "Stock reserved.", tone: "success" });
+    },
+  });
+  const { pending, fieldErrors: errors } = save;
 
   const [inventoryItemId, setItemId] = React.useState(defaults?.inventoryItemId ?? "");
   const [warehouseId, setWarehouseId] = React.useState(defaults?.warehouseId ?? "");
@@ -63,160 +80,151 @@ export function ReservationForm({
     ? options.locations.filter((location) => location.warehouseId === warehouseId)
     : options.locations;
 
-  function submit(formData: FormData) {
-    startTransition(async () => {
-      const result = await createReservationAction(formData);
-      if (result.ok) {
-        setErrors({});
-        toast({ title: result.message ?? "Stock reserved.", tone: "success" });
-        router.push("/inventory/reservations");
-        router.refresh();
-      } else {
-        setErrors(result.fieldErrors ?? {});
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
-  }
-
   return (
     <FieldErrorProvider value={errors}>
-      <form action={submit} className="space-y-5">
-        <FormSection
-          title="Reservation"
-          description="Holds quantity back from available without moving anything. The material stays exactly where it is."
-        >
-          <Field label="Item" name="inventoryItemId" required>
-            <select
-              id="inventoryItemId"
-              name="inventoryItemId"
-              className={selectClass}
-              value={inventoryItemId}
-              onChange={(event) => setItemId(event.target.value)}
-              required
-            >
-              <option value="">Choose an item</option>
-              {options.items.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+      <form ref={formRef} onSubmit={save.onSubmit} className="space-y-5">
+        <SaveMessages save={save} />
 
-          <Field label="Project" name="projectId" hint="Leave blank to hold it generally.">
-            <select
-              id="projectId"
-              name="projectId"
-              className={selectClass}
-              defaultValue={defaults?.projectId ?? ""}
-            >
-              <option value="">Not set</option>
-              {options.projects.map((project) => (
-                <option key={project.value} value={project.value}>
-                  {project.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Warehouse" name="warehouseId" required>
-            <select
-              id="warehouseId"
-              name="warehouseId"
-              className={selectClass}
-              value={warehouseId}
-              onChange={(event) => {
-                setWarehouseId(event.target.value);
-                setLocationId("");
-              }}
-              required
-            >
-              <option value="">Choose a warehouse</option>
-              {options.warehouses.map((warehouse) => (
-                <option key={warehouse.value} value={warehouse.value}>
-                  {warehouse.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Location" name="locationId" required>
-            <select
-              id="locationId"
-              name="locationId"
-              className={selectClass}
-              value={locationId}
-              onChange={(event) => setLocationId(event.target.value)}
-              required
-            >
-              <option value="">Choose a location</option>
-              {locations.map((location) => (
-                <option key={location.value} value={location.value}>
-                  {location.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field
-            label={`Quantity${item ? ` (${item.unit})` : ""}`}
-            name="quantity"
-            required
-            className="sm:col-span-2"
+        <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-5 border-0 p-0">
+          <FormSection
+            title="Reservation"
+            description="Holds quantity back from available without moving anything. The material stays exactly where it is."
           >
-            <Input
-              id="quantity"
+            <Field label="Item" name="inventoryItemId" required>
+              <select
+                id="inventoryItemId"
+                name="inventoryItemId"
+                className={selectClass}
+                value={inventoryItemId}
+                onChange={(event) => setItemId(event.target.value)}
+                required
+              >
+                <option value="">Choose an item</option>
+                {options.items.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Project" name="projectId" hint="Leave blank to hold it generally.">
+              <select
+                id="projectId"
+                name="projectId"
+                className={selectClass}
+                defaultValue={defaults?.projectId ?? ""}
+              >
+                <option value="">Not set</option>
+                {options.projects.map((project) => (
+                  <option key={project.value} value={project.value}>
+                    {project.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Warehouse" name="warehouseId" required>
+              <select
+                id="warehouseId"
+                name="warehouseId"
+                className={selectClass}
+                value={warehouseId}
+                onChange={(event) => {
+                  setWarehouseId(event.target.value);
+                  setLocationId("");
+                }}
+                required
+              >
+                <option value="">Choose a warehouse</option>
+                {options.warehouses.map((warehouse) => (
+                  <option key={warehouse.value} value={warehouse.value}>
+                    {warehouse.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Location" name="locationId" required>
+              <select
+                id="locationId"
+                name="locationId"
+                className={selectClass}
+                value={locationId}
+                onChange={(event) => setLocationId(event.target.value)}
+                required
+              >
+                <option value="">Choose a location</option>
+                {locations.map((location) => (
+                  <option key={location.value} value={location.value}>
+                    {location.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field
+              label={`Quantity${item ? ` (${item.unit})` : ""}`}
               name="quantity"
-              value={quantity}
-              onChange={(event) => setQuantity(event.target.value)}
-              inputMode="decimal"
               required
-            />
-          </Field>
+              className="sm:col-span-2"
+            >
+              <Input
+                id="quantity"
+                name="quantity"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                inputMode="decimal"
+                required
+              />
+            </Field>
 
-          <Field label="Required by" name="requiredDate">
-            <Input id="requiredDate" name="requiredDate" type="date" />
-          </Field>
+            <Field label="Required by" name="requiredDate">
+              <Input id="requiredDate" name="requiredDate" type="date" />
+            </Field>
 
-          <Field
-            label="Expires"
-            name="expiresAt"
-            hint="After this date the reservation can be released in bulk."
-          >
-            <Input id="expiresAt" name="expiresAt" type="date" />
-          </Field>
-        </FormSection>
+            <Field
+              label="Expires"
+              name="expiresAt"
+              hint="After this date the reservation can be released in bulk."
+            >
+              <Input id="expiresAt" name="expiresAt" type="date" />
+            </Field>
+          </FormSection>
 
-        {held ? (
-          <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-            <span className="tabular-nums text-fg">{formatQuantity(held.available)}</span> available
-            here before this reservation
-            {availableAfter === null ? null : (
-              <>
-                {", "}
-                <span
-                  className={
-                    Number.parseFloat(availableAfter) < 0
-                      ? "tabular-nums text-danger-strong"
-                      : "tabular-nums text-fg"
-                  }
-                >
-                  {formatQuantity(availableAfter)}
-                </span>{" "}
-                after
-              </>
-            )}
-            . The server checks again when you save.
-          </p>
-        ) : null}
+          {held ? (
+            <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
+              <span className="tabular-nums text-fg">{formatQuantity(held.available)}</span> available
+              here before this reservation
+              {availableAfter === null ? null : (
+                <>
+                  {", "}
+                  <span
+                    className={
+                      Number.parseFloat(availableAfter) < 0
+                        ? "tabular-nums text-danger-strong"
+                        : "tabular-nums text-fg"
+                    }
+                  >
+                    {formatQuantity(availableAfter)}
+                  </span>{" "}
+                  after
+                </>
+              )}
+              . The server checks again when you save.
+            </p>
+          ) : null}
+        </fieldset>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending || Boolean(save.saved)}>
             {pending ? "Reserving…" : "Reserve stock"}
           </Button>
-          <Button type="button" variant="secondary" onClick={() => router.push(cancelHref)}>
+          {/* Guarded navigation: asks first while anything is unsaved (§4). */}
+          <Button type="button" variant="secondary" onClick={() => router.push(cancelHref)} disabled={pending}>
             Cancel
           </Button>
+          <UnsavedIndicator save={save} />
         </div>
       </form>
     </FieldErrorProvider>

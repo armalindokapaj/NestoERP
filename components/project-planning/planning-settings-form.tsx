@@ -1,39 +1,54 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
+import { UnsavedIndicator } from "@/components/unsaved/editor-status";
 import type { PlanningSettingsDTO } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { failureMessage, planningApi } from "./planning-api";
+import { COMMITTED, failureOutcome, useValuesEditor } from "./use-values-editor";
 
-/** The company's planning rules (PRD #44 §71, §165, §253, §309). */
+/**
+ * The company's planning rules (PRD #44 §71, §165, §253, §309).
+ *
+ * A changed rule is unsaved work (AUD-03 §3): leaving — a link, the report's
+ * filters, a workspace switch — asks, and Save and continue saves it the way
+ * Save settings does.
+ */
 export function PlanningSettingsForm({ initial }: { initial: PlanningSettingsDTO }) {
   const toast = useToast();
   const router = useRouter();
   const [state, setState] = React.useState({ milestoneReminderDays: initial.milestoneReminderDays, baselineChangeReasonRequired: initial.baselineChangeReasonRequired, notifyExecutivesOnCriticalChanges: initial.notifyExecutivesOnCriticalChanges });
   const [pending, setPending] = React.useState(false);
+  const editor = useValuesEditor(state, { module: "planning", saveKind: "save", label: "Planning settings", save: () => save() });
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
+  async function save(): Promise<SaveOutcome> {
     setPending(true);
     try {
-      await planningApi("/api/project-planning/settings", { method: "PUT", body: state });
+      await editor.track(() => planningApi("/api/project-planning/settings", { method: "PUT", body: state }));
       toast({ title: "Planning settings saved", tone: "success" });
       router.refresh();
+      return COMMITTED;
     } catch (error) {
       toast({ title: failureMessage(error), tone: "danger" });
+      return failureOutcome(error);
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <form onSubmit={save} className="nesto-card divide-y divide-line px-5" aria-label="Planning settings">
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }} className="nesto-card divide-y divide-line px-5" aria-label="Planning settings">
       <label className="flex flex-col py-3">
         <span className="text-table font-medium text-fg">Due-soon reminders</span>
         <span className="text-meta text-fg-muted">Milestone owners hear this many days before a milestone&apos;s forecast date; project managers too for critical milestones.</span>
@@ -61,6 +76,7 @@ export function PlanningSettingsForm({ initial }: { initial: PlanningSettingsDTO
       </div>
       <div className="flex items-center justify-between gap-3 py-3">
         <p className="text-meta text-fg-muted">Milestone dates are read in {initial.timezone}.</p>
+        <UnsavedIndicator save={{ editor, pending, saved: null }} className="ml-auto" />
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Saving…" : "Save settings"}
         </Button>

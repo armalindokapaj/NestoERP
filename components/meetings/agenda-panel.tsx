@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { AGENDA_STATUS_LABELS, AGENDA_TEMPLATES, type MeetingAgendaItemDTO, type MeetingDetailDTO } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
-import { failureMessage, meetingApi } from "./meeting-api";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { durationLabel, PlainText } from "./meeting-ui";
+import { useMeetingDraft } from "./use-meeting-draft";
 
 /**
  * The agenda (PRD #40 §34-§40, §96, §103, §218-§220, §243).
@@ -27,6 +29,7 @@ import { durationLabel, PlainText } from "./meeting-ui";
 
 type Draft = { title: string; description: string; presenterMemberId: string; plannedMinutes: string };
 const EMPTY: Draft = { title: "", description: "", presenterMemberId: "", plannedMinutes: "" };
+const sameDraft = (a: Draft, b: Draft) => a.title === b.title && a.description === b.description && a.presenterMemberId === b.presenterMemberId && a.plannedMinutes === b.plannedMinutes;
 
 export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; variant?: "full" | "focus" }) {
   const toast = useToast();
@@ -37,6 +40,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
   const [draft, setDraft] = React.useState<Draft>(EMPTY);
   const [editing, setEditing] = React.useState<string | null>(null);
   const [edit, setEdit] = React.useState<Draft>(EMPTY);
+  const [editBase, setEditBase] = React.useState<Draft>(EMPTY);
   const [deleting, setDeleting] = React.useState<MeetingAgendaItemDTO | null>(null);
   const [pending, setPending] = React.useState<string | null>(null);
   const [dragged, setDragged] = React.useState<string | null>(null);
@@ -49,19 +53,23 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
   const current = live ? items.find((item) => item.status === "PENDING") ?? null : null;
   const presenters = meeting.participants.filter((person) => person.active);
 
-  async function call(key: string, url: string, init: { method?: string; body?: unknown }, success?: string) {
+  async function send(key: string, url: string, init: { method?: string; body?: unknown }, success?: string): Promise<SaveOutcome> {
     setPending(key);
     try {
       const detail = await meetingApi<MeetingDetailDTO>(url, init);
       onChange(detail);
       if (success) toast({ title: success, tone: "success" });
-      return true;
+      return { kind: "committed" };
     } catch (error) {
       toast({ title: failureMessage(error, "The agenda could not be saved."), tone: "danger" });
-      return false;
+      return meetingFailureOutcome(error);
     } finally {
       setPending(null);
     }
+  }
+
+  async function call(key: string, url: string, init: { method?: string; body?: unknown }, success?: string) {
+    return (await send(key, url, init, success)).kind === "committed";
   }
 
   const bodyOf = (value: Draft) => ({
@@ -71,10 +79,45 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
     plannedMinutes: value.plannedMinutes ? Number(value.plannedMinutes) : null,
   });
 
-  async function add(event: React.FormEvent) {
+  // The topic being added and the one being edited are unsaved work (AUD-03 §3).
+  const adder = useMeetingDraft({
+    label: "New agenda topic",
+    saveKind: "create",
+    dirty: !sameDraft(draft, EMPTY),
+    send: async () => {
+      if (!draft.title.trim()) return { kind: "invalid" };
+      const outcome = await send("add", `/api/meetings/${meeting.id}/agenda`, { body: bodyOf(draft) });
+      if (outcome.kind === "committed") setDraft(EMPTY);
+      return outcome;
+    },
+  });
+  const editor = useMeetingDraft({
+    label: () => `Agenda topic: ${edit.title.trim() || editBase.title}`,
+    saveKind: "save",
+    dirty: editing !== null && !sameDraft(edit, editBase),
+    send: async () => {
+      if (editing === null) return { kind: "committed" };
+      if (!edit.title.trim()) return { kind: "invalid" };
+      const outcome = await send(editing, `/api/meetings/${meeting.id}/agenda/${editing}`, { method: "PATCH", body: bodyOf(edit) });
+      if (outcome.kind === "committed") setEditing(null);
+      return outcome;
+    },
+  });
+
+  function add(event: React.FormEvent) {
     event.preventDefault();
     if (!draft.title.trim()) return;
-    if (await call("add", `/api/meetings/${meeting.id}/agenda`, { body: bodyOf(draft) })) setDraft(EMPTY);
+    void adder.save();
+  }
+
+  function startEdit(item: MeetingAgendaItemDTO) {
+    const value = { title: item.title, description: item.description ?? "", presenterMemberId: item.presenter?.memberId ?? "", plannedMinutes: item.plannedMinutes ? String(item.plannedMinutes) : "" };
+    // Opening another topic replaces the one being edited: ask first.
+    void editor.dismiss(() => {
+      setEditing(item.id);
+      setEdit(value);
+      setEditBase(value);
+    });
   }
 
   async function reorder(next: MeetingAgendaItemDTO[], moved?: MeetingAgendaItemDTO) {
@@ -205,14 +248,14 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                 {editing === item.id ? (
                   <form
                     className="space-y-3 p-4"
-                    onSubmit={async (event) => {
+                    onSubmit={(event) => {
                       event.preventDefault();
-                      if (await call(item.id, `/api/meetings/${meeting.id}/agenda/${item.id}`, { method: "PATCH", body: bodyOf(edit) })) setEditing(null);
+                      void editor.save();
                     }}
                   >
                     {form(edit, setEdit, `agenda-edit-${item.id}`)}
                     <div className="flex justify-end gap-2">
-                      <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => void editor.dismiss(() => setEditing(null))}>
                         Cancel
                       </Button>
                       <Button type="submit" size="sm" disabled={pending === item.id || !edit.title.trim()}>
@@ -286,10 +329,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                         <button
                           type="button"
                           aria-label={`Edit ${item.title}`}
-                          onClick={() => {
-                            setEditing(item.id);
-                            setEdit({ title: item.title, description: item.description ?? "", presenterMemberId: item.presenter?.memberId ?? "", plannedMinutes: item.plannedMinutes ? String(item.plannedMinutes) : "" });
-                          }}
+                          onClick={() => startEdit(item)}
                           className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-fg"
                         >
                           <Pencil aria-hidden="true" className="size-4" />
@@ -308,10 +348,20 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
       )}
 
       {editable && adding && variant === "full" ? (
-        <form onSubmit={(event) => void add(event)} className="space-y-3 rounded-xl border border-line bg-surface-muted p-4" data-testid="agenda-add-form">
+        <form onSubmit={add} className="space-y-3 rounded-xl border border-line bg-surface-muted p-4" data-testid="agenda-add-form">
           {form(draft, setDraft, "agenda-new")}
           <div className="flex justify-end gap-2">
-            <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                void adder.dismiss(() => {
+                  setAdding(false);
+                  setDraft(EMPTY);
+                })
+              }
+            >
               Done
             </Button>
             <Button type="submit" size="sm" disabled={pending === "add" || !draft.title.trim()}>

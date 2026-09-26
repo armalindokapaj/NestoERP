@@ -74,12 +74,20 @@ export type MentionableMemberDTO = { memberId: string; fullName: string; avatarU
 
 type ResolvedParent = { definition: RecordDefinition; record: RecordSummary };
 
-/** Whether this context may take part in discussion on this record at all. */
-async function readableParent(context: UserContext, parentType: string, parentId: string): Promise<ResolvedParent | null> {
+/**
+ * Whether this context may take part in discussion on this record at all.
+ * `db` asks it of a record inside the transaction changing it (AUD-02 §8).
+ */
+async function readableParent(
+  context: UserContext,
+  parentType: string,
+  parentId: string,
+  db?: Prisma.TransactionClient,
+): Promise<ResolvedParent | null> {
   const definition = recordDefinition(parentType);
   if (!definition?.collaboration) return null;
   if (!definition.collaboration.requires.every((permission) => can(context, permission))) return null;
-  const record = await loadRecord(context, parentType, parentId);
+  const record = await loadRecord(context, parentType, parentId, db);
   return record ? { definition, record } : null;
 }
 
@@ -275,6 +283,36 @@ async function subscribe(
     data: ids.map((memberId) => ({ companyId: input.companyId, threadId: input.threadId, memberId, source: input.source })),
     skipDuplicates: true,
   });
+}
+
+/**
+ * The same subscription, inside the transaction that makes these people
+ * stakeholders (AUD-02 §8): a task's new assignee is subscribed in the commit
+ * that assigns them, or not at all.
+ *
+ * Readability is still this service's own check, asked of the record as the
+ * transaction sees it — so a task assigned to somebody who can read it only
+ * once the assignment commits is readable here. The member contexts are read
+ * before the transaction by the caller (`buildMemberContexts`), because
+ * reading them here would hold a second connection while this one waits: who a
+ * person is does not change with the record, and the record is what is asked
+ * under the transaction's view.
+ */
+export async function subscribeStakeholdersIn(
+  tx: Prisma.TransactionClient,
+  input: { companyId: string; parentType: string; parentId: string; members: ReadonlyMap<string, UserContext> },
+): Promise<string[]> {
+  const definition = recordDefinition(input.parentType);
+  if (!definition?.collaboration) return [];
+  const readers: string[] = [];
+  for (const [memberId, memberContext] of input.members) {
+    if (memberContext.companyId !== input.companyId) continue;
+    if (await readableParent(memberContext, input.parentType, input.parentId, tx)) readers.push(memberId);
+  }
+  if (readers.length === 0) return [];
+  const thread = await ensureThread(tx, input.companyId, definition.type, input.parentId);
+  await subscribe(tx, { companyId: input.companyId, threadId: thread.id, memberIds: readers, source: "STAKEHOLDER" });
+  return readers;
 }
 
 /**

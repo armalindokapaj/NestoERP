@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
 import { PackagePlus } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/modules/status-badge";
-import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { postFromGoodsReceiptAction } from "@/lib/actions/inventory";
 import type {
   ItemOption,
@@ -54,14 +54,7 @@ export function ProcurementHandoff({
   locations: LocationOption[];
   existing: { id: string; receiptNumber: string; status: string } | null;
 }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
   const [open, setOpen] = React.useState(false);
-  const [warehouseId, setWarehouseId] = React.useState("");
-  const [mapping, setMapping] = React.useState<
-    Record<string, { inventoryItemId: string; locationId: string }>
-  >({});
 
   if (existing) {
     return (
@@ -90,19 +83,6 @@ export function ProcurementHandoff({
     );
   }
 
-  const available = warehouseId
-    ? locations.filter((location) => location.warehouseId === warehouseId)
-    : locations;
-
-  function submit(formData: FormData) {
-    startTransition(async () => {
-      const result = await postFromGoodsReceiptAction(goodsReceiptId, formData);
-      // A success redirects, so only a failure comes back here.
-      if (!result.ok) toast({ title: result.error, tone: "danger" });
-      else router.refresh();
-    });
-  }
-
   if (!open) {
     return (
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
@@ -113,7 +93,60 @@ export function ProcurementHandoff({
   }
 
   return (
-    <form action={submit} className="nesto-card space-y-4 p-5">
+    <HandoffForm
+      goodsReceiptId={goodsReceiptId}
+      receiptNumber={receiptNumber}
+      acceptedLines={acceptedLines}
+      items={items}
+      warehouses={warehouses}
+      locations={locations}
+      onClose={() => setOpen(false)}
+    />
+  );
+}
+
+/**
+ * The open mapping form. Its choices live here, so they go with it: Cancel
+ * asks first while anything is chosen, and discarding closes it (AUD-03 §3).
+ * A committed hand-off opens the draft receipt it created.
+ */
+function HandoffForm({
+  goodsReceiptId,
+  receiptNumber,
+  acceptedLines,
+  items,
+  warehouses,
+  locations,
+  onClose,
+}: {
+  goodsReceiptId: string;
+  receiptNumber: string;
+  acceptedLines: HandoffLine[];
+  items: ItemOption[];
+  warehouses: Option[];
+  locations: LocationOption[];
+  onClose: () => void;
+}) {
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const [warehouseId, setWarehouseId] = React.useState("");
+  const [mapping, setMapping] = React.useState<
+    Record<string, { inventoryItemId: string; locationId: string }>
+  >({});
+  const save = useEditorSave({
+    formRef,
+    action: (formData: FormData) => postFromGoodsReceiptAction(goodsReceiptId, formData),
+    module: "inventory",
+    saveKind: "create",
+    label: `Stock booking for ${receiptNumber}`,
+  });
+  const { pending } = save;
+
+  const available = warehouseId
+    ? locations.filter((location) => location.warehouseId === warehouseId)
+    : locations;
+
+  return (
+    <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
       <div>
         <h3 className="text-card font-semibold text-fg">
           Book {receiptNumber} into stock
@@ -124,114 +157,125 @@ export function ProcurementHandoff({
         </p>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="handoff-warehouse">Into warehouse</Label>
-        <select
-          id="handoff-warehouse"
-          name="warehouseId"
-          className={selectClass}
-          value={warehouseId}
-          onChange={(event) => setWarehouseId(event.target.value)}
-          required
-        >
-          <option value="">Choose a warehouse</option>
-          {warehouses.map((warehouse) => (
-            <option key={warehouse.value} value={warehouse.value}>
-              {warehouse.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <SaveMessages save={save} />
 
-      <ul className="space-y-3">
-        {acceptedLines.map((line, index) => {
-          const current = mapping[line.goodsReceiptItemId] ?? {
-            inventoryItemId: "",
-            locationId: "",
-          };
+      <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        <div className="space-y-1.5">
+          <Label htmlFor="handoff-warehouse">Into warehouse</Label>
+          <select
+            id="handoff-warehouse"
+            name="warehouseId"
+            className={selectClass}
+            value={warehouseId}
+            onChange={(event) => setWarehouseId(event.target.value)}
+            required
+          >
+            <option value="">Choose a warehouse</option>
+            {warehouses.map((warehouse) => (
+              <option key={warehouse.value} value={warehouse.value}>
+                {warehouse.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          return (
-            <li key={line.goodsReceiptItemId} className="rounded-md border border-line p-4">
-              <p className="text-table font-medium text-fg">{line.description}</p>
-              <p className="text-meta text-fg-subtle">
-                Accepted{" "}
-                <span className="tabular-nums text-fg">
-                  {formatQuantity(line.acceptedQuantity)} {line.unit}
-                </span>
-              </p>
+        <ul className="space-y-3">
+          {acceptedLines.map((line, index) => {
+            const current = mapping[line.goodsReceiptItemId] ?? {
+              inventoryItemId: "",
+              locationId: "",
+            };
 
-              <input
-                type="hidden"
-                name={`lines[${index}][goodsReceiptItemId]`}
-                value={line.goodsReceiptItemId}
-              />
+            return (
+              <li key={line.goodsReceiptItemId} className="rounded-md border border-line p-4">
+                <p className="text-table font-medium text-fg">{line.description}</p>
+                <p className="text-meta text-fg-subtle">
+                  Accepted{" "}
+                  <span className="tabular-nums text-fg">
+                    {formatQuantity(line.acceptedQuantity)} {line.unit}
+                  </span>
+                </p>
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor={`handoff-${index}-item`}>Inventory item</Label>
-                  <select
-                    id={`handoff-${index}-item`}
-                    name={`lines[${index}][inventoryItemId]`}
-                    className={selectClass}
-                    value={current.inventoryItemId}
-                    onChange={(event) =>
-                      setMapping((previous) => ({
-                        ...previous,
-                        [line.goodsReceiptItemId]: {
-                          ...current,
-                          inventoryItemId: event.target.value,
-                        },
-                      }))
-                    }
-                  >
-                    <option value="">Do not book this line</option>
-                    {items.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                <input
+                  type="hidden"
+                  name={`lines[${index}][goodsReceiptItemId]`}
+                  value={line.goodsReceiptItemId}
+                />
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`handoff-${index}-item`}>Inventory item</Label>
+                    <select
+                      id={`handoff-${index}-item`}
+                      name={`lines[${index}][inventoryItemId]`}
+                      className={selectClass}
+                      value={current.inventoryItemId}
+                      onChange={(event) =>
+                        setMapping((previous) => ({
+                          ...previous,
+                          [line.goodsReceiptItemId]: {
+                            ...current,
+                            inventoryItemId: event.target.value,
+                          },
+                        }))
+                      }
+                    >
+                      <option value="">Do not book this line</option>
+                      {items.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`handoff-${index}-location`}>Location</Label>
+                    <select
+                      id={`handoff-${index}-location`}
+                      name={`lines[${index}][locationId]`}
+                      className={selectClass}
+                      value={current.locationId}
+                      onChange={(event) =>
+                        setMapping((previous) => ({
+                          ...previous,
+                          [line.goodsReceiptItemId]: {
+                            ...current,
+                            locationId: event.target.value,
+                          },
+                        }))
+                      }
+                      disabled={!warehouseId}
+                    >
+                      <option value="">Choose a location</option>
+                      {available.map((location) => (
+                        <option key={location.value} value={location.value}>
+                          {location.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor={`handoff-${index}-location`}>Location</Label>
-                  <select
-                    id={`handoff-${index}-location`}
-                    name={`lines[${index}][locationId]`}
-                    className={selectClass}
-                    value={current.locationId}
-                    onChange={(event) =>
-                      setMapping((previous) => ({
-                        ...previous,
-                        [line.goodsReceiptItemId]: {
-                          ...current,
-                          locationId: event.target.value,
-                        },
-                      }))
-                    }
-                    disabled={!warehouseId}
-                  >
-                    <option value="">Choose a location</option>
-                    {available.map((location) => (
-                      <option key={location.value} value={location.value}>
-                        {location.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      </fieldset>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" size="sm" disabled={pending}>
+        <Button type="submit" size="sm" disabled={pending || Boolean(save.saved)}>
           {pending ? "Booking…" : "Create draft receipt"}
         </Button>
-        <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(false)}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={pending}
+          onClick={() => void save.editor.requestDismiss(onClose)}
+        >
           Cancel
         </Button>
+        <UnsavedIndicator save={save} />
       </div>
     </form>
   );

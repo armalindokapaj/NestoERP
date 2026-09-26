@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { EntitlementControl } from "@/components/3d/platform/EntitlementControl";
 import { PlatformCommandButton } from "@/components/platform/platform-command";

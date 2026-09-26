@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { guardNavigation, useRouter } from "@/components/navigation/guarded-router";
 import { CalendarClock, ChevronDown, Loader2, MapPin, RotateCw, TriangleAlert, Users, Video, X } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -12,6 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { instantFromLocal } from "@/lib/modules/calendar/calendar.time";
 import type { MeetingFormOptions } from "@/lib/modules/meetings/meeting.options";
 import { isSafeMeetingUrl } from "@/lib/modules/meetings/meeting.schema";
@@ -26,7 +30,7 @@ import {
   type MeetingWriteResult,
 } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
-import { failureMessage, meetingApi, type MeetingApiFailure } from "./meeting-api";
+import { failureMessage, meetingApi, meetingFailureOutcome, type MeetingApiFailure } from "./meeting-api";
 import { durationLabel, meetingClock, meetingDate, PersonAvatar } from "./meeting-ui";
 import { PeoplePicker, type PickedPerson } from "./people-picker";
 
@@ -224,12 +228,34 @@ export function MeetingForm(props: MeetingFormProps) {
     return found;
   }
 
-  async function submit(event: React.FormEvent, draft = false) {
-    event.preventDefault();
+  // AUD-03 §3: what the form opened with is the baseline; whether visibility
+  // was chosen by hand is bookkeeping, not input. Scheduling sends invitations
+  // — a workflow step — so on a new meeting the prompt's save is the draft,
+  // offered only where the form offers it (not for a repeating meeting).
+  const [baseline, setBaseline] = React.useState<State>(state);
+  const dirty = React.useMemo(() => JSON.stringify({ ...state, visibilityTouched: null }) !== JSON.stringify({ ...baseline, visibilityTouched: null }), [state, baseline]);
+  const draftable = !editing && !state.frequency;
+  const running = React.useRef(false);
+  const run = React.useRef<(draft: boolean, mode: "normal" | "continue") => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
+  const editor = useUnsavedEditor({
+    module: "meetings",
+    saveKind: editing ? "save" : draftable ? "create" : "none",
+    workflow: "Schedule meeting",
+    label: editing ? "Meeting details" : "New meeting",
+    save: editing || draftable ? () => run.current(!editing, "continue") : undefined,
+  });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
+
+  run.current = async (draft, mode) => {
+    if (running.current) return { kind: "unknown" };
+    if (unsaved.frozen) return { kind: "refused" };
     const found = clientErrors();
     setErrors(found);
-    if (Object.keys(found).length > 0) return;
+    if (Object.keys(found).length > 0) return { kind: "invalid" };
+    running.current = true;
     setPending(draft ? "draft" : "save");
+    setSaving(true);
     setStale(false);
 
     const shared = {
@@ -247,16 +273,24 @@ export function MeetingForm(props: MeetingFormProps) {
       onlineUrl: state.locationType === "IN_PERSON" ? null : state.onlineUrl || null,
     };
 
+    /** Clean before it stops saving, so the page it opens next goes on at once. */
+    const committed = () => {
+      setBaseline(state);
+      setDirty(false);
+      setUnresolved(false);
+    };
+
     try {
       if (props.mode === "edit") {
         const result = await meetingApi<MeetingWriteResult>(`/api/meetings/${props.meeting.id}`, {
           method: "PATCH",
           body: { ...shared, version: props.meeting.version, scope: state.scope },
         });
+        committed();
         toast({ title: result.occurrences && result.occurrences > 1 ? `${result.occurrences} meetings updated` : "Meeting updated", tone: "success" });
-        router.push(`/meetings/${props.meeting.id}`);
+        if (mode === "normal") router.push(`/meetings/${props.meeting.id}`);
         router.refresh();
-        return;
+        return { kind: "committed" };
       }
       const result = await meetingApi<MeetingWriteResult>("/api/meetings", {
         body: {
@@ -275,20 +309,36 @@ export function MeetingForm(props: MeetingFormProps) {
           saveAsDraft: draft,
         },
       });
+      committed();
       const busy = result.conflicts.length;
       toast({
         title: draft ? "Draft saved" : result.occurrences && result.occurrences > 1 ? `${result.occurrences} meetings scheduled` : "Meeting scheduled",
         description: busy ? `${busy === 1 ? "1 person has" : `${busy} people have`} something else at that time.` : undefined,
         tone: "success",
       });
-      router.push(`/meetings/${result.meeting.id}`);
+      if (mode === "normal") router.push(`/meetings/${result.meeting.id}`);
+      return { kind: "committed" };
     } catch (error) {
       const failure = error as MeetingApiFailure;
+      const outcome = meetingFailureOutcome(error);
+      setUnresolved(outcome.kind === "unknown");
       if (failure.detailCode === "STALE_VERSION") setStale(true);
-      setErrors({ ...(failure.fields ?? {}), form: failureMessage(error, "The meeting could not be saved.") });
+      setErrors({
+        ...(failure.fields ?? {}),
+        form: failureMessage(error, "The meeting could not be saved."),
+        ...(outcome.kind === "unknown" ? { outcome: OUTCOME_COPY.unknown } : {}),
+      });
+      return outcome;
     } finally {
+      running.current = false;
       setPending(null);
+      setSaving(false);
     }
+  };
+
+  function submit(event: React.FormEvent, draft = false) {
+    event.preventDefault();
+    void run.current(draft, "normal");
   }
 
   const fieldError = (key: string) => (errors[key] ? <p className="text-meta text-danger-strong">{errors[key]}</p> : null);
@@ -297,7 +347,8 @@ export function MeetingForm(props: MeetingFormProps) {
 
   return (
     <form onSubmit={(event) => void submit(event)} noValidate className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]" data-testid="meeting-form">
-      <div className="min-w-0 space-y-5">
+      {/* The submitted snapshot saves as it was (AUD-03 §6). */}
+      <fieldset disabled={pending !== null} className="m-0 min-w-0 space-y-5 border-0 p-0">
         <section className="nesto-card space-y-5 p-5 sm:p-6">
           <div className="space-y-1.5">
             <Label htmlFor="meeting-title">Title</Label>
@@ -645,16 +696,20 @@ export function MeetingForm(props: MeetingFormProps) {
 
         {errors.form ? (
           <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong">
-            {errors.form}
+            <span>
+              {errors.form}
+              {errors.outcome ? <span className="block">{errors.outcome}</span> : null}
+            </span>
             {stale ? (
-              <Button type="button" size="sm" variant="secondary" onClick={() => window.location.reload()}>
+              // Reloading drops what was typed here: it asks first (AUD-03 §5).
+              <Button type="button" size="sm" variant="secondary" onClick={() => guardNavigation({ kind: "reload" }, () => window.location.reload())}>
                 <RotateCw aria-hidden="true" />
                 Reload latest
               </Button>
             ) : null}
           </div>
         ) : null}
-      </div>
+      </fieldset>
 
       <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
         <div className="nesto-card p-5">
@@ -684,6 +739,7 @@ export function MeetingForm(props: MeetingFormProps) {
           <Button asChild variant="ghost">
             <Link href={cancelHref}>Cancel</Link>
           </Button>
+          <UnsavedIndicator className="text-center" save={{ editor, pending: pending !== null, saved: null }} />
           {!editing ? <p className="text-center text-meta text-fg-subtle">{state.participants.length > 0 ? "Participants are invited when it is scheduled." : "Add people now or later."}</p> : null}
         </div>
       </aside>

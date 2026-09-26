@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { TaskForm } from "@/components/tasks/task-form";
+import { TaskEditForm } from "@/components/tasks/task-edit-form";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { updateTaskAction } from "@/lib/actions/tasks";
 import { taskFormOptions } from "@/lib/modules/tasks/task.options";
@@ -44,13 +44,14 @@ export default async function EditTaskPage({ params }: Params) {
         <p className="mt-1.5 text-body text-fg-muted">{task.title}</p>
       </div>
 
-      <TaskForm
-        mode="edit"
+      <TaskEditForm
+        taskId={task.id}
         cancelHref={`/tasks/${task.id}`}
         projects={projects}
         assignees={options.assignees}
         mayAssignOthers={options.mayAssignOthers}
-        versionUpdatedAt={task.updatedAt}
+        // The version this page shows; every save names it (AUD-02 §3).
+        version={task.version}
         action={action}
         initial={{
           title: task.title,

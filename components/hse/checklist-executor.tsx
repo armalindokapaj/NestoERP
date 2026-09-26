@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { executeInspectionAction } from "@/lib/actions/hse";
 import {
   allowedChecklistResults,
@@ -33,20 +35,23 @@ import type { ChecklistItemDTO } from "@/lib/modules/hse/hse.types";
  * card, the controls are full width, and answers save in one go so a lost
  * signal halfway round does not lose the first half.
  */
-export function ChecklistExecutor({
-  inspectionId,
-  items,
-  readOnly,
-  versionUpdatedAt,
-}: {
+type ChecklistExecutorProps = {
   inspectionId: string;
   items: ChecklistItemDTO[];
   readOnly: boolean;
   versionUpdatedAt?: string;
-}) {
+};
+
+export function ChecklistExecutor(props: ChecklistExecutorProps) {
+  // Remounted when it turns editable (or back), so the editor's tracking
+  // attaches to the form that is actually rendered (AUD-03 §3).
+  return <ChecklistEditor key={`${props.readOnly}-${props.items.length > 0}`} {...props} />;
+}
+
+function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: ChecklistExecutorProps) {
   const router = useRouter();
   const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
+  const formRef = React.useRef<HTMLFormElement>(null);
   const [answers, setAnswers] = React.useState(() =>
     Object.fromEntries(
       items.map((item) => [
@@ -64,17 +69,28 @@ export function ChecklistExecutor({
     setAnswers((current) => ({ ...current, [id]: { ...current[id]!, ...patch } }));
   }
 
-  function submit(formData: FormData) {
-    startTransition(async () => {
-      const result = await executeInspectionAction(inspectionId, formData);
-      if (result.ok) {
-        toast({ title: result.message ?? "Checklist saved.", tone: "success" });
+  /**
+   * Many answers held before one save, so the checklist is an editor under
+   * the unsaved-work contract (AUD-03 §3): leaving with unsaved answers asks
+   * first, and "Save and continue" runs this same "Save checklist". Saving is
+   * ordinary — submitting the inspection is the separate panel below. Read-only,
+   * no form is rendered, so the editor never holds anything unsaved.
+   */
+  const save = useEditorSave({
+    formRef,
+    action: (formData: FormData) => executeInspectionAction(inspectionId, formData),
+    module: "hse",
+    saveKind: "save",
+    label: "Checklist",
+    onCommitted: (result, mode) => {
+      if (mode === "normal") {
+        toast({ title: result?.message ?? "Checklist saved.", tone: "success" });
         router.refresh();
-      } else {
-        toast({ title: result.error, tone: "danger" });
       }
-    });
-  }
+      return true;
+    },
+  });
+  const { pending } = save;
 
   if (items.length === 0) {
     return (
@@ -218,12 +234,17 @@ export function ChecklistExecutor({
   if (readOnly) return body;
 
   return (
-    <form action={submit} className="space-y-4">
+    <form ref={formRef} onSubmit={save.onSubmit} className="space-y-4">
       {versionUpdatedAt ? (
         <input type="hidden" name="versionUpdatedAt" value={versionUpdatedAt} />
       ) : null}
 
-      {body}
+      <SaveMessages save={save} />
+
+      {/* The submitted answers save as they were: nothing changes meanwhile (§6). */}
+      <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 border-0 p-0">
+        {body}
+      </fieldset>
 
       {failed.length > 0 ? (
         <p className="rounded-lg border border-warning-border bg-warning-subtle p-4 text-meta text-warning-strong">
@@ -233,9 +254,12 @@ export function ChecklistExecutor({
         </p>
       ) : null}
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save checklist"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save checklist"}
+        </Button>
+        <UnsavedIndicator save={save} />
+      </div>
     </form>
   );
 }

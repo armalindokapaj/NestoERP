@@ -61,6 +61,7 @@ export function AssignCrewButton({
         fields={fields}
         initial={{ startDate: today(), transfer: false }}
         submitLabel="Add to crew"
+        module="workforce"
         testId="assign-crew-dialog"
         onSubmit={async (payload) => {
           const worker = employeeId ?? String(payload.employeeId ?? "");
@@ -92,6 +93,7 @@ export function EndMembershipButton({ employeeId, membershipId, what, url, label
         ]}
         initial={{ endDate: today() }}
         submitLabel="End"
+        module="workforce"
         testId="end-assignment-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/workforce/employees/${employeeId}/${url}/${membershipId}/end`, { body: payload });
@@ -157,6 +159,9 @@ export function AssignProjectButton({
         initial={{ startDate: today(), isPrimary: false }}
         onValuesChange={setValues}
         submitLabel="Assign"
+        // An assignment is a record like any other: the prompt may save it (AUD-03 §3).
+        saveKind="create"
+        module="workforce"
         testId="assign-project-dialog"
         onSubmit={async (payload) => {
           const worker = employeeId ?? String(payload.employeeId ?? "");
@@ -218,6 +223,7 @@ export function CrewFormButton({
         initial={crew ?? {}}
         onValuesChange={setValues}
         submitLabel={crew ? "Save" : "Create crew"}
+        module="workforce"
         testId="crew-dialog"
         onSubmit={async (payload) => {
           if (crew?.id) await engineeringApi(`/api/workforce/crews/${crew.id}`, { method: "PATCH", body: payload });

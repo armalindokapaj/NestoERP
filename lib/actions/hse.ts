@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
 import { requireCompanyContext } from "@/lib/context/current-user";
+import { committed } from "@/lib/forms/committed";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
 import * as environment from "@/lib/modules/hse/environment/environment.service";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
@@ -47,8 +48,13 @@ import {
  * severity; the service multiplies them (PRD #22 §243).
  */
 
+/**
+ * An editor's action answers where the saved record lives instead of
+ * redirecting, so the form can tell the save committed (AUD-03 §6). Only the
+ * input-less starts (inspection, investigation) still redirect.
+ */
 export type HseActionResult =
-  | { ok: true; id?: string; message?: string }
+  | { ok: true; id?: string; message?: string; redirectTo?: string }
   | {
       ok: false;
       error: string;
@@ -151,7 +157,7 @@ export async function createTemplateAction(formData: FormData): Promise<HseActio
   }
 
   revalidateHse();
-  redirect(`/hse/templates/${id}`);
+  return committed(`/hse/templates/${id}`);
 }
 
 export async function updateTemplateAction(
@@ -182,7 +188,7 @@ export async function updateTemplateAction(
   }
 
   revalidateHse(`/hse/templates/${templateId}`);
-  redirect(`/hse/templates/${id}`);
+  return committed(`/hse/templates/${id}`);
 }
 
 export async function archiveTemplateAction(templateId: string): Promise<HseActionResult> {
@@ -229,7 +235,7 @@ export async function createInspectionAction(formData: FormData): Promise<HseAct
   }
 
   revalidateHse();
-  redirect(`/hse/inspections/${id}`);
+  return committed(`/hse/inspections/${id}`);
 }
 
 export async function updateInspectionAction(
@@ -248,7 +254,7 @@ export async function updateInspectionAction(
   }
 
   revalidateHse(`/hse/inspections/${inspectionId}`);
-  redirect(`/hse/inspections/${inspectionId}`);
+  return committed(`/hse/inspections/${inspectionId}`);
 }
 
 export async function assignInspectionAction(
@@ -324,7 +330,7 @@ export async function submitInspectionAction(
   }
 
   revalidateHse(`/hse/inspections/${inspectionId}`);
-  redirect(`/hse/inspections/${inspectionId}`);
+  return committed(`/hse/inspections/${inspectionId}`);
 }
 
 export async function approveInspectionAction(
@@ -413,7 +419,7 @@ export async function createHazardAction(formData: FormData): Promise<HseActionR
   }
 
   revalidateHse();
-  redirect(`/hse/hazards/${id}`);
+  return committed(`/hse/hazards/${id}`);
 }
 
 export async function updateHazardAction(
@@ -432,7 +438,7 @@ export async function updateHazardAction(
   }
 
   revalidateHse(`/hse/hazards/${hazardId}`);
-  redirect(`/hse/hazards/${hazardId}`);
+  return committed(`/hse/hazards/${hazardId}`);
 }
 
 export async function assignHazardAction(
@@ -505,7 +511,8 @@ export async function closeHazardAction(
   }
 
   revalidateHse(`/hse/hazards/${hazardId}`);
-  return { ok: true, message: "Hazard closed." };
+  // Back to the hazard: the close page no longer applies once it is closed (AUD-03 §6).
+  return { ...committed(`/hse/hazards/${hazardId}`), message: "Hazard closed." };
 }
 
 export async function reopenHazardAction(
@@ -573,7 +580,7 @@ export async function createIncidentAction(formData: FormData): Promise<HseActio
   }
 
   revalidateHse();
-  redirect(`/hse/incidents/${id}`);
+  return committed(`/hse/incidents/${id}`);
 }
 
 export async function updateIncidentAction(
@@ -592,7 +599,7 @@ export async function updateIncidentAction(
   }
 
   revalidateHse(`/hse/incidents/${incidentId}`);
-  redirect(`/hse/incidents/${incidentId}`);
+  return committed(`/hse/incidents/${incidentId}`);
 }
 
 export async function assignInvestigatorAction(
@@ -747,7 +754,7 @@ export async function createRiskAssessmentAction(
   }
 
   revalidateHse();
-  redirect(`/hse/risk-assessments/${id}`);
+  return committed(`/hse/risk-assessments/${id}`);
 }
 
 export async function updateRiskAssessmentAction(
@@ -769,7 +776,7 @@ export async function updateRiskAssessmentAction(
   }
 
   revalidateHse(`/hse/risk-assessments/${assessmentId}`);
-  redirect(`/hse/risk-assessments/${id}`);
+  return committed(`/hse/risk-assessments/${id}`);
 }
 
 export async function submitRiskAssessmentAction(
@@ -854,7 +861,7 @@ export async function createHseActionAction(formData: FormData): Promise<HseActi
   }
 
   revalidateHse();
-  redirect(`/hse/actions/${id}`);
+  return committed(`/hse/actions/${id}`);
 }
 
 export async function updateHseActionAction(
@@ -873,7 +880,7 @@ export async function updateHseActionAction(
   }
 
   revalidateHse(`/hse/actions/${actionId}`);
-  redirect(`/hse/actions/${actionId}`);
+  return committed(`/hse/actions/${actionId}`);
 }
 
 export async function assignHseActionAction(
@@ -1011,7 +1018,7 @@ export async function createToolboxTalkAction(formData: FormData): Promise<HseAc
   }
 
   revalidateHse();
-  redirect(`/hse/toolbox-talks/${id}`);
+  return committed(`/hse/toolbox-talks/${id}`);
 }
 
 export async function updateToolboxTalkAction(
@@ -1030,7 +1037,7 @@ export async function updateToolboxTalkAction(
   }
 
   revalidateHse(`/hse/toolbox-talks/${talkId}`);
-  redirect(`/hse/toolbox-talks/${talkId}`);
+  return committed(`/hse/toolbox-talks/${talkId}`);
 }
 
 export async function completeToolboxTalkAction(talkId: string): Promise<HseActionResult> {
@@ -1080,7 +1087,7 @@ export async function createPermitAction(formData: FormData): Promise<HseActionR
   }
 
   revalidateHse();
-  redirect(`/hse/permits/${id}`);
+  return committed(`/hse/permits/${id}`);
 }
 
 export async function updatePermitAction(
@@ -1099,7 +1106,7 @@ export async function updatePermitAction(
   }
 
   revalidateHse(`/hse/permits/${permitId}`);
-  redirect(`/hse/permits/${permitId}`);
+  return committed(`/hse/permits/${permitId}`);
 }
 
 export async function submitPermitAction(permitId: string): Promise<HseActionResult> {
@@ -1226,7 +1233,7 @@ export async function createPpeCheckAction(formData: FormData): Promise<HseActio
   }
 
   revalidateHse("/hse/ppe");
-  redirect("/hse/ppe");
+  return committed("/hse/ppe");
 }
 
 export async function updatePpeCheckAction(
@@ -1245,7 +1252,7 @@ export async function updatePpeCheckAction(
   }
 
   revalidateHse("/hse/ppe");
-  redirect("/hse/ppe");
+  return committed("/hse/ppe");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1266,7 +1273,7 @@ export async function createObservationAction(formData: FormData): Promise<HseAc
   }
 
   revalidateHse();
-  redirect(`/hse/environment/${id}`);
+  return committed(`/hse/environment/${id}`);
 }
 
 export async function updateObservationAction(
@@ -1285,7 +1292,7 @@ export async function updateObservationAction(
   }
 
   revalidateHse(`/hse/environment/${observationId}`);
-  redirect(`/hse/environment/${observationId}`);
+  return committed(`/hse/environment/${observationId}`);
 }
 
 export async function closeObservationAction(
@@ -1342,7 +1349,7 @@ export async function createStopWorkAction(formData: FormData): Promise<HseActio
   }
 
   revalidateHse();
-  redirect(`/hse/stop-work/${id}`);
+  return committed(`/hse/stop-work/${id}`);
 }
 
 export async function releaseStopWorkAction(
@@ -1412,5 +1419,6 @@ export async function createHseTaskAction(
   }
 
   revalidateHse(`/hse/actions/${actionId}`);
-  return { ok: true, message: "Task created." };
+  // Back to the action, so a second click cannot create the task twice (AUD-03 §6).
+  return { ...committed(`/hse/actions/${actionId}`), message: "Task created." };
 }

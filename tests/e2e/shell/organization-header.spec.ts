@@ -290,16 +290,18 @@ test.describe("switching (§28-§37, §78-§83)", () => {
 
     await workspaceHeader(page).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
-    const question = page.getByTestId("workspace-unsaved");
-    await expect(question).toContainText("You have unsaved changes.");
-    await page.getByTestId("workspace-unsaved-stay").click();
+    // The one shared question (AUD-03 §7): the popup closes, the prompt asks.
+    const question = page.getByTestId("unsaved-prompt");
+    await expect(question).toContainText("You have unsaved changes");
+    await expect(question).toContainText("You're switching to Forma Engineering.");
+    await page.getByTestId("unsaved-stay").click();
     await expect(question).toHaveCount(0);
     await expect(title).toHaveValue("Half-written task");
     await expect(workspaceHeader(page).getByTestId("workspace-label")).toHaveText("Aurelia Construction");
 
     await workspaceHeader(page).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
-    await page.getByTestId("workspace-unsaved-discard").click();
+    await page.getByTestId("unsaved-discard").click();
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
     await expect(workspaceHeader(page).getByTestId("workspace-label")).toHaveText("Forma Engineering");
     await expect(mainRegion(page).getByLabel("Title")).toHaveValue("");

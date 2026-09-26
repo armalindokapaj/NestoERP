@@ -1,33 +1,71 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { CheckCircle2, CirclePlus, Save, Send } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { DialogEditor } from "@/components/sales/unit-sales/unit-sales-dialogs";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { getPricingAdministration } from "@/lib/modules/pricing/pricing.service";
 import type { PricingConfig, PricingPromotionConfig } from "@/lib/modules/pricing/pricing.types";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { outcomeOf } from "@/lib/unsaved/outcome";
 
 type PricingAdminData = Awaited<ReturnType<typeof getPricingAdministration>>;
 type Version = PricingAdminData["versions"][number];
 type Promotion = PricingAdminData["promotions"][number];
 
+/** The server answered, and refused: nothing was saved (AUD-03 §6). */
+class PricingRefusal extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+  }
+}
+
+/**
+ * One request to the pricing API. A refusal throws `PricingRefusal`; a request
+ * that never got an answer throws anything else — it may have gone through.
+ */
 async function adminRequest<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
   const response = await fetch(url, {
     method,
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const payload = await response.json().catch(() => null) as { data?: T; error?: { message?: string } } | null;
-  if (!response.ok || !payload?.data) throw new Error(payload?.error?.message ?? "The pricing change could not be saved.");
+  const payload = await response.json().catch(() => null) as { data?: T; error?: { message?: string; code?: string; details?: { code?: string } } } | null;
+  if (!response.ok || !payload?.data) throw new PricingRefusal(payload?.error?.message ?? "The pricing change could not be saved.", payload?.error?.details?.code ?? payload?.error?.code);
   return payload.data;
+}
+
+/** What a pricing request's failure means for the unsaved-work contract (AUD-03 §6). */
+function failureOutcome(failure: unknown): SaveOutcome {
+  return failure instanceof PricingRefusal ? outcomeOf({ ok: false, code: failure.code, error: failure.message }) : { kind: "unknown" };
+}
+
+/**
+ * A controlled pricing editor's place in the unsaved-work contract (AUD-03 §3):
+ * dirty while its values differ from the last ones the server accepted, and a
+ * "Save and continue" that runs its own Save.
+ */
+function usePricingEditor(label: string, values: unknown, save: () => Promise<SaveOutcome>) {
+  const key = JSON.stringify(values);
+  const [baseline, setBaseline] = React.useState(key);
+  const editor = useUnsavedEditor({ module: "pricing", saveKind: "save", label, save });
+  const { setDirty } = editor;
+  React.useEffect(() => setDirty(key !== baseline), [key, baseline, setDirty]);
+  /** Only after the server said yes: the values it accepted become the baseline. */
+  const accept = React.useCallback((saved: string) => setBaseline(saved), []);
+  return { editor, key, accept };
 }
 
 export function PricingAdministration({ data }: { data: PricingAdminData }) {
@@ -81,28 +119,6 @@ function PriceBookSummary({ config }: { config: PricingConfig }) {
 
 function CreateDraft() {
   const [open, setOpen] = React.useState(false);
-  const [versionCode, setVersionCode] = React.useState("");
-  const [pending, setPending] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const router = useRouter();
-  const toast = useToast();
-
-  async function create(event: React.FormEvent) {
-    event.preventDefault();
-    setPending(true);
-    setError(null);
-    try {
-      await adminRequest("/api/platform/pricing/versions", "POST", { versionCode });
-      toast({ title: "Pricing draft created.", tone: "success" });
-      setOpen(false);
-      setVersionCode("");
-      router.refresh();
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Draft could not be created.");
-    } finally {
-      setPending(false);
-    }
-  }
 
   return (
     <>
@@ -111,19 +127,57 @@ function CreateDraft() {
         <DialogContent>
           <DialogTitle>Create pricing version</DialogTitle>
           <DialogDescription>The active configuration is copied into a safe draft. Existing quotes remain unchanged.</DialogDescription>
-          <form onSubmit={create} className="mt-5">
-            <Field label="Version code">
-              <Input required pattern="\d{4}\.\d{2}(\.\d+)?" placeholder="2027.01" value={versionCode} onChange={(event) => setVersionCode(event.target.value)} />
-            </Field>
-            {error ? <p role="alert" className="mt-3 text-table text-danger-strong">{error}</p> : null}
-            <DialogFooter>
-              <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create draft"}</Button>
-            </DialogFooter>
-          </form>
+          <CreateDraftForm onCreated={() => setOpen(false)} />
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** Registered inside the dialog, so its X, Escape and Cancel ask about a typed code (AUD-03 §5). */
+function CreateDraftForm({ onCreated }: { onCreated: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({
+    formRef,
+    module: "pricing",
+    saveKind: "create",
+    label: "New pricing version",
+    action: async (formData: FormData) => {
+      try {
+        await adminRequest("/api/platform/pricing/versions", "POST", { versionCode: String(formData.get("versionCode") ?? "") });
+        return { ok: true as const };
+      } catch (failure) {
+        // A request that never got an answer stays thrown: its outcome is unknown.
+        if (!(failure instanceof PricingRefusal)) throw failure;
+        return { ok: false as const, code: failure.code, error: failure.message };
+      }
+    },
+    onCommitted: () => {
+      toast({ title: "Pricing draft created.", tone: "success" });
+      onCreated();
+      router.refresh();
+      return true;
+    },
+  });
+
+  return (
+    <form ref={formRef} onSubmit={save.onSubmit} className="mt-5">
+      <fieldset disabled={save.pending || Boolean(save.saved)} className="m-0 min-w-0 border-0 p-0">
+        <Field label="Version code">
+          <Input name="versionCode" required pattern="\d{4}\.\d{2}(\.\d+)?" placeholder="2027.01" defaultValue="" />
+        </Field>
+      </fieldset>
+      <SaveMessages save={save} className="mt-3" />
+      <DialogFooter>
+        <UnsavedIndicator save={save} />
+        <DialogClose asChild>
+          <Button type="button" variant="secondary">Cancel</Button>
+        </DialogClose>
+        <Button type="submit" disabled={save.pending}>{save.pending ? "Creating…" : "Create draft"}</Button>
+      </DialogFooter>
+    </form>
   );
 }
 
@@ -147,20 +201,32 @@ function PricingVersionEditor({ version }: { version: Version }) {
     }));
   };
 
-  async function save() {
+  const draft = usePricingEditor(`Draft ${version.versionCode}`, [config, effectiveFrom], () => save());
+
+  /** The draft's one save path: its Save button and "Save and continue" alike (AUD-03 §3). */
+  async function save(): Promise<SaveOutcome> {
+    const submitted = draft.key;
     setPending(true);
+    draft.editor.setSaving(true);
+    draft.editor.setUnresolved(false);
     setError(null);
     try {
       await adminRequest(`/api/platform/pricing/versions/${version.id}`, "PATCH", {
         config,
         effectiveFrom: new Date(`${effectiveFrom}T00:00:00.000Z`).toISOString(),
       });
+      draft.accept(submitted);
       toast({ title: "Pricing draft saved.", tone: "success" });
       router.refresh();
+      return { kind: "committed" };
     } catch (failure) {
+      const outcome = failureOutcome(failure);
+      draft.editor.setUnresolved(outcome.kind === "unknown");
       setError(failure instanceof Error ? failure.message : "Draft could not be saved.");
+      return outcome;
     } finally {
       setPending(false);
+      draft.editor.setSaving(false);
     }
   }
 
@@ -171,6 +237,7 @@ function PricingVersionEditor({ version }: { version: Version }) {
       await adminRequest(`/api/platform/pricing/versions/${version.id}/publish`, "POST", { confirmed: true, reason });
       toast({ title: `${version.versionCode} is now active.`, tone: "success" });
       setPublishOpen(false);
+      setReason("");
       router.refresh();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Version could not be published.");
@@ -187,6 +254,7 @@ function PricingVersionEditor({ version }: { version: Version }) {
           <p className="mt-1 text-table text-fg-muted">Edit, review, then publish. Published versions are immutable.</p>
         </div>
         <div className="flex gap-2">
+          <UnsavedIndicator save={{ editor: draft.editor, pending, saved: null }} className="self-center" />
           <Button type="button" variant="secondary" onClick={() => void save()} disabled={pending}><Save /> Save draft</Button>
           <Button type="button" onClick={() => setPublishOpen(true)} disabled={pending}><Send /> Publish</Button>
         </div>
@@ -227,13 +295,24 @@ function PricingVersionEditor({ version }: { version: Version }) {
 
       {error ? <p role="alert" className="mt-4 rounded-md bg-danger-soft p-3 text-table text-danger-strong">{error}</p> : null}
 
-      <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
+      <Dialog
+        open={publishOpen}
+        onOpenChange={(value) => {
+          setPublishOpen(value);
+          // A discarded reason goes once the dialog has closed through its guard.
+          if (!value) setReason("");
+        }}
+      >
         <DialogContent>
+          {/* Publishing is the only way forward for a typed reason: Stay or Discard (AUD-03 §4). */}
+          <DialogEditor label={`Publishing ${version.versionCode}`} module="pricing" dirty={reason !== ""} saving={pending} unresolved={false} workflow="Publish" />
           <DialogTitle>Publish Pricing Version {version.versionCode}?</DialogTitle>
           <DialogDescription>This will affect all new public pricing calculations. Existing saved quotes will not change.</DialogDescription>
           <div className="mt-5"><Field label="Reason"><Textarea required value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why this pricing version is being published" /></Field></div>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setPublishOpen(false)}>Cancel</Button>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">Cancel</Button>
+            </DialogClose>
             <Button type="button" onClick={() => void publishVersion()} disabled={pending || reason.trim().length < 3}>{pending ? "Publishing…" : "Publish version"}</Button>
           </DialogFooter>
         </DialogContent>
@@ -264,8 +343,14 @@ function PromotionEditor({ promotion }: { promotion: Promotion }) {
     }));
   };
 
-  async function save() {
+  const edits = usePricingEditor(`Promotion ${promotion.code}`, [name, status, config, startsAt, endsAt], () => save());
+
+  /** The promotion's one save path: its Save button and "Save and continue" alike (AUD-03 §3). */
+  async function save(): Promise<SaveOutcome> {
+    const submitted = edits.key;
     setPending(true);
+    edits.editor.setSaving(true);
+    edits.editor.setUnresolved(false);
     try {
       const periods = [
         { months: free.months, discountPercent: 100 },
@@ -278,12 +363,18 @@ function PromotionEditor({ promotion }: { promotion: Promotion }) {
         startsAt: startsAt ? new Date(`${startsAt}T00:00:00.000Z`).toISOString() : null,
         endsAt: endsAt ? new Date(`${endsAt}T23:59:59.999Z`).toISOString() : null,
       });
+      edits.accept(submitted);
       toast({ title: "Promotion saved.", tone: "success" });
       router.refresh();
+      return { kind: "committed" };
     } catch (failure) {
+      const outcome = failureOutcome(failure);
+      edits.editor.setUnresolved(outcome.kind === "unknown");
       toast({ title: failure instanceof Error ? failure.message : "Promotion could not be saved.", tone: "danger" });
+      return outcome;
     } finally {
       setPending(false);
+      edits.editor.setSaving(false);
     }
   }
 
@@ -313,7 +404,10 @@ function PromotionEditor({ promotion }: { promotion: Promotion }) {
         <Field label="Starts"><Input type="date" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} /></Field>
         <Field label="Ends (optional)"><Input type="date" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} /></Field>
       </div>
-      <Button type="button" variant="secondary" onClick={() => void save()} disabled={pending}><Save /> {pending ? "Saving…" : "Save promotion"}</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="secondary" onClick={() => void save()} disabled={pending}><Save /> {pending ? "Saving…" : "Save promotion"}</Button>
+        <UnsavedIndicator save={{ editor: edits.editor, pending, saved: null }} />
+      </div>
     </div>
   );
 }

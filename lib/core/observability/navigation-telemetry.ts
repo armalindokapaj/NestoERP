@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { incrementCounter, Metric, observeHistogram } from "@/lib/core/observability/metrics";
+import { GUARD_MODULES } from "@/lib/navigation/telemetry-registry";
 
 /**
  * Browser navigation telemetry (NAV-03 §11, TELEMETRY-01..04).
@@ -65,10 +66,27 @@ const requestSummary = z
   })
   .strict();
 
+/** The guard events whose duration is a decision time (the `unsaved_guard_ms` histogram). */
+const TIMED_GUARD_EVENTS = ["stay", "discard", "save", "save_failed", "continued"] as const;
+function isTimedGuardEvent(event: string): event is (typeof TIMED_GUARD_EVENTS)[number] {
+  return (TIMED_GUARD_EVENTS as readonly string[]).includes(event);
+}
+
+const unsavedGuard = z
+  .object({
+    kind: z.literal("unsaved_guard"),
+    route,
+    event: z.enum(["prompt", "stay", "discard", "save", "save_failed", "continued", "duplicate_request", "duplicate_continuation", "stale_approval", "guard_error", "frozen"]),
+    departure: z.enum(["navigate", "history", "dismiss", "workspace", "identity", "reload"]),
+    module: z.enum(GUARD_MODULES),
+    durationMs: duration.optional(),
+  })
+  .strict();
+
 export const navigationBatchSchema = z
   .object({
     schemaVersion: z.literal(1),
-    events: z.array(z.union([navigation, panel, webVital, requestSummary])).min(1).max(TELEMETRY_MAX_EVENTS),
+    events: z.array(z.union([navigation, panel, webVital, requestSummary, unsavedGuard])).min(1).max(TELEMETRY_MAX_EVENTS),
   })
   .strict();
 
@@ -97,6 +115,12 @@ export function ingestNavigationBatch(batch: NavigationBatch): void {
         break;
       case "request_summary":
         incrementCounter(Metric.REQUEST_SUMMARY, { family: event.requestFamily }, event.requestCount);
+        break;
+      case "unsaved_guard":
+        incrementCounter(Metric.UNSAVED_GUARD, { event: event.event, departure: event.departure, module: event.module });
+        if (event.durationMs !== undefined && isTimedGuardEvent(event.event)) {
+          observeHistogram("unsaved_guard_ms", { event: event.event, departure: event.departure }, event.durationMs);
+        }
         break;
     }
   }

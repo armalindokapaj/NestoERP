@@ -33,7 +33,12 @@ import { prisma } from "@/lib/database/prisma";
 const TRANSIENT = new Set(["P2034"]);
 const TRANSIENT_PG = new Set(["40001", "40P01"]);
 
-function isTransient(error: unknown): boolean {
+/**
+ * Whether a failure is the database asking for the work to be repeated. Exported
+ * so a caller can say "try again" once `runInTransaction` has spent its retries,
+ * rather than "something went wrong" (AUD-02 §4).
+ */
+export function isTransient(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (TRANSIENT.has(error.code)) return true;
     const pg = (error.meta as { code?: string } | undefined)?.code;

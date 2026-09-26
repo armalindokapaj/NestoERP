@@ -98,6 +98,7 @@ export function ContractForm({
   return (
     <RecordForm
       action={action}
+      module="contracts"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
@@ -445,6 +446,7 @@ export function ContractMetadataForm({
   return (
     <RecordForm
       action={action}
+      module="contracts"
       cancelHref={cancelHref}
       submitLabel="Save changes"
       pendingLabel="Saving…"

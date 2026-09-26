@@ -5,6 +5,8 @@ import { Suspense } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { PlatformShell } from "@/components/platform/platform-shell";
+import { UnsavedHost } from "@/components/unsaved/unsaved-host";
+import { identityKeys } from "@/lib/context/identity-key";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { isDevMode } from "@/lib/auth/dev-mode";
@@ -27,6 +29,8 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
   return (
     <ToastProvider>
     <TooltipProvider>
+    {/* Unsaved work (AUD-03): no workspace here, only the person. */}
+    <UnsavedHost identity={identityKeys(context)} workspace={null} />
     <PlatformShell
       user={context.fullName}
       actions={<>{isDevMode ? <Suspense fallback={null}><DevUserSwitcher /></Suspense> : null}<SignOutButton /></>}

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { ListPlus, MessageCircleQuestionMark, Paperclip, X } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -10,14 +10,14 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle, useDialogClose } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { RFI_REFERENCE_LABELS, RFI_REFERENCE_TYPES, type Option, type RfiDetailDTO, type RfiReferenceType } from "@/lib/modules/engineering/engineering.types";
 import { cn } from "@/lib/utils/cn";
 import { engineeringApi, failureMessage } from "./engineering-api";
 import { formatDateTime, ReviewBadge } from "./engineering-ui";
-import { FormDialog, type FormField } from "./form-kit";
+import { FormDialog, RequestMessages, useRequestEditor, type FormField } from "./form-kit";
 
 /**
  * An RFI as a conversation on the record (PRD #46 §82-§93, §309, §313).
@@ -35,26 +35,33 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
   const toast = useToast();
   const [text, setText] = React.useState("");
   const [final, setFinal] = React.useState(true);
-  const [pending, setPending] = React.useState(false);
   const [clarifying, setClarifying] = React.useState(false);
   const [referencing, setReferencing] = React.useState(false);
   const [creatingTask, setCreatingTask] = React.useState(false);
   const caps = rfi.capabilities;
 
-  async function respond(event: React.FormEvent) {
-    event.preventDefault();
-    if (!text.trim()) return;
-    setPending(true);
-    try {
-      await engineeringApi(`/api/rfis/${rfi.id}/respond`, { body: { text, final } });
+  // A response being written is unsaved work whose only way forward is
+  // sending it: a workflow step the prompt never runs (AUD-03 §3).
+  const response = useRequestEditor({
+    module: "engineering",
+    saveKind: "none",
+    workflow: "Send response",
+    label: "Your response",
+    dirty: text !== "" || !final,
+    request: () => engineeringApi(`/api/rfis/${rfi.id}/respond`, { body: { text, final } }),
+    onCommitted: () => {
       setText("");
+      setFinal(true);
       toast({ title: "Response added.", tone: "success" });
       router.refresh();
-    } catch (failure) {
-      toast({ title: failureMessage(failure), tone: "danger" });
-    } finally {
-      setPending(false);
-    }
+    },
+  });
+  const pending = response.pending;
+
+  function respond(event: React.FormEvent) {
+    event.preventDefault();
+    if (!text.trim()) return;
+    void response.submit("normal");
   }
 
   async function removeReference(referenceId: string) {
@@ -118,10 +125,11 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
             <label htmlFor="rfi-response" className="text-table font-medium text-fg">
               {rfi.status === "ANSWERED" ? "Add to the answer" : "Your response"}
             </label>
-            <Textarea id="rfi-response" rows={4} value={text} onChange={(event) => setText(event.target.value)} placeholder="Answer the question on the record. A sent response is never edited — add another to correct it." />
+            <Textarea id="rfi-response" rows={4} value={text} readOnly={pending} onChange={(event) => setText(event.target.value)} placeholder="Answer the question on the record. A sent response is never edited — add another to correct it." />
+            <RequestMessages error={response.error} outcomeText={response.outcomeText} />
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label htmlFor="rfi-final" className="flex items-center gap-2 text-table text-fg">
-                <Checkbox id="rfi-final" checked={final} onCheckedChange={(checked) => setFinal(checked === true)} />
+                <Checkbox id="rfi-final" checked={final} disabled={pending} onCheckedChange={(checked) => setFinal(checked === true)} />
                 This is the final response
               </label>
               <Button type="submit" size="sm" disabled={pending || !text.trim()}>
@@ -210,6 +218,7 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
         description="Say what the answer leaves open. The RFI goes back to its assignee."
         fields={[{ name: "text", label: "What is still unclear", type: "textarea", required: true, rows: 4 }]}
         submitLabel="Send back"
+        module="engineering"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/rfis/${rfi.id}/clarification`, { body: payload });
           toast({ title: "Sent back for clarification.", tone: "success" });
@@ -225,6 +234,7 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
         fields={taskFields(assignees)}
         initial={{ priority: "MEDIUM", title: `Follow up ${rfi.rfiNumber}: ${rfi.subject}`.slice(0, 200) }}
         submitLabel="Create task"
+        module="engineering"
         testId="task-form"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/rfis/${rfi.id}/tasks`, { body: payload });
@@ -247,13 +257,26 @@ function taskFields(assignees: Option[]): FormField[] {
 }
 
 function ReferenceDialog({ rfiId, onClose }: { rfiId: string; onClose: () => void }) {
+  const [pending, setPending] = React.useState(false);
+  return (
+    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
+      <DialogContent className="max-w-lg" data-testid="reference-dialog">
+        <DialogTitle>Add reference</DialogTitle>
+        <DialogDescription>Only records on this RFI&apos;s project that you can open are offered.</DialogDescription>
+        {/* Inside the dialog, so the pick belongs to its guarded close (AUD-03 §5). */}
+        <ReferenceForm rfiId={rfiId} onClose={onClose} onPending={setPending} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReferenceForm({ rfiId, onClose, onPending }: { rfiId: string; onClose: () => void; onPending: (pending: boolean) => void }) {
   const router = useRouter();
+  const close = useDialogClose();
   const [type, setType] = React.useState<RfiReferenceType>("DRAWING");
   const [options, setOptions] = React.useState<Option[] | null>(null);
   const [referenceId, setReferenceId] = React.useState("");
   const [note, setNote] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
 
   React.useEffect(() => {
     let live = true;
@@ -267,75 +290,66 @@ function ReferenceDialog({ rfiId, onClose }: { rfiId: string; onClose: () => voi
     };
   }, [rfiId, type]);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setPending(true);
-    setError(null);
-    try {
-      await engineeringApi(`/api/rfis/${rfiId}/references`, { body: { referenceType: type, referenceId, note: note.trim() || null } });
+  const save = useRequestEditor({
+    module: "engineering",
+    saveKind: "create",
+    label: "Add reference",
+    dirty: referenceId !== "" || note !== "",
+    request: () => engineeringApi(`/api/rfis/${rfiId}/references`, { body: { referenceType: type, referenceId, note: note.trim() || null } }),
+    onCommitted: () => {
       onClose();
       router.refresh();
-    } catch (failure) {
-      setError(failureMessage(failure));
-    } finally {
-      setPending(false);
-    }
-  }
+    },
+  });
+  const { pending } = save;
+  React.useEffect(() => onPending(pending), [onPending, pending]);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
-      <DialogContent className="max-w-lg" data-testid="reference-dialog">
-        <DialogTitle>Add reference</DialogTitle>
-        <DialogDescription>Only records on this RFI&apos;s project that you can open are offered.</DialogDescription>
-        <form onSubmit={submit} className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="reference-type" className="text-meta font-medium text-fg-muted">
-                Kind
-              </label>
-              <select id="reference-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value as RfiReferenceType)}>
-                {REFERENCE_CHOICES.map((choice) => (
-                  <option key={choice} value={choice}>
-                    {RFI_REFERENCE_LABELS[choice]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <label htmlFor="reference-record" className="text-meta font-medium text-fg-muted">
-                Record
-              </label>
-              <select id="reference-record" className={selectClass} value={referenceId} onChange={(event) => setReferenceId(event.target.value)} disabled={options === null}>
-                <option value="">{options === null ? "Loading…" : options.length ? "Choose" : "Nothing to reference"}</option>
-                {(options ?? []).map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+    <form onSubmit={save.onSubmit} className="mt-4 space-y-4">
+      <fieldset disabled={pending} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
-            <label htmlFor="reference-note" className="text-meta font-medium text-fg-muted">
-              Note
+            <label htmlFor="reference-type" className="text-meta font-medium text-fg-muted">
+              Kind
             </label>
-            <input id="reference-note" className={selectClass} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Grid, level or detail" />
+            <select id="reference-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value as RfiReferenceType)}>
+              {REFERENCE_CHOICES.map((choice) => (
+                <option key={choice} value={choice}>
+                  {RFI_REFERENCE_LABELS[choice]}
+                </option>
+              ))}
+            </select>
           </div>
-          {error ? (
-            <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending || !referenceId}>
-              Add reference
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor="reference-record" className="text-meta font-medium text-fg-muted">
+              Record
+            </label>
+            <select id="reference-record" className={selectClass} value={referenceId} onChange={(event) => setReferenceId(event.target.value)} disabled={options === null}>
+              <option value="">{options === null ? "Loading…" : options.length ? "Choose" : "Nothing to reference"}</option>
+              {(options ?? []).map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="reference-note" className="text-meta font-medium text-fg-muted">
+            Note
+          </label>
+          <input id="reference-note" className={selectClass} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Grid, level or detail" />
+        </div>
+      </fieldset>
+      <RequestMessages error={save.error} outcomeText={save.outcomeText} />
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={close} disabled={pending}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={pending || !referenceId}>
+          Add reference
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

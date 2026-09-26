@@ -96,6 +96,7 @@ export function TemplateForm({
 
   return (
     <RecordForm
+      module="qaqc"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}

@@ -4,13 +4,16 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
+import { COMMITTED, failureOutcome, INVALID } from "@/components/project-planning/use-values-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { PROJECT_TYPE_NAME_MAX } from "@/config/project-types";
 import type { ProjectTypeDTO } from "@/lib/modules/projects/project.types";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -32,45 +35,76 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
 
   const replace = (next: ProjectTypeDTO) => setTypes((current) => current.map((type) => (type.id === next.id ? next : type)));
 
-  async function add(event: React.FormEvent) {
-    event.preventDefault();
+  // The name being added and the name being changed are both unsaved input
+  // (AUD-03 §3): leaving asks, and Save and continue runs the same add or
+  // rename as the buttons.
+  const adding = useUnsavedEditor({ module: "projects", saveKind: "create", label: "New project type", save: () => add() });
+  const renaming = useUnsavedEditor({ module: "projects", saveKind: "save", label: () => `Name of ${types.find((type) => type.id === editing?.id)?.name ?? "project type"}`, save: () => rename() });
+  const setAddingDirty = adding.setDirty;
+  const setRenamingDirty = renaming.setDirty;
+  React.useEffect(() => setAddingDirty(newName !== ""), [newName, setAddingDirty]);
+  React.useEffect(() => {
+    const original = editing ? types.find((type) => type.id === editing.id)?.name : undefined;
+    setRenamingDirty(editing !== null && editing.name !== original);
+  }, [editing, types, setRenamingDirty]);
+
+  async function add(): Promise<SaveOutcome> {
     const name = newName.trim();
     if (!name) {
       setAddError("Give the type a name.");
-      return;
+      return INVALID;
     }
     setPending("add");
+    adding.setSaving(true);
     setAddError(null);
     try {
       const created = await announcementApi<ProjectTypeDTO>("/api/projects/types", { body: { name } });
+      adding.setUnresolved(false);
+      adding.setDirty(false);
       setTypes((current) => [...current, created]);
       setNewName("");
+      return COMMITTED;
     } catch (error) {
+      const outcome = failureOutcome(error);
+      adding.setUnresolved(outcome.kind === "unknown");
       setAddError(failureMessage(error, "The type could not be added."));
+      return outcome;
     } finally {
       setPending(null);
+      adding.setSaving(false);
     }
   }
 
-  async function rename(event: React.FormEvent) {
-    event.preventDefault();
-    if (!editing) return;
+  async function rename(): Promise<SaveOutcome> {
+    if (!editing) return COMMITTED;
     const name = editing.name.trim();
     const current = types.find((type) => type.id === editing.id);
     if (!current || name === current.name) {
+      renaming.setDirty(false);
       setEditing(null);
-      return;
+      return COMMITTED;
     }
     setPending(editing.id);
+    renaming.setSaving(true);
     try {
       replace(await announcementApi<ProjectTypeDTO>(`/api/projects/types/${editing.id}`, { method: "PATCH", body: { name } }));
+      renaming.setUnresolved(false);
+      renaming.setDirty(false);
       setEditing(null);
+      return COMMITTED;
     } catch (error) {
+      const outcome = failureOutcome(error);
+      renaming.setUnresolved(outcome.kind === "unknown");
       setEditing({ ...editing, error: failureMessage(error, "The type could not be renamed.") });
+      return outcome;
     } finally {
       setPending(null);
+      renaming.setSaving(false);
     }
   }
+
+  /** Starting another rename, or Cancel, drops the one being typed: asked first. */
+  const startRename = (next: { id: string; name: string; error: null } | null) => void renaming.requestDismiss(() => setEditing(next));
 
   async function setActive(type: ProjectTypeDTO, isActive: boolean) {
     setPending(type.id);
@@ -120,7 +154,13 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
 
   return (
     <div className="space-y-5">
-      <form onSubmit={add} className="nesto-card space-y-2 p-5">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void add();
+        }}
+        className="nesto-card space-y-2 p-5"
+      >
         <label htmlFor="new-project-type" className="text-card font-semibold text-fg">
           Add a project type
         </label>
@@ -176,7 +216,13 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
                   </div>
 
                   {isEditing ? (
-                    <form onSubmit={rename} className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center">
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void rename();
+                      }}
+                      className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center"
+                    >
                       <Input
                         value={editing.name}
                         onChange={(event) => setEditing({ ...editing, name: event.target.value, error: null })}
@@ -190,7 +236,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
                         <Button type="submit" size="sm" disabled={busy}>
                           {busy ? "Saving…" : "Save"}
                         </Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => startRename(null)} disabled={busy}>
                           Cancel
                         </Button>
                       </div>
@@ -214,7 +260,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
 
                   {isEditing ? null : (
                     <div className="ml-auto flex shrink-0 items-center gap-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setEditing({ id: type.id, name: type.name, error: null })} disabled={pending !== null}>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => startRename({ id: type.id, name: type.name, error: null })} disabled={pending !== null}>
                         <Pencil aria-hidden="true" />
                         Rename<span className="sr-only"> {type.name}</span>
                       </Button>

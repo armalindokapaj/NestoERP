@@ -6,7 +6,7 @@ import * as collaboration from "@/lib/core/collaboration/collaboration.service";
 import { dispatchNotifications } from "@/lib/core/notifications/notification.dispatch";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma, PROJECT, taskVersion } from "../../helpers";
 
 /**
  * Contextual collaboration: comments, mentions, watchers (PRD #38 §39, §40,
@@ -187,7 +187,7 @@ describe("parent authorisation is enforced on every call (PRD #38 §30, §39, §
   it("keeps an archived task's discussion readable but closed to new comments", async () => {
     const { pm, engineer, task } = await taskOnProjectA();
     await collaboration.createComment(pm, "task", task.id, comment("Before archiving"));
-    await tasks.archiveTask(pm, task.id);
+    await tasks.archiveTask(pm, task.id, await taskVersion(task.id));
 
     const archived = await thread(engineer, task.id);
     expect(archived.parent.archived).toBe(true);

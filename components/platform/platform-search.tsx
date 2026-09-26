@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Search, X } from "lucide-react";
 
 type Result = { type: string; id: string; title: string; subtitle: string; href: string };

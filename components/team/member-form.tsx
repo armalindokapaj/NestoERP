@@ -46,6 +46,7 @@ export function MemberForm({
       submitLabel="Save changes"
       pendingLabel="Saving…"
       versionUpdatedAt={versionUpdatedAt}
+      module="team"
     >
       <FormSection
         title="Person"

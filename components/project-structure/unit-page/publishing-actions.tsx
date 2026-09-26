@@ -1,15 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Archive, ArchiveRestore, CircleX, EyeOff, MoreHorizontal, RotateCcw, Send, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { failureOutcome } from "@/components/project-planning/use-values-editor";
 import { REVISION_REASON_MAX, type UnitPublishingDTO } from "@/lib/modules/project-structure/unit-publishing.types";
 import { Field, FormError, failureMessage, structureApi } from "../structure-ui";
 
@@ -30,6 +32,8 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
   const [pending, setPending] = React.useState(false);
   const [reason, setReason] = React.useState("");
   const [formError, setFormError] = React.useState<string | null>(null);
+  // A reason sent without an answer back: it may have been applied (AUD-03 §6).
+  const [unconfirmed, setUnconfirmed] = React.useState(false);
   const { status, capabilities: can, readiness, pendingRequest, hasUnpublishedChanges } = publishing;
 
   const published = status === "PUBLISHED";
@@ -46,11 +50,13 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
     setFormError(null);
     try {
       await structureApi(url, { body });
+      setUnconfirmed(false);
       toast({ title: success });
       setOpen(null);
       setReason("");
       router.refresh();
     } catch (error) {
+      setUnconfirmed(failureOutcome(error).kind === "unknown");
       const message = failureMessage(error, `${label} did not work. Try again.`);
       if (open === "revision" || open === "unpublish") setFormError(message);
       else {
@@ -146,7 +152,9 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
               ))}
           </ul>
           <DialogFooter>
-            <Button onClick={() => setOpen(null)}>Close</Button>
+            <DialogClose asChild>
+              <Button>Close</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -154,9 +162,12 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
       <ReasonDialog
         open={open === "revision" || open === "unpublish"}
         onOpenChange={(value) => {
+          // Reached only through the guarded close: what was discarded is gone (AUD-03 §5).
           if (!value) {
             setOpen(null);
             setFormError(null);
+            setReason("");
+            setUnconfirmed(false);
           }
         }}
         title={open === "unpublish" ? `Unpublish ${unitCode}?` : changesWaiting ? `Return the changes to ${unitCode}` : `Revision Required for ${unitCode}`}
@@ -173,6 +184,7 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
         reason={reason}
         onReason={setReason}
         pending={pending}
+        unconfirmed={unconfirmed}
         error={formError}
         onConfirm={() =>
           open === "unpublish"
@@ -213,6 +225,7 @@ function ReasonDialog({
   reason,
   onReason,
   pending,
+  unconfirmed,
   error,
   onConfirm,
 }: {
@@ -224,42 +237,74 @@ function ReasonDialog({
   reason: string;
   onReason: (value: string) => void;
   pending: boolean;
+  unconfirmed: boolean;
   error: string | null;
   onConfirm: () => void;
 }) {
-  const [touched, setTouched] = React.useState(false);
-  React.useEffect(() => {
-    if (open) setTouched(false);
-  }, [open]);
-  const blank = reason.trim() === "";
   return (
     <Dialog open={open} onOpenChange={(value) => (pending ? null : onOpenChange(value))}>
       <DialogContent className="max-w-lg">
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
-        <form
-          className="mt-4 space-y-4"
-          noValidate
-          onSubmit={(event) => {
-            event.preventDefault();
-            setTouched(true);
-            if (!blank) onConfirm();
-          }}
-        >
-          <FormError message={error} />
-          <Field label="Reason" htmlFor="publishing-reason" required error={touched && blank ? "Give a reason." : undefined}>
-            <Textarea id="publishing-reason" value={reason} onChange={(event) => onReason(event.target.value)} rows={4} maxLength={REVISION_REASON_MAX} autoFocus aria-invalid={touched && blank} />
-          </Field>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Working…" : confirmLabel}
-            </Button>
-          </DialogFooter>
-        </form>
+        <ReasonForm confirmLabel={confirmLabel} reason={reason} onReason={onReason} pending={pending} unconfirmed={unconfirmed} error={error} onConfirm={onConfirm} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The reason, as a workflow editor (AUD-03 §3): only the step itself — send
+ * back, unpublish — finishes it, so closing with a reason typed asks, and Save
+ * and continue is never offered.
+ */
+function ReasonForm({
+  confirmLabel,
+  reason,
+  onReason,
+  pending,
+  unconfirmed,
+  error,
+  onConfirm,
+}: {
+  confirmLabel: string;
+  reason: string;
+  onReason: (value: string) => void;
+  pending: boolean;
+  unconfirmed: boolean;
+  error: string | null;
+  onConfirm: () => void;
+}) {
+  const [touched, setTouched] = React.useState(false);
+  const editor = useUnsavedEditor({ module: "units", saveKind: "none", workflow: confirmLabel, label: `${confirmLabel}: reason` });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(reason !== ""), [reason, setDirty]);
+  React.useEffect(() => setSaving(pending), [pending, setSaving]);
+  React.useEffect(() => setUnresolved(unconfirmed), [unconfirmed, setUnresolved]);
+  const blank = reason.trim() === "";
+  return (
+    <form
+      className="mt-4 space-y-4"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        setTouched(true);
+        if (!blank) onConfirm();
+      }}
+    >
+      <FormError message={error} />
+      <Field label="Reason" htmlFor="publishing-reason" required error={touched && blank ? "Give a reason." : undefined}>
+        <Textarea id="publishing-reason" value={reason} onChange={(event) => onReason(event.target.value)} rows={4} maxLength={REVISION_REASON_MAX} autoFocus aria-invalid={touched && blank} />
+      </Field>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Working…" : confirmLabel}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

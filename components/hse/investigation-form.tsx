@@ -18,6 +18,7 @@ export function InvestigationForm({ incident }: { incident: IncidentDetailDTO })
 
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={`/hse/incidents/${incident.id}`}
       submitLabel="Save findings"

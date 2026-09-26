@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
+import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as amendments from "@/lib/modules/contracts/amendments/amendment.service";
 import * as contracts from "@/lib/modules/contracts/contracts/contract.service";
@@ -38,7 +38,7 @@ import { contractPartySchema } from "@/lib/modules/contracts/parties/party.schem
  */
 
 export type ContractActionResult =
-  | { ok: true; id?: string; message?: string; code?: string }
+  | { ok: true; id?: string; message?: string; code?: string; redirectTo?: string }
   | { ok: false; error: string; code?: string; fieldErrors?: Record<string, string[]> };
 
 function revalidateContracts(recordPath?: string) {
@@ -100,7 +100,7 @@ export async function createContractAction(formData: FormData): Promise<Contract
   }
 
   revalidateContracts();
-  redirect(`/contracts/${id}`);
+  return committed(`/contracts/${id}`);
 }
 
 export async function updateContractAction(
@@ -138,7 +138,7 @@ export async function updateContractAction(
   }
 
   revalidateContracts(`/contracts/${contractId}`);
-  redirect(`/contracts/${contractId}`);
+  return committed(`/contracts/${contractId}`);
 }
 
 export type ContractLifecycleAction =
@@ -455,7 +455,7 @@ export async function saveAmendmentAction(
   }
 
   revalidateContracts(`/contracts/${contractId}`);
-  redirect(`/contracts/${contractId}/amendments/${id}`);
+  return committed(`/contracts/${contractId}/amendments/${id}`);
 }
 
 export type AmendmentLifecycleAction =

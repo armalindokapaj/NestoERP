@@ -43,6 +43,7 @@ export function CompensationForm({
       cancelHref={cancelHref}
       submitLabel="Record compensation"
       pendingLabel="Recording…"
+      module="hr"
     >
       <FormSection
         title="New pay record"

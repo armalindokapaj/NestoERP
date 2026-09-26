@@ -15,7 +15,6 @@ import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
-import { hasWorkspaceDirtyState } from "@/lib/workspace/client";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -302,9 +301,9 @@ function DrawerHeader({ identity, onSwitchStart }: { identity: Identity; onSwitc
 /* -------------------------------------------------------------------------- */
 
 /**
- * What the popup holds (§20-§27, §37): the list once its code and options are
- * in, a named loading state before that, a failure with Retry, and — when a
- * form has unsaved changes — the question before anything is discarded.
+ * What the popup holds (§20-§27): the list once its code and options are in, a
+ * named loading state before that, and a failure with Retry. Unsaved changes
+ * are asked about by the switch itself, in the shared prompt (§37, AUD-03 §7).
  */
 function WorkspacePopupContent({
   open,
@@ -321,7 +320,6 @@ function WorkspacePopupContent({
   const { state: options, retry, retrying } = useWorkspaceOptions();
   const { state: code, retry: retryCode } = usePanelModule(body, open);
   const { switchTo } = useWorkspaceSwitch();
-  const [unsaved, setUnsaved] = React.useState<WorkspaceOption | null>(null);
   const Body = code.status === "ready" ? code.module.WorkspacePanelBody : null;
 
   function commit(option: WorkspaceOption) {
@@ -335,15 +333,10 @@ function WorkspacePopupContent({
       close();
       return;
     }
-    // Never silently lose work (§37).
-    if (hasWorkspaceDirtyState()) {
-      setUnsaved(option);
-      return;
-    }
+    // Never silently lose work (§37): the switch asks the tab's unsaved-work
+    // coordinator before anything is sent, in the one shared prompt (AUD-03 §7).
     commit(option);
   }
-
-  if (unsaved) return <UnsavedChanges titleId={titleId} name={unsaved.name} onStay={close} onDiscard={() => commit(unsaved)} />;
 
   if (options.status === "failed") {
     return (
@@ -380,25 +373,5 @@ function WorkspacePopupContent({
         </>
       )}
     </>
-  );
-}
-
-/** §37: the switch would discard a form's changes, so ask first. Stay is the safe default and takes focus. */
-function UnsavedChanges({ titleId, name, onStay, onDiscard }: { titleId: string; name: string; onStay: () => void; onDiscard: () => void }) {
-  const t = useTranslations("workspace");
-  const descriptionId = React.useId();
-  return (
-    <div role="alertdialog" aria-labelledby={titleId} aria-describedby={descriptionId} data-testid="workspace-unsaved" className="px-1">
-      <h2 id={titleId} className="text-card font-semibold text-fg">{t("unsavedTitle")}</h2>
-      <p id={descriptionId} className="mt-1.5 text-table text-fg-muted">{t("unsavedDescription", { name })}</p>
-      <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <Button variant="secondary" size="sm" autoFocus onClick={onStay} data-testid="workspace-unsaved-stay">
-          {t("unsavedStay")}
-        </Button>
-        <Button variant="danger" size="sm" onClick={onDiscard} data-testid="workspace-unsaved-discard">
-          {t("unsavedDiscard")}
-        </Button>
-      </div>
-    </div>
   );
 }

@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Banknote, CalendarRange, FileText, MoreHorizontal, Plus, Receipt, Trash2 } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Field, isFailure, structureApi } from "@/components/project-structure/structure-ui";
-import { FormDialog, useDialogRequest } from "@/components/sales/unit-sales/unit-sales-dialogs";
+import { FormDialog, requestOutcome, useDialogRequest, useOpenedWith } from "@/components/sales/unit-sales/unit-sales-dialogs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -56,7 +57,9 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
     async (url, body, success, method) => {
       await structureApi(url, { method: method ?? "POST", body });
       toast({ title: success });
-      router.replace(pathname, { scroll: false });
+      // Any one-shot query goes without a navigation: the dialog that just saved
+      // is still on screen, and a navigation would ask about it (AUD-03 §5).
+      if (window.location.search) window.history.replaceState(window.history.state, "", pathname);
       router.refresh();
     },
     [toast, router, pathname],
@@ -454,6 +457,14 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
   const total = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   const target = finance.scheduleTarget ? Number(finance.scheduleTarget) : null;
   const update = (index: number, patch: Partial<Row>) => setRows((current) => current.map((row, at) => (at === index ? { ...row, ...patch } : row)));
+  // Rows added or removed count as much as a typed amount (AUD-03 §3).
+  const changed = useOpenedWith(true, rows);
+
+  /** The draft's one save path, for its button and "Save and continue" alike. */
+  function saveDraft(): Promise<unknown> {
+    const body = { installments: rows.map((row) => ({ label: row.label, type: row.type, amount: row.amount, dueDate: row.dueDate })), ...(schedule ? { expectedVersion: schedule.version } : {}) };
+    return request.send(schedule ? `/api/finance/payment-schedules/${schedule.id}` : `/api/contracts/${finance.summary.contract!.id}/payment-schedules`, body, "The draft schedule was saved.");
+  }
 
   return (
     <FormDialog
@@ -466,10 +477,11 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
       error={request.error}
       testId="schedule-dialog"
       wide
-      onSubmit={() => {
-        const body = { installments: rows.map((row) => ({ label: row.label, type: row.type, amount: row.amount, dueDate: row.dueDate })), ...(schedule ? { expectedVersion: schedule.version } : {}) };
-        void request.send(schedule ? `/api/finance/payment-schedules/${schedule.id}` : `/api/contracts/${finance.summary.contract!.id}/payment-schedules`, body, "The draft schedule was saved.").then((failed) => (failed ? null : onClose()));
-      }}
+      module="finance"
+      dirty={changed && !request.done}
+      unresolved={request.unresolved}
+      save={{ kind: schedule ? "save" : "create", run: async () => requestOutcome(await saveDraft()) }}
+      onSubmit={() => void saveDraft().then((failed) => (failed ? null : onClose()))}
     >
       <ol className="space-y-3">
         {rows.map((row, index) => (
@@ -581,6 +593,7 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
   const [edited, setEdited] = React.useState(false);
   const [duplicates, setDuplicates] = React.useState<Array<{ paymentDate: string; amount: string; reference: string | null }> | null>(null);
 
+  const changed = useOpenedWith(true, [amount, date, method, reference, notes, allocations]);
   const allocated = Object.values(allocations).reduce((sum, value) => sum + (Number(value) || 0), 0);
   const left = (Number(amount) || 0) - allocated;
 
@@ -601,7 +614,7 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
   }
 
   return (
-    <FormDialog open onClose={onClose} title="Record a payment" description="Money received against this contract. What you do not allocate stays on the payment as unallocated." confirmLabel={duplicates ? "Record anyway" : "Record payment"} pending={request.pending} error={duplicates ? null : request.error} testId="record-payment-dialog" wide onSubmit={() => send(Boolean(duplicates))}>
+    <FormDialog open onClose={onClose} title="Record a payment" description="Money received against this contract. What you do not allocate stays on the payment as unallocated." confirmLabel={duplicates ? "Record anyway" : "Record payment"} pending={request.pending} error={duplicates ? null : request.error} testId="record-payment-dialog" wide module="finance" workflow="Record payment" dirty={changed && !request.done} unresolved={request.unresolved} onSubmit={() => send(Boolean(duplicates))}>
       {duplicates ? (
         <div className="rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-table text-warning-strong" data-testid="duplicate-payment">
           <p className="font-medium">A payment like this is already recorded on this contract:</p>
@@ -671,6 +684,7 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
 function AllocateDialog({ onClose, payment, installments, submit }: { onClose: () => void; payment: ContractPaymentDTO; installments: InstallmentDTO[]; submit: Submit }) {
   const request = useDialogRequest((url, body, success) => submit(url, body, success));
   const [values, setValues] = React.useState<Record<string, string>>(() => propose(payment.unallocatedAmount, installments));
+  const changed = useOpenedWith(true, values);
   return (
     <FormDialog
       open
@@ -681,6 +695,9 @@ function AllocateDialog({ onClose, payment, installments, submit }: { onClose: (
       pending={request.pending}
       error={request.error}
       testId="allocate-payment-dialog"
+      module="finance"
+      dirty={changed && !request.done}
+      unresolved={request.unresolved}
       onSubmit={() => {
         const allocations = Object.entries(values).filter(([, value]) => Number(value) > 0).map(([installmentId, amount]) => ({ installmentId, amount }));
         void request.send(`/api/finance/payments/${payment.id}/allocations`, { allocations }, "The payment was allocated.").then((failed) => (failed ? null : onClose()));

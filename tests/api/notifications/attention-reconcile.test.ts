@@ -10,7 +10,7 @@ import { enqueueNotificationEvent, openNotification } from "@/lib/core/notificat
 import { openApproval } from "@/lib/modules/procurement/approvals/approval.service";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, loginAs, prisma, PROJECT } from "../../helpers";
+import { cleanupSessions, loginAs, prisma, PROJECT, taskVersion } from "../../helpers";
 
 /**
  * Attention, deep links, preferences and worker leases (PRD #38 §77-§85, §96).
@@ -90,7 +90,7 @@ describe("attention reconciliation (PRD #38 §83-§85)", () => {
     const { assignee, task, owner } = await overdueTaskFor("ENGINEER");
     await reconcileAttention({ companyId: owner.companyId });
 
-    await tasks.completeTask(assignee, task.id);
+    await tasks.completeTask(assignee, task.id, await taskVersion(task.id));
     expect((await itemsFor(task.id)).every((item) => item.status === "RESOLVED")).toBe(true);
 
     // And the next run does not bring it back.

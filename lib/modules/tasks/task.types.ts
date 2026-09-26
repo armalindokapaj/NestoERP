@@ -26,6 +26,8 @@ export type TaskSummaryDTO = {
   /** Derived, never stored (PRD #11 §142). */
   isOverdue: boolean;
   updatedAt: string;
+  /** The version a command launched from this row names (AUD-02 §3). */
+  version: number;
   /** Present only in the Group workspace, where a row must say which company it is (Workspace Context §32, §45). */
   company?: { id: string; name: string };
 };
@@ -58,6 +60,11 @@ export type TaskDetailDTO = {
   blocked: { reason: string | null; since: string | null; byMemberId: string | null } | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * The concurrency authority (AUD-02 §3): every change this page launches
+   * names it, and is refused if the task has moved on since.
+   */
+  version: number;
   archivedAt: string | null;
   /**
    * Server-derived UX hints. The frontend must not treat these as security —

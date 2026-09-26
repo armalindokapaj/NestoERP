@@ -1,5 +1,8 @@
 "use client";
 
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { outcomeOf } from "@/lib/unsaved/outcome";
+
 /**
  * The browser side of the meetings API. Every call answers with the data or
  * throws a failure carrying the server's message, its code and the first field
@@ -39,4 +42,16 @@ export async function meetingApi<T>(url: string, init?: { method?: string; body?
 
 export function failureMessage(error: unknown, fallback = "Something went wrong."): string {
   return typeof error === "object" && error !== null && "message" in error ? String((error as MeetingApiFailure).message) : fallback;
+}
+
+/**
+ * What a thrown call means for unsaved work (AUD-03 §6): the server's answer is
+ * a definite refusal; a request that never got an answer may have committed.
+ */
+export function meetingFailureOutcome(error: unknown): SaveOutcome {
+  if (typeof error !== "object" || error === null || !("code" in error)) return { kind: "unknown" };
+  const failure = error as MeetingApiFailure;
+  if (failure.status === 0) return { kind: "unknown" };
+  const outcome = outcomeOf({ ok: false, code: failure.code, error: failure.message });
+  return outcome.kind === "invalid" && failure.detailCode ? outcomeOf({ ok: false, code: failure.detailCode, error: failure.message }) : outcome;
 }

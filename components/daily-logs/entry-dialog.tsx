@@ -6,13 +6,16 @@ import { Trash2 } from "lucide-react";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { SECTION_LABELS, type SectionKey } from "@/lib/modules/daily-logs/daily-log.types";
 import { cn } from "@/lib/utils/cn";
-import { failureMessage, isFailure } from "./daily-log-api";
+import { dailyLogFailureOutcome, failureMessage, isFailure } from "./daily-log-api";
 import { SECTION_FIELDS, SECTION_NOUNS, type FieldDef, type OptionSource } from "./entry-fields";
 
 /**
@@ -45,15 +48,20 @@ export function EntryDialog({
   onRemove?: () => Promise<void>;
 }) {
   const [values, setValues] = React.useState<Record<string, unknown>>(initial);
+  // What the dialog opened with: the entry's values are compared with it (AUD-03 §3).
+  const [baseline, setBaseline] = React.useState<Record<string, unknown>>(initial);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [unresolved, setUnresolved] = React.useState(false);
 
   React.useEffect(() => {
     if (open) {
       setValues(initial);
+      setBaseline(initial);
       setErrors({});
       setFormError(null);
+      setUnresolved(false);
     }
     // Only when the dialog opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -62,30 +70,45 @@ export function EntryDialog({
   if (!section) return null;
   const fields = SECTION_FIELDS[section];
   const title = `${editing ? "Edit" : "Add"} ${SECTION_NOUNS[section]}`;
+  const dirty = JSON.stringify(values) !== JSON.stringify(baseline);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  /** The entry's save, for its button and for the prompt's Save and continue alike. */
+  async function run(): Promise<SaveOutcome> {
+    if (pending) return { kind: "unknown" };
+    if (unsaved.frozen) return { kind: "refused" };
     const found: Record<string, string> = {};
     for (const field of fields) {
       const value = values[field.name];
       if (field.required && (value === undefined || value === null || String(value).trim() === "")) found[field.name] = "Required.";
     }
     setErrors(found);
-    if (Object.keys(found).length) return;
+    if (Object.keys(found).length) return { kind: "invalid" };
     setPending(true);
     setFormError(null);
     try {
       await onSave(values);
+      // Clean before it stops saving, then closed.
+      setBaseline(values);
+      setUnresolved(false);
       onOpenChange(false);
+      return { kind: "committed" };
     } catch (error) {
+      const outcome = dailyLogFailureOutcome(error);
+      setUnresolved(outcome.kind === "unknown");
       const field = isFailure(error) ? (error.details.field as string | undefined) : undefined;
       const fieldErrors = isFailure(error) ? Object.entries(error.details).filter(([, value]) => Array.isArray(value)) : [];
       if (field) setErrors({ [field]: failureMessage(error) });
       else if (fieldErrors.length) setErrors(Object.fromEntries(fieldErrors.map(([key, value]) => [key, String((value as string[])[0])])));
-      else setFormError(failureMessage(error));
+      else setFormError(outcome.kind === "unknown" ? `${failureMessage(error)} ${OUTCOME_COPY.unknown}` : failureMessage(error));
+      return outcome;
     } finally {
       setPending(false);
     }
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    void run();
   }
 
   async function remove() {
@@ -103,6 +126,8 @@ export function EntryDialog({
 
   const form = (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate data-testid="entry-form">
+      {/* Rendered inside the dialog or sheet, so closing it asks about the entry (AUD-03 §5). */}
+      <EntryEditor label={title} saveKind={editing ? "save" : "create"} dirty={dirty} saving={pending} unresolved={unresolved} save={run} />
       <div className={cn("grid flex-1 gap-4 overflow-y-auto", mobile ? "px-5 py-4" : "mt-4 sm:grid-cols-2")}>
         {fields.map((field) => (
           <Field key={field.name} field={field} value={values[field.name]} error={errors[field.name]} options={options} onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))} />
@@ -121,9 +146,11 @@ export function EntryDialog({
           </Button>
         ) : null}
         <span className="flex-1" />
-        <Button type="button" variant="secondary" size="sm" onClick={() => onOpenChange(false)} disabled={pending}>
-          Cancel
-        </Button>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" size="sm" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Saving…" : editing ? "Save" : "Add"}
         </Button>
@@ -155,6 +182,19 @@ export function EntryDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** The entry's registration with the unsaved-work coordinator (AUD-03 §3); the form keeps its values. */
+function EntryEditor({ label, saveKind, dirty, saving, unresolved, save }: { label: string; saveKind: "save" | "create"; dirty: boolean; saving: boolean; unresolved: boolean; save: () => Promise<SaveOutcome> }) {
+  const editor = useUnsavedEditor({ module: "daily_logs", saveKind, label, save });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => {
+    // Dirtiness first: a save that just committed stops saving already clean.
+    setDirty(dirty);
+    setUnresolved(unresolved);
+    setSaving(saving);
+  }, [dirty, saving, unresolved, setDirty, setSaving, setUnresolved]);
+  return null;
 }
 
 function Field({ field, value, error, options, onChange }: { field: FieldDef; value: unknown; error?: string; options: EntryOptions | null; onChange: (value: unknown) => void }) {

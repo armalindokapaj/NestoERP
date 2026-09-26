@@ -24,6 +24,10 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "VALIDATION_ERROR"
   | "CONFLICT"
+  /** A write that must name the version it was based on, and did not (AUD-02 §6). */
+  | "PRECONDITION_REQUIRED"
+  /** A transient failure that left nothing behind; the same request may be tried again (AUD-02 §4, §6). */
+  | "TEMPORARILY_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 const STATUS: Record<ApiErrorCode, number> = {
@@ -36,6 +40,8 @@ const STATUS: Record<ApiErrorCode, number> = {
   NOT_FOUND: 404,
   VALIDATION_ERROR: 422,
   CONFLICT: 409,
+  PRECONDITION_REQUIRED: 428,
+  TEMPORARILY_UNAVAILABLE: 503,
   INTERNAL_ERROR: 500,
 };
 
@@ -49,6 +55,8 @@ const MESSAGES: Record<ApiErrorCode, string> = {
   NOT_FOUND: "The requested record could not be found.",
   VALIDATION_ERROR: "Some of the supplied values are not valid.",
   CONFLICT: "That change conflicts with an existing record.",
+  PRECONDITION_REQUIRED: "Reload the record and try again.",
+  TEMPORARILY_UNAVAILABLE: "The change could not be completed just now. Nothing was saved; try again.",
   INTERNAL_ERROR: "Something went wrong. Please try again.",
 };
 
@@ -69,6 +77,8 @@ export const SECURITY_REASON_CODES = [
   "STATE_DENIED",
   "CROSS_COMPANY_REFERENCE",
   "CROSS_PROJECT_REFERENCE",
+  // A write from a tab that still renders another workspace (AUD-03 §7).
+  "STALE_WORKSPACE",
 ] as const;
 export type SecurityReasonCode = (typeof SECURITY_REASON_CODES)[number];
 

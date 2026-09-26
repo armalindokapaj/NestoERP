@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { UnitBindingEditor } from "@/components/3d/platform/UnitBindingEditor";
 import { Badge } from "@/components/ui/badge";

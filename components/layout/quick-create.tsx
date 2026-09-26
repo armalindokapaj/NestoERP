@@ -19,7 +19,8 @@ import {
   type MenuFailure,
 } from "@/lib/modules/quick-create/menu-cache";
 import type { QuickCreateActionDTO, QuickCreateCompany, QuickCreateLaunchDTO, QuickCreateMenuDTO } from "@/lib/modules/quick-create/quick-create.service";
-import { confirmWorkspaceNavigation, openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
+import { unsaved } from "@/lib/unsaved/coordinator";
+import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 
@@ -321,8 +322,11 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
 
   async function launch(action: QuickCreateActionDTO, chosenCompany: QuickCreateCompany | null, chosenProject: string | null) {
     if (launchBusy.current) return; // one POST per launch (Q22)
-    // The unsaved-changes question, once for the whole flow (QC-10 step 2, NAV-05).
-    if (!confirmWorkspaceNavigation()) return;
+    // The unsaved-changes question, once for the whole flow (QC-10 step 2,
+    // NAV-05): asked for leaving this page; a company switch later in the flow
+    // does not ask again about what was answered here (AUD-03 §4).
+    const approval = await unsaved.requestDeparture({ kind: "navigate", href: pathname });
+    if (!approval) return;
     const id = ++launchSeq.current;
     launchBusy.current = true;
     setLaunching(action.key);
@@ -384,7 +388,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
       const ticket = feedback?.begin(data.href, "quick-create") ?? null;
       releaseLaunch(id);
       dismiss();
-      nav.push(data.href, { source: "quick-create", ticket });
+      if (!approval.run(() => nav.push(data.href, { source: "quick-create", ticket }))) feedback?.store.settle(ticket);
       return;
     }
 
@@ -394,7 +398,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     ownSwitch.current = { launch: id, companyId: data.company.id };
     const switched = await requestWorkspaceSwitch(
       { scopeType: "COMPANY", companyId: data.company.id, currentPathname, currentSearch: search ? `?${search}` : "" },
-      { timeoutMs: REQUEST_TIMEOUT_MS, confirmed: true, echoToThisTab: false },
+      { timeoutMs: REQUEST_TIMEOUT_MS, prior: approval, targetName: data.company.name, echoToThisTab: false },
     );
     if (ownSwitch.current?.launch === id) ownSwitch.current = null;
     if (launchSeq.current !== id) {
@@ -405,12 +409,14 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     if (!switched.ok) {
       feedback?.store.settle(ticket);
       releaseLaunch(id);
-      if (switched.stale) return;
+      if (switched.stale || switched.cancelled) return;
       toast({ title: `Could not open ${data.company.name}.`, tone: "danger" });
       if (switched.ambiguous) {
-        // It may have switched on the server: load the canonical workspace before anything else (QC-11).
+        // It may have switched on the server: load the canonical workspace
+        // before anything else (QC-11). The person already let the page go.
         cache.invalidate();
         dismiss();
+        unsaved.forceLeave();
         window.location.reload();
       }
       return;

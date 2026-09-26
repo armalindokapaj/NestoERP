@@ -1,20 +1,20 @@
-import { z } from "zod";
-
-import { apiOk, readJson, withContext } from "@/lib/api/respond";
+import { withContext } from "@/lib/api/respond";
+import { commandResponse, readCommandBody } from "@/lib/modules/tasks/task.http";
+import { blockTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
 
 type Params = { params: Promise<{ taskId: string }> };
 
 /**
  * A dedicated status action rather than a PATCH, so the permission that owns
- * the transition is the one that is checked (PRD #11 §61, §159).
+ * the transition is the one that is checked (PRD #11 §61, §159). Body
+ * `{ expectedVersion, reason }`: the reason is 3–1,000 characters once
+ * trimmed, checked by the command for every transport (AUD-02 §5).
  */
-const blockSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
-
 export async function POST(request: Request, { params }: Params) {
   const { taskId } = await params;
   return withContext(async (context) => {
-    const { reason } = blockSchema.parse(await readJson(request));
-    return apiOk({ data: await tasks.blockTask(context, taskId, reason) });
+    const input = blockTaskSchema.parse(await readCommandBody(request));
+    return commandResponse(await tasks.blockTask(context, taskId, input));
   });
 }

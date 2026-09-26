@@ -2,16 +2,16 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Link2, ListPlus, X } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle, useDialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { LINK_GROUPS, LINKABLE_LABELS, type LinkableType, type LinkedRecordDTO, type Option } from "@/lib/modules/engineering/engineering.types";
 import { engineeringApi, failureMessage } from "./engineering-api";
-import { FormDialog, type FormField } from "./form-kit";
+import { FormDialog, RequestMessages, useRequestEditor, type FormField } from "./form-kit";
 
 /**
  * What a record points at (PRD #46 §79, §111-§113, §133-§155). Tasks, meetings
@@ -134,6 +134,7 @@ export function LinksPanel({
           fields={TASK_FIELDS(assignees)}
           initial={{ priority: "MEDIUM" }}
           submitLabel="Create task"
+          module="engineering"
           testId="task-form"
           onSubmit={async (payload) => {
             await engineeringApi(`${apiBase}/tasks`, { body: payload });
@@ -147,13 +148,26 @@ export function LinksPanel({
 }
 
 function LinkDialog({ apiBase, types, onClose }: { apiBase: string; types: LinkableType[]; onClose: () => void }) {
+  const [pending, setPending] = React.useState(false);
+  return (
+    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
+      <DialogContent className="max-w-lg" data-testid="link-dialog">
+        <DialogTitle>Link a record</DialogTitle>
+        <DialogDescription>Only records on the same project that you can open are offered.</DialogDescription>
+        {/* Inside the dialog, so the pick belongs to its guarded close (AUD-03 §5). */}
+        <LinkForm apiBase={apiBase} types={types} onClose={onClose} onPending={setPending} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function LinkForm({ apiBase, types, onClose, onPending }: { apiBase: string; types: LinkableType[]; onClose: () => void; onPending: (pending: boolean) => void }) {
   const router = useRouter();
   const toast = useToast();
+  const close = useDialogClose();
   const [type, setType] = React.useState<LinkableType>(types[0]);
   const [options, setOptions] = React.useState<Option[] | null>(null);
   const [recordId, setRecordId] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
 
   React.useEffect(() => {
     let live = true;
@@ -167,75 +181,66 @@ function LinkDialog({ apiBase, types, onClose }: { apiBase: string; types: Linka
     };
   }, [apiBase, type]);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setPending(true);
-    setError(null);
-    try {
-      await engineeringApi(`${apiBase}/links`, { body: { type, recordId } });
+  const save = useRequestEditor({
+    module: "engineering",
+    saveKind: "create",
+    label: "Link a record",
+    dirty: recordId !== "",
+    request: () => engineeringApi(`${apiBase}/links`, { body: { type, recordId } }),
+    onCommitted: () => {
       toast({ title: "Record linked.", tone: "success" });
       onClose();
       router.refresh();
-    } catch (failure) {
-      setError(failureMessage(failure));
-    } finally {
-      setPending(false);
-    }
-  }
+    },
+  });
+  const { pending } = save;
+  React.useEffect(() => onPending(pending), [onPending, pending]);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
-      <DialogContent className="max-w-lg" data-testid="link-dialog">
-        <DialogTitle>Link a record</DialogTitle>
-        <DialogDescription>Only records on the same project that you can open are offered.</DialogDescription>
-        <form onSubmit={submit} className="mt-4 space-y-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="link-type" className="text-meta font-medium text-fg-muted">
-              Kind of record
-            </label>
-            <select id="link-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value as LinkableType)}>
-              {LINK_GROUPS.map((group) => {
-                const available = group.types.filter((item) => types.includes(item));
-                return available.length ? (
-                  <optgroup key={group.label} label={group.label}>
-                    {available.map((item) => (
-                      <option key={item} value={item}>
-                        {LINKABLE_LABELS[item]}
-                      </option>
-                    ))}
-                  </optgroup>
-                ) : null;
-              })}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="link-record" className="text-meta font-medium text-fg-muted">
-              Record
-            </label>
-            <select id="link-record" className={selectClass} value={recordId} onChange={(event) => setRecordId(event.target.value)} disabled={options === null}>
-              <option value="">{options === null ? "Loading…" : options.length ? "Choose a record" : "Nothing to link on this project"}</option>
-              {(options ?? []).map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {error ? (
-            <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending || !recordId}>
-              {pending ? "Linking…" : "Link"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <form onSubmit={save.onSubmit} className="mt-4 space-y-4">
+      <fieldset disabled={pending} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="link-type" className="text-meta font-medium text-fg-muted">
+            Kind of record
+          </label>
+          <select id="link-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value as LinkableType)}>
+            {LINK_GROUPS.map((group) => {
+              const available = group.types.filter((item) => types.includes(item));
+              return available.length ? (
+                <optgroup key={group.label} label={group.label}>
+                  {available.map((item) => (
+                    <option key={item} value={item}>
+                      {LINKABLE_LABELS[item]}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null;
+            })}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="link-record" className="text-meta font-medium text-fg-muted">
+            Record
+          </label>
+          <select id="link-record" className={selectClass} value={recordId} onChange={(event) => setRecordId(event.target.value)} disabled={options === null}>
+            <option value="">{options === null ? "Loading…" : options.length ? "Choose a record" : "Nothing to link on this project"}</option>
+            {(options ?? []).map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </fieldset>
+      <RequestMessages error={save.error} outcomeText={save.outcomeText} />
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={close} disabled={pending}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={pending || !recordId}>
+          {pending ? "Linking…" : "Link"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { BadgeCheck, CalendarPlus, CircleX, MoreHorizontal, PauseCircle, PlayCircle, Tag, Undo2, Unlock } from "lucide-react";
 
 import { DetailGrid } from "@/components/modules/record-header";
@@ -67,7 +68,9 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
     async (url: string, body: Record<string, unknown>, success: string) => {
       await structureApi(url, { method: url.endsWith("/sales") ? "PATCH" : "POST", body });
       toast({ title: success });
-      if (initialAction) router.replace(pathname, { scroll: false });
+      // The one-shot `?action=` goes without a navigation: the dialog that just
+      // saved is still on screen, and a navigation would ask about it (AUD-03 §5).
+      if (initialAction) window.history.replaceState(window.history.state, "", pathname);
       router.refresh();
     },
     [toast, router, pathname, initialAction],

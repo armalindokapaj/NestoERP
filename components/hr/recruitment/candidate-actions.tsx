@@ -80,6 +80,7 @@ export function CandidateActions({ candidate, choices }: { candidate: CandidateD
           initial={{ ...candidate.person, targetCompanyId: candidate.targetCompany?.id, targetDepartmentId: candidate.targetDepartment?.id, targetRoleKey: candidate.targetRole?.key, targetJobTitle: candidate.targetJobTitle, hiringManagerUserId: candidate.hiringManager?.userId, interviewStage: candidate.interviewStage, notes: candidate.notes }}
           onValuesChange={(values) => setCompanyId(String(values.targetCompanyId ?? ""))}
           submitLabel="Save"
+          module="hr"
           wide
           onSubmit={async (payload) => {
             await engineeringApi(base, { method: "PATCH", body: payload });
@@ -100,6 +101,9 @@ export function CandidateActions({ candidate, choices }: { candidate: CandidateD
         ]}
         initial={{ employmentType: "FULL_TIME" }}
         submitLabel="Create employment"
+        // Hiring is a workflow step, never run from the unsaved-changes prompt (AUD-03 §3).
+        saveKind="none"
+        module="hr"
         testId="hire-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`${base}/hire`, { body: payload });
@@ -118,6 +122,7 @@ export function CandidateActions({ candidate, choices }: { candidate: CandidateD
           { name: "notes", label: "Notes for Group IT", type: "textarea", rows: 3 },
         ]}
         submitLabel="Submit request"
+        module="hr"
         testId="access-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/hr/user-provisioning-requests", { body: { ...payload, employeeProfileId: candidate.employment?.id, submit: true } });

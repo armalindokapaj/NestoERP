@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
+import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import { DuplicateLeadError } from "@/lib/modules/sales/leads/lead.service";
 import * as leads from "@/lib/modules/sales/leads/lead.service";
@@ -42,7 +42,7 @@ import type { LeadDuplicateMatch } from "@/lib/modules/sales/sales.types";
  */
 
 export type SalesActionResult =
-  | { ok: true; id?: string; message?: string }
+  | { ok: true; id?: string; message?: string; redirectTo?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]>; duplicates?: LeadDuplicateMatch[] };
 
 function revalidateSales(recordPath?: string) {
@@ -130,7 +130,7 @@ export async function createLeadAction(formData: FormData): Promise<SalesActionR
   }
 
   revalidateSales();
-  redirect(`/sales/leads/${id}`);
+  return committed(`/sales/leads/${id}`);
 }
 
 export async function updateLeadAction(
@@ -149,7 +149,7 @@ export async function updateLeadAction(
   }
 
   revalidateSales(`/sales/leads/${leadId}`);
-  redirect(`/sales/leads/${leadId}`);
+  return committed(`/sales/leads/${leadId}`);
 }
 
 export type LeadLifecycleAction =
@@ -236,7 +236,7 @@ export async function convertLeadAction(
   // modules' pages are stale (PRD #17 §250).
   revalidatePath("/clients", "layout");
   revalidateSales(`/sales/leads/${leadId}`);
-  redirect(`/sales/opportunities/${opportunityId}`);
+  return committed(`/sales/opportunities/${opportunityId}`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -257,7 +257,7 @@ export async function createOpportunityAction(formData: FormData): Promise<Sales
   }
 
   revalidateSales();
-  redirect(`/sales/opportunities/${id}`);
+  return committed(`/sales/opportunities/${id}`);
 }
 
 export async function updateOpportunityAction(
@@ -276,7 +276,7 @@ export async function updateOpportunityAction(
   }
 
   revalidateSales(`/sales/opportunities/${opportunityId}`);
-  redirect(`/sales/opportunities/${opportunityId}`);
+  return committed(`/sales/opportunities/${opportunityId}`);
 }
 
 export async function changeStageAction(
@@ -336,7 +336,7 @@ export async function markWonAction(
   revalidatePath("/clients", "layout");
   revalidatePath("/projects", "layout");
   revalidateSales(`/sales/opportunities/${opportunityId}`);
-  redirect(`/sales/opportunities/${opportunityId}`);
+  return committed(`/sales/opportunities/${opportunityId}`);
 }
 
 export async function markLostAction(
@@ -355,7 +355,7 @@ export async function markLostAction(
   }
 
   revalidateSales(`/sales/opportunities/${opportunityId}`);
-  redirect(`/sales/opportunities/${opportunityId}`);
+  return committed(`/sales/opportunities/${opportunityId}`);
 }
 
 export type OpportunityLifecycleAction = "reopen" | "archive" | "restore";
@@ -418,7 +418,7 @@ export async function createProposalAction(formData: FormData): Promise<SalesAct
   }
 
   revalidateSales();
-  redirect(`/sales/proposals/${id}`);
+  return committed(`/sales/proposals/${id}`);
 }
 
 export async function updateProposalAction(
@@ -440,7 +440,7 @@ export async function updateProposalAction(
   }
 
   revalidateSales(`/sales/proposals/${proposalId}`);
-  redirect(`/sales/proposals/${proposalId}`);
+  return committed(`/sales/proposals/${proposalId}`);
 }
 
 export type ProposalLifecycleAction =

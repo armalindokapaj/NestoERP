@@ -66,6 +66,7 @@ export default async function EscalateDefectPage({ params }: Params) {
       </div>
 
       <RecordForm
+        module="qaqc"
         action={action}
         cancelHref={`/qaqc/defects/${defect.id}`}
         submitLabel="Raise NCR"

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { ArrowLeft, CalendarDays, CheckCircle2, Copy, FileText, Pencil, Pin, PinOff, Send, Upload } from "lucide-react";
 
 import { useUploadQueue } from "@/components/documents/upload-queue";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { AcknowledgmentRowDTO, AnnouncementDetailDTO, AnnouncementMetricsDTO } from "@/lib/modules/announcements/announcement.types";
 import { cn } from "@/lib/utils/cn";
 import { announcementApi, failureMessage } from "./announcement-api";
@@ -68,6 +69,15 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
 
   const upload = useUploadQueue({ parent: { context: "record", entityType: "announcement", entityId: item.id }, onUploaded: () => void refresh() });
   const uploading = upload.items.some((entry) => ["queued", "authorising", "uploading", "verifying", "processing"].includes(entry.status));
+
+  // AUD-03 §3: a chosen publish time is input whose only way forward is the
+  // Schedule step (never run from the prompt), and an attachment on its way is
+  // lost by leaving. Finished uploads are stored; discarding never deletes them.
+  const editor = useUnsavedEditor({ module: "announcements", saveKind: "none", workflow: "Schedule", label: "Schedule for" });
+  const { setDirty, setSaving, setPendingUploads } = editor;
+  React.useEffect(() => setDirty(caps.canSchedule && publishAt !== ""), [caps.canSchedule, publishAt, setDirty]);
+  React.useEffect(() => setSaving(pending === "schedule"), [pending, setSaving]);
+  React.useEffect(() => setPendingUploads(uploading), [uploading, setPendingUploads]);
 
   async function act(key: string, run: () => Promise<unknown>, success: string, after?: () => void) {
     setPending(key);
@@ -230,7 +240,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
                 </label>
                 <div className="flex gap-2">
                   <Input id="announcement-publish-at" type="datetime-local" value={publishAt} min={toLocalInput(new Date().toISOString())} onChange={(event) => setPublishAt(event.target.value)} className="h-9" />
-                  <Button type="button" size="sm" variant="secondary" className="h-9" disabled={!publishAt || Boolean(pending)} onClick={() => void act("schedule", () => announcementApi(`${base}/schedule`, { body: { expectedVersion: item.version, publishAt: new Date(publishAt).toISOString() } }), "Announcement scheduled")}>
+                  <Button type="button" size="sm" variant="secondary" className="h-9" disabled={!publishAt || Boolean(pending)} onClick={() => void act("schedule", () => announcementApi(`${base}/schedule`, { body: { expectedVersion: item.version, publishAt: new Date(publishAt).toISOString() } }), "Announcement scheduled", () => setPublishAt(""))}>
                     Schedule
                   </Button>
                 </div>

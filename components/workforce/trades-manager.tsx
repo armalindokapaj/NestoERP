@@ -4,11 +4,14 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
+import { failureOutcome } from "@/components/engineering/engineering-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { TRADE_NAME_MAX, type TradeDTO } from "@/lib/modules/workforce/workforce.types";
 
 import { cn } from "@/lib/utils/cn";
@@ -19,6 +22,10 @@ import { cn } from "@/lib/utils/cn";
  * retired, so no employee, crew or assignment loses the trade it was recorded
  * with. The server decides every change — this keeps the list in step with
  * what it answered.
+ *
+ * A name typed into "Add a trade", and a rename in progress, are two editors
+ * (AUD-03 §3): leaving asks about each, and "Save and continue" runs its own
+ * Add or Save. Cancel, or starting another rename, asks before dropping one.
  */
 function usage(trade: TradeDTO): string {
   const parts = [
@@ -39,44 +46,64 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
 
   const replace = (next: TradeDTO) => setTrades((current) => current.map((type) => (type.id === next.id ? next : type)));
 
-  async function add(event: React.FormEvent) {
-    event.preventDefault();
+  const adding = useUnsavedEditor({ module: "workforce", saveKind: "create", label: "New trade", save: () => add() });
+  React.useEffect(() => adding.setDirty(newName !== ""), [newName, adding.setDirty]);
+  React.useEffect(() => adding.setSaving(pending === "add"), [pending, adding.setSaving]);
+
+  const renamed = editing ? trades.find((type) => type.id === editing.id) : undefined;
+  const renaming = useUnsavedEditor({ module: "workforce", saveKind: "save", label: renamed ? `Rename ${renamed.name}` : "Trade name", save: () => rename() });
+  React.useEffect(() => renaming.setDirty(Boolean(editing && renamed && editing.name !== renamed.name)), [editing, renamed, renaming.setDirty]);
+  React.useEffect(() => renaming.setSaving(Boolean(editing && pending === editing.id)), [editing, pending, renaming.setSaving]);
+
+  async function add(): Promise<SaveOutcome> {
+    if (pending === "add") return { kind: "unknown" };
     const name = newName.trim();
     if (!name) {
       setAddError("Give the trade a name.");
-      return;
+      return { kind: "invalid" };
     }
     setPending("add");
     setAddError(null);
     try {
       const created = await announcementApi<TradeDTO>("/api/workforce/trades", { body: { name } });
       setTrades((current) => [...current, created]);
+      adding.setDirty(false);
       setNewName("");
+      return { kind: "committed" };
     } catch (error) {
       setAddError(failureMessage(error, "The trade could not be added."));
+      return failureOutcome(error);
     } finally {
       setPending(null);
     }
   }
 
-  async function rename(event: React.FormEvent) {
-    event.preventDefault();
-    if (!editing) return;
+  async function rename(): Promise<SaveOutcome> {
+    if (!editing) return { kind: "committed" };
     const name = editing.name.trim();
     const current = trades.find((type) => type.id === editing.id);
     if (!current || name === current.name) {
+      renaming.setDirty(false);
       setEditing(null);
-      return;
+      return { kind: "committed" };
     }
     setPending(editing.id);
     try {
       replace(await announcementApi<TradeDTO>(`/api/workforce/trades/${editing.id}`, { method: "PATCH", body: { name } }));
+      renaming.setDirty(false);
       setEditing(null);
+      return { kind: "committed" };
     } catch (error) {
       setEditing({ ...editing, error: failureMessage(error, "The trade could not be renamed.") });
+      return failureOutcome(error);
     } finally {
       setPending(null);
     }
+  }
+
+  /** Starts renaming a trade — asking first when another rename holds a change. */
+  function startRename(type: TradeDTO) {
+    void renaming.requestDismiss(() => setEditing({ id: type.id, name: type.name, error: null }));
   }
 
   async function setActive(type: TradeDTO, isActive: boolean) {
@@ -127,7 +154,13 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
 
   return (
     <div className="space-y-5">
-      <form onSubmit={add} className="nesto-card space-y-2 p-5">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void add();
+        }}
+        className="nesto-card space-y-2 p-5"
+      >
         <label htmlFor="new-trade" className="text-card font-semibold text-fg">
           Add a trade
         </label>
@@ -183,7 +216,13 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
                   </div>
 
                   {isEditing ? (
-                    <form onSubmit={rename} className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center">
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void rename();
+                      }}
+                      className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center"
+                    >
                       <Input
                         value={editing.name}
                         onChange={(event) => setEditing({ ...editing, name: event.target.value, error: null })}
@@ -197,7 +236,7 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
                         <Button type="submit" size="sm" disabled={busy}>
                           {busy ? "Saving…" : "Save"}
                         </Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => void renaming.requestDismiss(() => setEditing(null))} disabled={busy}>
                           Cancel
                         </Button>
                       </div>
@@ -221,7 +260,7 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
 
                   {isEditing ? null : (
                     <div className="ml-auto flex shrink-0 items-center gap-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setEditing({ id: type.id, name: type.name, error: null })} disabled={pending !== null}>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => startRename(type)} disabled={pending !== null}>
                         <Pencil aria-hidden="true" />
                         Rename<span className="sr-only"> {type.name}</span>
                       </Button>

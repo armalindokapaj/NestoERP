@@ -3261,3 +3261,156 @@ vitest, `nesto_aud` for E2E and `nesto_audp` for the benchmark.
 - **`nesto_erp` needs `prisma migrate deploy`** for
   `20260926120000_finance_settlement_views_aud_01` before the dev app can open
   the registers. It was not applied here.
+
+## 41. AUD-02 — Task reliability: one locked, versioned mutation and conflict recovery
+
+AUD-02 stops two people silently overwriting the same task.
+- **The defect.** Every task write read the task, checked it, then wrote by id
+  alone. The edit's timestamp check was optional and outside the transaction,
+  so two saves could both pass, and the activity and notifications described
+  the stale read.
+- **The fix.** Every change names the version its person reviewed, and commits
+  under a row lock only against that version, with its side effects in the
+  same transaction.
+
+The design is in [ADR 0017](adr/0017-task-version-and-mutation.md) and the
+contract, including the writer inventory, in
+[task-mutations.md](task-mutations.md).
+
+### 41.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Optional `versionUpdatedAt`, compared outside the transaction; `update where { id }` | `Task.version` (from 1). `mutateTask` locks the actor's membership and the task, compares the version, and writes `updateMany where id + companyId + version + status` with `version + 1` |
+| Start/Block/Complete/Reopen/Archive/Restore checked a stale read | The same locked path, validated against the task machine (`task.machine.ts`, registered). `task.status.ts` derives the edit moves from it |
+| Seeds, repair SQL and `ON DELETE SET NULL` changed tasks unseen | Trigger `tasks_version_guard` increments the version for any writer that changes a protected column, and refuses a reset or jump |
+| Every refusal was "We couldn't save your changes" or a bare 409 | 428 `TASK_VERSION_REQUIRED`, 422 on a malformed version, 409 `TASK_VERSION_CONFLICT` / `TASK_STATE_CONFLICT`, 503 `TASK_RETRYABLE_FAILURE`, in `details.code`. Server actions return `code` |
+| Archive/Restore answered 204 | 200 `{ data, meta }`. Every command answers `meta: { taskId, changed, version, updatedAt }` |
+| Stakeholder subscription after the commit; a failure there reported "save failed" | Subscribed inside the transaction (`subscribeStakeholdersIn`), for edits and creates. The meetings, HSE and QA/QC hand-offs no longer subscribe after their commit |
+| Assignment notice deduped on a wall-clock string | Deduped on `v<version>` |
+| Meeting action written blind; archive/restore not considered | Guarded on the action's status just read. Restore re-syncs; archive leaves the action |
+| API writes did not refresh any views | Routes and actions share `revalidateTaskViews`: `/tasks`, the task, `/dashboard`, both projects, the meeting and the parent record |
+| The edit form lost to another save with a generic error | Conflict review: the draft is kept, the latest is read through the person's scope, only the fields they changed are compared, the chosen ones are reapplied onto the latest version, and the person saves it. An archived task offers Restore; a task out of sight shows nothing; a dropped connection is reported as unconfirmed and never resent |
+| The block dialog closed before the server answered | It stays open, with the reason, until confirmed. A refusal is shown inside it |
+
+Migration `20260926140000_task_version_aud_02` is additive (a column with
+default 1, plus the trigger; LOW risk). No backfill is needed. Rollback keeps
+the column (AUD-02 §9). **`nesto_erp` has neither this migration nor
+AUD-01's.**
+
+### 41.2 The evidence
+
+Everything ran against real PostgreSQL. Nothing was run against `nesto_erp`.
+The lanes were cloned from `nesto_ow_tpl` with the migrations applied:
+`nesto_trv` for vitest and `nesto_tr` for E2E. The migration replays into an
+empty database, and `prisma migrate diff` reports no drift.
+
+**New tests**
+
+- **`tests/api/tasks/task-reliability.test.ts`, 40 of 40** (stable over three
+  runs):
+  - **The race barrier.** A second connection holds the task row. The commands
+    are started and the test waits until Postgres's own lock graph shows all
+    of them queued behind that row (`pg_blocking_pids`, followed recursively,
+    because a second waiter queues behind the first). Then the row is
+    released. Every race asserts the task, version, activity, outbox and
+    meeting action, whichever command won.
+  - TR-01 and TR-02.
+  - TR-03: two edits.
+  - TR-04: an edit against Complete, and an edit against Archive.
+  - TR-05: Start against Block, and Complete against a reassignment.
+  - TR-06: two archives, then two restores.
+  - TR-07: a completed and a blocked task restored with their metadata; the
+    legacy TODO fallback; a corrupt remembered status refused.
+  - TR-08: the no-op, the stale no-op, a repeated command.
+  - TR-09: missing, zero, negative, fractional, text, boolean, object and
+    over-range versions; a forged version; the legacy timestamp.
+  - TR-10: the reason's bounds, the reopen target, the permissions for editing
+    to COMPLETED.
+  - TR-11: another company, module off, the Viewer, a membership revoked
+    between the session and the write.
+  - TR-12: concurrent reassignment; inactive, foreign and off-project
+    assignees; no `task.assign`.
+  - TR-13.
+  - TR-14: activity, outbox and subscription failures, injected by temporary
+    database triggers, roll the version back, and a retry from the same version
+    commits.
+  - TR-15: a failed delivery is retried by the dispatcher and delivered once;
+    the task version is untouched.
+  - TR-16.
+  - TR-17: review, reapply, and a second conflict.
+  - TR-18.
+  - TR-19: a comment, a watch and a read change no version.
+  - TR-20: a meeting action converted, completed, archived, restored,
+    reopened, reassigned; a failed action write undoes the task's change.
+  - TR-23: one task locked while another commits; 30 concurrent commands on 30
+    tasks — total 73 ms, p95 71 ms (M-series laptop, alongside a production
+    build).
+  - TR-24: raw SQL bumps the version; a no-op write keeps it; a reset and a
+    jump are refused; deleting a project bumps it.
+- **`tests/api/tasks/task-commands-http.test.ts`, 10 of 10** (TR-09, TR-21):
+  - Every command route, and PATCH, through its handler. The refusals come in
+    order: 403 and 404 before 428, then 422, 409, and 200 with the committed
+    version and the refreshed views. A repeat is `TASK_STATE_CONFLICT`.
+  - The server actions give the same codes, history and refreshed views as the
+    routes.
+  - The edit action redirects, or answers `redirectTo` when the save took the
+    task out of sight.
+  - The review snapshot is read through the actor's scope.
+- **E2E, `tests/e2e/modules/task-reliability.spec.ts`, 8 of 8**, on a
+  production build (`.next-e2e`, :3170, lane `nesto_tr`). The competing change
+  comes from the Owner's own browser context through the API:
+  - review and reapply;
+  - Keep editing;
+  - archived meanwhile, then Restore;
+  - out of sight;
+  - an aborted server action;
+  - a Start against a task completed meanwhile;
+  - the reason dialog through a conflict;
+  - 360, 390, 768 and 1440 px, with no sideways scroll and the review reached
+    by keyboard.
+
+  Screenshots are in the session scratchpad (`aud02/shots`).
+
+**Regression**
+
+- Existing task, meetings, collaboration, notifications, planning, HSE, QA/QC,
+  architecture and security suites pass. The cross-company route and action
+  sweeps pass with the new command bodies and actions.
+- **Full vitest** (`nesto_trv`): 4 603 passed, 14 skipped. Two failures, both
+  known from §40: `procurement-service` "same order number in another company"
+  and `demo-user-switch.test.ts`, which does not load.
+- **E2E**: `tasks.spec.ts` plus the meetings, daily logs, HSE, planning,
+  workflows and collaboration specs, 77 passed across the two runs. The full
+  E2E suite was not run.
+
+**Gates**
+
+- `verify:state`: the task machine is registered. The blind and unreadable
+  baselines were re-recorded:
+  - `task.service.ts` fell from 4 blind and 2 unreadable writes to 0, and
+    `meeting.task-sync.ts` from 1 to 0.
+  - `employee.service.ts` and `department.service.ts` were already at 0 on
+    main.
+- `verify:authorization`: the by-id baseline was re-recorded for the two task
+  files.
+- `verify:ownership`, `verify:production-guards`, `verify:company-integrity`
+  and `verify:workers` pass. The data invariants pass, 19 of 19.
+- `security:matrix` was regenerated; only the task routes and actions changed.
+  `docs/state-machines.md` was regenerated, and now also has the two HR
+  verification machines from E-02.
+- Typecheck, lint and `next build` pass. The build lints and type-checks.
+
+### 41.3 Limits
+
+- **Only the edit form has the field-by-field review.** A conflict on a
+  command refreshes the page and asks the person to choose again, as §7
+  specifies.
+- **No durable receipt.** A lost response followed by a resend is refused as a
+  conflict, and the page shows the latest task. It cannot say who made the
+  change (§7).
+- **Task writes are locked; revocations are not changed.** Membership and
+  project revocation keep their own writes. Their serial order with a task
+  command comes from the share locks the command takes, as documented in
+  ADR 0017 §4.
+- **The full E2E suite and a Vercel deployment were not run.**

@@ -57,6 +57,8 @@ export function DepartmentMemberProjects({ member }: { member: TeamMemberDTO }) 
         ]}
         initial={{ target: options[0]?.value }}
         submitLabel="Assign"
+        // Putting somebody on a project is a record like any other: the prompt may save it (AUD-03 §3).
+        saveKind="create"
         testId="assign-project-dialog"
         onSubmit={async (payload) => {
           const [companyMemberId, projectId] = String(payload.target).split("|");

@@ -65,6 +65,7 @@ export function ExpenseForm({
   return (
     <RecordForm
       action={action}
+      module="finance"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}

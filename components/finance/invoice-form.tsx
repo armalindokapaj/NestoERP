@@ -76,6 +76,7 @@ export function InvoiceForm({
   return (
     <RecordForm
       action={action}
+      module="finance"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}

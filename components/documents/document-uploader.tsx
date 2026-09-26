@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import Link from "@/components/navigation/nav-link";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { CheckCircle2, CircleAlert, RotateCcw, Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { Field, FormSection, selectClass, type SelectOption } from "@/components/forms/record-form";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import { UPLOAD_RETRY_LIMIT } from "@/lib/core/storage";
@@ -27,6 +29,11 @@ import {
  * The dropzone is a button, not a `div` with a drop handler bolted on, so the
  * keyboard and a screen reader reach it the same way a mouse does
  * (PRD #29 §343).
+ *
+ * The context, name and description typed before a file is picked are unsaved
+ * work (AUD-03 §3): leaving asks. Picking files starts the upload, so there is
+ * no ordinary save to offer; the queue itself holds the page while a file is
+ * on its way.
  */
 export function DocumentUploader({
   projects,
@@ -59,6 +66,13 @@ export function DocumentUploader({
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [dragging, setDragging] = React.useState(false);
+
+  const values = JSON.stringify({ contextKind, projectId, clientId, name, description });
+  // What the page opened with; after an upload, what that upload used.
+  const [baseline, setBaseline] = React.useState(values);
+  const editor = useUnsavedEditor({ module: "documents", saveKind: "none", workflow: "Upload", label: "Document details" });
+  const { setDirty } = editor;
+  React.useEffect(() => setDirty(values !== baseline), [values, baseline, setDirty]);
 
   const parent = React.useMemo<UploadContextInput>(() => {
     if (lockedContext?.kind === "record") {
@@ -96,8 +110,9 @@ export function DocumentUploader({
       if (selected.length === 0) return;
       queue.enqueue(selected, metadataFor);
       setName("");
+      setBaseline(JSON.stringify({ contextKind, projectId, clientId, name: "", description }));
     },
-    [queue, metadataFor],
+    [queue, metadataFor, contextKind, projectId, clientId, description],
   );
 
   const finished = queue.items.filter((item) => item.status === "done").length;
@@ -266,11 +281,11 @@ export function DocumentUploader({
 
         <div className="flex items-center gap-2">
           <Button asChild variant="secondary" size="sm">
-            <a href={cancelHref}>{finished > 0 ? "Back" : "Cancel"}</a>
+            <Link href={cancelHref}>{finished > 0 ? "Back" : "Cancel"}</Link>
           </Button>
           {finished > 0 && !queue.active ? (
             <Button asChild size="sm">
-              <a href={doneHref}>Done</a>
+              <Link href={doneHref}>Done</Link>
             </Button>
           ) : null}
         </div>

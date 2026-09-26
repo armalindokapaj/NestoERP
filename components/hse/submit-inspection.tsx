@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { submitInspectionAction } from "@/lib/actions/hse";
 import { checklistGapLabel } from "./gap-labels";
 import { inspectionResultLabels } from "@/lib/modules/hse/hse.status";
@@ -39,22 +40,7 @@ export function SubmitInspection({
   allowedResults: HseInspectionResult[];
   versionUpdatedAt?: string;
 }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
   const ready = gaps.length === 0;
-
-  function submit(formData: FormData) {
-    startTransition(async () => {
-      const result = await submitInspectionAction(inspectionId, formData);
-      if (result.ok) {
-        toast({ title: result.message ?? "Submitted.", tone: "success" });
-        router.refresh();
-      } else {
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
-  }
 
   if (!ready) {
     return (
@@ -69,11 +55,56 @@ export function SubmitInspection({
     );
   }
 
+  return (
+    <SubmitInspectionForm
+      inspectionId={inspectionId}
+      allowedResults={allowedResults}
+      versionUpdatedAt={versionUpdatedAt}
+    />
+  );
+}
+
+/**
+ * Its own component so the editor mounts with the form: the panel above turns
+ * into this form in place once the gaps are answered.
+ */
+function SubmitInspectionForm({
+  inspectionId,
+  allowedResults,
+  versionUpdatedAt,
+}: {
+  inspectionId: string;
+  allowedResults: HseInspectionResult[];
+  versionUpdatedAt?: string;
+}) {
+  const toast = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  /**
+   * Submitting is a workflow step with a verdict and a summary to lose (AUD-03
+   * §3): the panel registers as workflow-only, so leaving with them typed asks
+   * first and "Save and continue" never submits anything. A committed submit
+   * opens the inspection, where the action said.
+   */
+  const save = useEditorSave({
+    formRef,
+    action: (formData: FormData) => submitInspectionAction(inspectionId, formData),
+    module: "hse",
+    saveKind: "none",
+    workflow: "Submit for approval",
+    label: "Submission",
+    onCommitted: (result) => {
+      toast({ title: result?.message ?? "Submitted.", tone: "success" });
+    },
+  });
+  const { pending } = save;
   const passBlocked = !allowedResults.includes("PASS");
 
   return (
-    <form action={submit} id="submit" className="nesto-card space-y-4 p-5">
+    <form ref={formRef} onSubmit={save.onSubmit} id="submit" className="nesto-card space-y-4 p-5">
       <h2 className="text-table font-medium text-fg">Submit this inspection</h2>
+
+      <SaveMessages save={save} />
 
       {versionUpdatedAt ? (
         <input type="hidden" name="versionUpdatedAt" value={versionUpdatedAt} />
@@ -86,7 +117,7 @@ export function SubmitInspection({
         </p>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 grid min-w-0 gap-4 border-0 p-0 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="result">Overall result</Label>
           <select id="result" name="result" className={selectClass} required>
@@ -112,11 +143,14 @@ export function SubmitInspection({
           <Label htmlFor="summary">Summary</Label>
           <Textarea id="summary" name="summary" rows={3} maxLength={4000} />
         </div>
-      </div>
+      </fieldset>
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Submitting…" : "Submit for approval"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={pending || Boolean(save.saved)}>
+          {pending ? "Submitting…" : "Submit for approval"}
+        </Button>
+        <UnsavedIndicator save={save} />
+      </div>
     </form>
   );
 }

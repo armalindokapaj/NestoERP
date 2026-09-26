@@ -38,11 +38,12 @@ export function CompanyRecordLink({
     setPending(true);
     // The shell shows the wait from the click on, through the switch and the page (NAV-04).
     const ticket = feedback?.begin(href, "workspace", { ownsWorkspaceSwitch: true }) ?? null;
-    const result = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId }, { echoToThisTab: false });
+    const result = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId }, { echoToThisTab: false, targetName: companyName ?? "" });
     if (!result.ok) {
       setPending(false);
       feedback?.store.settle(ticket);
-      if (!result.stale) toast({ title: t("switchFailed", { name: companyName ?? "" }), tone: "danger" });
+      // Staying with unsaved changes is the person's choice, not a failure (AUD-03 §7).
+      if (!result.stale && !result.cancelled) toast({ title: t("switchFailed", { name: companyName ?? "" }), tone: "danger" });
       return;
     }
     openInSwitchedWorkspace(href, { replace: true });

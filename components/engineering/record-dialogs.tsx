@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Pencil, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,6 @@ function OpenButton({ label, onOpen, variant = "primary", icon = "plus", testId 
 /* RFIs --------------------------------------------------------------------- */
 
 export function NewRfiButton({ projectId, defaults }: { projectId: string; defaults?: Record<string, unknown> }) {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "rfi");
   return (
@@ -53,6 +52,7 @@ export function NewRfiButton({ projectId, defaults }: { projectId: string; defau
       <OpenButton label="New RFI" testId="new-rfi" onOpen={() => void load().then(() => setOpen(true))} />
       {loaded ? (
         <FormDialog
+          module="engineering"
           open={open}
           onOpenChange={setOpen}
           title="New RFI"
@@ -60,11 +60,12 @@ export function NewRfiButton({ projectId, defaults }: { projectId: string; defau
           fields={rfiFields(options, "create")}
           initial={{ priority: "NORMAL", open: true, ...defaults }}
           submitLabel="Save RFI"
+          saveKind="create"
           wide
           testId="rfi-form"
           onSubmit={async (payload) => {
             const created = await engineeringApi<{ id: string }>(`/api/projects/${projectId}/rfis`, { body: payload });
-            router.push(`/projects/${projectId}/engineering/rfis/${created.id}`);
+            return { redirectTo: `/projects/${projectId}/engineering/rfis/${created.id}` };
           }}
         />
       ) : null}
@@ -81,6 +82,7 @@ export function EditRfiButton({ projectId, rfi }: { projectId: string; rfi: Reco
       <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-rfi" onOpen={() => void load().then(() => setOpen(true))} />
       {loaded ? (
         <FormDialog
+          module="engineering"
           open={open}
           onOpenChange={setOpen}
           title="Edit RFI"
@@ -101,7 +103,6 @@ export function EditRfiButton({ projectId, rfi }: { projectId: string; rfi: Reco
 /* Submittals --------------------------------------------------------------- */
 
 export function NewSubmittalButton({ projectId, defaultType = "TECHNICAL_SUBMITTAL", label = "New submittal" }: { projectId: string; defaultType?: string; label?: string }) {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "submittal");
   return (
@@ -109,6 +110,7 @@ export function NewSubmittalButton({ projectId, defaultType = "TECHNICAL_SUBMITT
       <OpenButton label={label} testId="new-submittal" onOpen={() => void load().then(() => setOpen(true))} />
       {loaded ? (
         <FormDialog
+          module="engineering"
           open={open}
           onOpenChange={setOpen}
           title={label}
@@ -120,7 +122,7 @@ export function NewSubmittalButton({ projectId, defaultType = "TECHNICAL_SUBMITT
           testId="submittal-form"
           onSubmit={async (payload) => {
             const created = await engineeringApi<{ id: string }>(`/api/projects/${projectId}/submittals`, { body: payload });
-            router.push(`/projects/${projectId}/engineering/submittals/${created.id}`);
+            return { redirectTo: `/projects/${projectId}/engineering/submittals/${created.id}` };
           }}
         />
       ) : null}
@@ -137,6 +139,7 @@ export function EditSubmittalButton({ projectId, submittal }: { projectId: strin
       <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-submittal" onOpen={() => void load().then(() => setOpen(true))} />
       {loaded ? (
         <FormDialog
+          module="engineering"
           open={open}
           onOpenChange={setOpen}
           title="Edit submittal"
@@ -157,7 +160,6 @@ export function EditSubmittalButton({ projectId, submittal }: { projectId: strin
 /* Engineering documents ---------------------------------------------------- */
 
 export function NewDocumentButton({ projectId, drawing = false }: { projectId: string; drawing?: boolean }) {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "document");
   const label = drawing ? "Register drawing" : "Register document";
@@ -166,6 +168,7 @@ export function NewDocumentButton({ projectId, drawing = false }: { projectId: s
       <OpenButton label={label} testId="new-document" onOpen={() => void load().then(() => setOpen(true))} />
       {loaded ? (
         <FormDialog
+          module="engineering"
           open={open}
           onOpenChange={setOpen}
           title={label}
@@ -177,7 +180,7 @@ export function NewDocumentButton({ projectId, drawing = false }: { projectId: s
           testId="document-form"
           onSubmit={async (payload) => {
             const created = await engineeringApi<{ id: string }>(`/api/projects/${projectId}/engineering/documents`, { body: payload });
-            router.push(`/projects/${projectId}/engineering/documents/${created.id}`);
+            return { redirectTo: `/projects/${projectId}/engineering/documents/${created.id}` };
           }}
         />
       ) : null}
@@ -194,6 +197,7 @@ export function EditDocumentButton({ projectId, document }: { projectId: string;
       <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-document" onOpen={() => void load().then(() => setOpen(true))} />
       {loaded ? (
         <FormDialog
+          module="engineering"
           open={open}
           onOpenChange={setOpen}
           title="Edit register entry"

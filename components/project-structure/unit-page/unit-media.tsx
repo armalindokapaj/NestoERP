@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import Link from "@/components/navigation/nav-link";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { ArrowDown, ArrowUp, ImageIcon, Link2, Loader2, MoreHorizontal, Pencil, Star, Trash2, Upload } from "lucide-react";
 
 import { useUploadQueue } from "@/components/documents/upload-queue";
@@ -9,10 +10,12 @@ import { selectClass } from "@/components/forms/record-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { COMMITTED, failureOutcome, useValuesEditor } from "@/components/project-planning/use-values-editor";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { CAPTION_MAX, UNIT_MEDIA_CATEGORIES, UNIT_MEDIA_CATEGORY_LABELS, type UnitFilesDTO, type UnitMediaCategory, type UnitMediaDTO } from "@/lib/modules/project-structure/unit-publishing.types";
 import { Field, FormError, failureMessage, structureApi } from "../structure-ui";
 import { AttachDialog } from "./unit-documents";
@@ -59,16 +62,17 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue.items.filter((item) => item.status === "failed").length]);
 
-  async function call(url: string, init: { method?: string; body?: unknown }, success: string) {
+  /** Answers what happened (AUD-03 §6): a lost connection is unknown, not a refusal. */
+  async function call(url: string, init: { method?: string; body?: unknown }, success: string): Promise<SaveOutcome> {
     setPending(true);
     try {
       await structureApi(url, init);
       toast({ title: success });
       router.refresh();
-      return true;
+      return COMMITTED;
     } catch (error) {
       toast({ title: failureMessage(error, "That did not work. Try again."), tone: "danger" });
-      return false;
+      return failureOutcome(error);
     } finally {
       setPending(false);
     }
@@ -195,7 +199,7 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
         description={removing?.isPrimary ? "It is the primary image: the unit will have none until you choose another. The file stays in Documents." : "The file stays in Documents."}
         confirmLabel="Remove"
         pending={pending}
-        onConfirm={() => void call(`/api/project-units/${unitId}/media/${removing!.id}`, { method: "DELETE" }, "Image removed.").then((ok) => ok && setRemoving(null))}
+        onConfirm={() => void call(`/api/project-units/${unitId}/media/${removing!.id}`, { method: "DELETE" }, "Image removed.").then((outcome) => outcome.kind === "committed" && setRemoving(null))}
       />
       <Dialog open={viewing !== null} onOpenChange={(value) => !value && setViewing(null)}>
         <DialogContent className="max-w-3xl">
@@ -209,7 +213,7 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
           <DialogFooter>
             {viewing ? (
               <Button variant="secondary" asChild>
-                <a href={viewing.document.href}>Open in Documents</a>
+                <Link href={viewing.document.href}>Open in Documents</Link>
               </Button>
             ) : null}
             <Button onClick={() => setViewing(null)}>Close</Button>
@@ -220,57 +224,74 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
   );
 }
 
-function MediaDetailsDialog({ item, onClose, onSave }: { item: UnitMediaDTO | null; onClose: () => void; onSave: (body: { category: UnitMediaCategory; caption: string | null }) => Promise<boolean> }) {
-  const [category, setCategory] = React.useState<UnitMediaCategory>("OTHER");
-  const [caption, setCaption] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
-  React.useEffect(() => {
-    if (!item) return;
-    setCategory(item.category);
-    setCaption(item.caption ?? "");
-    setError(null);
-  }, [item]);
-
+function MediaDetailsDialog({ item, onClose, onSave }: { item: UnitMediaDTO | null; onClose: () => void; onSave: (body: { category: UnitMediaCategory; caption: string | null }) => Promise<SaveOutcome> }) {
   return (
     <Dialog open={item !== null} onOpenChange={(value) => !value && onClose()}>
       <DialogContent className="max-w-md">
         <DialogTitle>Image details</DialogTitle>
         <DialogDescription>{item?.document.name}</DialogDescription>
-        <form
-          className="mt-4 space-y-4"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            setPending(true);
-            const ok = await onSave({ category, caption: caption.trim() || null });
-            setPending(false);
-            if (ok) onClose();
-            else setError("The details could not be saved.");
-          }}
-        >
-          <FormError message={error} />
-          <Field label="Category" htmlFor="media-category">
-            <select id="media-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value as UnitMediaCategory)}>
-              {UNIT_MEDIA_CATEGORIES.map((value) => (
-                <option key={value} value={value}>
-                  {UNIT_MEDIA_CATEGORY_LABELS[value]}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Caption" htmlFor="media-caption">
-            <Input id="media-caption" value={caption} onChange={(event) => setCaption(event.target.value)} maxLength={CAPTION_MAX} />
-          </Field>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </form>
+        {item ? <MediaDetailsForm item={item} onClose={onClose} onSave={onSave} /> : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Mounted per image being edited; closing with changes asks (AUD-03 §5). */
+function MediaDetailsForm({ item, onClose, onSave }: { item: UnitMediaDTO; onClose: () => void; onSave: (body: { category: UnitMediaCategory; caption: string | null }) => Promise<SaveOutcome> }) {
+  const [category, setCategory] = React.useState<UnitMediaCategory>(item.category);
+  const [caption, setCaption] = React.useState(item.caption ?? "");
+  const [error, setError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
+  const persist = React.useRef<() => Promise<SaveOutcome>>(async () => COMMITTED);
+  const editor = useValuesEditor({ category, caption }, { module: "units", saveKind: "save", label: `Details of ${item.caption ?? item.document.name}`, save: () => persist.current() });
+  const { setSaving, setUnresolved, rebaseline } = editor;
+
+  persist.current = async () => {
+    setPending(true);
+    setSaving(true);
+    setError(null);
+    const outcome = await onSave({ category, caption: caption.trim() || null });
+    setSaving(false);
+    setPending(false);
+    setUnresolved(outcome.kind === "unknown");
+    if (outcome.kind === "committed") {
+      rebaseline();
+      onClose();
+    } else setError("The details could not be saved.");
+    return outcome;
+  };
+
+  return (
+    <form
+      className="mt-4 space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void persist.current();
+      }}
+    >
+      <FormError message={error} />
+      <Field label="Category" htmlFor="media-category">
+        <select id="media-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value as UnitMediaCategory)}>
+          {UNIT_MEDIA_CATEGORIES.map((value) => (
+            <option key={value} value={value}>
+              {UNIT_MEDIA_CATEGORY_LABELS[value]}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Caption" htmlFor="media-caption">
+        <Input id="media-caption" value={caption} onChange={(event) => setCaption(event.target.value)} maxLength={CAPTION_MAX} />
+      </Field>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

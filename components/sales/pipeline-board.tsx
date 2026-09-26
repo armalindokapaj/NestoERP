@@ -3,7 +3,7 @@
 import * as React from "react";
 import type { OpportunityStage } from "@prisma/client";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";

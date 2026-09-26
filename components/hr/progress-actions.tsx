@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

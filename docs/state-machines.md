@@ -96,13 +96,18 @@ the permission off. A transition that does not declare it refuses a step.
 
 ## What is declared
 
-Forty-five machines over 236 transitions: HSE and QA/QC, where this began,
+Forty-eight machines over 253 transitions: HSE and QA/QC, where this began,
 the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
 their own — Documents, Finance, Procurement, Inventory, Legal and
 Engineering — Projects, whose status E-05A made a lifecycle of its own, a
 unit's publication (E-05D), a unit's sale (E-05E), and a unit sale's payment
-schedule and Sales' request for its contract (E-05F), and an account request
-from HR to Group IT (E-06). E-05F also gave the contract machine `complete`.
+schedule and Sales' request for its contract (E-05F), an account request
+from HR to Group IT (E-06), the verification of an employee's documents and
+qualifications (E-02), and every command that moves a task (AUD-02). E-05F
+also gave the contract machine `complete`. Tasks apply theirs through their
+own locked, versioned mutation (`lib/modules/tasks/task.mutation.ts`,
+[ADR 0017](adr/0017-task-version-and-mutation.md)) rather than
+`applyTransition`, but the rules are read from the machine.
 The tables below are generated from `lib/core/state/registry.ts` by
 `scripts/architecture/state-docs.ts`; an edit belongs in the machine, and the
 table is regenerated from it.
@@ -213,6 +218,36 @@ Terminal: `CANCELLED`
 | `reject` | `PENDING_VERIFICATION` | `REJECTED` | `qaqc.corrective_action.verify` | required | — |
 | `reopen` | `VERIFIED` | `REOPENED` | `qaqc.corrective_action.reopen` | required | — |
 | `cancel` | `OPEN`, `IN_PROGRESS`, `PENDING_VERIFICATION`, `REJECTED`, `REOPENED` | `CANCELLED` | `qaqc.corrective_action.cancel` | — | — |
+
+### HR
+
+2 machines.
+
+#### `employee_document_verification` — `employeeDocumentLink.verificationStatus`
+
+States: `UNVERIFIED`, `VERIFIED`, `REJECTED`, `EXPIRED`, `SUPERSEDED`
+Terminal: `SUPERSEDED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `verify` | `UNVERIFIED` | `VERIFIED` | `hr.document.verify` | — | what was checked: a later file is shown as not checked |
+| `reject` | `UNVERIFIED` | `REJECTED` | `hr.document.verify` | required | — |
+| `resubmit` | `REJECTED` | `UNVERIFIED` | `hr.self.documents.upload` or `hr.document.create` or `hr.document.private.manage` | — | — |
+| `expire` | `VERIFIED` | `EXPIRED` | `hr.document.verify` | — | — |
+| `supersede` | `UNVERIFIED`, `VERIFIED`, `EXPIRED`, `REJECTED` | `SUPERSEDED` | `hr.self.documents.upload` or `hr.document.create` or `hr.document.private.manage` or `hr.compensation.update` | — | — |
+
+#### `person_qualification_verification` — `personQualification.verificationStatus`
+
+States: `UNVERIFIED`, `VERIFIED`, `REJECTED`, `EXPIRED`, `SUPERSEDED`
+Terminal: `SUPERSEDED`
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `verify` | `UNVERIFIED` | `VERIFIED` | `hr.qualification.verify` | — | what was checked: a later file is shown as not checked |
+| `reject` | `UNVERIFIED` | `REJECTED` | `hr.qualification.verify` | required | — |
+| `resubmit` | `REJECTED` | `UNVERIFIED` | `people.qualification.add_self` or `hr.qualification.manage` | — | — |
+| `expire` | `VERIFIED` | `EXPIRED` | `hr.qualification.verify` | — | — |
+| `supersede` | `UNVERIFIED`, `VERIFIED`, `EXPIRED`, `REJECTED` | `SUPERSEDED` | `people.qualification.add_self` or `hr.qualification.manage` | — | — |
 
 ### Organization
 
@@ -751,15 +786,34 @@ Terminal: `VOID`
 | `issue` | `DRAFT` | `ISSUED` | `transmittal.issue` | — | its items and the file version each carried |
 | `void` | `DRAFT`, `ISSUED` | `VOID` | `transmittal.void` | required | — |
 
+### Tasks
+
+1 machine.
+
+#### `task` — `task.status`
+
+States: `TODO`, `IN_PROGRESS`, `BLOCKED`, `COMPLETED`, `ARCHIVED`
+Terminal: none
+
+| Action | From | To | Permission | Reason | Freezes |
+|---|---|---|---|---|---|
+| `start` | `TODO`, `BLOCKED` | `IN_PROGRESS` | `task.status.update` | — | — |
+| `block` | `TODO`, `IN_PROGRESS` | `BLOCKED` | `task.status.update` | required | — |
+| `complete` | `TODO`, `IN_PROGRESS`, `BLOCKED` | `COMPLETED` | `task.complete` | — | — |
+| `reopen` | `COMPLETED` | `TODO` or `IN_PROGRESS` | `task.reopen` | — | — |
+| `return_to_todo` | `IN_PROGRESS`, `BLOCKED` | `TODO` | `task.status.update` | — | — |
+| `archive` | `TODO`, `IN_PROGRESS`, `BLOCKED`, `COMPLETED` | `ARCHIVED` | `task.archive` | — | every field until it is restored |
+| `restore` | `ARCHIVED` | `TODO` or `IN_PROGRESS` or `BLOCKED` or `COMPLETED` | `task.restore` | — | — |
+
 ## What is not declared yet, and what is guarded without a machine
 
 **Other domains.** QA/QC's defects, NCRs, requests and templates, the rest of
-HSE, Sales' leads and opportunities, Clients, Team, Tasks, HR, Contractors, Calendar,
+HSE, Sales' leads and opportunities, Clients, Team, the rest of HR, Contractors, Calendar,
 Meetings, and the notification, integration and mail infrastructure still
 transition through their own services. That is held, not ignored. `pnpm
 verify:state` counts every write that sets a state column without naming a
 state column in its `where`, per file, against
-`scripts/architecture/blind-state-writes.baseline.json` — 87 writes in 31
+`scripts/architecture/blind-state-writes.baseline.json` — 74 writes in 27
 files, none of them a status write in the domains above. The count may fall and never
 rise: a new blind write fails CI, and a domain converted to a machine ratchets
 its own entry down. The baseline is the backlog, in the order the files appear

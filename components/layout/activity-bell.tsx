@@ -9,6 +9,8 @@ import { onActivityReset, removeLegacyActivityCache, subscribeActivity } from "@
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
+import { handleSessionLost, reconcileTabContext } from "@/components/unsaved/unsaved-host";
+import { unsaved } from "@/lib/unsaved/coordinator";
 
 /**
  * The bell (Activity Center PRD §3, §102-§113; NAV-03 §6, §9).
@@ -122,10 +124,12 @@ function controllerFor(contextKey: string): ActivityController {
   return createActivityController({
     contextKey,
     transport: fetchTransport(),
-    // Signed out meanwhile: the document load takes the person to sign-in, once.
-    onUnauthenticated: () => window.location.reload(),
-    // An answer for another context: the shell is behind; one reload brings it level.
-    onContextMismatch: () => window.location.reload(),
+    // Signed out meanwhile: the document load takes the person to sign-in, once
+    // — unless this tab holds unsaved work, which is held instead (AUD-03 §7).
+    onUnauthenticated: () => handleSessionLost(),
+    // An answer for another context: the shell is behind; one reload brings it
+    // level. With unsaved work the server's context is checked first.
+    onContextMismatch: () => (unsaved.hasBlocking({ kind: "reload" }) ? void reconcileTabContext() : window.location.reload()),
   });
 }
 

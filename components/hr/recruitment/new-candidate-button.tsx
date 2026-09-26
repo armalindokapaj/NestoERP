@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog } from "@/components/engineering/form-kit";
@@ -11,7 +10,6 @@ import { candidateFields } from "./candidate-fields";
 
 /** Adds a person HR is interviewing, before any login exists (E-06 §22, §62). */
 export function NewCandidateButton({ choices, defaultCompanyId }: { choices: RecruitmentOptionsDTO; defaultCompanyId: string }) {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [companyId, setCompanyId] = React.useState(defaultCompanyId);
 
@@ -29,11 +27,13 @@ export function NewCandidateButton({ choices, defaultCompanyId }: { choices: Rec
         initial={{ targetCompanyId: defaultCompanyId }}
         onValuesChange={(values) => setCompanyId(String(values.targetCompanyId ?? ""))}
         submitLabel="Add candidate"
+        module="hr"
         wide
         testId="candidate-dialog"
         onSubmit={async (payload) => {
           const candidate = await engineeringApi<{ id: string }>("/api/hr/candidates", { body: payload });
-          router.push(`/hr/recruitment/${candidate.id}`);
+          // Opened by the dialog after an ordinary save (AUD-03 §6).
+          return { redirectTo: `/hr/recruitment/${candidate.id}` };
         }}
       />
     </>
