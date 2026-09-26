@@ -5,11 +5,11 @@ import * as React from "react";
 import {
   Field,
   FormSection,
-  RecordForm,
   selectClass,
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { WorkflowForm } from "@/components/sales/workflow-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { LOST_REASONS } from "@/lib/modules/sales/opportunities/opportunity.schema";
@@ -25,6 +25,9 @@ import { lostReasonLabels } from "@/lib/modules/sales/proposals/proposal.status"
  *
  * Neither is applied optimistically. The client and project are created by the
  * server, in one transaction, and the page waits for it (PRD #17 §253).
+ *
+ * Both are workflow steps, so leaving with input offers no "Save and continue"
+ * (AUD-03 §4): see WorkflowForm.
  */
 
 export function WonForm({
@@ -66,11 +69,12 @@ export function WonForm({
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <RecordForm
+    <WorkflowForm
       action={action}
       cancelHref={cancelHref}
       submitLabel="Mark won"
       pendingLabel="Closing…"
+      workflow="Mark won"
     >
       <FormSection title="The close" description="What the deal was worth when it was agreed.">
         <Field label="Actual close date" name="actualCloseDate" required>
@@ -180,7 +184,7 @@ export function WonForm({
           ) : null}
         </FormSection>
       ) : null}
-    </RecordForm>
+    </WorkflowForm>
   );
 }
 
@@ -195,11 +199,12 @@ export function LostForm({
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <RecordForm
+    <WorkflowForm
       action={action}
       cancelHref={cancelHref}
       submitLabel="Mark lost"
       pendingLabel="Closing…"
+      workflow="Mark lost"
     >
       <FormSection
         title="The close"
@@ -235,6 +240,6 @@ export function LostForm({
           <Textarea id="lostNote" name="lostNote" rows={4} maxLength={2000} />
         </Field>
       </FormSection>
-    </RecordForm>
+    </WorkflowForm>
   );
 }

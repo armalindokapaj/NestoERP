@@ -1,5 +1,7 @@
 "use client";
 
+import type * as React from "react";
+
 import {
   Field,
   FormSection,
@@ -52,9 +54,13 @@ export function TaskForm({
   mayAssignOthers,
   statuses = STATUS_OPTIONS,
   cancelHref,
-  versionUpdatedAt,
+  expectedVersion,
   action,
+  onFailure,
+  onSuccess,
+  notice,
   parent,
+  baselineValues,
 }: {
   mode: "create" | "edit";
   initial: TaskFormValues;
@@ -64,8 +70,15 @@ export function TaskForm({
   mayAssignOthers: boolean;
   statuses?: SelectOption[];
   cancelHref: string;
-  versionUpdatedAt?: string;
+  /** The version the person is editing (AUD-02 §3); every save names it. */
+  expectedVersion?: number;
   action: (formData: FormData) => Promise<FormActionResult>;
+  onFailure?: (result: Extract<FormActionResult, { ok: false }>, submitted: FormData) => void | boolean;
+  onSuccess?: (result: Extract<FormActionResult, { ok: true }>, mode: "normal" | "continue") => void | boolean;
+  /** The saved values when the form opens on reapplied changes (AUD-03 §3 rule 7). */
+  baselineValues?: TaskFormValues;
+  /** Shown above the fields: the conflict review, when a save lost to another change. */
+  notice?: React.ReactNode;
   /**
    * The record this task is raised from (PRD #38 §45-§47). Either locked — the
    * page was opened from that record — or chosen from records the server
@@ -77,10 +90,16 @@ export function TaskForm({
     <RecordForm
       action={action}
       cancelHref={cancelHref}
-      versionUpdatedAt={versionUpdatedAt}
+      onFailure={onFailure}
+      onSuccess={onSuccess}
+      module="tasks"
+      saveKind={mode === "create" ? "create" : "save"}
+      baselineValues={baselineValues}
       submitLabel={mode === "create" ? "Create task" : "Save changes"}
       pendingLabel={mode === "create" ? "Creating…" : "Saving…"}
     >
+      {expectedVersion !== undefined ? <input type="hidden" name="expectedVersion" value={expectedVersion} /> : null}
+      {notice}
       <FormSection title="Task details">
         {parent && "locked" in parent ? (
           <div className="sm:col-span-2">

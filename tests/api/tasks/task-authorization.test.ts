@@ -89,8 +89,8 @@ describe("a task raised from a project record stays on that project (PRD #47 §5
     });
     created.push(task.id);
 
-    await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title, projectId: OTHER_PROJECT })));
-    await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title })));
+    await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title, projectId: OTHER_PROJECT, expectedVersion: task.version })));
+    await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title, expectedVersion: task.version })));
 
     const row = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
     expect(row.projectId).toBe(PROJECT.a);
@@ -128,7 +128,7 @@ describe("moving a task re-checks its assignee against the new project (PRD #11 
       .updateTask(
         owner,
         task.id,
-        updateTaskSchema.parse({ title: task.title, projectId: OTHER_PROJECT, assigneeMemberId: onlyOnA.companyMemberId }),
+        updateTaskSchema.parse({ title: task.title, projectId: OTHER_PROJECT, assigneeMemberId: onlyOnA.companyMemberId, expectedVersion: task.version }),
       )
       .then(
         () => null,

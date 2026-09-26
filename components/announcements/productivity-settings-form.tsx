@@ -1,35 +1,62 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
+import { UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import type { ProductivitySettingsDTO } from "@/lib/modules/productivity/productivity.settings";
 import { cn } from "@/lib/utils/cn";
-import { announcementApi, failureMessage } from "./announcement-api";
+import { announcementApi, announcementFailureOutcome, failureMessage } from "./announcement-api";
 
 /** The company's switches for announcements, favorites and recent work (PRD #45 §247). */
 export function ProductivitySettingsForm({ initial }: { initial: ProductivitySettingsDTO }) {
   const toast = useToast();
   const router = useRouter();
   const [state, setState] = React.useState(initial);
+  const [baseline, setBaseline] = React.useState(initial);
   const [pending, setPending] = React.useState(false);
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
+  // AUD-03 §3: the settings as saved are the baseline; Save and continue runs this same PUT.
+  const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
+  const editor = useUnsavedEditor({ module: "announcements", saveKind: "save", label: "Announcement settings", save: () => run.current() });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  const dirty = JSON.stringify(state) !== JSON.stringify(baseline);
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
+
+  run.current = async () => {
+    if (pending) return { kind: "unknown" };
+    if (unsaved.frozen) return { kind: "refused" };
     setPending(true);
+    setSaving(true);
     try {
       await announcementApi("/api/productivity/settings", { method: "PUT", body: state });
+      setBaseline(state);
+      setDirty(false);
+      setUnresolved(false);
       toast({ title: "Settings saved", tone: "success" });
       router.refresh();
+      return { kind: "committed" };
     } catch (error) {
-      toast({ title: failureMessage(error), tone: "danger" });
+      const outcome = announcementFailureOutcome(error);
+      setUnresolved(outcome.kind === "unknown");
+      toast({ title: failureMessage(error), description: outcome.kind === "unknown" ? OUTCOME_COPY.unknown : OUTCOME_COPY.notSaved, tone: "danger" });
+      return outcome;
     } finally {
       setPending(false);
+      setSaving(false);
     }
+  };
+
+  function save(event: React.FormEvent) {
+    event.preventDefault();
+    void run.current();
   }
 
   const toggle = (key: keyof ProductivitySettingsDTO, title: string, hint: string) => (
@@ -69,7 +96,8 @@ export function ProductivitySettingsForm({ initial }: { initial: ProductivitySet
           ))}
         </select>
       </label>
-      <div className="flex justify-end py-3">
+      <div className="flex items-center justify-end gap-3 py-3">
+        <UnsavedIndicator save={{ editor, pending, saved: null }} />
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Saving…" : "Save settings"}
         </Button>

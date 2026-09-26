@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
 import { requireCompanyContext } from "@/lib/context/current-user";
@@ -12,6 +11,7 @@ import {
   updateProjectSchema,
 } from "@/lib/modules/projects/project.schema";
 import * as projects from "@/lib/modules/projects/project.service";
+import { committed } from "@/lib/forms/committed";
 
 /**
  * Server actions for the Projects module (PRD #8 §127).
@@ -33,7 +33,7 @@ function revalidateProjects(projectId?: string) {
 }
 
 export type ActionResult =
-  | { ok: true }
+  | { ok: true; redirectTo?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
 
 function toResult(error: unknown): ActionResult {
@@ -74,7 +74,7 @@ export async function createProjectAction(formData: FormData): Promise<ActionRes
   }
 
   revalidateProjects(projectId);
-  redirect(`/projects/${projectId}`);
+  return committed(`/projects/${projectId}`);
 }
 
 export async function updateProjectAction(
@@ -99,7 +99,7 @@ export async function updateProjectAction(
   }
 
   revalidateProjects(projectId);
-  redirect(`/projects/${projectId}`);
+  return committed(`/projects/${projectId}`);
 }
 
 export async function archiveProjectAction(projectId: string): Promise<ActionResult> {

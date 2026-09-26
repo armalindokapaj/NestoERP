@@ -6,8 +6,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import type { WorkspaceScopeType } from "@/config/workspace";
 import type { NavigationTicket } from "@/lib/navigation/feedback-store";
+import { guardNavigation } from "@/components/navigation/guarded-router";
+import { unsaved } from "@/lib/unsaved/coordinator";
 import {
-  confirmWorkspaceNavigation,
   openInSwitchedWorkspace,
   requestWorkspaceSwitch,
 } from "@/lib/workspace/client";
@@ -178,6 +179,12 @@ export function RecordNavigationProvider({
     if (!target) return;
     navigating.current = true;
     const crossing = target.workspaceKey !== workspace.key;
+    // Unsaved work first, and nothing begins on Stay (AUD-03 §4, §5).
+    const approval = await unsaved.requestDeparture(crossing ? { kind: "workspace", target: "" } : { kind: "navigate", href: target.route });
+    if (!approval) {
+      navigating.current = false;
+      return;
+    }
     ticket.current = feedback?.store.begin(null, "history", { ownsWorkspaceSwitch: crossing }) ?? null;
 
     const result = await requestWorkspaceSwitch({
@@ -185,7 +192,7 @@ export function RecordNavigationProvider({
       companyId: target.companyId,
       currentPathname: target.route.split("?")[0],
       currentSearch: target.route.includes("?") ? `?${target.route.split("?").slice(1).join("?")}` : "",
-    }, { publishChange: crossing, echoToThisTab: false });
+    }, crossing ? { approval, publishChange: true, echoToThisTab: false } : { prior: approval, publishChange: false, echoToThisTab: false });
     if (!result.ok) {
       navigating.current = false;
       feedback?.store.settle(ticket.current);
@@ -215,16 +222,23 @@ export function RecordNavigationProvider({
   }, [history, router, workspace.key, feedback]);
 
   const navigate = React.useCallback((href: string) => {
-    if (navigating.current || !confirmWorkspaceNavigation()) return;
-    navigating.current = true;
-    ticket.current = feedback?.begin(href, "breadcrumb") ?? null;
-    startTransition(() => router.push(href));
-    window.dispatchEvent(new CustomEvent("NAV_BREADCRUMB_CLICK"));
+    if (navigating.current) return;
+    guardNavigation({ kind: "navigate", href }, () => {
+      navigating.current = true;
+      ticket.current = feedback?.begin(href, "breadcrumb") ?? null;
+      startTransition(() => router.push(href));
+      window.dispatchEvent(new CustomEvent("NAV_BREADCRUMB_CLICK"));
+    });
   }, [router, feedback]);
 
   const navigateWorkspace = React.useCallback(async (scopeType: WorkspaceScopeType, companyId: string | null, href: string) => {
     if (navigating.current) return;
     navigating.current = true;
+    const approval = await unsaved.requestDeparture({ kind: "workspace", target: "" });
+    if (!approval) {
+      navigating.current = false;
+      return;
+    }
     ticket.current = feedback?.begin(href, "workspace", { ownsWorkspaceSwitch: true }) ?? null;
     const [currentPathname, query = ""] = href.split("?");
     const result = await requestWorkspaceSwitch({
@@ -232,7 +246,7 @@ export function RecordNavigationProvider({
       companyId,
       currentPathname,
       currentSearch: query ? `?${query}` : "",
-    }, { echoToThisTab: false });
+    }, { approval, echoToThisTab: false });
     if (!result.ok) {
       navigating.current = false;
       feedback?.store.settle(ticket.current);

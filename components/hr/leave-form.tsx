@@ -62,6 +62,7 @@ export function LeaveForm({
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
+      module="hr"
     >
       <FormSection
         title="Leave request"

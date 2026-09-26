@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import type { DocumentDetailDTO } from "@/lib/modules/documents/document.types";
+import { startDownload } from "@/lib/navigation/start-download";
 
 /**
  * The file panel: preview, download and storage state (PRD #29 §100-§107,
@@ -70,7 +71,7 @@ function DownloadButton({ documentId }: { documentId: string }) {
       }
 
       const grant = await response.json();
-      window.location.href = grant.url;
+      startDownload(grant.url);
     } finally {
       setPending(false);
     }

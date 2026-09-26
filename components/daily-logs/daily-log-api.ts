@@ -1,5 +1,8 @@
 "use client";
 
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { outcomeOf } from "@/lib/unsaved/outcome";
+
 /**
  * The browser side of the daily logs API. Every call answers with the data or
  * throws a failure carrying the server's message and code — the server has
@@ -40,4 +43,14 @@ export function isFailure(error: unknown): error is DailyLogApiFailure {
 
 export function failureMessage(error: unknown, fallback = "Something went wrong."): string {
   return isFailure(error) ? error.message : fallback;
+}
+
+/**
+ * What a thrown call means for unsaved work (AUD-03 §6): the server's answer is
+ * a definite refusal; a request that never got an answer may have committed.
+ */
+export function dailyLogFailureOutcome(error: unknown): SaveOutcome {
+  if (!isFailure(error) || error.status === 0) return { kind: "unknown" };
+  const outcome = outcomeOf({ ok: false, code: error.code, error: error.message });
+  return outcome.kind === "invalid" && error.detailCode ? outcomeOf({ ok: false, code: error.detailCode, error: error.message }) : outcome;
 }

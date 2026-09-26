@@ -119,6 +119,7 @@ export function ProjectInductions({
         ]}
         initial={{ employeeId: recording?.employeeId ?? "", inductedOn: today() }}
         submitLabel="Record"
+        module="workforce"
         testId="induction-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/hse/inductions", { body: { ...payload, projectId } });
@@ -132,6 +133,7 @@ export function ProjectInductions({
         description="It stays on the record, marked void with the reason."
         fields={[{ name: "reason", label: "Reason", type: "textarea", required: true, rows: 2 }]}
         submitLabel="Void"
+        module="workforce"
         onSubmit={async (payload) => {
           if (!voiding) return;
           await engineeringApi(`/api/hse/inductions/${voiding.id}/void`, { body: payload });

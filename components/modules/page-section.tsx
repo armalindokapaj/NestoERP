@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { RotateCw } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";

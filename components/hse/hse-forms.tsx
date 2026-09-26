@@ -291,6 +291,7 @@ export function HazardForm({
 
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -468,6 +469,7 @@ export function IncidentForm({
 
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -629,6 +631,7 @@ export function InspectionForm({
 }) {
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -756,6 +759,7 @@ export function PermitForm({
 }) {
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -928,6 +932,7 @@ export function ActionForm({
 }) {
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -1052,6 +1057,7 @@ export function ObservationForm({
 }) {
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -1175,10 +1181,13 @@ export function StopWorkForm({
 }) {
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel="Stop work"
       pendingLabel="Stopping…"
+      // Raising the order is this form's create (AUD-03 §3): the label is a verb, not "Create".
+      saveKind="create"
     >
       <FormSection
         title="Stop work"

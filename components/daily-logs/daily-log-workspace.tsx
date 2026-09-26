@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import {
   AlertTriangle,
   Ban,
@@ -31,11 +31,13 @@ import {
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { dateLabel, formatDuration, longDateLabel } from "@/lib/modules/daily-logs/daily-log.time";
 import {
   DELAY_CATEGORY_LABELS,
@@ -51,7 +53,7 @@ import {
   type SectionKey,
 } from "@/lib/modules/daily-logs/daily-log.types";
 import { cn } from "@/lib/utils/cn";
-import { dailyLogApi, failureMessage, isFailure } from "./daily-log-api";
+import { dailyLogApi, dailyLogFailureOutcome, failureMessage, isFailure } from "./daily-log-api";
 import { CorrectedBadge, DailyLogStatusBadge, LateEntryBadge, Stat } from "./daily-log-ui";
 import { EntryDialog, type EntryOptions } from "./entry-dialog";
 import { entriesOf, payloadFromValues, valuesFromEntry } from "./entry-fields";
@@ -136,6 +138,12 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
   React.useEffect(() => setLog(initial), [initial]);
 
+  // The overview saves as it goes (on blur, on change): while one is on its
+  // way, or never got an answer, leaving would lose it (AUD-03 §3). Each text
+  // field reports what is typed but not yet sent itself.
+  const overviewEditor = useUnsavedEditor({ module: "daily_logs", saveKind: "none", label: "Daily log overview" });
+  const overviewSaves = React.useRef(0);
+
   const refresh = React.useCallback(async () => {
     const next = await dailyLogApi<DailyLogDetailDTO>(base);
     setLog(next);
@@ -149,21 +157,31 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     return data;
   }, [base, options]);
 
-  async function run(label: string, work: () => Promise<unknown>, success?: string) {
+  /** A step that changes the log, answering what happened to it (AUD-03 §6). */
+  async function perform(label: string, work: () => Promise<unknown>, success?: string): Promise<SaveOutcome> {
     setPending(true);
     try {
       await work();
-      await refresh();
-      if (success) toast({ title: success, tone: "success" });
-      router.refresh();
-      return true;
     } catch (error) {
       toast({ title: failureMessage(error, `${label} failed.`), tone: "danger" });
       if (isFailure(error) && (error.status === 409 || error.detailCode === "DAILY_LOG_STALE")) void refresh();
-      return false;
-    } finally {
       setPending(false);
+      return dailyLogFailureOutcome(error);
     }
+    // The step went through; reading the log back is not part of it.
+    try {
+      await refresh();
+    } catch {
+      // The page refresh below brings it.
+    }
+    if (success) toast({ title: success, tone: "success" });
+    router.refresh();
+    setPending(false);
+    return { kind: "committed" };
+  }
+
+  async function run(label: string, work: () => Promise<unknown>, success?: string) {
+    return (await perform(label, work, success)).kind === "committed";
   }
 
   async function openEntry(section: SectionKey, entryId?: string) {
@@ -196,11 +214,13 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     await refresh();
   }
 
-  async function saveOverview(field: string, value: string | null) {
-    if (!editable) return;
+  async function saveOverview(field: string, value: string | null): Promise<SaveOutcome> {
+    if (!editable) return { kind: "refused" };
     const current = (log as unknown as Record<string, unknown>)[field];
-    if ((current ?? null) === (value || null)) return;
+    if ((current ?? null) === (value || null)) return { kind: "committed" };
     setSaving("saving");
+    overviewSaves.current += 1;
+    overviewEditor.setSaving(true);
     try {
       const body = {
         expectedVersion: log.version,
@@ -214,12 +234,20 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
         [field]: value || null,
       };
       await dailyLogApi(base, { method: "PATCH", body });
-      await refresh();
+      overviewEditor.setUnresolved(false);
+      await refresh().catch(() => undefined);
       setSaving("saved");
+      return { kind: "committed" };
     } catch (error) {
+      const outcome = dailyLogFailureOutcome(error);
+      overviewEditor.setUnresolved(outcome.kind === "unknown");
       setSaving("error");
       toast({ title: failureMessage(error), tone: "danger" });
       if (isFailure(error) && error.status === 409) void refresh();
+      return outcome;
+    } finally {
+      overviewSaves.current -= 1;
+      if (overviewSaves.current === 0) overviewEditor.setSaving(false);
     }
   }
 
@@ -529,8 +557,8 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             "Overview",
             <NotebookPen className="size-4" />,
             <div className="grid gap-3 sm:grid-cols-2">
-              <OverviewField label="Summary" value={log.summary} editable={editable} wide onSave={(value) => void saveOverview("summary", value)} testId="overview-summary" />
-              <OverviewField label="Weather summary" value={log.weatherSummary} editable={editable} onSave={(value) => void saveOverview("weatherSummary", value)} />
+              <OverviewField label="Summary" value={log.summary} editable={editable} wide onSave={(value) => saveOverview("summary", value)} testId="overview-summary" />
+              <OverviewField label="Weather summary" value={log.weatherSummary} editable={editable} onSave={(value) => saveOverview("weatherSummary", value)} />
               <div>
                 <label htmlFor="site-condition" className="text-table font-medium text-fg">
                   Site condition
@@ -548,10 +576,10 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                   <p className="mt-1 text-table text-fg">{log.siteCondition ? SITE_CONDITION_LABELS[log.siteCondition] : "—"}</p>
                 )}
               </div>
-              <OverviewField label="Site condition notes" value={log.siteConditionNotes} editable={editable} onSave={(value) => void saveOverview("siteConditionNotes", value)} />
-              <OverviewField label="Delays in brief" value={log.delaySummary} editable={editable} onSave={(value) => void saveOverview("delaySummary", value)} />
-              <OverviewField label="Instructions in brief" value={log.instructionSummary} editable={editable} onSave={(value) => void saveOverview("instructionSummary", value)} />
-              <OverviewField label="General notes" value={log.generalNotes} editable={editable} wide onSave={(value) => void saveOverview("generalNotes", value)} />
+              <OverviewField label="Site condition notes" value={log.siteConditionNotes} editable={editable} onSave={(value) => saveOverview("siteConditionNotes", value)} />
+              <OverviewField label="Delays in brief" value={log.delaySummary} editable={editable} onSave={(value) => saveOverview("delaySummary", value)} />
+              <OverviewField label="Instructions in brief" value={log.instructionSummary} editable={editable} onSave={(value) => saveOverview("instructionSummary", value)} />
+              <OverviewField label="General notes" value={log.generalNotes} editable={editable} wide onSave={(value) => saveOverview("generalNotes", value)} />
               <p className="text-meta text-fg-muted sm:col-span-2">{joinedNodes(log.createdBy && <>Started by <PersonLink memberId={log.createdBy.memberId} name={log.createdBy.name} /></>, log.reviewer && <>Reviewer <PersonLink memberId={log.reviewer.memberId} name={log.reviewer.name} /></>)}</p>
             </div>,
           )}
@@ -751,12 +779,13 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
         onClose={() => setAction(null)}
         onConfirm={async (reason) => {
           const path = action === "void" ? "void" : "return";
-          const ok = await run(action === "void" ? "Voiding" : "Returning", () => dailyLogApi(`${base}/${path}`, { body: { expectedVersion: log.version, reason } }), action === "void" ? "Daily log voided" : "Returned for correction");
-          if (ok) setAction(null);
+          const outcome = await perform(action === "void" ? "Voiding" : "Returning", () => dailyLogApi(`${base}/${path}`, { body: { expectedVersion: log.version, reason } }), action === "void" ? "Daily log voided" : "Returned for correction");
+          if (outcome.kind === "committed") setAction(null);
+          return outcome;
         }}
       />
 
-      <CorrectionDialog open={action === "correction"} pending={pending} onClose={() => setAction(null)} onConfirm={async (input) => { if (await run("Adding the correction", () => dailyLogApi(`${base}/corrections`, { body: input }), "Correction added")) setAction(null); }} />
+      <CorrectionDialog open={action === "correction"} pending={pending} onClose={() => setAction(null)} onConfirm={async (input) => { const outcome = await perform("Adding the correction", () => dailyLogApi(`${base}/corrections`, { body: input }), "Correction added"); if (outcome.kind === "committed") setAction(null); return outcome; }} />
 
       <TaskDialog
         open={action === "task"}
@@ -764,28 +793,39 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
         pending={pending}
         onClose={() => setAction(null)}
         onConfirm={async (input) => {
-          if (await run("Creating the task", () => dailyLogApi(`${base}/tasks/create`, { body: input }), "Task created")) setAction(null);
+          const outcome = await perform("Creating the task", () => dailyLogApi(`${base}/tasks/create`, { body: input }), "Task created");
+          if (outcome.kind === "committed") setAction(null);
+          return outcome;
         }}
       />
 
-      <LinkTaskDialog open={action === "link-task"} options={options} pending={pending} onClose={() => setAction(null)} onConfirm={async (taskId) => { if (await run("Linking", () => dailyLogApi(`${base}/tasks`, { body: { taskId, linkType: "RELATED" } }), "Task linked")) setAction(null); }} />
+      <LinkTaskDialog open={action === "link-task"} options={options} pending={pending} onClose={() => setAction(null)} onConfirm={async (taskId) => { const outcome = await perform("Linking", () => dailyLogApi(`${base}/tasks`, { body: { taskId, linkType: "RELATED" } }), "Task linked"); if (outcome.kind === "committed") setAction(null); return outcome; }} />
 
       <LinkRecordDialog open={action === "link-record"} base={base} pending={pending} onClose={() => setAction(null)} onConfirm={async (recordType, recordId) => { if (await run("Linking", () => dailyLogApi(`${base}/record-links`, { body: { recordType, recordId } }), "Record linked")) setAction(null); }} />
     </div>
   );
 }
 
-function OverviewField({ label, value, editable, wide, onSave, testId }: { label: string; value: string | null; editable: boolean; wide?: boolean; onSave: (value: string) => void; testId?: string }) {
+function OverviewField({ label, value, editable, wide, onSave, testId }: { label: string; value: string | null; editable: boolean; wide?: boolean; onSave: (value: string) => Promise<SaveOutcome>; testId?: string }) {
   const [text, setText] = React.useState(value ?? "");
   React.useEffect(() => setText(value ?? ""), [value]);
   const id = `overview-${label.toLowerCase().replace(/\W+/g, "-")}`;
+  const textRef = React.useRef(text);
+  textRef.current = text;
+
+  // Typed but not yet saved — the save runs on blur — is unsaved work (AUD-03 §3).
+  const editor = useUnsavedEditor({ module: "daily_logs", saveKind: "save", label, save: () => onSave(textRef.current.trim()) });
+  const { setDirty } = editor;
+  // Exactly what the blur save would send: nothing when the trimmed text is what is saved.
+  React.useEffect(() => setDirty(editable && (text.trim() || null) !== (value ?? null)), [editable, text, value, setDirty]);
+
   return (
     <div className={cn(wide && "sm:col-span-2")}>
       <label htmlFor={id} className="text-table font-medium text-fg">
         {label}
       </label>
       {editable ? (
-        <Textarea id={id} rows={wide ? 3 : 2} className="mt-1.5" value={text} maxLength={5000} onChange={(event) => setText(event.target.value)} onBlur={() => onSave(text.trim())} data-testid={testId} />
+        <Textarea id={id} rows={wide ? 3 : 2} className="mt-1.5" value={text} maxLength={5000} onChange={(event) => setText(event.target.value)} onBlur={() => void onSave(text.trim())} data-testid={testId} />
       ) : (
         <p className="mt-1 whitespace-pre-line text-table text-fg">{value || "—"}</p>
       )}
@@ -793,169 +833,246 @@ function OverviewField({ label, value, editable, wide, onSave, testId }: { label
   );
 }
 
-function ReasonDialog({ open, title, description, label, confirm, destructive, pending, onClose, onConfirm }: { open: boolean; title: string; description: string; label: string; confirm: string; destructive?: boolean; pending: boolean; onClose: () => void; onConfirm: (reason: string) => Promise<void> }) {
-  const [reason, setReason] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    if (open) {
-      setReason("");
-      setError(null);
+/**
+ * A dialog's input under the unsaved-work contract (AUD-03 §3): registered from
+ * inside the dialog, so closing it asks; `confirm` is the dialog's one step,
+ * run once at a time, saving while it runs, unknown when it never answered.
+ * A workflow step (return, void, a correction) is never run from the prompt.
+ */
+function useDialogStep({ label, saveKind, workflow, dirty, confirm }: { label: string; saveKind: "create" | "none"; workflow?: string; dirty: boolean; confirm: () => Promise<SaveOutcome> }) {
+  const confirmRef = React.useRef(confirm);
+  confirmRef.current = confirm;
+  const running = React.useRef(false);
+  const go = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
+  const editor = useUnsavedEditor({ module: "daily_logs", saveKind, workflow, label, save: saveKind === "none" ? undefined : () => go.current() });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
+  go.current = async () => {
+    if (running.current) return { kind: "unknown" };
+    running.current = true;
+    setSaving(true);
+    let outcome: SaveOutcome;
+    try {
+      outcome = await confirmRef.current();
+    } catch {
+      outcome = { kind: "unknown" };
     }
-  }, [open]);
+    if (outcome.kind === "committed") setDirty(false);
+    setUnresolved(outcome.kind === "unknown");
+    running.current = false;
+    setSaving(false);
+    return outcome;
+  };
+  return React.useCallback(() => go.current(), []);
+}
+
+type ReasonDialogProps = { open: boolean; title: string; description: string; label: string; confirm: string; destructive?: boolean; pending: boolean; onClose: () => void; onConfirm: (reason: string) => Promise<SaveOutcome> };
+
+function ReasonDialog(props: ReasonDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+    <Dialog open={props.open} onOpenChange={(value) => !value && props.onClose()}>
       <DialogContent>
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-        <label htmlFor="reason-text" className="mt-4 block text-table font-medium text-fg">
-          {label}
-        </label>
-        <Textarea id="reason-text" rows={3} className="mt-1.5" value={reason} onChange={(event) => setReason(event.target.value)} aria-invalid={Boolean(error)} />
-        {error ? <p role="alert" className="mt-1 text-meta text-danger-strong">{error}</p> : null}
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
-          </Button>
-          <Button variant={destructive ? "danger" : "primary"} disabled={pending} onClick={() => (reason.trim() ? void onConfirm(reason.trim()) : setError("Give a reason."))}>
-            {confirm}
-          </Button>
-        </DialogFooter>
+        <DialogTitle>{props.title}</DialogTitle>
+        <DialogDescription>{props.description}</DialogDescription>
+        {/* Inside the dialog, so the reason belongs to its guarded close (AUD-03 §5). Mounted on open: it starts empty. */}
+        <ReasonForm {...props} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function CorrectionDialog({ open, pending, onClose, onConfirm }: { open: boolean; pending: boolean; onClose: () => void; onConfirm: (input: { reason: string; correctionSummary: string }) => Promise<void> }) {
+function ReasonForm({ title, label, confirm, destructive, pending, onConfirm }: ReasonDialogProps) {
   const [reason, setReason] = React.useState("");
-  const [summary, setSummary] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    if (open) {
-      setReason("");
-      setSummary("");
-      setError(null);
-    }
-  }, [open]);
+  const step = useDialogStep({ label: title, saveKind: "none", workflow: confirm, dirty: reason !== "", confirm: () => onConfirm(reason.trim()) });
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+    <>
+      <label htmlFor="reason-text" className="mt-4 block text-table font-medium text-fg">
+        {label}
+      </label>
+      <Textarea id="reason-text" rows={3} className="mt-1.5" value={reason} readOnly={pending} onChange={(event) => setReason(event.target.value)} aria-invalid={Boolean(error)} />
+      {error ? <p role="alert" className="mt-1 text-meta text-danger-strong">{error}</p> : null}
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button variant={destructive ? "danger" : "primary"} disabled={pending} onClick={() => (reason.trim() ? void step() : setError("Give a reason."))}>
+          {confirm}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+type CorrectionDialogProps = { open: boolean; pending: boolean; onClose: () => void; onConfirm: (input: { reason: string; correctionSummary: string }) => Promise<SaveOutcome> };
+
+function CorrectionDialog(props: CorrectionDialogProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={(value) => !value && props.onClose()}>
       <DialogContent>
         <DialogTitle>Add an official correction</DialogTitle>
         <DialogDescription>The locked log stays exactly as it was; the correction is added beside it, dated and attributed.</DialogDescription>
-        <label htmlFor="correction-reason" className="mt-4 block text-table font-medium text-fg">
-          Why it needs correcting
-        </label>
-        <Input id="correction-reason" className="mt-1.5" value={reason} onChange={(event) => setReason(event.target.value)} />
-        <label htmlFor="correction-summary" className="mt-3 block text-table font-medium text-fg">
-          The correction
-        </label>
-        <Textarea id="correction-summary" rows={4} className="mt-1.5" value={summary} onChange={(event) => setSummary(event.target.value)} />
-        {error ? <p role="alert" className="mt-1 text-meta text-danger-strong">{error}</p> : null}
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
-          </Button>
-          <Button disabled={pending} onClick={() => (reason.trim() && summary.trim() ? void onConfirm({ reason: reason.trim(), correctionSummary: summary.trim() }) : setError("Give the reason and the correction."))}>
-            Add correction
-          </Button>
-        </DialogFooter>
+        {/* Inside the dialog, so the correction belongs to its guarded close (AUD-03 §5). */}
+        <CorrectionForm {...props} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function TaskDialog({ open, options, pending, onClose, onConfirm }: { open: boolean; options: EntryOptions | null; pending: boolean; onClose: () => void; onConfirm: (input: Record<string, unknown>) => Promise<void> }) {
+function CorrectionForm({ pending, onConfirm }: CorrectionDialogProps) {
+  const [reason, setReason] = React.useState("");
+  const [summary, setSummary] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  // An official correction is a workflow step on a locked record (AUD-03 §3).
+  const step = useDialogStep({ label: "Official correction", saveKind: "none", workflow: "Add correction", dirty: reason !== "" || summary !== "", confirm: () => onConfirm({ reason: reason.trim(), correctionSummary: summary.trim() }) });
+  return (
+    <>
+      <label htmlFor="correction-reason" className="mt-4 block text-table font-medium text-fg">
+        Why it needs correcting
+      </label>
+      <Input id="correction-reason" className="mt-1.5" value={reason} readOnly={pending} onChange={(event) => setReason(event.target.value)} />
+      <label htmlFor="correction-summary" className="mt-3 block text-table font-medium text-fg">
+        The correction
+      </label>
+      <Textarea id="correction-summary" rows={4} className="mt-1.5" value={summary} readOnly={pending} onChange={(event) => setSummary(event.target.value)} />
+      {error ? <p role="alert" className="mt-1 text-meta text-danger-strong">{error}</p> : null}
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button disabled={pending} onClick={() => (reason.trim() && summary.trim() ? void step() : setError("Give the reason and the correction."))}>
+          Add correction
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+type TaskDialogProps = { open: boolean; options: EntryOptions | null; pending: boolean; onClose: () => void; onConfirm: (input: Record<string, unknown>) => Promise<SaveOutcome> };
+
+function TaskDialog(props: TaskDialogProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={(value) => !value && props.onClose()}>
+      <DialogContent>
+        <DialogTitle>Create a follow-up task</DialogTitle>
+        <DialogDescription>The task is created in Tasks, on this log&apos;s project, and linked here.</DialogDescription>
+        {/* Inside the dialog, so the task belongs to its guarded close (AUD-03 §5). */}
+        <TaskForm {...props} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TaskForm({ options, pending, onConfirm }: TaskDialogProps) {
   const [title, setTitle] = React.useState("");
   const [assignee, setAssignee] = React.useState("");
   const [due, setDue] = React.useState("");
   const [priority, setPriority] = React.useState("MEDIUM");
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    if (open) {
-      setTitle("");
-      setAssignee("");
-      setDue("");
-      setPriority("MEDIUM");
-      setError(null);
-    }
-  }, [open]);
+  const valid = title.trim().length >= 2;
+  const step = useDialogStep({
+    label: "Follow-up task",
+    saveKind: "create",
+    dirty: title !== "" || assignee !== "" || due !== "" || priority !== "MEDIUM",
+    confirm: async () => {
+      if (!valid) {
+        setError("Give the task a title.");
+        return { kind: "invalid" };
+      }
+      return onConfirm({ title: title.trim(), assigneeMemberId: assignee || null, dueDate: due || null, priority });
+    },
+  });
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-      <DialogContent>
-        <DialogTitle>Create a follow-up task</DialogTitle>
-        <DialogDescription>The task is created in Tasks, on this log&apos;s project, and linked here.</DialogDescription>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col sm:col-span-2">
-            <span className="text-table font-medium text-fg">Title</span>
-            <Input className="mt-1.5" value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Task title" />
-          </label>
-          <label className="flex flex-col">
-            <span className="text-table font-medium text-fg">Assignee</span>
-            <select className={cn(selectClass, "mt-1.5")} value={assignee} onChange={(event) => setAssignee(event.target.value)}>
-              <option value="">Unassigned</option>
-              {options?.members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col">
-            <span className="text-table font-medium text-fg">Due</span>
-            <Input type="date" className="mt-1.5" value={due} onChange={(event) => setDue(event.target.value)} />
-          </label>
-          <label className="flex flex-col">
-            <span className="text-table font-medium text-fg">Priority</span>
-            <select className={cn(selectClass, "mt-1.5")} value={priority} onChange={(event) => setPriority(event.target.value)}>
-              {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => (
-                <option key={value} value={value}>
-                  {value.charAt(0) + value.slice(1).toLowerCase()}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {error ? <p role="alert" className="mt-2 text-meta text-danger-strong">{error}</p> : null}
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
+    <>
+      <fieldset disabled={pending} className="m-0 mt-4 grid min-w-0 gap-3 border-0 p-0 sm:grid-cols-2">
+        <label className="flex flex-col sm:col-span-2">
+          <span className="text-table font-medium text-fg">Title</span>
+          <Input className="mt-1.5" value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Task title" />
+        </label>
+        <label className="flex flex-col">
+          <span className="text-table font-medium text-fg">Assignee</span>
+          <select className={cn(selectClass, "mt-1.5")} value={assignee} onChange={(event) => setAssignee(event.target.value)}>
+            <option value="">Unassigned</option>
+            {options?.members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col">
+          <span className="text-table font-medium text-fg">Due</span>
+          <Input type="date" className="mt-1.5" value={due} onChange={(event) => setDue(event.target.value)} />
+        </label>
+        <label className="flex flex-col">
+          <span className="text-table font-medium text-fg">Priority</span>
+          <select className={cn(selectClass, "mt-1.5")} value={priority} onChange={(event) => setPriority(event.target.value)}>
+            {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => (
+              <option key={value} value={value}>
+                {value.charAt(0) + value.slice(1).toLowerCase()}
+              </option>
+            ))}
+          </select>
+        </label>
+      </fieldset>
+      {error ? <p role="alert" className="mt-2 text-meta text-danger-strong">{error}</p> : null}
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary" disabled={pending}>
             Cancel
           </Button>
-          <Button disabled={pending} onClick={() => (title.trim().length >= 2 ? void onConfirm({ title: title.trim(), assigneeMemberId: assignee || null, dueDate: due || null, priority }) : setError("Give the task a title."))}>
-            Create task
-          </Button>
-        </DialogFooter>
+        </DialogClose>
+        <Button disabled={pending} onClick={() => void step()}>
+          Create task
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+type LinkTaskDialogProps = { open: boolean; options: EntryOptions | null; pending: boolean; onClose: () => void; onConfirm: (taskId: string) => Promise<SaveOutcome> };
+
+function LinkTaskDialog(props: LinkTaskDialogProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={(value) => !value && props.onClose()}>
+      <DialogContent>
+        <DialogTitle>Link a task</DialogTitle>
+        <DialogDescription>Tasks on this project that you can open.</DialogDescription>
+        {/* Inside the dialog, so the pick belongs to its guarded close (AUD-03 §5). */}
+        <LinkTaskForm {...props} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function LinkTaskDialog({ open, options, pending, onClose, onConfirm }: { open: boolean; options: EntryOptions | null; pending: boolean; onClose: () => void; onConfirm: (taskId: string) => Promise<void> }) {
+function LinkTaskForm({ options, pending, onConfirm }: LinkTaskDialogProps) {
   const [taskId, setTaskId] = React.useState("");
-  React.useEffect(() => {
-    if (open) setTaskId("");
-  }, [open]);
+  const step = useDialogStep({ label: "Link a task", saveKind: "create", dirty: taskId !== "", confirm: async () => (taskId ? onConfirm(taskId) : { kind: "invalid" }) });
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-      <DialogContent>
-        <DialogTitle>Link a task</DialogTitle>
-        <DialogDescription>Tasks on this project that you can open.</DialogDescription>
-        <select className={cn(selectClass, "mt-4")} value={taskId} onChange={(event) => setTaskId(event.target.value)} aria-label="Task">
-          <option value="">Choose a task</option>
-          {options?.tasks.map((task) => (
-            <option key={task.id} value={task.id}>
-              {task.label}
-            </option>
-          ))}
-        </select>
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
+    <>
+      <select className={cn(selectClass, "mt-4")} value={taskId} disabled={pending} onChange={(event) => setTaskId(event.target.value)} aria-label="Task">
+        <option value="">Choose a task</option>
+        {options?.tasks.map((task) => (
+          <option key={task.id} value={task.id}>
+            {task.label}
+          </option>
+        ))}
+      </select>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary" disabled={pending}>
             Cancel
           </Button>
-          <Button disabled={pending || !taskId} onClick={() => void onConfirm(taskId)}>
-            Link task
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogClose>
+        <Button disabled={pending || !taskId} onClick={() => void step()}>
+          Link task
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
 

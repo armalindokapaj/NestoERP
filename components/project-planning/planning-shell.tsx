@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, CalendarRange, Flag, GanttChart, LayoutDashboard, L
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -14,6 +14,7 @@ import { PLANNING_TEMPLATES } from "@/lib/modules/project-planning/planning.temp
 import { MILESTONE_STATUSES, STATUS_LABELS, type MilestoneStatus, type MilestoneSummaryDTO, type Option, type ProjectPlanningOverviewDTO } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 import { MilestoneDrawer } from "./milestone-drawer";
+import { useValuesEditor } from "./use-values-editor";
 import { EMPTY_MILESTONE, EMPTY_PHASE, MilestoneFormDialog, PhaseFormDialog } from "./milestone-form";
 import { MilestoneList, type DrawerPanel, type SortKey } from "./milestone-list";
 import { failureMessage, planningApi } from "./planning-api";
@@ -682,8 +683,16 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
         </DialogContent>
       </Dialog>
 
-      <Dialog open={copyOpen} onOpenChange={setCopyOpen}>
+      <Dialog
+        open={copyOpen}
+        onOpenChange={(value) => {
+          setCopyOpen(value);
+          // Reached only through the guarded close: a discarded choice is gone (AUD-03 §5).
+          if (!value) setCopySource("");
+        }}
+      >
         <DialogContent>
+          <CopyChoiceEditor value={copySource} pending={pending} />
           <DialogTitle>Copy planning from another project</DialogTitle>
           <DialogDescription>Phases, milestone names and dependencies are copied. Actual dates, statuses, documents, meetings and logs are not.</DialogDescription>
           <label className="mt-4 flex flex-col gap-1 text-meta text-fg-muted">
@@ -698,10 +707,21 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
             </select>
           </label>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setCopyOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={pending || !copySource} onClick={async () => { if (await run(() => planningApi(`/api/projects/${plan.projectId}/planning/copy`, { body: { sourceProjectId: copySource } }), "Planning copied")) setCopyOpen(false); }}>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              disabled={pending || !copySource}
+              onClick={async () => {
+                if (await run(() => planningApi(`/api/projects/${plan.projectId}/planning/copy`, { body: { sourceProjectId: copySource } }), "Planning copied")) {
+                  setCopyOpen(false);
+                  setCopySource("");
+                }
+              }}
+            >
               Copy planning
             </Button>
           </DialogFooter>
@@ -709,4 +729,17 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
       </Dialog>
     </div>
   );
+}
+
+/**
+ * The project chosen to copy a plan from, as a workflow editor (AUD-03 §3):
+ * copying is a bulk step, so closing with a choice made asks, and Save and
+ * continue never copies. Rendered inside the dialog, so its close is the one
+ * that asks.
+ */
+function CopyChoiceEditor({ value, pending }: { value: string; pending: boolean }) {
+  const editor = useValuesEditor(value, { module: "planning", saveKind: "none", workflow: "Copy planning", label: "Planning to copy" });
+  const { setSaving } = editor;
+  React.useEffect(() => setSaving(pending), [pending, setSaving]);
+  return null;
 }

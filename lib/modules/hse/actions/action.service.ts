@@ -794,7 +794,6 @@ export async function createTaskForAction(
   );
 
   const tasks = await import("@/lib/modules/tasks/task.service");
-  const collaboration = await import("@/lib/core/collaboration/collaboration.service");
 
   // The task and the link that says where it came from commit together
   // (PRD #48 §22, §145).
@@ -822,8 +821,8 @@ export async function createTaskForAction(
     return created;
   });
 
-  await collaboration.subscribeStakeholders({ companyId: context.companyId, parentType: "task", parentId: task.id, memberIds: [context.membershipId, ...(task.assigneeMemberId ? [task.assigneeMemberId] : [])] });
-
+  // The task's creator and assignee were subscribed by the task door, inside
+  // the same transaction (PRD #38 §33, AUD-02 §8).
   return { id: task.id };
 }
 

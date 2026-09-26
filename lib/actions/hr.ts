@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-
 import { AccessError } from "@/lib/access/guards";
+import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import * as compensation from "@/lib/modules/hr/compensation/compensation.service";
@@ -36,7 +35,7 @@ import {
  */
 
 export type HrActionResult =
-  | { ok: true; id?: string; message?: string }
+  | { ok: true; id?: string; message?: string; redirectTo?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]>; duplicates?: ProbableDuplicate[] };
 
 function revalidateHr(employeeId?: string) {
@@ -94,7 +93,7 @@ export async function createEmployeeProfileAction(
 
   revalidateHr();
   revalidatePath("/people", "layout");
-  redirect(`/hr/employees/${employeeId}`);
+  return committed(`/hr/employees/${employeeId}`);
 }
 
 export async function updateEmployeeProfileAction(
@@ -113,7 +112,7 @@ export async function updateEmployeeProfileAction(
   }
 
   revalidateHr(employeeId);
-  redirect(`/hr/employees/${employeeId}`);
+  return committed(`/hr/employees/${employeeId}`);
 }
 
 /**
@@ -215,7 +214,7 @@ export async function recordCompensationAction(
   }
 
   revalidateHr(employeeId);
-  redirect(`/hr/employees/${employeeId}/compensation`);
+  return committed(`/hr/employees/${employeeId}/compensation`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -236,7 +235,7 @@ export async function createLeaveAction(formData: FormData): Promise<HrActionRes
   }
 
   revalidateHr();
-  redirect(`/hr/leave/${id}`);
+  return committed(`/hr/leave/${id}`);
 }
 
 export async function updateLeaveAction(
@@ -255,7 +254,7 @@ export async function updateLeaveAction(
   }
 
   revalidateHr();
-  redirect(`/hr/leave/${leaveId}`);
+  return committed(`/hr/leave/${leaveId}`);
 }
 
 export type LeaveAction = "submit" | "approve" | "cancel";

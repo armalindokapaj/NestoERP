@@ -5,7 +5,7 @@ import { selectClass } from "@/components/forms/record-form";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AttendanceSheet } from "@/components/workforce/attendance-sheet";
+import { AttendanceSheet, AttendanceSheetFilter } from "@/components/workforce/attendance-sheet";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { resolveModuleExperience } from "@/lib/access/module-access";
@@ -58,7 +58,7 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
   return (
     <ModulePage experience={resolveModuleExperience(context, "workforce")} activeSection="attendance">
       <div className="space-y-4">
-        <form method="get" className="nesto-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end" aria-label="Choose the sheet">
+        <AttendanceSheetFilter className="nesto-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end" aria-label="Choose the sheet">
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
             Day
             <Input type="date" name="date" defaultValue={date} max={todayDay()} required />
@@ -107,7 +107,7 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
           <Button type="submit" data-testid="open-sheet">
             Open sheet
           </Button>
-        </form>
+        </AttendanceSheetFilter>
         {problem ? (
           <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
             {problem}

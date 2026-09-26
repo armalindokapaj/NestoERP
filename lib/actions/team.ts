@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { signIn } from "@/lib/auth";
 import { AccessError } from "@/lib/access/guards";
 import { requireCompanyContext } from "@/lib/context/current-user";
+import { committed } from "@/lib/forms/committed";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import { clientAddress, hitThrottle } from "@/lib/core/security/throttle";
 import { ensurePersonForUser } from "@/lib/modules/hr/person.doors";
@@ -28,7 +28,7 @@ function revalidateTeam(memberId?: string) {
 }
 
 export type TeamActionResult =
-  | { ok: true; message?: string }
+  | { ok: true; message?: string; redirectTo?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
 
 /**
@@ -86,7 +86,7 @@ export async function updateMemberAction(
   }
 
   revalidateTeam(memberId);
-  redirect(`/team/${memberId}`);
+  return committed(`/team/${memberId}`);
 }
 
 export async function memberStatusAction(

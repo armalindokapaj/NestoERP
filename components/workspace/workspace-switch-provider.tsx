@@ -7,6 +7,7 @@ import { LoaderCircle } from "lucide-react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useToast } from "@/components/ui/toast";
 import type { WorkspaceScopeType } from "@/config/workspace";
+import { unsaved } from "@/lib/unsaved/coordinator";
 import { openInSwitchedWorkspace, requestWorkspaceSwitch, setWorkspaceSwitchInPlace } from "@/lib/workspace/client";
 
 /**
@@ -81,19 +82,29 @@ export function WorkspaceSwitchProvider({
     (target: WorkspaceTarget) => {
       if (busy.current) return;
       busy.current = true;
-      setWorkspaceSwitchInPlace(true);
-      const fromKey = keyRef.current;
-      setState({ name: target.name, phase: "request", fromKey, switched: false, notice: null, sawPending: false });
 
       void (async () => {
+        // Unsaved work first, before the page is covered: Stay leaves the tab
+        // exactly as it was and sends nothing (AUD-03 §7, OW §37).
+        const approval = await unsaved.requestDeparture({ kind: "workspace", target: target.name });
+        if (!approval) {
+          busy.current = false;
+          return;
+        }
+        setWorkspaceSwitchInPlace(true);
+        const fromKey = keyRef.current;
+        setState({ name: target.name, phase: "request", fromKey, switched: false, notice: null, sawPending: false });
         const here = `${window.location.pathname}${window.location.search}`;
         const result = await requestWorkspaceSwitch(
           { scopeType: target.scopeType, companyId: target.companyId, currentPathname: window.location.pathname, currentSearch: window.location.search },
-          // The popup has already asked about unsaved changes (§37); this tab
-          // goes on itself, so its own channel echo must not reload it.
-          { confirmed: true, echoToThisTab: false },
+          // This tab goes on itself, so its own channel echo must not reload it.
+          { approval, targetName: target.name, echoToThisTab: false },
         );
         if (!result.ok) {
+          if (result.cancelled) {
+            finish();
+            return;
+          }
           // A newer request owns the tab now, and goes on by itself.
           if (result.stale) {
             finish();

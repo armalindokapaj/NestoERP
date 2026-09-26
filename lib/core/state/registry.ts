@@ -45,6 +45,7 @@ import { rfqMachine } from "@/lib/modules/procurement/rfqs/rfq.machine";
 import { supplierMachine } from "@/lib/modules/procurement/suppliers/supplier.machine";
 import { correctiveActionMachine } from "@/lib/modules/qaqc/corrective-actions/action.machine";
 import { qualityInspectionMachine } from "@/lib/modules/qaqc/inspections/inspection.machine";
+import { taskMachine } from "@/lib/modules/tasks/task.machine";
 import type { StateMachine } from "./machine";
 
 /**
@@ -124,5 +125,7 @@ export const STATE_MACHINES: ReadonlyArray<StateMachine<any, any>> = [
   technicalSubmittalMachine,
   submittalRevisionMachine,
   documentTransmittalMachine,
+  // Tasks: every command that moves a task, edits included (AUD-02 §5)
+  taskMachine,
 ];
 

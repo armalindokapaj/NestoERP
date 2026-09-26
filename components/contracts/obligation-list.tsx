@@ -1,12 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { ClipboardList, Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { selectClass } from "@/components/forms/record-form";
 import {
   closeObligationAction,
@@ -203,6 +205,11 @@ export function ContractObligationList({
   );
 }
 
+/**
+ * The obligation and task dialogs hold forms registered with the unsaved-work
+ * coordinator: the X, Escape, the backdrop and Cancel ask before throwing typed
+ * input away, and a save has an explicit outcome (AUD-03 §3, §5).
+ */
 function ObligationDialog({
   open,
   onOpenChange,
@@ -218,22 +225,6 @@ function ObligationDialog({
   members: { value: string; label: string }[];
   onSaved: () => void;
 }) {
-  const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
-
-  function submit(formData: FormData) {
-    startTransition(async () => {
-      const result = await saveObligationAction(contractId, obligation?.id ?? null, formData);
-      if (result.ok) {
-        toast({ title: obligation ? "Obligation updated." : "Obligation recorded.", tone: "success" });
-        onOpenChange(false);
-        onSaved();
-      } else {
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -242,75 +233,112 @@ function ObligationDialog({
           What the agreement requires, and by when. Recording one against a live contract does not
           change its terms.
         </DialogDescription>
+        <ObligationForm contractId={contractId} obligation={obligation} members={members} onSaved={onSaved} />
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-        <form action={submit} className="mt-4 space-y-3">
+function ObligationForm({
+  contractId,
+  obligation,
+  members,
+  onSaved,
+}: {
+  contractId: string;
+  obligation: ContractObligationDTO | null;
+  members: { value: string; label: string }[];
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({
+    formRef,
+    action: (formData: FormData) => saveObligationAction(contractId, obligation?.id ?? null, formData),
+    module: "contracts",
+    saveKind: obligation ? "save" : "create",
+    label: obligation ? obligation.title : "New obligation",
+    onCommitted: () => {
+      toast({ title: obligation ? "Obligation updated." : "Obligation recorded.", tone: "success" });
+      onSaved();
+      return true;
+    },
+  });
+  const { pending } = save;
+
+  return (
+    <form ref={formRef} onSubmit={save.onSubmit} className="mt-4 space-y-3">
+      <SaveMessages save={save} />
+      <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-3 border-0 p-0">
+        <div className="space-y-1.5">
+          <Label htmlFor="title">Title</Label>
+          <Input id="title" name="title" defaultValue={obligation?.title ?? ""} required maxLength={250} />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="title">Title</Label>
-            <Input id="title" name="title" defaultValue={obligation?.title ?? ""} required maxLength={250} />
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="obligationType">Type</Label>
-              <select
-                id="obligationType"
-                name="obligationType"
-                className={selectClass}
-                defaultValue={obligation?.type ?? "DELIVERABLE"}
-              >
-                {OBLIGATION_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {obligationTypeLabels[type]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="dueDate">Due date</Label>
-              <Input id="dueDate" name="dueDate" type="date" defaultValue={obligation?.dueDate ?? ""} />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="responsibleMemberId">Responsible</Label>
+            <Label htmlFor="obligationType">Type</Label>
             <select
-              id="responsibleMemberId"
-              name="responsibleMemberId"
+              id="obligationType"
+              name="obligationType"
               className={selectClass}
-              defaultValue={obligation?.responsible?.memberId ?? ""}
+              defaultValue={obligation?.type ?? "DELIVERABLE"}
             >
-              <option value="">Unassigned</option>
-              {members.map((member) => (
-                <option key={member.value} value={member.value}>
-                  {member.label}
+              {OBLIGATION_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {obligationTypeLabels[type]}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              name="description"
-              rows={3}
-              maxLength={5000}
-              defaultValue={obligation?.description ?? ""}
-            />
+            <Label htmlFor="dueDate">Due date</Label>
+            <Input id="dueDate" name="dueDate" type="date" defaultValue={obligation?.dueDate ?? ""} />
           </div>
+        </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : obligation ? "Save obligation" : "Record obligation"}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <div className="space-y-1.5">
+          <Label htmlFor="responsibleMemberId">Responsible</Label>
+          <select
+            id="responsibleMemberId"
+            name="responsibleMemberId"
+            className={selectClass}
+            defaultValue={obligation?.responsible?.memberId ?? ""}
+          >
+            <option value="">Unassigned</option>
+            {members.map((member) => (
+              <option key={member.value} value={member.value}>
+                {member.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="description">Description</Label>
+          <Textarea
+            id="description"
+            name="description"
+            rows={3}
+            maxLength={5000}
+            defaultValue={obligation?.description ?? ""}
+          />
+        </div>
+      </fieldset>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <UnsavedIndicator save={save} />
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : obligation ? "Save obligation" : "Record obligation"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -329,23 +357,10 @@ function TaskDialog({
   members: { value: string; label: string }[];
   onSaved: () => void;
 }) {
-  const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
-
-  function submit(formData: FormData) {
-    if (!obligation) return;
-    startTransition(async () => {
-      const result = await createObligationTaskAction(contractId, obligation.id, formData);
-      if (result.ok) {
-        toast({ title: "Task created.", tone: "success" });
-        onOpenChange(false);
-        onSaved();
-      } else {
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
-  }
-
+  // Kept through the closing animation, so the form does not vanish mid-fade.
+  const last = React.useRef(obligation);
+  if (obligation) last.current = obligation;
+  const shown = obligation ?? last.current;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -354,58 +369,89 @@ function TaskDialog({
           The task is a normal NESTO task. It appears in /tasks like any other work, and it points
           back at this obligation.
         </DialogDescription>
-
-        <form action={submit} className="mt-4 space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="task-title">Title</Label>
-            <Input
-              id="task-title"
-              name="title"
-              defaultValue={obligation ? obligation.title : ""}
-              required
-              maxLength={200}
-            />
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="assigneeMemberId">Assignee</Label>
-              <select
-                id="assigneeMemberId"
-                name="assigneeMemberId"
-                className={selectClass}
-                defaultValue={obligation?.responsible?.memberId ?? ""}
-              >
-                <option value="">Unassigned</option>
-                {members.map((member) => (
-                  <option key={member.value} value={member.value}>
-                    {member.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="task-due">Due date</Label>
-              <Input id="task-due" name="dueDate" type="date" defaultValue={obligation?.dueDate ?? ""} />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="task-description">Description</Label>
-            <Textarea id="task-description" name="description" rows={3} maxLength={2000} />
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Creating…" : "Create task"}
-            </Button>
-          </div>
-        </form>
+        {shown ? <TaskForm key={shown.id} contractId={contractId} obligation={shown} members={members} onSaved={onSaved} /> : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TaskForm({
+  contractId,
+  obligation,
+  members,
+  onSaved,
+}: {
+  contractId: string;
+  obligation: ContractObligationDTO;
+  members: { value: string; label: string }[];
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({
+    formRef,
+    action: (formData: FormData) => createObligationTaskAction(contractId, obligation.id, formData),
+    module: "contracts",
+    saveKind: "create",
+    label: "New task",
+    onCommitted: () => {
+      toast({ title: "Task created.", tone: "success" });
+      onSaved();
+      return true;
+    },
+  });
+  const { pending } = save;
+
+  return (
+    <form ref={formRef} onSubmit={save.onSubmit} className="mt-4 space-y-3">
+      <SaveMessages save={save} />
+      <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-3 border-0 p-0">
+        <div className="space-y-1.5">
+          <Label htmlFor="task-title">Title</Label>
+          <Input id="task-title" name="title" defaultValue={obligation.title} required maxLength={200} />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="assigneeMemberId">Assignee</Label>
+            <select
+              id="assigneeMemberId"
+              name="assigneeMemberId"
+              className={selectClass}
+              defaultValue={obligation.responsible?.memberId ?? ""}
+            >
+              <option value="">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.value} value={member.value}>
+                  {member.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="task-due">Due date</Label>
+            <Input id="task-due" name="dueDate" type="date" defaultValue={obligation.dueDate ?? ""} />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="task-description">Description</Label>
+          <Textarea id="task-description" name="description" rows={3} maxLength={2000} />
+        </div>
+      </fieldset>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <UnsavedIndicator save={save} />
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Creating…" : "Create task"}
+        </Button>
+      </div>
+    </form>
   );
 }

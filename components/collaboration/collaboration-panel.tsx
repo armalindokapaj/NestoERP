@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 import type { CommentDTO, MentionableMemberDTO, ThreadDTO } from "@/lib/core/collaboration/collaboration.service";
 import { cn } from "@/lib/utils/cn";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -487,29 +490,67 @@ function CommentComposer({
     });
   }
 
-  async function submit() {
+  // A comment being written — or an edit of one's own — is unsaved work, and
+  // posting it is an ordinary save the prompt may run (AUD-03 §3). Dirty is
+  // the text against what the composer opened with.
+  const running = React.useRef(false);
+  const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
+  const editor = useUnsavedEditor({ module: "collaboration", saveKind: "save", label: initial ? "Your comment edit" : "Your comment", save: () => run.current(), focus: () => textareaRef.current?.focus() });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(text !== (initial?.text ?? "")), [text, initial?.text, setDirty]);
+
+  run.current = async () => {
+    if (running.current) return { kind: "unknown" };
+    if (unsaved.frozen) return { kind: "refused" };
     const trimmed = text.trim();
     if (!trimmed) {
       setError(ERROR_TEXT.COMMENT_EMPTY);
-      return;
+      return { kind: "invalid" };
     }
     if (trimmed.length > MAX_LENGTH) {
       setError(ERROR_TEXT.COMMENT_TOO_LONG);
-      return;
+      return { kind: "invalid" };
     }
+    running.current = true;
     setPending(true);
+    setSaving(true);
     setError(null);
     try {
       await onSubmit(toMarkup(text, mentions));
+      // Clean before it stops saving: a departure waiting on it goes on.
+      setDirty(false);
+      setUnresolved(false);
       if (!initial) {
         setText("");
         setMentions([]);
       }
+      return { kind: "committed" };
     } catch (caught) {
-      setError(failureText(caught));
+      const failure = caught as Partial<ApiFailure> | null;
+      const known = typeof failure?.status === "number" && failure.status > 0;
+      setUnresolved(!known);
+      setError(known ? failureText(caught) : OUTCOME_COPY.unknown);
+      return known ? outcomeOf({ ok: false, code: failure?.code, error: failure?.message }) : { kind: "unknown" };
     } finally {
+      running.current = false;
       setPending(false);
+      setSaving(false);
     }
+  };
+
+  function submit() {
+    void run.current();
+  }
+
+  /** Cancel asks only when the edit holds something; the page stays, so the approval is let go at once. */
+  async function dismissComposer(discard: () => void) {
+    const intent = { kind: "dismiss", scope: `editor:${editor.id}` } as const;
+    if (!unsaved.hasBlocking(intent)) {
+      discard();
+      return;
+    }
+    const approval = await unsaved.requestDeparture(intent);
+    if (approval?.run(discard)) approval.release();
   }
 
   const listboxOpen = query !== null && options.length > 0;
@@ -519,7 +560,7 @@ function CommentComposer({
       className="mt-4 space-y-2"
       onSubmit={(event) => {
         event.preventDefault();
-        void submit();
+        submit();
       }}
     >
       <label htmlFor={`${id}-body`} className="sr-only">
@@ -570,7 +611,7 @@ function CommentComposer({
             }
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault();
-              void submit();
+              submit();
             }
           }}
         />
@@ -615,7 +656,7 @@ function CommentComposer({
       )}
       <div className="flex justify-end gap-2">
         {onCancel ? (
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={pending}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => void dismissComposer(onCancel)} disabled={pending}>
             Cancel
           </Button>
         ) : null}

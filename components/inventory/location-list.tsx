@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -18,6 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { archiveLocationAction, createLocationAction } from "@/lib/actions/inventory";
 import type { LocationDTO } from "@/lib/modules/inventory/inventory.types";
 
@@ -42,22 +45,6 @@ export function LocationList({
   const [pending, startTransition] = React.useTransition();
   const [adding, setAdding] = React.useState(false);
   const [archiving, setArchiving] = React.useState<LocationDTO | null>(null);
-  const [errors, setErrors] = React.useState<Record<string, string[]>>({});
-
-  function add(formData: FormData) {
-    startTransition(async () => {
-      const result = await createLocationAction(warehouseId, formData);
-      if (result.ok) {
-        setAdding(false);
-        setErrors({});
-        toast({ title: "Location added.", tone: "success" });
-        router.refresh();
-      } else {
-        setErrors(result.fieldErrors ?? {});
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
-  }
 
   function archive(location: LocationDTO) {
     startTransition(async () => {
@@ -138,34 +125,8 @@ export function LocationList({
             A bin, rack, bay or yard inside this warehouse.
           </DialogDescription>
 
-          <form action={add} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="location-code">Code</Label>
-              <Input id="location-code" name="code" required maxLength={40} />
-              {errors.code ? (
-                <p className="text-meta text-danger-strong">{errors.code[0]}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="location-name">Name</Label>
-              <Input id="location-name" name="name" maxLength={200} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="location-description">Description</Label>
-              <Input id="location-description" name="description" maxLength={1000} />
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="secondary" onClick={() => setAdding(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Adding…" : "Add location"}
-              </Button>
-            </DialogFooter>
-          </form>
+          {/* Inside the dialog, so its guarded close asks about what was typed (AUD-03 §5). */}
+          <AddLocationForm warehouseId={warehouseId} onAdded={() => setAdding(false)} />
         </DialogContent>
       </Dialog>
 
@@ -179,5 +140,64 @@ export function LocationList({
         onConfirm={() => archiving && archive(archiving)}
       />
     </section>
+  );
+}
+
+function AddLocationForm({ warehouseId, onAdded }: { warehouseId: string; onAdded: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({
+    formRef,
+    action: (formData: FormData) => createLocationAction(warehouseId, formData),
+    module: "inventory",
+    saveKind: "create",
+    label: "New location",
+    onCommitted: () => {
+      onAdded();
+      toast({ title: "Location added.", tone: "success" });
+      router.refresh();
+      return true;
+    },
+  });
+  const { pending, fieldErrors: errors } = save;
+
+  return (
+    <form ref={formRef} onSubmit={save.onSubmit} className="space-y-4">
+      <SaveMessages save={save} />
+
+      <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        <div className="space-y-1.5">
+          <Label htmlFor="location-code">Code</Label>
+          <Input id="location-code" name="code" required maxLength={40} />
+          {errors.code ? (
+            <p className="text-meta text-danger-strong">{errors.code[0]}</p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="location-name">Name</Label>
+          <Input id="location-name" name="name" maxLength={200} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="location-description">Description</Label>
+          <Input id="location-description" name="description" maxLength={1000} />
+        </div>
+      </fieldset>
+
+      <DialogFooter>
+        <UnsavedIndicator save={save} className="mr-auto self-center" />
+        {/* The guarded close, like the X (§5). */}
+        <DialogClose asChild>
+          <Button type="button" variant="secondary">
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Adding…" : "Add location"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

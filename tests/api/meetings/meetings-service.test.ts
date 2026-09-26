@@ -29,7 +29,7 @@ import {
   updateMeeting,
 } from "@/lib/modules/meetings/meeting.service";
 import { completeTask, reopenTask } from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma, PROJECT, taskVersion } from "../../helpers";
 
 /**
  * Meetings, against the real database (PRD #40 §284-§296, §302).
@@ -501,13 +501,13 @@ describe("action items and tasks (§53-§62, §233, §290, §298)", () => {
     expect(await prisma.task.count({ where: { entityType: "meeting", entityId: meeting.id } })).toBe(1);
     await expectCode(updateActionItem(pm, meeting.id, action.id, { status: "DONE" }), "CONFLICT");
 
-    await completeTask(engineer, task.id);
+    await completeTask(engineer, task.id, await taskVersion(task.id));
     const done = (await getMeeting(pm, meeting.id)).actions[0];
     expect(done.status).toBe("DONE");
     expect(done.completedAt).not.toBeNull();
     expect(await prisma.notificationEventOutbox.count({ where: { entityId: meeting.id, eventType: "MEETING_ACTION_COMPLETED" } })).toBe(1);
 
-    await reopenTask(await loginAs("OWNER"), task.id);
+    await reopenTask(await loginAs("OWNER"), task.id, await taskVersion(task.id));
     expect((await getMeeting(pm, meeting.id)).actions[0].status).toBe("OPEN");
   });
 

@@ -5,12 +5,15 @@ import { ChevronDown, Loader2, TriangleAlert, X } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 import { formatClock } from "@/lib/modules/calendar/calendar.format";
 import type { CalendarFormOptions } from "@/lib/modules/calendar/calendar.options";
 import { addLocalDays, instantFromLocal, localDate, localTime } from "@/lib/modules/calendar/calendar.time";
@@ -160,11 +163,16 @@ export function EventFormDrawer({
   const [conflicts, setConflicts] = React.useState<ConflictDTO[]>([]);
   const [query, setQuery] = React.useState("");
   const [people, setPeople] = React.useState<Person[]>([]);
+  // What the drawer opened with, and whether a save never got an answer (AUD-03 §3, §6).
+  const [baseline, setBaseline] = React.useState<FormState | null>(null);
+  const [unresolved, setUnresolved] = React.useState(false);
 
   React.useEffect(() => {
     if (!open || !mode) return;
     const next = initialState(mode, zone);
     setState(next);
+    setBaseline(next);
+    setUnresolved(false);
     setMore(mode.kind === "edit" && Boolean(next.projectId || next.departmentId || next.participants.length || next.location || next.description || next.frequency));
     setErrors({});
     setConflicts([]);
@@ -225,9 +233,12 @@ export function EventFormDrawer({
   if (!state || !mode) return null;
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setState((current) => (current ? { ...current, [key]: value } : current));
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!state || !mode) return;
+  /** One save for the button and for the prompt's Save and continue alike; either way the drawer closes after it. */
+  async function run(): Promise<SaveOutcome> {
+    if (!state || !mode) return { kind: "unknown" };
+    if (pending) return { kind: "unknown" };
+    if (unsaved.frozen) return { kind: "refused" };
+    if (!state.title.trim()) return { kind: "invalid" };
     setPending(true);
     setErrors({});
     const body = {
@@ -259,25 +270,48 @@ export function EventFormDrawer({
         const fieldErrors: Record<string, string> = {};
         for (const [key, value] of Object.entries(details)) if (Array.isArray(value) && typeof value[0] === "string") fieldErrors[key] = value[0];
         setErrors({ form: json?.error?.message ?? "The event could not be saved.", ...fieldErrors });
-        return;
+        setUnresolved(false);
+        return outcomeOf({ ok: false, code: typeof details.code === "string" ? details.code : json?.error?.code, error: json?.error?.message });
       }
+      // Clean before it stops saving: nothing is left to ask about as it closes.
+      setBaseline(state);
+      setUnresolved(false);
       toast({ title: mode.kind === "edit" ? "Event updated" : "Event created", tone: "success" });
       onSaved(json.event as CalendarEventDetailDTO, (json.conflicts ?? []) as ConflictDTO[]);
       onOpenChange(false);
+      return { kind: "committed" };
     } catch {
-      setErrors({ form: "The event could not be saved. Check your connection and try again." });
+      // It may have saved: say so, and never send it again by itself (AUD-03 §6).
+      setUnresolved(true);
+      setErrors({ form: "The event could not be saved. Check your connection and try again.", outcome: OUTCOME_COPY.unknown });
+      return { kind: "unknown" };
     } finally {
       setPending(false);
     }
   }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    void run();
+  }
+  const dirty = baseline !== null && JSON.stringify(state) !== JSON.stringify(baseline);
 
   const types = options?.eventTypes ?? [state.eventType];
   const visibilities = options?.visibilities ?? [state.visibility];
   const fieldError = (key: string) => (errors[key] ? <p className="text-meta text-danger-strong">{errors[key]}</p> : null);
 
   return (
-    <Drawer open={open} onOpenChange={(next) => (pending ? null : onOpenChange(next))}>
+    <Drawer open={open} locked={pending} onOpenChange={onOpenChange}>
       <DrawerContent side={phone ? "bottom" : "right"} className={cn("bg-surface", !phone && "sm:max-w-[480px]")} aria-describedby="event-form-description">
+        {/* Inside the drawer, so its values belong to its guarded close (AUD-03 §5). */}
+        <DrawerEditor
+          label={mode.kind === "edit" ? "Edit event" : "New event"}
+          saveKind={mode.kind === "edit" ? "save" : "create"}
+          dirty={dirty}
+          saving={pending}
+          unresolved={unresolved}
+          save={run}
+        />
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
           <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-5">
             <div>
@@ -286,9 +320,11 @@ export function EventFormDrawer({
                 Times are in the company&apos;s time zone ({zone.replace("_", " ")}).
               </DrawerDescription>
             </div>
-            <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg">
-              <X aria-hidden="true" className="size-4" />
-            </button>
+            <DrawerClose asChild>
+              <button type="button" aria-label="Close" className="rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg">
+                <X aria-hidden="true" className="size-4" />
+              </button>
+            </DrawerClose>
           </div>
 
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
@@ -518,16 +554,19 @@ export function EventFormDrawer({
             ) : null}
 
             {errors.form ? (
-              <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
-                {errors.form}
-              </p>
+              <div role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
+                <p>{errors.form}</p>
+                {errors.outcome ? <p>{errors.outcome}</p> : null}
+              </div>
             ) : null}
           </div>
 
           <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
-            </Button>
+            <DrawerClose asChild>
+              <Button type="button" variant="secondary" disabled={pending}>
+                Cancel
+              </Button>
+            </DrawerClose>
             <Button type="submit" disabled={pending || !state.title.trim()}>
               {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
               {mode.kind === "edit" ? "Save changes" : "Create event"}
@@ -537,6 +576,23 @@ export function EventFormDrawer({
       </DrawerContent>
     </Drawer>
   );
+}
+
+/**
+ * The drawer's registration with the unsaved-work coordinator (AUD-03 §3),
+ * mounted inside the drawer so that closing it asks about these values. The
+ * drawer keeps its values; this only reports on them.
+ */
+function DrawerEditor({ label, saveKind, dirty, saving, unresolved, save }: { label: string; saveKind: "save" | "create"; dirty: boolean; saving: boolean; unresolved: boolean; save: () => Promise<SaveOutcome> }) {
+  const editor = useUnsavedEditor({ module: "calendar", saveKind, label, save });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => {
+    // Dirtiness first: a save that just committed stops saving already clean.
+    setDirty(dirty);
+    setUnresolved(unresolved);
+    setSaving(saving);
+  }, [dirty, saving, unresolved, setDirty, setSaving, setUnresolved]);
+  return null;
 }
 
 function ProjectField({

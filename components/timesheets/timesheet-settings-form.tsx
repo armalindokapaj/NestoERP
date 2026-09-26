@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import { PersonLink } from "@/components/people/person-link";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { ApproverAssignmentDTO } from "@/lib/modules/timesheets/timesheet.approvers";
 import { formatMinutes, parseDuration } from "@/lib/modules/timesheets/timesheet.time";
 import type { TimesheetPerson, TimesheetSettingsDTO } from "@/lib/modules/timesheets/timesheet.types";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
-import { failureMessage, timesheetApi } from "./timesheet-api";
+import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
 
 /**
  * Company timesheet rules and approvers (PRD #42 §12, §30, §35, §39, §59,
@@ -21,6 +24,9 @@ import { failureMessage, timesheetApi } from "./timesheet-api";
  */
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** What the form saves: the fields a person can change (AUD-03 §3). */
+const EDITABLE = ["weekStartsOn", "daily", "weekly", "incrementMinutes", "enforceIncrement", "backdateDays", "submitDay", "submitTime", "descriptionsRequired", "membersSetBillable"] as const;
 
 function ToggleRow({ id, label, hint, checked, onChange }: { id: string; label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }) {
   return (
@@ -37,17 +43,32 @@ function ToggleRow({ id, label, hint, checked, onChange }: { id: string; label: 
 export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsDTO }) {
   const toast = useToast();
   const router = useRouter();
-  const [state, setState] = React.useState({
+  const [baseline, setBaseline] = React.useState(() => ({
     ...initial,
     daily: formatMinutes(initial.standardDailyMinutes),
     weekly: formatMinutes(initial.standardWeeklyMinutes),
-  });
+  }));
+  const [state, setState] = React.useState(baseline);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [pending, setPending] = React.useState(false);
+  const running = React.useRef(false);
   const set = <K extends keyof typeof state>(key: K, value: (typeof state)[K]) => setState((current) => ({ ...current, [key]: value }));
 
-  async function save(event: React.FormEvent) {
+  // Dirty against the saved settings; "Save and continue" is this same save,
+  // with the same checks, and never navigates (AUD-03 §3).
+  const editor = useUnsavedEditor({ module: "timesheets", saveKind: "save", label: "Timesheet settings", save: () => save() });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  const dirty = EDITABLE.some((key) => state[key] !== baseline[key]);
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
+
+  function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    void save();
+  }
+
+  async function save(): Promise<SaveOutcome> {
+    if (running.current) return { kind: "unknown" };
+    const submitted = state;
     const daily = parseDuration(state.daily);
     const weekly = parseDuration(state.weekly.replace(/h$/, ""));
     const found: Record<string, string> = {};
@@ -56,8 +77,10 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
     if (!weeklyMinutes || weeklyMinutes < 60) found.weekly = "Enter the standard week in hours.";
     if (Boolean(state.submitDay) !== Boolean(state.submitTime)) found.deadline = "Set both the deadline day and time, or neither.";
     setErrors(found);
-    if (Object.keys(found).length) return;
+    if (Object.keys(found).length) return { kind: "invalid" };
+    running.current = true;
     setPending(true);
+    setSaving(true);
     try {
       await timesheetApi("/api/timesheets/settings", {
         method: "PUT",
@@ -74,17 +97,32 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
           membersSetBillable: state.membersSetBillable,
         },
       });
-      toast({ title: "Timesheet settings saved", tone: "success" });
-      router.refresh();
     } catch (error) {
+      if (!isFailure(error) || error.status === 0) {
+        // No answer: it may have saved. Say so; the values stay (§6).
+        setUnresolved(true);
+        toast({ title: OUTCOME_COPY.unknown, tone: "danger" });
+        return { kind: "unknown" };
+      }
       toast({ title: failureMessage(error), tone: "danger" });
+      return { kind: error.status === 403 || error.status === 404 ? "refused" : "invalid" };
     } finally {
+      running.current = false;
       setPending(false);
+      setSaving(false);
     }
+    setUnresolved(false);
+    // The fields were locked while it saved: what was sent is what they hold.
+    setBaseline(submitted);
+    setDirty(false);
+    toast({ title: "Timesheet settings saved", tone: "success" });
+    router.refresh();
+    return { kind: "committed" };
   }
 
   return (
-    <form onSubmit={save} className="nesto-card divide-y divide-line px-5" aria-label="Timesheet settings" noValidate>
+    <form onSubmit={onSubmit} className="nesto-card divide-y divide-line px-5" aria-label="Timesheet settings" noValidate>
+      <fieldset disabled={pending} className="m-0 min-w-0 divide-y divide-line border-0 p-0">
       <div className="grid gap-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
         <label>
           <span className="text-table font-medium text-fg">Week starts on</span>
@@ -152,6 +190,7 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
         <ToggleRow id="descriptions-required" label="Descriptions required" hint="Every entry needs a description before a week can be submitted." checked={state.descriptionsRequired} onChange={(value) => set("descriptionsRequired", value)} />
         <ToggleRow id="members-billable" label="Members set billable" hint="Otherwise billable follows the work type, and only approvers change it." checked={state.membersSetBillable} onChange={(value) => set("membersSetBillable", value)} />
       </div>
+      </fieldset>
 
       <div className="flex justify-end py-3">
         <Button type="submit" size="sm" disabled={pending}>

@@ -2,22 +2,32 @@
 
 import * as React from "react";
 import { ArrowDown, ArrowUp, Film, Image as ImageIcon, Star, Trash2, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { useUploadQueue } from "@/components/documents/upload-queue";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { COMMITTED, useValuesEditor } from "@/components/project-planning/use-values-editor";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { outcomeOf } from "@/lib/unsaved/outcome";
 import type { ProjectMediaCollection, ProjectMediaDTO } from "@/lib/modules/project-media/project-media.types";
 
-type ApiEnvelope = { error?: { message?: string } };
+type ApiEnvelope = { error?: { code?: string; message?: string; details?: { code?: string } } };
+
+/** A refusal the server answered, as opposed to a request that never got an answer (AUD-03 §6). */
+class Refusal extends Error {
+  constructor(message: string, readonly code: string | undefined) {
+    super(message);
+  }
+}
 
 async function request(url: string, init: RequestInit): Promise<void> {
   const response = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init.headers ?? {}) } });
   const body = await response.json().catch(() => ({})) as ApiEnvelope;
-  if (!response.ok) throw new Error(body.error?.message ?? "The change could not be saved.");
+  if (!response.ok) throw new Refusal(body.error?.message ?? "The change could not be saved.", body.error?.details?.code ?? body.error?.code);
 }
 
 export function ProjectMediaManager({ projectId, initial }: { projectId: string; initial: ProjectMediaCollection }) {
@@ -46,16 +56,16 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
 
   const items = [...initial.renders, ...initial.animations].sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt));
 
-  async function mutate(url: string, init: RequestInit, success: string) {
+  async function mutate(url: string, init: RequestInit, success: string): Promise<SaveOutcome> {
     setPending(true);
     try {
       await request(url, init);
       toast({ title: success });
       router.refresh();
-      return true;
+      return COMMITTED;
     } catch (error) {
       toast({ title: error instanceof Error ? error.message : "The change could not be saved.", tone: "danger" });
-      return false;
+      return error instanceof Refusal ? outcomeOf({ ok: false, code: error.code, error: error.message }) : { kind: "unknown" };
     } finally {
       setPending(false);
     }
@@ -142,10 +152,7 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
         </ul>
       )}
 
-      <EditMediaDialog item={editing} renders={initial.renders} pending={pending} onClose={() => setEditing(null)} onSave={async (body) => {
-        const ok = await mutate(`/api/projects/${projectId}/media/${editing!.id}`, { method: "PATCH", body: JSON.stringify(body) }, "Media details saved.");
-        if (ok) setEditing(null);
-      }} />
+      <EditMediaDialog item={editing} renders={initial.renders} pending={pending} onClose={() => setEditing(null)} onSave={(body) => mutate(`/api/projects/${projectId}/media/${editing!.id}`, { method: "PATCH", body: JSON.stringify(body) }, "Media details saved.")} />
 
       <ConfirmDialog
         open={removing !== null}
@@ -154,48 +161,71 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
         description="It will disappear from the Project workspace. The canonical file remains in Documents."
         confirmLabel="Remove"
         pending={pending}
-        onConfirm={() => void mutate(`/api/projects/${projectId}/media/${removing!.id}`, { method: "DELETE" }, "Media removed.").then((ok) => ok && setRemoving(null))}
+        onConfirm={() => void mutate(`/api/projects/${projectId}/media/${removing!.id}`, { method: "DELETE" }, "Media removed.").then((outcome) => outcome.kind === "committed" && setRemoving(null))}
       />
     </div>
   );
 }
 
-function EditMediaDialog({ item, renders, pending, onClose, onSave }: { item: ProjectMediaDTO | null; renders: ProjectMediaDTO[]; pending: boolean; onClose: () => void; onSave: (body: Record<string, unknown>) => Promise<void> }) {
-  const [title, setTitle] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [duration, setDuration] = React.useState("");
-  const [poster, setPoster] = React.useState("");
-  const [featured, setFeatured] = React.useState(false);
-  React.useEffect(() => {
-    if (!item) return;
-    setTitle(item.title);
-    setDescription(item.description ?? "");
-    setDuration(item.durationSeconds ? String(item.durationSeconds) : "");
-    setPoster(item.thumbnailDocumentId ?? "");
-    setFeatured(item.isFeatured);
-  }, [item]);
-
+function EditMediaDialog({ item, renders, pending, onClose, onSave }: { item: ProjectMediaDTO | null; renders: ProjectMediaDTO[]; pending: boolean; onClose: () => void; onSave: (body: Record<string, unknown>) => Promise<SaveOutcome> }) {
   return (
     <Dialog open={item !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogTitle>Edit project media</DialogTitle>
         <DialogDescription>Presentation details for this Project workspace.</DialogDescription>
-        <div className="mt-5 space-y-4">
-          <label className="grid gap-1.5 text-table font-medium text-fg">Title<Input value={title} maxLength={180} onChange={(event) => setTitle(event.target.value)} /></label>
-          <label className="grid gap-1.5 text-table font-medium text-fg">Description<textarea value={description} maxLength={2000} rows={3} onChange={(event) => setDescription(event.target.value)} className="rounded-md border border-line bg-surface px-3 py-2 text-body" /></label>
-          {item?.type === "ANIMATION" ? (
-            <>
-              <label className="grid gap-1.5 text-table font-medium text-fg">Duration in seconds<Input type="number" min={1} max={86400} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-              <label className="grid gap-1.5 text-table font-medium text-fg">Poster image<select value={poster} onChange={(event) => setPoster(event.target.value)} className="h-9 rounded-md border border-line bg-surface px-3 text-body"><option value="">No poster</option>{renders.map((render) => <option key={render.id} value={render.document.id}>{render.title}</option>)}</select></label>
-            </>
-          ) : null}
-          <label className="flex items-center gap-2 text-table text-fg"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /> Featured on the Project page</label>
-        </div>
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button disabled={pending || !title.trim()} onClick={() => void onSave({ title: title.trim(), description: description.trim() || null, isFeatured: featured, ...(item?.type === "ANIMATION" ? { durationSeconds: duration ? Number(duration) : null, thumbnailDocumentId: poster || null } : {}) })}>Save</Button>
-        </DialogFooter>
+        {item ? <EditMediaForm item={item} renders={renders} pending={pending} onSave={onSave} onClose={onClose} /> : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Mounted per item being edited, and registered with the tab's unsaved-work
+ * coordinator (AUD-03 §5): closing with changes asks, and Save and continue
+ * runs the same save as the Save button.
+ */
+function EditMediaForm({ item, renders, pending, onSave, onClose }: { item: ProjectMediaDTO; renders: ProjectMediaDTO[]; pending: boolean; onSave: (body: Record<string, unknown>) => Promise<SaveOutcome>; onClose: () => void }) {
+  const [title, setTitle] = React.useState(item.title);
+  const [description, setDescription] = React.useState(item.description ?? "");
+  const [duration, setDuration] = React.useState(item.durationSeconds ? String(item.durationSeconds) : "");
+  const [poster, setPoster] = React.useState(item.thumbnailDocumentId ?? "");
+  const [featured, setFeatured] = React.useState(item.isFeatured);
+  const persist = React.useRef<() => Promise<SaveOutcome>>(async () => COMMITTED);
+  const editor = useValuesEditor({ title, description, duration, poster, featured }, { module: "projects", saveKind: "save", label: `Media ${item.title}`, save: () => persist.current() });
+  const { setSaving, setUnresolved, rebaseline } = editor;
+
+  persist.current = async () => {
+    if (!title.trim()) return { kind: "invalid" };
+    setSaving(true);
+    const outcome = await onSave({ title: title.trim(), description: description.trim() || null, isFeatured: featured, ...(item.type === "ANIMATION" ? { durationSeconds: duration ? Number(duration) : null, thumbnailDocumentId: poster || null } : {}) });
+    setSaving(false);
+    setUnresolved(outcome.kind === "unknown");
+    if (outcome.kind === "committed") {
+      rebaseline();
+      onClose();
+    }
+    return outcome;
+  };
+
+  return (
+    <>
+      <div className="mt-5 space-y-4">
+        <label className="grid gap-1.5 text-table font-medium text-fg">Title<Input value={title} maxLength={180} onChange={(event) => setTitle(event.target.value)} /></label>
+        <label className="grid gap-1.5 text-table font-medium text-fg">Description<textarea value={description} maxLength={2000} rows={3} onChange={(event) => setDescription(event.target.value)} className="rounded-md border border-line bg-surface px-3 py-2 text-body" /></label>
+        {item.type === "ANIMATION" ? (
+          <>
+            <label className="grid gap-1.5 text-table font-medium text-fg">Duration in seconds<Input type="number" min={1} max={86400} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
+            <label className="grid gap-1.5 text-table font-medium text-fg">Poster image<select value={poster} onChange={(event) => setPoster(event.target.value)} className="h-9 rounded-md border border-line bg-surface px-3 text-body"><option value="">No poster</option>{renders.map((render) => <option key={render.id} value={render.document.id}>{render.title}</option>)}</select></label>
+          </>
+        ) : null}
+        <label className="flex items-center gap-2 text-table text-fg"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /> Featured on the Project page</label>
+      </div>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary">Cancel</Button>
+        </DialogClose>
+        <Button disabled={pending || !title.trim()} onClick={() => void persist.current()}>Save</Button>
+      </DialogFooter>
+    </>
   );
 }

@@ -8,14 +8,16 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import type { MeetingDetailDTO, MeetingMinutesSectionDTO } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
-import { failureMessage, meetingApi } from "./meeting-api";
+import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { PlainText } from "./meeting-ui";
 
 /**
@@ -24,7 +26,8 @@ import { PlainText } from "./meeting-ui";
  * While a draft, sections save as they are written — on a pause and when the
  * field loses focus — with a quiet "Saved". Plain text only: what is typed is
  * what is shown, never interpreted as markup. Once final the minutes read as a
- * formal record, locked; reopening asks why and is audited.
+ * formal record, locked; reopening asks why and is audited. Text typed but
+ * not yet saved counts as unsaved work, so leaving asks first (AUD-03 §3).
  */
 
 const SUGGESTED = ["Summary", "Discussion", "Key Points", "Risks / Issues", "Follow-Up Notes"];
@@ -36,7 +39,6 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirmFinal, setConfirmFinal] = React.useState(false);
   const [reopening, setReopening] = React.useState(false);
-  const [reason, setReason] = React.useState("");
   const [deleting, setDeleting] = React.useState<MeetingMinutesSectionDTO | null>(null);
 
   async function call(key: string, url: string, init: { method?: string; body?: unknown }, success?: string) {
@@ -162,27 +164,8 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
         <DialogContent>
           <DialogTitle>Reopen the minutes?</DialogTitle>
           <DialogDescription>They become a draft again so they can be corrected, then finalized again. The reason is kept in the audit trail.</DialogDescription>
-          <div className="mt-4 space-y-1.5">
-            <Label htmlFor="reopen-reason">Reason</Label>
-            <Textarea id="reopen-reason" rows={3} maxLength={1000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Correct the pour date in the summary" />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setReopening(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={reason.trim().length < 3 || pending === "reopen"}
-              onClick={async () => {
-                if (await call("reopen", `/api/meetings/${meeting.id}/minutes/reopen`, { body: { reason } }, "Minutes reopened")) {
-                  setReopening(false);
-                  setReason("");
-                }
-              }}
-            >
-              Reopen minutes
-            </Button>
-          </DialogFooter>
+          {/* Inside the dialog, so the reason belongs to its guarded close (AUD-03 §5). */}
+          <ReopenForm pending={pending === "reopen"} reopen={(reason) => call("reopen", `/api/meetings/${meeting.id}/minutes/reopen`, { body: { reason } }, "Minutes reopened")} onDone={() => setReopening(false)} />
         </DialogContent>
       </Dialog>
 
@@ -201,7 +184,46 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
   );
 }
 
+/** Reopening is a workflow step with a reason: the prompt never reopens (AUD-03 §3). */
+function ReopenForm({ pending, reopen, onDone }: { pending: boolean; reopen: (reason: string) => Promise<boolean>; onDone: () => void }) {
+  const [reason, setReason] = React.useState("");
+  const editor = useUnsavedEditor({ module: "meetings", saveKind: "none", workflow: "Reopen minutes", label: "Reopen the minutes" });
+  const { setDirty, setSaving } = editor;
+  React.useEffect(() => setDirty(reason !== ""), [reason, setDirty]);
+  React.useEffect(() => setSaving(pending), [pending, setSaving]);
+
+  return (
+    <>
+      <div className="mt-4 space-y-1.5">
+        <Label htmlFor="reopen-reason">Reason</Label>
+        <Textarea id="reopen-reason" rows={3} maxLength={1000} value={reason} readOnly={pending} onChange={(event) => setReason(event.target.value)} placeholder="Correct the pour date in the summary" />
+      </div>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary">
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button
+          type="button"
+          disabled={reason.trim().length < 3 || pending}
+          onClick={async () => {
+            if (await reopen(reason)) {
+              setDirty(false);
+              setReason("");
+              onDone();
+            }
+          }}
+        >
+          Reopen minutes
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+type SectionText = { title: string; body: string };
 
 function SectionEditor({
   meetingId,
@@ -219,23 +241,58 @@ function SectionEditor({
   const [title, setTitle] = React.useState(section.title);
   const [body, setBody] = React.useState(section.body);
   const [state, setState] = React.useState<SaveState>("idle");
-  const saved = React.useRef({ title: section.title, body: section.body });
+  // What the server last confirmed, as state too, so what is unsent shows.
+  const [saved, setSavedState] = React.useState<SectionText>({ title: section.title, body: section.body });
+  const savedRef = React.useRef(saved);
+  const latest = React.useRef<SectionText>({ title, body });
+  latest.current = { title, body };
   const timer = React.useRef<number | null>(null);
+  const inflight = React.useRef(0);
 
-  const save = React.useCallback(async () => {
+  /** What a save would send now: a cleared title keeps the saved one. */
+  const outgoing = (text: SectionText): SectionText => ({ title: text.title.trim() || savedRef.current.title, body: text.body });
+  const differs = (text: SectionText) => {
+    const next = outgoing(text);
+    return next.title !== savedRef.current.title || next.body !== savedRef.current.body;
+  };
+
+  // AUD-03 §3: an autosaving editor is dirty while a change is typed but not
+  // yet sent (the 1.2 s pause) or failed to save, and saving while one is in
+  // flight — the pause timer dies with the page, so leaving asks first.
+  const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "committed" }));
+  const editor = useUnsavedEditor({ module: "meetings", saveKind: "save", label: () => `Minutes: ${latest.current.title.trim() || savedRef.current.title}`, save: () => run.current() });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  const unsent = (title.trim() || saved.title) !== saved.title || body !== saved.body;
+  React.useEffect(() => setDirty(unsent), [unsent, setDirty]);
+
+  run.current = async () => {
     if (timer.current) window.clearTimeout(timer.current);
-    const next = { title: title.trim() || saved.current.title, body };
-    if (next.title === saved.current.title && next.body === saved.current.body) return;
+    const next = outgoing(latest.current);
+    if (!differs(latest.current)) return { kind: "committed" };
     setState("saving");
+    inflight.current += 1;
+    setSaving(true);
     try {
       const detail = await meetingApi<MeetingDetailDTO>(`/api/meetings/${meetingId}/minutes/sections/${section.id}`, { method: "PATCH", body: next });
-      saved.current = next;
-      setState("saved");
+      savedRef.current = next;
+      setSavedState(next);
+      if (!differs(latest.current)) setDirty(false);
+      setUnresolved(false);
+      // Typing that arrived while this was on its way still has to go.
+      setState(differs(latest.current) ? "dirty" : "saved");
       onChange(detail);
-    } catch {
+      return { kind: "committed" };
+    } catch (error) {
+      const outcome = meetingFailureOutcome(error);
+      setUnresolved(outcome.kind === "unknown");
       setState("error");
+      return outcome;
+    } finally {
+      inflight.current -= 1;
+      if (inflight.current === 0) setSaving(false);
     }
-  }, [title, body, meetingId, section.id, onChange]);
+  };
+  const save = React.useCallback(() => run.current(), []);
 
   React.useEffect(() => {
     if (state !== "dirty") return;

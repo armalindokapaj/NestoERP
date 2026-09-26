@@ -29,7 +29,7 @@ export function EnterCompany({ companyId, companyName, href, backHref, backLabel
     void requestWorkspaceSwitch({ scopeType: "COMPANY", companyId }, { echoToThisTab: false }).then((result) => {
       if (cancelled) return;
       if (result.ok) openInSwitchedWorkspace(href, { replace: true });
-      else setFailed(true);
+      else if (!result.cancelled) setFailed(true);
     });
     return () => {
       cancelled = true;

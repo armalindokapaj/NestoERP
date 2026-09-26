@@ -40,12 +40,13 @@ export function useOpenRecord(workspace: OpenWorkspace | null | undefined) {
       const [currentPathname, search = ""] = target.href.split("?");
       const entered = await requestWorkspaceSwitch(
         { scopeType: "COMPANY", companyId: company.id, currentPathname, currentSearch: search ? `?${search}` : "" },
-        { echoToThisTab: false },
+        { echoToThisTab: false, targetName: company.name },
       );
       if (!entered.ok) {
         setPending(false);
         feedback?.store.settle(ticket);
-        if (!entered.stale) toast({ title: t("switchFailed", { name: company.name }), tone: "danger" });
+        // Staying with unsaved changes is the person's choice, not a failure (AUD-03 §7).
+        if (!entered.stale && !entered.cancelled) toast({ title: t("switchFailed", { name: company.name }), tone: "danger" });
         return false;
       }
       openInSwitchedWorkspace(entered.data.navigation.destination, { replace: true });

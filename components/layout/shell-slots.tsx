@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { CriticalAnnouncementBanner } from "@/components/announcements/shell";
 import { useTranslations } from "@/components/i18n/i18n-provider";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Bold, ChevronDown, Heading2, Italic, Link2, List, ListOrdered, Quote } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -11,10 +11,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import type { AnnouncementOptionsDTO } from "@/lib/modules/announcements/announcement.service";
 import { ANNOUNCEMENT_PRIORITIES, AUDIENCE_LABELS, BODY_MAX, PRIORITY_LABELS, TITLE_MAX, type AnnouncementPriority, type AudienceType } from "@/lib/modules/announcements/announcement.types";
 import { cn } from "@/lib/utils/cn";
-import { announcementApi, failureMessage, isFailure } from "./announcement-api";
+import { announcementApi, announcementFailureOutcome, failureMessage, isFailure } from "./announcement-api";
 import { AnnouncementBody } from "./announcement-body";
 
 /**
@@ -127,7 +131,20 @@ export function AnnouncementEditor({
     requestAnimationFrame(() => element.focus());
   }
 
-  async function save(publish: boolean) {
+  // AUD-03 §3: what the editor opened with is the baseline. Saving the draft
+  // (or the changes) is an ordinary save the prompt may run; publishing is a
+  // workflow step it never takes.
+  const [baseline, setBaseline] = React.useState(initial);
+  const dirty = JSON.stringify(values) !== JSON.stringify(baseline);
+  const running = React.useRef(false);
+  const run = React.useRef<(publish: boolean, saveMode: "normal" | "continue") => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
+  const editor = useUnsavedEditor({ module: "announcements", saveKind: mode === "create" ? "create" : "save", label: mode === "create" ? "New announcement" : "Announcement", save: () => run.current(false, "continue") });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
+
+  run.current = async (publish, saveMode) => {
+    if (running.current) return { kind: "unknown" };
+    if (unsaved.frozen) return { kind: "refused" };
     setErrors({});
     setFormError(null);
     const found: Record<string, string> = {};
@@ -135,9 +152,11 @@ export function AnnouncementEditor({
     if (!values.body.trim()) found.body = "Write the announcement.";
     if (Object.keys(found).length) {
       setErrors(found);
-      return;
+      return { kind: "invalid" };
     }
+    running.current = true;
     setPending(publish ? "publish" : "draft");
+    setSaving(true);
     const payload = {
       title: values.title,
       body: values.body,
@@ -169,20 +188,34 @@ export function AnnouncementEditor({
       } else {
         toast({ title: mode === "create" ? "Draft saved" : "Changes saved", tone: "success" });
       }
-      router.push(`/announcements/${id}`);
+      // Clean before it stops saving, so the page it opens next goes on at once.
+      setBaseline(values);
+      setDirty(false);
+      setUnresolved(false);
+      setSaving(false);
+      if (saveMode === "normal") router.push(`/announcements/${id}`);
       router.refresh();
+      return { kind: "committed" };
     } catch (error) {
+      const outcome = announcementFailureOutcome(error);
+      setUnresolved(outcome.kind === "unknown");
       if (isFailure(error)) {
         const field: Record<string, string> = {};
         for (const [key, value] of Object.entries(error.details)) if (Array.isArray(value) && typeof value[0] === "string") field[key] = value[0];
         if (typeof error.details.field === "string") field[error.details.field] = error.message;
         setErrors(field);
       }
-      setFormError(failureMessage(error, "The announcement could not be saved."));
+      const message = failureMessage(error, "The announcement could not be saved.");
+      setFormError(outcome.kind === "unknown" ? `${message} ${OUTCOME_COPY.unknown}` : message);
+      return outcome;
     } finally {
+      running.current = false;
       setPending(null);
+      setSaving(false);
     }
-  }
+  };
+
+  const save = (publish: boolean) => run.current(publish, "normal");
 
   const members = options.members.filter((member) => !memberFilter || member.label.toLowerCase().includes(memberFilter.toLowerCase()));
   const tool = "inline-flex size-8 items-center justify-center rounded-md text-fg-muted hover:bg-hover hover:text-fg disabled:opacity-40";
@@ -197,7 +230,8 @@ export function AnnouncementEditor({
       noValidate
       data-testid="announcement-editor"
     >
-      <div className="space-y-5">
+      {/* The submitted snapshot saves as it was (AUD-03 §6). */}
+      <fieldset disabled={Boolean(pending)} className="m-0 min-w-0 space-y-5 border-0 p-0">
         {mode === "create" ? (
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Start from a template">
             <span className="text-meta text-fg-subtle">Start from</span>
@@ -379,8 +413,9 @@ export function AnnouncementEditor({
           <Button asChild variant="ghost">
             <Link href={announcementId ? `/announcements/${announcementId}` : "/announcements?tab=manage"}>Cancel</Link>
           </Button>
+          <UnsavedIndicator save={{ editor, pending: Boolean(pending), saved: null }} />
         </div>
-      </div>
+      </fieldset>
 
       <aside className={cn("space-y-3 lg:sticky lg:top-24 lg:self-start", !preview && "hidden lg:block")} aria-label="Preview">
         <p className="text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">Preview</p>

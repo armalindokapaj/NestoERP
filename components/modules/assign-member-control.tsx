@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -14,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { UnsavedValue } from "@/components/unsaved/unsaved-value";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 
 /**
  * Handing a record to a colleague.
@@ -77,7 +80,14 @@ export function AssignMemberControl({
     if (!memberId || memberId === currentMemberId) return;
 
     startTransition(async () => {
-      const result = await onAssign(memberId);
+      let result: Awaited<ReturnType<typeof onAssign>>;
+      try {
+        result = await onAssign(memberId);
+      } catch {
+        // Sent, unanswered: it may have been assigned (AUD-03 §6).
+        toast({ title: OUTCOME_COPY.unknown, tone: "danger" });
+        return;
+      }
       if (result.ok) {
         setOpen(false);
         toast({ title: result.message, tone: "success" });
@@ -99,6 +109,8 @@ export function AssignMemberControl({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
 
+          {/* A choice made here is unsaved until Assign runs; nothing else keeps it (AUD-03 §4). */}
+          <UnsavedValue saveKind="none" workflow="Assign" label={title} dirty={memberId !== (currentMemberId ?? "")} saving={pending} />
           <div className="space-y-1.5">
             <Label htmlFor="assign-member">Person</Label>
             <select
@@ -118,9 +130,9 @@ export function AssignMemberControl({
           </div>
 
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button variant="secondary">Cancel</Button>
+            </DialogClose>
             <Button
               disabled={pending || !memberId || memberId === currentMemberId}
               onClick={assign}

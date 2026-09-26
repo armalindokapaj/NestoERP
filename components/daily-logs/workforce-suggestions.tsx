@@ -5,9 +5,12 @@ import { UsersRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import type { WorkforceSuggestion } from "@/lib/modules/daily-logs/daily-log.workforce";
-import { dailyLogApi, failureMessage } from "./daily-log-api";
+import { dailyLogApi, dailyLogFailureOutcome, failureMessage } from "./daily-log-api";
 
 /**
  * "From crews" in a log's workforce section (E-04 §182): the project's crews
@@ -24,9 +27,11 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
   const [chosen, setChosen] = React.useState<Set<string>>(new Set());
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [applied, setApplied] = React.useState(false);
 
   async function load() {
     setOpen(true);
+    setApplied(false);
     setSuggestions(null);
     setError(null);
     try {
@@ -38,19 +43,28 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
     }
   }
 
-  async function apply() {
+  async function apply(): Promise<SaveOutcome> {
+    if (pending) return { kind: "unknown" };
+    if (chosen.size === 0) return { kind: "invalid" };
     setPending(true);
     setError(null);
     try {
       const result = await dailyLogApi<{ added: number }>(`${base}/workforce-suggestions`, { body: { keys: [...chosen] } });
+      setApplied(true);
       setOpen(false);
-      await onApplied(result.added);
+      await onApplied(result.added).catch(() => undefined);
+      return { kind: "committed" };
     } catch (failure) {
-      setError(failureMessage(failure, "The entries could not be added."));
+      const outcome = dailyLogFailureOutcome(failure);
+      setError(outcome.kind === "unknown" ? `${failureMessage(failure, "The entries could not be added.")} ${OUTCOME_COPY.unknown}` : failureMessage(failure, "The entries could not be added."));
+      return outcome;
     } finally {
       setPending(false);
     }
   }
+
+  // Unpicking a suggested entry is the only input here (AUD-03 §3).
+  const changed = suggestions !== null && !applied && (chosen.size !== suggestions.length || suggestions.some((row) => !chosen.has(row.key)));
 
   return (
     <>
@@ -62,6 +76,8 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
         <DialogContent className="max-w-xl" data-testid="workforce-suggestions">
           <DialogTitle>The project&apos;s workforce that day</DialogTitle>
           <DialogDescription>Crews on this project and the people assigned to it. Pick what to add; you can change any entry afterwards.</DialogDescription>
+          {/* Inside the dialog, so the picks belong to its guarded close (AUD-03 §5). */}
+          <PicksEditor dirty={changed} saving={pending} save={apply} />
           {suggestions === null && !error ? <p className="mt-4 text-table text-fg-muted">Loading…</p> : null}
           {suggestions && suggestions.length === 0 ? <p className="mt-4 text-table text-fg-muted">Nothing to add: no crews or assigned people that day, or they are already on the log.</p> : null}
           {suggestions && suggestions.length > 0 ? (
@@ -97,9 +113,11 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
             </p>
           ) : null}
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="ghost" disabled={pending}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button type="button" onClick={() => void apply()} disabled={pending || !suggestions || chosen.size === 0}>
               {pending ? "Adding…" : `Add ${chosen.size || ""}`.trim()}
             </Button>
@@ -108,4 +126,15 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
       </Dialog>
     </>
   );
+}
+
+/** The picks' registration with the unsaved-work coordinator; the dialog keeps them. */
+function PicksEditor({ dirty, saving, save }: { dirty: boolean; saving: boolean; save: () => Promise<SaveOutcome> }) {
+  const editor = useUnsavedEditor({ module: "daily_logs", saveKind: "create", label: "Workforce from crews", save });
+  const { setDirty, setSaving } = editor;
+  React.useEffect(() => {
+    setDirty(dirty);
+    setSaving(saving);
+  }, [dirty, saving, setDirty, setSaving]);
+  return null;
 }

@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
+import { GuardedRoot } from "@/components/unsaved/guarded-root";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -12,7 +13,8 @@ import { cn } from "@/lib/utils/cn";
  * module needs later. Dimensions and motion follow §39: 85–90% of the
  * viewport capped at 340px, dark backdrop, 180ms slide.
  */
-export const Drawer = DialogPrimitive.Root;
+/** Guarded: closing it asks about unsaved input inside it first (AUD-03 §5). */
+export const Drawer = GuardedRoot;
 export const DrawerTrigger = DialogPrimitive.Trigger;
 export const DrawerClose = DialogPrimitive.Close;
 export const DrawerTitle = DialogPrimitive.Title;

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { FileText, History, Upload } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -11,7 +11,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle, useDialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -19,6 +19,7 @@ import { REVIEW_DECISION_LABELS, SHARING_CLASSIFICATIONS, SHARING_LABELS, type O
 import { cn } from "@/lib/utils/cn";
 import { engineeringApi, failureMessage, fieldErrorsOf } from "./engineering-api";
 import { DecisionBadge, formatDateTime, ReviewBadge } from "./engineering-ui";
+import { RequestMessages, useRequestEditor } from "./form-kit";
 
 /**
  * Revisions and their review (PRD #46 §66-§75, §102-§105, §171, §172, §311).
@@ -245,75 +246,97 @@ export function RevisionPanel({
 }
 
 function DecisionDialog({ kind, target, onClose }: { kind: Kind; target: { revision: RevisionDTO; decision: ReviewDecision }; onClose: () => void }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [comment, setComment] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
   const needsComment = target.decision !== "APPROVED";
-  const base = kind === "document" ? "/api/engineering-document-revisions" : "/api/submittal-revisions";
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setPending(true);
-    setError(null);
-    try {
-      await engineeringApi(`${base}/${target.revision.id}/review`, { body: { decision: target.decision, comment: comment.trim() || null } });
-      toast({ title: `Rev ${target.revision.revisionCode}: ${REVIEW_DECISION_LABELS[target.decision].toLowerCase()}.`, tone: "success" });
-      onClose();
-      router.refresh();
-    } catch (failure) {
-      setError(failureMessage(failure));
-    } finally {
-      setPending(false);
-    }
-  }
-
   return (
-    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
       <DialogContent className="max-w-lg" data-testid="decision-dialog">
         <DialogTitle>
           {REVIEW_DECISION_LABELS[target.decision]} — Rev {target.revision.revisionCode}
         </DialogTitle>
         <DialogDescription>{needsComment ? "Say what the reviewer found. It stays on the revision's history." : "Add a comment if there is anything to note."}</DialogDescription>
-        <form onSubmit={submit} className="mt-4 space-y-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="review-comment" className="text-meta font-medium text-fg-muted">
-              Review comment{needsComment ? <span className="text-danger-strong"> *</span> : null}
-            </label>
-            <Textarea id="review-comment" rows={5} value={comment} onChange={(event) => setComment(event.target.value)} required={needsComment} />
-          </div>
-          {error ? (
-            <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending || (needsComment && !comment.trim())}>
-              {pending ? "Saving…" : `Record: ${REVIEW_DECISION_LABELS[target.decision].toLowerCase()}`}
-            </Button>
-          </DialogFooter>
-        </form>
+        {/* Inside the dialog, so the comment belongs to its guarded close (AUD-03 §5). */}
+        <DecisionForm kind={kind} target={target} onClose={onClose} onBusy={setBusy} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function AddRevisionDialog({ kind, recordId, recordType, suggested, canUpload, onClose }: { kind: Kind; recordId: string; recordType: "engineering_document" | "technical_submittal"; suggested: string; canUpload: boolean; onClose: () => void }) {
+function DecisionForm({ kind, target, onClose, onBusy }: { kind: Kind; target: { revision: RevisionDTO; decision: ReviewDecision }; onClose: () => void; onBusy: (busy: boolean) => void }) {
   const router = useRouter();
   const toast = useToast();
+  const close = useDialogClose();
+  const [comment, setComment] = React.useState("");
+  const needsComment = target.decision !== "APPROVED";
+  const base = kind === "document" ? "/api/engineering-document-revisions" : "/api/submittal-revisions";
+  const verb = `Record: ${REVIEW_DECISION_LABELS[target.decision].toLowerCase()}`;
+
+  // A review decision is a workflow step: the prompt never records it (AUD-03 §3).
+  const save = useRequestEditor({
+    module: "engineering",
+    saveKind: "none",
+    workflow: verb,
+    label: `Review of Rev ${target.revision.revisionCode}`,
+    dirty: comment !== "",
+    request: () => engineeringApi(`${base}/${target.revision.id}/review`, { body: { decision: target.decision, comment: comment.trim() || null } }),
+    onCommitted: () => {
+      toast({ title: `Rev ${target.revision.revisionCode}: ${REVIEW_DECISION_LABELS[target.decision].toLowerCase()}.`, tone: "success" });
+      onClose();
+      router.refresh();
+    },
+  });
+  const { pending } = save;
+  React.useEffect(() => onBusy(pending), [onBusy, pending]);
+
+  return (
+    <form onSubmit={save.onSubmit} className="mt-4 space-y-4">
+      <div className="flex flex-col gap-1">
+        <label htmlFor="review-comment" className="text-meta font-medium text-fg-muted">
+          Review comment{needsComment ? <span className="text-danger-strong"> *</span> : null}
+        </label>
+        <Textarea id="review-comment" rows={5} value={comment} readOnly={pending} onChange={(event) => setComment(event.target.value)} required={needsComment} />
+      </div>
+      <RequestMessages error={save.error} outcomeText={save.outcomeText} />
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={close} disabled={pending}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={pending || (needsComment && !comment.trim())}>
+          {pending ? "Saving…" : verb}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+type AddRevisionProps = { kind: Kind; recordId: string; recordType: "engineering_document" | "technical_submittal"; suggested: string; canUpload: boolean; onClose: () => void };
+
+function AddRevisionDialog(props: AddRevisionProps) {
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <Dialog open onOpenChange={(open) => !open && !busy && props.onClose()}>
+      <DialogContent className="max-w-lg" data-testid="revision-dialog">
+        <DialogTitle>Add revision</DialogTitle>
+        <DialogDescription>Upload the revision&apos;s file, give it the project&apos;s revision code, and submit it for review.</DialogDescription>
+        {/* Inside the dialog, so the revision belongs to its guarded close (AUD-03 §5). */}
+        <AddRevisionForm {...props} onBusy={setBusy} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onClose, onBusy }: AddRevisionProps & { onBusy: (busy: boolean) => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const close = useDialogClose();
   const api = paths(kind, recordId);
   const [code, setCode] = React.useState(suggested);
   const [files, setFiles] = React.useState<Option[]>([]);
   const [documentId, setDocumentId] = React.useState("");
+  // The file picked for it when the dialog loaded: choosing it is not an edit.
+  const [initialDocumentId, setInitialDocumentId] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [submitNow, setSubmitNow] = React.useState(true);
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
   const fileInput = React.useRef<HTMLInputElement>(null);
 
   const loadFiles = React.useCallback(async () => {
@@ -323,7 +346,11 @@ function AddRevisionDialog({ kind, recordId, recordType, suggested, canUpload, o
   }, [api.record]);
 
   React.useEffect(() => {
-    void loadFiles().then((options) => setDocumentId((current) => current || options[0]?.id || ""));
+    void loadFiles().then((options) => {
+      const first = options[0]?.id || "";
+      setDocumentId((current) => current || first);
+      setInitialDocumentId((current) => current || first);
+    });
   }, [loadFiles]);
 
   const upload = useUploadQueue({
@@ -336,93 +363,87 @@ function AddRevisionDialog({ kind, recordId, recordType, suggested, canUpload, o
   const uploading = upload.items.some((item) => ["queued", "authorising", "uploading", "verifying", "processing"].includes(item.status));
   const failed = upload.items.find((item) => item.status === "failed");
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setPending(true);
-    setError(null);
-    setErrors({});
-    try {
-      await engineeringApi(`${api.record}/revisions`, { body: { revisionCode: code, documentId, notes: notes.trim() || null, submit: submitNow } });
+  // Submitting now is a workflow step; keeping it a draft is an ordinary create (AUD-03 §3).
+  const save = useRequestEditor({
+    module: "engineering",
+    saveKind: submitNow ? "none" : "create",
+    workflow: "Submit revision",
+    label: "Add revision",
+    dirty: code !== suggested || notes !== "" || !submitNow || documentId !== initialDocumentId,
+    request: () => engineeringApi(`${api.record}/revisions`, { body: { revisionCode: code, documentId, notes: notes.trim() || null, submit: submitNow } }),
+    onCommitted: () => {
       toast({ title: submitNow ? `Rev ${code} submitted for review.` : `Rev ${code} saved as a draft.`, tone: "success" });
       onClose();
       router.refresh();
-    } catch (failure) {
-      setErrors(fieldErrorsOf(failure));
-      setError(failureMessage(failure));
-    } finally {
-      setPending(false);
-    }
-  }
+    },
+  });
+  const { pending } = save;
+  const errors = fieldErrorsOf(save.failure);
+  const { setPendingUploads } = save.editor;
+  React.useEffect(() => setPendingUploads(uploading), [setPendingUploads, uploading]);
+  React.useEffect(() => onBusy(pending || uploading), [onBusy, pending, uploading]);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !pending && !uploading && onClose()}>
-      <DialogContent className="max-w-lg" data-testid="revision-dialog">
-        <DialogTitle>Add revision</DialogTitle>
-        <DialogDescription>Upload the revision&apos;s file, give it the project&apos;s revision code, and submit it for review.</DialogDescription>
-        <form onSubmit={submit} className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="revision-code" className="text-meta font-medium text-fg-muted">
-                Revision
-              </label>
-              <Input id="revision-code" value={code} onChange={(event) => setCode(event.target.value)} className="font-mono" required aria-invalid={Boolean(errors.revisionCode) || undefined} />
-              {errors.revisionCode ? <p className="text-meta text-danger-strong">{errors.revisionCode}</p> : null}
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <label htmlFor="revision-file" className="text-meta font-medium text-fg-muted">
-                File
-              </label>
-              <select id="revision-file" className={selectClass} value={documentId} onChange={(event) => setDocumentId(event.target.value)} required>
-                <option value="">{files.length ? "Choose an uploaded file" : "Upload a file first"}</option>
-                {files.map((file) => (
-                  <option key={file.id} value={file.id}>
-                    {file.label}
-                  </option>
-                ))}
-              </select>
-              {errors.documentId ? <p className="text-meta text-danger-strong">{errors.documentId}</p> : null}
-            </div>
-          </div>
-          {canUpload ? (
-            <div className="rounded-md border border-dashed border-line-strong px-4 py-3">
-              <input ref={fileInput} type="file" className="sr-only" aria-label="Upload the revision file" data-testid="revision-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-table text-fg-muted">{uploading ? "Uploading and checking the file…" : failed ? (failed.error ?? "The upload failed.") : "PDF, drawing or document file."}</p>
-                <Button type="button" size="sm" variant="secondary" onClick={() => fileInput.current?.click()} disabled={uploading}>
-                  <Upload aria-hidden="true" />
-                  Upload file
-                </Button>
-              </div>
-            </div>
-          ) : null}
+    <form onSubmit={save.onSubmit} className="mt-4 space-y-4">
+      <fieldset disabled={pending} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
           <div className="flex flex-col gap-1">
-            <label htmlFor="revision-notes" className="text-meta font-medium text-fg-muted">
-              What changed
+            <label htmlFor="revision-code" className="text-meta font-medium text-fg-muted">
+              Revision
             </label>
-            <Textarea id="revision-notes" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
+            <Input id="revision-code" value={code} onChange={(event) => setCode(event.target.value)} className="font-mono" required aria-invalid={Boolean(errors.revisionCode) || undefined} />
+            {errors.revisionCode ? <p className="text-meta text-danger-strong">{errors.revisionCode}</p> : null}
           </div>
-          <label htmlFor="revision-submit" className="flex items-start gap-2.5 text-body text-fg">
-            <Checkbox id="revision-submit" checked={submitNow} onCheckedChange={(checked) => setSubmitNow(checked === true)} />
-            <span>
-              Submit for review now
-              <span className="block text-meta text-fg-subtle">Its file is frozen from the moment it is submitted.</span>
-            </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor="revision-file" className="text-meta font-medium text-fg-muted">
+              File
+            </label>
+            <select id="revision-file" className={selectClass} value={documentId} onChange={(event) => setDocumentId(event.target.value)} required>
+              <option value="">{files.length ? "Choose an uploaded file" : "Upload a file first"}</option>
+              {files.map((file) => (
+                <option key={file.id} value={file.id}>
+                  {file.label}
+                </option>
+              ))}
+            </select>
+            {errors.documentId ? <p className="text-meta text-danger-strong">{errors.documentId}</p> : null}
+          </div>
+        </div>
+        {canUpload ? (
+          <div className="rounded-md border border-dashed border-line-strong px-4 py-3">
+            <input ref={fileInput} type="file" className="sr-only" aria-label="Upload the revision file" data-testid="revision-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-table text-fg-muted">{uploading ? "Uploading and checking the file…" : failed ? (failed.error ?? "The upload failed.") : "PDF, drawing or document file."}</p>
+              <Button type="button" size="sm" variant="secondary" onClick={() => fileInput.current?.click()} disabled={uploading}>
+                <Upload aria-hidden="true" />
+                Upload file
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="revision-notes" className="text-meta font-medium text-fg-muted">
+            What changed
           </label>
-          {error ? (
-            <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={pending || uploading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending || uploading || !documentId || !code.trim()}>
-              {pending ? "Saving…" : submitNow ? "Submit revision" : "Save draft"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          <Textarea id="revision-notes" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
+        </div>
+        <label htmlFor="revision-submit" className="flex items-start gap-2.5 text-body text-fg">
+          <Checkbox id="revision-submit" checked={submitNow} onCheckedChange={(checked) => setSubmitNow(checked === true)} />
+          <span>
+            Submit for review now
+            <span className="block text-meta text-fg-subtle">Its file is frozen from the moment it is submitted.</span>
+          </span>
+        </label>
+      </fieldset>
+      <RequestMessages error={save.error} outcomeText={save.outcomeText} />
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={close} disabled={pending || uploading}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={pending || uploading || !documentId || !code.trim()}>
+          {pending ? "Saving…" : submitNow ? "Submit revision" : "Save draft"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

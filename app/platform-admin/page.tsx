@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { AlertTriangle, Building2, FolderKanban, ShieldAlert, Users } from "lucide-react";
 
 import { CreateGroupButton } from "@/components/platform/platform-actions";

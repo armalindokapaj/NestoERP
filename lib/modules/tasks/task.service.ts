@@ -5,24 +5,25 @@ import { can } from "@/lib/access/can";
 import { assertSameProject } from "@/lib/access/references";
 import { canAccessProject } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
+import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
-import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
-import { NotificationEvent } from "@/lib/core/notifications/notification.events";
-import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
-import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
-import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
+import { recordActivity } from "@/lib/modules/shared/activity";
+import { logger, serialiseError } from "@/lib/core/observability/logger";
+import { subscribeStakeholdersIn } from "@/lib/core/collaboration/collaboration.service";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
-import { syncActionFromTask } from "@/lib/modules/meetings/meeting.task-sync";
 import type { Permission } from "@/config/permissions";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as repository from "./task.repository";
 import type { CreateTaskInput, TaskListQuery, UpdateTaskInput } from "./task.schema";
 import {
-  canTransitionTaskStatus,
-  isTaskArchived,
-  isTaskOverdue,
-  REOPEN_STATUSES,
-} from "./task.status";
+  enqueueAssignment,
+  mutateTask,
+  type TaskCommand,
+  type TaskMutationEffects,
+  type TaskMutationMeta,
+  type TaskMutationResult,
+} from "./task.mutation";
+import { isTaskArchived, isTaskOverdue } from "./task.status";
 import type {
   TaskActivityDTO,
   TaskDetailDTO,
@@ -36,22 +37,18 @@ import type {
  * Every entry point runs the same sequence: module enabled → permission →
  * scope → validate related records belong to this company → mutate in a
  * transaction → record activity. Nothing here trusts a field from the browser:
- * `companyId`, `createdByMemberId`, `completedAt` and the archive fields come
- * from the server (PRD #11 §98, §116, §117).
+ * `companyId`, `createdByMemberId`, `completedAt`, the archive fields and the
+ * version come from the server (PRD #11 §98, §116, §117, AUD-02 §3).
+ *
+ * A change to an existing task is `mutateTask` (`task.mutation.ts`), whatever
+ * starts it: it names the version its person reviewed and is refused against
+ * any other (AUD-02 §4).
  */
 
 const MODULE = "tasks" as const;
 const ENTITY = "Task";
 /** The record registry type: what notifications, comments and documents call a task. */
 const RECORD = "task";
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  TODO: "To Do",
-  IN_PROGRESS: "In Progress",
-  BLOCKED: "Blocked",
-  COMPLETED: "Completed",
-  ARCHIVED: "Archived",
-};
 
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                       */
@@ -213,19 +210,20 @@ function parentContextOf(parentType: string, parentId: string): TaskParentContex
  * rollback takes both (PRD #48 §22, §146).
  *
  * Tasks' rules still apply: the permission, the parent record, the project of
- * that parent, the assignee. What the caller gets back is an id, not a DTO —
- * reading the task back is for after the commit, and so is
- * `subscribeStakeholders`, which writes outside this transaction.
+ * that parent, the assignee. What the caller gets back is an id and the
+ * version the task starts at, not a DTO — reading the task back is for after
+ * the commit. The creator and assignee are subscribed in the same
+ * transaction (AUD-02 §8).
  */
 export async function createTaskFromContextIn(
   tx: Prisma.TransactionClient,
   context: UserContext,
   input: CreateTaskInput & { parentType: string; parentId: string },
-): Promise<{ id: string; assigneeMemberId: string | null }> {
+): Promise<{ id: string; assigneeMemberId: string | null; version: number }> {
   const { parentType, parentId, ...task } = input;
   const prepared = await prepareTask(context, task, parentContextOf(parentType, parentId));
   const created = await writeTask(tx, context, task, prepared).catch(translateWriteError);
-  return { id: created.id, assigneeMemberId: prepared.assigneeMemberId };
+  return { id: created.id, assigneeMemberId: prepared.assigneeMemberId, version: created.version };
 }
 
 type PreparedTask = {
@@ -233,6 +231,8 @@ type PreparedTask = {
   projectId: string | null;
   assigneeMemberId: string | null;
   status: TaskStatus;
+  /** The creator's and assignee's contexts, read before the transaction that subscribes them. */
+  stakeholders: Map<string, UserContext>;
 };
 
 /**
@@ -271,16 +271,21 @@ async function prepareTask(
     throw new AccessError("VALIDATION_ERROR", "Create the task, then mark it blocked with a reason.");
   }
 
-  return { trustedParent, projectId, assigneeMemberId, status };
+  const stakeholders = await buildMemberContexts(context.companyId, [context.membershipId, ...(assigneeMemberId ? [assigneeMemberId] : [])]);
+
+  return { trustedParent, projectId, assigneeMemberId, status, stakeholders };
 }
 
-/** The task row, its activity and the assignee's notification — one transaction's worth. */
+/**
+ * The task row, its activity, the assignee's notification and the stakeholder
+ * subscriptions — one transaction's worth. A new task starts at version 1.
+ */
 async function writeTask(
   tx: Prisma.TransactionClient,
   context: UserContext,
   input: CreateTaskInput,
   prepared: PreparedTask,
-): Promise<{ id: string }> {
+): Promise<{ id: string; version: number }> {
   const { trustedParent, projectId, assigneeMemberId, status } = prepared;
 
   const task = await tx.task.create({
@@ -303,7 +308,7 @@ async function writeTask(
       entityType: trustedParent?.entityType ?? null,
       entityId: trustedParent?.entityId ?? null,
     },
-    select: { id: true },
+    select: { id: true, version: true },
   });
 
   await recordActivity(tx, context, {
@@ -325,19 +330,13 @@ async function writeTask(
       metadata: { taskId: task.id, assigneeMemberId } as Prisma.InputJsonValue,
     });
 
-    // Being given work is the one thing somebody should not have to go
-    // looking for (PRD #25 §30).
-    await enqueueNotificationEvent(tx, {
-      companyId: context.companyId,
-      eventType: NotificationEvent.TASK_ASSIGNED,
-      moduleKey: "tasks",
-      entityType: RECORD,
-      entityId: task.id,
-      actorMemberId: context.membershipId,
-      projectId,
-      payload: { assigneeMemberId, title: input.title, assignmentVersion: new Date().toISOString() },
-    });
+    await enqueueAssignment(tx, context, { id: task.id, title: input.title, projectId, assigneeMemberId }, task.version);
   }
+
+  // The one accountable assignee and the creator watch the task's discussion
+  // from the start (PRD #38 §33, §42) — subscribed in this transaction, so a
+  // task never exists without them (AUD-02 §8).
+  await subscribeStakeholdersIn(tx, { companyId: context.companyId, parentType: RECORD, parentId: task.id, members: prepared.stakeholders });
 
   return task;
 }
@@ -353,210 +352,35 @@ export async function createTask(
     .$transaction((tx) => writeTask(tx, context, input, prepared))
     .catch(translateWriteError);
 
-  // The one accountable assignee and the creator watch the task's discussion
-  // from the start (PRD #38 §33, §42).
-  await subscribeStakeholders({
-    companyId: context.companyId,
-    parentType: RECORD,
-    parentId: created.id,
-    memberIds: [context.membershipId, ...(prepared.assigneeMemberId ? [prepared.assigneeMemberId] : [])],
-  });
-
   return getTask(context, created.id);
 }
 
-export async function updateTask(
-  context: UserContext,
-  taskId: string,
-  input: UpdateTaskInput,
-): Promise<TaskDetailDTO> {
-  assertModule(context, MODULE);
-  assertPermission(context, "task.update");
+/**
+ * What a task command answers (AUD-02 §6): the task as the actor may now read
+ * it, and the mutation's own metadata. When the change took the task out of
+ * the actor's sight — they reassigned it away, or moved it to a project they
+ * are not on — `data` is null and `redirectTo` names somewhere safe: the save
+ * happened, and it is reported as having happened.
+ *
+ * `effects` is for the transport's cache invalidation, never for the client.
+ */
+export type TaskMutationResponse = {
+  data: TaskDetailDTO | null;
+  meta: TaskMutationMeta;
+  redirectTo?: string;
+  effects: TaskMutationEffects;
+};
 
-  const existing = assertFound(await repository.findTaskInScope(context, taskId));
+type VersionInput = { expectedVersion?: unknown };
 
-  // An archived task is read-only: it must be restored first (PRD #11 §72).
-  if (isTaskArchived(existing)) {
-    throw new AccessError("CONFLICT", "Restore this task before editing it.");
-  }
-
-  if (input.versionUpdatedAt && existing.updatedAt.getTime() !== input.versionUpdatedAt.getTime()) {
-    throw new AccessError(
-      "CONFLICT",
-      "This task was updated by another user. Refresh and review the latest changes.",
-    );
-  }
-
-  const nextStatus = input.status as TaskStatus;
-  if (!canTransitionTaskStatus(existing.status, nextStatus)) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      `A task cannot move from ${existing.status} to ${nextStatus}.`,
-    );
-  }
-  if (existing.status !== nextStatus) assertPermission(context, "task.status.update");
-  if (nextStatus === "BLOCKED" && existing.status !== "BLOCKED") {
-    throw new AccessError("VALIDATION_ERROR", "Use Mark blocked, which records why the task cannot move.");
-  }
-
-  const projectId = await validateProject(context, input.projectId);
-  const projectChanged = projectId !== existing.projectId;
-  // A task raised from another record belongs where that record is; moving it
-  // would detach the work from its source's project (PRD #47 §51).
-  if (projectChanged && existing.entityType && existing.entityId) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      "This task belongs to the project of the record it was raised from.",
-      { projectId: ["This task belongs to the project of the record it was raised from."] },
-      "CROSS_PROJECT_REFERENCE",
-    );
-  }
-
-  const assigneeMemberId = await resolveAssignee(
-    context,
-    input.assigneeMemberId,
-    projectId,
-    existing.assigneeMemberId,
-    { projectChanged },
-  );
-  const assigneeChanged = assigneeMemberId !== existing.assigneeMemberId;
-
-  // Completion is a dedicated action; reaching COMPLETED through the edit form
-  // still needs the permission that owns it (PRD #11 §61, §68).
-  if (nextStatus === "COMPLETED" && existing.status !== "COMPLETED") {
-    assertPermission(context, "task.complete");
-  }
-  if (existing.status === "COMPLETED" && nextStatus !== "COMPLETED") {
-    assertPermission(context, "task.reopen");
-  }
-
-  await prisma
-    .$transaction(async (tx) => {
-      await tx.task.update({
-        where: { id: taskId },
-        data: {
-          projectId,
-          title: input.title,
-          description: input.description ?? null,
-          assigneeMemberId,
-          status: nextStatus,
-          priority: input.priority as TaskPriority,
-          startDate: input.startDate ?? null,
-          dueDate: input.dueDate ?? null,
-          completedAt: completionStamp(existing.status, nextStatus, existing.completedAt),
-          ...(existing.status === "BLOCKED" && nextStatus !== "BLOCKED" ? UNBLOCKED : {}),
-          updatedBy: context.userId,
-        },
-      });
-
-      await recordActivity(tx, context, {
-        module: MODULE,
-        entityType: ENTITY,
-        entityId: taskId,
-        action: "TASK_UPDATED",
-        message: "updated the task",
-        metadata: { taskId } as Prisma.InputJsonValue,
-      });
-
-      if (existing.status !== nextStatus) {
-        await recordActivity(tx, context, {
-          module: MODULE,
-          entityType: ENTITY,
-          entityId: taskId,
-          action: "TASK_STATUS_CHANGED",
-          message: `changed the status from ${existing.status} to ${nextStatus}`,
-          metadata: {
-            taskId,
-            ...(changeMetadata({ status: { from: existing.status, to: nextStatus } }) as object),
-          } as Prisma.InputJsonValue,
-        });
-
-        await enqueueStatusEvent(tx, context, {
-          taskId,
-          title: input.title ?? existing.title,
-          next: nextStatus,
-          projectId,
-          creatorMemberId: existing.createdByMemberId,
-          assigneeMemberId,
-        });
-      }
-
-      if (assigneeChanged) {
-        await recordActivity(tx, context, {
-          module: MODULE,
-          entityType: ENTITY,
-          entityId: taskId,
-          action: assigneeMemberId ? "TASK_ASSIGNED" : "TASK_UNASSIGNED",
-          message: assigneeMemberId ? "reassigned the task" : "removed the assignee",
-          metadata: {
-            taskId,
-            ...(changeMetadata({
-              assigneeMemberId: { from: existing.assigneeMemberId, to: assigneeMemberId },
-            }) as object),
-          } as Prisma.InputJsonValue,
-        });
-
-        // Only on gaining an assignee. Being unassigned is not news somebody
-        // needs a notification about.
-        if (assigneeMemberId) {
-          await enqueueNotificationEvent(tx, {
-            companyId: context.companyId,
-            eventType: NotificationEvent.TASK_ASSIGNED,
-            moduleKey: "tasks",
-            entityType: RECORD,
-            entityId: taskId,
-            actorMemberId: context.membershipId,
-            projectId,
-            payload: {
-              assigneeMemberId,
-              title: input.title ?? existing.title,
-              assignmentVersion: new Date().toISOString(),
-            },
-          });
-        }
-      }
-
-      // A meeting action handed off to this task follows it (PRD #40 §59, §60).
-      if (existing.status !== nextStatus || assigneeChanged) {
-        await syncActionFromTask(tx, {
-          companyId: context.companyId,
-          taskId,
-          status: nextStatus,
-          actorMemberId: context.membershipId,
-          ...(assigneeChanged ? { assigneeMemberId } : {}),
-        });
-      }
-
-      if (projectChanged) {
-        await recordActivity(tx, context, {
-          module: MODULE,
-          entityType: ENTITY,
-          entityId: taskId,
-          action: "TASK_PROJECT_CHANGED",
-          message: "moved the task to another project",
-          metadata: {
-            taskId,
-            ...(changeMetadata({ projectId: { from: existing.projectId, to: projectId } }) as object),
-          } as Prisma.InputJsonValue,
-        });
-      }
-    })
-    .catch(translateWriteError);
-
-  if (assigneeChanged && assigneeMemberId) {
-    await subscribeStakeholders({ companyId: context.companyId, parentType: RECORD, parentId: taskId, memberIds: [assigneeMemberId] });
-  }
-
-  return getTask(context, taskId);
+export async function updateTask(context: UserContext, taskId: string, input: UpdateTaskInput): Promise<TaskMutationResponse> {
+  const { expectedVersion, ...fields } = input;
+  return command(context, taskId, expectedVersion, { kind: "edit", fields });
 }
 
-/** `TODO → IN_PROGRESS` (PRD #11 §66). */
-export async function startTask(context: UserContext, taskId: string): Promise<TaskDetailDTO> {
-  return transition(context, taskId, "IN_PROGRESS", {
-    permission: "task.status.update",
-    action: "TASK_STARTED",
-    message: "started the task",
-  });
+/** `TODO / BLOCKED → IN_PROGRESS` (PRD #11 §66). */
+export async function startTask(context: UserContext, taskId: string, input: VersionInput): Promise<TaskMutationResponse> {
+  return command(context, taskId, input.expectedVersion, { kind: "start" });
 }
 
 /**
@@ -564,265 +388,58 @@ export async function startTask(context: UserContext, taskId: string): Promise<T
  * (PRD #11 §67, PRD #38 §44). A blocked task without a reason is a status
  * nobody can act on, so the reason is required.
  */
-export async function blockTask(context: UserContext, taskId: string, reason: string): Promise<TaskDetailDTO> {
-  const trimmed = (reason ?? "").trim();
-  if (trimmed.length < 3) throw new AccessError("VALIDATION_ERROR", "Say why the task is blocked.");
-  if (trimmed.length > 1000) throw new AccessError("VALIDATION_ERROR", "Keep the reason under 1,000 characters.");
-
-  return transition(context, taskId, "BLOCKED", {
-    permission: "task.status.update",
-    action: "TASK_BLOCKED",
-    message: "marked the task blocked",
-    blockedReason: trimmed,
-  });
+export async function blockTask(context: UserContext, taskId: string, input: VersionInput & { reason?: string }): Promise<TaskMutationResponse> {
+  return command(context, taskId, input.expectedVersion, { kind: "block", reason: input.reason ?? "" });
 }
 
 /** Completion sets the timestamp server-side (PRD #11 §68). */
-export async function completeTask(context: UserContext, taskId: string): Promise<TaskDetailDTO> {
-  return transition(context, taskId, "COMPLETED", {
-    permission: "task.complete",
-    action: "TASK_COMPLETED",
-    message: "completed the task",
-  });
+export async function completeTask(context: UserContext, taskId: string, input: VersionInput): Promise<TaskMutationResponse> {
+  return command(context, taskId, input.expectedVersion, { kind: "complete" });
 }
 
 /** Reopening clears the completion timestamp (PRD #11 §70). */
 export async function reopenTask(
   context: UserContext,
   taskId: string,
-  target: TaskStatus = "TODO",
-): Promise<TaskDetailDTO> {
-  if (!REOPEN_STATUSES.includes(target)) {
-    throw new AccessError("VALIDATION_ERROR", "A task can only reopen as To Do or In Progress.");
-  }
-  return transition(context, taskId, target, {
-    permission: "task.reopen",
-    action: "TASK_REOPENED",
-    message: "reopened the task",
-    from: ["COMPLETED"],
-  });
+  input: VersionInput & { status?: TaskStatus },
+): Promise<TaskMutationResponse> {
+  return command(context, taskId, input.expectedVersion, { kind: "reopen", target: input.status ?? "TODO" });
 }
 
-export async function archiveTask(context: UserContext, taskId: string): Promise<void> {
-  assertModule(context, MODULE);
-  assertPermission(context, "task.archive");
-
-  const existing = assertFound(await repository.findTaskInScope(context, taskId));
-  if (isTaskArchived(existing)) {
-    throw new AccessError("CONFLICT", "This task is already archived.");
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.task.update({
-      where: { id: taskId },
-      data: {
-        // Remembered so restore returns the task where it was, rather than
-        // always resetting it to To Do (PRD #11 §71, §73).
-        preArchiveStatus: existing.status,
-        status: "ARCHIVED",
-        archivedAt: new Date(),
-        archivedBy: context.userId,
-        updatedBy: context.userId,
-      },
-    });
-
-    await recordActivity(tx, context, {
-      module: MODULE,
-      entityType: ENTITY,
-      entityId: taskId,
-      action: "TASK_ARCHIVED",
-      message: "archived the task",
-      metadata: { taskId, preArchiveStatus: existing.status } as Prisma.InputJsonValue,
-    });
-  });
+/** Remembers the status it had, so restore puts it back (PRD #11 §71, §73). */
+export async function archiveTask(context: UserContext, taskId: string, input: VersionInput): Promise<TaskMutationResponse> {
+  return command(context, taskId, input.expectedVersion, { kind: "archive" });
 }
 
-export async function restoreTask(context: UserContext, taskId: string): Promise<void> {
-  assertModule(context, MODULE);
-  assertPermission(context, "task.restore");
+export async function restoreTask(context: UserContext, taskId: string, input: VersionInput): Promise<TaskMutationResponse> {
+  return command(context, taskId, input.expectedVersion, { kind: "restore" });
+}
 
-  const existing = assertFound(await repository.findTaskInScope(context, taskId));
-  if (!isTaskArchived(existing)) {
-    throw new AccessError("CONFLICT", "This task is not archived.");
+async function command(context: UserContext, taskId: string, expectedVersion: unknown, request: TaskCommand): Promise<TaskMutationResponse> {
+  return respond(context, await mutateTask(context, taskId, expectedVersion, request));
+}
+
+/**
+ * The committed change, shaped for the actor from an authorised read. Nothing
+ * after the commit may turn it into a failure: a task the actor can no longer
+ * read is a success with somewhere safe to go, and a read that fails for any
+ * other reason is a success without the detail (AUD-02 §6, §8).
+ */
+async function respond(context: UserContext, result: TaskMutationResult): Promise<TaskMutationResponse> {
+  try {
+    return { data: await getTask(context, result.meta.taskId), meta: result.meta, effects: result.effects };
+  } catch (error) {
+    if (error instanceof AccessError && error.code === "NOT_FOUND") {
+      return { data: null, meta: result.meta, redirectTo: "/tasks", effects: result.effects };
+    }
+    logger.error("tasks.mutation.read_after_commit_failed", { taskId: result.meta.taskId, ...serialiseError(error) });
+    return { data: null, meta: result.meta, effects: result.effects };
   }
-
-  const restored = existing.preArchiveStatus ?? "TODO";
-
-  await prisma.$transaction(async (tx) => {
-    await tx.task.update({
-      where: { id: taskId },
-      data: {
-        status: restored,
-        preArchiveStatus: null,
-        archivedAt: null,
-        archivedBy: null,
-        updatedBy: context.userId,
-      },
-    });
-
-    await recordActivity(tx, context, {
-      module: MODULE,
-      entityType: ENTITY,
-      entityId: taskId,
-      action: "TASK_RESTORED",
-      message: "restored the task",
-      metadata: { taskId, status: restored } as Prisma.InputJsonValue,
-    });
-  });
 }
 
 /* -------------------------------------------------------------------------- */
 /* Internals                                                                   */
 /* -------------------------------------------------------------------------- */
-
-type TransitionOptions = {
-  permission: Parameters<typeof assertPermission>[1];
-  action: string;
-  message: string;
-  /** Restricts the statuses the action may be invoked from. */
-  from?: TaskStatus[];
-  /** Required when moving to BLOCKED. */
-  blockedReason?: string;
-};
-
-/** Leaving BLOCKED clears why it was blocked; the activity trail keeps the history. */
-const UNBLOCKED = { blockedAt: null, blockedReason: null, blockedByMemberId: null } as const;
-
-/**
- * The notification a status change produces (PRD #38 §50): blocked and
- * completed are their own events, anything else is a status update. The actor
- * is dropped by the dispatcher.
- */
-async function enqueueStatusEvent(
-  tx: Prisma.TransactionClient,
-  context: UserContext,
-  input: {
-    taskId: string;
-    title: string;
-    next: TaskStatus;
-    projectId: string | null;
-    creatorMemberId: string;
-    assigneeMemberId: string | null;
-    reason?: string;
-  },
-): Promise<void> {
-  const eventType =
-    input.next === "BLOCKED"
-      ? NotificationEvent.TASK_BLOCKED
-      : input.next === "COMPLETED"
-        ? NotificationEvent.TASK_COMPLETED
-        : NotificationEvent.TASK_STATUS_CHANGED;
-
-  const projectManagerMemberId = input.projectId
-    ? ((await tx.project.findUnique({ where: { id: input.projectId }, select: { projectManagerMemberId: true } }))
-        ?.projectManagerMemberId ?? null)
-    : null;
-
-  await enqueueNotificationEvent(tx, {
-    companyId: context.companyId,
-    eventType,
-    moduleKey: MODULE,
-    entityType: RECORD,
-    entityId: input.taskId,
-    actorMemberId: context.membershipId,
-    projectId: input.projectId,
-    payload: {
-      title: input.title,
-      statusLabel: STATUS_LABELS[input.next],
-      creatorMemberId: input.creatorMemberId,
-      assigneeMemberId: input.assigneeMemberId,
-      projectManagerMemberId,
-      actorName: context.fullName,
-      reason: input.reason ?? null,
-    },
-  });
-}
-
-/**
- * The shared body of every dedicated status action.
- *
- * Calling an action from a status it does not apply to is a conflict, not a
- * silent no-op — that is what exposes a logic error rather than hiding it
- * (PRD #11 §69, §209).
- */
-async function transition(
-  context: UserContext,
-  taskId: string,
-  next: TaskStatus,
-  options: TransitionOptions,
-): Promise<TaskDetailDTO> {
-  assertModule(context, MODULE);
-  assertPermission(context, options.permission);
-
-  const existing = assertFound(await repository.findTaskInScope(context, taskId));
-
-  if (isTaskArchived(existing)) {
-    throw new AccessError("CONFLICT", "Restore this task before changing its status.");
-  }
-  if (options.from && !options.from.includes(existing.status)) {
-    throw new AccessError("CONFLICT", `This task is ${existing.status.toLowerCase()}.`);
-  }
-  if (existing.status === next) {
-    throw new AccessError("CONFLICT", `This task is already ${next.toLowerCase()}.`);
-  }
-  if (!canTransitionTaskStatus(existing.status, next)) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      `A task cannot move from ${existing.status} to ${next}.`,
-    );
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.task.update({
-      where: { id: taskId },
-      data: {
-        status: next,
-        completedAt: completionStamp(existing.status, next, existing.completedAt),
-        ...(next === "BLOCKED"
-          ? { blockedAt: new Date(), blockedReason: options.blockedReason ?? null, blockedByMemberId: context.membershipId }
-          : UNBLOCKED),
-        updatedBy: context.userId,
-      },
-    });
-
-    await recordActivity(tx, context, {
-      module: MODULE,
-      entityType: ENTITY,
-      entityId: taskId,
-      action: options.action,
-      message: options.blockedReason ? `${options.message}: ${options.blockedReason.slice(0, 200)}` : options.message,
-      metadata: {
-        taskId,
-        ...(changeMetadata({ status: { from: existing.status, to: next } }) as object),
-      } as Prisma.InputJsonValue,
-    });
-
-    await enqueueStatusEvent(tx, context, {
-      taskId,
-      title: existing.title,
-      next,
-      projectId: existing.projectId,
-      creatorMemberId: existing.createdByMemberId,
-      assigneeMemberId: existing.assigneeMemberId,
-      reason: options.blockedReason,
-    });
-
-    await syncActionFromTask(tx, { companyId: context.companyId, taskId, status: next, actorMemberId: context.membershipId });
-
-    // Finished work is not overdue work (PRD #38 §85).
-    if (next === "COMPLETED") {
-      await resolveAttentionForRecord(tx, context.companyId, RECORD, taskId, ["OVERDUE_TASK"]);
-    }
-  });
-
-  return getTask(context, taskId);
-}
-
-/** `completedAt` is owned by the server and follows the status (PRD #11 §68, §70). */
-function completionStamp(from: TaskStatus, to: TaskStatus, current: Date | null): Date | null {
-  if (to === "COMPLETED") return from === "COMPLETED" ? current : new Date();
-  return null;
-}
 
 async function assertTaskInScope(context: UserContext, taskId: string): Promise<void> {
   if (!(await repository.taskInScopeExists(context, taskId))) {
@@ -958,6 +575,7 @@ export function toSummaryDTO(row: repository.TaskSummaryRow): TaskSummaryDTO {
     completedAt: row.completedAt?.toISOString() ?? null,
     isOverdue: isTaskOverdue(row),
     updatedAt: row.updatedAt.toISOString(),
+    version: row.version,
   };
 }
 
@@ -994,6 +612,7 @@ function toDetailDTO(context: UserContext, row: repository.TaskDetailRow): TaskD
         : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    version: row.version,
     archivedAt: row.archivedAt?.toISOString() ?? null,
     capabilities: {
       canEdit: !archived && can(context, "task.update"),

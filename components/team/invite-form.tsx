@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { CheckCircle2, MailWarning } from "lucide-react";
 
 import {
@@ -14,6 +14,8 @@ import {
 } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { inviteMemberAction } from "@/lib/actions/team";
 
 /**
@@ -23,6 +25,10 @@ import { inviteMemberAction } from "@/lib/actions/team";
  * exists either way, and whether the message was delivered is a separate fact
  * (PRD #14 §72). A delivery failure offers the link rather than pretending the
  * invitation was lost, so somebody can pass it on by hand.
+ *
+ * The form's only way forward is sending the invitation, so it registers as
+ * workflow-only (AUD-03 §3): leaving with anything typed asks, and the prompt
+ * offers Stay or Discard — it never sends an invitation.
  */
 export function InviteForm({
   roles,
@@ -33,39 +39,7 @@ export function InviteForm({
   departments: SelectOption[];
   cancelHref: string;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = React.useTransition();
-  const [error, setError] = React.useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
-  const [sent, setSent] = React.useState<{
-    email: string;
-    delivered: boolean;
-    inviteUrl?: string;
-  } | null>(null);
-
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    setError(null);
-    setFieldErrors({});
-
-    startTransition(async () => {
-      const result = await inviteMemberAction(formData);
-      if (result.ok) {
-        setSent({
-          email: result.email,
-          delivered: result.delivered,
-          ...(result.inviteUrl ? { inviteUrl: result.inviteUrl } : {}),
-        });
-        form.reset();
-        router.refresh();
-      } else {
-        setError(result.error);
-        setFieldErrors(result.fieldErrors ?? {});
-      }
-    });
-  }
+  const [sent, setSent] = React.useState<Sent | null>(null);
 
   if (sent) {
     return (
@@ -116,18 +90,47 @@ export function InviteForm({
     );
   }
 
+  // Mounted afresh for each invitation, so its editor starts clean.
+  return <InviteFields roles={roles} departments={departments} cancelHref={cancelHref} onSent={setSent} />;
+}
+
+type Sent = { email: string; delivered: boolean; inviteUrl?: string };
+
+function InviteFields({
+  roles,
+  departments,
+  cancelHref,
+  onSent,
+}: {
+  roles: SelectOption[];
+  departments: SelectOption[];
+  cancelHref: string;
+  onSent: (sent: Sent) => void;
+}) {
+  const router = useRouter();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({
+    formRef,
+    action: inviteMemberAction,
+    module: "team",
+    saveKind: "none",
+    workflow: "Send",
+    label: "Invitation",
+    onCommitted: (result) => {
+      if (result) onSent({ email: result.email, delivered: result.delivered, ...(result.inviteUrl ? { inviteUrl: result.inviteUrl } : {}) });
+      router.refresh();
+      return true;
+    },
+  });
+  const { pending, fieldErrors } = save;
+
   return (
     <FieldErrorProvider value={fieldErrors}>
-      <form onSubmit={onSubmit} className="space-y-5">
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong"
-          >
-            {error}
-          </p>
-        ) : null}
+      <form ref={formRef} onSubmit={save.onSubmit} className="space-y-5">
+        <SaveMessages save={save} />
 
+        {/* The submitted snapshot is sent as it was (AUD-03 §6). */}
+        <fieldset disabled={pending} className="m-0 min-w-0 space-y-5 border-0 p-0">
         <FormSection
           title="Who are you inviting?"
           description="They receive an email with a link that expires in 7 days."
@@ -185,6 +188,7 @@ export function InviteForm({
             <Input id="jobTitle" name="jobTitle" maxLength={160} placeholder="Site Engineer" />
           </Field>
         </FormSection>
+        </fieldset>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={pending}>
@@ -193,6 +197,7 @@ export function InviteForm({
           <Button asChild type="button" variant="secondary">
             <Link href={cancelHref}>Cancel</Link>
           </Button>
+          <UnsavedIndicator save={save} />
         </div>
       </form>
     </FieldErrorProvider>

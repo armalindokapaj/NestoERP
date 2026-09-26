@@ -80,6 +80,7 @@ export function RequestForm({
 
   return (
     <RecordForm
+      module="qaqc"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -283,6 +284,7 @@ export function InspectionForm({
 
   return (
     <RecordForm
+      module="qaqc"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -507,6 +509,7 @@ export function DefectForm({
 }) {
   return (
     <RecordForm
+      module="qaqc"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -644,6 +647,7 @@ export function NcrForm({
 }) {
   return (
     <RecordForm
+      module="qaqc"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
@@ -862,6 +866,7 @@ export function CorrectiveActionForm({
 }) {
   return (
     <RecordForm
+      module="qaqc"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}

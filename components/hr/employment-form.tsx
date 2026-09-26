@@ -98,6 +98,7 @@ export function EmploymentForm({
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
+      module="hr"
       onFailure={(result) => setDuplicates((result as { duplicates?: Duplicate[] }).duplicates ?? [])}
     >
       {creating ? (

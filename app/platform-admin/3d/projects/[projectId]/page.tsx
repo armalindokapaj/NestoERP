@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Box, GitBranch, Layers3, PackageCheck } from "lucide-react";
 
 import { EntitlementControl } from "@/components/3d/platform/EntitlementControl";

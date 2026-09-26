@@ -21,7 +21,7 @@ import { getMilestone, getPlanningOverview, getPlanningTimeline, listMilestones 
 import { applyTemplate, copyPlanning } from "@/lib/modules/project-planning/planning.templates";
 import { completeTask } from "@/lib/modules/tasks/task.service";
 import { PLANNING_SEED } from "../../../prisma/seed/planning";
-import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma, PROJECT, taskVersion } from "../../helpers";
 
 /**
  * Project milestones and planning, against the real database (PRD #44
@@ -256,7 +256,7 @@ describe("milestones (§12-§31, §141-§146, §188-§190, §204-§206, §284)",
     const id = await milestone("MEP First Fix");
     const { taskId } = await createTaskFromMilestone(pm, id, { title: "Riser first fix", description: null, assigneeMemberId: pm.membershipId, dueDate: null, priority: "MEDIUM", linkType: "SUPPORTS" });
     createdTasks.push(taskId);
-    await completeTask(pm, taskId);
+    await completeTask(pm, taskId, await taskVersion(taskId));
     const row = await detail(id);
     expect(row.taskStats).toEqual({ total: 1, completed: 1 });
     expect(row.status).toBe("NOT_STARTED");

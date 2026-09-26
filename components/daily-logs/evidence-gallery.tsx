@@ -7,14 +7,17 @@ import { Camera, FileText, ImageIcon, Loader2, Pencil, Upload } from "lucide-rea
 import { useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { PersonLink } from "@/components/people/person-link";
 import { stripJpegMetadata } from "@/lib/modules/daily-logs/daily-log.exif";
 import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABELS, type DocumentCategory, type EvidenceDTO } from "@/lib/modules/daily-logs/daily-log.types";
 import { cn } from "@/lib/utils/cn";
-import { dailyLogApi, failureMessage } from "./daily-log-api";
+import { dailyLogApi, dailyLogFailureOutcome, failureMessage } from "./daily-log-api";
 
 /**
  * The day's evidence (PRD #43 §74-§83, §152, §214, §241, §261).
@@ -89,8 +92,6 @@ export function EvidenceGallery({
   const [viewing, setViewing] = React.useState<EvidenceDTO | null>(null);
   const [viewUrl, setViewUrl] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<EvidenceDTO | null>(null);
-  const [meta, setMeta] = React.useState<{ category: DocumentCategory; caption: string; takenTime: string }>({ category: "PHOTO", caption: "", takenTime: "" });
-  const [saving, setSaving] = React.useState(false);
 
   const itemsRef = React.useRef<Array<{ documentId: string | null; file: File }>>([]);
   const queue = useUploadQueue({
@@ -106,6 +107,12 @@ export function EvidenceGallery({
   });
   itemsRef.current = queue.items;
   const uploading = queue.items.filter((item) => ["queued", "authorising", "uploading", "verifying", "processing"].includes(item.status));
+
+  // A file still on its way is lost by leaving (AUD-03 §3). Nothing to save:
+  // a finished upload is already stored, and discarding never deletes it.
+  const uploads = useUnsavedEditor({ module: "daily_logs", saveKind: "none", label: "Evidence upload" });
+  const { setPendingUploads } = uploads;
+  React.useEffect(() => setPendingUploads(uploading.length > 0), [uploading.length, setPendingUploads]);
 
   async function choose(files: FileList | null) {
     if (!files?.length) return;
@@ -139,20 +146,6 @@ export function EvidenceGallery({
       cancelled = true;
     };
   }, [viewing]);
-
-  async function saveMeta() {
-    if (!editing) return;
-    setSaving(true);
-    try {
-      await dailyLogApi(`/api/daily-logs/${dailyLogId}/evidence/${editing.documentId}`, { method: "PUT", body: { category: meta.category, caption: meta.caption || null, takenTime: meta.takenTime || null } });
-      setEditing(null);
-      await onChanged();
-    } catch (error) {
-      toast({ title: failureMessage(error), tone: "danger" });
-    } finally {
-      setSaving(false);
-    }
-  }
 
   const photos = evidence.filter((item) => item.category === "PHOTO" && item.isImage);
   const others = evidence.filter((item) => !(item.category === "PHOTO" && item.isImage));
@@ -208,7 +201,7 @@ export function EvidenceGallery({
                 </span>
               </span>
               {canEdit ? (
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={`Describe ${item.name}`} onClick={() => { setEditing(item); setMeta({ category: item.category, caption: item.caption ?? "", takenTime: time(item.takenAt) ?? "" }); }}>
+                <Button type="button" variant="ghost" size="icon-sm" aria-label={`Describe ${item.name}`} onClick={() => setEditing(item)}>
                   <Pencil />
                 </Button>
               ) : null}
@@ -236,7 +229,7 @@ export function EvidenceGallery({
               </Button>
             ) : null}
             {canEdit && viewing ? (
-              <Button size="sm" onClick={() => { const item = viewing; setViewing(null); setEditing(item); setMeta({ category: item.category, caption: item.caption ?? "", takenTime: time(item.takenAt) ?? "" }); }}>
+              <Button size="sm" onClick={() => { const item = viewing; setViewing(null); setEditing(item); }}>
                 <Pencil aria-hidden="true" /> Describe
               </Button>
             ) : null}
@@ -248,36 +241,83 @@ export function EvidenceGallery({
         <DialogContent>
           <DialogTitle>Describe this file</DialogTitle>
           <DialogDescription>{editing?.name}</DialogDescription>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col">
-              <span className="text-table font-medium text-fg">Category</span>
-              <select className={cn(selectClass, "mt-1.5")} value={meta.category} onChange={(event) => setMeta({ ...meta, category: event.target.value as DocumentCategory })}>
-                {DOCUMENT_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {DOCUMENT_CATEGORY_LABELS[category]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col">
-              <span className="text-table font-medium text-fg">Taken at</span>
-              <Input type="time" className="mt-1.5" value={meta.takenTime} onChange={(event) => setMeta({ ...meta, takenTime: event.target.value })} />
-            </label>
-            <label className="flex flex-col sm:col-span-2">
-              <span className="text-table font-medium text-fg">Caption</span>
-              <Input className="mt-1.5" maxLength={500} value={meta.caption} onChange={(event) => setMeta({ ...meta, caption: event.target.value })} />
-            </label>
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" size="sm" onClick={() => setEditing(null)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button size="sm" onClick={() => void saveMeta()} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
+          {/* Inside the dialog, so the description belongs to its guarded close (AUD-03 §5). */}
+          {editing ? <DescribeForm key={editing.documentId} dailyLogId={dailyLogId} item={editing} takenTime={time(editing.takenAt) ?? ""} onDone={() => setEditing(null)} onChanged={onChanged} /> : null}
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+type Meta = { category: DocumentCategory; caption: string; takenTime: string };
+
+function DescribeForm({ dailyLogId, item, takenTime, onDone, onChanged }: { dailyLogId: string; item: EvidenceDTO; takenTime: string; onDone: () => void; onChanged: () => Promise<void> | void }) {
+  const toast = useToast();
+  const [initial] = React.useState<Meta>(() => ({ category: item.category, caption: item.caption ?? "", takenTime }));
+  const [meta, setMeta] = React.useState<Meta>(initial);
+  const [saving, setSavingState] = React.useState(false);
+
+  const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
+  const editor = useUnsavedEditor({ module: "daily_logs", saveKind: "save", label: `Description of ${item.name}`, save: () => run.current() });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(meta.category !== initial.category || meta.caption !== initial.caption || meta.takenTime !== initial.takenTime), [meta, initial, setDirty]);
+
+  run.current = async () => {
+    if (saving) return { kind: "unknown" };
+    setSavingState(true);
+    setSaving(true);
+    try {
+      await dailyLogApi(`/api/daily-logs/${dailyLogId}/evidence/${item.documentId}`, { method: "PUT", body: { category: meta.category, caption: meta.caption || null, takenTime: meta.takenTime || null } });
+      setDirty(false);
+      setUnresolved(false);
+      setSaving(false);
+      onDone();
+      // Saved; reading the gallery back is not part of it.
+      await Promise.resolve(onChanged()).catch(() => undefined);
+      return { kind: "committed" };
+    } catch (error) {
+      const outcome = dailyLogFailureOutcome(error);
+      setUnresolved(outcome.kind === "unknown");
+      toast({ title: failureMessage(error), description: outcome.kind === "unknown" ? OUTCOME_COPY.unknown : undefined, tone: "danger" });
+      return outcome;
+    } finally {
+      setSavingState(false);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <fieldset disabled={saving} className="m-0 mt-4 grid min-w-0 gap-4 border-0 p-0 sm:grid-cols-2">
+        <label className="flex flex-col">
+          <span className="text-table font-medium text-fg">Category</span>
+          <select className={cn(selectClass, "mt-1.5")} value={meta.category} onChange={(event) => setMeta({ ...meta, category: event.target.value as DocumentCategory })}>
+            {DOCUMENT_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {DOCUMENT_CATEGORY_LABELS[category]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col">
+          <span className="text-table font-medium text-fg">Taken at</span>
+          <Input type="time" className="mt-1.5" value={meta.takenTime} onChange={(event) => setMeta({ ...meta, takenTime: event.target.value })} />
+        </label>
+        <label className="flex flex-col sm:col-span-2">
+          <span className="text-table font-medium text-fg">Caption</span>
+          <Input className="mt-1.5" maxLength={500} value={meta.caption} onChange={(event) => setMeta({ ...meta, caption: event.target.value })} />
+        </label>
+      </fieldset>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary" size="sm" disabled={saving}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button size="sm" onClick={() => void run.current()} disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

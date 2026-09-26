@@ -7,7 +7,7 @@ import {
   updateTaskSchema,
 } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma } from "../../helpers";
+import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma, taskVersion } from "../../helpers";
 
 /**
  * Tasks authorisation and lifecycle tests (PRD #11 §202–§219, §243).
@@ -290,45 +290,45 @@ describe("status lifecycle (PRD #11 §209–§214)", () => {
   it("starts, completes and stamps completedAt on the server", async () => {
     const { context, task } = await newTask();
 
-    const started = await tasks.startTask(context, task.id);
-    expect(started.status).toBe("IN_PROGRESS");
+    const started = await tasks.startTask(context, task.id, await taskVersion(task.id));
+    expect(started.data?.status).toBe("IN_PROGRESS");
 
-    const completed = await tasks.completeTask(context, task.id);
-    expect(completed.status).toBe("COMPLETED");
-    expect(completed.schedule.completedAt).not.toBeNull();
+    const completed = await tasks.completeTask(context, task.id, await taskVersion(task.id));
+    expect(completed.data?.status).toBe("COMPLETED");
+    expect(completed.data?.schedule.completedAt).not.toBeNull();
   });
 
   it("clears completedAt when the task is reopened (PRD #11 §212)", async () => {
     const { context, task } = await newTask();
-    await tasks.completeTask(context, task.id);
+    await tasks.completeTask(context, task.id, await taskVersion(task.id));
 
-    const reopened = await tasks.reopenTask(context, task.id);
-    expect(reopened.status).toBe("TODO");
-    expect(reopened.schedule.completedAt).toBeNull();
+    const reopened = await tasks.reopenTask(context, task.id, await taskVersion(task.id));
+    expect(reopened.data?.status).toBe("TODO");
+    expect(reopened.data?.schedule.completedAt).toBeNull();
   });
 
   it("refuses to reopen a task that was never completed", async () => {
     const { context, task } = await newTask();
-    await expectError(tasks.reopenTask(context, task.id), "CONFLICT");
+    await expectError(tasks.reopenTask(context, task.id, await taskVersion(task.id)), "CONFLICT");
   });
 
   it("refuses to complete an already-completed task (PRD #11 §69)", async () => {
     const { context, task } = await newTask();
-    await tasks.completeTask(context, task.id);
-    await expectError(tasks.completeTask(context, task.id), "CONFLICT");
+    await tasks.completeTask(context, task.id, await taskVersion(task.id));
+    await expectError(tasks.completeTask(context, task.id, await taskVersion(task.id)), "CONFLICT");
   });
 
   it("blocks with a reason and unblocks, clearing it (PRD #38 §44)", async () => {
     const { context, task } = await newTask();
-    await expectError(tasks.blockTask(context, task.id, "  "), "VALIDATION_ERROR");
+    await expectError(tasks.blockTask(context, task.id, { ...(await taskVersion(task.id)), reason: "  " }), "VALIDATION_ERROR");
 
-    const blocked = await tasks.blockTask(context, task.id, "Waiting for the structural drawings");
-    expect(blocked.status).toBe("BLOCKED");
-    expect(blocked.blocked).toMatchObject({ reason: "Waiting for the structural drawings", byMemberId: context.membershipId });
+    const blocked = await tasks.blockTask(context, task.id, { ...(await taskVersion(task.id)), reason: "Waiting for the structural drawings" });
+    expect(blocked.data?.status).toBe("BLOCKED");
+    expect(blocked.data?.blocked).toMatchObject({ reason: "Waiting for the structural drawings", byMemberId: context.membershipId });
 
-    const started = await tasks.startTask(context, task.id);
-    expect(started.status).toBe("IN_PROGRESS");
-    expect(started.blocked).toBeNull();
+    const started = await tasks.startTask(context, task.id, await taskVersion(task.id));
+    expect(started.data?.status).toBe("IN_PROGRESS");
+    expect(started.data?.blocked).toBeNull();
     const row = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
     expect(row.blockedReason).toBeNull();
   });
@@ -337,11 +337,7 @@ describe("status lifecycle (PRD #11 §209–§214)", () => {
     const { context, task } = await newTask();
     const current = await tasks.getTask(context, task.id);
     await expectError(
-      tasks.updateTask(context, task.id, {
-        title: current.title,
-        status: "BLOCKED",
-        priority: current.priority,
-      } as Parameters<typeof tasks.updateTask>[2]),
+      tasks.updateTask(context, task.id, updateInput({ title: current.title, status: "BLOCKED", priority: current.priority, expectedVersion: current.version })),
       "VALIDATION_ERROR",
     );
   });
@@ -350,9 +346,9 @@ describe("status lifecycle (PRD #11 §209–§214)", () => {
     const { task } = await newTask();
     const viewer = await loginAs("VIEWER");
 
-    await expectError(tasks.startTask(viewer, task.id), "FORBIDDEN");
-    await expectError(tasks.completeTask(viewer, task.id), "FORBIDDEN");
-    await expectError(tasks.archiveTask(viewer, task.id), "FORBIDDEN");
+    await expectError(tasks.startTask(viewer, task.id, await taskVersion(task.id)), "FORBIDDEN");
+    await expectError(tasks.completeTask(viewer, task.id, await taskVersion(task.id)), "FORBIDDEN");
+    await expectError(tasks.archiveTask(viewer, task.id, await taskVersion(task.id)), "FORBIDDEN");
   });
 });
 
@@ -361,15 +357,15 @@ describe("archive and restore (PRD #11 §213, §214)", () => {
     const context = await loginAs("PROJECT_MANAGER");
     const task = await track(tasks.createTask(context, createInput()));
 
-    await tasks.startTask(context, task.id);
-    await tasks.archiveTask(context, task.id);
+    await tasks.startTask(context, task.id, await taskVersion(task.id));
+    await tasks.archiveTask(context, task.id, await taskVersion(task.id));
 
     const archived = await tasks.getTask(context, task.id);
     expect(archived.status).toBe("ARCHIVED");
     expect(archived.preArchiveStatus).toBe("IN_PROGRESS");
     expect(archived.archivedAt).not.toBeNull();
 
-    await tasks.restoreTask(context, task.id);
+    await tasks.restoreTask(context, task.id, await taskVersion(task.id));
     const restored = await tasks.getTask(context, task.id);
     expect(restored.status).toBe("IN_PROGRESS");
     expect(restored.archivedAt).toBeNull();
@@ -379,40 +375,35 @@ describe("archive and restore (PRD #11 §213, §214)", () => {
   it("keeps an archived task read-only until it is restored (PRD #11 §72)", async () => {
     const context = await loginAs("PROJECT_MANAGER");
     const task = await track(tasks.createTask(context, createInput()));
-    await tasks.archiveTask(context, task.id);
+    await tasks.archiveTask(context, task.id, await taskVersion(task.id));
 
-    await expectError(tasks.updateTask(context, task.id, updateInput()), "CONFLICT");
-    await expectError(tasks.startTask(context, task.id), "CONFLICT");
-    await expectError(tasks.archiveTask(context, task.id), "CONFLICT");
+    await expectError(tasks.updateTask(context, task.id, updateInput(await taskVersion(task.id))), "CONFLICT");
+    await expectError(tasks.startTask(context, task.id, await taskVersion(task.id)), "CONFLICT");
+    await expectError(tasks.archiveTask(context, task.id, await taskVersion(task.id)), "CONFLICT");
   });
 
   it("refuses to restore a task that is not archived", async () => {
     const context = await loginAs("PROJECT_MANAGER");
     const task = await track(tasks.createTask(context, createInput()));
-    await expectError(tasks.restoreTask(context, task.id), "CONFLICT");
+    await expectError(tasks.restoreTask(context, task.id, await taskVersion(task.id)), "CONFLICT");
   });
 });
 
 describe("update (PRD #11 §207)", () => {
-  it("refuses a stale write rather than overwriting another edit", async () => {
+  it("refuses a stale write rather than overwriting another edit (AUD-02 §3)", async () => {
     const context = await loginAs("PROJECT_MANAGER");
     const task = await track(tasks.createTask(context, createInput()));
+    await tasks.updateTask(context, task.id, updateInput({ title: "First edit", expectedVersion: 1 }));
 
-    await expectError(
-      tasks.updateTask(
-        context,
-        task.id,
-        updateInput({ title: "Stale", versionUpdatedAt: "2020-01-01T00:00:00.000Z" }),
-      ),
-      "CONFLICT",
-    );
+    await expectError(tasks.updateTask(context, task.id, updateInput({ title: "Stale", expectedVersion: 1 })), "CONFLICT");
+    expect((await prisma.task.findUniqueOrThrow({ where: { id: task.id } })).title).toBe("First edit");
   });
 
   it("records the status change as its own activity entry", async () => {
     const context = await loginAs("PROJECT_MANAGER");
     const task = await track(tasks.createTask(context, createInput()));
 
-    await tasks.updateTask(context, task.id, updateInput({ status: "IN_PROGRESS" }));
+    await tasks.updateTask(context, task.id, updateInput({ status: "IN_PROGRESS", ...(await taskVersion(task.id)) }));
 
     const activity = await tasks.listActivity(context, task.id, { page: 1, limit: 25 });
     const actions = activity.data.map((entry) => entry.action);

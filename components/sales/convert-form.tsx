@@ -5,11 +5,11 @@ import * as React from "react";
 import {
   Field,
   FormSection,
-  RecordForm,
   selectClass,
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { WorkflowForm } from "@/components/sales/workflow-form";
 import { Input } from "@/components/ui/input";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
 import type { LeadDuplicateMatch } from "@/lib/modules/sales/sales.types";
@@ -51,11 +51,14 @@ export function ConvertLeadForm({
   const [clientMode, setClientMode] = React.useState("NONE");
 
   return (
-    <RecordForm
+    // Converting is a workflow step: leaving asks Stay or Discard, never
+    // converts on the person's behalf (AUD-03 §4).
+    <WorkflowForm
       action={action}
       cancelHref={cancelHref}
       submitLabel="Convert to opportunity"
       pendingLabel="Converting…"
+      workflow="Convert"
     >
       {duplicates && duplicates.length > 0 ? (
         <section role="alert" className="rounded-md border border-warning/40 bg-warning-soft px-4 py-3">
@@ -182,6 +185,6 @@ export function ConvertLeadForm({
           </Field>
         ) : null}
       </FormSection>
-    </RecordForm>
+    </WorkflowForm>
   );
 }

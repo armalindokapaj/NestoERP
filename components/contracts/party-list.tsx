@@ -1,17 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Plus, Trash2, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { selectClass } from "@/components/forms/record-form";
 import {
   removeContractPartyAction,
@@ -175,6 +177,11 @@ function Row({ label, value }: { label: string; value: string | null | undefined
   );
 }
 
+/**
+ * The party dialog holds a form registered with the unsaved-work coordinator:
+ * the X, Escape, the backdrop and Cancel ask before throwing typed details
+ * away, and a save has an explicit outcome (AUD-03 §3, §5).
+ */
 function PartyDialog({
   open,
   onOpenChange,
@@ -190,28 +197,6 @@ function PartyDialog({
   clients: { value: string; label: string }[];
   onSaved: () => void;
 }) {
-  const toast = useToast();
-  const [errors, setErrors] = React.useState<Record<string, string[]>>({});
-  const [pending, startTransition] = React.useTransition();
-
-  React.useEffect(() => {
-    if (!open) setErrors({});
-  }, [open]);
-
-  function submit(formData: FormData) {
-    startTransition(async () => {
-      const result = await saveContractPartyAction(contractId, party?.id ?? null, formData);
-      if (result.ok) {
-        toast({ title: party ? "Party updated." : "Party added.", tone: "success" });
-        onOpenChange(false);
-        onSaved();
-      } else {
-        setErrors(result.fieldErrors ?? {});
-        toast({ title: result.error, tone: "danger" });
-      }
-    });
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -220,133 +205,171 @@ function PartyDialog({
           These details are a snapshot of what the agreement says. They stay as they are even if the
           client record is renamed later.
         </DialogDescription>
-
-        <form action={submit} className="mt-4 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <DialogField label="Role" name="partyRole" errors={errors}>
-              <select
-                id="partyRole"
-                name="partyRole"
-                className={selectClass}
-                defaultValue={party?.role ?? "COUNTERPARTY"}
-              >
-                {PARTY_ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {partyRoleLabels[role]}
-                  </option>
-                ))}
-              </select>
-            </DialogField>
-
-            <DialogField label="Party type" name="partyType" errors={errors}>
-              <select
-                id="partyType"
-                name="partyType"
-                className={selectClass}
-                defaultValue={party?.type ?? "COMPANY"}
-              >
-                {PARTY_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {partyTypeLabels[type]}
-                  </option>
-                ))}
-              </select>
-            </DialogField>
-
-            <DialogField label="Name" name="name" errors={errors}>
-              <Input id="name" name="name" defaultValue={party?.name ?? ""} required maxLength={250} />
-            </DialogField>
-
-            <DialogField label="Legal name" name="legalName" errors={errors}>
-              <Input
-                id="legalName"
-                name="legalName"
-                defaultValue={party?.legalName ?? ""}
-                maxLength={250}
-              />
-            </DialogField>
-
-            <DialogField label="Registration number" name="registrationNumber" errors={errors}>
-              <Input
-                id="registrationNumber"
-                name="registrationNumber"
-                defaultValue={party?.registrationNumber ?? ""}
-                maxLength={80}
-              />
-            </DialogField>
-
-            <DialogField label="Tax ID" name="taxId" errors={errors}>
-              <Input id="taxId" name="taxId" defaultValue={party?.taxId ?? ""} maxLength={80} />
-            </DialogField>
-
-            <DialogField label="Linked client" name="clientId" errors={errors}>
-              <select
-                id="clientId"
-                name="clientId"
-                className={selectClass}
-                defaultValue={party?.clientId ?? ""}
-              >
-                <option value="">Not linked</option>
-                {clients.map((client) => (
-                  <option key={client.value} value={client.value}>
-                    {client.label}
-                  </option>
-                ))}
-              </select>
-            </DialogField>
-
-            <DialogField label="City" name="city" errors={errors}>
-              <Input id="city" name="city" defaultValue={party?.city ?? ""} maxLength={120} />
-            </DialogField>
-
-            <DialogField label="Address" name="address" errors={errors} className="sm:col-span-2">
-              <Input id="address" name="address" defaultValue={party?.address ?? ""} maxLength={500} />
-            </DialogField>
-
-            <DialogField label="Country" name="country" errors={errors}>
-              <Input id="country" name="country" defaultValue={party?.country ?? ""} maxLength={120} />
-            </DialogField>
-
-            <DialogField label="Signatory" name="signatoryName" errors={errors}>
-              <Input
-                id="signatoryName"
-                name="signatoryName"
-                defaultValue={party?.signatoryName ?? ""}
-                maxLength={200}
-              />
-            </DialogField>
-
-            <DialogField label="Signatory title" name="signatoryTitle" errors={errors}>
-              <Input
-                id="signatoryTitle"
-                name="signatoryTitle"
-                defaultValue={party?.signatoryTitle ?? ""}
-                maxLength={200}
-              />
-            </DialogField>
-          </div>
-
-          <label className="flex items-center gap-2 text-table text-fg">
-            <input
-              type="checkbox"
-              name="isPrimaryCounterparty"
-              defaultChecked={party?.isPrimaryCounterparty ?? false}
-              className="size-4 rounded border-line"
-            />
-            Primary counterparty — at most one per contract
-          </label>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : party ? "Save party" : "Add party"}
-            </Button>
-          </div>
-        </form>
+        <PartyForm contractId={contractId} party={party} clients={clients} onSaved={onSaved} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PartyForm({
+  contractId,
+  party,
+  clients,
+  onSaved,
+}: {
+  contractId: string;
+  party: ContractPartyDTO | null;
+  clients: { value: string; label: string }[];
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({
+    formRef,
+    action: (formData: FormData) => saveContractPartyAction(contractId, party?.id ?? null, formData),
+    module: "contracts",
+    saveKind: party ? "save" : "create",
+    label: party ? party.name : "New party",
+    onCommitted: () => {
+      toast({ title: party ? "Party updated." : "Party added.", tone: "success" });
+      onSaved();
+      return true;
+    },
+  });
+  const { pending, fieldErrors: errors } = save;
+
+  return (
+    <form ref={formRef} onSubmit={save.onSubmit} className="mt-4 space-y-4">
+      <SaveMessages save={save} />
+      <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <DialogField label="Role" name="partyRole" errors={errors}>
+            <select
+              id="partyRole"
+              name="partyRole"
+              className={selectClass}
+              defaultValue={party?.role ?? "COUNTERPARTY"}
+            >
+              {PARTY_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {partyRoleLabels[role]}
+                </option>
+              ))}
+            </select>
+          </DialogField>
+
+          <DialogField label="Party type" name="partyType" errors={errors}>
+            <select
+              id="partyType"
+              name="partyType"
+              className={selectClass}
+              defaultValue={party?.type ?? "COMPANY"}
+            >
+              {PARTY_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {partyTypeLabels[type]}
+                </option>
+              ))}
+            </select>
+          </DialogField>
+
+          <DialogField label="Name" name="name" errors={errors}>
+            <Input id="name" name="name" defaultValue={party?.name ?? ""} required maxLength={250} />
+          </DialogField>
+
+          <DialogField label="Legal name" name="legalName" errors={errors}>
+            <Input
+              id="legalName"
+              name="legalName"
+              defaultValue={party?.legalName ?? ""}
+              maxLength={250}
+            />
+          </DialogField>
+
+          <DialogField label="Registration number" name="registrationNumber" errors={errors}>
+            <Input
+              id="registrationNumber"
+              name="registrationNumber"
+              defaultValue={party?.registrationNumber ?? ""}
+              maxLength={80}
+            />
+          </DialogField>
+
+          <DialogField label="Tax ID" name="taxId" errors={errors}>
+            <Input id="taxId" name="taxId" defaultValue={party?.taxId ?? ""} maxLength={80} />
+          </DialogField>
+
+          <DialogField label="Linked client" name="clientId" errors={errors}>
+            <select
+              id="clientId"
+              name="clientId"
+              className={selectClass}
+              defaultValue={party?.clientId ?? ""}
+            >
+              <option value="">Not linked</option>
+              {clients.map((client) => (
+                <option key={client.value} value={client.value}>
+                  {client.label}
+                </option>
+              ))}
+            </select>
+          </DialogField>
+
+          <DialogField label="City" name="city" errors={errors}>
+            <Input id="city" name="city" defaultValue={party?.city ?? ""} maxLength={120} />
+          </DialogField>
+
+          <DialogField label="Address" name="address" errors={errors} className="sm:col-span-2">
+            <Input id="address" name="address" defaultValue={party?.address ?? ""} maxLength={500} />
+          </DialogField>
+
+          <DialogField label="Country" name="country" errors={errors}>
+            <Input id="country" name="country" defaultValue={party?.country ?? ""} maxLength={120} />
+          </DialogField>
+
+          <DialogField label="Signatory" name="signatoryName" errors={errors}>
+            <Input
+              id="signatoryName"
+              name="signatoryName"
+              defaultValue={party?.signatoryName ?? ""}
+              maxLength={200}
+            />
+          </DialogField>
+
+          <DialogField label="Signatory title" name="signatoryTitle" errors={errors}>
+            <Input
+              id="signatoryTitle"
+              name="signatoryTitle"
+              defaultValue={party?.signatoryTitle ?? ""}
+              maxLength={200}
+            />
+          </DialogField>
+        </div>
+
+        <label className="flex items-center gap-2 text-table text-fg">
+          <input
+            type="checkbox"
+            name="isPrimaryCounterparty"
+            defaultChecked={party?.isPrimaryCounterparty ?? false}
+            className="size-4 rounded border-line"
+          />
+          Primary counterparty — at most one per contract
+        </label>
+
+      </fieldset>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <UnsavedIndicator save={save} />
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : party ? "Save party" : "Add party"}
+        </Button>
+      </div>
+    </form>
   );
 }
 

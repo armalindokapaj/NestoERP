@@ -7,6 +7,7 @@ import { ModulePage } from "@/components/modules/module-page";
 import { PersonLink } from "@/components/people/person-link";
 import { PlanningSettingsForm } from "@/components/project-planning/planning-settings-form";
 import { MilestoneStatusBadge, Variance } from "@/components/project-planning/planning-ui";
+import { ReportFilterForm } from "@/components/project-planning/report-filter-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { can } from "@/lib/access/can";
@@ -102,7 +103,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
   return (
     <ModulePage experience={experience} activeSection="milestones" description="Key dates across your projects: delays, variance against baseline and critical milestones.">
       <div className="space-y-5">
-        <form method="get" className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label="Report filters">
+        <ReportFilterForm className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label="Report filters">
           <label className="flex min-w-[13rem] flex-[2] flex-col">
             <span className="text-meta text-fg-muted">Project</span>
             <select name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
@@ -171,7 +172,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
           <Button asChild size="sm" variant="ghost">
             <Link href="/projects/milestones">Reset</Link>
           </Button>
-        </form>
+        </ReportFilterForm>
 
         <section className="nesto-card px-5 py-4" aria-label="Totals">
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8" data-testid="planning-report-totals">
@@ -331,7 +332,8 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
         {settings ? (
           <section aria-labelledby="planning-settings" className="max-w-2xl space-y-2">
             <h2 id="planning-settings" className="text-card font-semibold text-fg">Planning settings</h2>
-            <PlanningSettingsForm initial={settings} />
+            {/* A filter change asked first and replaces the form, as the full reload it once was did (AUD-03 §4). */}
+            <PlanningSettingsForm key={JSON.stringify(query)} initial={settings} />
           </section>
         ) : null}
       </div>

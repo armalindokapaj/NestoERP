@@ -99,6 +99,7 @@ export function TemplateForm({
 
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}

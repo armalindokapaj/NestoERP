@@ -8,6 +8,9 @@ import { Inbox, ListFilter, Rows3, Rows4, SlidersHorizontal, TriangleAlert, User
 import { Button } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
+import { GuardedRoot } from "@/components/unsaved/guarded-root";
+import { UnsavedScope } from "@/components/unsaved/use-unsaved";
+import { unsaved } from "@/lib/unsaved/coordinator";
 import type {
   ApprovalDecision,
   ApprovalDecisionResult,
@@ -102,6 +105,9 @@ function toParams(state: ApprovalsState, extra: { approval?: string | null; pane
   return params;
 }
 
+/** The editors of the approval under review — its decision note, a reason, its discussion. */
+const DETAIL_SCOPE = "approval-detail";
+
 function useIsDesktop(): boolean {
   const [desktop, setDesktop] = React.useState(false);
   React.useEffect(() => {
@@ -132,6 +138,10 @@ export function ApprovalsShell({
   /** The Group workspace: a read view, company by company. */
   group?: boolean;
 }) {
+  // The URL only mirrors this page's own state — tab, filters, the selected
+  // approval — and never unmounts it: Next's router, not the guarded one, or a
+  // filter change would ask about a note it keeps (AUD-03 §5). A change that
+  // does destroy the review in place asks first, below.
   const router = useRouter();
   const toast = useToast();
   const desktop = useIsDesktop();
@@ -237,7 +247,29 @@ export function ApprovalsShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  /**
+   * Another approval, or none, replaces the one under review: its note, a
+   * reason being written, a comment in its discussion go with it. Asks about
+   * those first (AUD-03 §5); a selection that follows a recorded decision
+   * does not, the input was used.
+   */
   function select(item: UnifiedApprovalItem | null) {
+    if ((item?.id ?? null) === selectedId) {
+      applySelect(item);
+      return;
+    }
+    const intent = { kind: "dismiss", scope: DETAIL_SCOPE } as const;
+    if (!unsaved.hasBlocking(intent)) {
+      applySelect(item);
+      return;
+    }
+    void unsaved.requestDeparture(intent).then((approval) => {
+      // The page stays: the approval covers this change and nothing after it.
+      if (approval?.run(() => applySelect(item))) approval.release();
+    });
+  }
+
+  function applySelect(item: UnifiedApprovalItem | null) {
     const id = item?.id ?? null;
     setSelectedId(id);
     setDetailFailure(null);
@@ -298,9 +330,9 @@ export function ApprovalsShell({
       if (state.tab === "waiting") {
         const remaining = refreshed?.items ?? [];
         const following = remaining.find((row, position) => position >= index && row.id !== item.id) ?? remaining.find((row) => row.id !== item.id) ?? null;
-        if (desktop && following) select(following);
+        if (desktop && following) applySelect(following);
         else {
-          select(null);
+          applySelect(null);
         }
       } else {
         void loadDetail(item.id);
@@ -374,7 +406,21 @@ export function ApprovalsShell({
               role="tab"
               aria-selected={active}
               aria-controls="approvals-panel"
-              onClick={() => (active ? null : (select(null), update({ tab: tab.key })))}
+              onClick={() => {
+                if (active) return;
+                if (selectedId === null) {
+                  update({ tab: tab.key });
+                  return;
+                }
+                // Leaving the tab closes the review: asked about first, like any selection.
+                const intent = { kind: "dismiss", scope: DETAIL_SCOPE } as const;
+                const apply = () => {
+                  applySelect(null);
+                  update({ tab: tab.key });
+                };
+                if (!unsaved.hasBlocking(intent)) apply();
+                else void unsaved.requestDeparture(intent).then((approval) => (approval?.run(apply) ? approval.release() : undefined));
+              }}
               className={cn(
                 "inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-table font-medium transition-colors",
                 active ? "bg-primary text-primary-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
@@ -512,22 +558,25 @@ export function ApprovalsShell({
             className="hidden overflow-hidden rounded-2xl border border-line bg-surface lg:sticky lg:top-[calc(var(--nesto-topbar-height)+1rem)] lg:flex lg:h-[calc(100dvh-var(--nesto-topbar-height)-2rem)] lg:flex-col"
           >
             {desktop ? (
-              <ApprovalDetailView
-                detail={detail}
-                loading={detailLoading}
-                failure={detailFailure}
-                pending={pending}
-                onDecide={decide}
-                onReload={() => (selectedId ? void loadDetail(selectedId).then(() => loadList(state)) : undefined)}
-                onClose={() => select(null)}
-                variant="panel"
-              />
+              <UnsavedScope id={DETAIL_SCOPE}>
+                <ApprovalDetailView
+                  detail={detail}
+                  loading={detailLoading}
+                  failure={detailFailure}
+                  pending={pending}
+                  onDecide={decide}
+                  onReload={() => (selectedId ? void loadDetail(selectedId).then(() => loadList(state)) : undefined)}
+                  onClose={() => select(null)}
+                  variant="panel"
+                />
+              </UnsavedScope>
             ) : null}
           </aside>
         )}
       </div>
 
-      <DialogPrimitive.Root open={sheetOpen} onOpenChange={(open) => (open ? null : select(null))}>
+      {/* Guarded: closing the sheet asks about the note or reason inside it (AUD-03 §5); once approved, the selection goes. */}
+      <GuardedRoot open={sheetOpen} onOpenChange={(open) => (open ? null : applySelect(null))}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Content
             className="fixed inset-0 z-[55] flex flex-col bg-surface outline-none data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)]"
@@ -536,20 +585,22 @@ export function ApprovalsShell({
           >
             <DialogPrimitive.Title className="sr-only">{detail?.item.title ?? "Approval"}</DialogPrimitive.Title>
             {!desktop ? (
-              <ApprovalDetailView
-                detail={detail}
-                loading={detailLoading}
-                failure={detailFailure}
-                pending={pending}
-                onDecide={decide}
-                onReload={() => (selectedId ? void loadDetail(selectedId) : undefined)}
-                onClose={() => select(null)}
-                variant="sheet"
-              />
+              <UnsavedScope id={DETAIL_SCOPE}>
+                <ApprovalDetailView
+                  detail={detail}
+                  loading={detailLoading}
+                  failure={detailFailure}
+                  pending={pending}
+                  onDecide={decide}
+                  onReload={() => (selectedId ? void loadDetail(selectedId) : undefined)}
+                  onClose={() => select(null)}
+                  variant="sheet"
+                />
+              </UnsavedScope>
             ) : null}
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+      </GuardedRoot>
 
       <FilterDrawer
         open={filtersOpen}

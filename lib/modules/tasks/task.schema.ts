@@ -45,23 +45,28 @@ const scheduleRefinement = <T extends { startDate?: Date; dueDate?: Date }>(
 
 export const createTaskSchema = scheduleRefinement(z.object(taskFields));
 
-export const updateTaskSchema = scheduleRefinement(
-  z.object({
-    ...taskFields,
-    /**
-     * Optimistic concurrency: the value the form was loaded with. If the record
-     * has moved on since, the update is refused rather than silently
-     * overwriting somebody else's edit.
-     */
-    versionUpdatedAt: optionalDate,
-  }),
-);
+/**
+ * The version the person reviewed (AUD-02 §3, §6). Carried through unparsed
+ * so the mutation can tell "none given" (428, reload) from "not a version"
+ * (422) — a schema default or coercion here would blur the two. It is a
+ * precondition, never written: the version a task gets is the server's.
+ * `versionUpdatedAt`, the old timestamp stamp, is no longer read.
+ */
+const expectedVersion = z.unknown().optional();
+
+export const updateTaskSchema = scheduleRefinement(z.object({ ...taskFields, expectedVersion }));
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 
-/** The dedicated status endpoints (PRD #11 §66–§70, §113). */
+/** The dedicated status endpoints (PRD #11 §66–§70, §113): each names the version it acts on. */
+export const taskCommandSchema = z.object({ expectedVersion });
+
+/** Mark blocked: the reason is checked by the command itself, identically for every transport. */
+export const blockTaskSchema = z.object({ expectedVersion, reason: z.string().optional() });
+
 export const reopenTaskSchema = z.object({
+  expectedVersion,
   status: optionalEnum(REOPEN_STATUSES as unknown as [string, ...string[]]),
 });
 

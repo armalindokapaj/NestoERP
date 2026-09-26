@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 import { Box, Building2, CalendarClock, Layers3, Orbit, PackageOpen } from "lucide-react";
 
 import { NewExperienceDialog } from "@/components/3d/platform/NewExperienceDialog";

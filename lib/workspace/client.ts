@@ -1,4 +1,6 @@
 import { WORKSPACE_CHANGED, type WorkspaceChange, type WorkspaceScopeType } from "@/config/workspace";
+import { unsaved, type Approval } from "@/lib/unsaved/coordinator";
+import { tabWorkspace } from "@/lib/unsaved/tab-context";
 import type { WorkspaceNavigationResult } from "@/lib/workspace/route-resolver";
 
 export const WORKSPACE_CHANNEL = "nesto-workspace";
@@ -10,9 +12,12 @@ export const WORKSPACE_CHANNEL = "nesto-workspace";
  */
 export const WORKSPACE_TAB_ID = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-/** What the channel carries: the change, the sending tab, and whether that tab wants its own echo. */
-export type WorkspaceChannelMessage = WorkspaceChange & { sourceTab?: string; echo?: boolean };
-export const WORKSPACE_DIRTY_STATE_CHANGED = "NESTO_WORKSPACE_DIRTY_STATE_CHANGED";
+/**
+ * What the channel carries: the change, the sending tab, whether that tab
+ * wants its own echo, and the destination's name for a tab that must explain
+ * the change to somebody with unsaved work (AUD-03 §7).
+ */
+export type WorkspaceChannelMessage = WorkspaceChange & { sourceTab?: string; echo?: boolean; targetName?: string };
 
 export type WorkspaceRequest = {
   scopeType: WorkspaceScopeType;
@@ -36,35 +41,19 @@ export type WorkspaceSwitchResult =
    * `ambiguous`: the request was sent but no answer came back (a timeout or a
    * dropped connection), so the server may already have switched. The caller
    * re-reads the canonical workspace before offering anything else (NAV-01 QC-11).
+   * `cancelled`: the person chose to stay with their unsaved changes, so
+   * nothing was sent — not a failure to report (AUD-03 §7).
    */
-  | { ok: false; stale?: boolean; ambiguous?: boolean };
+  | { ok: false; stale?: boolean; ambiguous?: boolean; cancelled?: boolean };
 
-let dirty = false;
 let transitionId = 0;
 let activeRequest: AbortController | null = null;
 
-/** Forms use this shared contract instead of inventing per-page switch prompts. */
-export function setWorkspaceDirtyState(isDirty: boolean): void {
-  dirty = isDirty;
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(WORKSPACE_DIRTY_STATE_CHANGED, { detail: { isDirty } }));
-  }
-}
-
-export function hasWorkspaceDirtyState(): boolean {
-  return dirty;
-}
-
-export function confirmWorkspaceNavigation(message = "You have unsaved changes. Discard them and continue?"): boolean {
-  if (!dirty || typeof window === "undefined") return true;
-  return window.confirm(message);
-}
-
-function publish(change: WorkspaceChange, echo: boolean): void {
+function publish(change: WorkspaceChange, echo: boolean, targetName?: string): void {
   window.dispatchEvent(new CustomEvent(WORKSPACE_CHANGED, { detail: change }));
   if (typeof BroadcastChannel !== "undefined") {
     const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
-    channel.postMessage({ ...change, sourceTab: WORKSPACE_TAB_ID, echo } satisfies WorkspaceChannelMessage);
+    channel.postMessage({ ...change, sourceTab: WORKSPACE_TAB_ID, echo, targetName } satisfies WorkspaceChannelMessage);
     channel.close();
   }
 }
@@ -108,34 +97,72 @@ export function isWorkspaceSwitchInPlace(): boolean {
 }
 
 /**
- * True while this tab loads the destination of its own switch. The switch
- * already asked about unsaved changes (`confirmWorkspaceNavigation`), so a
- * form that answers to that question does not ask the browser to ask again:
- * one prompt for one action (NAV-01 NAV-05).
+ * True while this tab loads the destination of its own switch — the tab is
+ * busy, so nothing is prefetched for the page it is leaving (NAV-03).
  */
 export function isLeavingForWorkspaceSwitch(): boolean {
   return leavingForSwitch;
 }
 
-/** Only the newest response may commit in this tab. */
-export async function requestWorkspaceSwitch(
-  request: WorkspaceRequest,
-  options: {
-    publishChange?: boolean;
-    timeoutMs?: number;
-    /** The caller already asked about unsaved changes for this same action; ask once, not twice (NAV-05). */
-    confirmed?: boolean;
-    /**
-     * `false`: this tab goes on to its destination itself
-     * (`openInSwitchedWorkspace`), so its WorkspaceSync must not reload the
-     * page it is leaving underneath that navigation. Other tabs still reload
-     * as before (NAV-01 QC-11).
-     */
-    echoToThisTab?: boolean;
-  } = {},
-): Promise<WorkspaceSwitchResult> {
-  if (!options.confirmed && !confirmWorkspaceNavigation()) return { ok: false };
+type SwitchOptions = {
+  publishChange?: boolean;
+  timeoutMs?: number;
+  /**
+   * The departure the caller already had approved for this same action — one
+   * question for one action (NAV-05). Without one, this asks the tab's
+   * unsaved-work coordinator itself. There is no boolean way past the question:
+   * an approval is one-shot and bound to the editors it was given for (AUD-03 §4).
+   */
+  approval?: Approval;
+  /** An approval an earlier step of the same flow obtained (Quick Create asks once, at launch). */
+  prior?: Approval;
+  /** The destination's name, for the question and for other tabs' notices. */
+  targetName?: string;
+  /**
+   * `false`: this tab goes on to its destination itself
+   * (`openInSwitchedWorkspace`), so its WorkspaceSync must not reload the
+   * page it is leaving underneath that navigation. Other tabs still reload
+   * as before (NAV-01 QC-11).
+   */
+  echoToThisTab?: boolean;
+};
 
+/**
+ * Switches the session's workspace. Asks about unsaved work before anything is
+ * sent (AUD-03 §7): Stay sends nothing, and Save and continue has saved in the
+ * original workspace before the switch is requested. Only the newest response
+ * may commit in this tab.
+ */
+export async function requestWorkspaceSwitch(request: WorkspaceRequest, options: SwitchOptions = {}): Promise<WorkspaceSwitchResult> {
+  const approval = options.approval ?? (await unsaved.requestDeparture({ kind: "workspace", target: options.targetName ?? "" }, { prior: options.prior }));
+  if (!approval || approval.intent.kind !== "workspace") return { ok: false, cancelled: true };
+  // Used once, here: a second switch needs a second approval.
+  if (!approval.run(() => undefined)) return { ok: false, cancelled: true };
+  const result = await postSwitch(request, options);
+  // A refused, superseded or unanswered switch leaves the editors where they
+  // are, protected again. An unanswered one may yet have switched: the caller
+  // reconciles, and keeps the page covered meanwhile.
+  if (!result.ok) approval.release();
+  return result;
+}
+
+/**
+ * Puts the session back into the workspace this tab renders, after another tab
+ * moved it while this one held unsaved work (AUD-03 §7). It can only go to what
+ * the tab already shows, so it destroys nothing here and needs no approval; the
+ * server authorizes it like any switch, and the other tabs follow it.
+ */
+export async function restoreTabWorkspace(): Promise<boolean> {
+  const workspace = tabWorkspace();
+  if (!workspace) return false;
+  const result = await postSwitch(
+    { scopeType: workspace.scopeType, companyId: workspace.companyId },
+    { echoToThisTab: false, targetName: workspace.name, timeoutMs: 15_000 },
+  );
+  return result.ok && result.data.workspaceKey === workspace.key;
+}
+
+async function postSwitch(request: WorkspaceRequest, options: SwitchOptions): Promise<WorkspaceSwitchResult> {
   const mine = ++transitionId;
   const serverTransitionId = Date.now() * 1000 + (mine % 1000);
   activeRequest?.abort();
@@ -160,7 +187,6 @@ export async function requestWorkspaceSwitch(
   const body = (await response.json().catch(() => null)) as { data?: WorkspaceSwitchData } | null;
   if (!body?.data?.change || !body.data.navigation) return { ok: false };
 
-  dirty = false;
-  if (options.publishChange !== false) publish(body.data.change, options.echoToThisTab !== false);
+  if (options.publishChange !== false) publish(body.data.change, options.echoToThisTab !== false, options.targetName);
   return { ok: true, data: body.data };
 }

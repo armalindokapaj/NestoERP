@@ -6,12 +6,15 @@ import { Check, UserPlus } from "lucide-react";
 import { selectClass } from "@/components/forms/record-form";
 import { Field, fieldErrors, FormError, failureMessage, isFailure, numberText, structureApi } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Textarea } from "@/components/ui/textarea";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_PRICE_BASES, UNIT_PRICE_BASIS_LABELS, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { outcomeOf } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -20,6 +23,13 @@ import { cn } from "@/lib/utils/cn";
  * it is about, or above the form. Nothing here decides whether a change is
  * allowed — the panel offers only what the reader may do, and the server
  * decides again.
+ *
+ * Every dialog takes part in the unsaved-work contract (AUD-03 §3, §5): it
+ * tells FormDialog whether its values differ from those it opened with, and
+ * the X, Escape, the backdrop and Cancel ask before throwing them away. An
+ * ordinary save (a price, a correction) is offered as "Save and continue"; a
+ * workflow step (reserve, reopen, a reason) is not — leaving offers Stay or
+ * Discard.
  */
 
 type Submit = (url: string, body: Record<string, unknown>, success: string) => Promise<void>;
@@ -48,6 +58,11 @@ export function FormDialog({
   children,
   testId,
   wide,
+  dirty,
+  unresolved = false,
+  save,
+  workflow,
+  module = "units",
 }: {
   open: boolean;
   onClose: () => void;
@@ -60,10 +75,26 @@ export function FormDialog({
   children: React.ReactNode;
   testId?: string;
   wide?: boolean;
+  /** Whether the values differ from those the dialog opened with (`useOpenedWith`). */
+  dirty: boolean;
+  /** A request that threw before the server answered: it may have gone through (AUD-03 §6). */
+  unresolved?: boolean;
+  /**
+   * An ordinary save, run by "Save and continue" through the same checks as the
+   * dialog's own button, without closing or navigating. Absent for a workflow
+   * step, which only its own button may take.
+   */
+  save?: { kind: "save" | "create"; run: () => Promise<SaveOutcome> };
+  /** The workflow step's verb for the prompt; the confirm label when absent. */
+  workflow?: string;
+  module?: string;
 }) {
   return (
-    <Dialog open={open} onOpenChange={(value) => (!value && !pending ? onClose() : null)}>
+    // Every close — X, Escape, the backdrop, Cancel — goes through the guarded
+    // root, which asks while there is unsaved or in-flight input (AUD-03 §5).
+    <Dialog open={open} onOpenChange={(value) => (!value ? onClose() : null)}>
       <DialogContent className={cn("max-h-[calc(100dvh-2rem)] overflow-y-auto", wide ? "max-w-xl" : "max-w-lg")} data-testid={testId}>
+        <DialogEditor label={title} module={module} dirty={dirty} saving={pending} unresolved={unresolved} save={save} workflow={save ? undefined : (workflow ?? confirmLabel)} />
         <DialogTitle>{title}</DialogTitle>
         {description ? <DialogDescription>{description}</DialogDescription> : null}
         <form
@@ -77,9 +108,11 @@ export function FormDialog({
           <FormError message={error} />
           {children}
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary" disabled={pending}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button type="submit" disabled={pending}>
               {pending ? "Working…" : confirmLabel}
             </Button>
@@ -90,14 +123,81 @@ export function FormDialog({
   );
 }
 
+/**
+ * A dialog's registration with the tab's coordinator (AUD-03 §3, §5). Rendered
+ * inside the dialog's content, so closing that dialog is what asks about it.
+ * For controlled dialogs whose values live in React state.
+ */
+export function DialogEditor({
+  label,
+  module,
+  dirty,
+  saving,
+  unresolved,
+  save,
+  workflow,
+}: {
+  label: string;
+  module: string;
+  dirty: boolean;
+  saving: boolean;
+  unresolved: boolean;
+  save?: { kind: "save" | "create"; run: () => Promise<SaveOutcome> };
+  workflow?: string;
+}) {
+  const editor = useUnsavedEditor({ label, module, saveKind: save ? save.kind : "none", workflow, save: save?.run });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
+  React.useEffect(() => setSaving(saving), [saving, setSaving]);
+  React.useEffect(() => setUnresolved(unresolved), [unresolved, setUnresolved]);
+  return null;
+}
+
+/**
+ * Whether a dialog's values differ from those it opened with (AUD-03 §3).
+ *
+ * The baseline is taken on the render after the dialog opened, once its own
+ * reset has applied — so it is exactly what the person was shown. Nothing is
+ * trimmed or rounded: putting a value back makes the dialog clean again.
+ */
+export function useOpenedWith(open: boolean, values: unknown): boolean {
+  const key = JSON.stringify(values);
+  const [baseline, setBaseline] = React.useState<string | null>(null);
+  const [arming, setArming] = React.useState(false);
+  React.useEffect(() => {
+    setBaseline(null);
+    setArming(open);
+  }, [open]);
+  React.useEffect(() => {
+    if (!arming) return;
+    setBaseline(key);
+    setArming(false);
+  }, [arming, key]);
+  return open && baseline !== null && key !== baseline;
+}
+
+/** What a dialog's request answered, as a save outcome: only no failure is a commit (AUD-03 §6). */
+export function requestOutcome(failed: unknown): SaveOutcome {
+  if (!failed) return { kind: "committed" };
+  // A request that never reached an answer may have gone through.
+  if (!isFailure(failed) || failed.code === "NETWORK") return { kind: "unknown" };
+  return outcomeOf({ ok: false, code: failed.code, error: failed.message });
+}
+
 /** Runs one request for a dialog: pending, a form-level error, and field errors. */
 export function useDialogRequest(submit: Submit) {
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fields, setFields] = React.useState<Record<string, string>>({});
+  /** The server said yes: the dialog is saved and closing, so nothing in it is unsaved any more. */
+  const [done, setDone] = React.useState(false);
+  /** A request that threw without an answer (AUD-03 §6). */
+  const [unresolved, setUnresolved] = React.useState(false);
   const reset = React.useCallback(() => {
     setError(null);
     setFields({});
+    setDone(false);
+    setUnresolved(false);
   }, []);
   const send = React.useCallback(
     async (url: string, body: Record<string, unknown>, success: string): Promise<unknown> => {
@@ -105,11 +205,13 @@ export function useDialogRequest(submit: Submit) {
       reset();
       try {
         await submit(url, body, success);
+        setDone(true);
         return null;
       } catch (caught) {
         const byField = fieldErrors(caught);
         setFields(byField);
         setError(Object.keys(byField).length ? null : failureMessage(caught, "That did not work. Try again."));
+        setUnresolved(requestOutcome(caught).kind === "unknown");
         return caught;
       } finally {
         setPending(false);
@@ -117,7 +219,7 @@ export function useDialogRequest(submit: Submit) {
     },
     [submit, reset],
   );
-  return { pending, error, fields, send, reset, setError };
+  return { pending, error, fields, send, reset, setError, done, unresolved };
 }
 
 function CurrencySelect({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
@@ -151,6 +253,8 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
     request.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  const changed = useOpenedWith(open, [price, currency, basis, notes, reason]);
+  const send = () => request.send(`/api/project-units/${sales.unitId}/sales`, { askingPrice: price, currency, priceBasis: basis, salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, `The price of ${sales.unitCode} was saved.`);
 
   return (
     <FormDialog
@@ -162,9 +266,10 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
       pending={request.pending}
       error={request.error}
       testId="price-dialog"
-      onSubmit={() =>
-        void request.send(`/api/project-units/${sales.unitId}/sales`, { askingPrice: price, currency, priceBasis: basis, salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, `The price of ${sales.unitCode} was saved.`).then((failed) => (failed ? null : onClose()))
-      }
+      dirty={changed && !request.done}
+      unresolved={request.unresolved}
+      save={{ kind: "save", run: async () => requestOutcome(await send()) }}
+      onSubmit={() => void send().then((failed) => (failed ? null : onClose()))}
     >
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
         <Field label="Asking price" htmlFor="sales-asking-price" error={request.fields.askingPrice}>
@@ -233,6 +338,7 @@ export function ReasonDialog({
     request.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  const changed = useOpenedWith(open, [reason, day]);
   const blank = reason.trim() === "";
   const dayMissing = Boolean(date?.required) && !endOfDay(day);
 
@@ -246,6 +352,8 @@ export function ReasonDialog({
       pending={request.pending}
       error={request.error}
       testId={testId}
+      dirty={changed && !request.done}
+      unresolved={request.unresolved}
       onSubmit={() => {
         setTouched(true);
         if (blank || dayMissing) return;
@@ -282,6 +390,7 @@ export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; 
     request.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  const changed = useOpenedWith(open, [to, reason, day]);
   const blank = reason.trim() === "";
 
   return (
@@ -294,6 +403,8 @@ export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; 
       pending={request.pending}
       error={request.error}
       testId="reopen-dialog"
+      dirty={changed && !request.done}
+      unresolved={request.unresolved}
       onSubmit={() => {
         setTouched(true);
         if (blank) return;
@@ -343,8 +454,15 @@ export function CorrectDialog({ open, onClose, sales, submit }: { open: boolean;
     request.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  const changed = useOpenedWith(open, [price, currency, notes, reason]);
   if (!reservation) return null;
   const blank = reason.trim() === "";
+  /** The dialog's one save path, for its button and for "Save and continue" alike. */
+  const correct = async (): Promise<unknown> => {
+    setTouched(true);
+    if (blank) return { code: "VALIDATION_ERROR", message: "Give a reason." };
+    return request.send(`/api/unit-reservations/${reservation.id}/correct`, { agreedPrice: price, currency, notes, reason, expectedVersion: reservation.version }, `The reservation of ${sales.unitCode} was corrected.`);
+  };
 
   return (
     <FormDialog
@@ -356,11 +474,10 @@ export function CorrectDialog({ open, onClose, sales, submit }: { open: boolean;
       pending={request.pending}
       error={request.error}
       testId="correct-dialog"
-      onSubmit={() => {
-        setTouched(true);
-        if (blank) return;
-        void request.send(`/api/unit-reservations/${reservation.id}/correct`, { agreedPrice: price, currency, notes, reason, expectedVersion: reservation.version }, `The reservation of ${sales.unitCode} was corrected.`).then((failed) => (failed ? null : onClose()));
-      }}
+      dirty={changed && !request.done}
+      unresolved={request.unresolved}
+      save={{ kind: "save", run: async () => requestOutcome(await correct()) }}
+      onSubmit={() => void correct().then((failed) => (failed ? null : onClose()))}
     >
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
         <Field label="Agreed price" htmlFor="correct-price" error={request.fields.agreedPrice}>
@@ -461,6 +578,8 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
     };
   }, [client, caps.canSeeDeals, caps.canCreateDeal]);
 
+  // The search text finds a client; it is not itself input to keep (AUD-03 §3).
+  const changed = useOpenedWith(open, [clientMode, client?.id ?? null, newClient, dealId, dealName, day, price, currency, notes]);
   const creatingDeal = clientMode === "new" || dealId === "new";
   const clientMissing = clientMode === "existing" ? !client : newClient.name.trim().length < 2;
   const dealMissing = !creatingDeal && !dealId;
@@ -486,7 +605,7 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
   }
 
   return (
-    <FormDialog open={open} onClose={onClose} title={`Reserve ${sales.unitCode}`} description="The unit is held for this client and deal until the expiry date. Only one reservation can be active on a unit." confirmLabel="Reserve" pending={request.pending} error={request.error} onSubmit={() => void reserve()} testId="reserve-dialog" wide>
+    <FormDialog open={open} onClose={onClose} title={`Reserve ${sales.unitCode}`} description="The unit is held for this client and deal until the expiry date. Only one reservation can be active on a unit." confirmLabel="Reserve" pending={request.pending} error={request.error} onSubmit={() => void reserve()} testId="reserve-dialog" wide dirty={changed && !request.done} unresolved={request.unresolved}>
       <fieldset className="space-y-2">
         <legend className="text-meta font-medium text-fg-muted">
           Client <span aria-hidden="true">*</span>

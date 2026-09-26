@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import {
   activatePermitAction,
   approveInspectionAction,
@@ -84,7 +85,16 @@ function useRunner() {
   ): Promise<boolean> {
     return new Promise((resolve) => {
       startTransition(async () => {
-        const result = await work();
+        let result: HseActionResult;
+        try {
+          result = await work();
+        } catch {
+          // Sent, unanswered: it may have committed, so it is not called a
+          // failure, and the dialog keeps what was typed (AUD-03 §6).
+          toast({ title: OUTCOME_COPY.unknown, tone: "danger" });
+          resolve(false);
+          return;
+        }
         if (result.ok) {
           toast({ title: result.message ?? success, tone: "success" });
           onDone?.();

@@ -25,10 +25,12 @@ export function ChooseCompany({ companies, destination }: { companies: ChooseCom
     if (pending) return;
     setPending(company.id);
     const ticket = feedback?.begin(destination, "workspace", { ownsWorkspaceSwitch: true }) ?? null;
-    const result = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId: company.id }, { echoToThisTab: false });
+    const result = await requestWorkspaceSwitch({ scopeType: "COMPANY", companyId: company.id }, { echoToThisTab: false, targetName: company.name });
     if (!result.ok) {
       setPending(null);
       feedback?.store.settle(ticket);
+      // Staying with unsaved changes is the person's choice, not a failure (AUD-03 §7).
+      if (result.cancelled) return;
       toast({ title: t("switchFailed", { name: company.name }), tone: "danger" });
       return;
     }

@@ -49,6 +49,7 @@ export function PaymentForm({
   return (
     <RecordForm
       action={action}
+      module="finance"
       cancelHref={cancelHref}
       submitLabel={direction === "RECEIPT" ? "Record receipt" : "Record payment"}
       pendingLabel="Recording…"

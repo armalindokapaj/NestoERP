@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Laptop } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
@@ -14,6 +14,8 @@ import {
   revokeSessionAction,
   signOutEverywhereAction,
 } from "@/lib/actions/account";
+import { unsaved } from "@/lib/unsaved/coordinator";
+import { isNextControlFlow } from "@/lib/unsaved/outcome";
 
 export type SessionRow = {
   id: string;
@@ -53,6 +55,22 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
         toast({ title: t("profile.sessions.othersDone", { count: result.revokedSessions ?? 0 }), tone: "success" });
       }
       router.refresh();
+    });
+  }
+
+  // Signing this session out ends the page and every editor on it: the
+  // profile or password typed above is asked about first (AUD-03 §7).
+  async function signOutEverywhere() {
+    const approval = await unsaved.requestDeparture({ kind: "identity", action: "sign-out" });
+    if (!approval || !approval.run(() => undefined)) return;
+    startTransition(async () => {
+      try {
+        await signOutEverywhereAction();
+      } catch (error) {
+        // The redirect to sign-in is the departure itself; anything else failed.
+        if (!isNextControlFlow(error)) approval.release();
+        throw error;
+      }
     });
   }
 
@@ -113,7 +131,7 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
         confirmLabel={t("profile.sessions.signOutEverywhere")}
         cancelLabel={t("profile.sessions.cancel")}
         pending={pending}
-        onConfirm={() => startTransition(() => signOutEverywhereAction())}
+        onConfirm={() => void signOutEverywhere()}
       />
     </div>
   );

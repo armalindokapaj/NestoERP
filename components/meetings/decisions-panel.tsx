@@ -11,8 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import type { MeetingDecisionDTO, MeetingDetailDTO } from "@/lib/modules/meetings/meeting.types";
-import { failureMessage, meetingApi } from "./meeting-api";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { PlainText } from "./meeting-ui";
+import { useMeetingDraft } from "./use-meeting-draft";
 
 /**
  * Decisions (PRD #40 §50-§52, §105, §214): numbered cards, fast to record in
@@ -27,22 +29,56 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
   const [description, setDescription] = React.useState("");
   const [editing, setEditing] = React.useState<string | null>(null);
   const [edit, setEdit] = React.useState({ title: "", description: "" });
+  const [editBase, setEditBase] = React.useState({ title: "", description: "" });
   const [archiving, setArchiving] = React.useState<MeetingDecisionDTO | null>(null);
   const [pending, setPending] = React.useState<string | null>(null);
 
-  async function call(key: string, url: string, init: { method?: string; body?: unknown }, success?: string) {
+  async function send(key: string, url: string, init: { method?: string; body?: unknown }, success?: string): Promise<SaveOutcome> {
     setPending(key);
     try {
       onChange(await meetingApi<MeetingDetailDTO>(url, init));
       if (success) toast({ title: success, tone: "success" });
-      return true;
+      return { kind: "committed" };
     } catch (error) {
       toast({ title: failureMessage(error, "The decision could not be saved."), tone: "danger" });
-      return false;
+      return meetingFailureOutcome(error);
     } finally {
       setPending(null);
     }
   }
+
+  async function call(key: string, url: string, init: { method?: string; body?: unknown }, success?: string) {
+    return (await send(key, url, init, success)).kind === "committed";
+  }
+
+  // The decision being recorded and the one being edited are unsaved work (AUD-03 §3).
+  const adder = useMeetingDraft({
+    label: "New decision",
+    saveKind: "create",
+    dirty: title !== "" || description !== "",
+    send: async () => {
+      if (!title.trim()) return { kind: "invalid" };
+      const outcome = await send("add", `/api/meetings/${meeting.id}/decisions`, { body: { title: title.trim(), description: description.trim() || null } }, "Decision recorded");
+      if (outcome.kind === "committed") {
+        setTitle("");
+        setDescription("");
+        setOpen(false);
+      }
+      return outcome;
+    },
+  });
+  const editor = useMeetingDraft({
+    label: () => `Decision: ${edit.title.trim() || editBase.title}`,
+    saveKind: "save",
+    dirty: editing !== null && (edit.title !== editBase.title || edit.description !== editBase.description),
+    send: async () => {
+      if (editing === null) return { kind: "committed" };
+      if (!edit.title.trim()) return { kind: "invalid" };
+      const outcome = await send(editing, `/api/meetings/${meeting.id}/decisions/${editing}`, { method: "PATCH", body: { title: edit.title.trim(), description: edit.description.trim() || null } });
+      if (outcome.kind === "committed") setEditing(null);
+      return outcome;
+    },
+  });
 
   const decisions = limit ? meeting.decisions.slice(-limit) : meeting.decisions;
 
@@ -63,14 +99,10 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
       {canRecord && open ? (
         <form
           className="space-y-3 rounded-xl border border-line bg-surface-muted p-4"
-          onSubmit={async (event) => {
+          onSubmit={(event) => {
             event.preventDefault();
             if (!title.trim()) return;
-            if (await call("add", `/api/meetings/${meeting.id}/decisions`, { body: { title: title.trim(), description: description.trim() || null } }, "Decision recorded")) {
-              setTitle("");
-              setDescription("");
-              setOpen(false);
-            }
+            void adder.save();
           }}
         >
           <div className="space-y-1">
@@ -82,7 +114,18 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
             <Textarea id="decision-description" rows={2} maxLength={10_000} value={description} onChange={(event) => setDescription(event.target.value)} />
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                void adder.dismiss(() => {
+                  setOpen(false);
+                  setTitle("");
+                  setDescription("");
+                })
+              }
+            >
               Cancel
             </Button>
             <Button type="submit" size="sm" disabled={pending === "add" || !title.trim()}>
@@ -103,15 +146,15 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
               {editing === decision.id ? (
                 <form
                   className="min-w-0 flex-1 space-y-2"
-                  onSubmit={async (event) => {
+                  onSubmit={(event) => {
                     event.preventDefault();
-                    if (await call(decision.id, `/api/meetings/${meeting.id}/decisions/${decision.id}`, { method: "PATCH", body: { title: edit.title.trim(), description: edit.description.trim() || null } })) setEditing(null);
+                    void editor.save();
                   }}
                 >
                   <Input aria-label="Decision" value={edit.title} maxLength={300} onChange={(event) => setEdit({ ...edit, title: event.target.value })} />
                   <Textarea aria-label="Detail" rows={2} value={edit.description} maxLength={10_000} onChange={(event) => setEdit({ ...edit, description: event.target.value })} />
                   <div className="flex justify-end gap-2">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => void editor.dismiss(() => setEditing(null))}>
                       Cancel
                     </Button>
                     <Button type="submit" size="sm" disabled={!edit.title.trim() || pending === decision.id}>
@@ -132,8 +175,13 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
                     type="button"
                     aria-label={`Edit ${decision.label}`}
                     onClick={() => {
-                      setEditing(decision.id);
-                      setEdit({ title: decision.title, description: decision.description ?? "" });
+                      const value = { title: decision.title, description: decision.description ?? "" };
+                      // Opening another decision replaces the one being edited: ask first.
+                      void editor.dismiss(() => {
+                        setEditing(decision.id);
+                        setEdit(value);
+                        setEditBase(value);
+                      });
                     }}
                     className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-fg"
                   >

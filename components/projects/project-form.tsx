@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils/cn";
 import type { ActionResult } from "@/lib/actions/projects";
-import { isLeavingForWorkspaceSwitch, setWorkspaceDirtyState } from "@/lib/workspace/client";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 
 /**
  * Create / edit project form (PRD #10 §31, §32, §41).
@@ -119,63 +120,24 @@ export function ProjectForm({
   action: (formData: FormData) => Promise<ActionResult>;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = React.useTransition();
-  const [error, setError] = React.useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
-  const [dirty, setDirty] = React.useState(false);
-
-  // Browser-level protection; the in-app guard is the confirm below.
-  React.useEffect(() => {
-    if (!dirty) return;
-    const handler = (event: BeforeUnloadEvent) => {
-      if (!isLeavingForWorkspaceSwitch()) event.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
-
-  React.useEffect(() => {
-    setWorkspaceDirtyState(dirty);
-    return () => setWorkspaceDirtyState(false);
-  }, [dirty]);
-
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    setError(null);
-    setFieldErrors({});
-
-    startTransition(async () => {
-      const result = await action(formData);
-      // A successful action redirects, so anything returned is a failure.
-      if (result && !result.ok) {
-        setError(result.error);
-        setFieldErrors(result.fieldErrors ?? {});
-      } else {
-        setDirty(false);
-      }
-    });
-  }
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({ formRef, action, module: "projects", saveKind: mode === "create" ? "create" : "save" });
+  const { pending, fieldErrors } = save;
 
   function onCancel() {
-    if (dirty && !window.confirm("Discard unsaved changes?")) return;
     router.push(cancelHref);
   }
 
   return (
-    <form onSubmit={onSubmit} onChange={() => setDirty(true)} className="space-y-5">
+    <form ref={formRef} onSubmit={save.onSubmit} className="space-y-5">
       {versionUpdatedAt ? (
         <input type="hidden" name="versionUpdatedAt" value={versionUpdatedAt} />
       ) : null}
 
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong"
-        >
-          {error}
-        </p>
-      ) : null}
+      <SaveMessages save={save} />
+
+      {/* The submitted snapshot saves as it was (AUD-03 §6). */}
+      <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-5 border-0 p-0">
 
       {company ? (
         <section className="nesto-card flex flex-wrap items-center justify-between gap-3 p-5" data-testid="project-form-company">
@@ -409,16 +371,19 @@ export function ProjectForm({
         </Section>
       ) : null}
 
+      </fieldset>
+
       <div
         className={cn(
           "flex flex-wrap items-center justify-end gap-2",
           "sticky bottom-0 -mx-4 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:backdrop-blur-none",
         )}
       >
+        <UnsavedIndicator save={save} className="mr-auto" />
         <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || Boolean(save.saved)}>
           {pending
             ? mode === "create"
               ? "Creating…"

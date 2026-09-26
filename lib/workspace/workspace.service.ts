@@ -1,3 +1,4 @@
+import { identityKeys, type IdentityKeys } from "@/lib/context/identity-key";
 import { z } from "zod";
 
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
@@ -157,6 +158,8 @@ export type WorkspaceContextDTO = {
   effectiveRoleLabels: string[];
   workspaceKey: string;
   workspaceVersion: number;
+  /** Who this session is, as opaque digests: a tab restored from history checks it before writing (AUD-03 §5, §7). */
+  identity: IdentityKeys;
 };
 
 /** §79 — the effective context of the active workspace: what it lets this person reach. */
@@ -185,6 +188,7 @@ export async function getWorkspaceContext(session: UserContext): Promise<Workspa
     effectiveRoleLabels: [...new Set(contexts.map((context) => context.roleLabel))].sort(),
     workspaceKey: workspaceKey(session.workspace),
     workspaceVersion: stored.workspaceVersion,
+    identity: identityKeys(session),
   };
 }
 

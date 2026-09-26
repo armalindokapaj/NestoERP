@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/navigation/nav-link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";

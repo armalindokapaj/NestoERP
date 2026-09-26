@@ -42,6 +42,7 @@ function Cell({
   state,
   onCommit,
   onOpenEntries,
+  onDraft,
 }: {
   row: RowTemplate;
   date: string;
@@ -51,6 +52,7 @@ function Cell({
   state: "idle" | "saving" | "error";
   onCommit: (commit: CellCommit) => Promise<boolean>;
   onOpenEntries: (logIds: string[], date: string) => void;
+  onDraft?: (cell: string, typed: boolean) => void;
 }) {
   const [value, setValue] = React.useState(hoursValue(minutes));
   const [invalid, setInvalid] = React.useState(false);
@@ -61,6 +63,15 @@ function Cell({
     setValue(hoursValue(minutes));
     setInvalid(false);
   }, [minutes]);
+
+  // Typed but not yet saved — the cell saves when it is left — or typed and
+  // refused as invalid: either way it is time a departure would lose (AUD-03 §3).
+  const cell = `${row.key}@${date}`;
+  const typed = value !== hoursValue(minutes);
+  React.useEffect(() => {
+    onDraft?.(cell, typed);
+  }, [onDraft, cell, typed]);
+  React.useEffect(() => () => onDraft?.(cell, false), [onDraft, cell]);
 
   if (logIds.length > 1) {
     return (
@@ -136,6 +147,7 @@ export function TimesheetGrid({
   onOpenEntries,
   onAddRow,
   onRemoveTemplate,
+  onDraft,
 }: {
   week: TimesheetWeekDTO;
   rows: Array<RowTemplate & { days: TimesheetRowDTO["days"]; totalMinutes: number; billableMinutes: number; template: boolean }>;
@@ -146,6 +158,7 @@ export function TimesheetGrid({
   onOpenEntries: (logIds: string[], date: string) => void;
   onAddRow: (row: RowTemplate) => void;
   onRemoveTemplate: (key: string) => void;
+  onDraft?: (cell: string, typed: boolean) => void;
 }) {
   return (
     <div className="nesto-card overflow-hidden" data-testid="timesheet-grid">
@@ -218,6 +231,7 @@ export function TimesheetGrid({
                               state={cellState[key] ?? "idle"}
                               onCommit={onCommit}
                               onOpenEntries={onOpenEntries}
+                              onDraft={onDraft}
                             />
                           ) : (
                             <span className="block px-2 text-right tabular-nums text-fg">{hoursValue(cell.minutes)}</span>

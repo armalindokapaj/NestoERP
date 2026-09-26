@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Pencil, Plus } from "lucide-react";
 
 import { engineeringApi, isFailure } from "@/components/engineering/engineering-api";
@@ -37,7 +37,6 @@ function useLoad<T>(url: string, fallback: T) {
 /* Contractors -------------------------------------------------------------- */
 
 export function NewContractorButton() {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [duplicates, setDuplicates] = React.useState<DuplicateWarning[]>([]);
   const [confirmed, setConfirmed] = React.useState(false);
@@ -63,7 +62,7 @@ export function NewContractorButton() {
           onSubmit={async (payload) => {
             try {
               const created = await engineeringApi<{ id: string }>("/api/contractors", { body: { ...payload, confirmDuplicate: confirmed } });
-              router.push(`/contractors/${created.id}`);
+              return { redirectTo: `/contractors/${created.id}` };
             } catch (failure) {
               if (isFailure(failure) && failure.detailCode === "CONTRACTOR_DUPLICATE" && Array.isArray(failure.details.duplicates)) setDuplicates(failure.details.duplicates as DuplicateWarning[]);
               throw failure;
@@ -200,7 +199,6 @@ export function EditAssignmentButton({ projectId, assignment }: { projectId: str
 type WorkPackageOptions = { contractors: Option[]; contracts: Option[]; members: Option[]; canSetValue: boolean };
 
 export function NewWorkPackageButton({ projectId, contractorId }: { projectId: string; contractorId?: string }) {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const options = useLoad<WorkPackageOptions>(`/api/projects/${projectId}/work-packages/options`, { contractors: [], contracts: [], members: [], canSetValue: false });
   return (
@@ -222,7 +220,7 @@ export function NewWorkPackageButton({ projectId, contractorId }: { projectId: s
           testId="work-package-form"
           onSubmit={async (payload) => {
             const created = await engineeringApi<{ id: string }>(`/api/projects/${projectId}/work-packages`, { body: payload });
-            router.push(`/projects/${projectId}/work-packages/${created.id}`);
+            return { redirectTo: `/projects/${projectId}/work-packages/${created.id}` };
           }}
         />
       ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { MoreHorizontal, UserPlus } from "lucide-react";
 
 import { PersonLink } from "@/components/people/person-link";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -26,10 +27,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import {
   addProjectMemberAction,
   removeProjectMemberAction,
   updateProjectMemberAction,
+  type ActionResult,
 } from "@/lib/actions/projects";
 import type { ProjectMemberDTO } from "@/lib/modules/projects/project.types";
 
@@ -75,23 +79,19 @@ export function ProjectTeam({
   const [addOpen, setAddOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<ProjectMemberDTO | null>(null);
   const [removing, setRemoving] = React.useState<ProjectMemberDTO | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
 
   const active = members.filter((member) => member.status === "ACTIVE");
   const past = members.filter((member) => member.status !== "ACTIVE");
 
-  function submit(run: () => Promise<{ ok: boolean; error?: string }>, success: string) {
-    setError(null);
+  function remove(memberId: string) {
     startTransition(async () => {
-      const result = await run();
+      const result = await removeProjectMemberAction(projectId, memberId);
       if (result.ok) {
-        toast({ title: success });
-        setAddOpen(false);
-        setEditing(null);
+        toast({ title: "Member removed." });
         setRemoving(null);
         router.refresh();
       } else {
-        setError(result.error ?? "Something went wrong.");
+        toast({ title: result.error, tone: "danger" });
       }
     });
   }
@@ -204,13 +204,14 @@ export function ProjectTeam({
             Only active members of your company can be added to a project.
           </DialogDescription>
 
-          <form
-            className="mt-4 space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const formData = new FormData(event.currentTarget);
-              submit(() => addProjectMemberAction(projectId, formData), "Member added.");
-            }}
+          <MemberForm
+            label="New team member"
+            saveKind="create"
+            action={(formData) => addProjectMemberAction(projectId, formData)}
+            success="Member added."
+            submitLabel="Add member"
+            pendingLabel="Adding…"
+            onDone={() => setAddOpen(false)}
           >
             <div className="space-y-1.5">
               <Label htmlFor="companyMemberId">Team member</Label>
@@ -241,27 +242,7 @@ export function ProjectTeam({
                 The role on this project, which is separate from their company role.
               </p>
             </div>
-
-            {error ? (
-              <p role="alert" className="text-table text-danger-strong">
-                {error}
-              </p>
-            ) : null}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setAddOpen(false)}
-                disabled={pending}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Adding…" : "Add member"}
-              </Button>
-            </DialogFooter>
-          </form>
+          </MemberForm>
         </DialogContent>
       </Dialog>
 
@@ -271,48 +252,27 @@ export function ProjectTeam({
           <DialogTitle>Edit project role</DialogTitle>
           <DialogDescription>{editing?.fullName}</DialogDescription>
 
-          <form
-            className="mt-4 space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const formData = new FormData(event.currentTarget);
-              const memberId = editing!.id;
-              submit(
-                () => updateProjectMemberAction(projectId, memberId, formData),
-                "Project role updated.",
-              );
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="editProjectRole">Project role</Label>
-              <Input
-                id="editProjectRole"
-                name="projectRole"
-                defaultValue={editing?.projectRole ?? ""}
-                maxLength={120}
-              />
-            </div>
-
-            {error ? (
-              <p role="alert" className="text-table text-danger-strong">
-                {error}
-              </p>
-            ) : null}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setEditing(null)}
-                disabled={pending}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Saving…" : "Save"}
-              </Button>
-            </DialogFooter>
-          </form>
+          {editing ? (
+            <MemberForm
+              label={`Project role of ${editing.fullName}`}
+              saveKind="save"
+              action={(formData) => updateProjectMemberAction(projectId, editing.id, formData)}
+              success="Project role updated."
+              submitLabel="Save"
+              pendingLabel="Saving…"
+              onDone={() => setEditing(null)}
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="editProjectRole">Project role</Label>
+                <Input
+                  id="editProjectRole"
+                  name="projectRole"
+                  defaultValue={editing.projectRole ?? ""}
+                  maxLength={120}
+                />
+              </div>
+            </MemberForm>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -328,11 +288,70 @@ export function ProjectTeam({
         }
         confirmLabel="Remove from project"
         pending={pending}
-        onConfirm={() => {
-          const memberId = removing!.id;
-          submit(() => removeProjectMemberAction(projectId, memberId), "Member removed.");
-        }}
+        onConfirm={() => remove(removing!.id)}
       />
     </div>
+  );
+}
+
+/**
+ * One member dialog's form, under the unsaved-work contract (AUD-03 §5, §6):
+ * it registers inside the dialog, so the X, Escape, the backdrop and Cancel ask
+ * before throwing a choice away, and only a committed answer closes it.
+ */
+function MemberForm({
+  label,
+  saveKind,
+  action,
+  success,
+  submitLabel,
+  pendingLabel,
+  onDone,
+  children,
+}: {
+  label: string;
+  saveKind: "save" | "create";
+  action: (formData: FormData) => Promise<ActionResult>;
+  success: string;
+  submitLabel: string;
+  pendingLabel: string;
+  onDone: () => void;
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({
+    formRef,
+    action,
+    module: "projects",
+    saveKind,
+    label,
+    onCommitted: () => {
+      toast({ title: success });
+      onDone();
+      router.refresh();
+      return true;
+    },
+  });
+
+  return (
+    <form ref={formRef} className="mt-4 space-y-4" onSubmit={save.onSubmit}>
+      <SaveMessages save={save} />
+      <fieldset disabled={save.pending} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        {children}
+      </fieldset>
+
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={save.pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={save.pending}>
+          {save.pending ? pendingLabel : submitLabel}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

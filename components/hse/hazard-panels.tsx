@@ -4,11 +4,17 @@ import * as React from "react";
 
 import {
   Field,
+  FieldErrorProvider,
   FormSection,
   RecordForm,
   selectClass,
 } from "@/components/forms/record-form";
+import { useRouter } from "@/components/navigation/guarded-router";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
+import { useUnsavedFrozen } from "@/components/unsaved/use-unsaved";
 import {
   assessHazardAction,
   closeHazardAction,
@@ -139,6 +145,7 @@ export function HazardAssessForm({ hazard }: { hazard: HazardDetailDTO }) {
 
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={`/hse/hazards/${hazard.id}`}
       submitLabel="Save assessment"
@@ -188,10 +195,13 @@ export function HazardControlForm({ hazard }: { hazard: HazardDetailDTO }) {
 
   return (
     <RecordForm
+      module="hse"
       action={action}
       cancelHref={`/hse/hazards/${hazard.id}`}
       submitLabel="Record control"
       pendingLabel="Recording…"
+      // Recorded on a hazard that exists: an ordinary save, not a create (AUD-03 §3).
+      saveKind="save"
     >
       <FormSection
         title="Control"
@@ -222,7 +232,18 @@ export function HazardControlForm({ hazard }: { hazard: HazardDetailDTO }) {
   );
 }
 
+/**
+ * Closing is a workflow step, not a save (AUD-03 §3): the note exists only to
+ * close the hazard, so the form registers as workflow-only and the
+ * unsaved-changes prompt offers Stay or Discard — never a "Save and continue"
+ * that would close a hazard on the way to somewhere else. The submit itself
+ * runs under the same contract as a RecordForm: one request per snapshot, an
+ * explicit outcome, and the refusal kept on screen with the note intact.
+ */
 export function HazardCloseForm({ hazard }: { hazard: HazardDetailDTO }) {
+  const router = useRouter();
+  const frozen = useUnsavedFrozen();
+  const formRef = React.useRef<HTMLFormElement>(null);
   const [residual, setResidual] = React.useState({
     likelihood: hazard.residualRisk ? String(hazard.residualRisk.likelihood) : "",
     severity: hazard.residualRisk ? String(hazard.residualRisk.severity) : "",
@@ -230,33 +251,54 @@ export function HazardCloseForm({ hazard }: { hazard: HazardDetailDTO }) {
 
   const action = closeHazardAction.bind(null, hazard.id);
   const needsResidual = hazard.risk.level === "HIGH" || hazard.risk.level === "CRITICAL";
+  const cancelHref = `/hse/hazards/${hazard.id}`;
+
+  const save = useEditorSave({
+    formRef,
+    action,
+    module: "hse",
+    saveKind: "none",
+    workflow: "Close hazard",
+  });
+  const { pending, saved, fieldErrors } = save;
 
   return (
-    <RecordForm
-      action={action}
-      cancelHref={`/hse/hazards/${hazard.id}`}
-      submitLabel="Close hazard"
-      pendingLabel="Closing…"
-    >
-      <FormSection
-        title="Closure"
-        description="Say what was done and what risk is left. A closed hazard is read-only until somebody reopens it."
-      >
-        <Field label="Closure note" name="closureNote" required className="sm:col-span-2">
-          <Textarea id="closureNote" name="closureNote" rows={4} required maxLength={2000} />
-        </Field>
+    <FieldErrorProvider value={fieldErrors}>
+      <form ref={formRef} onSubmit={save.onSubmit} className="space-y-5">
+        <SaveMessages save={save} />
 
-        {needsResidual || hazard.residualRisk ? (
-          <AxisPair
-            namePrefix="residual"
-            label="Risk after controls"
-            likelihood={residual.likelihood}
-            severity={residual.severity}
-            onChange={(next) => setResidual((current) => ({ ...current, ...next }))}
-            optional
-          />
-        ) : null}
-      </FormSection>
-    </RecordForm>
+        <fieldset disabled={pending || Boolean(saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-5 border-0 p-0">
+          <FormSection
+            title="Closure"
+            description="Say what was done and what risk is left. A closed hazard is read-only until somebody reopens it."
+          >
+            <Field label="Closure note" name="closureNote" required className="sm:col-span-2">
+              <Textarea id="closureNote" name="closureNote" rows={4} required maxLength={2000} />
+            </Field>
+
+            {needsResidual || hazard.residualRisk ? (
+              <AxisPair
+                namePrefix="residual"
+                label="Risk after controls"
+                likelihood={residual.likelihood}
+                severity={residual.severity}
+                onChange={(next) => setResidual((current) => ({ ...current, ...next }))}
+                optional
+              />
+            ) : null}
+          </FormSection>
+        </fieldset>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" disabled={pending || frozen || Boolean(saved)}>
+            {pending ? "Closing…" : "Close hazard"}
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => router.push(cancelHref)} disabled={pending}>
+            Cancel
+          </Button>
+          <UnsavedIndicator save={save} />
+        </div>
+      </form>
+    </FieldErrorProvider>
   );
 }

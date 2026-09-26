@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand, type FormField } from "@/components/engineering/form-kit";
@@ -28,7 +27,6 @@ const identityFields: FormField[] = [
 ];
 
 export function CreateGroupButton() {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   return (
     <>
@@ -45,7 +43,8 @@ export function CreateGroupButton() {
         testId="create-group-dialog"
         onSubmit={async (payload) => {
           const group = await engineeringApi<{ id: string }>("/api/platform/parent-groups", { body: payload });
-          router.push(`/platform-admin/groups/${group.id}`);
+          // Opened by the dialog after an ordinary save (AUD-03 §6).
+          return { redirectTo: `/platform-admin/groups/${group.id}` };
         }}
       />
     </>
@@ -134,6 +133,8 @@ export function GroupImplementationActions({ implementation }: { implementation:
         ]}
         initial={{ position: "MEMBER" }}
         submitLabel="Create account"
+        // The credentials are shown once: never created from an unsaved-changes prompt (AUD-03 §3).
+        saveKind="none"
         wide
         testId="initial-user-dialog"
         onSubmit={async (payload) => {

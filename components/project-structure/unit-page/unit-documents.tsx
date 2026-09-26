@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { FileText, Link2, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 
 import { useUploadQueue } from "@/components/documents/upload-queue";
@@ -10,9 +10,12 @@ import { selectClass } from "@/components/forms/record-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "@/components/project-planning/use-values-editor";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import {
   UNIT_DOCUMENT_CATEGORIES,
   UNIT_DOCUMENT_CATEGORY_LABELS,
@@ -85,6 +88,10 @@ export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; uni
     },
   });
   const planUploading = planBusy || planQueue.items.some((item) => PROCESSING.includes(item.status));
+  // A new Sales Plan version on its way: leaving asks first (AUD-03 §3).
+  const planVersion = useUnsavedEditor({ module: "units", saveKind: "none", label: `${unitCode} Sales Plan upload` });
+  const { setPendingUploads } = planVersion;
+  React.useEffect(() => setPendingUploads(planBusy), [planBusy, setPendingUploads]);
   const docsUploading = docQueue.items.filter((item) => PROCESSING.includes(item.status)).length;
 
   React.useEffect(() => {
@@ -250,51 +257,75 @@ export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; uni
 }
 
 function UploadDocumentDialog({ open, onOpenChange, onChoose }: { open: boolean; onOpenChange: (open: boolean) => void; onChoose: (files: File[], category: UnitDocumentCategory) => void }) {
-  const [category, setCategory] = React.useState<UnitDocumentCategory>("TECHNICAL_DRAWING");
-  const [chosen, setChosen] = React.useState<File[]>([]);
-  React.useEffect(() => {
-    if (open) setChosen([]);
-  }, [open]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogTitle>Add document</DialogTitle>
         <DialogDescription>The file is uploaded to Documents with this unit as its home.</DialogDescription>
-        <form
-          className="mt-4 space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (chosen.length) onChoose(chosen, category);
-          }}
-        >
-          <Field label="Category" htmlFor="unit-document-category">
-            <select id="unit-document-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value as UnitDocumentCategory)}>
-              {UNIT_DOCUMENT_CATEGORIES.map((value) => (
-                <option key={value} value={value}>
-                  {UNIT_DOCUMENT_CATEGORY_LABELS[value]}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Files" htmlFor="unit-document-files" required>
-            <Input id="unit-document-files" type="file" multiple onChange={(event) => setChosen([...(event.target.files ?? [])])} />
-          </Field>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!chosen.length}>
-              Upload
-            </Button>
-          </DialogFooter>
-        </form>
+        <UploadDocumentForm onChoose={onChoose} />
       </DialogContent>
     </Dialog>
   );
 }
 
+/** Mounted per opening; the chosen files are input until Upload starts them (AUD-03 §5). */
+function UploadDocumentForm({ onChoose }: { onChoose: (files: File[], category: UnitDocumentCategory) => void }) {
+  const [category, setCategory] = React.useState<UnitDocumentCategory>("TECHNICAL_DRAWING");
+  const [chosen, setChosen] = React.useState<File[]>([]);
+  useValuesEditor({ category, files: chosen.map((file) => [file.name, file.size, file.lastModified]) }, { module: "units", saveKind: "none", workflow: "Upload", label: "Documents to upload" });
+  return (
+    <form
+      className="mt-4 space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (chosen.length) onChoose(chosen, category);
+      }}
+    >
+      <Field label="Category" htmlFor="unit-document-category">
+        <select id="unit-document-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value as UnitDocumentCategory)}>
+          {UNIT_DOCUMENT_CATEGORIES.map((value) => (
+            <option key={value} value={value}>
+              {UNIT_DOCUMENT_CATEGORY_LABELS[value]}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Files" htmlFor="unit-document-files" required>
+        <Input id="unit-document-files" type="file" multiple onChange={(event) => setChosen([...(event.target.files ?? [])])} />
+      </Field>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary">
+            Cancel
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={!chosen.length}>
+          Upload
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
 /** Attach a document or image already filed on this unit or its project (E-05D §63): referenced, never copied. */
 export function AttachDialog({ open, onOpenChange, unitId, kind, onAttached }: { open: boolean; onOpenChange: (open: boolean) => void; unitId: string; kind: "document" | "image"; onAttached: () => void }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogTitle>{kind === "image" ? "Add an existing image" : "Attach an existing document"}</DialogTitle>
+        <DialogDescription>Files uploaded to this unit or filed on its project. The file is referenced, not copied.</DialogDescription>
+        <AttachForm unitId={unitId} kind={kind} onAttached={onAttached} onDone={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Mounted per opening. The chosen file and its category are input (AUD-03
+ * §5); the search is a filter and is not. Save and continue attaches, exactly
+ * as the Attach button does.
+ */
+function AttachForm({ unitId, kind, onAttached, onDone }: { unitId: string; kind: "document" | "image"; onAttached: () => void; onDone: () => void }) {
   const toast = useToast();
   const [q, setQ] = React.useState("");
   const [items, setItems] = React.useState<AttachableDocumentDTO[] | null>(null);
@@ -302,81 +333,80 @@ export function AttachDialog({ open, onOpenChange, unitId, kind, onAttached }: {
   const [category, setCategory] = React.useState<string>(kind === "image" ? "OTHER" : "TECHNICAL_DRAWING");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
+  const editor = useValuesEditor({ selected, category }, { module: "units", saveKind: "create", label: kind === "image" ? "Image to add" : "Document to attach", save: () => persist.current() });
 
   React.useEffect(() => {
-    if (!open) return;
-    setSelected(null);
-    setError(null);
     const handle = window.setTimeout(() => {
       void structureApi<AttachableDocumentDTO[]>(`/api/project-units/${unitId}/document-candidates?kind=${kind}&q=${encodeURIComponent(q)}`)
         .then(setItems)
         .catch(() => setItems([]));
     }, 200);
     return () => window.clearTimeout(handle);
-  }, [open, q, unitId, kind]);
+  }, [q, unitId, kind]);
 
-  async function attach() {
-    if (!selected) return;
+  persist.current = async () => {
+    if (!selected) return INVALID;
     setPending(true);
     setError(null);
     try {
-      await structureApi(kind === "image" ? `/api/project-units/${unitId}/media` : `/api/project-units/${unitId}/documents`, { body: kind === "image" ? { documentId: selected, category, caption: null } : { documentId: selected, category } });
+      await editor.track(() => structureApi(kind === "image" ? `/api/project-units/${unitId}/media` : `/api/project-units/${unitId}/documents`, { body: kind === "image" ? { documentId: selected, category, caption: null } : { documentId: selected, category } }));
       toast({ title: kind === "image" ? "Image added." : "Document attached." });
-      onOpenChange(false);
+      onDone();
       onAttached();
+      return COMMITTED;
     } catch (failure) {
       setError(failureMessage(failure, "That file could not be attached."));
+      return failureOutcome(failure);
     } finally {
       setPending(false);
     }
-  }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogTitle>{kind === "image" ? "Add an existing image" : "Attach an existing document"}</DialogTitle>
-        <DialogDescription>Files uploaded to this unit or filed on its project. The file is referenced, not copied.</DialogDescription>
-        <div className="mt-4 space-y-4">
-          <FormError message={error} />
-          <Field label="Search" htmlFor="attach-search">
-            <Input id="attach-search" value={q} onChange={(event) => setQ(event.target.value)} placeholder="File name" autoFocus />
-          </Field>
-          <ul className="max-h-64 space-y-1 overflow-y-auto" aria-label="Files">
-            {items === null ? (
-              <li className="text-table text-fg-muted">Loading…</li>
-            ) : items.length === 0 ? (
-              <li className="text-table text-fg-muted">No files to attach.</li>
-            ) : (
-              items.map((item) => (
-                <li key={item.id}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-table hover:bg-hover">
-                    <input type="radio" name="attach-file" value={item.id} checked={selected === item.id} onChange={() => setSelected(item.id)} />
-                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                    <span className="text-meta text-fg-subtle">{item.onUnit ? "This unit" : "Project"}</span>
-                  </label>
-                </li>
-              ))
-            )}
-          </ul>
-          <Field label="Category" htmlFor="attach-category">
-            <select id="attach-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value)}>
-              {(kind === "image" ? UNIT_MEDIA_CATEGORIES : UNIT_DOCUMENT_CATEGORIES).map((value) => (
-                <option key={value} value={value}>
-                  {kind === "image" ? UNIT_MEDIA_CATEGORY_LABELS[value as keyof typeof UNIT_MEDIA_CATEGORY_LABELS] : UNIT_DOCUMENT_CATEGORY_LABELS[value as UnitDocumentCategory]}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+    <>
+      <div className="mt-4 space-y-4">
+        <FormError message={error} />
+        <Field label="Search" htmlFor="attach-search">
+          <Input id="attach-search" value={q} onChange={(event) => setQ(event.target.value)} placeholder="File name" autoFocus />
+        </Field>
+        <ul className="max-h-64 space-y-1 overflow-y-auto" aria-label="Files">
+          {items === null ? (
+            <li className="text-table text-fg-muted">Loading…</li>
+          ) : items.length === 0 ? (
+            <li className="text-table text-fg-muted">No files to attach.</li>
+          ) : (
+            items.map((item) => (
+              <li key={item.id}>
+                <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-table hover:bg-hover">
+                  <input type="radio" name="attach-file" value={item.id} checked={selected === item.id} onChange={() => setSelected(item.id)} />
+                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                  <span className="text-meta text-fg-subtle">{item.onUnit ? "This unit" : "Project"}</span>
+                </label>
+              </li>
+            ))
+          )}
+        </ul>
+        <Field label="Category" htmlFor="attach-category">
+          <select id="attach-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value)}>
+            {(kind === "image" ? UNIT_MEDIA_CATEGORIES : UNIT_DOCUMENT_CATEGORIES).map((value) => (
+              <option key={value} value={value}>
+                {kind === "image" ? UNIT_MEDIA_CATEGORY_LABELS[value as keyof typeof UNIT_MEDIA_CATEGORY_LABELS] : UNIT_DOCUMENT_CATEGORY_LABELS[value as UnitDocumentCategory]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={() => void attach()} disabled={!selected || pending}>
-            {pending ? "Attaching…" : kind === "image" ? "Add image" : "Attach"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogClose>
+        <Button onClick={() => void persist.current()} disabled={!selected || pending}>
+          {pending ? "Attaching…" : kind === "image" ? "Add image" : "Attach"}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

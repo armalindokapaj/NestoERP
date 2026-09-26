@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { confirmWorkspaceNavigation } from "@/lib/workspace/client";
+import { guardNavigation } from "@/components/navigation/guarded-router";
 
 /**
  * What a top-bar panel shows before its body arrives, or when it cannot
@@ -47,7 +47,7 @@ export function PanelFailure({
       </p>
       <div className="mt-2 flex gap-3">
         {kind === "code" ? (
-          <button type="button" onClick={() => confirmWorkspaceNavigation() && window.location.reload()} className="text-table font-medium text-accent-strong hover:underline" data-testid="panel-reload">
+          <button type="button" onClick={() => guardNavigation({ kind: "reload" }, () => window.location.reload())} className="text-table font-medium text-accent-strong hover:underline" data-testid="panel-reload">
             {t("panelReload")}
           </button>
         ) : (

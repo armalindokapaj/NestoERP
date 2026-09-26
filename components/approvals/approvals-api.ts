@@ -1,5 +1,8 @@
 "use client";
 
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { outcomeOf } from "@/lib/unsaved/outcome";
+
 /**
  * The browser side of the Approvals Center API. Every call answers with the
  * data or throws a failure carrying the server's message and its code — the
@@ -53,4 +56,14 @@ export function failureMessage(error: unknown, fallback = "Something went wrong.
 export function newIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `apr_${crypto.randomUUID()}`;
   return `apr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/**
+ * What a thrown call means for unsaved work (AUD-03 §6): the server's answer is
+ * a definite refusal; a request that never got an answer may have committed.
+ */
+export function approvalsFailureOutcome(error: unknown): SaveOutcome {
+  if (!isFailure(error) || error.status === 0) return { kind: "unknown" };
+  const outcome = outcomeOf({ ok: false, code: error.code, error: error.message });
+  return outcome.kind === "invalid" && error.detailCode ? outcomeOf({ ok: false, code: error.detailCode, error: error.message }) : outcome;
 }

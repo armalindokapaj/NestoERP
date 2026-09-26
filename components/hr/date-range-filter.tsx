@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

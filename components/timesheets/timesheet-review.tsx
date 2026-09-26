@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Pencil, RotateCcw, Stamp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { UnsavedValue } from "@/components/unsaved/unsaved-value";
 import { PersonLink } from "@/components/people/person-link";
 import { formatMinutes, weekLabel } from "@/lib/modules/timesheets/timesheet.time";
 import type { TimesheetFormOptions, TimesheetWeekDTO } from "@/lib/modules/timesheets/timesheet.types";
@@ -43,8 +44,8 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
     setPending(true);
     try {
       await timesheetApi(`/api/timesheets/${week.id}/reopen`, { body: { note: note.trim() } });
-      setReopening(false);
       setNote("");
+      setReopening(false);
       toast({ title: "Week reopened", description: `${week.member.name} can correct it and submit it again.`, tone: "success" });
       router.refresh();
     } catch (failure) {
@@ -156,8 +157,20 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
         {discussion}
       </div>
 
-      <Dialog open={reopening} onOpenChange={setReopening}>
+      <Dialog
+        open={reopening}
+        onOpenChange={(open) => {
+          // Only after a clean or approved close: a discarded note goes with it.
+          setReopening(open);
+          if (!open) {
+            setNote("");
+            setError(null);
+          }
+        }}
+      >
         <DialogContent>
+          {/* The note is unsaved work whose only way forward is reopening (AUD-03 §3). */}
+          <UnsavedValue dirty={note !== ""} saving={pending} module="timesheets" saveKind="none" workflow="Reopen week" label="Reopen note" />
           <DialogTitle>Reopen this approved week?</DialogTitle>
           <DialogDescription>It goes back to {week.member.name} as returned, to correct and submit again. The approval stays in its history.</DialogDescription>
           <label htmlFor="reopen-note" className="mt-4 block text-table font-medium text-fg">
@@ -166,9 +179,11 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
           <Textarea id="reopen-note" className="mt-1.5" rows={3} value={note} onChange={(change) => { setNote(change.target.value); setError(null); }} aria-invalid={Boolean(error)} />
           {error ? <p className="mt-1 text-meta text-danger-strong">{error}</p> : null}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setReopening(false)} disabled={pending}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button variant="secondary" disabled={pending}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button onClick={() => void reopen()} disabled={pending}>
               {pending ? "Reopening…" : "Reopen week"}
             </Button>

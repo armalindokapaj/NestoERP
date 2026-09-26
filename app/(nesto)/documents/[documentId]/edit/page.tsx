@@ -49,6 +49,7 @@ export default async function EditDocumentPage({ params }: Params) {
         versionUpdatedAt={document.updatedAt}
         submitLabel="Save changes"
         pendingLabel="Saving…"
+        module="documents"
       >
         <FormSection
           title="Document details"

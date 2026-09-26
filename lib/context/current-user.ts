@@ -7,6 +7,7 @@ import { isGroupRoute, MODULE_GROUP_SUPPORT } from "@/config/workspace";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { REQUEST_PATH_HEADER } from "@/lib/core/security/request-path";
 import { resolveUserContext } from "./resolve-user-context";
+import { assertTabWorkspace } from "./tab-workspace";
 import { assertCompanyWorkspace, resolveWorkspaceContexts } from "./workspace-access";
 import type { ContextFailure, UserContext } from "./types";
 
@@ -116,5 +117,8 @@ export function companyRequiredHref(moduleKey: ModuleKey, path: string | null): 
 export async function requireCompanyContext(): Promise<UserContext> {
   const context = await requireUserContext();
   assertCompanyWorkspace(context);
+  // A write from a tab still showing another workspace is refused, never
+  // applied in the session's new one (AUD-03 §7).
+  await assertTabWorkspace(context);
   return context;
 }

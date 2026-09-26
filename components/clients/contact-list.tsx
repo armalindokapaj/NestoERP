@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Archive, ArchiveRestore, MoreHorizontal, PenLine, Star, UserPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +18,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import {
   archiveContactAction,
   createContactAction,
+  type ClientActionResult,
   makePrimaryContactAction,
   restoreContactAction,
   updateContactAction,
@@ -70,6 +73,14 @@ export function ContactList({
         toast({ title: result.error ?? "Something went wrong.", tone: "danger" });
       }
     });
+  }
+
+  /** A committed contact save: the dialog's editor is clean, so it closes at once (AUD-03 §5). */
+  function saved(success: string) {
+    toast({ title: success });
+    setEditing(null);
+    setAdding(false);
+    router.refresh();
   }
 
   const active = contacts.filter((contact) => contact.status !== "ARCHIVED");
@@ -197,10 +208,8 @@ export function ContactList({
         open={adding}
         onOpenChange={setAdding}
         title="Add contact"
-        pending={pending}
-        onSubmit={(formData) =>
-          run(() => createContactAction(clientId, formData), "Contact added.")
-        }
+        action={(formData) => createContactAction(clientId, formData)}
+        onSaved={() => saved("Contact added.")}
       />
 
       <ContactDialog
@@ -208,12 +217,12 @@ export function ContactList({
         onOpenChange={(open) => !open && setEditing(null)}
         title="Edit contact"
         contact={editing}
-        pending={pending}
-        onSubmit={(formData) =>
+        action={(formData) =>
           editing
-            ? run(() => updateContactAction(clientId, editing.id, formData), "Contact updated.")
-            : undefined
+            ? updateContactAction(clientId, editing.id, formData)
+            : Promise.resolve({ ok: false as const, error: "Choose a contact to edit." })
         }
+        onSaved={() => saved("Contact updated.")}
       />
 
       <ConfirmDialog
@@ -240,136 +249,166 @@ export function ContactList({
 const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
 
+/**
+ * The add/edit contact dialog. Its form registers with the unsaved-work
+ * coordinator, so the X, Escape, the backdrop and Cancel ask before throwing
+ * typed details away, and a save has an explicit outcome (AUD-03 §3, §5).
+ */
 function ContactDialog({
   open,
   onOpenChange,
   title,
   contact,
-  pending,
-  onSubmit,
+  action,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   contact?: ContactDTO | null;
-  pending: boolean;
-  onSubmit: (formData: FormData) => void;
+  action: (formData: FormData) => Promise<ClientActionResult>;
+  onSaved: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogTitle>{title}</DialogTitle>
-        <form
-          className="mt-4 space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSubmit(new FormData(event.currentTarget));
-          }}
-        >
-          {contact ? (
-            <input type="hidden" name="versionUpdatedAt" value={contact.updatedAt} />
-          ) : null}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="firstName">
-                First name<span className="ml-0.5 text-danger-strong">*</span>
-              </Label>
-              <Input
-                id="firstName"
-                name="firstName"
-                required
-                maxLength={120}
-                defaultValue={contact?.firstName ?? ""}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lastName">
-                Last name<span className="ml-0.5 text-danger-strong">*</span>
-              </Label>
-              <Input
-                id="lastName"
-                name="lastName"
-                required
-                maxLength={120}
-                defaultValue={contact?.lastName ?? ""}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="jobTitle">Job title</Label>
-            <Input
-              id="jobTitle"
-              name="jobTitle"
-              maxLength={160}
-              defaultValue={contact?.jobTitle ?? ""}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="contact-email">Email</Label>
-              <Input
-                id="contact-email"
-                name="email"
-                type="email"
-                maxLength={254}
-                defaultValue={contact?.email ?? ""}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="contact-phone">Phone</Label>
-              <Input
-                id="contact-phone"
-                name="phone"
-                type="tel"
-                maxLength={40}
-                defaultValue={contact?.phone ?? ""}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="contact-status">Status</Label>
-              <select
-                id="contact-status"
-                name="status"
-                defaultValue={contact?.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
-                className={selectClass}
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </div>
-
-            <label className="flex items-center gap-2 self-end pb-2.5 text-table text-fg">
-              <input
-                type="checkbox"
-                name="isPrimary"
-                defaultChecked={contact?.isPrimary ?? false}
-                className="size-4 rounded border-line text-accent focus:ring-ring/20"
-              />
-              Primary contact
-            </label>
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save contact"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+        <ContactForm contact={contact} action={action} onSaved={onSaved} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ContactForm({
+  contact,
+  action,
+  onSaved,
+}: {
+  contact?: ContactDTO | null;
+  action: (formData: FormData) => Promise<ClientActionResult>;
+  onSaved: () => void;
+}) {
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const save = useEditorSave({
+    formRef,
+    action,
+    module: "clients",
+    saveKind: contact ? "save" : "create",
+    label: contact ? contact.fullName : "New contact",
+    onCommitted: () => {
+      onSaved();
+      return true;
+    },
+  });
+  const { pending } = save;
+
+  return (
+    <form ref={formRef} className="mt-4 space-y-4" onSubmit={save.onSubmit}>
+      <SaveMessages save={save} />
+      <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
+        {contact ? (
+          <input type="hidden" name="versionUpdatedAt" value={contact.updatedAt} />
+        ) : null}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="firstName">
+              First name<span className="ml-0.5 text-danger-strong">*</span>
+            </Label>
+            <Input
+              id="firstName"
+              name="firstName"
+              required
+              maxLength={120}
+              defaultValue={contact?.firstName ?? ""}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="lastName">
+              Last name<span className="ml-0.5 text-danger-strong">*</span>
+            </Label>
+            <Input
+              id="lastName"
+              name="lastName"
+              required
+              maxLength={120}
+              defaultValue={contact?.lastName ?? ""}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="jobTitle">Job title</Label>
+          <Input
+            id="jobTitle"
+            name="jobTitle"
+            maxLength={160}
+            defaultValue={contact?.jobTitle ?? ""}
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="contact-email">Email</Label>
+            <Input
+              id="contact-email"
+              name="email"
+              type="email"
+              maxLength={254}
+              defaultValue={contact?.email ?? ""}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="contact-phone">Phone</Label>
+            <Input
+              id="contact-phone"
+              name="phone"
+              type="tel"
+              maxLength={40}
+              defaultValue={contact?.phone ?? ""}
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="contact-status">Status</Label>
+            <select
+              id="contact-status"
+              name="status"
+              defaultValue={contact?.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
+              className={selectClass}
+            >
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2 self-end pb-2.5 text-table text-fg">
+            <input
+              type="checkbox"
+              name="isPrimary"
+              defaultChecked={contact?.isPrimary ?? false}
+              className="size-4 rounded border-line text-accent focus:ring-ring/20"
+            />
+            Primary contact
+          </label>
+        </div>
+
+      </fieldset>
+
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save contact"}
+        </Button>
+        {/* Through the dialog's guard, like the X and Escape (AUD-03 §5). */}
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" disabled={pending}>
+            Cancel
+          </Button>
+        </DialogClose>
+        <UnsavedIndicator save={save} />
+      </div>
+    </form>
   );
 }

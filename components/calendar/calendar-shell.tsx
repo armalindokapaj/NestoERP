@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { CalendarPlus, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, RotateCw, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

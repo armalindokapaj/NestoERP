@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { engineeringApi, failureMessage, fieldErrorsOf } from "./engineering-api";
-import { FormFields, payloadFor, valuesFor, type FormField, type FormValues } from "./form-kit";
+import { UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { engineeringApi, fieldErrorsOf } from "./engineering-api";
+import { FormFields, payloadFor, RequestMessages, useRequestEditor, valuesFor, type FormField, type FormValues } from "./form-kit";
 
 /** The company's contractor and engineering defaults (PRD #46 §279). */
 
@@ -22,33 +23,35 @@ const FIELDS: FormField[] = [
 export function EngineeringSettingsForm({ initial }: { initial: Record<string, unknown> }) {
   const router = useRouter();
   const toast = useToast();
-  const [values, setValues] = React.useState<FormValues>(() => valuesFor(FIELDS, initial));
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const [pending, setPending] = React.useState(false);
+  const [baseline, setBaseline] = React.useState<FormValues>(() => valuesFor(FIELDS, initial));
+  const [values, setValues] = React.useState<FormValues>(baseline);
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-    setPending(true);
-    setErrors({});
-    try {
-      await engineeringApi("/api/engineering/settings", { method: "PUT", body: payloadFor(FIELDS, values) });
+  // AUD-03 §3: the settings as saved are the baseline; Save and continue runs this same PUT.
+  const save = useRequestEditor({
+    module: "engineering",
+    saveKind: "save",
+    label: "Engineering settings",
+    dirty: JSON.stringify(values) !== JSON.stringify(baseline),
+    request: () => engineeringApi("/api/engineering/settings", { method: "PUT", body: payloadFor(FIELDS, values) }),
+    onCommitted: () => {
+      setBaseline(values);
       toast({ title: "Engineering settings saved.", tone: "success" });
       router.refresh();
-    } catch (failure) {
-      setErrors(fieldErrorsOf(failure));
-      toast({ title: failureMessage(failure), tone: "danger" });
-    } finally {
-      setPending(false);
-    }
-  }
+    },
+  });
+  const errors = fieldErrorsOf(save.failure);
 
   return (
-    <form onSubmit={save} className="nesto-card max-w-3xl space-y-5 p-5" data-testid="engineering-settings">
-      <FormFields fields={FIELDS} values={values} errors={errors} idPrefix="engineering-settings" onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} />
+    <form onSubmit={save.onSubmit} className="nesto-card max-w-3xl space-y-5 p-5" data-testid="engineering-settings">
+      <RequestMessages error={save.error} outcomeText={save.outcomeText} />
+      <fieldset disabled={save.pending} className="m-0 min-w-0 border-0 p-0">
+        <FormFields fields={FIELDS} values={values} errors={errors} idPrefix="engineering-settings" onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} />
+      </fieldset>
       <p className="text-table text-fg-muted">Contractors and Engineering are switched on or off for the company in Settings → Modules.</p>
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save settings"}
+      <div className="flex items-center justify-end gap-3">
+        <UnsavedIndicator save={{ editor: save.editor, pending: save.pending, saved: null }} />
+        <Button type="submit" disabled={save.pending}>
+          {save.pending ? "Saving…" : "Save settings"}
         </Button>
       </div>
     </form>

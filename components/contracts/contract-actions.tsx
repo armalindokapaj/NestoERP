@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import {
   Archive,
   CheckCircle2,
@@ -20,7 +20,8 @@ import { AssignMemberControl } from "@/components/modules/assign-member-control"
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DialogEditor, useOpenedWith } from "@/components/sales/unit-sales/unit-sales-dialogs";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,6 +39,7 @@ import {
   type ContractLifecycleAction,
 } from "@/lib/actions/contracts";
 import type { ContractDetailDTO } from "@/lib/modules/contracts/contract.types";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 
 /**
  * Actions on a contract (PRD #18 §108–§135, §359, §362).
@@ -317,19 +319,37 @@ function MarkSignedDialog({
 }) {
   const [signedDate, setSignedDate] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [missingDocument, setMissingDocument] = React.useState(false);
+  const [unresolved, setUnresolved] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
+  // A changed date is unsaved input; recording the signature is the only way
+  // forward, so leaving offers Stay or Discard (AUD-03 §3, §4).
+  const changed = useOpenedWith(open, signedDate);
 
   React.useEffect(() => {
-    if (!open) setMissingDocument(false);
+    if (!open) {
+      // Reset only once the dialog has closed through its guard.
+      setMissingDocument(false);
+      setSignedDate(new Date().toISOString().slice(0, 10));
+      setUnresolved(false);
+    }
   }, [open]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
     startTransition(async () => {
-      const result = await markSignedAction(contract.id, {
-        signedDate,
-        acknowledgeMissingDocument: missingDocument,
-      });
+      setUnresolved(false);
+      let result: ContractActionResult;
+      try {
+        result = await markSignedAction(contract.id, {
+          signedDate,
+          acknowledgeMissingDocument: missingDocument,
+        });
+      } catch {
+        // The request may have gone through (AUD-03 §6).
+        setUnresolved(true);
+        onError(OUTCOME_COPY.unknown);
+        return;
+      }
 
       if (result.ok) {
         onOpenChange(false);
@@ -349,6 +369,7 @@ function MarkSignedDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
+        <DialogEditor label={`Signature of ${contract.contractNumber}`} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow="Record as signed" />
         <DialogTitle>Record {contract.contractNumber} as signed</DialogTitle>
         <DialogDescription>
           The date the last party signed. It may be after the effective date.
@@ -374,9 +395,11 @@ function MarkSignedDialog({
           ) : null}
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary" disabled={pending}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : missingDocument ? "Record anyway" : "Record as signed"}
             </Button>
@@ -412,12 +435,18 @@ function TerminateDialog({
   );
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const [unresolved, setUnresolved] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
+  // Terminating is the only way forward: leaving offers Stay or Discard (AUD-03 §4).
+  const changed = useOpenedWith(open, [terminationDate, reason]);
 
   React.useEffect(() => {
     if (!open) {
+      // Reset only once the dialog has closed through its guard.
       setReason("");
+      setTerminationDate(new Date().toISOString().slice(0, 10));
       setError(null);
+      setUnresolved(false);
     }
   }, [open]);
 
@@ -430,10 +459,19 @@ function TerminateDialog({
 
     setError(null);
     startTransition(async () => {
-      const result = await terminateContractAction(contract.id, {
-        terminationDate,
-        terminationReason: reason.trim(),
-      });
+      setUnresolved(false);
+      let result: ContractActionResult;
+      try {
+        result = await terminateContractAction(contract.id, {
+          terminationDate,
+          terminationReason: reason.trim(),
+        });
+      } catch {
+        // The request may have gone through (AUD-03 §6).
+        setUnresolved(true);
+        onError(OUTCOME_COPY.unknown);
+        return;
+      }
 
       if (result.ok) {
         onOpenChange(false);
@@ -447,6 +485,7 @@ function TerminateDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
+        <DialogEditor label={`Termination of ${contract.contractNumber}`} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow="Terminate" />
         <DialogTitle>Terminate {contract.contractNumber}?</DialogTitle>
         <DialogDescription>
           {contract.title} ends on the date below. Its documents, obligations and amendments are all
@@ -479,9 +518,11 @@ function TerminateDialog({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
-              Keep the contract
-            </Button>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary" disabled={pending}>
+                Keep the contract
+              </Button>
+            </DialogClose>
             <Button type="submit" disabled={pending}>
               {pending ? "Terminating…" : "Terminate contract"}
             </Button>

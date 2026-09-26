@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Ban } from "lucide-react";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";

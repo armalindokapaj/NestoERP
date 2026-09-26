@@ -12,8 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
 import type { ApprovalDelegationDTO, ApprovalProviderSummary } from "@/lib/modules/approvals/approvals.types";
-import { approvalsApi, failureMessage } from "./approvals-api";
+import { approvalsApi, approvalsFailureOutcome, failureMessage } from "./approvals-api";
 import { formatDay } from "./approval-ui";
 
 /**
@@ -33,15 +35,35 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function emptyForm() {
+  return { providerKey: "", toMemberId: "", startsOn: today(), endsOn: today(), reason: "" };
+}
+
+/** The new delegation's registration with the unsaved-work coordinator; the dialog keeps its values. */
+function DelegationEditor({ dirty, saving, unresolved, save }: { dirty: boolean; saving: boolean; unresolved: boolean; save: () => Promise<SaveOutcome> }) {
+  const editor = useUnsavedEditor({ module: "approvals", saveKind: "create", label: "New delegation", save });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  React.useEffect(() => {
+    // Dirtiness first: a save that just committed stops saving already clean.
+    setDirty(dirty);
+    setUnresolved(unresolved);
+    setSaving(saving);
+  }, [dirty, saving, unresolved, setDirty, setSaving, setUnresolved]);
+  return null;
+}
+
 export function DelegationDialog({ open, onOpenChange, providers }: { open: boolean; onOpenChange: (open: boolean) => void; providers: ApprovalProviderSummary[] }) {
   const toast = useToast();
   const [listing, setListing] = React.useState<Listing | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [pending, setPending] = React.useState<string | null>(null);
-  const [form, setForm] = React.useState({ providerKey: "", toMemberId: "", startsOn: today(), endsOn: today(), reason: "" });
+  const [form, setForm] = React.useState(emptyForm);
+  // What a new delegation starts from: the form differs from it once touched (AUD-03 §3).
+  const [baseline, setBaseline] = React.useState(form);
   const [search, setSearch] = React.useState("");
   const [candidates, setCandidates] = React.useState<Candidate[]>([]);
   const [error, setError] = React.useState<string | null>(null);
+  const [unresolved, setUnresolved] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -73,12 +95,13 @@ export function DelegationDialog({ open, onOpenChange, providers }: { open: bool
     return () => window.clearTimeout(handle);
   }, [open, search, form.providerKey, listing?.canManage]);
 
-  async function create(event: React.FormEvent) {
-    event.preventDefault();
+  async function save(): Promise<SaveOutcome> {
+    if (pending === "create") return { kind: "unknown" };
+    if (unsaved.frozen) return { kind: "refused" };
     setError(null);
     if (!form.toMemberId) {
       setError("Choose who will decide for you.");
-      return;
+      return { kind: "invalid" };
     }
     setPending("create");
     try {
@@ -86,14 +109,26 @@ export function DelegationDialog({ open, onOpenChange, providers }: { open: bool
         body: { toMemberId: form.toMemberId, providerKey: form.providerKey || null, startsOn: form.startsOn, endsOn: form.endsOn, reason: form.reason || undefined },
       });
       toast({ title: "Delegation saved", tone: "success" });
-      setForm({ providerKey: "", toMemberId: "", startsOn: today(), endsOn: today(), reason: "" });
+      const next = emptyForm();
+      setForm(next);
+      setBaseline(next);
       setSearch("");
+      setUnresolved(false);
       await load();
+      return { kind: "committed" };
     } catch (failure) {
+      const outcome = approvalsFailureOutcome(failure);
+      setUnresolved(outcome.kind === "unknown");
       setError(failureMessage(failure, "The delegation could not be saved."));
+      return outcome;
     } finally {
       setPending(null);
     }
+  }
+
+  function create(event: React.FormEvent) {
+    event.preventDefault();
+    void save();
   }
 
   async function revoke(row: ApprovalDelegationDTO) {
@@ -121,6 +156,8 @@ export function DelegationDialog({ open, onOpenChange, providers }: { open: bool
         <DialogDescription>
           Lend the approvals assigned to you — a review addressed to you, a step that belongs to your role — to a colleague for a while. They decide on your behalf, and it says so everywhere.
         </DialogDescription>
+        {/* Inside the dialog, so a delegation being filled in belongs to its guarded close (AUD-03 §5). */}
+        <DelegationEditor dirty={JSON.stringify(form) !== JSON.stringify(baseline)} saving={pending === "create"} unresolved={unresolved} save={save} />
 
         {loading && !listing ? (
           <p className="mt-6 flex items-center gap-2 text-table text-fg-muted">

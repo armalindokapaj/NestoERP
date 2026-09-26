@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
 import { requireCompanyContext } from "@/lib/context/current-user";
+import { committed } from "@/lib/forms/committed";
 import * as actions from "@/lib/modules/qaqc/corrective-actions/action.service";
 import * as defects from "@/lib/modules/qaqc/defects/defect.service";
 import * as inspections from "@/lib/modules/qaqc/inspections/inspection.service";
@@ -34,8 +34,12 @@ import {
  * posting straight to an action is exactly as safe as the endpoint.
  */
 
+/**
+ * An editor's action answers where the saved record lives instead of
+ * redirecting, so the form can tell the save committed (AUD-03 §6).
+ */
 export type QaqcActionResult =
-  | { ok: true; id?: string; message?: string }
+  | { ok: true; id?: string; message?: string; redirectTo?: string }
   | { ok: false; error: string; code?: string; fieldErrors?: Record<string, string[]> };
 
 function revalidateQaqc(recordPath?: string) {
@@ -119,7 +123,7 @@ export async function createRequestAction(formData: FormData): Promise<QaqcActio
   }
 
   revalidateQaqc();
-  redirect(`/qaqc/requests/${id}`);
+  return committed(`/qaqc/requests/${id}`);
 }
 
 export async function updateRequestAction(
@@ -138,7 +142,7 @@ export async function updateRequestAction(
   }
 
   revalidateQaqc(`/qaqc/requests/${requestId}`);
-  redirect(`/qaqc/requests/${requestId}`);
+  return committed(`/qaqc/requests/${requestId}`);
 }
 
 export async function assignRequestAction(
@@ -206,7 +210,7 @@ export async function createTemplateAction(formData: FormData): Promise<QaqcActi
   }
 
   revalidateQaqc();
-  redirect(`/qaqc/templates/${id}`);
+  return committed(`/qaqc/templates/${id}`);
 }
 
 export async function updateTemplateAction(
@@ -228,7 +232,7 @@ export async function updateTemplateAction(
   }
 
   revalidateQaqc(`/qaqc/templates/${templateId}`);
-  redirect(`/qaqc/templates/${id}`);
+  return committed(`/qaqc/templates/${id}`);
 }
 
 export async function templateLifecycleAction(
@@ -266,7 +270,7 @@ export async function createInspectionAction(formData: FormData): Promise<QaqcAc
   }
 
   revalidateQaqc();
-  redirect(`/qaqc/inspections/${id}`);
+  return committed(`/qaqc/inspections/${id}`);
 }
 
 export async function updateInspectionAction(
@@ -285,7 +289,7 @@ export async function updateInspectionAction(
   }
 
   revalidateQaqc(`/qaqc/inspections/${inspectionId}`);
-  redirect(`/qaqc/inspections/${inspectionId}`);
+  return committed(`/qaqc/inspections/${inspectionId}`);
 }
 
 export async function assignInspectionAction(
@@ -394,7 +398,7 @@ export async function createReinspectionAction(
   }
 
   revalidateQaqc();
-  redirect(`/qaqc/inspections/${id}`);
+  return committed(`/qaqc/inspections/${id}`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -488,7 +492,7 @@ export async function createDefectAction(formData: FormData): Promise<QaqcAction
   }
 
   revalidateQaqc();
-  redirect(`/qaqc/defects/${id}`);
+  return committed(`/qaqc/defects/${id}`);
 }
 
 export async function updateDefectAction(
@@ -507,7 +511,7 @@ export async function updateDefectAction(
   }
 
   revalidateQaqc(`/qaqc/defects/${defectId}`);
-  redirect(`/qaqc/defects/${defectId}`);
+  return committed(`/qaqc/defects/${defectId}`);
 }
 
 export async function assignDefectAction(
@@ -582,7 +586,7 @@ export async function escalateDefectAction(
   }
 
   revalidateQaqc();
-  redirect(`/qaqc/ncrs/${id}`);
+  return committed(`/qaqc/ncrs/${id}`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -603,7 +607,7 @@ export async function createNcrAction(formData: FormData): Promise<QaqcActionRes
   }
 
   revalidateQaqc();
-  redirect(`/qaqc/ncrs/${id}`);
+  return committed(`/qaqc/ncrs/${id}`);
 }
 
 export async function updateNcrAction(
@@ -622,7 +626,7 @@ export async function updateNcrAction(
   }
 
   revalidateQaqc(`/qaqc/ncrs/${ncrId}`);
-  redirect(`/qaqc/ncrs/${ncrId}`);
+  return committed(`/qaqc/ncrs/${ncrId}`);
 }
 
 export async function assignNcrAction(
@@ -699,7 +703,7 @@ export async function createActionAction(formData: FormData): Promise<QaqcAction
   }
 
   revalidateQaqc();
-  redirect(`/qaqc/corrective-actions/${id}`);
+  return committed(`/qaqc/corrective-actions/${id}`);
 }
 
 export async function updateActionAction(
@@ -718,7 +722,7 @@ export async function updateActionAction(
   }
 
   revalidateQaqc(`/qaqc/corrective-actions/${actionId}`);
-  redirect(`/qaqc/corrective-actions/${actionId}`);
+  return committed(`/qaqc/corrective-actions/${actionId}`);
 }
 
 export async function assignActionAction(

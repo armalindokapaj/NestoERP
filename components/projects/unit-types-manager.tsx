@@ -4,14 +4,17 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
+import { COMMITTED, failureOutcome, INVALID } from "@/components/project-planning/use-values-editor";
 import { selectClass } from "@/components/forms/record-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { UNIT_TYPE_CATEGORIES, UNIT_TYPE_CATEGORY_LABELS, UNIT_TYPE_CODE_MAX, UNIT_TYPE_NAME_MAX, type UnitTypeCategory } from "@/config/unit-types";
 import type { UnitTypeDTO } from "@/lib/modules/project-structure/unit-type.service";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -48,35 +51,71 @@ export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
 
   const replace = (next: UnitTypeDTO) => setTypes((current) => current.map((type) => (type.id === next.id ? next : type)));
 
-  async function add(event: React.FormEvent) {
-    event.preventDefault();
-    if (!draft.name.trim()) return setAddError("Give the type a name.");
+  // The type being added and the one being edited are both unsaved input
+  // (AUD-03 §3): leaving asks, and Save and continue runs the same add or
+  // save as the buttons. The category a new type starts on is kept after an
+  // add, so that is the baseline, not input.
+  const [draftCategory, setDraftCategory] = React.useState<UnitTypeCategory>("RESIDENTIAL");
+  const adding = useUnsavedEditor({ module: "units", saveKind: "create", label: "New unit type", save: () => add() });
+  const editor = useUnsavedEditor({ module: "units", saveKind: "save", label: () => `Unit type ${types.find((type) => type.id === editing?.id)?.name ?? ""}`.trim(), save: () => save() });
+  const setAddingDirty = adding.setDirty;
+  const setEditorDirty = editor.setDirty;
+  React.useEffect(() => setAddingDirty(draft.name !== "" || draft.code !== "" || draft.category !== draftCategory), [draft, draftCategory, setAddingDirty]);
+  React.useEffect(() => {
+    const original = editing ? types.find((type) => type.id === editing.id) : undefined;
+    setEditorDirty(editing !== null && (!original || editing.name !== original.name || editing.code !== original.code || editing.category !== original.category));
+  }, [editing, types, setEditorDirty]);
+
+  async function add(): Promise<SaveOutcome> {
+    if (!draft.name.trim()) {
+      setAddError("Give the type a name.");
+      return INVALID;
+    }
     setPending("add");
+    adding.setSaving(true);
     setAddError(null);
     try {
       const created = await announcementApi<UnitTypeDTO>("/api/projects/unit-types", { body: { name: draft.name.trim(), code: draft.code.trim() || undefined, category: draft.category } });
+      adding.setUnresolved(false);
+      adding.setDirty(false);
       setTypes((current) => [...current, created]);
       setDraft({ name: "", code: "", category: draft.category });
+      setDraftCategory(draft.category);
+      return COMMITTED;
     } catch (error) {
+      const outcome = failureOutcome(error);
+      adding.setUnresolved(outcome.kind === "unknown");
       setAddError(failureMessage(error, "The type could not be added."));
+      return outcome;
     } finally {
       setPending(null);
+      adding.setSaving(false);
     }
   }
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-    if (!editing) return;
+  async function save(): Promise<SaveOutcome> {
+    if (!editing) return COMMITTED;
     setPending(editing.id);
+    editor.setSaving(true);
     try {
       replace(await announcementApi<UnitTypeDTO>(`/api/projects/unit-types/${editing.id}`, { method: "PATCH", body: { name: editing.name.trim(), code: editing.code.trim() || undefined, category: editing.category } }));
+      editor.setUnresolved(false);
+      editor.setDirty(false);
       setEditing(null);
+      return COMMITTED;
     } catch (error) {
+      const outcome = failureOutcome(error);
+      editor.setUnresolved(outcome.kind === "unknown");
       setEditing({ ...editing, error: failureMessage(error, "The type could not be saved.") });
+      return outcome;
     } finally {
       setPending(null);
+      editor.setSaving(false);
     }
   }
+
+  /** Starting another edit, or Cancel, drops the one being typed: asked first. */
+  const startEdit = (next: Editing | null) => void editor.requestDismiss(() => setEditing(next));
 
   async function setActive(type: UnitTypeDTO, isActive: boolean) {
     setPending(type.id);
@@ -126,7 +165,13 @@ export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
 
   return (
     <div className="space-y-5">
-      <form onSubmit={add} className="nesto-card space-y-2 p-5">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void add();
+        }}
+        className="nesto-card space-y-2 p-5"
+      >
         <p className="text-card font-semibold text-fg">Add a unit type</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input aria-label="Name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} maxLength={UNIT_TYPE_NAME_MAX} placeholder="For example Duplex" aria-invalid={Boolean(addError)} className="sm:max-w-xs" />
@@ -173,7 +218,13 @@ export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
                   </div>
 
                   {isEditing ? (
-                    <form onSubmit={save} className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void save();
+                      }}
+                      className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center"
+                    >
                       <Input value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value, error: null })} maxLength={UNIT_TYPE_NAME_MAX} aria-label={`New name for ${type.name}`} autoFocus className="sm:max-w-xs" />
                       <Input value={editing.code} onChange={(event) => setEditing({ ...editing, code: event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""), error: null })} maxLength={UNIT_TYPE_CODE_MAX} aria-label={`Code for ${type.name}`} className="sm:w-40" />
                       <CategorySelect id={`unit-type-category-${type.id}`} label={`Category for ${type.name}`} value={editing.category} onChange={(category) => setEditing({ ...editing, category, error: null })} />
@@ -181,7 +232,7 @@ export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
                         <Button type="submit" size="sm" disabled={busy}>
                           {busy ? "Saving…" : "Save"}
                         </Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => startEdit(null)} disabled={busy}>
                           Cancel
                         </Button>
                       </div>
@@ -205,7 +256,7 @@ export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
 
                   {isEditing ? null : (
                     <div className="ml-auto flex shrink-0 items-center gap-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setEditing({ id: type.id, name: type.name, code: type.code, category: type.category, error: null })} disabled={pending !== null}>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => startEdit({ id: type.id, name: type.name, code: type.code, category: type.category, error: null })} disabled={pending !== null}>
                         <Pencil aria-hidden="true" />
                         Edit<span className="sr-only"> {type.name}</span>
                       </Button>

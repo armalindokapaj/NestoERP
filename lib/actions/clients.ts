@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
+import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import type { DuplicateMatch } from "@/lib/modules/clients/client.duplicate";
 import {
@@ -34,7 +34,7 @@ function revalidateClients(clientId?: string) {
 }
 
 export type ClientActionResult =
-  | { ok: true }
+  | { ok: true; redirectTo?: string }
   | {
       ok: false;
       error: string;
@@ -82,7 +82,7 @@ export async function createClientAction(formData: FormData): Promise<ClientActi
   }
 
   revalidateClients(clientId);
-  redirect(`/clients/${clientId}`);
+  return committed(`/clients/${clientId}`);
 }
 
 export async function updateClientAction(
@@ -107,7 +107,7 @@ export async function updateClientAction(
   }
 
   revalidateClients(clientId);
-  redirect(`/clients/${clientId}`);
+  return committed(`/clients/${clientId}`);
 }
 
 export async function archiveClientAction(clientId: string): Promise<ClientActionResult> {

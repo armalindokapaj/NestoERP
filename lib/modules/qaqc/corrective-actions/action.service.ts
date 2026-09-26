@@ -703,7 +703,6 @@ export async function createActionTask(
   );
 
   const tasks = await import("@/lib/modules/tasks/task.service");
-  const collaboration = await import("@/lib/core/collaboration/collaboration.service");
 
   // The task, this module's activity and the link between them commit together
   // (PRD #48 §22, §145): a failure here leaves no task nothing points at.
@@ -741,10 +740,8 @@ export async function createActionTask(
     return created;
   });
 
-  // Watchers depend on who can read the task now it exists, so they are
-  // written after the commit (PRD #38 §33).
-  await collaboration.subscribeStakeholders({ companyId: context.companyId, parentType: "task", parentId: task.id, memberIds: [context.membershipId, ...(task.assigneeMemberId ? [task.assigneeMemberId] : [])] });
-
+  // The task's creator and assignee were subscribed by the task door, inside
+  // the same transaction (PRD #38 §33, AUD-02 §8).
   return { id: task.id };
 }
 

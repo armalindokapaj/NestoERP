@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
+import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { updateNumberingSchemeAction } from "@/lib/actions/settings";
 import type { NumberingSchemeDTO } from "@/lib/modules/settings/numbering.service";
 
@@ -37,8 +39,25 @@ export function NumberingSchemeForm({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [pending, startTransition] = React.useTransition();
   const t = useTranslations("settings");
+  const formRef = React.useRef<HTMLFormElement>(null);
+  // One editor per scheme on the page (AUD-03 §3): leaving asks about each
+  // one with unsaved changes, by its own name.
+  const save = useEditorSave({
+    formRef,
+    action: async (formData: FormData) => {
+      const result = await updateNumberingSchemeAction(formData);
+      return result.ok ? result : { ok: false as const, error: result.message };
+    },
+    module: "settings",
+    saveKind: "save",
+    label,
+    onCommitted: () => {
+      toast({ title: t("numbering.updated", { label }), tone: "success" });
+      router.refresh();
+    },
+  });
+  const { pending } = save;
 
   const [mode, setMode] = React.useState(scheme.mode);
   const [prefix, setPrefix] = React.useState(scheme.prefix ?? "");
@@ -56,25 +75,12 @@ export function NumberingSchemeForm({
     return parts.filter(Boolean).join(separator);
   }, [mode, prefix, separator, yearMode, padding, scheme.nextSequence, t]);
 
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    startTransition(async () => {
-      const result = await updateNumberingSchemeAction(formData);
-      if (result.ok) {
-        toast({ title: t("numbering.updated", { label }), tone: "success" });
-        router.refresh();
-      } else {
-        toast({ title: result.message, tone: "danger" });
-      }
-    });
-  }
-
   const id = `${scheme.moduleKey}-${scheme.entityType}`;
-  const disabled = !scheme.canManage || pending;
+  const disabled = !scheme.canManage || pending || Boolean(save.saved);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3 px-5 py-4">
+    <form ref={formRef} onSubmit={save.onSubmit} className="space-y-3 px-5 py-4">
+      <SaveMessages save={save} />
       <input type="hidden" name="moduleKey" value={scheme.moduleKey} />
       <input type="hidden" name="entityType" value={scheme.entityType} />
 
@@ -169,9 +175,12 @@ export function NumberingSchemeForm({
         </div>
 
         {scheme.canManage ? (
-          <Button type="submit" size="sm" variant="secondary" disabled={pending}>
-            {pending ? t("saving") : t("save")}
-          </Button>
+          <div className="flex items-center gap-3">
+            <UnsavedIndicator save={save} />
+            <Button type="submit" size="sm" variant="secondary" disabled={pending}>
+              {pending ? t("saving") : t("save")}
+            </Button>
+          </div>
         ) : null}
       </div>
     </form>

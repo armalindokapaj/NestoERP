@@ -69,6 +69,7 @@ export default async function ReinspectPage({ params }: Params) {
       </div>
 
       <RecordForm
+        module="qaqc"
         action={action}
         cancelHref={`/qaqc/inspections/${parent.id}`}
         submitLabel="Raise reinspection"

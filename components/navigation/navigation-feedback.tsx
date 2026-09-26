@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useResponseBeats, useRevealWatchdog } from "@/components/navigation/reveal-watchdog";
 import { WORKSPACE_CHANGED } from "@/config/workspace";
+import { guardNavigation, leavesPage } from "@/components/navigation/guarded-router";
 import {
   createFeedbackStore,
   trackedDestination,
@@ -151,14 +152,21 @@ export function useFeedbackRouter() {
   }, [isPending, feedback]);
 
   return React.useMemo(() => {
+    // Unsaved work is asked about before any feedback begins (AUD-03 §5).
     const go = (method: "push" | "replace", href: string, options: FeedbackNavigateOptions = {}) => {
-      ticket.current = options.ticket ?? feedback?.begin(href, options.source ?? "record") ?? null;
-      const routerOptions = options.scroll === undefined ? undefined : { scroll: options.scroll };
-      startTransition(() => router[method](href, routerOptions));
+      const run = () => {
+        ticket.current = options.ticket ?? feedback?.begin(href, options.source ?? "record") ?? null;
+        const routerOptions = options.scroll === undefined ? undefined : { scroll: options.scroll };
+        startTransition(() => router[method](href, routerOptions));
+      };
+      if (leavesPage(href)) guardNavigation({ kind: "navigate", href }, run);
+      else run();
     };
     const history = (direction: "back" | "forward") => {
-      ticket.current = feedback?.store.begin(null, "history") ?? null;
-      startTransition(() => (direction === "back" ? router.back() : router.forward()));
+      guardNavigation({ kind: "history", href: window.location.href }, () => {
+        ticket.current = feedback?.store.begin(null, "history") ?? null;
+        startTransition(() => (direction === "back" ? router.back() : router.forward()));
+      });
     };
     return {
       push: (href: string, options?: FeedbackNavigateOptions) => go("push", href, options),

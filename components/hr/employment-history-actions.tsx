@@ -1,20 +1,23 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, useDialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { cancelScheduledChangeAction, correctEmploymentHistoryAction } from "@/lib/actions/hr";
 import { statusReasonLabels, workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
 import type { EmploymentChangeOptionsDTO } from "@/lib/modules/hr/employment/employment.options";
 import type { AssignmentRowDTO, StatusRowDTO } from "@/lib/modules/hr/employment/employment.types";
 import { employmentStatusLabels, employmentTypeLabels } from "@/lib/modules/hr/hr.status";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 
 const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
@@ -59,15 +62,47 @@ export function CancelScheduledChange({ employeeId, changeId, label }: { employe
  * marked as corrected; the new row names it and the reason, which is required.
  * Moving a start moves the end of the row before it.
  */
-export function CorrectHistoryRow({ employeeId, kind, row, options }: { employeeId: string; kind: "ASSIGNMENT" | "STATUS"; row: AssignmentRowDTO | StatusRowDTO; options: EmploymentChangeOptionsDTO }) {
+type CorrectionProps = { employeeId: string; kind: "ASSIGNMENT" | "STATUS"; row: AssignmentRowDTO | StatusRowDTO; options: EmploymentChangeOptionsDTO };
+
+export function CorrectHistoryRow(props: CorrectionProps) {
+  const [open, setOpen] = React.useState(false);
+  const { row, kind } = props;
+  const from = kind === "ASSIGNMENT" ? (row as AssignmentRowDTO).startDate : (row as StatusRowDTO).effectiveFrom;
+  return (
+    <>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(true)} aria-label={`Correct the row from ${from}`}>
+        Correct
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogTitle>Correct history</DialogTitle>
+          <DialogDescription>
+            The original row stays, marked as corrected, and the audit trail keeps both. Say why the history was wrong.
+          </DialogDescription>
+          {/* Inside the dialog, so its guarded close asks about the correction (AUD-03 §5). */}
+          <CorrectionForm {...props} onDone={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/**
+ * The correction as an editor (AUD-03 §3): dirty against the row it opened
+ * with, and "Save and continue" runs this same save — the browser's required
+ * fields, then the server's validation — without closing or navigating.
+ */
+function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionProps & { onDone: () => void }) {
   const router = useRouter();
   const toast = useToast();
-  const [open, setOpen] = React.useState(false);
-  const [pending, startTransition] = React.useTransition();
+  const close = useDialogClose();
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const running = React.useRef(false);
+  const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const assignment = kind === "ASSIGNMENT" ? (row as AssignmentRowDTO) : null;
   const status = kind === "STATUS" ? (row as StatusRowDTO) : null;
-  const [draft, setDraft] = React.useState<Record<string, string>>(() => ({
+  const [initial] = React.useState<Record<string, string>>(() => ({
     date: assignment?.startDate ?? status?.effectiveFrom ?? "",
     jobTitle: assignment?.jobTitle ?? "",
     departmentId: assignment?.department?.id ?? "",
@@ -78,12 +113,22 @@ export function CorrectHistoryRow({ employeeId, kind, row, options }: { employee
     statusReason: status?.reason ?? "",
     correctionReason: "",
   }));
+  const [draft, setDraft] = React.useState<Record<string, string>>(initial);
+  const editor = useUnsavedEditor({ module: "hr", saveKind: "save", label: "History correction", save: () => save("continue") });
+  const { setDirty, setSaving, setUnresolved } = editor;
+  const dirty = Object.keys(initial).some((key) => draft[key] !== initial[key]);
+  React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
   const set = (key: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setDraft((current) => ({ ...current, [key]: event.target.value }));
   const departments = assignment?.department?.id && !options.departments.some((option) => option.id === assignment.department?.id) ? [{ id: assignment.department.id, name: `${assignment.department.name} (as recorded)` }, ...options.departments] : options.departments;
   const managers = assignment?.manager?.memberId && !options.managers.some((option) => option.id === assignment.manager?.memberId) ? [{ id: assignment.manager.memberId, name: `${assignment.manager.name} (as recorded)` }, ...options.managers] : options.managers;
 
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
+  async function save(mode: "normal" | "continue"): Promise<SaveOutcome> {
+    const form = formRef.current;
+    if (!form || running.current) return { kind: "unknown" };
+    if (!form.checkValidity()) {
+      if (mode === "normal") form.reportValidity();
+      return { kind: "invalid" };
+    }
     setError(null);
     const input =
       kind === "ASSIGNMENT"
@@ -106,124 +151,133 @@ export function CorrectHistoryRow({ employeeId, kind, row, options }: { employee
             ...(draft.date !== status!.effectiveFrom ? { effectiveFrom: draft.date } : {}),
             ...(draft.statusReason !== status!.reason ? { reason: draft.statusReason } : {}),
           };
-    startTransition(async () => {
-      const result = await correctEmploymentHistoryAction(employeeId, input);
-      if (result.ok) {
-        toast({ title: "History corrected. The original is kept.", tone: "success" });
-        setOpen(false);
-        router.refresh();
-      } else {
-        setError(result.fieldErrors ? Object.values(result.fieldErrors).flat()[0] ?? result.error : result.error);
-      }
-    });
+    running.current = true;
+    setPending(true);
+    setSaving(true);
+    let result: Awaited<ReturnType<typeof correctEmploymentHistoryAction>>;
+    try {
+      result = await correctEmploymentHistoryAction(employeeId, input);
+    } catch {
+      // It may or may not have been corrected: say so, never retry it (§6).
+      setUnresolved(true);
+      setError(OUTCOME_COPY.unknown);
+      return { kind: "unknown" };
+    } finally {
+      running.current = false;
+      setPending(false);
+      setSaving(false);
+    }
+    const outcome = outcomeOf(result);
+    if (result.ok) {
+      setUnresolved(false);
+      setDirty(false);
+      toast({ title: "History corrected. The original is kept.", tone: "success" });
+      if (mode === "normal") onDone();
+      router.refresh();
+    } else {
+      setError(result.fieldErrors ? Object.values(result.fieldErrors).flat()[0] ?? result.error : result.error);
+    }
+    return outcome;
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    void save("normal");
   }
 
   return (
-    <>
-      <Button size="sm" variant="ghost" onClick={() => setOpen(true)} aria-label={`Correct the row from ${assignment?.startDate ?? status?.effectiveFrom}`}>
-        Correct
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogTitle>Correct history</DialogTitle>
-          <DialogDescription>
-            The original row stays, marked as corrected, and the audit trail keeps both. Say why the history was wrong.
-          </DialogDescription>
-          <form onSubmit={submit} className="mt-4 space-y-3">
+    <form ref={formRef} onSubmit={submit} className="mt-4 space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="correct-date">{kind === "ASSIGNMENT" ? "Started" : "From"}</Label>
+        <Input id="correct-date" type="date" value={draft.date} onChange={set("date")} required />
+      </div>
+      {assignment ? (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="correct-title">Job title</Label>
+            <Input id="correct-title" value={draft.jobTitle} onChange={set("jobTitle")} maxLength={120} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="correct-department">Department</Label>
+            <select id="correct-department" className={selectClass} value={draft.departmentId} onChange={set("departmentId")}>
+              <option value="">None</option>
+              {departments.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="correct-manager">Manager</Label>
+            <select id="correct-manager" className={selectClass} value={draft.managerMemberId} onChange={set("managerMemberId")}>
+              <option value="">No manager</option>
+              {managers.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="correct-date">{kind === "ASSIGNMENT" ? "Started" : "From"}</Label>
-              <Input id="correct-date" type="date" value={draft.date} onChange={set("date")} required />
+              <Label htmlFor="correct-location-type">Works at</Label>
+              <select id="correct-location-type" className={selectClass} value={draft.workLocationType} onChange={set("workLocationType")}>
+                <option value="">Not set</option>
+                {Object.entries(workLocationTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
-            {assignment ? (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="correct-title">Job title</Label>
-                  <Input id="correct-title" value={draft.jobTitle} onChange={set("jobTitle")} maxLength={120} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="correct-department">Department</Label>
-                  <select id="correct-department" className={selectClass} value={draft.departmentId} onChange={set("departmentId")}>
-                    <option value="">None</option>
-                    {departments.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="correct-manager">Manager</Label>
-                  <select id="correct-manager" className={selectClass} value={draft.managerMemberId} onChange={set("managerMemberId")}>
-                    <option value="">No manager</option>
-                    {managers.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="correct-location-type">Works at</Label>
-                    <select id="correct-location-type" className={selectClass} value={draft.workLocationType} onChange={set("workLocationType")}>
-                      <option value="">Not set</option>
-                      {Object.entries(workLocationTypeLabels).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="correct-location">Place</Label>
-                    <Input id="correct-location" value={draft.workLocation} onChange={set("workLocation")} maxLength={160} />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="correct-type">Employment type</Label>
-                  <select id="correct-type" className={selectClass} value={draft.employmentType} onChange={set("employmentType")}>
-                    {Object.entries(employmentTypeLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-1.5">
-                <Label htmlFor="correct-status-reason">Reason for the {employmentStatusLabels[status!.status].toLowerCase()} status</Label>
-                <select id="correct-status-reason" className={selectClass} value={draft.statusReason} onChange={set("statusReason")}>
-                  {Object.entries(statusReasonLabels)
-                    .filter(([value]) => value !== "CORRECTION")
-                    .map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            )}
             <div className="space-y-1.5">
-              <Label htmlFor="correct-reason">Why is this being corrected?</Label>
-              <Textarea id="correct-reason" rows={2} value={draft.correctionReason} onChange={set("correctionReason")} required minLength={3} maxLength={2000} />
+              <Label htmlFor="correct-location">Place</Label>
+              <Input id="correct-location" value={draft.workLocation} onChange={set("workLocation")} maxLength={160} />
             </div>
-            {error ? (
-              <p role="alert" className="text-meta text-danger-strong">
-                {error}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Saving…" : "Save correction"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="correct-type">Employment type</Label>
+            <select id="correct-type" className={selectClass} value={draft.employmentType} onChange={set("employmentType")}>
+              {Object.entries(employmentTypeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-1.5">
+          <Label htmlFor="correct-status-reason">Reason for the {employmentStatusLabels[status!.status].toLowerCase()} status</Label>
+          <select id="correct-status-reason" className={selectClass} value={draft.statusReason} onChange={set("statusReason")}>
+            {Object.entries(statusReasonLabels)
+              .filter(([value]) => value !== "CORRECTION")
+              .map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+          </select>
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <Label htmlFor="correct-reason">Why is this being corrected?</Label>
+        <Textarea id="correct-reason" rows={2} value={draft.correctionReason} onChange={set("correctionReason")} required minLength={3} maxLength={2000} />
+      </div>
+      {error ? (
+        <p role="alert" className="text-meta text-danger-strong">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={close} disabled={pending}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save correction"}
+        </Button>
+      </div>
+    </form>
   );
 }

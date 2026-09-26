@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import type { CalendarEventDTO, CalendarResponse } from "@/lib/modules/calendar/calendar.types";
 import { AgendaView } from "./agenda-view";

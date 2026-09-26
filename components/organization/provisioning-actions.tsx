@@ -130,6 +130,9 @@ export function ProvisioningActions({ request }: { request: ProvisioningDetailDT
         }
         fields={request.existingAccount ? [] : [{ name: "username", label: "Username", type: "text", placeholder: request.requestedUsername ?? request.suggestedUsername, hint: "Leave blank to use the one shown." }]}
         submitLabel={request.existingAccount ? "Add company" : "Create account"}
+        // Provisioning is the request's workflow step, and its credentials are
+        // shown once: never run from the unsaved-changes prompt (AUD-03 §3).
+        saveKind="none"
         testId="provision-dialog"
         onSubmit={async (payload) => {
           const result = await engineeringApi<ProvisionResultDTO>(`${base}/provision`, { body: payload });

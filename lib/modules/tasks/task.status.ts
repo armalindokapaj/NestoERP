@@ -1,22 +1,22 @@
 import type { Task, TaskStatus } from "@prisma/client";
 
+import { targetsOf } from "@/lib/core/state/machine";
+import { EDIT_STATUS_ACTIONS, taskMachine } from "./task.machine";
+
 /**
  * Task status rules (PRD #11 §65, §142, §191).
  *
  * One source of truth, so the dropdown in the edit form, the action buttons on
  * the detail page and the API validator cannot disagree (PRD #11 §160, §192).
+ * The moves themselves are the task machine's (`task.machine.ts`, AUD-02 §5);
+ * the status an edit may set is derived from its non-archive commands, never
+ * kept in a second table.
  *
- * `ARCHIVED` is deliberately absent from the table: archiving and restoring
- * have their own endpoints, and `COMPLETED → ARCHIVED` through a PATCH must
- * fail (PRD #11 §61, §71, §117).
+ * `ARCHIVED` is deliberately absent from the edit moves: archiving and
+ * restoring have their own endpoints, and `COMPLETED → ARCHIVED` through a
+ * PATCH must fail (PRD #11 §61, §71, §117).
  */
-const TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
-  TODO: ["IN_PROGRESS", "BLOCKED", "COMPLETED"],
-  IN_PROGRESS: ["TODO", "BLOCKED", "COMPLETED"],
-  BLOCKED: ["TODO", "IN_PROGRESS", "COMPLETED"],
-  COMPLETED: ["TODO", "IN_PROGRESS"],
-  ARCHIVED: [],
-};
+const EDIT_MOVES = taskMachine.transitions.filter((transition) => EDIT_STATUS_ACTIONS.includes(transition.action));
 
 /** Statuses an ordinary create or edit form may set (PRD #11 §42). */
 export const EDITABLE_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"];
@@ -26,11 +26,11 @@ export const REOPEN_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS"];
 
 export function canTransitionTaskStatus(from: TaskStatus, to: TaskStatus): boolean {
   if (from === to) return true;
-  return TRANSITIONS[from].includes(to);
+  return EDIT_MOVES.some((transition) => transition.from.includes(from) && targetsOf(transition).includes(to));
 }
 
 export function allowedTransitions(from: TaskStatus): TaskStatus[] {
-  return [from, ...TRANSITIONS[from]];
+  return taskMachine.states.filter((to) => canTransitionTaskStatus(from, to));
 }
 
 export function isTaskArchived(task: Pick<Task, "status" | "archivedAt">): boolean {

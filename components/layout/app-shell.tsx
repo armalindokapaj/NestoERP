@@ -18,6 +18,8 @@ import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
 import { WorkspaceSwitchProvider } from "@/components/workspace/workspace-switch-provider";
 import { WorkspaceSync } from "@/components/workspace/workspace-sync";
+import { UnsavedHost } from "@/components/unsaved/unsaved-host";
+import { identityKeys } from "@/lib/context/identity-key";
 import { RecordNavigationProvider } from "@/components/navigation/record-navigation-provider";
 import { NavigationFeedbackIndicator, NavigationFeedbackProvider } from "@/components/navigation/navigation-feedback";
 import { IntentPrefetchProvider } from "@/components/navigation/intent-prefetch";
@@ -76,6 +78,19 @@ export async function AppShell({
     <TooltipProvider delayDuration={200}>
       <ToastProvider>
         <WorkspaceSync />
+        {/* Unsaved work (AUD-03): the one prompt, the unload guard, Back/Forward,
+            and what happens when this tab's context stops being the server's.
+            Above the workspace-keyed page, so it outlives every editor. */}
+        <UnsavedHost
+          identity={identityKeys(context)}
+          workspace={{
+            key: workspaceKey(context.workspace),
+            scopeType: context.workspace.scopeType,
+            companyId: context.workspace.companyId,
+            parentGroupId: context.workspace.parentGroupId,
+            name: context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name,
+          }}
+        />
         {/* Immediate navigation feedback (NAV-01 §7). Keyed by the opaque context
             key, so nothing pending outlives the identity or workspace it began in. */}
         <NavigationFeedbackProvider identityKey={core.contextKey}>

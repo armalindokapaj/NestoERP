@@ -4,6 +4,9 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
+import { GuardedRoot } from "@/components/unsaved/guarded-root";
+
+export { useDialogClose } from "@/components/unsaved/guarded-root";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -12,7 +15,8 @@ import { cn } from "@/lib/utils/cn";
  * Short actions only — create, rename, confirm. Full workflows belong on a
  * dedicated page or in a drawer.
  */
-export const Dialog = DialogPrimitive.Root;
+/** Guarded: closing it asks about unsaved input inside it first (AUD-03 §5). */
+export const Dialog = GuardedRoot;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 

@@ -16,8 +16,10 @@ import { ACTION_STATUS_LABELS, type MeetingActionItemDTO, type MeetingDetailDTO 
 import { statusLabel } from "@/lib/utils/status";
 import { cn } from "@/lib/utils/cn";
 import { ActionStatusToggle } from "./action-status-toggle";
-import { failureMessage, meetingApi } from "./meeting-api";
+import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { PersonAvatar } from "./meeting-ui";
+import { useMeetingDraft } from "./use-meeting-draft";
 
 /**
  * Action items (PRD #40 §53-§62, §106, §107, §213).
@@ -38,6 +40,7 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [owner, setOwner] = React.useState("");
+  const [ownerBase, setOwnerBase] = React.useState("");
   const [due, setDue] = React.useState("");
   const [createTask, setCreateTask] = React.useState(false);
   const [pending, setPending] = React.useState<string | null>(null);
@@ -46,19 +49,47 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
   const shown = (openOnly ? meeting.actions.filter((action) => action.status === "OPEN" || action.status === "IN_PROGRESS") : meeting.actions).slice(0, limit ?? undefined);
   const openCount = meeting.actions.filter((action) => action.status === "OPEN" || action.status === "IN_PROGRESS").length;
 
-  async function call(key: string, url: string, init: { method?: string; body?: unknown }, success?: string) {
+  async function send(key: string, url: string, init: { method?: string; body?: unknown }, success?: string): Promise<SaveOutcome> {
     setPending(key);
     try {
       onChange(await meetingApi<MeetingDetailDTO>(url, init));
       if (success) toast({ title: success, tone: "success" });
-      return true;
+      return { kind: "committed" };
     } catch (error) {
       toast({ title: failureMessage(error, "The action could not be saved."), tone: "danger" });
-      return false;
+      return meetingFailureOutcome(error);
     } finally {
       setPending(null);
     }
   }
+
+  async function call(key: string, url: string, init: { method?: string; body?: unknown }, success?: string) {
+    return (await send(key, url, init, success)).kind === "committed";
+  }
+
+  // The action being captured is unsaved work (AUD-03 §3). The owner stays
+  // for the next one after an add, so it is part of the baseline then.
+  const adder = useMeetingDraft({
+    label: "New action item",
+    saveKind: "create",
+    dirty: title !== "" || owner !== ownerBase || due !== "" || createTask,
+    send: async () => {
+      if (!title.trim()) return { kind: "invalid" };
+      const outcome = await send(
+        "add",
+        `/api/meetings/${meeting.id}/actions`,
+        { body: { title: title.trim(), description: null, ownerMemberId: owner || null, dueDate: due || null, createTask } },
+        createTask ? "Action and task created" : "Action added",
+      );
+      if (outcome.kind === "committed") {
+        setTitle("");
+        setDue("");
+        setCreateTask(false);
+        setOwnerBase(owner);
+      }
+      return outcome;
+    },
+  });
 
   return (
     <section aria-labelledby={`actions-heading-${openOnly ? "open" : "all"}`} className="space-y-3" data-testid="actions-panel">
@@ -78,20 +109,10 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
         <form
           data-testid="action-form"
           className="space-y-3 rounded-xl border border-line bg-surface-muted p-4"
-          onSubmit={async (event) => {
+          onSubmit={(event) => {
             event.preventDefault();
             if (!title.trim()) return;
-            const ok = await call(
-              "add",
-              `/api/meetings/${meeting.id}/actions`,
-              { body: { title: title.trim(), description: null, ownerMemberId: owner || null, dueDate: due || null, createTask } },
-              createTask ? "Action and task created" : "Action added",
-            );
-            if (ok) {
-              setTitle("");
-              setDue("");
-              setCreateTask(false);
-            }
+            void adder.save();
           }}
         >
           <div className="space-y-1">
@@ -125,7 +146,20 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
               <span />
             )}
             <div className="flex gap-2">
-              <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  void adder.dismiss(() => {
+                    setOpen(false);
+                    setTitle("");
+                    setDue("");
+                    setCreateTask(false);
+                    setOwner(ownerBase);
+                  })
+                }
+              >
                 Done
               </Button>
               <Button type="submit" size="sm" disabled={pending === "add" || !title.trim()}>

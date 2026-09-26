@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 
 import { ErrorState } from "@/components/ui/error-state";
 

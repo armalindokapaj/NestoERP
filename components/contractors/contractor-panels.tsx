@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation/guarded-router";
 import { Mail, Pencil, Phone, Plus, Trash2, Upload } from "lucide-react";
 
 import { useUploadQueue } from "@/components/documents/upload-queue";

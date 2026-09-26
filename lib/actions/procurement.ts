@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
+import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
 import * as quotes from "@/lib/modules/procurement/quotes/quote.service";
@@ -32,7 +33,7 @@ import {
  */
 
 export type ProcurementActionResult =
-  | { ok: true; id?: string; message?: string; code?: string; details?: unknown }
+  | { ok: true; id?: string; message?: string; code?: string; details?: unknown; redirectTo?: string }
   | {
       ok: false;
       error: string;
@@ -130,7 +131,7 @@ export async function createSupplierAction(formData: FormData): Promise<Procurem
   }
 
   revalidateProcurement();
-  redirect(`/procurement/suppliers/${id}`);
+  return committed(`/procurement/suppliers/${id}`);
 }
 
 export async function updateSupplierAction(
@@ -149,7 +150,7 @@ export async function updateSupplierAction(
   }
 
   revalidateProcurement(`/procurement/suppliers/${supplierId}`);
-  redirect(`/procurement/suppliers/${supplierId}`);
+  return committed(`/procurement/suppliers/${supplierId}`);
 }
 
 export async function supplierLifecycleAction(
@@ -189,7 +190,7 @@ export async function createRequestAction(formData: FormData): Promise<Procureme
   }
 
   revalidateProcurement();
-  redirect(`/procurement/requests/${id}`);
+  return committed(`/procurement/requests/${id}`);
 }
 
 export async function updateRequestAction(
@@ -209,7 +210,7 @@ export async function updateRequestAction(
   }
 
   revalidateProcurement(`/procurement/requests/${requestId}`);
-  redirect(`/procurement/requests/${requestId}`);
+  return committed(`/procurement/requests/${requestId}`);
 }
 
 export type RequestLifecycleAction =
@@ -296,7 +297,7 @@ export async function createRfqAction(formData: FormData): Promise<ProcurementAc
   }
 
   revalidateProcurement();
-  redirect(`/procurement/rfqs/${id}`);
+  return committed(`/procurement/rfqs/${id}`);
 }
 
 export async function updateRfqAction(
@@ -317,7 +318,7 @@ export async function updateRfqAction(
   }
 
   revalidateProcurement(`/procurement/rfqs/${rfqId}`);
-  redirect(`/procurement/rfqs/${rfqId}`);
+  return committed(`/procurement/rfqs/${rfqId}`);
 }
 
 export type RfqLifecycleAction = "issue" | "close" | "cancel";
@@ -451,7 +452,7 @@ export async function createOrderAction(formData: FormData): Promise<Procurement
   }
 
   revalidateProcurement();
-  redirect(`/procurement/orders/${id}`);
+  return committed(`/procurement/orders/${id}`);
 }
 
 export async function updateOrderAction(
@@ -471,7 +472,7 @@ export async function updateOrderAction(
   }
 
   revalidateProcurement(`/procurement/orders/${orderId}`);
-  redirect(`/procurement/orders/${orderId}`);
+  return committed(`/procurement/orders/${orderId}`);
 }
 
 export type OrderLifecycleAction =

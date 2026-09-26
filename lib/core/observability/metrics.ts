@@ -165,6 +165,9 @@ export const Metric = {
   TELEMETRY_BATCH: "telemetry_batch_total",
   TELEMETRY_EVENT_DROPPED: "telemetry_event_dropped_total",
   SHELL_SLOT_MS: "shell_slot_ms_total",
+  // Unsaved-work guard events from sampled browsers (AUD-03 §8): kind, departure
+  // and module only — never a value, a record title or an attachment name.
+  UNSAVED_GUARD: "unsaved_guard_total",
 } as const;
 
 /** Adds one timed run of a stage: its duration to `total`, one to `count`. */
@@ -293,6 +296,11 @@ export const HISTOGRAMS = {
     buckets: DURATION_BUCKETS_MS,
     labels: { family: ["count", "list"], outcome: ["success", "failure"] },
   },
+  unsaved_guard_ms: {
+    help: "How long an unsaved-changes decision took, from the prompt to the person's choice or the save's answer (AUD-03 §8).",
+    buckets: DURATION_BUCKETS_MS,
+    labels: { event: ["stay", "discard", "save", "save_failed", "continued"], departure: ["navigate", "history", "dismiss", "workspace", "identity", "reload"] },
+  },
   project_discovery_query_ms: {
     help: "Server time for one page of the Projects page's authorised project cards.",
     buckets: DURATION_BUCKETS_MS,
@@ -302,6 +310,14 @@ export const HISTOGRAMS = {
     help: "Server time for one invoice or expense register read: a filtered page with its totals, or a CSV export.",
     buckets: DURATION_BUCKETS_MS,
     labels: { register: ["invoices", "expenses"], operation: ["list", "export"], scope: ["group", "company"], outcome: ["success", "failure", "refused"] },
+  },
+  task_mutation_ms: {
+    help: "Server time for one task command, from its first check to its commit or refusal. Conflicts are an outcome, never content.",
+    buckets: DURATION_BUCKETS_MS,
+    labels: {
+      command: ["edit", "start", "block", "complete", "reopen", "archive", "restore"],
+      outcome: ["committed", "unchanged", "version_conflict", "state_conflict", "version_required", "refused", "retryable", "failure"],
+    },
   },
 } as const satisfies Record<string, { help: string; buckets: readonly number[]; labels: Record<string, readonly string[]> }>;
 

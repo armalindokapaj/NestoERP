@@ -61,6 +61,7 @@ export function ProposalForm({
   return (
     <RecordForm
       action={action}
+      module="sales"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}

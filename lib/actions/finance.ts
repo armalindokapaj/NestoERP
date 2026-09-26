@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
+import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import * as commitments from "@/lib/modules/finance/commitments/commitment.service";
@@ -41,7 +42,7 @@ import {
  */
 
 export type FinanceActionResult =
-  | { ok: true; id?: string; message?: string }
+  | { ok: true; id?: string; message?: string; redirectTo?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
 
 function revalidateFinance(path?: string) {
@@ -150,7 +151,7 @@ export async function createInvoiceAction(formData: FormData): Promise<FinanceAc
   }
 
   revalidateFinance();
-  redirect(`/finance/invoices/${id}`);
+  return committed(`/finance/invoices/${id}`);
 }
 
 export async function updateInvoiceAction(
@@ -172,7 +173,7 @@ export async function updateInvoiceAction(
   }
 
   revalidateFinance(`/finance/invoices/${invoiceId}`);
-  redirect(`/finance/invoices/${invoiceId}`);
+  return committed(`/finance/invoices/${invoiceId}`);
 }
 
 export type InvoiceAction =
@@ -239,7 +240,7 @@ export async function createExpenseAction(formData: FormData): Promise<FinanceAc
   }
 
   revalidateFinance();
-  redirect(`/finance/expenses/${id}`);
+  return committed(`/finance/expenses/${id}`);
 }
 
 export async function updateExpenseAction(
@@ -258,7 +259,7 @@ export async function updateExpenseAction(
   }
 
   revalidateFinance(`/finance/expenses/${expenseId}`);
-  redirect(`/finance/expenses/${expenseId}`);
+  return committed(`/finance/expenses/${expenseId}`);
 }
 
 export type ExpenseAction = "submit" | "approve" | "cancel" | "archive" | "restore";
@@ -323,7 +324,7 @@ export async function createBudgetAction(formData: FormData): Promise<FinanceAct
   }
 
   revalidateFinance();
-  redirect(`/finance/budgets/${id}`);
+  return committed(`/finance/budgets/${id}`);
 }
 
 export async function updateBudgetAction(
@@ -345,7 +346,7 @@ export async function updateBudgetAction(
   }
 
   revalidateFinance(`/finance/budgets/${budgetId}`);
-  redirect(`/finance/budgets/${budgetId}`);
+  return committed(`/finance/budgets/${budgetId}`);
 }
 
 export type BudgetAction = "submit" | "approve" | "archive" | "restore";
@@ -418,7 +419,7 @@ export async function createCommitmentAction(formData: FormData): Promise<Financ
   }
 
   revalidateFinance();
-  redirect(`/finance/commitments/${id}`);
+  return committed(`/finance/commitments/${id}`);
 }
 
 export async function updateCommitmentAction(
@@ -437,7 +438,7 @@ export async function updateCommitmentAction(
   }
 
   revalidateFinance(`/finance/commitments/${commitmentId}`);
-  redirect(`/finance/commitments/${commitmentId}`);
+  return committed(`/finance/commitments/${commitmentId}`);
 }
 
 export type CommitmentAction =
@@ -508,7 +509,7 @@ export async function recordPaymentAction(formData: FormData): Promise<FinanceAc
     ? `/finance/invoices/${parsed.data.invoiceId}`
     : `/finance/expenses/${parsed.data.expenseId}`;
   revalidateFinance(target);
-  redirect(target);
+  return committed(target);
 }
 
 export async function voidPaymentAction(
