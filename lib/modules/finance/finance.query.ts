@@ -41,7 +41,9 @@ import {
  * Shared by the pages and the API, so `/finance/invoices?status=SENT` and
  * `GET /api/finance/invoices?status=SENT` behave identically. An unknown sort
  * key or status is dropped rather than rejected: a stale bookmark should show
- * the list, not an error page.
+ * the list, not an error page. A value named twice counts once (AUD-01 §5.1).
+ * A date that is not a date, or a range that ends before it starts, is a
+ * validation error — ignoring it would widen the list without saying so.
  */
 type RawParams = Record<string, string | string[] | undefined> | URLSearchParams;
 
@@ -56,7 +58,7 @@ function list<T extends string>(value: string | undefined, allowed: readonly T[]
     .split(",")
     .map((entry) => entry.trim().toUpperCase())
     .filter((entry): entry is T => (allowed as readonly string[]).includes(entry));
-  return values.length > 0 ? values : undefined;
+  return values.length > 0 ? [...new Set(values)] : undefined;
 }
 
 function sortKey<T extends string>(
@@ -192,5 +194,75 @@ export function parseCommitmentQuery(
     page: page(params),
     limit: limit(params),
     sort: sortKey(read(params, "sort"), COMMITMENT_SORT_KEYS, defaults.sort ?? "expected-asc"),
+  });
+}
+
+/**
+ * The address of the list that actually ran (AUD-01 §5.1, §5.2).
+ *
+ * Each parameter the register reads is written back as it was understood: an
+ * unknown status or sort dropped, a repeated value once, a limit past the cap
+ * at the cap, and the page the reader actually landed on — the last one, when
+ * they asked for a page past the end. A parameter the address does not carry
+ * stays absent, and one this query does not read (the Group `company` filter,
+ * `archived`) is kept as it came, so the page can replace its address with this
+ * and the filters, Refresh and Back all show the list that is on the screen.
+ */
+function canonicalSearch(params: RawParams, understood: Record<string, string | undefined>): string {
+  const next = params instanceof URLSearchParams ? new URLSearchParams(params) : new URLSearchParams();
+  if (!(params instanceof URLSearchParams)) {
+    for (const [key, value] of Object.entries(params)) {
+      const first = firstValue(value);
+      if (first !== undefined) next.set(key, first);
+    }
+  }
+  for (const [key, value] of Object.entries(understood)) {
+    if (!next.has(key)) continue;
+    if (value === undefined || value === "") next.delete(key);
+    else next.set(key, value);
+  }
+  return next.toString();
+}
+
+/** The address as it came, in the same form, to compare with `canonical…Search`. */
+export function searchString(params: RawParams): string {
+  return canonicalSearch(params, {});
+}
+
+const joined = (values: readonly string[] | undefined) => (values?.length ? values.join(",") : undefined);
+const ownSort = (raw: string | undefined, allowed: readonly string[]) => (raw && allowed.includes(raw) ? raw : undefined);
+const ownLimit = (limit: number) => (limit === 25 ? undefined : String(limit));
+const ownPage = (page: number) => (page > 1 ? String(page) : undefined);
+
+export function canonicalInvoiceSearch(params: RawParams, query: InvoiceListQuery, page: number): string {
+  return canonicalSearch(params, {
+    search: query.search || undefined,
+    // An archived list is its own dataset, and the workflow filter does not apply to it (AUD-01 §5.1).
+    status: query.archived ? undefined : joined(query.status),
+    settlement: joined(query.settlement),
+    clientId: query.clientId,
+    projectId: query.projectId,
+    currency: query.currency,
+    issuedFrom: query.issuedFrom ? read(params, "issuedFrom") : undefined,
+    issuedTo: query.issuedTo ? read(params, "issuedTo") : undefined,
+    sort: ownSort(read(params, "sort"), INVOICE_SORT_KEYS),
+    limit: ownLimit(query.limit),
+    page: ownPage(page),
+  });
+}
+
+export function canonicalExpenseSearch(params: RawParams, query: ExpenseListQuery, page: number): string {
+  return canonicalSearch(params, {
+    search: query.search || undefined,
+    status: query.archived ? undefined : joined(query.status),
+    settlement: joined(query.settlement),
+    category: joined(query.category),
+    projectId: query.projectId,
+    currency: query.currency,
+    incurredFrom: query.incurredFrom ? read(params, "incurredFrom") : undefined,
+    incurredTo: query.incurredTo ? read(params, "incurredTo") : undefined,
+    sort: ownSort(read(params, "sort"), EXPENSE_SORT_KEYS),
+    limit: ownLimit(query.limit),
+    page: ownPage(page),
   });
 }

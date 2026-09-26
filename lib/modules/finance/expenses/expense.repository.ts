@@ -2,8 +2,10 @@ import { Prisma } from "@prisma/client";
 
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { searchClause } from "@/lib/modules/shared/list-query";
+import { readRegisterSnapshot, registerSlice, registerSummary, type RegisterWindow } from "../finance.register";
 import { buildExpenseScopeWhere } from "../finance.scope";
+import { expenseSettlementWhere } from "../invoices/invoice.status";
 import type { ExpenseListQuery, ExpenseSortKey } from "./expense.schema";
 
 /** Expense queries (PRD #15 §167, §168, §263). */
@@ -79,44 +81,72 @@ export function buildExpenseListWhere(
   return { AND: filters };
 }
 
-export async function listExpenses(context: UserContext, query: ExpenseListQuery) {
-  const where = buildExpenseListWhere(context, query);
-
-  const [rows, total] = await Promise.all([
-    prisma.expense.findMany({
-      where,
-      orderBy: ORDER[query.sort],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUMMARY_SELECT,
-    }),
-    prisma.expense.count({ where }),
-  ]);
-
-  return { rows, total };
+/** The chosen sort, then the id, so a page holds still (AUD-01 §5.2). */
+function registerOrder(sort: ExpenseSortKey): Prisma.ExpenseOrderByWithRelationInput[] {
+  return [...ORDER[sort], { id: "asc" }];
 }
 
+/** A register row: the summary, its company, and what it has been paid in this snapshot. */
+export const REGISTER_SELECT = {
+  ...SUMMARY_SELECT,
+  companyId: true,
+  settlement: { select: { paidAmount: true } },
+} satisfies Prisma.ExpenseSelect;
+
+export type ExpenseRegisterRow = Prisma.ExpenseGetPayload<{ select: typeof REGISTER_SELECT }>;
+
 /**
- * The Group workspace's expense list (Workspace Context §36, §58): the union of
- * each company's own list clause, applied before sort and pagination, with `id`
- * as the tiebreaker so a page holds still.
+ * The expense register — list, count, filtered totals and export (AUD-01 §4):
+ * each company's own list clause, united, filtered by settlement through the
+ * settlement view before anything is counted, totalled or paged. The twin of
+ * `readInvoiceRegister`.
  */
-export async function listExpensesAcross(contexts: UserContext[], query: ExpenseListQuery) {
-  if (contexts.length === 0) return { rows: [], total: 0 };
-  const where: Prisma.ExpenseWhereInput = { OR: contexts.map((context) => buildExpenseListWhere(context, query)) };
+export async function readExpenseRegister(
+  contexts: UserContext[],
+  query: ExpenseListQuery,
+  read: { evaluatedAt: Date; window: RegisterWindow; timeoutMs?: number },
+) {
+  // Nothing readable is an empty answer, not an error (Workspace Context §76).
+  if (contexts.length === 0) return { rows: [] as ExpenseRegisterRow[], summary: registerSummary("expenses", [], read.evaluatedAt), page: 1 };
 
-  const [rows, total] = await Promise.all([
-    prisma.expense.findMany({
-      where,
-      orderBy: [...ORDER[query.sort], { id: "asc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: { ...SUMMARY_SELECT, companyId: true },
-    }),
-    prisma.expense.count({ where }),
-  ]);
+  const eligible: Prisma.ExpenseWhereInput =
+    contexts.length === 1 ? buildExpenseListWhere(contexts[0], query) : { OR: contexts.map((context) => buildExpenseListWhere(context, query)) };
+  const companies: Prisma.ExpenseSettlementWhereInput = { companyId: { in: contexts.map((context) => context.companyId) } };
+  const settled = query.settlement?.length ? expenseSettlementWhere(query.settlement) : null;
 
-  return { rows, total };
+  return readRegisterSnapshot(
+    "expenses",
+    async (tx) => {
+      const groups = await tx.expenseSettlement.groupBy({
+        by: ["currency"],
+        _count: { _all: true },
+        _sum: { totalAmount: true, paidAmount: true, outstandingAmount: true, integrityIssues: true },
+        orderBy: { currency: "asc" },
+        where: { AND: [companies, ...(settled ? [settled] : []), { expense: { is: eligible } }] },
+      });
+      const summary = registerSummary("expenses", groups, read.evaluatedAt);
+      const slice = registerSlice(read.window, summary.matchingCount);
+
+      const rows =
+        slice.take === 0
+          ? []
+          : await tx.expense.findMany({
+              where: settled ? { AND: [eligible, { settlement: { is: { AND: [companies, settled] } } }] } : eligible,
+              orderBy: registerOrder(query.sort),
+              skip: slice.skip,
+              take: slice.take,
+              select: REGISTER_SELECT,
+            });
+
+      return { rows, summary, page: slice.page };
+    },
+    { timeoutMs: read.timeoutMs },
+  );
+}
+
+/** One expense's settlement row, for a detail read's integrity check (AUD-01 §3). */
+export function expenseSettlementRow(expenseId: string) {
+  return prisma.expenseSettlement.findUnique({ where: { expenseId }, select: { integrityIssues: true } });
 }
 
 export function findExpenseInScope(context: UserContext, expenseId: string) {

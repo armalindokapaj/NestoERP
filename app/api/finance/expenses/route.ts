@@ -6,7 +6,9 @@ import * as expenses from "@/lib/modules/finance/expenses/expense.service";
 /**
  * GET/POST /api/finance/expenses (PRD #15 §223). The GET answers the Group
  * workspace too: every company the caller may read, each row naming its company,
- * narrowed by `?company=` only within those (Workspace Context §36, §86).
+ * narrowed by `?company=` only within those (Workspace Context §36, §86). Every
+ * filter applies before the page, and `summary` totals all the matches per
+ * currency (AUD-01 §5, §6).
  */
 export async function GET(request: Request) {
   return withContext(

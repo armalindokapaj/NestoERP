@@ -644,6 +644,33 @@ export const sq: Messages = {
     },
   },
 
+  financeRegister: {
+    filteredResults: "Rezultatet e filtruara",
+    matchingInvoices_one: "{count} faturë që përputhet",
+    matchingInvoices_other: "{count} fatura që përputhen",
+    matchingExpenses_one: "{count} shpenzim që përputhet",
+    matchingExpenses_other: "{count} shpenzime që përputhen",
+    summaryLabel: "Totalet e rezultateve të filtruara, sipas monedhës",
+    total: "Gjithsej",
+    paid: "Paguar",
+    outstanding: "Pa paguar",
+    updating: "Po përditësohen rezultatet…",
+    exportCsv: "Eksporto CSV-në e filtruar",
+    exporting: "Po përgatitet CSV…",
+    exportDone_one: "CSV u shkarkua me {count} regjistrim.",
+    exportDone_other: "CSV u shkarkua me {count} regjistrime.",
+    exportFailed: "CSV nuk u përgatit dot.",
+    exportRetry: "Provo përsëri",
+    exportNothing: "Nuk ka asgjë për të eksportuar: asnjë regjistrim nuk përputhet me këta filtra.",
+    exportTooMany: "Shumë regjistrime për t'u eksportuar. Ngushtoni filtrat deri në 10,000 regjistrime ose më pak.",
+    exportChooseCompany: "Nuk mund të eksportoni nga çdo kompani e kësaj pamjeje. Zgjidhni më parë një nga këto te filtri Kompania: {companies}.",
+    exportCompanyRequired: "Zgjidhni te filtri Kompania një kompani ku mund të eksportoni, pastaj provoni përsëri.",
+    exportUnavailable: "Nuk keni leje të eksportoni këto regjistrime.",
+    invalidFiltersTitle: "Këta filtra nuk mund të zbatohen.",
+    invalidFiltersDescription: "Një datë në adresë nuk është e vlefshme, ose periudha mbaron para se të fillojë.",
+    clearFilters: "Pastro filtrat",
+  },
+
   system: {
     returnToDashboard: "Kthehu te Paneli",
     notFound: {

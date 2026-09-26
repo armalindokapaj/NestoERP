@@ -298,6 +298,11 @@ export const HISTOGRAMS = {
     buckets: DURATION_BUCKETS_MS,
     labels: { scope: ["group", "company"], outcome: ["success", "failure"] },
   },
+  finance_register_query_ms: {
+    help: "Server time for one invoice or expense register read: a filtered page with its totals, or a CSV export.",
+    buckets: DURATION_BUCKETS_MS,
+    labels: { register: ["invoices", "expenses"], operation: ["list", "export"], scope: ["group", "company"], outcome: ["success", "failure", "refused"] },
+  },
 } as const satisfies Record<string, { help: string; buckets: readonly number[]; labels: Record<string, readonly string[]> }>;
 
 export type HistogramName = keyof typeof HISTOGRAMS;

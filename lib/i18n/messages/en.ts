@@ -649,6 +649,37 @@ export const en = {
     },
   },
 
+  /**
+   * The invoice and expense registers' filtered totals and CSV export (AUD-01
+   * §6, §8, §9). The rest of the Finance pages are not translated yet.
+   */
+  financeRegister: {
+    filteredResults: "Filtered results",
+    matchingInvoices_one: "{count} matching invoice",
+    matchingInvoices_other: "{count} matching invoices",
+    matchingExpenses_one: "{count} matching expense",
+    matchingExpenses_other: "{count} matching expenses",
+    summaryLabel: "Totals of the filtered results, by currency",
+    total: "Total",
+    paid: "Paid",
+    outstanding: "Outstanding",
+    updating: "Updating results…",
+    exportCsv: "Export filtered CSV",
+    exporting: "Preparing CSV…",
+    exportDone_one: "CSV downloaded with {count} record.",
+    exportDone_other: "CSV downloaded with {count} records.",
+    exportFailed: "The CSV could not be prepared.",
+    exportRetry: "Try again",
+    exportNothing: "There is nothing to export: no records match these filters.",
+    exportTooMany: "Too many records to export. Narrow your filters to 10,000 records or fewer.",
+    exportChooseCompany: "You can't export from every company in this view. Choose one of these in the Company filter first: {companies}.",
+    exportCompanyRequired: "Choose a company where you can export in the Company filter, then try again.",
+    exportUnavailable: "You don't have permission to export these records.",
+    invalidFiltersTitle: "These filters could not be applied.",
+    invalidFiltersDescription: "A date in the address is not a valid date, or the date range ends before it starts.",
+    clearFilters: "Clear filters",
+  },
+
   system: {
     returnToDashboard: "Return to Dashboard",
     notFound: {

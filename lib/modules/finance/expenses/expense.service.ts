@@ -18,10 +18,11 @@ import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { businessDateString } from "../finance.fields";
 import { toAmountString } from "../finance.money";
 import { hasCompanyFinanceScope } from "../finance.scope";
+import { assertSettlementIntegrity, EXPORT_ROW_LIMIT, exportLimitExceeded, measuredRegister } from "../finance.register";
 import { paidByExpense, settlementFor } from "../finance.settlement";
-import { companyOf, financeContexts, narrowToCompany } from "../finance.workspace";
+import { companyOf, financeContexts, financeExportContexts, narrowToCompany } from "../finance.workspace";
 import { PAYMENT_SELECT, toSummaryDTO as paymentSummaryDTO } from "../payments/payment.service";
-import type { ExpenseDetailDTO, ExpenseSummaryDTO, RecordCapabilities } from "../finance.types";
+import type { CompanyRef, ExpenseDetailDTO, ExpenseSummaryDTO, FinanceListSummary, RecordCapabilities, WithCompany } from "../finance.types";
 import { calculateExpenseTotal } from "../invoices/invoice.calculation";
 import { expenseSettlement } from "../invoices/invoice.status";
 import * as repository from "./expense.repository";
@@ -54,21 +55,23 @@ const ENTITY = "Expense";
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listExpenses(context: UserContext, query: ExpenseListQuery) {
+/** What every register read may be told: the Group `company` filter, and a clock for tests. */
+export type ExpenseRegisterOptions = { company?: string | null; now?: Date };
+
+export type ExpenseListResult = {
+  data: ExpenseSummaryDTO[];
+  pagination: ReturnType<typeof paginationMeta>;
+  summary: FinanceListSummary;
+};
+
+/**
+ * The expenses of one company (PRD #15 §167; AUD-01 §4-§6): settlement filtered
+ * in the database before the count, the totals and the page.
+ */
+export async function listExpenses(context: UserContext, query: ExpenseListQuery, options: Pick<ExpenseRegisterOptions, "now"> = {}): Promise<ExpenseListResult> {
   assertModule(context, MODULE);
   assertPermission(context, "finance.expense.view");
-
-  const { rows, total } = await repository.listExpenses(context, query);
-  const paid = await paidByExpense(rows.map((row) => row.id));
-
-  let data = rows.map((row) => toSummaryDTO(row, paid.get(row.id)));
-
-  if (query.settlement?.length) {
-    const wanted = new Set(query.settlement);
-    data = data.filter((expense) => wanted.has(expense.settlementStatus));
-  }
-
-  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+  return measuredRegister("expenses", "list", "company", () => registerPage([context], query, options.now, false));
 }
 
 /**
@@ -80,24 +83,54 @@ export async function listExpenses(context: UserContext, query: ExpenseListQuery
 export async function listExpensesForWorkspace(
   session: UserContext,
   query: ExpenseListQuery,
-  options: { company?: string | null } = {},
-) {
-  if (!inGroupWorkspace(session)) return listExpenses(session, query);
+  options: ExpenseRegisterOptions = {},
+): Promise<ExpenseListResult> {
+  if (!inGroupWorkspace(session)) return listExpenses(session, query, options);
 
   // Nothing readable is an empty answer, not an error (§76).
   const readable = narrowToCompany(await financeContexts(session, "finance.expense.view"), options.company);
-  const { rows, total } = await repository.listExpensesAcross(readable, query);
-  const paid = await paidByExpense(rows.map((row) => row.id));
-  const companies = new Map(readable.map((context) => [context.companyId, companyOf(context)]));
+  return measuredRegister("expenses", "list", "group", () => registerPage(readable, query, options.now, true));
+}
 
-  let data = rows.map((row) => ({ ...toSummaryDTO(row, paid.get(row.id)), company: companies.get(row.companyId)! }));
+async function registerPage(contexts: UserContext[], query: ExpenseListQuery, now: Date | undefined, grouped: boolean): Promise<ExpenseListResult> {
+  const evaluatedAt = now ?? new Date();
+  const { rows, summary, page } = await repository.readExpenseRegister(contexts, query, {
+    evaluatedAt,
+    window: { kind: "page", page: query.page, limit: query.limit },
+  });
+  const companies = new Map(contexts.map((context) => [context.companyId, companyOf(context)]));
+  const data = rows.map((row) => {
+    const dto = toSummaryDTO(row, row.settlement?.paidAmount);
+    return grouped ? { ...dto, company: companies.get(row.companyId)! } : dto;
+  });
+  return { data, pagination: paginationMeta(summary.matchingCount, page, query.limit), summary };
+}
 
-  if (query.settlement?.length) {
-    const wanted = new Set(query.settlement);
-    data = data.filter((expense) => wanted.has(expense.settlementStatus));
-  }
-
-  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+/**
+ * Every expense the register's filters match, for a CSV file (AUD-01 §8): the
+ * list's read without the page, refused whole beyond `EXPORT_ROW_LIMIT`.
+ */
+export async function exportExpensesForWorkspace(
+  session: UserContext,
+  query: ExpenseListQuery,
+  options: ExpenseRegisterOptions = {},
+): Promise<{ rows: Array<WithCompany<ExpenseSummaryDTO>>; evaluatedAt: Date }> {
+  const scope = inGroupWorkspace(session) ? "group" : "company";
+  return measuredRegister("expenses", "export", scope, async () => {
+    const contexts = await financeExportContexts(session, "finance.expense.view", options.company);
+    const evaluatedAt = options.now ?? new Date();
+    const { rows, summary } = await repository.readExpenseRegister(contexts, query, {
+      evaluatedAt,
+      window: { kind: "export", limit: EXPORT_ROW_LIMIT },
+      timeoutMs: 30_000,
+    });
+    if (summary.matchingCount > EXPORT_ROW_LIMIT) throw exportLimitExceeded();
+    const companies = new Map<string, CompanyRef>(contexts.map((context) => [context.companyId, companyOf(context)]));
+    return {
+      rows: rows.map((row) => ({ ...toSummaryDTO(row, row.settlement?.paidAmount), company: companies.get(row.companyId)! })),
+      evaluatedAt,
+    };
+  });
 }
 
 export async function getExpense(
@@ -109,8 +142,9 @@ export async function getExpense(
 
   const expense = assertFound(await repository.findExpenseInScope(context, expenseId));
 
-  const [paid, payments, history, creator] = await Promise.all([
+  const [paid, settlementRow, payments, history, creator] = await Promise.all([
     paidByExpense([expense.id]),
+    repository.expenseSettlementRow(expense.id),
     can(context, "finance.payment.view")
       ? prisma.payment.findMany({
           // Every payment with money allocated to this expense (E-05F §31).
@@ -123,6 +157,7 @@ export async function getExpense(
     memberRef(expense.createdByMemberId),
   ]);
 
+  assertSettlementIntegrity("expenses", settlementRow?.integrityIssues ?? 0);
   const settlement = settlementFor(expense.totalAmount, paid.get(expense.id));
 
   return {

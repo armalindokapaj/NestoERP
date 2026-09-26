@@ -112,7 +112,9 @@ export function ListToolbar({
         />
       </form>
 
-      <div className="hidden items-center gap-2 md:flex">
+      {/* Wraps rather than running off the page: at tablet width a list with
+          five filters and a sort is wider than the content column (AUD-01 §9). */}
+      <div className="hidden min-w-0 flex-wrap items-center gap-2 md:flex">
         {filters.map((filter) => (
           <select
             key={filter.param}

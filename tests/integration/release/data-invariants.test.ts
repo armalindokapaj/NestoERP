@@ -328,4 +328,15 @@ describe("money (PRD #35 §195, §28)", () => {
     const over = payments.filter((payment) => payment.allocations.reduce((total, allocation) => total.plus(allocation.amount), payment.amount.minus(payment.amount)).greaterThan(payment.amount));
     expect(over.map((row) => row.id)).toEqual([]);
   });
+
+  it("settles no invoice or expense with another company's money or another currency (AUD-01 §3)", async () => {
+    // The settlement views count the live allocations whose allocation or
+    // payment belongs to another company, or whose payment is in another
+    // currency; the registers refuse to total a record that has any.
+    const [invoices, expenses] = await Promise.all([
+      prisma.invoiceSettlement.findMany({ where: { integrityIssues: { gt: 0 } }, select: { invoiceId: true } }),
+      prisma.expenseSettlement.findMany({ where: { integrityIssues: { gt: 0 } }, select: { expenseId: true } }),
+    ]);
+    expect([...invoices.map((row) => row.invoiceId), ...expenses.map((row) => row.expenseId)]).toEqual([]);
+  });
 });

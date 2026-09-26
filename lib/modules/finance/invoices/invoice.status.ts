@@ -114,6 +114,42 @@ export function expenseSettlement(input: {
   return input.paid.greaterThan(0) ? "PARTIALLY_PAID" : "UNPAID";
 }
 
+/**
+ * The same two classifiers, asked of the settlement views (AUD-01 §3, §5).
+ *
+ * A register filters by settlement in the database, before it counts, totals or
+ * pages, so the rules above are written a second time as a `where` over the
+ * view's columns. The arms are the classifier's branches in its own order —
+ * each one excludes the branches before it — so a record lands in exactly one,
+ * and `tests/api/finance/finance-accuracy.test.ts` holds the two to each other.
+ * `at` is the response's single `evaluatedAt`: due exactly then is not overdue.
+ */
+function overdueAt(at: Date) {
+  return { status: "SENT", dueDate: { lt: at } } satisfies Prisma.InvoiceSettlementWhereInput;
+}
+
+const INVOICE_SETTLEMENT_ARMS: Record<SettlementStatus, (at: Date) => Prisma.InvoiceSettlementWhereInput> = {
+  PAID: () => ({ outstandingAmount: { lte: 0 } }),
+  OVERDUE: (at) => ({ outstandingAmount: { gt: 0 }, ...overdueAt(at) }),
+  PARTIALLY_PAID: (at) => ({ outstandingAmount: { gt: 0 }, NOT: overdueAt(at), paidAmount: { gt: 0 } }),
+  UNPAID: (at) => ({ outstandingAmount: { gt: 0 }, NOT: overdueAt(at), paidAmount: { lte: 0 } }),
+};
+
+/** Any of `wanted`: OR within the settlement filter (AUD-01 §5.1). */
+export function invoiceSettlementWhere(wanted: readonly SettlementStatus[], at: Date): Prisma.InvoiceSettlementWhereInput {
+  return { OR: [...new Set(wanted)].map((status) => INVOICE_SETTLEMENT_ARMS[status](at)) };
+}
+
+const EXPENSE_SETTLEMENT_ARMS: Record<ExpenseSettlementStatus, Prisma.ExpenseSettlementWhereInput> = {
+  PAID: { outstandingAmount: { lte: 0 } },
+  PARTIALLY_PAID: { outstandingAmount: { gt: 0 }, paidAmount: { gt: 0 } },
+  UNPAID: { outstandingAmount: { gt: 0 }, paidAmount: { lte: 0 } },
+};
+
+export function expenseSettlementWhere(wanted: readonly ExpenseSettlementStatus[]): Prisma.ExpenseSettlementWhereInput {
+  return { OR: [...new Set(wanted)].map((status) => EXPENSE_SETTLEMENT_ARMS[status]) };
+}
+
 export const settlementLabels: Record<SettlementStatus, string> = {
   UNPAID: "Unpaid",
   PARTIALLY_PAID: "Partially paid",

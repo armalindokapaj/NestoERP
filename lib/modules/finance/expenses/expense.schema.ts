@@ -69,19 +69,25 @@ export const EXPENSE_SORT_KEYS = [
 
 export type ExpenseSortKey = (typeof EXPENSE_SORT_KEYS)[number];
 
-export const expenseListQuerySchema = z.object({
-  search: z.string().trim().max(200).optional(),
-  status: z.array(z.enum(EXPENSE_STATUSES)).optional(),
-  settlement: z.array(z.enum(EXPENSE_SETTLEMENTS)).optional(),
-  category: z.array(z.enum(EXPENSE_CATEGORIES)).optional(),
-  projectId: z.string().optional(),
-  currency: z.string().optional(),
-  incurredFrom: optionalDate,
-  incurredTo: optionalDate,
-  archived: z.boolean().default(false),
-  page: z.number().int().min(1).default(1),
-  limit: z.number().int().min(1).max(100).default(25),
-  sort: z.enum(EXPENSE_SORT_KEYS).default("date-desc"),
-});
+export const expenseListQuerySchema = z
+  .object({
+    search: z.string().trim().max(200).optional(),
+    status: z.array(z.enum(EXPENSE_STATUSES)).optional(),
+    settlement: z.array(z.enum(EXPENSE_SETTLEMENTS)).optional(),
+    category: z.array(z.enum(EXPENSE_CATEGORIES)).optional(),
+    projectId: z.string().optional(),
+    currency: z.string().optional(),
+    incurredFrom: optionalDate,
+    incurredTo: optionalDate,
+    archived: z.boolean().default(false),
+    page: z.number().int().min(1).default(1),
+    limit: z.number().int().min(1).max(100).default(25),
+    sort: z.enum(EXPENSE_SORT_KEYS).default("date-desc"),
+  })
+  // Refused rather than answered with an empty list that looks like a result (AUD-01 §5.1).
+  .refine((query) => !query.incurredFrom || !query.incurredTo || query.incurredFrom.getTime() <= query.incurredTo.getTime(), {
+    message: "The date range ends before it starts.",
+    path: ["incurredTo"],
+  });
 
 export type ExpenseListQuery = z.infer<typeof expenseListQuerySchema>;

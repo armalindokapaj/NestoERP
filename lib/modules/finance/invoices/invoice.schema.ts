@@ -88,20 +88,27 @@ export const INVOICE_SORT_KEYS = [
 
 export type InvoiceSortKey = (typeof INVOICE_SORT_KEYS)[number];
 
-export const invoiceListQuerySchema = z.object({
-  search: z.string().trim().max(200).optional(),
-  status: z.array(z.enum(INVOICE_STATUSES)).optional(),
-  settlement: z.array(z.enum(SETTLEMENT_FILTERS)).optional(),
-  clientId: z.string().optional(),
-  projectId: z.string().optional(),
-  currency: z.string().optional(),
-  issuedFrom: optionalDate,
-  issuedTo: optionalDate,
-  archived: z.boolean().default(false),
-  page: z.number().int().min(1).default(1),
-  limit: z.number().int().min(1).max(100).default(25),
-  sort: z.enum(INVOICE_SORT_KEYS).default("issue-desc"),
-});
+export const invoiceListQuerySchema = z
+  .object({
+    search: z.string().trim().max(200).optional(),
+    status: z.array(z.enum(INVOICE_STATUSES)).optional(),
+    settlement: z.array(z.enum(SETTLEMENT_FILTERS)).optional(),
+    clientId: z.string().optional(),
+    projectId: z.string().optional(),
+    currency: z.string().optional(),
+    issuedFrom: optionalDate,
+    issuedTo: optionalDate,
+    archived: z.boolean().default(false),
+    page: z.number().int().min(1).default(1),
+    limit: z.number().int().min(1).max(100).default(25),
+    sort: z.enum(INVOICE_SORT_KEYS).default("issue-desc"),
+  })
+  // A range that ends before it starts matches nothing by accident; it is refused
+  // rather than answered with an empty list that looks like a result (AUD-01 §5.1).
+  .refine((query) => !query.issuedFrom || !query.issuedTo || query.issuedFrom.getTime() <= query.issuedTo.getTime(), {
+    message: "The issue date range ends before it starts.",
+    path: ["issuedTo"],
+  });
 
 export type InvoiceListQuery = z.infer<typeof invoiceListQuerySchema>;
 

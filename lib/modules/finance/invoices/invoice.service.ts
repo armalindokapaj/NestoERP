@@ -28,10 +28,11 @@ import { toAmountString, toRateString } from "../finance.money";
 import { buildProposalScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { buildInvoiceScopeWhere, hasCompanyFinanceScope } from "../finance.scope";
 import { resolveFinanceSettings } from "../finance.settings";
-import { companyOf, financeContexts, narrowToCompany } from "../finance.workspace";
+import { companyOf, financeContexts, financeExportContexts, narrowToCompany } from "../finance.workspace";
+import { assertSettlementIntegrity, EXPORT_ROW_LIMIT, exportLimitExceeded, measuredRegister } from "../finance.register";
 import { paidByInvoice, settlementFor } from "../finance.settlement";
 import { PAYMENT_SELECT, toSummaryDTO as paymentSummaryDTO } from "../payments/payment.service";
-import type { InvoiceDetailDTO, InvoiceSummaryDTO, RecordCapabilities } from "../finance.types";
+import type { CompanyRef, FinanceListSummary, InvoiceDetailDTO, InvoiceSummaryDTO, RecordCapabilities, WithCompany } from "../finance.types";
 import { calculateInvoice } from "./invoice.calculation";
 import * as repository from "./invoice.repository";
 import type {
@@ -72,24 +73,27 @@ const ENTITY = "Invoice";
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listInvoices(context: UserContext, query: InvoiceListQuery) {
+/** What every register read may be told: the Group `company` filter, and a clock for tests. */
+export type InvoiceRegisterOptions = { company?: string | null; now?: Date };
+
+export type InvoiceListResult = {
+  data: InvoiceSummaryDTO[];
+  pagination: ReturnType<typeof paginationMeta>;
+  summary: FinanceListSummary;
+};
+
+/**
+ * The invoices of one company (PRD #15 §160; AUD-01 §4-§6).
+ *
+ * Settlement is filtered in the database before the count, the totals and the
+ * page, so a Paid search finds every paid invoice the reader may see — not the
+ * paid ones that happened to fall on the page — and `pagination.total` and
+ * `summary` describe the whole filtered result.
+ */
+export async function listInvoices(context: UserContext, query: InvoiceListQuery, options: Pick<InvoiceRegisterOptions, "now"> = {}): Promise<InvoiceListResult> {
   assertModule(context, MODULE);
   assertPermission(context, "finance.invoice.view");
-
-  const { rows, total } = await repository.listInvoices(context, query);
-  const paid = await paidByInvoice(rows.map((row) => row.id));
-
-  let data = rows.map((row) => toSummaryDTO(row, paid.get(row.id)));
-
-  // Settlement is derived, so it cannot be a SQL filter. Filtering after the
-  // page is read means a settlement filter narrows the page rather than the
-  // query — which is honest about what it is, and correct (PRD #15 §42).
-  if (query.settlement?.length) {
-    const wanted = new Set(query.settlement);
-    data = data.filter((invoice) => wanted.has(invoice.settlementStatus));
-  }
-
-  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+  return measuredRegister("invoices", "list", "company", () => registerPage([context], query, options.now, false));
 }
 
 /**
@@ -103,24 +107,59 @@ export async function listInvoices(context: UserContext, query: InvoiceListQuery
 export async function listInvoicesForWorkspace(
   session: UserContext,
   query: InvoiceListQuery,
-  options: { company?: string | null } = {},
-) {
-  if (!inGroupWorkspace(session)) return listInvoices(session, query);
+  options: InvoiceRegisterOptions = {},
+): Promise<InvoiceListResult> {
+  if (!inGroupWorkspace(session)) return listInvoices(session, query, options);
 
   // Nothing readable is an empty answer, not an error (§76).
   const readable = narrowToCompany(await financeContexts(session, "finance.invoice.view"), options.company);
-  const { rows, total } = await repository.listInvoicesAcross(readable, query);
-  const paid = await paidByInvoice(rows.map((row) => row.id));
-  const companies = new Map(readable.map((context) => [context.companyId, companyOf(context)]));
+  return measuredRegister("invoices", "list", "group", () => registerPage(readable, query, options.now, true));
+}
 
-  let data = rows.map((row) => ({ ...toSummaryDTO(row, paid.get(row.id)), company: companies.get(row.companyId)! }));
+async function registerPage(contexts: UserContext[], query: InvoiceListQuery, now: Date | undefined, grouped: boolean): Promise<InvoiceListResult> {
+  const evaluatedAt = now ?? new Date();
+  const { rows, summary, page } = await repository.readInvoiceRegister(contexts, query, {
+    evaluatedAt,
+    window: { kind: "page", page: query.page, limit: query.limit },
+  });
+  const companies = new Map(contexts.map((context) => [context.companyId, companyOf(context)]));
+  const data = rows.map((row) => {
+    const dto = toSummaryDTO(row, row.settlement?.paidAmount, evaluatedAt);
+    return grouped ? { ...dto, company: companies.get(row.companyId)! } : dto;
+  });
+  return { data, pagination: paginationMeta(summary.matchingCount, page, query.limit), summary };
+}
 
-  if (query.settlement?.length) {
-    const wanted = new Set(query.settlement);
-    data = data.filter((invoice) => wanted.has(invoice.settlementStatus));
-  }
-
-  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+/**
+ * Every invoice the register's filters match, for a CSV file (AUD-01 §8).
+ *
+ * The same read as the list — scope, filters, settlement, order — without the
+ * page, in one snapshot, so the file holds each matching invoice exactly once
+ * in the list's order. More than `EXPORT_ROW_LIMIT` refuses the whole request.
+ * Each row names its company, in a company workspace too, because a number is
+ * only unique within one.
+ */
+export async function exportInvoicesForWorkspace(
+  session: UserContext,
+  query: InvoiceListQuery,
+  options: InvoiceRegisterOptions = {},
+): Promise<{ rows: Array<WithCompany<InvoiceSummaryDTO>>; evaluatedAt: Date }> {
+  const scope = inGroupWorkspace(session) ? "group" : "company";
+  return measuredRegister("invoices", "export", scope, async () => {
+    const contexts = await financeExportContexts(session, "finance.invoice.view", options.company);
+    const evaluatedAt = options.now ?? new Date();
+    const { rows, summary } = await repository.readInvoiceRegister(contexts, query, {
+      evaluatedAt,
+      window: { kind: "export", limit: EXPORT_ROW_LIMIT },
+      timeoutMs: 30_000,
+    });
+    if (summary.matchingCount > EXPORT_ROW_LIMIT) throw exportLimitExceeded();
+    const companies = new Map<string, CompanyRef>(contexts.map((context) => [context.companyId, companyOf(context)]));
+    return {
+      rows: rows.map((row) => ({ ...toSummaryDTO(row, row.settlement?.paidAmount, evaluatedAt), company: companies.get(row.companyId)! })),
+      evaluatedAt,
+    };
+  });
 }
 
 export async function getInvoice(
@@ -134,8 +173,9 @@ export async function getInvoice(
   // invoice exists to somebody who may not open it (PRD #15 §174).
   const invoice = assertFound(await repository.findInvoiceInScope(context, invoiceId));
 
-  const [paid, payments, history, creator] = await Promise.all([
+  const [paid, settlementRow, payments, history, creator] = await Promise.all([
     paidByInvoice([invoice.id]),
+    repository.invoiceSettlementRow(invoice.id),
     can(context, "finance.payment.view")
       ? prisma.payment.findMany({
           // Every payment with money allocated to this invoice (E-05F §31).
@@ -148,6 +188,7 @@ export async function getInvoice(
     memberRef(invoice.createdByMemberId),
   ]);
 
+  assertSettlementIntegrity("invoices", settlementRow?.integrityIssues ?? 0);
   const settlement = settlementFor(invoice.totalAmount, paid.get(invoice.id));
   const outstanding = settlement.outstanding;
 
@@ -1066,9 +1107,15 @@ async function memberRef(memberId: string) {
   return { memberId: member.id, fullName: `${member.user.firstName} ${member.user.lastName}` };
 }
 
+/**
+ * An invoice row as the API and the pages show it. `now` is the response's one
+ * `evaluatedAt` in a register, so every row and the settlement filter agree on
+ * what "overdue" meant (AUD-01 §3).
+ */
 export function toSummaryDTO(
   row: repository.InvoiceRow,
   paidAmount: Prisma.Decimal | undefined,
+  now?: Date,
 ): InvoiceSummaryDTO {
   const settlement = settlementFor(row.totalAmount, paidAmount);
 
@@ -1089,6 +1136,7 @@ export function toSummaryDTO(
       paid: settlement.paid,
       outstanding: settlement.outstanding,
       dueDate: row.dueDate,
+      now,
     }),
     updatedAt: row.updatedAt.toISOString(),
   };
