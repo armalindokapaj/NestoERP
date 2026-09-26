@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
-import { DEMO_PASSWORD } from "@/config/demo-accounts";
 import { demoRosters } from "@/lib/auth/demo-tenants";
 import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
@@ -88,7 +87,7 @@ export default async function LoginPage({
             </div>
 
             {isDevMode ? (
-              <DemoAccounts rosters={await demoRosters()} password={DEMO_PASSWORD} />
+              <DemoAccounts rosters={await demoRosters()} />
             ) : null}
           </div>
         </main>

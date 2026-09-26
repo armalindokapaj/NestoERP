@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils/cn";
  *
  * The login page renders this solely when the app is built in development.
  */
-export function DemoAccounts({ rosters, password }: { rosters: DemoRosterOption[]; password: string }) {
+export function DemoAccounts({ rosters }: { rosters: DemoRosterOption[] }) {
   const [open, setOpen] = useState(true);
   const [unfolded, setUnfolded] = useState<string[]>([]);
   const [pendingUsername, setPendingUsername] = useState<string | null>(null);
@@ -176,11 +176,8 @@ export function DemoAccounts({ rosters, password }: { rosters: DemoRosterOption[
           </div>
 
           <p className="mt-3 px-0.5 text-meta text-fg-muted">
-            To test the form itself, every account uses the password{" "}
-            <code className="rounded bg-hover px-1.5 py-0.5 font-mono text-micro text-fg">
-              {password}
-            </code>{" "}
-            — unless its demo tenant was seeded with one of its own.
+            To test the form itself, sign in with the password the demo was seeded with. It is never
+            shown here: a password on the page would reach every visitor (AUD-06 §4).
           </p>
         </div>
       ) : null}

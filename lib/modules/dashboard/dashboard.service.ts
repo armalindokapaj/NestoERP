@@ -5,6 +5,7 @@ import { kpis } from "@/config/kpis";
 import { quickActions } from "@/config/quick-actions";
 import { widgets } from "@/config/widgets";
 import type { Permission } from "@/config/permissions";
+import type { PositionLevel, RoleKey } from "@/config/roles";
 import { listReadableAttention } from "@/lib/core/notifications/attention.service";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import {
@@ -166,7 +167,8 @@ async function planGroupDashboard(context: UserContext): Promise<DashboardPlan> 
   const offered = (definition: { module: Parameters<typeof isModuleEnabled>[1]; permission: Permission; supportsGroupContext?: boolean } | undefined) =>
     Boolean(definition?.supportsGroupContext) && companies.some((company) => isModuleEnabled(company, definition!.module) && can(company, definition!.permission));
 
-  const config = groupDashboardFor(context.role, context.position);
+  const reader = groupReader(context, companies);
+  const config = groupDashboardFor(reader.role, reader.position);
   const visibleKpis = config.kpis.map((key) => kpis[key]).filter(offered);
   const visibleWidgets = config.widgets
     .map((key) => widgets[key])
@@ -174,6 +176,33 @@ async function planGroupDashboard(context: UserContext): Promise<DashboardPlan> 
     .sort((a, b) => a.priority - b.priority);
 
   return { focus: config.focus, kpis: visibleKpis, widgets: visibleWidgets, quickActions: [] };
+}
+
+/** Group standing, highest first: what "the person's position in the group" ranks by. */
+const GROUP_STANDING: Record<PositionLevel, number> = { GROUP_HEAD: 1, COMPANY_MANAGER: 2, MEMBER: 3 };
+
+/**
+ * Whose layout the Group dashboard is (AUD-06 RP-19; Workspace Context §22).
+ *
+ * The session's own context is its anchor membership — whichever company the
+ * session happens to sit in. The Group workspace is not that company, so its
+ * layout follows the person's position in the group, read from every company
+ * they may enter: an Owner of any company is the Owner, else the highest
+ * position held anywhere (a group head outranks a company manager, who
+ * outranks a member). Only a tie between different roles at the same standing
+ * falls back to the anchor, and failing that to the first company by name. So
+ * a Group Owner who is also a QA/QC member of one company sees the Owner's
+ * dashboard from any anchor, and a Group Finance head the Finance one.
+ *
+ * It picks a layout and a focus line, never data: every entry is still offered
+ * only where one of those companies grants it (`offered`, above).
+ */
+function groupReader(context: UserContext, companies: readonly UserContext[]): { role: RoleKey; position: PositionLevel } {
+  const rank = (candidate: UserContext) => (candidate.role === "OWNER" ? 0 : GROUP_STANDING[candidate.position]);
+  const best = companies.length > 0 ? Math.min(...companies.map(rank)) : rank(context);
+  if (rank(context) <= best) return { role: context.role, position: context.position };
+  const top = companies.find((candidate) => rank(candidate) === best)!;
+  return { role: top.role, position: top.position };
 }
 
 /**

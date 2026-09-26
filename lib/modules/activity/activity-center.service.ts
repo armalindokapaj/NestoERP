@@ -4,7 +4,7 @@ import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { resolvePersonalContexts } from "@/lib/context/workspace-access";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
-import { getUnreadCountForWorkspace, markAllReadForWorkspace, markRecordNotificationsRead, readableRows } from "@/lib/core/notifications/notification.service";
+import { getUnreadCountForWorkspace, markAllReadForWorkspace, markRecordNotificationsRead, readableRows, WITHDRAWN_TITLE, withdrawnNotificationIds } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { excerpt } from "@/lib/modules/announcements/announcement.body";
 import { announcementsOpen, reachWhere } from "@/lib/modules/announcements/announcement.permissions";
@@ -216,7 +216,7 @@ async function announcementItems(contexts: UserContext[], filters: ActivityFilte
 
 async function notificationItems(contexts: UserContext[], filters: ActivityFilters, before: Date | null, take: number): Promise<ActivityCenterItem[]> {
   const term = filters.q?.trim();
-  const rows = await prisma.notification.findMany({
+  const fetched = await prisma.notification.findMany({
     where: {
       AND: [
         readableRows(contexts),
@@ -233,6 +233,11 @@ async function notificationItems(contexts: UserContext[], filters: ActivityFilte
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take,
   });
+  // Rows about a record the reader can no longer open keep no title (AUD-06
+  // RP-18). A search never answers with one: a match would confirm what the
+  // withheld text said.
+  const withdrawn = await withdrawnNotificationIds(contexts, fetched);
+  const rows = term ? fetched.filter((row) => !withdrawn.has(row.id)) : fetched;
   const companies = new Map(contexts.map((context) => [context.companyId, context]));
   const actorIds = [...new Set(rows.map((row) => row.actorMemberId).filter((id): id is string => Boolean(id)))];
   const [projects, actors] = await Promise.all([
@@ -253,23 +258,24 @@ async function notificationItems(contexts: UserContext[], filters: ActivityFilte
   return rows.map((row): ActivityCenterItem => {
     const context = companies.get(row.companyId)!;
     const actorKey = row.actorMemberId ? `${row.companyId}:${row.actorMemberId}` : null;
+    const gone = withdrawn.has(row.id);
     return {
       key: `NOTIFICATION:${row.id}`,
       id: row.id,
       sourceType: "NOTIFICATION",
-      title: row.title,
-      bodyPreview: row.body,
+      title: gone ? WITHDRAWN_TITLE : row.title,
+      bodyPreview: gone ? null : row.body,
       createdAt: row.createdAt.toISOString(),
       readState: row.readState === "UNREAD" ? "UNREAD" : "READ",
       priority: NOTIFICATION_PRIORITY[row.priority] ?? "NORMAL",
       company: { id: context.companyId, name: context.company.name },
       scope: "COMPANY",
-      project: row.projectId ? (projects.get(row.projectId) ?? null) : null,
+      project: !gone && row.projectId ? (projects.get(row.projectId) ?? null) : null,
       moduleKey: row.moduleKey,
-      recordType: row.entityType,
-      recordId: row.entityId,
+      recordType: gone ? null : row.entityType,
+      recordId: gone ? null : row.entityId,
       // The open route reads the record again now, enters the company if it has to, and marks it read (§42, §51).
-      href: row.entityType && row.entityId ? `/notifications/${row.id}/open` : null,
+      href: !gone && row.entityType && row.entityId ? `/notifications/${row.id}/open` : null,
       openIn: null,
       requiresAcknowledgement: false,
       acknowledgedAt: null,

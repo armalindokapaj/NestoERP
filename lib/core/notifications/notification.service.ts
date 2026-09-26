@@ -6,7 +6,7 @@ import type { UserContext } from "@/lib/context/types";
 import { resolvePersonalContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
 import { currentRequestContext } from "@/lib/core/observability/request-context";
-import { loadRecord } from "@/lib/core/records/record.registry";
+import { loadRecord, reachableRecordKeys } from "@/lib/core/records/record.registry";
 import { countReadableAttention } from "./attention.service";
 import { normaliseEntityType } from "./notification.dispatch";
 
@@ -123,6 +123,36 @@ export function readableRows(contexts: UserContext[]): Prisma.NotificationWhereI
   return contexts.length === 1 ? readable(contexts[0]) : { OR: contexts.map(readable) };
 }
 
+/** Shown in place of a title whose record the reader can no longer open (AUD-06 RP-18). */
+export const WITHDRAWN_TITLE = "About a record you can no longer open";
+
+/**
+ * The notification rows about a record this reader can no longer open.
+ *
+ * A notification's title and body were written for the reader it was sent to,
+ * then; they name records. Once the reader loses that record — a project
+ * taken away, a role changed — the stored text is withheld, not deleted: the
+ * row still counts, can be marked read, and opens nothing (the open route
+ * re-reads the record anyway). One query per record type and company.
+ */
+export async function withdrawnNotificationIds(
+  contexts: UserContext[],
+  rows: Array<{ id: string; companyId: string; entityType: string | null; entityId: string | null }>,
+): Promise<Set<string>> {
+  const withdrawn = new Set<string>();
+  await Promise.all(
+    contexts.map(async (context) => {
+      const about = rows
+        .filter((row) => row.companyId === context.companyId && row.entityType && row.entityId)
+        .map((row) => ({ row, ref: { type: normaliseEntityType(row.entityType!), id: row.entityId! } }));
+      if (about.length === 0) return;
+      const reachable = await reachableRecordKeys(context, about.map((item) => item.ref));
+      for (const { row, ref } of about) if (!reachable.has(`${ref.type}:${ref.id}`)) withdrawn.add(row.id);
+    }),
+  );
+  return withdrawn;
+}
+
 async function pageOfNotifications(
   contexts: UserContext[],
   options: { readState?: "UNREAD" | "READ"; before?: string; limit?: number },
@@ -151,6 +181,7 @@ async function pageOfNotifications(
   });
 
   const page = rows.slice(0, limit);
+  const withdrawn = await withdrawnNotificationIds(contexts, page);
   const actorIds = [...new Set(page.map((row) => row.actorMemberId).filter((id): id is string => Boolean(id)))];
   const actors = actorIds.length
     ? await prisma.companyMember.findMany({
@@ -164,18 +195,19 @@ async function pageOfNotifications(
   return {
     data: page.map((row): NotificationListItemDTO => {
       const actorKey = row.actorMemberId ? `${row.companyId}:${row.actorMemberId}` : null;
+      const gone = withdrawn.has(row.id);
       return {
         id: row.id,
         eventType: row.eventType,
         category: row.category,
         moduleKey: row.moduleKey,
-        title: row.title,
-        body: row.body,
+        title: gone ? WITHDRAWN_TITLE : row.title,
+        body: gone ? null : row.body,
         priority: row.priority,
         readState: row.readState,
         createdAt: row.createdAt.toISOString(),
         readAt: row.readAt?.toISOString() ?? null,
-        href: row.entityType && row.entityId ? `/notifications/${row.id}/open` : null,
+        href: !gone && row.entityType && row.entityId ? `/notifications/${row.id}/open` : null,
         actorMemberId: row.actorMemberId && actorKey && actorNames.has(actorKey) ? row.actorMemberId : null,
         actorName: (actorKey && actorNames.get(actorKey)) || null,
         ...(labelCompany && companies.has(row.companyId) ? { company: companies.get(row.companyId) } : {}),

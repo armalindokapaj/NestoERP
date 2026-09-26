@@ -5,6 +5,7 @@ import { can } from "@/lib/access/can";
 import { assertSameProject } from "@/lib/access/references";
 import { canAccessProject } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
+import { assertActorCurrent } from "@/lib/core/transactions/actor";
 import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -348,8 +349,14 @@ export async function createTask(
 ): Promise<TaskDetailDTO> {
   const prepared = await prepareTask(context, input, parent);
 
+  // The actor is re-read first, under a share lock (AUD-06 §7, RP-16): a
+  // suspension, deactivation, role change or sign-out that commits between the
+  // decision above and this write refuses it, and one arriving later waits.
   const created = await prisma
-    .$transaction((tx) => writeTask(tx, context, input, prepared))
+    .$transaction(async (tx) => {
+      await assertActorCurrent(tx, context);
+      return writeTask(tx, context, input, prepared);
+    })
     .catch(translateWriteError);
 
   return getTask(context, created.id);
