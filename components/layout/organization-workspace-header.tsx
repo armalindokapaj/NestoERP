@@ -10,7 +10,6 @@ import type { WorkspaceOption } from "@/components/layout/panels/workspace-panel
 import { useShellCore, useWorkspaceOptions } from "@/components/layout/shell-slots";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { useWorkspaceSwitch } from "@/components/workspace/workspace-switch-provider";
-import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -98,7 +97,8 @@ export function OrganizationWorkspaceHeader({
 export function OrganizationHomeMark({ label }: { label: string }) {
   const identity = useIdentity();
   return (
-    <Link href="/dashboard" intent aria-label={label} className="rounded-md" data-testid="organization-home">
+    // A 44px target under touch around the 32px mark (AUD-04 §4, MW-19).
+    <Link href="/dashboard" intent aria-label={label} className="rounded-md touch:grid touch:size-11 touch:place-items-center" data-testid="organization-home">
       <OrganizationMark name={identity.primary} logoUrl={identity.logoUrl} size="sm" />
     </Link>
   );
@@ -266,6 +266,8 @@ function DrawerHeader({ identity, onSwitchStart }: { identity: Identity; onSwitc
         optionsState={state.status}
         aria-haspopup="dialog"
         aria-expanded={open}
+        // The drawer has no tooltip: a long name cut short on screen is whole in the name and the title (AUD-04 §4).
+        title={identity.current}
         data-presentation="sheet"
         onClick={() => !switchingTo && setOpen(true)}
         {...warm}

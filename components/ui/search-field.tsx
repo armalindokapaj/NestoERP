@@ -35,7 +35,7 @@ export function SearchField({
       <input
         type="search"
         className={cn(
-          "h-10 w-full rounded-md border border-line bg-surface pl-9 text-body text-fg transition-colors",
+          "h-10 w-full rounded-md border border-line bg-surface pl-9 text-body text-fg transition-colors touch:h-11",
           "placeholder:text-fg-subtle hover:border-line-strong",
           "focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20",
           "disabled:cursor-not-allowed disabled:bg-surface-muted",
@@ -59,7 +59,8 @@ export function SearchField({
             (event.currentTarget.previousElementSibling as HTMLInputElement | null)?.focus();
           }}
           aria-label="Clear search"
-          className="absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          // A 44px target under touch: flush with the field's right edge, the icon unchanged (AUD-04 §3).
+          className="absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:right-0 touch:size-11"
         >
           <X aria-hidden="true" className="size-4" />
         </button>

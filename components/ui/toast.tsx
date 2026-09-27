@@ -89,9 +89,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   </ToastPrimitive.Description>
                 ) : null}
               </div>
+              {/* 24px with a mouse, 44px under touch, pulled into the card's corner (AUD-04 §3). */}
               <ToastPrimitive.Close
                 aria-label="Dismiss"
-                className="-m-1 grid size-6 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg"
+                className="-m-1 grid size-6 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg touch:-my-2.5 touch:-mr-2.5 touch:ml-0 touch:size-11"
               >
                 <X className="size-3.5" />
               </ToastPrimitive.Close>
@@ -99,10 +100,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           );
         })}
 
+        {/* Clear of the home indicator, and of a sticky bottom action bar while one
+            is mounted (`--nesto-bottom-reserve`, globals.css), so a toast never
+            covers Submit or Approve on a phone (AUD-04 §6). */}
         <ToastPrimitive.Viewport
           className={cn(
             "fixed z-[70] flex max-h-dvh w-full flex-col gap-2 p-4 outline-none",
-            "bottom-0 left-1/2 max-w-[420px] -translate-x-1/2",
+            "bottom-[var(--nesto-bottom-reserve,0px)] left-1/2 max-w-[420px] -translate-x-1/2 pb-[max(1rem,env(safe-area-inset-bottom))]",
             "sm:left-auto sm:right-0 sm:translate-x-0",
           )}
         />

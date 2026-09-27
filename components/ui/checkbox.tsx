@@ -13,7 +13,10 @@ export function Checkbox({
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        "peer size-4 shrink-0 rounded-[4px] border border-line-strong bg-surface",
+        "peer relative size-4 shrink-0 rounded-[4px] border border-line-strong bg-surface",
+        // A 44px hit area under touch without a bigger box (AUD-04 §3, MW-19):
+        // an invisible square around the 16px control.
+        "touch:after:absolute touch:after:-inset-3.5 touch:after:content-['']",
         "data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-fg",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,

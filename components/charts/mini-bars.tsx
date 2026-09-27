@@ -27,7 +27,8 @@ export function MiniBars({
   return (
     <span
       role="img"
-      aria-label={caption}
+      // The values themselves, not only the caption (AUD-04 §5, SP-14).
+      aria-label={`${caption}: ${points.join(", ")}`}
       className={cn("flex items-end gap-[3px]", className)}
     >
       {points.map((point, index) => (

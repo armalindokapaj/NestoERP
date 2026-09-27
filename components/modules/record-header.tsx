@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { Breadcrumbs, type Crumb } from "@/components/ui/breadcrumbs";
+import { headerActionsClass } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { cn } from "@/lib/utils/cn";
 
@@ -10,6 +11,11 @@ import { cn } from "@/lib/utils/cn";
  * Breadcrumb, title, status, metadata, actions — in that order, on every record
  * page in the product. Breadcrumbs appear only on record pages, never on module
  * landings (PRD #3 §69).
+ *
+ * On a phone the actions wrap inside the page rather than pushing it sideways
+ * (AUD-04 §3, D-02-02, D-03-03, MW-01): the group was `shrink-0` with no cap,
+ * so five actions at 320px scrolled the body. Long titles, codes and metadata
+ * break anywhere instead of widening the header.
  */
 export function RecordHeader({
   breadcrumbs,
@@ -37,8 +43,8 @@ export function RecordHeader({
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg">{title}</h1>
-          {subtitle ? <p className="mt-1 text-table text-fg-subtle">{subtitle}</p> : null}
+          <h1 className="text-page font-semibold text-fg [overflow-wrap:anywhere]">{title}</h1>
+          {subtitle ? <p className="mt-1 text-table text-fg-subtle [overflow-wrap:anywhere]">{subtitle}</p> : null}
 
           {status || badges ? (
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -52,14 +58,14 @@ export function RecordHeader({
               {meta.map((entry) => (
                 <div key={entry.label} className="min-w-0">
                   <dt className="nesto-eyebrow text-fg-subtle">{entry.label}</dt>
-                  <dd className="mt-0.5 text-table text-fg">{entry.value}</dd>
+                  <dd className="mt-0.5 text-table text-fg [overflow-wrap:anywhere]">{entry.value}</dd>
                 </div>
               ))}
             </dl>
           ) : null}
         </div>
 
-        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className={headerActionsClass}>{actions}</div> : null}
       </div>
     </div>
   );
@@ -87,11 +93,11 @@ export function RecordContextHeader({
       <Breadcrumbs items={breadcrumbs} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-section font-semibold text-fg">{title}</h1>
-          {subtitle ? <span className="text-table text-fg-subtle">{subtitle}</span> : null}
+          <h1 className="min-w-0 text-section font-semibold text-fg [overflow-wrap:anywhere]">{title}</h1>
+          {subtitle ? <span className="min-w-0 text-table text-fg-subtle [overflow-wrap:anywhere]">{subtitle}</span> : null}
           {status ? <StatusBadge status={status} /> : null}
         </div>
-        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        {actions ? <div className={headerActionsClass}>{actions}</div> : null}
       </div>
     </div>
   );
@@ -121,7 +127,8 @@ export function DetailGrid({
       {items.map((item) => (
         <div key={item.label} className="min-w-0">
           <dt className="nesto-eyebrow text-fg-subtle">{item.label}</dt>
-          <dd className="mt-1 text-body text-fg">{item.value}</dd>
+          {/* Long codes, IBANs, e-mails and file names break instead of widening the grid (AUD-04 §3, RC-9). */}
+          <dd className="mt-1 text-body text-fg [overflow-wrap:anywhere]">{item.value}</dd>
         </div>
       ))}
     </dl>

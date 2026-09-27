@@ -54,6 +54,16 @@ import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
 const UNCONFIRMED = "We couldn't confirm whether this change was saved. Check the latest task before trying again.";
 const CHANGED = "This task changed since you opened it. Its latest state is shown now; choose again.";
 
+type StatusCommand = "start" | "complete" | "reopen";
+type Verb = {
+  command: StatusCommand;
+  label: string;
+  pendingLabel: string;
+  done: string;
+  icon: typeof Play;
+  variant: "primary" | "secondary";
+};
+
 export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
@@ -70,6 +80,11 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const [blockReason, setBlockReason] = React.useState("");
   const [blockError, setBlockError] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
+  // Which verb is in flight, so the pressed button says so (AUD-04 §6, MW-15).
+  const [running, setRunning] = React.useState<TaskCommandName | null>(null);
+  // A second tap lands before the disabled state renders: it is dropped here,
+  // never sent as a second command against the same version (MW-15).
+  const inFlight = React.useRef(false);
 
   const { capabilities: may, status } = task;
   const archived = task.archivedAt !== null || status === "ARCHIVED";
@@ -84,7 +99,15 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
     input: { expectedVersion: number; reason?: string },
     onRefused?: (message: string) => void,
   ): Promise<boolean> {
+    if (inFlight.current) return Promise.resolve(false);
+    inFlight.current = true;
+    setRunning(command);
     return new Promise((resolve) => {
+      const settle = (committed: boolean) => {
+        inFlight.current = false;
+        setRunning(null);
+        resolve(committed);
+      };
       startTransition(async () => {
         let result: ActionResult;
         try {
@@ -94,7 +117,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
           // the latest task, and let the person decide (AUD-02 §7).
           (onRefused ?? ((message: string) => toast({ title: message, tone: "warning" })))(UNCONFIRMED);
           router.refresh();
-          resolve(false);
+          settle(false);
           return;
         }
         if (result.ok) {
@@ -105,18 +128,18 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
             toast({ title: successMessage, tone: "success" });
             router.refresh();
           }
-          resolve(true);
+          settle(true);
           return;
         }
         const moved = result.code === "TASK_VERSION_CONFLICT" || result.code === "TASK_STATE_CONFLICT";
         (onRefused ?? ((message: string) => toast({ title: message, tone: "danger" })))(moved ? CHANGED : result.error);
         if (moved) router.refresh();
-        resolve(false);
+        settle(false);
       });
     });
   }
 
-  function run(command: "start" | "complete" | "reopen", successMessage: string) {
+  function run(command: StatusCommand, successMessage: string) {
     void send(command, successMessage, { expectedVersion: task.version });
   }
 
@@ -131,6 +154,26 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const canStart = may.canChangeStatus && (status === "TODO" || status === "BLOCKED");
   const canBlock = may.canChangeStatus && (status === "TODO" || status === "IN_PROGRESS");
 
+  /*
+   * On a phone the header keeps one verb in view — the next step for this
+   * task — and every other action this person may take moves into the More
+   * menu (AUD-04 §4, MW-11). The same controls render at every width and CSS
+   * decides where each one shows: nothing is mounted twice, nothing depends
+   * on guessing the device, and no permitted action disappears.
+   */
+  const verbs: Verb[] = archived
+    ? []
+    : [
+        ...(canStart ? [{ command: "start" as const, label: "Start", pendingLabel: "Starting…", done: "Task started.", icon: Play, variant: "secondary" as const }] : []),
+        ...(may.canComplete ? [{ command: "complete" as const, label: "Complete", pendingLabel: "Completing…", done: "Task completed.", icon: Check, variant: "primary" as const }] : []),
+        ...(may.canReopen ? [{ command: "reopen" as const, label: "Reopen", pendingLabel: "Reopening…", done: "Task reopened.", icon: RotateCcw, variant: "primary" as const }] : []),
+      ];
+  const secondary = verbs.slice(1);
+  const canEdit = !archived && may.canEdit;
+  // What only a phone finds in the menu; with nothing else in it, the menu is phone-only.
+  const phoneOnlyItems = secondary.length > 0 || canEdit;
+  const desktopItems = !archived && (canBlock || may.canArchive);
+
   return (
     <>
       {archived && may.canRestore ? (
@@ -140,34 +183,24 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
         </Button>
       ) : null}
 
-      {!archived && canStart ? (
+      {verbs.map((verb, index) => (
         <Button
-          variant="secondary"
+          key={verb.command}
+          variant={verb.variant}
           size="sm"
-          onClick={() => run("start", "Task started.")}
+          // The first verb stays in view on a phone; the rest are in More there.
+          className={index > 0 ? "max-sm:hidden" : undefined}
+          onClick={() => run(verb.command, verb.done)}
           disabled={pending}
+          aria-busy={running === verb.command || undefined}
         >
-          <Play aria-hidden="true" />
-          Start
+          <verb.icon aria-hidden="true" />
+          {running === verb.command ? verb.pendingLabel : verb.label}
         </Button>
-      ) : null}
+      ))}
 
-      {!archived && may.canComplete ? (
-        <Button size="sm" onClick={() => run("complete", "Task completed.")} disabled={pending}>
-          <Check aria-hidden="true" />
-          Complete
-        </Button>
-      ) : null}
-
-      {!archived && may.canReopen ? (
-        <Button size="sm" onClick={() => run("reopen", "Task reopened.")} disabled={pending}>
-          <RotateCcw aria-hidden="true" />
-          Reopen
-        </Button>
-      ) : null}
-
-      {!archived && may.canEdit ? (
-        <Button asChild variant="secondary" size="sm">
+      {canEdit ? (
+        <Button asChild variant="secondary" size="sm" className="max-sm:hidden">
           <Link href={`/tasks/${task.id}/edit`}>
             <PenLine aria-hidden="true" />
             Edit
@@ -175,10 +208,10 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
         </Button>
       ) : null}
 
-      {!archived && (canBlock || may.canArchive) ? (
+      {phoneOnlyItems || desktopItems ? (
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="More task actions">
+            <Button variant="ghost" size="icon-sm" aria-label="More task actions" className={desktopItems ? undefined : "sm:hidden"}>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -194,7 +227,22 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
               else setConfirming(true);
             }}
           >
-            {canBlock ? (
+            {/* Phone only: the verbs and Edit the header shows from 640px up (AUD-04 §4). */}
+            {secondary.map((verb) => (
+              <DropdownMenuItem key={verb.command} className="sm:hidden" disabled={pending} onSelect={() => run(verb.command, verb.done)}>
+                <verb.icon />
+                {verb.label}
+              </DropdownMenuItem>
+            ))}
+            {canEdit ? (
+              <DropdownMenuItem asChild className="sm:hidden">
+                <Link href={`/tasks/${task.id}/edit`}>
+                  <PenLine />
+                  Edit task
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+            {!archived && canBlock ? (
               <DropdownMenuItem
                 onSelect={() => {
                   // A reason typed before a refused attempt is kept.
@@ -207,7 +255,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
                 Mark blocked
               </DropdownMenuItem>
             ) : null}
-            {may.canArchive ? (
+            {!archived && may.canArchive ? (
               <DropdownMenuItem
                 onSelect={() => {
                   chosenDialog.current = "archive";
@@ -231,6 +279,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
           if (!open) setBlockReason("");
         }}
       >
+        {/* The primitive bounds the dialog to the viewport and scrolls it; the reason is kept short so it and the footer both fit above a phone keyboard in landscape (AUD-04 §6, MW-10). */}
         <DialogContent className="max-w-md">
           <DialogTitle>Mark this task blocked</DialogTitle>
           <DialogDescription>
@@ -262,6 +311,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
             <Label htmlFor="block-reason">Reason</Label>
             <Textarea
               id="block-reason"
+              rows={3}
               value={blockReason}
               maxLength={1000}
               autoFocus

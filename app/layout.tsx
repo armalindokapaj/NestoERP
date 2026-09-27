@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 
 import { I18nProvider } from "@/components/i18n/i18n-provider";
@@ -13,6 +13,18 @@ import { getLocale, getSiteCopy } from "@/lib/i18n/server";
 import { messages } from "@/lib/i18n/messages";
 import { siteUrl } from "@/lib/marketing/site-url";
 import "../styles/globals.css";
+
+/*
+ * The page reaches under a phone's notch and home indicator, so
+ * `env(safe-area-inset-*)` is real and the fixed bars, sheets and dialogs pad
+ * themselves by it (AUD-04 §3). Pinch zoom stays allowed: no maximum-scale,
+ * no user-scalable=no.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 /* In the reader's language, like the page. A crawler sends no language
    cookie, so what is indexed is the English source. */

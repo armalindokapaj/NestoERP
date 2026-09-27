@@ -240,7 +240,7 @@ export function TaskEditForm({
 
       {recovery.kind === "conflict" || recovery.kind === "unconfirmed" ? (
         <>
-          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="text-card font-semibold text-fg outline-none">
+          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
             {recovery.kind === "conflict" ? "Your changes have not been saved" : "We couldn't confirm the save"}
           </h2>
           <p role="alert" className="text-table text-fg">
@@ -275,7 +275,7 @@ export function TaskEditForm({
 
       {recovery.kind === "archived" ? (
         <>
-          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="text-card font-semibold text-fg outline-none">
+          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
             This task can no longer be edited
           </h2>
           <p role="alert" className="text-table text-fg">
@@ -299,7 +299,7 @@ export function TaskEditForm({
 
       {recovery.kind === "lost" ? (
         <>
-          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="text-card font-semibold text-fg outline-none">
+          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
             You can no longer open this task
           </h2>
           <p role="alert" className="text-table text-fg">
@@ -369,7 +369,7 @@ function ReviewLatest({
   const changed = FIELDS.filter(({ key }) => key in choices);
   return (
     <>
-      <h2 id="task-conflict-heading" ref={headingRef} tabIndex={-1} className="text-card font-semibold text-fg outline-none">
+      <h2 id="task-conflict-heading" ref={headingRef} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
         Review the latest version
       </h2>
       <p role="status" className="text-table text-fg">
@@ -382,10 +382,11 @@ function ReviewLatest({
           <legend className="sr-only">Your changes</legend>
           {changed.map(({ key, label }) => (
             <div key={key} className="grid gap-2 rounded-md border border-line bg-surface p-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,1fr)]" data-testid={`task-conflict-field-${key}`}>
-              <label className="flex items-start gap-2 text-table font-medium text-fg">
+              {/* The whole label is the target: at least 44px tall, the full row wide on a phone (AUD-04 §3, MW-11). */}
+              <label className="flex min-h-11 cursor-pointer items-center gap-3 self-start text-table font-medium text-fg">
                 <input
                   type="checkbox"
-                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-accent)]"
+                  className="size-4 shrink-0 accent-[var(--color-accent)]"
                   checked={choices[key] === true}
                   onChange={(event) => onToggle(key, event.target.checked)}
                   aria-describedby={`conflict-${key}-latest conflict-${key}-mine`}

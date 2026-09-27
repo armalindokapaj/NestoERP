@@ -359,7 +359,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
 
       {/* Sticky actions on a phone (§187) */}
       {editable ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden" data-testid="timesheet-sticky-actions">
+        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden" data-testid="timesheet-sticky-actions" data-sticky-action-bar>
           <div className="min-w-0">
             <p className="text-meta text-fg-muted">This week</p>
             <p className="text-body font-semibold tabular-nums text-fg">

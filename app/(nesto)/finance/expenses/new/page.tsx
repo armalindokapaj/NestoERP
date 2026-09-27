@@ -46,7 +46,7 @@ export default async function NewExpensePage({
           { label: "New expense" },
         ]}
         title="New expense"
-        subtitle="Saved as a draft. It becomes actual cost once it has been approved."
+        subtitle="Saved as a draft. It becomes actual cost once it has been approved. Attach the receipt from the expense’s Documents tab once it is saved."
       />
 
       <ExpenseForm

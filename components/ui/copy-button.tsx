@@ -55,7 +55,8 @@ export function CopyButton({
           onClick={copy}
           aria-label={`Copy ${label.toLowerCase()}`}
           className={cn(
-            "grid size-7 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors",
+            // 44px under touch, the icon unchanged (AUD-04 §3, MW-19).
+            "grid size-7 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors touch:size-11",
             "hover:bg-hover hover:text-fg",
             className,
           )}

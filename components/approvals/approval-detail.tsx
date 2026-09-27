@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { ArrowLeft, ArrowUpRight, CircleAlert, Eye, EyeOff, FileText, Info, MessageSquare, RotateCw, TriangleAlert, UserRoundCheck, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, CircleAlert, Download, ExternalLink, Eye, EyeOff, FileText, Info, MessageSquare, RotateCw, TriangleAlert, UserRoundCheck, X } from "lucide-react";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { PersonLink } from "@/components/people/person-link";
@@ -19,6 +19,7 @@ import type {
 } from "@/lib/modules/approvals/approvals.types";
 import { cn } from "@/lib/utils/cn";
 import { DecisionBar } from "./approval-decision";
+import { useApprovalDraft } from "./approval-drafts";
 import { DueBadge, formatMoney, formatStamp, PersonMark, PlainText, PriorityBadge, SourceIcon, StatusBadge, waitingText } from "./approval-ui";
 
 /**
@@ -54,6 +55,11 @@ export function ApprovalDetailView({
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
   }, [detail?.item.id]);
+  // A refused decision is explained at the top of the review: brought into
+  // view, since on a phone the reader pressed the bar at the bottom (AUD-04 MW-12).
+  React.useEffect(() => {
+    if (failure) scrollRef.current?.scrollTo({ top: 0 });
+  }, [failure]);
 
   if (loading && !detail) return <DetailSkeleton variant={variant} onClose={onClose} />;
 
@@ -116,7 +122,7 @@ export function ApprovalDetailView({
             <SourceIcon provider={item.providerKey} className="mt-0.5" />
             <div className="min-w-0 flex-1">
               <p className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{item.sourceLabel} approval</p>
-              <h2 className="mt-1 text-[20px] font-semibold leading-snug tracking-[-0.01em] text-fg" data-testid="approval-title">
+              <h2 className="mt-1 text-[20px] font-semibold leading-snug tracking-[-0.01em] text-fg [overflow-wrap:anywhere]" data-testid="approval-title">
                 {item.title}
               </h2>
               {item.subtitle ? <p className="mt-0.5 text-table text-fg-muted">{item.subtitle}</p> : null}
@@ -125,7 +131,7 @@ export function ApprovalDetailView({
           {amount || item.project ? (
             <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
               {amount ? (
-                <span className="text-[26px] font-semibold tabular-nums tracking-[-0.02em] text-fg" data-testid="approval-amount">
+                <span className="min-w-0 text-[26px] font-semibold tabular-nums tracking-[-0.02em] text-fg [overflow-wrap:anywhere]" data-testid="approval-amount">
                   {amount}
                 </span>
               ) : null}
@@ -166,7 +172,7 @@ export function ApprovalDetailView({
 
         <div className="space-y-6 px-5 py-5 sm:px-6">
           {failure ? (
-            <div role="alert" className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3">
+            <div role="alert" className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3" data-testid="approval-decision-failure">
               <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
               <div className="min-w-0 flex-1">
                 <p className="text-table font-medium text-fg">{failure.message}</p>
@@ -197,13 +203,14 @@ export function ApprovalDetailView({
 
           <section aria-labelledby="summary-heading">
             <SectionHeading id="summary-heading">Summary</SectionHeading>
-            <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-line bg-surface-muted/40 p-4">
+            {/* One column on the narrowest phones, so a long amount, IBAN or reference is not squeezed into 140px (AUD-04 §5, MW-05). */}
+            <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-3 rounded-xl border border-line bg-surface-muted/40 p-4 min-[400px]:grid-cols-2">
               {detail.summary.map((field) => (
                 <div key={field.label} className="min-w-0">
                   <dt className="text-meta text-fg-subtle">{field.label}</dt>
                   <dd
                     className={cn(
-                      "mt-0.5 break-words text-table",
+                      "mt-0.5 text-table [overflow-wrap:anywhere]",
                       field.emphasis === "strong" ? "font-semibold tabular-nums text-fg" : field.emphasis === "warning" ? "font-medium text-warning-strong" : "text-fg",
                     )}
                   >
@@ -233,7 +240,7 @@ export function ApprovalDetailView({
         </div>
       </div>
 
-      <DecisionBar item={item} pending={pending} onDecide={onDecide} className={variant === "sheet" ? "pb-[max(0.75rem,env(safe-area-inset-bottom))]" : undefined} />
+      <DecisionBar key={item.id} item={item} pending={pending} failure={failure} onDecide={onDecide} className={variant === "sheet" ? "pb-[max(0.75rem,env(safe-area-inset-bottom))]" : undefined} />
     </div>
   );
 }
@@ -348,7 +355,7 @@ function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprova
 }
 
 function Documents({ documents, available }: { documents: UnifiedApprovalDocumentRef[]; available: boolean }) {
-  const [previewing, setPreviewing] = React.useState<string | null>(null);
+  const [previewing, setPreviewing] = useApprovalDraft<string | null>("documents:previewing", null);
   if (!available) {
     return (
       <section aria-labelledby="documents-heading">
@@ -407,10 +414,21 @@ function Documents({ documents, available }: { documents: UnifiedApprovalDocumen
 /**
  * A preview grant is asked for when somebody wants to look, with the same
  * authorisation as a download (PRD #41 §61, §179, §180; PRD #29 §105).
+ *
+ * What is drawn is only ever something the browser can really show (AUD-04
+ * §5, MW-12, MW-17). An image is an `<img>` whose failure is noticed. A PDF is
+ * embedded only where the browser says it has an inline PDF viewer and the
+ * pointer is fine; phone browsers either draw nothing (Android) or one page
+ * (iOS) inside an `<object>` and report neither, so there the reader gets an
+ * explicit Open / Download instead of a blank box that looks loaded. Open is
+ * the preview grant itself; Download is the application-proxied download,
+ * which runs the whole authorisation again. Both are offered under every
+ * preview as well.
  */
 function Preview({ documentId, name }: { documentId: string; name: string }) {
-  const [grant, setGrant] = React.useState<{ url: string; mimeType: string } | null>(null);
+  const [grant, setGrant] = React.useState<{ url: string; mimeType: string; kind?: "pdf" | "image" } | null>(null);
   const [failed, setFailed] = React.useState(false);
+  const [imageFailed, setImageFailed] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -427,13 +445,72 @@ function Preview({ documentId, name }: { documentId: string; name: string }) {
     };
   }, [documentId]);
 
-  if (failed) return <p className="mt-2 rounded-md bg-surface-muted px-3 py-2 text-meta text-fg-muted">Preview unavailable. Open the document instead.</p>;
+  const download = `/api/documents/${documentId}/download`;
+  if (failed) {
+    return (
+      <div className="mt-2 space-y-2 rounded-md bg-surface-muted px-3 py-2" data-testid="approval-preview-fallback">
+        <p className="text-meta text-fg-muted">Preview unavailable. Open the document instead.</p>
+        <PreviewLinks name={name} download={download} />
+      </div>
+    );
+  }
   if (!grant) return <Skeleton className="mt-2 h-72 w-full rounded-md" />;
+
+  const kind = grant.kind ?? (grant.mimeType === "application/pdf" ? "pdf" : grant.mimeType.startsWith("image/") ? "image" : null);
+  // Read only after a person asked to preview, so never during server rendering.
+  const inlinePdf = typeof navigator !== "undefined" && navigator.pdfViewerEnabled === true && window.matchMedia("(pointer: fine)").matches;
+
+  if (kind === "image" && !imageFailed) {
+    return (
+      <div className="mt-2 space-y-2">
+        <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
+          {/* A short-lived grant URL: next/image would cache and re-request it. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={grant.url} alt={`Preview of ${name}`} className="mx-auto max-h-[26rem] w-auto max-w-full object-contain" onError={() => setImageFailed(true)} data-testid="approval-preview" />
+        </div>
+        <PreviewLinks name={name} open={grant.url} download={download} />
+      </div>
+    );
+  }
+  if (kind === "pdf" && inlinePdf) {
+    return (
+      <div className="mt-2 space-y-2">
+        <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
+          <object data={grant.url} type={grant.mimeType} aria-label={`Preview of ${name}`} className="h-[26rem] w-full" data-testid="approval-preview">
+            <p className="p-4 text-table text-fg-muted">This file cannot be previewed here.</p>
+          </object>
+        </div>
+        <PreviewLinks name={name} open={grant.url} download={download} />
+      </div>
+    );
+  }
   return (
-    <div className="mt-2 overflow-hidden rounded-md border border-line bg-surface-muted">
-      <object data={grant.url} type={grant.mimeType} aria-label={`Preview of ${name}`} className="h-[26rem] w-full" data-testid="approval-preview">
-        <p className="p-4 text-table text-fg-muted">This file cannot be previewed here.</p>
-      </object>
+    <div className="mt-2 space-y-2 rounded-md border border-line bg-surface-muted px-3 py-3" data-testid="approval-preview-fallback">
+      <p className="text-table text-fg-muted">
+        {kind === "image" ? "This image could not be shown here." : "This browser cannot show PDF files inside the page."} Open it in a new tab or download it to read it.
+      </p>
+      <PreviewLinks name={name} open={grant.url} download={download} />
+    </div>
+  );
+}
+
+function PreviewLinks({ name, open, download }: { name: string; open?: string; download: string }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {open ? (
+        <Button asChild variant="secondary" size="sm">
+          <a href={open} target="_blank" rel="noopener noreferrer" aria-label={`Open ${name} in a new tab`}>
+            <ExternalLink aria-hidden="true" />
+            Open
+          </a>
+        </Button>
+      ) : null}
+      <Button asChild variant="secondary" size="sm">
+        <a href={download} download aria-label={`Download ${name}`}>
+          <Download aria-hidden="true" />
+          Download
+        </a>
+      </Button>
     </div>
   );
 }
@@ -484,13 +561,14 @@ function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
 }
 
 function Discussion({ parentType, parentId }: { parentType: string; parentId: string }) {
-  const [open, setOpen] = React.useState(false);
+  // Kept open across a rotation between the panel and the sheet (AUD-04 MW-16).
+  const [open, setOpen] = useApprovalDraft(`discussion:${parentType}:${parentId}`, false);
   return (
     <section aria-labelledby="discussion-heading" className="rounded-xl border border-line">
       <button
         type="button"
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
         <span className="flex items-center gap-2">

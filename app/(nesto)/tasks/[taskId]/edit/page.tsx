@@ -54,7 +54,7 @@ export default async function EditTaskPage({ params }: Params) {
 
       <div>
         <h1 className="text-page font-semibold text-fg">Edit task</h1>
-        <p className="mt-1.5 text-body text-fg-muted">{task.title}</p>
+        <p className="mt-1.5 text-body text-fg-muted [overflow-wrap:anywhere]">{task.title}</p>
       </div>
 
       <TaskEditForm

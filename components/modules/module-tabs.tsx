@@ -1,5 +1,6 @@
 import { TabPendingDot } from "@/components/modules/tab-pending-dot";
 import Link from "@/components/navigation/nav-link";
+import { KeepActiveInView } from "@/components/ui/scroll-region";
 import { sectionRoute } from "@/config/modules";
 import type { ResolvedModuleExperience } from "@/lib/access/module-access";
 import { cn } from "@/lib/utils/cn";
@@ -12,7 +13,9 @@ import { cn } from "@/lib/utils/cn";
  * and only permitted tabs are rendered at all (PRD #5 §30).
  *
  * When tabs exceed the width they scroll horizontally rather than wrapping into
- * unreadable rows (PRD #7 §89).
+ * unreadable rows (PRD #7 §89). The active tab is scrolled into view, each
+ * tab is a 44px target under touch, and the focus ring is drawn inside the tab
+ * so the scroll box cannot clip it (AUD-04 §4, SP-09, MW-02, MW-19).
  */
 export function ModuleTabs({
   experience,
@@ -24,7 +27,7 @@ export function ModuleTabs({
   if (experience.sections.length <= 1) return null;
 
   return (
-    <div className="-mx-1 overflow-x-auto">
+    <div className="-mx-1 overflow-x-auto overscroll-x-contain">
       <nav
         aria-label={`${experience.label} sections`}
         className="flex min-w-max items-center gap-1 border-b border-line px-1"
@@ -38,7 +41,8 @@ export function ModuleTabs({
               navSource="tab"
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative -mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors",
+                "relative -mb-px inline-flex items-center whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors touch:min-h-11",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                 active
                   ? "border-accent text-fg"
                   : "border-transparent text-fg-muted hover:text-fg",
@@ -49,6 +53,7 @@ export function ModuleTabs({
             </Link>
           );
         })}
+        <KeepActiveInView activeKey={activeSection} />
       </nav>
     </div>
   );

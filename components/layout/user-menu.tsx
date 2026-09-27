@@ -98,7 +98,8 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger
-        className="flex items-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover"
+        // 44px under touch; on a phone the chevron gives way so the bar fits 320px (AUD-04 §4).
+        className="flex items-center justify-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover touch:min-h-11 touch:min-w-11 max-md:pr-1"
         aria-label={t("openUserMenu")}
         onKeyDown={() => setInput("keyboard")}
         onPointerDown={() => setInput("pointer")}
@@ -108,7 +109,7 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
           <span className="block truncate text-table font-medium leading-tight text-fg">{name}</span>
           <span className="block truncate text-micro leading-tight text-fg-muted">{user.roleLabel}</span>
         </span>
-        <ChevronDown className="size-3.5 shrink-0 text-fg-subtle" />
+        <ChevronDown className="size-3.5 shrink-0 text-fg-subtle max-md:hidden" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent

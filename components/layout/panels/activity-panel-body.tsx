@@ -148,7 +148,7 @@ export function ActivityPanelBody({
 
   const row = (item: ActivityCenterItem) => (
     <li key={item.key} className="group flex items-start gap-1 rounded-md hover:bg-hover" data-testid="activity-item" data-source={item.sourceType} data-read={item.readState}>
-      <button type="button" onClick={() => void follow(item)} className="flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent">
+      <button type="button" onClick={() => void follow(item)} className="flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent touch:min-h-11">
         <span aria-hidden="true" className={cn("mt-1.5 size-2 shrink-0 rounded-full", item.readState === "UNREAD" ? (item.priority === "CRITICAL" ? "bg-danger" : "bg-accent") : "bg-transparent")} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
@@ -168,12 +168,12 @@ export function ActivityPanelBody({
         </span>
       </button>
       {item.requiresAcknowledgement && !item.acknowledgedAt ? (
-        <button type="button" onClick={() => void acknowledge(item)} disabled={acknowledging === item.key} className="mt-1.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-line px-2 text-meta font-medium text-fg hover:bg-surface" data-testid="activity-acknowledge">
+        <button type="button" onClick={() => void acknowledge(item)} disabled={acknowledging === item.key} className="mt-1.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-line px-2 touch:mt-0 touch:h-11 text-meta font-medium text-fg hover:bg-surface" data-testid="activity-acknowledge">
           {acknowledging === item.key ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin" /> : null}
           {t("acknowledge")}
         </button>
       ) : item.readState === "UNREAD" ? (
-        <button type="button" onClick={() => void setRead(item, true)} aria-label={`${t("markRead")}: ${item.title}`} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-fg-subtle hover:bg-surface hover:text-fg">
+        <button type="button" onClick={() => void setRead(item, true)} aria-label={`${t("markRead")}: ${item.title}`} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md touch:mt-0 touch:size-11 text-fg-subtle hover:bg-surface hover:text-fg">
           <Check aria-hidden="true" className="size-4" />
         </button>
       ) : null}
@@ -186,12 +186,12 @@ export function ActivityPanelBody({
         <h2 className="text-card font-semibold text-fg">{t("title")}</h2>
         <div className="flex items-center gap-1">
           {total > 0 ? (
-            <button type="button" onClick={() => void markAll()} className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-table font-medium text-accent-strong hover:bg-hover" data-testid="activity-mark-all">
+            <button type="button" onClick={() => void markAll()} className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-table font-medium text-accent-strong hover:bg-hover touch:h-11" data-testid="activity-mark-all">
               <CheckCheck aria-hidden="true" className="size-4" />
               {t("markAll")}
             </button>
           ) : null}
-          <button type="button" onClick={() => onClose(true)} aria-label={t("close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover sm:hidden">
+          <button type="button" onClick={() => onClose(true)} aria-label={t("close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover sm:hidden touch:size-11">
             <X aria-hidden="true" className="size-4" />
           </button>
         </div>
@@ -218,7 +218,7 @@ export function ActivityPanelBody({
               controller.selectTab(next);
               (event.currentTarget.parentElement?.children[order.indexOf(next)] as HTMLElement | undefined)?.focus();
             }}
-            className={cn("-mb-px border-b-2 px-2.5 py-2 text-table font-medium", tab === key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")}
+            className={cn("-mb-px border-b-2 px-2.5 py-2 text-table font-medium touch:min-h-11", tab === key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")}
             data-testid={`activity-tab-${key.toLowerCase()}`}
           >
             {text}

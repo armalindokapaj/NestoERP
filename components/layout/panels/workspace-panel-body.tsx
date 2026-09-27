@@ -139,7 +139,7 @@ export function WorkspacePanelBody({
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => choose(option)}
         className={cn(
-          "flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors",
+          "flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors touch:min-h-11",
           isActive ? "bg-hover" : "bg-transparent",
         )}
       >
@@ -193,7 +193,7 @@ export function WorkspacePanelBody({
             setActiveKey(null);
           }}
           onKeyDown={onKeyDown}
-          className="h-9 w-full rounded-md border border-line bg-surface px-3 text-table text-fg placeholder:text-fg-subtle hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20"
+          className="h-9 w-full rounded-md border border-line bg-surface px-3 text-table text-fg placeholder:text-fg-subtle hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20 touch:h-11"
         />
       ) : null}
 

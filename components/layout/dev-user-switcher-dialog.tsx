@@ -50,7 +50,19 @@ function visibleRosters(rosters: DemoRosterOption[], query: string): DemoRosterO
  * Rendered only in development (see DevUserSwitcher), and the action behind it
  * is independently gated, so it cannot reach production.
  */
-export function DevUserSwitcherDialog({ rosters, currentUsername }: { rosters: DemoRosterOption[]; currentUsername: string | null }) {
+export function DevUserSwitcherDialog({
+  rosters,
+  currentUsername,
+  variant = "topbar",
+}: {
+  rosters: DemoRosterOption[];
+  currentUsername: string | null;
+  /**
+   * `drawer`: a full-width labelled row in the navigation drawer's foot, where
+   * a 320px phone's top bar has no room left for it (AUD-04 §4, MW-02).
+   */
+  variant?: "topbar" | "drawer";
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<string | null>(null);
@@ -99,16 +111,27 @@ export function DevUserSwitcherDialog({ rosters, currentUsername }: { rosters: D
 
   return (
     <Dialog open={open} locked={pending !== null} onOpenChange={setOpen}>
-      <DialogTrigger
-        className="flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2 text-micro font-medium text-fg-muted transition-colors hover:bg-hover"
-        title="Development only: sign in as another demo user"
-        aria-label="Switch demo user"
-        data-testid="dev-user-switcher"
-      >
-        <FlaskConical aria-hidden="true" className="size-3.5 shrink-0" />
-        <span className="hidden truncate lg:inline">Switch user</span>
-        <span className="lg:hidden">DEV</span>
-      </DialogTrigger>
+      {variant === "drawer" ? (
+        <DialogTrigger
+          className="flex min-h-11 w-full items-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:bg-hover"
+          title="Development only: sign in as another demo user"
+          data-testid="dev-user-switcher-drawer"
+        >
+          <FlaskConical aria-hidden="true" className="size-4 shrink-0" />
+          Switch demo user
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger
+          className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-md border border-line-strong bg-surface px-2 text-micro font-medium text-fg-muted transition-colors hover:bg-hover touch:h-11 touch:min-w-11"
+          title="Development only: sign in as another demo user"
+          aria-label="Switch demo user"
+          data-testid="dev-user-switcher"
+        >
+          <FlaskConical aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="hidden truncate lg:inline">Switch user</span>
+          <span className="lg:hidden">DEV</span>
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-xl">
         <DialogTitle>Switch demo user</DialogTitle>

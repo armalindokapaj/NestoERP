@@ -38,7 +38,8 @@ export function Sparkline({
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
       role="img"
-      aria-label={caption}
+      // The values themselves, not only the caption (AUD-04 §5, SP-14).
+      aria-label={`${caption}: ${points.join(", ")}`}
       className={className}
     >
       <polyline

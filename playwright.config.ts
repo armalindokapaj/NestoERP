@@ -19,6 +19,35 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env.E2E_PORT ?? 3000);
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
+/*
+ * AUD-04 §3, §9: the responsive size matrix. Each project runs only the
+ * `responsive/aud04-*.spec.ts` specs, so the rest of the suite is not
+ * multiplied by eleven; a spec about one size family skips the others with
+ * `outsideProjects` (tests/e2e/responsive/geometry.ts). Phones and tablets
+ * emulate touch, so the `touch:` hit areas (pointer: coarse) apply as on a
+ * device; the desktop pair keeps a fine pointer (MW-21). The existing `mobile`
+ * project (Pixel 7, 412×915) runs these specs too and is the 412 phone.
+ */
+const AUD04 = /responsive\/aud04-.*\.spec\.ts/;
+const touchPhone = { ...devices["Pixel 7"] };
+const aud04Chromium = [
+  { name: "aud04-phone-320", use: { ...touchPhone, viewport: { width: 320, height: 568 } } },
+  { name: "aud04-phone-360", use: { ...touchPhone, viewport: { width: 360, height: 800 } } },
+  { name: "aud04-phone-390", use: { ...touchPhone, viewport: { width: 390, height: 844 } } },
+  { name: "aud04-tablet-768", use: { ...touchPhone, viewport: { width: 768, height: 1024 } } },
+  { name: "aud04-tablet-820", use: { ...touchPhone, viewport: { width: 820, height: 1180 } } },
+  { name: "aud04-landscape-844", use: { ...touchPhone, viewport: { width: 844, height: 390 } } },
+  { name: "aud04-tablet-1024", use: { ...touchPhone, viewport: { width: 1024, height: 768 } } },
+  { name: "aud04-desktop-1280", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } },
+  { name: "aud04-desktop-1440", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
+].map((project) => ({ ...project, testMatch: AUD04 }));
+/* WebKit and Firefox phones need their browser downloads, so they are opt-in like the other non-Chromium projects. */
+const aud04OtherBrowsers = [
+  { name: "aud04-webkit-phone", use: { ...devices["iPhone 14"] } },
+  // Firefox has no `isMobile`; touch and the phone viewport are what the layout reads.
+  { name: "aud04-firefox-phone", use: { browserName: "firefox" as const, viewport: { width: 390, height: 844 }, hasTouch: true } },
+].map((project) => ({ ...project, testMatch: AUD04 }));
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -67,6 +96,8 @@ export default defineConfig({
           },
         ]
       : []),
+    ...aud04Chromium,
+    ...(process.env.E2E_ALL_BROWSERS || process.env.E2E_AUD04_BROWSERS ? aud04OtherBrowsers : []),
   ],
 
   webServer: process.env.E2E_BASE_URL

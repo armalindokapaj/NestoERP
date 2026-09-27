@@ -9,7 +9,7 @@ import { demoRosters } from "@/lib/auth/demo-tenants";
  * Its callers render it behind isDevMode only — the business top bar and the
  * Platform Admin's header, so a developer can move between the two (§78).
  */
-export async function DevUserSwitcher() {
+export async function DevUserSwitcher({ variant }: { variant?: "topbar" | "drawer" } = {}) {
   const [rosters, session] = await Promise.all([demoRosters(), auth()]);
-  return <DevUserSwitcherDialog rosters={rosters} currentUsername={session?.user?.username ?? null} />;
+  return <DevUserSwitcherDialog rosters={rosters} currentUsername={session?.user?.username ?? null} variant={variant} />;
 }

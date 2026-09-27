@@ -35,7 +35,8 @@ function HistoryButton({ direction, disabled, onClick }: { direction: "back" | "
       title={disabled ? undefined : direction === "back" ? "Back" : "Forward"}
       onClick={onClick}
       className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-fg-muted transition-colors",
+        // 44px under touch: Back is the record's way home on a phone (AUD-04 §4, MW-04, MW-19).
+        "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-fg-muted transition-colors touch:size-11",
         "hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         "disabled:cursor-not-allowed disabled:opacity-35",
       )}
@@ -75,6 +76,10 @@ function CrumbLink({ item, current = false }: { item: ResolvedCrumb; current?: b
     </Link>
   );
 }
+
+/** The "…" that opens the collapsed levels: 44px under touch (AUD-04 §4, MW-19). */
+const collapsedTrigger =
+  "inline-flex h-7 items-center justify-center rounded-md px-1.5 hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:h-11 touch:min-w-11";
 
 function Separator() {
   return <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle" />;
@@ -132,7 +137,7 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
             <li className="order-1 flex shrink-0 items-center gap-1 sm:hidden">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" aria-label="Show hidden breadcrumb levels" className="inline-flex h-7 items-center rounded-md px-1.5 hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  <button type="button" aria-label="Show hidden breadcrumb levels" className={collapsedTrigger}>
                     <MoreHorizontal aria-hidden="true" className="size-4" />
                   </button>
                 </DropdownMenuTrigger>
@@ -156,7 +161,7 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
                   <li className="hidden shrink-0 items-center gap-1 sm:flex">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" aria-label="Show hidden breadcrumb levels" className="inline-flex h-7 items-center rounded-md px-1.5 hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                        <button type="button" aria-label="Show hidden breadcrumb levels" className={collapsedTrigger}>
                           <MoreHorizontal aria-hidden="true" className="size-4" />
                         </button>
                       </DropdownMenuTrigger>

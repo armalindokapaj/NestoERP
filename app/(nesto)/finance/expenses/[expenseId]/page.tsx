@@ -130,7 +130,27 @@ export default async function ExpenseDetailPage({ params }: Params) {
           {expense.notes ? (
             <div className="mt-4 border-t border-line pt-4">
               <h3 className="text-table font-medium text-fg">Notes</h3>
-              <p className="mt-1 whitespace-pre-wrap text-table text-fg-muted">{expense.notes}</p>
+              <p className="mt-1 whitespace-pre-wrap break-words text-table text-fg-muted">{expense.notes}</p>
+            </div>
+          ) : null}
+
+          {/* Where the receipt goes (AUD-04 §7, MW-13, J-E4): the existing route is the
+              Documents tab after the expense is saved; this says so on the record
+              itself, where a phone user lands after saving, instead of leaving it
+              to a tab they may not notice. No new upload path. */}
+          {may.canViewDocuments ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4" data-testid="expense-receipt-hint">
+              <div className="min-w-0">
+                <h3 className="text-table font-medium text-fg">Receipt</h3>
+                <p className="mt-0.5 text-table text-fg-muted">
+                  Receipts and supporting files are kept on this expense&apos;s Documents tab.
+                </p>
+              </div>
+              <Button asChild variant="secondary" size="sm">
+                <Link href={`/finance/expenses/${expense.id}/documents`}>
+                  {expense.status === "ARCHIVED" ? "View documents" : "Attach receipt"}
+                </Link>
+              </Button>
             </div>
           ) : null}
         </section>

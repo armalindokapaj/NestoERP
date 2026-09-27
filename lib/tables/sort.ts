@@ -1,3 +1,5 @@
+import type { ColumnValueType } from "@/lib/tables/columns";
+
 /**
  * Header sort state (AUD-08 §4, DT-04, DT-19).
  *
@@ -64,4 +66,45 @@ export function headerSortState(
   );
   if (keys) offered.sort((a, b) => keys.indexOf(a) - keys.indexOf(b));
   return { ariaSort: "none", next: offered[0] ?? null };
+}
+
+export type SortChoice = { value: string; label: string };
+
+type SortableColumn = { label: string; sortKey?: string; valueType?: ColumnValueType };
+
+const DIRECTION_WORDS: Record<string, [ascending: string, descending: string]> = {
+  date: ["earliest first", "latest first"],
+  datetime: ["earliest first", "latest first"],
+  money: ["lowest first", "highest first"],
+  number: ["lowest first", "highest first"],
+  text: ["A–Z", "Z–A"],
+};
+
+/**
+ * The explicit Sort control's options, derived from the same columns as the
+ * header sort controls (AUD-04 §5, MW-06): on a phone the table header is
+ * replaced by cards, so the header's orders are offered as a labelled select
+ * instead. Only allowlisted values are offered (the same rule as
+ * `headerSortState`), in column order, each naming its column and direction
+ * ("Due: earliest first"). A duplicate value is offered once.
+ */
+export function sortChoices(columns: readonly SortableColumn[], keys?: readonly string[]): SortChoice[] {
+  const choices: SortChoice[] = [];
+  const seen = new Set<string>();
+  const add = (value: string, label: string) => {
+    if (seen.has(value)) return;
+    seen.add(value);
+    choices.push({ value, label });
+  };
+  for (const column of columns) {
+    const key = column.sortKey;
+    if (!key) continue;
+    const [ascending, descending] = DIRECTION_WORDS[column.valueType ?? "text"] ?? ["ascending", "descending"];
+    const asc = `${key}-asc`;
+    const desc = `${key}-desc`;
+    if (allowed(asc, keys)) add(asc, `${column.label}: ${ascending}`);
+    if (allowed(desc, keys)) add(desc, `${column.label}: ${descending}`);
+    if (keys?.includes(key)) add(key, column.label);
+  }
+  return choices;
 }

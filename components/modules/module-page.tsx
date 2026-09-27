@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { ModuleTabs } from "@/components/modules/module-tabs";
+import { headerActionsClass } from "@/components/ui/page-header";
 import type { ResolvedModuleExperience } from "@/lib/access/module-access";
 
 /**
@@ -11,6 +12,9 @@ import type { ResolvedModuleExperience } from "@/lib/access/module-access";
  *
  * Only actions the current user may perform are passed in; the shell does not
  * render a disabled control to advertise what somebody cannot do (PRD #7 §13).
+ *
+ * The actions wrap within the page on a narrow screen instead of widening it
+ * (AUD-04 §3, D-02-03, D-04-02, MW-01); none is hidden.
  */
 export function ModulePage({
   experience,
@@ -35,14 +39,14 @@ export function ModulePage({
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg">{title ?? experience.label}</h1>
+          <h1 className="text-page font-semibold text-fg [overflow-wrap:anywhere]">{title ?? experience.label}</h1>
           {description === null ? null : (
             <p className="mt-1.5 text-body text-fg-muted">
               {description ?? experience.description}
             </p>
           )}
         </div>
-        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        {actions ? <div className={headerActionsClass}>{actions}</div> : null}
       </div>
 
       <ModuleTabs experience={experience} activeSection={activeSection} />

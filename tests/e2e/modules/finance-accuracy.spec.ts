@@ -262,7 +262,7 @@ test.describe("the invoice register (AUD-01)", () => {
         await mainRegion(page).getByRole("button", { name: /Filters/ }).click();
         const sheet = page.getByRole("dialog");
         await sheet.getByLabel("Settlement").selectOption("PAID");
-        await sheet.getByRole("button", { name: "Done" }).click();
+        await sheet.getByRole("button", { name: "Apply" }).click();
       } else {
         await mainRegion(page).getByRole("combobox", { name: "Settlement" }).selectOption("PAID");
       }

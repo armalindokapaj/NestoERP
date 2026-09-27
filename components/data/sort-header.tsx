@@ -83,6 +83,8 @@ export function SortHeaderCell({
         title={state.next ? `Sort by ${label}` : undefined}
         className={cn(
           "-mx-1 inline-flex items-center gap-1 rounded px-1 uppercase tracking-[0.08em] transition-colors",
+          // A 44px hit area on a touch tablet (AUD-04 §3); the header row grows to fit.
+          "touch:min-h-11",
           "hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
           state.ariaSort !== "none" && "text-fg",
           state.next === null && "cursor-default",

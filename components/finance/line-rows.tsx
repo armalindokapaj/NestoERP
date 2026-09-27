@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { useFieldErrors } from "@/components/forms/record-form";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseDecimalInput, type DecimalRule } from "@/lib/modules/finance/finance.decimal";
@@ -39,8 +40,16 @@ export function useLineRows<T extends object>(initial: T[], empty: () => T, opti
   const [rows, setRows] = React.useState<Row<T>[]>(() =>
     (initial.length > 0 ? initial : [empty()]).map((row, index) => ({ ...row, rowId: `row-${index}` })),
   );
+  /**
+   * The last row removed, with where it stood, so a mis-tap can be undone
+   * (AUD-04 §5, §6, MW-08): on a phone the remove control sits under a thumb,
+   * and a line's typed figures must not vanish silently. One level only; the
+   * next removal or addition replaces it.
+   */
+  const [removed, setRemoved] = React.useState<{ row: Row<T>; index: number; position: number } | null>(null);
 
   const add = React.useCallback(() => {
+    setRemoved(null);
     setRows((current) => {
       if (current.length >= options.max) return current;
       counter.current += 1;
@@ -48,15 +57,76 @@ export function useLineRows<T extends object>(initial: T[], empty: () => T, opti
     });
   }, [empty, options.max]);
 
-  const remove = React.useCallback((rowId: string) => {
-    setRows((current) => (current.length <= 1 ? current : current.filter((row) => row.rowId !== rowId)));
-  }, []);
+  const remove = React.useCallback(
+    (rowId: string) => {
+      if (rows.length <= 1) return;
+      const index = rows.findIndex((row) => row.rowId === rowId);
+      if (index < 0) return;
+      setRemoved({ row: rows[index], index, position: index + 1 });
+      setRows(rows.filter((row) => row.rowId !== rowId));
+    },
+    [rows],
+  );
+
+  /** Puts the last removed row back where it was, with its values and its identity. */
+  const undo = React.useCallback(() => {
+    if (!removed) return;
+    setRows((current) => {
+      if (current.length >= options.max || current.some((row) => row.rowId === removed.row.rowId)) return current;
+      const next = [...current];
+      next.splice(Math.min(removed.index, next.length), 0, removed.row);
+      return next;
+    });
+    setRemoved(null);
+  }, [removed, options.max]);
+
+  const dismissRemoved = React.useCallback(() => setRemoved(null), []);
 
   const update = React.useCallback((rowId: string, patch: Partial<T>) => {
     setRows((current) => current.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
   }, []);
 
-  return { rows, add, remove, update, atLimit: rows.length >= options.max };
+  return { rows, add, remove, update, atLimit: rows.length >= options.max, removed, undo, dismissRemoved };
+}
+
+/**
+ * "Line 2 removed · Undo" (AUD-04 §6, MW-08, D-02-06): a removed line is said
+ * out loud and can be put back, instead of disappearing on one tap. Nothing
+ * is saved until the form is, so the undo is local, like the removal.
+ */
+export function RemovedLineNotice({
+  removed,
+  label,
+  noun = "Line",
+  onUndo,
+  onDismiss,
+}: {
+  removed: { position: number } | null;
+  /** What the removed line was, when it had a name. */
+  label?: string;
+  noun?: string;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div role="status" aria-live="polite" className="empty:hidden" data-testid="line-removed-notice">
+      {removed ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-surface-2 px-3 py-2 text-table text-fg">
+          <span className="min-w-0 break-words">
+            {noun} {removed.position} removed{label ? `: ${label}` : ""}.
+          </span>
+          <span className="flex items-center gap-1">
+            <Button type="button" variant="secondary" size="sm" onClick={onUndo}>
+              Undo
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
+              Dismiss
+            </Button>
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 type RowErrors = { source: Record<string, string[]>; byRow: Map<string, Record<string, string>>; list: string | undefined };
@@ -168,7 +238,10 @@ export function DecimalCell({
         ref={ref}
         id={id}
         name={name}
-        inputMode="decimal"
+        // A phone's decimal pad has no minus key (iOS), so a field whose rule
+        // allows a negative gets the full keyboard; the parser, not the
+        // keyboard, decides what is accepted (AUD-04 §6, MW-09).
+        inputMode={rule.allowNegative ? "text" : "decimal"}
         autoComplete="off"
         value={value}
         required={required}

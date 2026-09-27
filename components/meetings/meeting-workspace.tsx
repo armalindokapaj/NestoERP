@@ -525,7 +525,7 @@ export function MeetingWorkspace({
 
       {/* Sticky actions on a phone, only the ones this reader may take (PRD #40 §126). */}
       {caps.canStart || caps.canComplete || caps.canRespond || (inFocus && caps.canCreateAction) ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden" data-testid="meeting-sticky-actions">
+        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden" data-testid="meeting-sticky-actions" data-sticky-action-bar>
           {caps.canStart ? (
             <Button type="button" className="flex-1" onClick={() => void command("start", `/api/meetings/${meeting.id}/start`, {}, "Meeting started")} disabled={pending !== null}>
               <Play aria-hidden="true" /> Start

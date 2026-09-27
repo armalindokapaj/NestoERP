@@ -123,18 +123,19 @@ export default async function TaskDetailPage({ params }: Params) {
       {task.blocked ? (
         <div role="note" className="rounded-md border border-warning bg-warning-soft px-4 py-3" data-testid="task-blocked-reason">
           <p className="text-table font-semibold text-warning-strong">Blocked</p>
-          <p className="mt-1 whitespace-pre-wrap text-table text-fg">{task.blocked.reason ?? "No reason was recorded."}</p>
+          <p className="mt-1 whitespace-pre-wrap text-table text-fg [overflow-wrap:anywhere]">{task.blocked.reason ?? "No reason was recorded."}</p>
           {task.blocked.since ? (
             <p className="mt-1 text-meta text-fg-subtle">Since {formatDateTime(task.blocked.since)}</p>
           ) : null}
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <section className="nesto-card p-5 lg:col-span-2">
           <h2 className="text-card font-semibold text-fg">Description</h2>
+          {/* A pasted URL or code wraps inside the card instead of widening the page on a phone (AUD-04 §3, MW-01). */}
           {task.description ? (
-            <p className="mt-3 whitespace-pre-wrap text-body text-fg-muted">{task.description}</p>
+            <p className="mt-3 whitespace-pre-wrap text-body text-fg-muted [overflow-wrap:anywhere]">{task.description}</p>
           ) : (
             <p className="mt-3 text-table text-fg-subtle">No description was added.</p>
           )}
@@ -214,7 +215,7 @@ export default async function TaskDetailPage({ params }: Params) {
                 <ul className="mt-4 space-y-3">
                   {activity.data.map((entry) => (
                     <li key={entry.id} className="text-table">
-                      <p className="text-fg">
+                      <p className="text-fg [overflow-wrap:anywhere]">
                         {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
                         {entry.message ?? entry.action}
                       </p>

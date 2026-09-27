@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { compareDecimal, decimalRule, parseOptionalDecimal } from "@/lib/forms/decimal";
 import {
   DUE_STATE_LABELS,
   DUE_STATES,
@@ -63,6 +64,8 @@ export const EMPTY_FILTERS: ApprovalFilters = {
 const PRIORITIES: ApprovalPriority[] = ["CRITICAL", "HIGH", "NORMAL", "LOW"];
 const PRIORITY_LABELS: Record<ApprovalPriority, string> = { CRITICAL: "Critical", HIGH: "High", NORMAL: "Normal", LOW: "Low" };
 const STATUS_OPTIONS: UnifiedApprovalStatus[] = ["PENDING", "APPROVED", "REJECTED", "RETURNED", "CANCELLED"];
+/** Money, as the queue filter reads it on the server: up to 15 whole digits and 2 decimals, not negative (approvals.schema). */
+const AMOUNT_RULE = (label: string) => decimalRule("money", label, { maxIntegerDigits: 15 });
 
 export function activeFilterCount(filters: ApprovalFilters): number {
   return (
@@ -103,9 +106,36 @@ export function FilterDrawer({
   onApply: (filters: ApprovalFilters) => void;
 }) {
   const [draft, setDraft] = React.useState(filters);
+  // The amounts as typed: read with the shared decimal rule on Apply, never
+  // stripped of characters as they are typed (AUD-09 §4; AUD-04 §6, MW-09).
+  const [amounts, setAmounts] = React.useState({ min: filters.amountMin ?? "", max: filters.amountMax ?? "" });
+  const [amountError, setAmountError] = React.useState<{ field: "min" | "max"; message: string } | null>(null);
+  const minRef = React.useRef<HTMLInputElement>(null);
+  const maxRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
-    if (open) setDraft(filters);
+    if (!open) return;
+    setDraft(filters);
+    setAmounts({ min: filters.amountMin ?? "", max: filters.amountMax ?? "" });
+    setAmountError(null);
   }, [open, filters]);
+
+  /** The staged filters with the amounts read, or null when an amount is refused (and said why). */
+  function readAmounts(): ApprovalFilters | null {
+    const min = parseOptionalDecimal(amounts.min, AMOUNT_RULE("Minimum amount"));
+    const max = parseOptionalDecimal(amounts.max, AMOUNT_RULE("Maximum amount"));
+    const refuse = (field: "min" | "max", message: string) => {
+      setAmountError({ field, message });
+      (field === "min" ? minRef : maxRef).current?.focus();
+      return null;
+    };
+    if (!min.ok) return refuse("min", min.message);
+    if (!max.ok) return refuse("max", max.message);
+    if (min.value !== null && max.value !== null && compareDecimal(min.value, max.value) > 0) {
+      return refuse("max", "The maximum amount is below the minimum.");
+    }
+    setAmountError(null);
+    return { ...draft, amountMin: min.value, amountMax: max.value };
+  }
 
   const toggle = <K extends "provider" | "status" | "priority" | "dueState">(key: K, value: ApprovalFilters[K][number]) => {
     setDraft((current) => {
@@ -131,7 +161,9 @@ export function FilterDrawer({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
-            onApply(draft);
+            const next = readAmounts();
+            if (!next) return;
+            onApply(next);
             onOpenChange(false);
           }}
         >
@@ -208,15 +240,52 @@ export function FilterDrawer({
             </fieldset>
             <fieldset className="space-y-1.5">
               <legend className="text-table font-medium text-fg">Amount</legend>
-              <p className="text-meta text-fg-subtle">In each record&apos;s own currency. Records without an amount drop out.</p>
+              <p id="filter-amount-hint" className="text-meta text-fg-subtle">In each record&apos;s own currency. Records without an amount drop out. Use a point or a comma for decimals, e.g. 1234.50.</p>
               <div className="grid grid-cols-2 gap-2">
-                <Input inputMode="decimal" aria-label="Minimum amount" placeholder="Min" value={draft.amountMin ?? ""} onChange={(event) => setDraft({ ...draft, amountMin: event.target.value.replace(/[^\d.]/g, "") || null })} />
-                <Input inputMode="decimal" aria-label="Maximum amount" placeholder="Max" value={draft.amountMax ?? ""} onChange={(event) => setDraft({ ...draft, amountMax: event.target.value.replace(/[^\d.]/g, "") || null })} />
+                <Input
+                  ref={minRef}
+                  inputMode="decimal"
+                  aria-label="Minimum amount"
+                  placeholder="Min"
+                  value={amounts.min}
+                  aria-invalid={amountError?.field === "min" || undefined}
+                  aria-describedby={amountError?.field === "min" ? "filter-amount-error" : "filter-amount-hint"}
+                  onChange={(event) => {
+                    setAmounts({ ...amounts, min: event.target.value });
+                    setAmountError(null);
+                  }}
+                />
+                <Input
+                  ref={maxRef}
+                  inputMode="decimal"
+                  aria-label="Maximum amount"
+                  placeholder="Max"
+                  value={amounts.max}
+                  aria-invalid={amountError?.field === "max" || undefined}
+                  aria-describedby={amountError?.field === "max" ? "filter-amount-error" : "filter-amount-hint"}
+                  onChange={(event) => {
+                    setAmounts({ ...amounts, max: event.target.value });
+                    setAmountError(null);
+                  }}
+                />
               </div>
+              {amountError ? (
+                <p id="filter-amount-error" role="alert" className="text-meta font-medium text-danger-strong" data-testid="filter-amount-error">
+                  {amountError.message}
+                </p>
+              ) : null}
             </fieldset>
           </div>
-          <div className="flex gap-2 border-t border-line px-5 py-3">
-            <Button type="button" variant="ghost" onClick={() => setDraft(EMPTY_FILTERS)}>
+          <div className="flex gap-2 border-t border-line px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setDraft(EMPTY_FILTERS);
+                setAmounts({ min: "", max: "" });
+                setAmountError(null);
+              }}
+            >
               Reset
             </Button>
             <Button type="submit" className="ml-auto">
@@ -241,9 +310,10 @@ function Group({ legend, children }: { legend: string; children: React.ReactNode
 function CheckRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   const id = React.useId();
   return (
-    <div className="flex items-center gap-2">
+    // The label fills the row, so the whole row is the target on a touch screen (AUD-04 §3, MW-19).
+    <div className="flex items-center gap-2 touch:min-h-11">
       <Checkbox id={id} checked={checked} onCheckedChange={onChange} />
-      <label htmlFor={id} className="text-table text-fg">
+      <label htmlFor={id} className="flex min-w-0 flex-1 items-center self-stretch text-table text-fg">
         {label}
       </label>
     </div>
@@ -278,20 +348,21 @@ export function FilterChips({
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5" aria-label="Active filters">
+    <div className="flex flex-wrap items-center gap-1.5 touch:gap-2" aria-label="Active filters">
       {chips.map((chip) => (
         <button
           key={chip.key}
           type="button"
           onClick={() => onChange(chip.clear())}
-          className="inline-flex h-7 items-center gap-1 rounded-full border border-line bg-surface pl-2.5 pr-1.5 text-meta font-medium text-fg transition-colors hover:border-line-strong"
+          // 44px tall on a touch screen, like every chip (AUD-04 §3, MW-06).
+          className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-line bg-surface pl-2.5 pr-1.5 text-meta font-medium text-fg transition-colors hover:border-line-strong touch:h-11 touch:pl-3.5 touch:pr-2.5"
           aria-label={`Remove filter ${chip.label}`}
         >
-          {chip.label}
-          <X aria-hidden="true" className="size-3 text-fg-subtle" />
+          <span className="min-w-0 truncate">{chip.label}</span>
+          <X aria-hidden="true" className="size-3 shrink-0 text-fg-subtle" />
         </button>
       ))}
-      <button type="button" onClick={() => onChange(EMPTY_FILTERS)} className="ml-1 text-meta font-medium text-fg-muted underline-offset-4 hover:text-fg hover:underline">
+      <button type="button" onClick={() => onChange(EMPTY_FILTERS)} className="ml-1 text-meta font-medium text-fg-muted underline-offset-4 hover:text-fg hover:underline touch:min-h-11 touch:px-2">
         Clear all
       </button>
     </div>

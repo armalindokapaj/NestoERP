@@ -64,7 +64,8 @@ export function PageSizeSelect({
       </label>
       <select
         id={id}
-        className="h-9 rounded-md border border-line bg-surface px-2 text-table font-medium text-fg-muted transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20"
+        // 44px and 16px text under a touch layout or pointer (AUD-04 §3, SP-04).
+        className="h-9 rounded-md border border-line bg-surface px-2 text-table font-medium text-fg-muted transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20 touch:h-11 max-md:text-base"
         value={sizes.includes(current) ? String(current) : ""}
         onChange={(event) => {
           const size = Number(event.target.value);

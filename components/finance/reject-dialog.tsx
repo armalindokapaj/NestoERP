@@ -146,8 +146,15 @@ function ReasonForm({
           readOnly={pending}
           onChange={(event) => setReason(event.target.value)}
           placeholder={placeholder}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "reject-reason-error" : undefined}
         />
-        {error ? <p className="text-meta text-danger-strong">{error}</p> : null}
+        {/* Announced where it is, beside the field, above a phone's keyboard (AUD-04 §6, MW-15). */}
+        {error ? (
+          <p id="reject-reason-error" role="alert" className="text-meta text-danger-strong">
+            {error}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
