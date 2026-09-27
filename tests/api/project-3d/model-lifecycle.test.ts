@@ -234,4 +234,16 @@ describe("Project 3D model lifecycle", () => {
     expect(audit.metadataJson).toMatchObject({ operation: "MODEL_FILE_DELETED" });
     await expect(deleteProject3DModelVersion(admin, older.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
+
+  it("puts a model whose preparation failed on the server back in line, but not one validation refused", async () => {
+    const annex = await prisma.project3DModelSlot.findFirstOrThrow({ where: { projectId, slotKey: "annex" }, select: { id: true } });
+    const versionId = await uploaded(annex.id, null);
+    await prisma.project3DModelVersion.update({ where: { id: versionId }, data: { status: "FAILED", validationStatus: "BLOCKED", processingDiagnostics: { stage: "failed", message: "Model processing failed. Review the source GLB and retry with a new version.", error: "Error: boom" } } });
+    expect((await getProject3DEditorWorkspace(admin, projectId)).slots.find((slot) => slot.id === annex.id)!.versions[0]).toMatchObject({ id: versionId, retryable: true });
+    await expect(retryProject3DModelProcessing(admin, projectId, versionId)).resolves.toEqual({ id: versionId, status: "PROCESSING" });
+    await expect(processProject3DModelVersion(versionId)).resolves.toBe("READY");
+
+    await prisma.project3DModelVersion.update({ where: { id: versionId }, data: { status: "FAILED", processingDiagnostics: { stage: "failed", message: "GLB validation blocked this version." } } });
+    await expect(retryProject3DModelProcessing(admin, projectId, versionId)).rejects.toMatchObject({ details: { code: "MODEL_NOT_PROCESSING" } });
+  });
 });

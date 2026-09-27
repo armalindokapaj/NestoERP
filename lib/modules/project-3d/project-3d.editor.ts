@@ -10,7 +10,7 @@ import { StorageError } from "@/lib/core/storage/storage.errors";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
 import { changedConfigKeys, countedSave, countSummary, project3DAuditMetadata } from "./project-3d.audit";
-import { PROJECT_3D_PROCESSING_STALE_MS, project3DUploadLimitBytes } from "./project-3d.ingestion";
+import { PROJECT_3D_PROCESSING_STALE_MS, project3DProcessingCrashed, project3DUploadLimitBytes } from "./project-3d.ingestion";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DExperienceUpdate, Project3DModelSettingsUpdate } from "./project-3d.schema";
 import { assertProject3DStorageKey } from "./project-3d.storage";
@@ -178,6 +178,8 @@ export async function getProject3DEditorWorkspace(context: PlatformContext, proj
         updatedAt: version.updatedAt.toISOString(),
         // Nothing has touched it for longer than any preparation takes: it can be put back in line.
         stalled: version.status === "PROCESSING" && Date.now() - version.updatedAt.getTime() > PROJECT_3D_PROCESSING_STALE_MS,
+        // Failed on the server, not refused by validation: the same file can be prepared again.
+        retryable: project3DProcessingCrashed(version),
         assetMissing,
         asset,
       };
