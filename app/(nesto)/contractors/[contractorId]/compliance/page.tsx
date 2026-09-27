@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -9,7 +10,9 @@ import { getContractor } from "@/lib/modules/contractors/contractor.service";
 
 type Params = { params: Promise<{ contractorId: string }>; searchParams: SearchParams };
 
-export const metadata: Metadata = { title: "Contractor compliance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("contractors"))("meta.compliance") };
+}
 
 /** The contractor's compliance, with renewal, evidence upload and waiver (PRD #46 §41-§49, §312). */
 export default async function ContractorCompliancePage({ params, searchParams }: Params) {

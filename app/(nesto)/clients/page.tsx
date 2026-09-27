@@ -17,8 +17,11 @@ import {
   recentlyUpdatedClients,
 } from "@/lib/modules/clients/client.repository";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Clients" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.clients") };
+}
 
 /**
  * Clients module overview (PRD #12 §7, §8; NAV-03 STREAM-02, STREAM-04).
@@ -35,6 +38,7 @@ export const metadata: Metadata = { title: "Clients" };
 export default async function ClientsOverviewPage() {
   const context = await requireModule("clients");
   const experience = resolveModuleExperience(context, "clients");
+  const t = await getTranslations("clients");
 
   // Started together, awaited apart.
   const stats = clientOverviewStats(context);
@@ -50,7 +54,7 @@ export default async function ClientsOverviewPage() {
       actions={
         can(context, "client.create") ? (
           <Button asChild size="sm">
-            <Link href="/clients/new">New client</Link>
+            <Link href="/clients/new">{t("common.newClient")}</Link>
           </Button>
         ) : null
       }
@@ -64,13 +68,13 @@ export default async function ClientsOverviewPage() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <SectionBoundary className="nesto-card">
-            <Suspense fallback={<ListSectionSkeleton title="Recently added" />}>
-              <ClientPanel title="Recently added" empty="No recently added clients." href="/clients/all?sort=created-desc" clients={recent} primary />
+            <Suspense fallback={<ListSectionSkeleton title={t("overview.recentlyAdded")} />}>
+              <ClientPanel title={t("overview.recentlyAdded")} empty={t("overview.noRecentlyAdded")} href="/clients/all?sort=created-desc" clients={recent} primary />
             </Suspense>
           </SectionBoundary>
           <SectionBoundary className="nesto-card">
-            <Suspense fallback={<ListSectionSkeleton title="Recently updated" />}>
-              <ClientPanel title="Recently updated" empty="No recently updated clients." href="/clients/all" clients={updated} />
+            <Suspense fallback={<ListSectionSkeleton title={t("overview.recentlyUpdated")} />}>
+              <ClientPanel title={t("overview.recentlyUpdated")} empty={t("overview.noRecentlyUpdated")} href="/clients/all" clients={updated} />
             </Suspense>
           </SectionBoundary>
         </div>
@@ -80,12 +84,12 @@ export default async function ClientsOverviewPage() {
 }
 
 async function ClientStats({ stats }: { stats: ReturnType<typeof clientOverviewStats> }) {
-  const value = await stats;
+  const [value, t] = await Promise.all([stats, getTranslations("clients")]);
   const cards = [
-    { label: "Active clients", value: value.active, href: "/clients/active" },
-    { label: "With active projects", value: value.withActiveProjects, href: "/clients/all?hasActiveProject=yes" },
-    { label: "Added this month", value: value.addedThisMonth, href: "/clients/all?sort=created-desc" },
-    { label: "Archived", value: value.archived, href: "/clients/archived" },
+    { label: t("overview.activeClients"), value: value.active, href: "/clients/active" },
+    { label: t("overview.withActiveProjects"), value: value.withActiveProjects, href: "/clients/all?hasActiveProject=yes" },
+    { label: t("overview.addedThisMonth"), value: value.addedThisMonth, href: "/clients/all?sort=created-desc" },
+    { label: t("overview.archived"), value: value.archived, href: "/clients/archived" },
   ];
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-section="stats">
@@ -120,7 +124,7 @@ async function ClientPanel({
   >;
   primary?: boolean;
 }) {
-  const clients = await pending;
+  const [clients, t] = await Promise.all([pending, getTranslations("clients")]);
   return (
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
       <div className="flex items-center justify-between gap-3">
@@ -129,7 +133,7 @@ async function ClientPanel({
           href={href}
           className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
         >
-          All clients
+          {t("overview.allClients")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>

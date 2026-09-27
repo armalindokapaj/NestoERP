@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -12,7 +13,9 @@ import { listWorkPackages } from "@/lib/modules/work-packages/work-package.servi
 
 type Params = { params: Promise<{ contractorId: string }>; searchParams: SearchParams };
 
-export const metadata: Metadata = { title: "Contractor work packages" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("contractors"))("meta.contractorWorkPackages") };
+}
 
 /**
  * The contractor's work packages across projects (PRD #46 §39, §160), archived
@@ -27,11 +30,12 @@ export default async function ContractorWorkPackagesPage({ params, searchParams 
   const query = workPackageListSchema.parse({ contractorId: contractor.id, includeArchived: "1", page: one(search.page) });
   const result = await listWorkPackages(context, query);
   const base = `/contractors/${contractor.id}/work-packages`;
+  const t = await getTranslations("contractors");
   keepPageInRange(base, search, query.page, result);
   return (
     <section className="space-y-3">
-      <h2 className="text-section font-semibold text-fg">Work packages</h2>
-      <WorkPackageTable items={result.items} showProject emptyText="No work packages for this contractor." />
+      <h2 className="text-section font-semibold text-fg">{t("workPackagesTab.title")}</h2>
+      <WorkPackageTable items={result.items} showProject emptyText={t("workPackagesTab.empty")} />
       <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref(base, search, page)} />
     </section>
   );

@@ -29,6 +29,7 @@ import {
   updateContactAction,
 } from "@/lib/actions/clients";
 import type { ContactDTO } from "@/lib/modules/clients/client.types";
+import { useClientsServerText, useClientsTranslations } from "./clients-text";
 
 /**
  * Client contacts (PRD #12 §76–§89).
@@ -55,6 +56,8 @@ export function ContactList({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useClientsTranslations();
+  const serverText = useClientsServerText();
   const [pending, startTransition] = React.useTransition();
   const [editing, setEditing] = React.useState<ContactDTO | null>(null);
   const [adding, setAdding] = React.useState(false);
@@ -70,7 +73,7 @@ export function ContactList({
         setArchiving(null);
         router.refresh();
       } else {
-        toast({ title: result.error ?? "Something went wrong.", tone: "danger" });
+        toast({ title: serverText(result.error) ?? t("common.somethingWrong"), tone: "danger" });
       }
     });
   }
@@ -92,7 +95,7 @@ export function ContactList({
         <div className="flex justify-end">
           <Button size="sm" onClick={() => setAdding(true)}>
             <UserPlus aria-hidden="true" />
-            Add contact
+            {t("contacts.add")}
           </Button>
         </div>
       ) : null}
@@ -100,8 +103,8 @@ export function ContactList({
       {active.length === 0 && archived.length === 0 ? (
         <EmptyState
           icon={<UserPlus />}
-          title="No contacts added yet."
-          description="People you deal with at this client will appear here."
+          title={t("contacts.emptyTitle")}
+          description={t("contacts.emptyDescription")}
         />
       ) : (
         <ul className="nesto-card divide-y divide-line">
@@ -110,9 +113,9 @@ export function ContactList({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-table font-medium text-fg">{contact.fullName}</p>
-                  {contact.isPrimary ? <Badge tone="info">Primary</Badge> : null}
-                  {contact.status === "INACTIVE" ? <Badge tone="neutral">Inactive</Badge> : null}
-                  {contact.status === "ARCHIVED" ? <Badge tone="neutral">Archived</Badge> : null}
+                  {contact.isPrimary ? <Badge tone="info">{t("common.primary")}</Badge> : null}
+                  {contact.status === "INACTIVE" ? <Badge tone="neutral">{t("common.inactive")}</Badge> : null}
+                  {contact.status === "ARCHIVED" ? <Badge tone="neutral">{t("common.archived")}</Badge> : null}
                 </div>
                 {contact.jobTitle ? (
                   <p className="mt-0.5 text-meta text-fg-subtle">{contact.jobTitle}</p>
@@ -137,7 +140,7 @@ export function ContactList({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label={`Actions for ${contact.fullName}`}
+                      aria-label={t("contacts.actionsFor", { name: contact.fullName })}
                     >
                       <MoreHorizontal />
                     </Button>
@@ -151,7 +154,7 @@ export function ContactList({
                         }}
                       >
                         <PenLine />
-                        Edit contact
+                        {t("contacts.edit")}
                       </DropdownMenuItem>
                     ) : null}
 
@@ -161,12 +164,12 @@ export function ContactList({
                           event.preventDefault();
                           run(
                             () => makePrimaryContactAction(clientId, contact.id),
-                            "Primary contact changed.",
+                            t("contacts.primaryChanged"),
                           );
                         }}
                       >
                         <Star />
-                        Make primary
+                        {t("contacts.makePrimary")}
                       </DropdownMenuItem>
                     ) : null}
 
@@ -178,7 +181,7 @@ export function ContactList({
                         }}
                       >
                         <Archive />
-                        Archive contact
+                        {t("contacts.archive")}
                       </DropdownMenuItem>
                     ) : null}
 
@@ -188,12 +191,12 @@ export function ContactList({
                           event.preventDefault();
                           run(
                             () => restoreContactAction(clientId, contact.id),
-                            "Contact restored.",
+                            t("contacts.restored"),
                           );
                         }}
                       >
                         <ArchiveRestore />
-                        Restore contact
+                        {t("contacts.restore")}
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuContent>
@@ -207,38 +210,38 @@ export function ContactList({
       <ContactDialog
         open={adding}
         onOpenChange={setAdding}
-        title="Add contact"
+        title={t("contacts.add")}
         action={(formData) => createContactAction(clientId, formData)}
-        onSaved={() => saved("Contact added.")}
+        onSaved={() => saved(t("contacts.added"))}
       />
 
       <ContactDialog
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}
-        title="Edit contact"
+        title={t("contacts.edit")}
         contact={editing}
         action={(formData) =>
           editing
             ? updateContactAction(clientId, editing.id, formData)
-            : Promise.resolve({ ok: false as const, code: "VALIDATION_ERROR", category: "validation" as const, error: "Choose a contact to edit." })
+            : Promise.resolve({ ok: false as const, code: "VALIDATION_ERROR", category: "validation" as const, error: t("contacts.chooseToEdit") })
         }
-        onSaved={() => saved("Contact updated.")}
+        onSaved={() => saved(t("contacts.updated"))}
       />
 
       <ConfirmDialog
         open={archiving !== null}
         onOpenChange={(open) => !open && setArchiving(null)}
-        title={archiving ? `Archive ${archiving.fullName}?` : ""}
+        title={archiving ? t("contacts.archiveTitle", { name: archiving.fullName }) : ""}
         description={
           archiving?.isPrimary
-            ? "This is the primary contact. Archiving them leaves the client without one until you choose a replacement."
-            : "The contact will be removed from the active list. Their history is kept and they can be restored."
+            ? t("contacts.archivePrimary")
+            : t("contacts.archiveOther")
         }
-        confirmLabel="Archive contact"
+        confirmLabel={t("contacts.archive")}
         pending={pending}
         onConfirm={() =>
           archiving
-            ? run(() => archiveContactAction(clientId, archiving.id), "Contact archived.")
+            ? run(() => archiveContactAction(clientId, archiving.id), t("contacts.archivedToast"))
             : undefined
         }
       />
@@ -288,13 +291,14 @@ function ContactForm({
   action: (formData: FormData) => Promise<ClientActionResult>;
   onSaved: () => void;
 }) {
+  const t = useClientsTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   const save = useEditorSave({
     formRef,
     action,
     module: "clients",
     saveKind: contact ? "save" : "create",
-    label: contact ? contact.fullName : "New contact",
+    label: contact ? contact.fullName : t("contacts.newContact"),
     onCommitted: () => {
       onSaved();
       return true;
@@ -323,7 +327,7 @@ function ContactForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="firstName">
-              First name<span className="ml-0.5 text-danger-strong">*</span>
+              {t("contacts.firstName")}<span className="ml-0.5 text-danger-strong">*</span>
             </Label>
             <Input
               id="firstName"
@@ -337,7 +341,7 @@ function ContactForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="lastName">
-              Last name<span className="ml-0.5 text-danger-strong">*</span>
+              {t("contacts.lastName")}<span className="ml-0.5 text-danger-strong">*</span>
             </Label>
             <Input
               id="lastName"
@@ -352,7 +356,7 @@ function ContactForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="jobTitle">Job title</Label>
+          <Label htmlFor="jobTitle">{t("contacts.jobTitle")}</Label>
           <Input
             id="jobTitle"
             {...invalid("jobTitle", "jobTitle")}
@@ -365,7 +369,7 @@ function ContactForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="contact-email">Email</Label>
+            <Label htmlFor="contact-email">{t("contacts.email")}</Label>
             <Input
               id="contact-email"
               {...invalid("email", "contact-email")}
@@ -377,7 +381,7 @@ function ContactForm({
             {errorOf("email", "contact-email")}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="contact-phone">Phone</Label>
+            <Label htmlFor="contact-phone">{t("contacts.phone")}</Label>
             <Input
               id="contact-phone"
               {...invalid("phone", "contact-phone")}
@@ -392,15 +396,15 @@ function ContactForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="contact-status">Status</Label>
+            <Label htmlFor="contact-status">{t("contacts.status")}</Label>
             <select
               id="contact-status"
               name="status"
               defaultValue={contact?.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
               className={selectClass}
             >
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
+              <option value="ACTIVE">{t("contacts.active")}</option>
+              <option value="INACTIVE">{t("contacts.inactive")}</option>
             </select>
           </div>
 
@@ -415,7 +419,7 @@ function ContactForm({
               defaultChecked={contact?.isPrimary ?? false}
               className="size-4 rounded border-line text-accent focus:ring-ring/20"
             />
-            Primary contact
+            {t("contacts.primaryContact")}
           </label>
         </div>
 
@@ -423,12 +427,12 @@ function ContactForm({
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <Button type="submit" disabled={pending || Boolean(save.saved)}>
-          {pending ? "Saving…" : "Save contact"}
+          {pending ? t("contacts.saving") : t("contacts.save")}
         </Button>
         {/* Through the dialog's guard, like the X and Escape (AUD-03 §5). */}
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         </DialogClose>
         <UnsavedIndicator save={save} />

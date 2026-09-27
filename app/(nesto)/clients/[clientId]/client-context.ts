@@ -27,9 +27,10 @@ export const loadClient = cache(async function loadClient(
   }
 });
 
-export function clientBreadcrumbs(client: ClientDetailDTO, trailing?: string): Crumb[] {
+/** `root` is the module's name in the reader's language. */
+export function clientBreadcrumbs(client: ClientDetailDTO, trailing?: string, root = "Clients"): Crumb[] {
   const crumbs: Crumb[] = [
-    { label: "Clients", href: "/clients" },
+    { label: root, href: "/clients" },
     trailing ? { label: client.name, href: `/clients/${client.id}` } : { label: client.name },
   ];
   if (trailing) crumbs.push({ label: trailing });

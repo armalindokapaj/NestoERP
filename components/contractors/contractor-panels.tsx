@@ -17,6 +17,9 @@ import { useToast } from "@/components/ui/toast";
 import { COMPLIANCE_STATUS_LABELS, COMPLIANCE_TYPE_LABELS, CONTACT_ROLE_LABELS, type ComplianceItemDTO, type ContactDTO } from "@/lib/modules/contractors/contractor.types";
 import type { Option } from "@/lib/modules/engineering/engineering.types";
 import { cn } from "@/lib/utils/cn";
+import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
+import type { Translate } from "@/lib/i18n/translator";
+import { useContractorsTranslations } from "./contractors-text";
 
 /**
  * A contractor's people and paperwork (PRD #46 §20-§23, §41-§49, §312).
@@ -27,12 +30,13 @@ import { cn } from "@/lib/utils/cn";
 export function ContactsPanel({ contractorId, contacts, canManage }: { contractorId: string; contacts: ContactDTO[]; canManage: boolean }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useContractorsTranslations();
   const [editing, setEditing] = React.useState<ContactDTO | "new" | null>(null);
 
   async function remove(contact: ContactDTO) {
     try {
       const result = await engineeringApi<{ removed: boolean }>(`/api/contractor-contacts/${contact.id}`, { method: "DELETE" });
-      toast({ title: result.removed ? "Contact removed." : "Contact kept as inactive: an assignment still names them.", tone: "success" });
+      toast({ title: result.removed ? t("contacts.removed") : t("contacts.keptInactive"), tone: "success" });
       router.refresh();
     } catch (failure) {
       toast({ title: failureMessage(failure), tone: "danger" });
@@ -43,18 +47,18 @@ export function ContactsPanel({ contractorId, contacts, canManage }: { contracto
     <section className="space-y-4" data-testid="contacts-panel">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-section font-semibold text-fg">Contacts</h2>
-          <p className="mt-0.5 text-table text-fg-muted">The people at this contractor the company works with. Contact records only — none of them has a login.</p>
+          <h2 className="text-section font-semibold text-fg">{t("contacts.title")}</h2>
+          <p className="mt-0.5 text-table text-fg-muted">{t("contacts.description")}</p>
         </div>
         {canManage ? (
           <Button type="button" size="sm" onClick={() => setEditing("new")} data-testid="add-contact">
             <Plus aria-hidden="true" />
-            Add contact
+            {t("contacts.add")}
           </Button>
         ) : null}
       </div>
       {contacts.length === 0 ? (
-        <p className="rounded-md border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">No contacts yet.</p>
+        <p className="rounded-md border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">{t("contacts.empty")}</p>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {contacts.map((contact) => (
@@ -62,9 +66,9 @@ export function ContactsPanel({ contractorId, contacts, canManage }: { contracto
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-body font-medium text-fg">{contact.name}</p>
-                  <p className="text-table text-fg-muted">{[contact.roleTitle, contact.contactRole ? CONTACT_ROLE_LABELS[contact.contactRole] : null].filter(Boolean).join(" · ") || "—"}</p>
+                  <p className="text-table text-fg-muted">{[contact.roleTitle, contact.contactRole ? contractorsLabel(t, "contactRole", contact.contactRole, CONTACT_ROLE_LABELS[contact.contactRole]) : null].filter(Boolean).join(" · ") || "—"}</p>
                 </div>
-                {!contact.active ? <Badge tone="default">Inactive</Badge> : null}
+                {!contact.active ? <Badge tone="default">{t("contacts.inactive")}</Badge> : null}
               </div>
               <div className="mt-3 space-y-1 text-table">
                 {contact.email ? (
@@ -85,11 +89,11 @@ export function ContactsPanel({ contractorId, contacts, canManage }: { contracto
                 <div className="mt-3 flex gap-1 border-t border-line pt-2">
                   <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(contact)}>
                     <Pencil aria-hidden="true" />
-                    Edit
+                    {t("contacts.edit")}
                   </Button>
                   <Button type="button" size="sm" variant="ghost" onClick={() => void remove(contact)}>
                     <Trash2 aria-hidden="true" />
-                    Remove
+                    {t("contacts.remove")}
                   </Button>
                 </div>
               ) : null}
@@ -100,10 +104,11 @@ export function ContactsPanel({ contractorId, contacts, canManage }: { contracto
       <FormDialog
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}
-        title={editing === "new" ? "Add contact" : "Edit contact"}
-        fields={contactFields}
+        title={editing === "new" ? t("contacts.add") : t("contacts.editTitle")}
+        fields={contactFields(t)}
         initial={editing && editing !== "new" ? editing : { active: true }}
-        submitLabel={editing === "new" ? "Add contact" : "Save changes"}
+        submitLabel={editing === "new" ? t("contacts.add") : t("contacts.saveChanges")}
+        saveKind={editing === "new" ? "create" : "save"}
         testId="contact-form"
         onSubmit={async (payload) => {
           if (editing === "new") await engineeringApi(`/api/contractors/${contractorId}/contacts`, { body: payload });
@@ -115,17 +120,18 @@ export function ContactsPanel({ contractorId, contacts, canManage }: { contracto
   );
 }
 
-function expiryText(item: ComplianceItemDTO): string {
-  if (!item.expiresAt) return "No expiry";
+function expiryText(item: ComplianceItemDTO, t: Translate<"contractors">): string {
+  if (!item.expiresAt) return t("compliance.noExpiry");
   if (item.daysToExpiry === null) return dateLabel(item.expiresAt);
-  if (item.daysToExpiry < 0) return `Expired ${dateLabel(item.expiresAt)}`;
-  if (item.daysToExpiry === 0) return "Expires today";
-  return `${dateLabel(item.expiresAt)} · in ${item.daysToExpiry} ${item.daysToExpiry === 1 ? "day" : "days"}`;
+  if (item.daysToExpiry < 0) return t("compliance.expired", { date: dateLabel(item.expiresAt) });
+  if (item.daysToExpiry === 0) return t("compliance.expiresToday");
+  return t("compliance.inDays", { date: dateLabel(item.expiresAt), count: item.daysToExpiry });
 }
 
 export function CompliancePanel({ contractorId, items, canManage, canUpload, highlight, showContractor = false }: { contractorId: string | null; items: ComplianceItemDTO[]; canManage: boolean; canUpload: boolean; highlight?: string | null; showContractor?: boolean }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useContractorsTranslations();
   const [editing, setEditing] = React.useState<ComplianceItemDTO | "new" | null>(null);
   const [waiving, setWaiving] = React.useState<ComplianceItemDTO | null>(null);
   const [documents, setDocuments] = React.useState<Option[]>([]);
@@ -152,7 +158,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
 
   const upload = useUploadQueue({
     parent: { context: "record", entityType: target ? "contractor_compliance" : "contractor", entityId: target?.id ?? ownerId ?? "" },
-    onUploaded: () => void loadDocuments(target?.id ?? null, ownerId).then(() => toast({ title: "File uploaded. Choose it as the evidence.", tone: "success" })),
+    onUploaded: () => void loadDocuments(target?.id ?? null, ownerId).then(() => toast({ title: t("compliance.uploaded"), tone: "success" })),
   });
   const uploading = upload.items.some((item) => UPLOAD_IN_FLIGHT.includes(item.status));
 
@@ -165,7 +171,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
   async function archive(item: ComplianceItemDTO) {
     try {
       await engineeringApi(`/api/contractor-compliance/${item.id}/archive`, { body: {} });
-      toast({ title: "Compliance item archived.", tone: "success" });
+      toast({ title: t("compliance.archivedToast"), tone: "success" });
       router.refresh();
     } catch (failure) {
       toast({ title: failureMessage(failure), tone: "danger" });
@@ -177,17 +183,17 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
     <div className="flex flex-wrap justify-end gap-1">
       {item.canManage ? (
         <Button type="button" size="sm" variant="ghost" onClick={() => void open(item)} data-testid="edit-compliance">
-          {item.status === "EXPIRED" || item.status === "EXPIRING" || item.status === "MISSING" ? "Renew" : "Edit"}
+          {item.status === "EXPIRED" || item.status === "EXPIRING" || item.status === "MISSING" ? t("compliance.renew") : t("compliance.edit")}
         </Button>
       ) : null}
       {item.canWaive && item.status !== "VALID" ? (
         <Button type="button" size="sm" variant="ghost" onClick={() => setWaiving(item)} data-testid="waive-compliance">
-          Waive
+          {t("compliance.waive")}
         </Button>
       ) : null}
       {item.canManage ? (
         <Button type="button" size="sm" variant="ghost" onClick={() => void archive(item)}>
-          Archive
+          {t("compliance.archive")}
         </Button>
       ) : null}
     </div>
@@ -198,37 +204,37 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
       {contractorId ? (
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-section font-semibold text-fg">Compliance</h2>
-            <p className="mt-0.5 text-table text-fg-muted">Insurance, licences, guarantees and certificates. Expiring and expired follow from the dates.</p>
+            <h2 className="text-section font-semibold text-fg">{t("compliance.title")}</h2>
+            <p className="mt-0.5 text-table text-fg-muted">{t("compliance.description")}</p>
           </div>
           {canManage ? (
             <Button type="button" size="sm" onClick={() => void open("new")} data-testid="add-compliance">
               <Plus aria-hidden="true" />
-              Add requirement
+              {t("compliance.addRequirement")}
             </Button>
           ) : null}
         </div>
       ) : null}
       {items.length === 0 ? (
-        <p className="rounded-md border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">No compliance items recorded.</p>
+        <p className="rounded-md border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">{t("compliance.empty")}</p>
       ) : (
         <>
         {/*
           * A card per requirement on a phone, with Renew / Waive / Archive on
           * the card instead of past the right edge of the table (AUD-04 §5, D-09-12, MW-05).
           */}
-        <ul className="space-y-2 md:hidden" aria-label="Compliance">
+        <ul className="space-y-2 md:hidden" aria-label={t("compliance.title")}>
           {items.map((item) => (
             <li key={item.id} className={cn("space-y-1.5 rounded-lg border border-line bg-surface p-4", highlight === item.id && "bg-accent-soft/40", item.archived && "opacity-60")} data-testid="compliance-card" data-status={item.status}>
               <div className="flex items-start justify-between gap-3">
                 <p className="min-w-0 font-medium text-fg [overflow-wrap:anywhere]">{item.title}</p>
-                <ReviewBadge status={item.status} label={COMPLIANCE_STATUS_LABELS[item.status]} />
+                <ReviewBadge status={item.status} label={contractorsLabel(t, "complianceStatus", item.status, COMPLIANCE_STATUS_LABELS[item.status])} />
               </div>
               <p className="text-meta text-fg-muted [overflow-wrap:anywhere]">
-                {[showContractor ? item.contractor.label : null, COMPLIANCE_TYPE_LABELS[item.type], item.issuer, item.referenceNumber].filter(Boolean).join(" · ")}
+                {[showContractor ? item.contractor.label : null, contractorsLabel(t, "complianceType", item.type, COMPLIANCE_TYPE_LABELS[item.type]), item.issuer, item.referenceNumber].filter(Boolean).join(" · ")}
               </p>
-              {item.status === "WAIVED" && item.waivedReason ? <p className="text-meta text-fg-muted">Waived: {item.waivedReason}</p> : null}
-              <p className={cn("text-table tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item)}</p>
+              {item.status === "WAIVED" && item.waivedReason ? <p className="text-meta text-fg-muted">{t("compliance.waived", { reason: item.waivedReason })}</p> : null}
+              <p className={cn("text-table tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item, t)}</p>
               {item.document ? (
                 <Link href={item.document.href} className="inline-flex items-center text-table text-fg underline-offset-4 [overflow-wrap:anywhere] hover:underline touch:min-h-11">
                   {item.document.name}
@@ -236,7 +242,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
               ) : null}
               {showContractor ? (
                 <Link href={item.contractor.href} className="inline-flex items-center text-table text-accent-strong hover:underline touch:min-h-11">
-                  Open contractor
+                  {t("compliance.openContractor")}
                 </Link>
               ) : null}
               {complianceActions(item)}
@@ -244,17 +250,17 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
           ))}
         </ul>
         <div className="hidden md:block">
-        <Table label="Compliance">
+        <Table label={t("compliance.title")}>
           <TableHead>
             <TableRow>
-              <TableHeaderCell scope="col">Requirement</TableHeaderCell>
-              {showContractor ? <TableHeaderCell scope="col">Contractor</TableHeaderCell> : null}
-              <TableHeaderCell scope="col">Type</TableHeaderCell>
-              <TableHeaderCell scope="col">Status</TableHeaderCell>
-              <TableHeaderCell scope="col">Expiry</TableHeaderCell>
-              <TableHeaderCell scope="col">Evidence</TableHeaderCell>
+              <TableHeaderCell scope="col">{t("compliance.requirement")}</TableHeaderCell>
+              {showContractor ? <TableHeaderCell scope="col">{t("compliance.contractor")}</TableHeaderCell> : null}
+              <TableHeaderCell scope="col">{t("compliance.type")}</TableHeaderCell>
+              <TableHeaderCell scope="col">{t("compliance.status")}</TableHeaderCell>
+              <TableHeaderCell scope="col">{t("compliance.expiry")}</TableHeaderCell>
+              <TableHeaderCell scope="col">{t("compliance.evidence")}</TableHeaderCell>
               <TableHeaderCell scope="col">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("compliance.actions")}</span>
               </TableHeaderCell>
             </TableRow>
           </TableHead>
@@ -264,7 +270,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
                 <TableCell className="min-w-[12rem]">
                   <p className="font-medium text-fg">{item.title}</p>
                   {item.referenceNumber || item.issuer ? <p className="text-meta text-fg-muted">{[item.issuer, item.referenceNumber].filter(Boolean).join(" · ")}</p> : null}
-                  {item.status === "WAIVED" && item.waivedReason ? <p className="text-meta text-fg-muted">Waived: {item.waivedReason}</p> : null}
+                  {item.status === "WAIVED" && item.waivedReason ? <p className="text-meta text-fg-muted">{t("compliance.waived", { reason: item.waivedReason })}</p> : null}
                 </TableCell>
                 {showContractor ? (
                   <TableCell>
@@ -273,11 +279,11 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
                     </Link>
                   </TableCell>
                 ) : null}
-                <TableCell className="whitespace-nowrap text-fg-muted">{COMPLIANCE_TYPE_LABELS[item.type]}</TableCell>
+                <TableCell className="whitespace-nowrap text-fg-muted">{contractorsLabel(t, "complianceType", item.type, COMPLIANCE_TYPE_LABELS[item.type])}</TableCell>
                 <TableCell>
-                  <ReviewBadge status={item.status} label={COMPLIANCE_STATUS_LABELS[item.status]} testId="compliance-status" />
+                  <ReviewBadge status={item.status} label={contractorsLabel(t, "complianceStatus", item.status, COMPLIANCE_STATUS_LABELS[item.status])} testId="compliance-status" />
                 </TableCell>
-                <TableCell className={cn("whitespace-nowrap tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item)}</TableCell>
+                <TableCell className={cn("whitespace-nowrap tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item, t)}</TableCell>
                 <TableCell>
                   {item.document ? (
                     <Link href={item.document.href} className="text-fg underline-offset-4 hover:underline">
@@ -300,11 +306,12 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
         <FormDialog
           open
           onOpenChange={(next) => !next && setEditing(null)}
-          title={editing === "new" ? "Add compliance requirement" : `Renew or edit — ${editing.title}`}
-          description="Upload the certificate, set its dates, and the status follows."
-          fields={complianceFields(documents, { waived: target?.status === "WAIVED", evidence: evidenceReadable })}
+          title={editing === "new" ? t("compliance.addTitle") : t("compliance.editTitle", { title: editing.title })}
+          description={t("compliance.formDescription")}
+          fields={complianceFields(documents, { waived: target?.status === "WAIVED", evidence: evidenceReadable }, t)}
           initial={editing === "new" ? { status: "VALID", type: "INSURANCE" } : { ...editing, status: editing.status === "WAIVED" ? KEEP_WAIVER : editing.status === "MISSING" ? "MISSING" : "VALID", documentId: editing.document?.id ?? null }}
-          submitLabel={editing === "new" ? "Add requirement" : "Save"}
+          submitLabel={editing === "new" ? t("compliance.addRequirement") : t("compliance.save")}
+          saveKind={editing === "new" ? "create" : "save"}
           wide
           testId="compliance-form"
           onSubmit={async (payload) => {
@@ -312,22 +319,22 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
             if (payload.status === KEEP_WAIVER) delete payload.status;
             if (editing === "new") await engineeringApi(`/api/contractors/${contractorId}/compliance`, { body: payload });
             else await engineeringApi(`/api/contractor-compliance/${editing.id}`, { method: "PATCH", body: payload });
-            toast({ title: "Compliance saved.", tone: "success" });
+            toast({ title: t("compliance.saved"), tone: "success" });
             router.refresh();
           }}
         >
           {!evidenceReadable ? (
             <p className="text-table text-fg-muted" data-testid="compliance-evidence-kept">
-              The evidence files could not be listed, so the evidence is kept as it is.
+              {t("compliance.evidenceKept")}
             </p>
           ) : null}
           {canUpload && ownerId ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-line-strong px-4 py-3">
-              <input ref={fileInput} type="file" className="sr-only" aria-label="Upload evidence" data-testid="compliance-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
-              <p className="text-table text-fg-muted">{uploading ? "Uploading and checking the file…" : "Upload the certificate, then choose it as the evidence."}</p>
+              <input ref={fileInput} type="file" className="sr-only" aria-label={t("compliance.uploadEvidence")} data-testid="compliance-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
+              <p className="text-table text-fg-muted">{uploading ? t("compliance.uploading") : t("compliance.uploadHint")}</p>
               <Button type="button" size="sm" variant="secondary" onClick={() => fileInput.current?.click()} disabled={uploading}>
                 <Upload aria-hidden="true" />
-                Upload
+                {t("compliance.upload")}
               </Button>
             </div>
           ) : null}
@@ -337,12 +344,12 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
       <ReasonDialog
         open={waiving !== null}
         onOpenChange={(next) => !next && setWaiving(null)}
-        title={`Waive ${waiving?.title ?? "requirement"}`}
-        description="A waiver is recorded with your name and reason in the audit trail."
-        confirmLabel="Waive requirement"
+        title={t("compliance.waiveTitle", { title: waiving?.title ?? t("compliance.requirementFallback") })}
+        description={t("compliance.waiveDescription")}
+        confirmLabel={t("compliance.waiveConfirm")}
         onConfirm={async (payload) => {
           await engineeringApi(`/api/contractor-compliance/${waiving!.id}/waive`, { body: payload });
-          toast({ title: "Requirement waived.", tone: "success" });
+          toast({ title: t("compliance.waivedToast"), tone: "success" });
           router.refresh();
         }}
       />

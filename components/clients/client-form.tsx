@@ -18,6 +18,8 @@ import type { ClientActionResult } from "@/lib/actions/clients";
 import type { DuplicateMatch } from "@/lib/modules/clients/client.duplicate";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
+import { clientsLabel } from "@/lib/i18n/modules/clients/labels";
+import { useClientsTranslations } from "./clients-text";
 
 /**
  * Create / edit client form (PRD #12 §41, §53, §66).
@@ -77,6 +79,7 @@ export function ClientForm({
   action: (formData: FormData) => Promise<ClientActionResult>;
 }) {
   const router = useRouter();
+  const t = useClientsTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [duplicates, setDuplicates] = React.useState<DuplicateMatch[]>([]);
   // Set only by "Create anyway": the person's own answer to the warning, for
@@ -127,8 +130,8 @@ export function ClientForm({
           >
             <p className="text-table font-medium text-fg">
               {duplicates.length === 1
-                ? "A similar client already exists."
-                : `${duplicates.length} similar clients already exist.`}
+                ? t("form.similarOne")
+                : t("form.similarMany", { count: duplicates.length })}
             </p>
             <ul className="mt-2 space-y-1.5">
               {duplicates.map((match) => (
@@ -140,16 +143,16 @@ export function ClientForm({
                     {match.name}
                   </Link>
                   {match.code ? <span className="text-fg-subtle"> · {match.code}</span> : null}
-                  <span className="text-fg-subtle"> · {DUPLICATE_REASON[match.reason]}</span>
+                  <span className="text-fg-subtle"> · {clientsLabel(t, "duplicateReason", match.reason, DUPLICATE_REASON[match.reason])}</span>
                 </li>
               ))}
             </ul>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button type="button" size="sm" variant="secondary" onClick={createAnyway} disabled={pending}>
-                {mode === "create" ? "Create anyway" : "Save anyway"}
+                {mode === "create" ? t("form.createAnyway") : t("form.saveAnyway")}
               </Button>
               <Button type="button" size="sm" variant="ghost" onClick={onCancel} disabled={pending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
@@ -159,55 +162,55 @@ export function ClientForm({
 
         {/* The submitted snapshot saves as it was (AUD-03 §6). */}
         <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-5 border-0 p-0">
-        <FormSection title="Client details">
-          <Field label="Client name" name="name" required>
+        <FormSection title={t("form.clientDetails")}>
+          <Field label={t("form.clientName")} name="name" required>
             <NameInput defaultValue={initial.name} />
           </Field>
 
-          <Field label="Legal name" name="legalName" hint="If it differs from the trading name.">
+          <Field label={t("form.legalName")} name="legalName" hint={t("form.legalNameHint")}>
             <Input id="legalName" name="legalName" defaultValue={initial.legalName} maxLength={250} />
           </Field>
 
-          <Field label="Type" name="type" required>
+          <Field label={t("form.type")} name="type" required>
             <select id="type" name="type" defaultValue={initial.type} className={selectClass}>
               {TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {clientsLabel(t, "clientType", option.value, option.label)}
                 </option>
               ))}
             </select>
           </Field>
 
-          <Field label="Status" name="status" required>
+          <Field label={t("form.status")} name="status" required>
             <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
               {STATUS_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {clientsLabel(t, "status", option.value, option.label)}
                 </option>
               ))}
             </select>
           </Field>
 
           <Field
-            label="Client code"
+            label={t("form.clientCode")}
             name="code"
-            hint="Optional, unique inside your company — for example CLI-001."
+            hint={t("form.clientCodeHint")}
           >
             <Input id="code" name="code" defaultValue={initial.code} maxLength={50} />
           </Field>
         </FormSection>
 
-        <FormSection title="Contact information">
-          <Field label="Email" name="email">
+        <FormSection title={t("form.contactInformation")}>
+          <Field label={t("form.email")} name="email">
             <Input id="email" name="email" type="email" defaultValue={initial.email} maxLength={254} />
           </Field>
 
-          <Field label="Phone" name="phone">
+          <Field label={t("form.phone")} name="phone">
             <Input id="phone" name="phone" type="tel" defaultValue={initial.phone} maxLength={40} />
           </Field>
 
           <div className="sm:col-span-2">
-            <Field label="Website" name="website" hint="Must start with http:// or https://">
+            <Field label={t("form.website")} name="website" hint={t("form.websiteHint")}>
               <Input
                 id="website"
                 name="website"
@@ -219,44 +222,44 @@ export function ClientForm({
           </div>
         </FormSection>
 
-        <FormSection title="Address">
+        <FormSection title={t("form.address")}>
           <div className="sm:col-span-2">
-            <Field label="Address" name="address">
+            <Field label={t("form.address")} name="address">
               <Input id="address" name="address" defaultValue={initial.address} maxLength={300} />
             </Field>
           </div>
 
-          <Field label="City" name="city">
+          <Field label={t("form.city")} name="city">
             <Input id="city" name="city" defaultValue={initial.city} maxLength={120} />
           </Field>
 
-          <Field label="Country" name="country">
+          <Field label={t("form.country")} name="country">
             <Input id="country" name="country" defaultValue={initial.country} maxLength={120} />
           </Field>
         </FormSection>
 
         {showPrimaryContact ? (
           <FormSection
-            title="Primary contact"
-            description="Optional. You can add more contacts once the client exists."
+            title={t("form.primaryContact")}
+            description={t("form.primaryContactDescription")}
           >
-            <Field label="First name" name="contactFirstName">
+            <Field label={t("form.firstName")} name="contactFirstName">
               <Input id="contactFirstName" name="contactFirstName" maxLength={120} />
             </Field>
 
-            <Field label="Last name" name="contactLastName">
+            <Field label={t("form.lastName")} name="contactLastName">
               <Input id="contactLastName" name="contactLastName" maxLength={120} />
             </Field>
 
-            <Field label="Job title" name="contactJobTitle">
+            <Field label={t("form.jobTitle")} name="contactJobTitle">
               <Input id="contactJobTitle" name="contactJobTitle" maxLength={160} />
             </Field>
 
-            <Field label="Contact email" name="contactEmail">
+            <Field label={t("form.contactEmail")} name="contactEmail">
               <Input id="contactEmail" name="contactEmail" type="email" maxLength={254} />
             </Field>
 
-            <Field label="Contact phone" name="contactPhone">
+            <Field label={t("form.contactPhone")} name="contactPhone">
               <Input id="contactPhone" name="contactPhone" type="tel" maxLength={40} />
             </Field>
           </FormSection>
@@ -267,14 +270,14 @@ export function ClientForm({
           <Button type="submit" disabled={pending || Boolean(save.saved)}>
             {pending
               ? mode === "create"
-                ? "Creating…"
-                : "Saving…"
+                ? t("form.creating")
+                : t("form.saving")
               : mode === "create"
-                ? "Create client"
-                : "Save changes"}
+                ? t("form.createClient")
+                : t("form.saveChanges")}
           </Button>
           <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <UnsavedIndicator save={save} />
         </div>

@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -8,7 +9,9 @@ import { clientBreadcrumbs, loadClient } from "../client-context";
 
 type Params = { params: Promise<{ clientId: string }> };
 
-export const metadata: Metadata = { title: "Edit Client" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.editClient") };
+}
 
 /**
  * Edit a client (PRD #12 §65–§68).
@@ -21,6 +24,7 @@ export default async function EditClientPage({ params }: Params) {
   const { client } = await loadClient(clientId);
 
   if (!client.capabilities.canEdit) notFound();
+  const t = await getTranslations("clients");
 
   async function action(formData: FormData) {
     "use server";
@@ -29,10 +33,10 @@ export default async function EditClientPage({ params }: Params) {
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={clientBreadcrumbs(client, "Edit")} />
+      <Breadcrumbs items={clientBreadcrumbs(client, t("tabs.edit"), t("meta.clients"))} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit client</h1>
+        <h1 className="text-page font-semibold text-fg">{t("editPage.title")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{client.name}</p>
       </div>
 

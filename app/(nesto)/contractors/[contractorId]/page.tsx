@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 
 import { EmptyNote, Facts, Panel, ReviewBadge } from "@/components/engineering/engineering-ui";
-import { counted, orNotFound } from "@/components/engineering/page-helpers";
+import { orNotFound } from "@/components/engineering/page-helpers";
+import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { requireModule } from "@/lib/context/current-user";
 import { listContractorAssignments } from "@/lib/modules/contractors/contractor.assignments";
 import { listContractorCompliance } from "@/lib/modules/contractors/contractor.compliance";
@@ -12,7 +14,9 @@ import { dateLabel } from "@/lib/modules/project-planning/planning.dates";
 
 type Params = { params: Promise<{ contractorId: string }> };
 
-export const metadata: Metadata = { title: "Contractor" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("contractors"))("meta.contractor") };
+}
 
 /** The contractor at a glance (PRD #46 §160): who they are, where they work, what is out of date. */
 export default async function ContractorOverviewPage({ params }: Params) {
@@ -20,6 +24,7 @@ export default async function ContractorOverviewPage({ params }: Params) {
   const context = await requireModule("contractors");
   const contractor = await orNotFound(getContractor(context, contractorId));
   const caps = contractor.capabilities;
+  const t = await getTranslations("contractors");
   const [assignments, compliance] = await Promise.all([listContractorAssignments(context, contractor.id).catch(() => []), caps.canViewCompliance ? listContractorCompliance(context, contractor.id) : Promise.resolve([])]);
   const alerts = compliance.filter((item) => COMPLIANCE_ALERT_STATUSES.includes(item.status));
   const address = [contractor.addressLine1, contractor.addressLine2, [contractor.postalCode, contractor.city].filter(Boolean).join(" "), contractor.region, contractor.countryCode].filter(Boolean).join(", ");
@@ -27,9 +32,9 @@ export default async function ContractorOverviewPage({ params }: Params) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-5">
-        <Panel title="Projects" description="Where this contractor is assigned, as far as you can see." actions={<Link href={`/contractors/${contractor.id}/projects`} className="text-table text-fg-muted hover:text-fg">All projects</Link>}>
+        <Panel title={t("overview.projects")} description={t("overview.projectsDescription")} actions={<Link href={`/contractors/${contractor.id}/projects`} className="text-table text-fg-muted hover:text-fg">{t("overview.allProjects")}</Link>}>
           {assignments.length === 0 ? (
-            <EmptyNote>Not assigned to any project you can open.</EmptyNote>
+            <EmptyNote>{t("overview.notAssigned")}</EmptyNote>
           ) : (
             <ul className="divide-y divide-line">
               {assignments.slice(0, 6).map((row) => (
@@ -40,19 +45,19 @@ export default async function ContractorOverviewPage({ params }: Params) {
                     </Link>
                     {row.scopeSummary ? <p className="mt-0.5 line-clamp-1 text-meta text-fg-muted" title={row.scopeSummary}>{row.scopeSummary}</p> : null}
                     <p className="mt-1 text-meta tabular-nums text-fg-muted">
-                      {row.workPackages} {counted(row.workPackages, "work package")} · {row.openRfis} open {counted(row.openRfis, "RFI")} · {row.openSubmittals} {counted(row.openSubmittals, "submittal")}
+                      {row.workPackages} {t("nouns.workPackage", { count: row.workPackages })} · {row.openRfis} {t("nouns.openRfi", { count: row.openRfis })} · {row.openSubmittals} {t("nouns.submittal", { count: row.openSubmittals })}
                     </p>
                   </div>
-                  <ReviewBadge status={row.status} label={ASSIGNMENT_STATUS_LABELS[row.status]} testId="assignment-status" />
+                  <ReviewBadge status={row.status} label={contractorsLabel(t, "assignmentStatus", row.status, ASSIGNMENT_STATUS_LABELS[row.status])} testId="assignment-status" />
                 </li>
               ))}
             </ul>
           )}
         </Panel>
         {caps.canViewCompliance ? (
-          <Panel title="Compliance alerts" testId="contractor-compliance-alerts" actions={<Link href={`/contractors/${contractor.id}/compliance`} className="text-table text-fg-muted hover:text-fg">All compliance</Link>}>
+          <Panel title={t("overview.complianceAlerts")} testId="contractor-compliance-alerts" actions={<Link href={`/contractors/${contractor.id}/compliance`} className="text-table text-fg-muted hover:text-fg">{t("overview.allCompliance")}</Link>}>
             {alerts.length === 0 ? (
-              <EmptyNote>Everything on file is in date.</EmptyNote>
+              <EmptyNote>{t("overview.inDate")}</EmptyNote>
             ) : (
               <ul className="divide-y divide-line">
                 {alerts.map((item) => (
@@ -61,9 +66,9 @@ export default async function ContractorOverviewPage({ params }: Params) {
                       <Link href={`/contractors/${contractor.id}/compliance?item=${item.id}`} className="text-table font-medium text-fg hover:underline">
                         {item.title}
                       </Link>
-                      <p className="text-meta text-fg-muted">{item.expiresAt ? `${item.status === "EXPIRED" ? "Expired" : "Expires"} ${dateLabel(item.expiresAt)}` : "Not on file"}</p>
+                      <p className="text-meta text-fg-muted">{item.expiresAt ? t(item.status === "EXPIRED" ? "overview.expired" : "overview.expires", { date: dateLabel(item.expiresAt) }) : t("overview.notOnFile")}</p>
                     </div>
-                    <ReviewBadge status={item.status} label={COMPLIANCE_STATUS_LABELS[item.status]} />
+                    <ReviewBadge status={item.status} label={contractorsLabel(t, "complianceStatus", item.status, COMPLIANCE_STATUS_LABELS[item.status])} />
                   </li>
                 ))}
               </ul>
@@ -72,36 +77,36 @@ export default async function ContractorOverviewPage({ params }: Params) {
         ) : null}
       </div>
       <aside className="min-w-0 space-y-5">
-        <Panel title="Organisation">
+        <Panel title={t("overview.organisation")}>
           <Facts
             columns={2}
             items={[
-              { label: "Trading name", value: contractor.tradingName },
-              { label: "Registration", value: contractor.registrationNumber },
-              { label: "VAT", value: contractor.vatNumber },
-              { label: "Country", value: contractor.countryCode },
-              { label: "Email", value: contractor.email ? <a href={`mailto:${contractor.email}`} className="underline-offset-4 hover:underline">{contractor.email}</a> : null },
-              { label: "Phone", value: contractor.phone },
-              { label: "Website", value: contractor.website },
-              { label: "Supplier", value: contractor.supplier ? <Link href={contractor.supplier.href} className="underline-offset-4 hover:underline">{contractor.supplier.label}</Link> : null },
+              { label: t("overview.tradingName"), value: contractor.tradingName },
+              { label: t("overview.registration"), value: contractor.registrationNumber },
+              { label: t("overview.vat"), value: contractor.vatNumber },
+              { label: t("overview.country"), value: contractor.countryCode },
+              { label: t("overview.email"), value: contractor.email ? <a href={`mailto:${contractor.email}`} className="underline-offset-4 hover:underline">{contractor.email}</a> : null },
+              { label: t("overview.phone"), value: contractor.phone },
+              { label: t("overview.website"), value: contractor.website },
+              { label: t("overview.supplier"), value: contractor.supplier ? <Link href={contractor.supplier.href} className="underline-offset-4 hover:underline">{contractor.supplier.label}</Link> : null },
             ]}
           />
           {address ? <p className="mt-4 border-t border-line pt-4 text-table text-fg-muted">{address}</p> : null}
         </Panel>
-        <Panel title="Primary contact">
+        <Panel title={t("overview.primaryContact")}>
           {/* Tap to write or call, as on the Contacts tab (AUD-04 §3, D-09-14, MW-19). */}
           <Facts
             columns={2}
             items={[
-              { label: "Name", value: contractor.primaryContactName },
-              { label: "Email", value: contractor.primaryContactEmail ? <a href={`mailto:${contractor.primaryContactEmail}`} className="inline-flex items-center underline-offset-4 [overflow-wrap:anywhere] hover:underline touch:min-h-11">{contractor.primaryContactEmail}</a> : null },
-              { label: "Phone", value: contractor.primaryContactPhone ? <a href={`tel:${contractor.primaryContactPhone}`} className="inline-flex items-center underline-offset-4 hover:underline touch:min-h-11">{contractor.primaryContactPhone}</a> : null },
+              { label: t("overview.name"), value: contractor.primaryContactName },
+              { label: t("overview.email"), value: contractor.primaryContactEmail ? <a href={`mailto:${contractor.primaryContactEmail}`} className="inline-flex items-center underline-offset-4 [overflow-wrap:anywhere] hover:underline touch:min-h-11">{contractor.primaryContactEmail}</a> : null },
+              { label: t("overview.phone"), value: contractor.primaryContactPhone ? <a href={`tel:${contractor.primaryContactPhone}`} className="inline-flex items-center underline-offset-4 hover:underline touch:min-h-11">{contractor.primaryContactPhone}</a> : null },
             ]}
           />
         </Panel>
         {contractor.notes || contractor.statusReason ? (
-          <Panel title="Notes">
-            {contractor.statusReason ? <p className="text-table text-fg-muted">Status: {contractor.statusReason}</p> : null}
+          <Panel title={t("overview.notes")}>
+            {contractor.statusReason ? <p className="text-table text-fg-muted">{t("overview.statusReason", { reason: contractor.statusReason })}</p> : null}
             {contractor.notes ? <p className="mt-2 whitespace-pre-wrap text-table text-fg">{contractor.notes}</p> : null}
           </Panel>
         ) : null}

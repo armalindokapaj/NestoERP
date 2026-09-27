@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 
 import { EmptyNote, formatDateTime } from "@/components/engineering/engineering-ui";
@@ -11,22 +12,25 @@ import { resolveEngineeringSettings } from "@/lib/modules/engineering/engineerin
 
 type Params = { params: Promise<{ contractorId: string }> };
 
-export const metadata: Metadata = { title: "Contractor activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("contractors"))("meta.activity") };
+}
 
 /** What happened to this contractor, in the words people read — low-noise, not the audit trail (PRD #46 §231). */
 export default async function ContractorActivityPage({ params }: Params) {
   const { contractorId } = await params;
   const context = await requireModule("contractors");
   const contractor = await orNotFound(findReadableContractor(context, contractorId));
+  const t = await getTranslations("contractors");
   const [rows, settings] = await Promise.all([
     prisma.activity.findMany({ where: { companyId: context.companyId, entityType: ACTIVITY_ENTITY, entityId: contractor.id }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, message: true, createdAt: true, actorMember: { select: { id: true, user: { select: { firstName: true, lastName: true } } } } } }),
     resolveEngineeringSettings(context.companyId),
   ]);
   return (
     <section className="space-y-3">
-      <h2 className="text-section font-semibold text-fg">Activity</h2>
+      <h2 className="text-section font-semibold text-fg">{t("activity.title")}</h2>
       {rows.length === 0 ? (
-        <EmptyNote>Nothing has happened here yet.</EmptyNote>
+        <EmptyNote>{t("activity.empty")}</EmptyNote>
       ) : (
         <ol className="divide-y divide-line rounded-lg border border-line bg-surface">
           {rows.map((row) => (

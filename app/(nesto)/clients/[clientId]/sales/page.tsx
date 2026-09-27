@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import { Prisma } from "@prisma/client";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -18,7 +19,9 @@ import { ClientTabs } from "../client-tabs";
 
 type Params = { params: Promise<{ clientId: string }> };
 
-export const metadata: Metadata = { title: "Client sales" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.sales") };
+}
 
 /**
  * Client sales (PRD #17 §10, §266, §414).
@@ -34,6 +37,7 @@ export default async function ClientSalesPage({ params }: Params) {
   const { context, client } = await loadClient(clientId);
 
   if (!client.capabilities.canViewSales) notFound();
+  const t = await getTranslations("clients");
 
   const [openDeals, closedDeals, clientProposals] = await Promise.all([
     opportunities.listOpportunities(
@@ -79,7 +83,7 @@ export default async function ClientSalesPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={clientBreadcrumbs(client, "Sales")}
+        breadcrumbs={clientBreadcrumbs(client, t("tabs.sales"), t("meta.clients"))}
         title={client.name}
         subtitle={client.code ?? undefined}
         status={client.status}
@@ -90,20 +94,20 @@ export default async function ClientSalesPage({ params }: Params) {
       {nothing ? (
         <EmptyState
           icon={<Handshake />}
-          title="No commercial history."
-          description="Opportunities and proposals raised for this client appear here."
+          title={t("salesPage.emptyTitle")}
+          description={t("salesPage.emptyDescription")}
         />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="nesto-card p-4">
-              <p className="text-table text-fg-muted">Open pipeline</p>
+              <p className="text-table text-fg-muted">{t("salesPage.openPipeline")}</p>
               <p className="mt-2 text-card font-semibold tabular-nums text-fg">
                 {totalsLabel(openTotals)}
               </p>
             </div>
             <div className="nesto-card p-4">
-              <p className="text-table text-fg-muted">Won</p>
+              <p className="text-table text-fg-muted">{t("salesPage.won")}</p>
               <p className="mt-2 text-card font-semibold tabular-nums text-fg">
                 {totalsLabel(wonTotals)}
               </p>
@@ -112,21 +116,21 @@ export default async function ClientSalesPage({ params }: Params) {
 
           {openDeals.data.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">In play</h2>
+              <h2 className="text-card font-semibold text-fg">{t("salesPage.inPlay")}</h2>
               <OpportunityTable opportunities={openDeals.data} showClient={false} />
             </section>
           ) : null}
 
           {closedDeals.data.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Won and lost</h2>
+              <h2 className="text-card font-semibold text-fg">{t("salesPage.wonAndLost")}</h2>
               <OpportunityTable opportunities={closedDeals.data} showClient={false} />
             </section>
           ) : null}
 
           {clientProposals && clientProposals.data.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Proposals</h2>
+              <h2 className="text-card font-semibold text-fg">{t("salesPage.proposals")}</h2>
               <ProposalTable proposals={clientProposals.data} />
             </section>
           ) : null}

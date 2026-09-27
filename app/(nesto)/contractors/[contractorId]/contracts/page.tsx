@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
@@ -16,7 +17,9 @@ import { statusLabel } from "@/lib/utils/status";
 
 type Params = { params: Promise<{ contractorId: string }> };
 
-export const metadata: Metadata = { title: "Contractor contracts" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("contractors"))("meta.contracts") };
+}
 
 /**
  * The contractor's legal workspace (PRD #46 §50-§58): the contracts in Legal
@@ -30,25 +33,26 @@ export default async function ContractorContractsPage({ params }: Params) {
   const contractor = await orNotFound(getContractor(context, contractorId));
   if (!contractor.capabilities.canViewContracts) redirect("/access-denied");
   const [summary, compliance, { today }] = await Promise.all([contractorLegalSummary(context, contractor.id), contractor.capabilities.canViewCompliance ? listContractorCompliance(context, contractor.id) : Promise.resolve([]), companyToday(context.companyId)]);
+  const t = await getTranslations("contractors");
   const guarantees = compliance.filter((item) => LEGAL_COMPLIANCE_TYPES.includes(item.type));
 
   return (
     <div className="space-y-5">
-      <Panel title="Contracts" description="Agreements in Legal linked through this contractor's assignments and work packages." testId="contractor-contracts">
+      <Panel title={t("contractsPage.contracts")} description={t("contractsPage.contractsDescription")} testId="contractor-contracts">
         {summary.contracts.length === 0 ? (
-          <EmptyNote>No contract you can open is linked to this contractor.</EmptyNote>
+          <EmptyNote>{t("contractsPage.noContracts")}</EmptyNote>
         ) : (
           <Table flush>
             <TableHead>
               <TableRow>
-                <TableHeaderCell scope="col">Contract</TableHeaderCell>
-                <TableHeaderCell scope="col">Type</TableHeaderCell>
-                <TableHeaderCell scope="col">Status</TableHeaderCell>
-                <TableHeaderCell scope="col">Project</TableHeaderCell>
-                <TableHeaderCell scope="col">Effective</TableHeaderCell>
-                <TableHeaderCell scope="col">Expiry</TableHeaderCell>
+                <TableHeaderCell scope="col">{t("contractsPage.contract")}</TableHeaderCell>
+                <TableHeaderCell scope="col">{t("contractsPage.type")}</TableHeaderCell>
+                <TableHeaderCell scope="col">{t("contractsPage.status")}</TableHeaderCell>
+                <TableHeaderCell scope="col">{t("contractsPage.project")}</TableHeaderCell>
+                <TableHeaderCell scope="col">{t("contractsPage.effective")}</TableHeaderCell>
+                <TableHeaderCell scope="col">{t("contractsPage.expiry")}</TableHeaderCell>
                 <TableHeaderCell scope="col" className="text-right">
-                  Value
+                  {t("contractsPage.value")}
                 </TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -80,9 +84,9 @@ export default async function ContractorContractsPage({ params }: Params) {
         )}
       </Panel>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-2">
-        <Panel title="Open obligations">
+        <Panel title={t("contractsPage.openObligations")}>
           {summary.obligations.length === 0 ? (
-            <EmptyNote>No open obligations.</EmptyNote>
+            <EmptyNote>{t("contractsPage.noObligations")}</EmptyNote>
           ) : (
             <ul className="divide-y divide-line">
               {summary.obligations.map((row) => (
@@ -96,9 +100,9 @@ export default async function ContractorContractsPage({ params }: Params) {
             </ul>
           )}
         </Panel>
-        <Panel title="Amendments">
+        <Panel title={t("contractsPage.amendments")}>
           {summary.amendments.length === 0 ? (
-            <EmptyNote>No amendments.</EmptyNote>
+            <EmptyNote>{t("contractsPage.noAmendments")}</EmptyNote>
           ) : (
             <ul className="divide-y divide-line">
               {summary.amendments.map((row) => (
@@ -115,7 +119,7 @@ export default async function ContractorContractsPage({ params }: Params) {
       </div>
       {contractor.capabilities.canViewCompliance ? (
         <div className="space-y-2">
-          <h2 className="text-section font-semibold text-fg">Guarantees and insurance</h2>
+          <h2 className="text-section font-semibold text-fg">{t("contractsPage.guarantees")}</h2>
           <CompliancePanel contractorId={null} items={guarantees} canManage={false} canUpload={false} />
         </div>
       ) : null}

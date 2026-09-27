@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FolderKanban } from "lucide-react";
@@ -11,7 +12,9 @@ import { ClientTabs } from "../client-tabs";
 
 type Params = { params: Promise<{ clientId: string }> };
 
-export const metadata: Metadata = { title: "Projects" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.projects") };
+}
 
 /**
  * Projects linked to a client (PRD #12 §91–§94).
@@ -25,6 +28,7 @@ export default async function ClientProjectsPage({ params }: Params) {
   const { context, client } = await loadClient(clientId);
 
   if (!client.capabilities.canViewProjects) notFound();
+  const t = await getTranslations("clients");
 
   const { rows, total, cap } = await clients.listClientProjectsWithTotal(context, clientId);
 
@@ -51,7 +55,7 @@ export default async function ClientProjectsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={clientBreadcrumbs(client, "Projects")}
+        breadcrumbs={clientBreadcrumbs(client, t("tabs.projects"), t("meta.clients"))}
         title={client.name}
         subtitle={client.code ?? undefined}
         status={client.status}
@@ -66,8 +70,8 @@ export default async function ClientProjectsPage({ params }: Params) {
       {projects.length === 0 ? (
         <EmptyState
           icon={<FolderKanban />}
-          title="No visible projects are linked to this client."
-          description="Projects you can open that name this client will appear here."
+          title={t("projectsPage.emptyTitle")}
+          description={t("projectsPage.emptyDescription")}
         />
       ) : (
         <>
@@ -75,14 +79,9 @@ export default async function ClientProjectsPage({ params }: Params) {
           {/* The true count, and the cap said out loud when it bites (AUD-08 §4). */}
           <p className="text-table text-fg-muted" data-testid="pagination-count">
             {total > projects.length ? (
-              <>
-                Showing the first <span className="tabular-nums">{projects.length}</span> of{" "}
-                <span className="tabular-nums">{total}</span> projects (limit {cap}).
-              </>
+              t("projectsPage.showing", { shown: projects.length, total, cap })
             ) : (
-              <>
-                <span className="tabular-nums">{total}</span> {total === 1 ? "project" : "projects"}
-              </>
+              t("projectsPage.count", { count: total })
             )}
           </p>
         </>

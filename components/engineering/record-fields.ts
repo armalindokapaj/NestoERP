@@ -18,6 +18,8 @@ import {
 } from "@/lib/modules/engineering/engineering.types";
 import { engineeringEn } from "@/lib/i18n/modules/engineering/en";
 import { engineeringLabel, type EngineeringLabelGroup } from "@/lib/i18n/modules/engineering/labels";
+import { contractorsEn } from "@/lib/i18n/modules/contractors/en";
+import { contractorsLabel, type ContractorsLabelGroup } from "@/lib/i18n/modules/contractors/labels";
 import { createTranslator, type Translate } from "@/lib/i18n/translator";
 import type { FormField } from "./form-kit";
 
@@ -27,13 +29,14 @@ import type { FormField } from "./form-kit";
  * the edit dialog, so both say the same thing the schema expects.
  */
 
-const choose = <T extends string>(values: readonly T[], labels: Record<T, string>) => values.map((value) => ({ value, label: labels[value] }));
-
 /** English when the caller has no reader (tests, pure helpers). */
 const english: Translate<"engineering"> = createTranslator("en", engineeringEn);
 
 /** An engineering choice list in the reader's language, the config's English as the fallback. */
 const chooseIn = <T extends string>(t: Translate<"engineering">, group: EngineeringLabelGroup, values: readonly T[], labels: Record<T, string>) => values.map((value) => ({ value, label: engineeringLabel(t, group, value, labels[value]) }));
+/** The contractor forms' English, and their choice lists in the reader's language. */
+const englishContractors: Translate<"contractors"> = createTranslator("en", contractorsEn);
+const chooseContractors = <T extends string>(t: Translate<"contractors">, group: ContractorsLabelGroup, values: readonly T[], labels: Record<T, string>) => values.map((value) => ({ value, label: contractorsLabel(t, group, value, labels[value]) }));
 const options = (items: Option[] | undefined) => (items ?? []).map((item) => ({ value: item.id, label: item.label }));
 
 export type ProjectOptions = { contractors: Option[]; workPackages: Array<Option & { contractorId?: string | null }>; members: Option[]; reviewers: Option[]; suppliers?: Option[] };
@@ -116,77 +119,79 @@ export function transmittalHeaderFields(opts: Pick<ProjectOptions, "contractors"
   ];
 }
 
-export function contractorFields(suppliers: Option[], mode: "create" | "edit"): FormField[] {
+export function contractorFields(suppliers: Option[], mode: "create" | "edit", t: Translate<"contractors"> = englishContractors): FormField[] {
   return [
-    { name: "legalName", label: "Legal name", type: "text", required: true, wide: true },
-    { name: "tradingName", label: "Trading name", type: "text" },
-    { name: "status", label: "Status", type: "select", required: true, options: choose(EDITABLE_CONTRACTOR_STATUSES, CONTRACTOR_STATUS_LABELS) },
-    { name: "registrationNumber", label: "Registration number", type: "text" },
-    { name: "vatNumber", label: "VAT number", type: "text" },
-    { name: "email", label: "Email", type: "email" },
-    { name: "phone", label: "Phone", type: "tel" },
-    { name: "website", label: "Website", type: "text" },
-    { name: "countryCode", label: "Country code", type: "text", placeholder: "AL" },
-    { name: "addressLine1", label: "Address", type: "text", wide: true },
+    { name: "legalName", label: t("fields.legalName"), type: "text", required: true, wide: true },
+    { name: "tradingName", label: t("fields.tradingName"), type: "text" },
+    { name: "status", label: t("fields.status"), type: "select", required: true, options: chooseContractors(t, "contractorStatus", EDITABLE_CONTRACTOR_STATUSES, CONTRACTOR_STATUS_LABELS) },
+    { name: "registrationNumber", label: t("fields.registrationNumber"), type: "text" },
+    { name: "vatNumber", label: t("fields.vatNumber"), type: "text" },
+    { name: "email", label: t("fields.email"), type: "email" },
+    { name: "phone", label: t("fields.phone"), type: "tel" },
+    { name: "website", label: t("fields.website"), type: "text" },
+    { name: "countryCode", label: t("fields.countryCode"), type: "text", placeholder: "AL" },
+    { name: "addressLine1", label: t("fields.address"), type: "text", wide: true },
     // The schema has always had these; without them every edit erased them (AUD-09 §4, FV-05).
-    { name: "addressLine2", label: "Address line 2", type: "text", wide: true },
-    { name: "city", label: "City", type: "text" },
-    { name: "region", label: "Region", type: "text" },
-    { name: "postalCode", label: "Postal code", type: "text" },
-    { name: "primaryContactName", label: "Primary contact", type: "text" },
-    { name: "primaryContactEmail", label: "Contact email", type: "email" },
-    { name: "primaryContactPhone", label: "Contact phone", type: "tel" },
-    ...(suppliers.length ? ([{ name: "supplierId", label: "Linked supplier", type: "select", options: options(suppliers), hint: "When the contractor also sells through Procurement. Bank and tax details stay on the supplier.", wide: true }] satisfies FormField[]) : []),
-    ...(mode === "edit" ? ([{ name: "statusReason", label: "Reason for a status change", type: "text", wide: true }] satisfies FormField[]) : []),
-    { name: "notes", label: "Notes", type: "textarea", rows: 3 },
+    { name: "addressLine2", label: t("fields.addressLine2"), type: "text", wide: true },
+    { name: "city", label: t("fields.city"), type: "text" },
+    { name: "region", label: t("fields.region"), type: "text" },
+    { name: "postalCode", label: t("fields.postalCode"), type: "text" },
+    { name: "primaryContactName", label: t("fields.primaryContact"), type: "text" },
+    { name: "primaryContactEmail", label: t("fields.contactEmail"), type: "email" },
+    { name: "primaryContactPhone", label: t("fields.contactPhone"), type: "tel" },
+    ...(suppliers.length ? ([{ name: "supplierId", label: t("fields.linkedSupplier"), type: "select", options: options(suppliers), hint: t("fields.linkedSupplierHint"), wide: true }] satisfies FormField[]) : []),
+    ...(mode === "edit" ? ([{ name: "statusReason", label: t("fields.statusReason"), type: "text", wide: true }] satisfies FormField[]) : []),
+    { name: "notes", label: t("fields.notes"), type: "textarea", rows: 3 },
   ];
 }
 
-export const contactFields: FormField[] = [
-  { name: "name", label: "Name", type: "text", required: true },
-  { name: "roleTitle", label: "Job title", type: "text" },
-  { name: "contactRole", label: "Role on our work", type: "select", options: choose(CONTACT_ROLES, CONTACT_ROLE_LABELS) },
-  { name: "email", label: "Email", type: "email" },
-  { name: "phone", label: "Phone", type: "tel" },
-  { name: "active", label: "Active contact", type: "checkbox" },
-  { name: "notes", label: "Notes", type: "textarea", rows: 2 },
-];
+export function contactFields(t: Translate<"contractors"> = englishContractors): FormField[] {
+  return [
+    { name: "name", label: t("fields.name"), type: "text", required: true },
+    { name: "roleTitle", label: t("fields.jobTitle"), type: "text" },
+    { name: "contactRole", label: t("fields.contactRole"), type: "select", options: chooseContractors(t, "contactRole", CONTACT_ROLES, CONTACT_ROLE_LABELS) },
+    { name: "email", label: t("fields.email"), type: "email" },
+    { name: "phone", label: t("fields.phone"), type: "tel" },
+    { name: "active", label: t("fields.activeContact"), type: "checkbox" },
+    { name: "notes", label: t("fields.notes"), type: "textarea", rows: 2 },
+  ];
+}
 
-export function assignmentFields(opts: { contractors?: Array<Option & { assigned?: boolean; contacts: Option[] }>; members: Option[]; contracts: Option[] }, contractorId: string | null, mode: "create" | "edit"): FormField[] {
+export function assignmentFields(opts: { contractors?: Array<Option & { assigned?: boolean; contacts: Option[] }>; members: Option[]; contracts: Option[] }, contractorId: string | null, mode: "create" | "edit", t: Translate<"contractors"> = englishContractors): FormField[] {
   const contacts = opts.contractors?.find((item) => item.id === contractorId)?.contacts ?? [];
   return [
-    ...(mode === "create" ? ([{ name: "contractorId", label: "Contractor", type: "select", required: true, emptyLabel: "Choose a contractor", options: (opts.contractors ?? []).filter((item) => !item.assigned).map((item) => ({ value: item.id, label: item.label })), wide: true }] satisfies FormField[]) : []),
-    { name: "status", label: "Status", type: "select", required: true, options: choose(EDITABLE_ASSIGNMENT_STATUSES, ASSIGNMENT_STATUS_LABELS) },
-    { name: "internalManagerMemberId", label: "Internal manager", type: "select", options: options(opts.members) },
-    { name: "scopeSummary", label: "Scope", type: "textarea", rows: 2, placeholder: "Structural concrete works" },
-    { name: "primaryContractorContactId", label: "Contractor's contact", type: "select", options: options(contacts), hint: mode === "create" ? "Contacts of the chosen contractor. Changing the contractor clears one chosen before." : undefined },
-    ...(opts.contracts.length ? ([{ name: "contractId", label: "Contract", type: "select", options: options(opts.contracts), hint: "The agreement in Legal." }] satisfies FormField[]) : []),
-    { name: "startDate", label: "Start", type: "date" },
-    { name: "endDate", label: "End", type: "date" },
+    ...(mode === "create" ? ([{ name: "contractorId", label: t("fields.contractor"), type: "select", required: true, emptyLabel: t("fields.chooseContractor"), options: (opts.contractors ?? []).filter((item) => !item.assigned).map((item) => ({ value: item.id, label: item.label })), wide: true }] satisfies FormField[]) : []),
+    { name: "status", label: t("fields.status"), type: "select", required: true, options: chooseContractors(t, "assignmentStatus", EDITABLE_ASSIGNMENT_STATUSES, ASSIGNMENT_STATUS_LABELS) },
+    { name: "internalManagerMemberId", label: t("fields.internalManager"), type: "select", options: options(opts.members) },
+    { name: "scopeSummary", label: t("fields.scope"), type: "textarea", rows: 2, placeholder: t("fields.scopePlaceholder") },
+    { name: "primaryContractorContactId", label: t("fields.contractorContact"), type: "select", options: options(contacts), hint: mode === "create" ? t("fields.contractorContactHint") : undefined },
+    ...(opts.contracts.length ? ([{ name: "contractId", label: t("fields.contract"), type: "select", options: options(opts.contracts), hint: t("fields.contractHint") }] satisfies FormField[]) : []),
+    { name: "startDate", label: t("fields.start"), type: "date" },
+    { name: "endDate", label: t("fields.end"), type: "date" },
   ];
 }
 
-export function workPackageFields(opts: { contractors: Option[]; contracts: Option[]; members: Option[]; canSetValue: boolean }, mode: "create" | "edit"): FormField[] {
+export function workPackageFields(opts: { contractors: Option[]; contracts: Option[]; members: Option[]; canSetValue: boolean }, mode: "create" | "edit", t: Translate<"contractors"> = englishContractors): FormField[] {
   return [
-    { name: "name", label: "Name", type: "text", required: true, wide: true },
-    { name: "code", label: "Code", type: "text", placeholder: mode === "create" ? "Next code" : undefined, hint: mode === "create" ? "Leave blank for WP-001, WP-002…" : undefined },
-    { name: "status", label: "Status", type: "select", required: true, options: choose(EDITABLE_WORK_PACKAGE_STATUSES, WORK_PACKAGE_STATUS_LABELS) },
-    { name: "discipline", label: "Discipline", type: "select", options: choose(DISCIPLINES, DISCIPLINE_LABELS) },
-    { name: "contractorId", label: "Contractor", type: "select", options: options(opts.contractors) },
-    { name: "responsibleMemberId", label: "Responsible", type: "select", options: options(opts.members) },
-    ...(opts.contracts.length ? ([{ name: "contractId", label: "Contract", type: "select", options: options(opts.contracts) }] satisfies FormField[]) : []),
-    { name: "plannedStartDate", label: "Planned start", type: "date" },
-    { name: "plannedFinishDate", label: "Planned finish", type: "date" },
-    { name: "forecastStartDate", label: "Forecast start", type: "date" },
-    { name: "forecastFinishDate", label: "Forecast finish", type: "date" },
-    { name: "actualStartDate", label: "Actual start", type: "date" },
+    { name: "name", label: t("fields.name"), type: "text", required: true, wide: true },
+    { name: "code", label: t("fields.code"), type: "text", placeholder: mode === "create" ? t("fields.nextCode") : undefined, hint: mode === "create" ? t("fields.codeHint") : undefined },
+    { name: "status", label: t("fields.status"), type: "select", required: true, options: chooseContractors(t, "workPackageStatus", EDITABLE_WORK_PACKAGE_STATUSES, WORK_PACKAGE_STATUS_LABELS) },
+    { name: "discipline", label: t("fields.discipline"), type: "select", options: chooseContractors(t, "discipline", DISCIPLINES, DISCIPLINE_LABELS) },
+    { name: "contractorId", label: t("fields.contractor"), type: "select", options: options(opts.contractors) },
+    { name: "responsibleMemberId", label: t("fields.responsible"), type: "select", options: options(opts.members) },
+    ...(opts.contracts.length ? ([{ name: "contractId", label: t("fields.contract"), type: "select", options: options(opts.contracts) }] satisfies FormField[]) : []),
+    { name: "plannedStartDate", label: t("fields.plannedStart"), type: "date" },
+    { name: "plannedFinishDate", label: t("fields.plannedFinish"), type: "date" },
+    { name: "forecastStartDate", label: t("fields.forecastStart"), type: "date" },
+    { name: "forecastFinishDate", label: t("fields.forecastFinish"), type: "date" },
+    { name: "actualStartDate", label: t("fields.actualStart"), type: "date" },
     ...(opts.canSetValue
       ? ([
-          { name: "value", label: "Value", type: "text", placeholder: "0.00", hint: "Context only — the contract and Finance stay authoritative." },
-          { name: "currency", label: "Currency", type: "text", placeholder: "EUR" },
+          { name: "value", label: t("fields.value"), type: "text", placeholder: "0.00", hint: t("fields.valueHint") },
+          { name: "currency", label: t("fields.currency"), type: "text", placeholder: "EUR" },
         ] satisfies FormField[])
       : []),
-    { name: "description", label: "Description", type: "textarea", rows: 3 },
+    { name: "description", label: t("fields.description"), type: "textarea", rows: 3 },
   ];
 }
 
@@ -200,20 +205,20 @@ export const KEEP_WAIVER = "WAIVED";
  * rather than being told "none" by somebody who could not see it (AUD-09 §5,
  * FV-10).
  */
-export function complianceFields(documents: Option[], opts: { waived?: boolean; evidence?: boolean } = {}): FormField[] {
-  const held = [...(opts.waived ? [{ value: KEEP_WAIVER, label: "Waived — keep the waiver" }] : []), { value: "VALID", label: "On file" }, { value: "MISSING", label: "Missing" }];
+export function complianceFields(documents: Option[], opts: { waived?: boolean; evidence?: boolean } = {}, t: Translate<"contractors"> = englishContractors): FormField[] {
+  const held = [...(opts.waived ? [{ value: KEEP_WAIVER, label: t("fields.keepWaiver") }] : []), { value: "VALID", label: t("fields.onFile") }, { value: "MISSING", label: t("fields.missing") }];
   return [
-    { name: "type", label: "Type", type: "select", required: true, options: choose(COMPLIANCE_TYPES, COMPLIANCE_TYPE_LABELS) },
-    { name: "title", label: "Title", type: "text", required: true },
-    { name: "status", label: "Held", type: "select", required: true, options: held, hint: opts.waived ? "Choosing On file or Missing withdraws the waiver." : "Expiring and expired follow from the expiry date." },
-    { name: "referenceNumber", label: "Reference", type: "text" },
-    { name: "issuer", label: "Issuer", type: "text" },
-    { name: "issuedAt", label: "Issued", type: "date" },
-    { name: "expiresAt", label: "Expires", type: "date" },
+    { name: "type", label: t("fields.type"), type: "select", required: true, options: chooseContractors(t, "complianceType", COMPLIANCE_TYPES, COMPLIANCE_TYPE_LABELS) },
+    { name: "title", label: t("fields.title"), type: "text", required: true },
+    { name: "status", label: t("fields.held"), type: "select", required: true, options: held, hint: opts.waived ? t("fields.heldWaivedHint") : t("fields.heldHint") },
+    { name: "referenceNumber", label: t("fields.reference"), type: "text" },
+    { name: "issuer", label: t("fields.issuer"), type: "text" },
+    { name: "issuedAt", label: t("fields.issued"), type: "date" },
+    { name: "expiresAt", label: t("fields.expires"), type: "date" },
     // Present whenever the reader may see files, so an edit never silently drops the evidence it already has.
     ...(opts.evidence === false
       ? []
-      : ([{ name: "documentId", label: "Evidence", type: "select", options: options(documents), emptyLabel: documents.length ? "No evidence yet" : "Upload a file first", hint: "A document filed on the contractor or this item.", wide: true }] satisfies FormField[])),
-    { name: "notes", label: "Notes", type: "textarea", rows: 2 },
+      : ([{ name: "documentId", label: t("fields.evidence"), type: "select", options: options(documents), emptyLabel: documents.length ? t("fields.noEvidence") : t("fields.uploadFirst"), hint: t("fields.evidenceHint"), wide: true }] satisfies FormField[])),
+    { name: "notes", label: t("fields.notes"), type: "textarea", rows: 2 },
   ];
 }

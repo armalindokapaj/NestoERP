@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
 import { archiveClientAction, restoreClientAction } from "@/lib/actions/clients";
+import { useClientsServerText, useClientsTranslations } from "./clients-text";
 
 /**
  * Client header actions (PRD #12 §57, §71, §72).
@@ -43,6 +44,8 @@ export function ClientActions({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useClientsTranslations();
+  const serverText = useClientsServerText();
   const [confirming, setConfirming] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
 
@@ -51,10 +54,10 @@ export function ClientActions({
       const result = await archiveClientAction(clientId);
       setConfirming(false);
       if (result.ok) {
-        toast({ title: "Client archived." });
+        toast({ title: t("actions.archived") });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -63,10 +66,10 @@ export function ClientActions({
     startTransition(async () => {
       const result = await restoreClientAction(clientId);
       if (result.ok) {
-        toast({ title: "Client restored." });
+        toast({ title: t("actions.restored") });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -77,7 +80,7 @@ export function ClientActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`/clients/${clientId}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
@@ -85,14 +88,14 @@ export function ClientActions({
       {archived && canRestore ? (
         <Button size="sm" onClick={restore} disabled={pending}>
           <ArchiveRestore aria-hidden="true" />
-          {pending ? "Restoring…" : "Restore"}
+          {pending ? t("actions.restoring") : t("actions.restore")}
         </Button>
       ) : null}
 
       {!archived && canArchive ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="More client actions">
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")}>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -104,7 +107,7 @@ export function ClientActions({
               }}
             >
               <Archive />
-              Archive client
+              {t("actions.archiveClient")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -113,15 +116,13 @@ export function ClientActions({
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title={`Archive ${clientName}?`}
+        title={t("actions.archiveTitle", { name: clientName })}
         description={
           activeProjects > 0
-            ? `This client is linked to ${activeProjects} active project${
-                activeProjects === 1 ? "" : "s"
-              }. Archiving the client will not archive or remove them — the relationship stays visible in project history.`
-            : "The client will be removed from active client lists. Its contacts, projects, documents and history remain."
+            ? t("actions.archiveLinked", { count: activeProjects })
+            : t("actions.archiveUnlinked")
         }
-        confirmLabel="Archive client"
+        confirmLabel={t("actions.archiveClient")}
         pending={pending}
         onConfirm={archive}
       />
