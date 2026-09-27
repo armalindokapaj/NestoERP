@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { DB_NOW } from "@/lib/database/clock";
 import { prisma } from "@/lib/database/prisma";
 import { DEFAULT_MAX_FILE_BYTES, StorageError } from "@/lib/core/storage";
+import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 
 /**
  * Company storage accounting (PRD #29 §141-§153, §330).
@@ -65,8 +66,11 @@ export async function companyUsage(companyId: string): Promise<StorageUsage> {
 export async function maxSingleFileBytes(companyId: string): Promise<number> {
   const quota = await companyQuota(companyId);
   // Never above the product default, whatever a row says: the deployment may
-  // lower the ceiling, not raise it (PRD #29 §26, §440).
-  return Math.min(Number(quota.maxSingleFileBytes), DEFAULT_MAX_FILE_BYTES);
+  // lower the ceiling, not raise it (PRD #29 §26, §440). Nor above what the
+  // object store itself takes (a Supabase bucket's file size limit), so a
+  // larger file is refused with a size message before any byte moves.
+  const storeLimit = (await storageProvider().maxObjectBytes?.().catch(() => null)) ?? null;
+  return Math.min(Number(quota.maxSingleFileBytes), DEFAULT_MAX_FILE_BYTES, storeLimit ?? DEFAULT_MAX_FILE_BYTES);
 }
 
 async function sumReservedBytes(
